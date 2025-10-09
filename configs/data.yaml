@@ -2,16 +2,86 @@ s3:
   bucket: natural-scenes-dataset
   region: us-east-2
   anon: true
+  base_url: "s3://natural-scenes-dataset"
 
 cache:
-  # fsspec simplecache: files are streamed & cached locally as needed
-  mode: "simplecache" # or "filecache"
-  cache_dir: ".cache/nsd"
+  cache_dir: "cache"
 
 nsd:
-  # You’ll adjust these once you read the Data Manual:
-  stimuli_root: "nsddata_stimuli" # example; verify in manual
-  bold_root: "nsddata_betas" # example; per-subject/session nifti/mgz
-  meta_root: "nsddata" # trial tables, mappings, etc.
-  subjects: ["subj01"] # start small
-  limit: 100 # for smoke tests
+  metadata_files:
+    stim_info: "nsddata/experiments/nsd/nsd_stim_info_merged.csv"
+    experiment_design: "nsddata/experiments/nsd/nsd_expdesign.mat"
+  stimuli:
+    hdf5_file: "nsddata_stimuli/stimuli/nsd/nsd_stimuli.hdf5"
+  fmri:
+    # Session-level beta files pattern
+    session_pattern: "nsddata_betas/ppdata/subj{subject:02d}/{resolution}/{preprocessing}/betas_session{session:02d}.nii.gz"
+    resolution: "func1pt8mm"  # or "func1mm" 
+    preprocessing: "betas_fithrf_GLMdenoise_RR"  # Recommended preprocessing
+    
+    # Alternative file patterns for different preprocessing pipelines
+    betas_assumehrf: "nsddata_betas/ppdata/subj{subject:02d}/func1pt8mm/betas_assumehrf/betas_session{session:02d}.nii.gz"
+    betas_fithrf: "nsddata_betas/ppdata/subj{subject:02d}/func1pt8mm/betas_fithrf/betas_session{session:02d}.nii.gz" 
+    betas_fithrf_GLMdenoise_RR: "nsddata_betas/ppdata/subj{subject:02d}/func1pt8mm/betas_fithrf_GLMdenoise_RR/betas_session{session:02d}.nii.gz"
+    
+    # HDF5 consolidated files (if they exist)
+    single_trial_design: "nsddata/ppdata/subj{subject:02d}/func/design_matrices_single_trial.hdf5"
+    roi_masks: "nsddata/ppdata/subj{subject:02d}/anat/*roi*.nii.gz"
+
+subjects:
+  default: [1, 2, 3, 4, 5, 6, 7, 8]
+  details:
+    1:
+      description: "Subject 01"
+      approx_sessions: 40
+    2:
+      description: "Subject 02"
+      approx_sessions: 40
+    3:
+      description: "Subject 03"
+      approx_sessions: 32
+    4:
+      description: "Subject 04"
+      approx_sessions: 30
+    5:
+      description: "Subject 05"
+      approx_sessions: 40
+    6:
+      description: "Subject 06"
+      approx_sessions: 32
+    7:
+      description: "Subject 07"
+      approx_sessions: 40
+    8:
+      description: "Subject 08"
+      approx_sessions: 30
+
+sessions:
+  trials_per_session: 750
+
+paths:
+  output_dir: "outputs"
+  checkpoint_dir: "checkpoints"
+  log_dir: "logs"
+  index_file: "cache/nsd_canonical_index.parquet"
+
+processing:
+  default_fmri_pipeline: "betas_fithrf_GLMdenoise_RR"
+  memory:
+    max_cache_size_gb: 50
+    use_memory_mapping: true
+
+splits:
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  random_seed: 42
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+debug:
+  verbose_data_loading: false
+  validate_paths: true
+  profile_performance: false

@@ -1,0 +1,109 @@
+# AI Digest Ignore File
+
+# This file specifies which files and directories should be ignored by npx ai-digest
+
+# Virtual environments
+
+.venv/
+venv/
+env/
+
+# Python cache and compiled files
+
+**pycache**/
+_.pyc
+_.pyo
+_.pyd
+.Python
+_.so
+.tox/
+.coverage
+.pytest_cache/
+\*.egg-info/
+build/
+dist/
+
+# Data and cache directories
+
+.cache/
+data/
+datasets/
+_.hdf5
+_.nii.gz
+_.npy
+_.npz
+
+# Model checkpoints and weights
+
+checkpoints/
+models/
+weights/
+_.pth
+_.pt
+_.ckpt
+_.safetensors
+
+# Environment and configuration files with secrets
+
+.env
+_.key
+_.pem
+config.json
+secrets.json
+
+# IDE and editor files
+
+.vscode/
+.idea/
+_.swp
+_.swo
+\*~
+.DS_Store
+
+# Log files
+
+logs/
+\*.log
+
+# Temporary files
+
+tmp/
+temp/
+\*.tmp
+
+# Large binary files
+
+_.zip
+_.tar.gz
+_.tar.bz2
+_.rar
+\*.7z
+
+# Jupyter notebook checkpoints
+
+.ipynb_checkpoints/
+
+# Git directory
+
+.git/
+
+# Documentation build outputs
+
+docs/\_build/
+docs/build/
+
+# Package manager files
+
+node_modules/
+package-lock.json
+yarn.lock
+
+# OS generated files
+
+Thumbs.db
+.DS*Store
+.DS_Store?
+.*\*
+.Spotlight-V100
+.Trashes
+ehthumbs.db

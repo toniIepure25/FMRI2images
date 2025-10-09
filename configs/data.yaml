@@ -1,0 +1,17 @@
+s3:
+  bucket: natural-scenes-dataset
+  region: us-east-2
+  anon: true
+
+cache:
+  # fsspec simplecache: files are streamed & cached locally as needed
+  mode: "simplecache" # or "filecache"
+  cache_dir: ".cache/nsd"
+
+nsd:
+  # You’ll adjust these once you read the Data Manual:
+  stimuli_root: "nsddata_stimuli" # example; verify in manual
+  bold_root: "nsddata_betas" # example; per-subject/session nifti/mgz
+  meta_root: "nsddata" # trial tables, mappings, etc.
+  subjects: ["subj01"] # start small
+  limit: 100 # for smoke tests

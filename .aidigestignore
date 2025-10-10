@@ -2,6 +2,11 @@
 
 # This file specifies which files and directories should be ignored by npx ai-digest
 
+# Cache
+
+.cache
+cache
+
 # Virtual environments
 
 .venv/

@@ -6,7 +6,7 @@
 
 # Cache
 .cache
-
+cache
 # Python cache files
 __pycache__
 *.py[cod]

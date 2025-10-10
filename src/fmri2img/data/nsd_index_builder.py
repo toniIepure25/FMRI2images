@@ -1,12 +1,28 @@
 #!/usr/bin/env python3
 """
-Canonical NSD Index Builder
+NSD Dataset Canonical Index Builder
 
-Creates a comprehensive Parquet index that correctly maps:
-subject, session, trial_in_session → nsdId, COCO IDs, repeat flags, beta file paths, trial indices
+This module builds a canonical index mapping subject/session/trial combinations
+to stimulus IDs and file paths. Replaces naive zip-based data access with 
+efficient Parquet-based indexing.
 
-This replaces the naive zip-based approach with proper metadata-driven mapping.
+Updated for Phase 2: Uses centralized path management from NSDLayout.
 """
+
+from __future__ import annotations
+import logging
+import fsspec
+import h5py
+import yaml
+import pandas as pd
+import numpy as np
+from pathlib import Path
+from typing import Dict, List, Optional, Union, Any
+from tqdm import tqdm
+
+# Import Phase 2 IO layer
+from ..io.nsd_layout import NSDLayout
+from ..io.s3 import CSVLoader, get_s3_filesystem
 
 import pandas as pd
 import numpy as np
@@ -23,13 +39,24 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class NSDIndexBuilder:
-    """Builds canonical index for NSD dataset using official metadata"""
+    """
+    Builds canonical index for NSD dataset using official metadata
+    
+    Updated for Phase 2: Now uses NSDLayout for centralized path management
+    and robust S3 loaders from the IO layer.
+    """
     
     def __init__(self, config_path: str = "configs/data.yaml"):
         """Initialize with configuration"""
         with open(config_path, 'r') as f:
             self.config = yaml.safe_load(f)
         
+        # Initialize Phase 2 components
+        self.layout = NSDLayout(config_path)
+        self.s3_fs = get_s3_filesystem()
+        self.csv_loader = CSVLoader(self.s3_fs)
+        
+        # Legacy filesystem for compatibility
         self.fs = fsspec.filesystem("s3", anon=True)
         self.bucket = self.config['s3']['bucket']
         
@@ -42,25 +69,19 @@ class NSDIndexBuilder:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         
     def load_stimulus_metadata(self) -> pd.DataFrame:
-        """Load the main stimulus metadata file"""
+        """
+        Load the main stimulus metadata file using Phase 2 IO layer
+        """
         logger.info("Loading stimulus metadata...")
         
-        stim_info_path = self.config['nsd']['metadata_files']['stim_info']
-        stim_url = f"{self.bucket}/{stim_info_path}"
+        # Use NSDLayout to get the correct path
+        stim_info_url = self.layout.stim_info_path()
+        logger.info("Downloading stimulus metadata from S3...")
         
-        # Cache the CSV file locally
-        local_csv = self.cache_dir / "nsd_stim_info_merged.csv"
+        # Use robust CSV loader from Phase 2
+        stim_df = self.csv_loader.load(stim_info_url)
         
-        if not local_csv.exists():
-            logger.info(f"Downloading stimulus metadata from S3...")
-            with self.fs.open(stim_url, 'r') as remote_f:
-                with open(local_csv, 'w') as local_f:
-                    local_f.write(remote_f.read())
-        
-        # Load metadata
-        stim_df = pd.read_csv(local_csv)
         logger.info(f"Loaded stimulus metadata: {stim_df.shape}")
-        
         return stim_df
     
     def get_available_sessions(self, subject: str) -> List[int]:
@@ -168,13 +189,11 @@ class NSDIndexBuilder:
                 logger.warning(f"Could not load design for {subject} session {session_num}")
                 continue
             
-            # Build beta file path
-            fmri_config = self.config['nsd']['fmri']
-            beta_file_path = fmri_config['session_pattern'].format(
+            # Build beta file path using Phase 2 layout
+            beta_file_path = self.layout.beta_path(
                 subject=subject_num,
-                resolution=fmri_config['resolution'],
-                preprocessing=fmri_config['preprocessing'],
-                session=session_num
+                session=session_num,
+                full_url=False  # Get relative path for index
             )
             
             # Process each trial in the session

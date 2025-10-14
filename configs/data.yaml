@@ -6,6 +6,7 @@ s3:
 
 cache:
   cache_dir: "cache"
+  # Note: You can customize S3 cache directory via get_s3_filesystem(cache_storage="cache/s3_cache") if needed
 
 nsd:
   metadata_files:
@@ -16,14 +17,14 @@ nsd:
   fmri:
     # Session-level beta files pattern
     session_pattern: "nsddata_betas/ppdata/subj{subject:02d}/{resolution}/{preprocessing}/betas_session{session:02d}.nii.gz"
-    resolution: "func1pt8mm"  # or "func1mm" 
-    preprocessing: "betas_fithrf_GLMdenoise_RR"  # Recommended preprocessing
-    
+    resolution: "func1pt8mm" # or "func1mm"
+    preprocessing: "betas_fithrf_GLMdenoise_RR" # Recommended preprocessing
+
     # Alternative file patterns for different preprocessing pipelines
     betas_assumehrf: "nsddata_betas/ppdata/subj{subject:02d}/func1pt8mm/betas_assumehrf/betas_session{session:02d}.nii.gz"
-    betas_fithrf: "nsddata_betas/ppdata/subj{subject:02d}/func1pt8mm/betas_fithrf/betas_session{session:02d}.nii.gz" 
+    betas_fithrf: "nsddata_betas/ppdata/subj{subject:02d}/func1pt8mm/betas_fithrf/betas_session{session:02d}.nii.gz"
     betas_fithrf_GLMdenoise_RR: "nsddata_betas/ppdata/subj{subject:02d}/func1pt8mm/betas_fithrf_GLMdenoise_RR/betas_session{session:02d}.nii.gz"
-    
+
     # HDF5 consolidated files (if they exist)
     single_trial_design: "nsddata/ppdata/subj{subject:02d}/func/design_matrices_single_trial.hdf5"
     roi_masks: "nsddata/ppdata/subj{subject:02d}/anat/*roi*.nii.gz"
@@ -57,13 +58,17 @@ subjects:
       approx_sessions: 30
 
 sessions:
-  trials_per_session: 750
+  # NOTE: Sessions have variable trial counts!
+  # Use canonical index builder to get actual trial counts per session.
+  # Do NOT assume fixed trial counts for stimulus-fMRI pairing.
+  approx_trials_per_session: 750 # Approximate - varies by session
+  actual_counts_from: "session_design_files" # Use design matrices for exact counts
 
 paths:
   output_dir: "outputs"
   checkpoint_dir: "checkpoints"
   log_dir: "logs"
-  index_file: "cache/nsd_canonical_index.parquet"
+  index_file: "cache/nsd_canonical_index.parquet" # Optional local fallback; primary layout is partitioned per subject
 
 processing:
   default_fmri_pipeline: "betas_fithrf_GLMdenoise_RR"

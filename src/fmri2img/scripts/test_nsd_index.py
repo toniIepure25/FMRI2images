@@ -20,120 +20,110 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 def test_index_builder():
-    """Test the index builder with a small dataset"""
+    """Test the index builder with unified API"""
     logger.info("Testing NSD Index Builder")
     
     try:
         # Initialize builder
-        builder = NSDIndexBuilder("configs/data.yaml")
+        builder = NSDIndexBuilder()
         
-        # Build index for one subject, limited sessions
+        # Build index for one subject with limited trials
         logger.info("Building test index...")
-        index_df = builder.build_full_index(
-            subjects=[1], 
-            sessions=[1, 2]  # Just first 2 sessions for testing
+        index_df = builder.build_index(
+            subjects=["subj01"],
+            max_trials_per_subject=5  # Limited for testing
         )
         
         if index_df.empty:
             logger.error("Failed to build index")
-            return False
+            raise AssertionError("Failed to build index")
         
         # Validate index
         logger.info("Validating index...")
-        validation_results = builder.validate_index(index_df)
+        builder.validate_index(index_df)
         
-        # Save test index
-        output_path = builder.save_index(index_df, "test_nsd_index.parquet")
+        logger.info("✅ Index builder test completed successfully")
+                
+        logger.info(f"Built index with {len(index_df)} trials")
         
-        logger.info("Index builder test completed successfully!")
-        logger.info(f"Created index with {len(index_df)} trials")
+        # Test canonical columns
+        required_columns = [
+            'subject', 'global_trial_index', 'nsdId', 
+            'beta_path', 'beta_index'
+        ]
         
-        return True, output_path
+        for col in required_columns:
+            assert col in index_df.columns, f"Missing column: {col}"
+        assert len(index_df) > 0, "Index should have trials"
+        
+        # Test that beta_path contains full S3 URLs
+        assert index_df["beta_path"].str.startswith("s3://").all(), "beta_path must be full S3 URL"
+        logger.info("✅ All beta_path entries are full S3 URLs")
         
     except Exception as e:
         logger.error(f"Index builder test failed: {e}")
         import traceback
         traceback.print_exc()
-        return False, None
+        raise
 
-def test_index_interface(index_path):
-    """Test the index interface"""
-    logger.info("Testing NSD Index Interface")
+def test_index_interface():
+    """Test the canonical index builder interface"""
+    logger.info("Testing NSD Index Builder Canonical API")
     
     try:
-        # Load index
-        nsd_idx = NSDIndex(index_path)
+        # Build fresh index for interface testing
+        builder = NSDIndexBuilder()
+        index_df = builder.build_index(["subj01"], max_trials_per_subject=3)
         
-        # Test basic properties
-        logger.info(f"Subjects: {nsd_idx.subjects}")
-        logger.info(f"Sessions: {nsd_idx.sessions}")
+        # Test canonical column names
+        required_columns = [
+            'subject', 'global_trial_index', 'nsdId', 'beta_path'
+        ]
+        for col in required_columns:
+            assert col in index_df.columns, f"Missing canonical column: {col}"
         
-        # Test summary
-        summary = nsd_idx.summary
-        logger.info("Summary:")
-        for key, value in summary.items():
-            logger.info(f"  {key}: {value}")
+        # Test that beta_path contains full S3 URLs
+        assert index_df["beta_path"].str.startswith("s3://").all(), "beta_path must be full S3 URL"
+        logger.info("✅ All beta_path entries are full S3 URLs in interface test")
         
-        # Test querying
-        if nsd_idx.subjects:
-            subject = nsd_idx.subjects[0]
-            
-            # Get subject data
-            subject_data = nsd_idx.get_subject(subject)
-            logger.info(f"Subject {subject}: {len(subject_data)} trials")
-            
-            # Get session data
-            if not subject_data.empty:
-                session = subject_data['session'].iloc[0]
-                session_data = nsd_idx.get_session(subject, session)
-                logger.info(f"Session {session}: {len(session_data)} trials")
-                
-                # Get specific trial
-                if not session_data.empty:
-                    trial = nsd_idx.get_trial(subject, session, 0)
-                    if trial is not None:
-                        logger.info(f"Trial example: {trial['global_trial_id']}")
-                        logger.info(f"  NSD ID: {trial['nsd_id']}")
-                        logger.info(f"  Beta file: {trial['beta_file']}")
+        # Test canonical API methods
+        trial_count = builder.get_trial_count(index_df, "subj01")
+        assert trial_count == 3, f"Expected 3 trials, got {trial_count}"
         
-        # Test train/val split
-        logger.info("Testing train/val split...")
-        train_df, val_df = nsd_idx.create_train_val_split(val_fraction=0.3)
-        logger.info(f"Split: {len(train_df)} train, {len(val_df)} val")
+        unique_stimuli = builder.get_unique_stimuli(index_df)
+        assert len(unique_stimuli) > 0, "Should have unique stimuli"
         
-        # Test clean trials
-        clean_df = nsd_idx.get_clean_trials()
-        logger.info(f"Clean trials: {len(clean_df)}")
+        repeat_trials = builder.get_repeat_trials(index_df)
+        # With only 3 trials, likely no repeats
         
-        logger.info("Index interface test completed successfully!")
-        return True
+        # Test session filtering
+        session_trials = builder.get_session_trials(index_df, "subj01", 1)
+        assert len(session_trials) == 3, "All test trials should be in session 1"
+        
+        logger.info("✅ All canonical API tests passed")
         
     except Exception as e:
         logger.error(f"Index interface test failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        raise
 
 def main():
     """Main test function"""
     logger.info("Starting NSD Index tests...")
     
-    # Test 1: Index builder
-    success, index_path = test_index_builder()
-    if not success:
-        logger.error("Index builder test failed")
+    try:
+        # Test 1: Index builder  
+        test_index_builder()
+        
+        # Test 2: Index interface
+        test_index_interface()
+        
+        logger.info("All tests passed!")
+        return 0
+    except Exception as e:
+        logger.error(f"Tests failed: {e}")
         return 1
-    
-    # Test 2: Index interface
-    success = test_index_interface(index_path)
-    if not success:
-        logger.error("Index interface test failed")
-        return 1
-    
-    logger.info("All tests passed!")
-    logger.info(f"Test index saved to: {index_path}")
-    
-    return 0
 
 if __name__ == "__main__":
     exit(main())

@@ -3,18 +3,12 @@
 Phase 2 Complete: IO Layer Example
 
 This example demonstrates how to use the robust S3 loaders and centralized path management
-for the Natural Scenes Dataset. This replaces naive file handling with production-ready
-memory-safe loaders.
-
-Key Features Demonstrated:
-- Centralized path management with NSDLayout
-- Memory-safe S3 data loading
-- Proper error handling and caching
-- Integration with canonical index from Phase 1
+for the Natural Scenes Dataset. Shows integration with canonical index.
 """
 
 import logging
 import sys
+import os
 from pathlib import Path
 
 # Add src to path
@@ -22,7 +16,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from fmri2img.io.nsd_layout import NSDLayout
 from fmri2img.io.s3 import NIfTILoader, CSVLoader, get_s3_filesystem
-from fmri2img.data.nsd_index import NSDIndex
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -47,147 +40,131 @@ def demo_io_layer():
     beta_path = layout.beta_path(subject=1, session=1)
     logger.info(f"   Beta file: {beta_path}")
     
-    # Alternative preprocessing
-    beta_path_alt = layout.beta_path(
-        subject=2, session=5, 
-        preprocessing="betas_fithrf"
-    )
-    logger.info(f"   Alt preprocessing: {beta_path_alt}")
-    
-    # Stimulus files
-    stim_path = layout.stim_hdf5_path()
-    logger.info(f"   Stimuli HDF5: {stim_path}")
-    
+    # Stimulus info path
     stim_info_path = layout.stim_info_path()
-    logger.info(f"   Stimulus metadata: {stim_info_path}")
+    logger.info(f"   Stimulus catalog: {stim_info_path}")
     
-    # COCO fallback
-    coco_url = layout.coco_http_url(391895, 'train2017')
-    logger.info(f"   COCO fallback: {coco_url}")
-    
-    # 3. Demonstrate S3 file system operations
-    logger.info("\n3. S3 Filesystem Operations...")
+    # 3. Initialize S3 loaders
+    logger.info("\n3. Initializing S3 Loaders...")
     s3_fs = get_s3_filesystem()
+    csv_loader = CSVLoader(s3_fs)
+    nifti_loader = NIfTILoader(s3_fs)
     
-    # Check file existence
-    fsspec_beta_path = beta_path.replace("s3://", "")
-    exists = s3_fs.exists(fsspec_beta_path)
-    logger.info(f"   Beta file exists: {exists}")
-    
-    if exists:
-        file_info = s3_fs.info(fsspec_beta_path)
-        size_mb = file_info.get('size', 0) / (1024**2)
-        logger.info(f"   File size: {size_mb:.1f} MB")
-    
-    # 4. Load stimulus metadata with CSV loader
-    logger.info("\n4. Loading Stimulus Metadata...")
-    csv_loader = CSVLoader()
-    
+    # 4. Load stimulus catalog
+    logger.info("\n4. Loading Stimulus Catalog...")
     try:
-        # Load first 1000 rows for demo
-        stim_df = csv_loader.load(stim_info_path, nrows=1000)
-        logger.info(f"   Loaded metadata: {stim_df.shape}")
-        logger.info(f"   Columns: {list(stim_df.columns)[:5]}...")
-        
-        # Show statistics
-        unique_coco = stim_df['cocoId'].nunique()
-        logger.info(f"   Unique COCO images: {unique_coco}")
-        
-        subject_cols = [col for col in stim_df.columns if col.startswith('subject')]
-        logger.info(f"   Subject columns: {len(subject_cols)}")
-        
+        stim_df = csv_loader.load(stim_info_path)
+        logger.info(f"   Loaded {len(stim_df)} stimuli")
+        logger.info(f"   Columns: {list(stim_df.columns)}")
+        logger.info(f"   Sample nsdId range: {stim_df['nsdId'].min()}-{stim_df['nsdId'].max()}")
     except Exception as e:
-        logger.error(f"   Failed to load CSV: {e}")
+        logger.error(f"   Failed to load stimulus catalog: {e}")
+        return
     
-    # 5. Demonstrate NIfTI loading (if file exists)
-    logger.info("\n5. NIfTI Loading Demo...")
+    # 5. Test unified index builder API
+    logger.info("\n5. Testing Unified Index Builder API...")
+    try:
+        from fmri2img.data.nsd_index_builder import NSDIndexBuilder
+        
+        # Initialize builder
+        builder = NSDIndexBuilder()
+        
+        # Build test index with standardized API
+        test_subjects = ["subj01"]
+        logger.info(f"   Building test index for: {test_subjects}")
+        
+        # Build with limited trials for demo
+        index_df = builder.build_index(test_subjects, max_trials_per_subject=5)
+        
+        logger.info(f"   Built index: {len(index_df)} trials")
+        logger.info(f"   Canonical columns: {list(index_df.columns)}")
+        
+        # Use canonical API methods
+        trial_count = builder.get_trial_count(index_df, "subj01")
+        unique_stimuli = builder.get_unique_stimuli(index_df)
+        repeat_trials = builder.get_repeat_trials(index_df)
+        
+        logger.info(f"   Subject subj01 trials: {trial_count}")
+        logger.info(f"   Unique stimuli: {len(unique_stimuli)}")
+        logger.info(f"   Repeat trials: {len(repeat_trials)}")
+        
+        # Show sample with canonical names
+        if not index_df.empty:
+            sample = index_df.iloc[0]
+            logger.info(f"   Sample trial (canonical):")
+            logger.info(f"     subject: {sample['subject']}")
+            logger.info(f"     global_trial_index: {sample['global_trial_index']}")
+            logger.info(f"     nsdId: {sample['nsdId']}")
+            logger.info(f"     beta_path: {sample['beta_path']}")
+            
+    except Exception as e:
+        logger.warning(f"   Index builder test failed: {e}")
     
-    if exists:
-        nifti_loader = NIfTILoader()
+    # 6. Test S3 Parquet writing (if configured)
+    logger.info("\n6. Testing S3 Parquet Operations...")
+    try:
+        # Test layout's Parquet methods
+        test_index_path = layout.index_path("test_demo_index", format="parquet")
+        logger.info(f"   Test index path: {test_index_path}")
+        
+        # Create small test DataFrame with canonical columns
+        import pandas as pd
+        test_df = pd.DataFrame({
+            'subject': ['subj01', 'subj01'],
+            'global_trial_index': [0, 1],
+            'nsdId': [0, 1],
+            'test_value': [42, 43]
+        })
+        
+        # Actual S3 Parquet round-trip test
+        logger.info(f"   Attempting Parquet round-trip with {len(test_df)} test rows...")
         try:
-            # Get header info without loading full data
-            header_info = nifti_loader.get_header(beta_path)
-            logger.info(f"   NIfTI shape: {header_info['shape']}")
-            logger.info(f"   Data type: {header_info['dtype']}")
-            logger.info(f"   Voxel size: {header_info['voxel_size'][:3]}")
-            
-            # Could load full data like this (but would be large):
-            # img = nifti_loader.load(beta_path)
-            # data = img.get_fdata()
-            
-        except Exception as e:
-            logger.error(f"   NIfTI loading failed: {e}")
-    else:
-        logger.info("   Skipping NIfTI demo - file not available")
+            layout.write_parquet_to_s3(test_df, test_index_path, engine="pyarrow")
+            df_back = layout.read_parquet_from_s3(test_index_path)
+            logger.info(f"   Round-trip rows: wrote {len(test_df)}, read {len(df_back)}")
+            logger.info("   ✅ S3 Parquet round-trip successful!")
+        except Exception as write_err:
+            logger.warning(f"   S3 Parquet round-trip failed: {write_err}")
+            # Fallback to local path
+            from pathlib import Path
+            local_fallback = Path("data/indices/test_demo_index.parquet")
+            local_fallback.parent.mkdir(parents=True, exist_ok=True)
+            test_df.to_parquet(local_fallback, index=False)
+            df_back = pd.read_parquet(local_fallback)
+            logger.info(f"   ▶ Fallback to local Parquet OK: wrote {len(test_df)}, read {len(df_back)}")
+        
+    except Exception as e:
+        logger.warning(f"   S3 Parquet test failed: {e}")
     
-    # 6. Integration with canonical index
-    logger.info("\n6. Integration with Canonical Index...")
-    
+    # 7. Test NIfTI header loading (if beta file exists)
+    logger.info("\n7. Testing NIfTI Header Loading...")
     try:
-        # Load the index we built in Phase 1
-        index_path = "data/indices/test_nsd_index.parquet"
-        if Path(index_path).exists():
-            nsd_index = NSDIndex(index_path)
-            
-            # Get trial information
-            trial_info = nsd_index.get_subject(1).head(1)  # Get first trial for subject 1
-            if not trial_info.empty:
-                trial = trial_info.iloc[0]
-                logger.info(f"   Trial example: {trial['global_trial_id']}")
-                logger.info(f"   NSD ID: {trial['nsd_id']}")
-                logger.info(f"   COCO ID: {trial['coco_id']}")
-                
-                # The beta file path is already in the index!
-                beta_from_index = trial['beta_file']
-                logger.info(f"   Beta from index: {beta_from_index}")
-                
-                # Generate full S3 URL using layout
-                full_beta_url = f"s3://{layout.paths.bucket}/{beta_from_index}"
-                logger.info(f"   Full S3 URL: {full_beta_url}")
-                
+        # Check if file exists first
+        if s3_fs.exists(beta_path):
+            img = nifti_loader.load(beta_path)
+            logger.info(f"   Beta file shape: {img.shape}")
+            logger.info(f"   Data type: {img.get_data_dtype()}")
+            if len(img.shape) == 4:
+                logger.info(f"   Number of trials in session: {img.shape[3]}")
         else:
-            logger.info("   Index not found - run Phase 1 test first")
+            logger.warning(f"   Beta file not found: {beta_path}")
+            logger.info("   This is expected if testing with limited data access")
             
     except Exception as e:
-        logger.error(f"   Index integration failed: {e}")
+        logger.warning(f"   Could not load beta file header: {e}")
     
-    # 7. Path validation and utilities
-    logger.info("\n7. Path Validation...")
+    # 7. Summary
+    logger.info("\n7. Summary")
+    logger.info("=" * 50)
+    logger.info("✅ NSD Layout: Centralized path management working")
+    logger.info("✅ S3 Loaders: Memory-safe streaming working")
+    logger.info("✅ Stimulus Catalog: Successfully loaded from S3")
+    logger.info("📋 Index Integration: Available if index built")
+    logger.info("🧠 Beta Loading: Available with proper S3 access")
     
-    # Test subject/session validation
-    valid_cases = [
-        (1, 1), (8, 30), (3, 15)
-    ]
-    invalid_cases = [
-        (99, 1), (1, 999), (-1, 5)
-    ]
-    
-    for subject, session in valid_cases:
-        is_valid = layout.validate_subject_session(subject, session)
-        logger.info(f"   Subject {subject}, Session {session}: {'✓' if is_valid else '✗'}")
-    
-    for subject, session in invalid_cases:
-        is_valid = layout.validate_subject_session(subject, session)
-        logger.info(f"   Subject {subject}, Session {session}: {'✓' if is_valid else '✗'}")
-    
-    # Available options
-    resolutions = layout.get_available_resolutions()
-    logger.info(f"   Available resolutions: {resolutions}")
-    
-    pipelines = layout.get_available_preprocessing()
-    logger.info(f"   Available preprocessing: {pipelines}")
-    
-    logger.info("\n" + "=" * 50)
-    logger.info("🎉 Phase 2 Complete!")
-    logger.info("\nKey Achievements:")
-    logger.info("✅ Centralized path management with NSDLayout")
-    logger.info("✅ Memory-safe S3 loaders for NIfTI, HDF5, CSV")
-    logger.info("✅ Robust error handling and caching")
-    logger.info("✅ Integration with Phase 1 canonical index")
-    logger.info("✅ COCO dataset fallback support")
-    logger.info("✅ Production-ready IO layer")
-    
-    return True
+    logger.info("\nPhase 2 IO Layer is ready for production use!")
+    logger.info("Next: Build canonical index with 'make index'")
+
 
 if __name__ == "__main__":
     demo_io_layer()

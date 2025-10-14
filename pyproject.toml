@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fmri2img"
+version = "0.1.0"
+description = "fMRI-to-Image reconstruction using Natural Scenes Dataset"
+authors = [{name = "NSD Team", email = "nsd@example.com"}]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fsspec",
+    "s3fs", 
+    "pandas",
+    "numpy",
+    "nibabel",
+    "pyarrow",
+    "tqdm",
+    "h5py",
+    "pyyaml"
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "isort", 
+    "ruff",
+    "pytest",
+    "pre-commit",
+    "scikit-learn",
+    "joblib",
+    "torch",
+    "torchvision",
+    "open_clip_torch",
+    "pillow",
+    "requests"
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

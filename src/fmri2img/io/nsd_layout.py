@@ -18,6 +18,9 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union, Literal, Tuple
 from dataclasses import dataclass
 import yaml
+import pandas as pd
+import fsspec
+import io
 
 logger = logging.getLogger(__name__)
 
@@ -281,6 +284,50 @@ class NSDLayout:
             return f"{self.paths.base_url}/{relative_path}"
         return relative_path
     
+    def fsaverage_roi_masks_path(
+        self,
+        subject: SubjectId,
+        full_url: bool = True
+    ) -> str:
+        """
+        Generate S3 path pattern for fsaverage ROI masks.
+        
+        Args:
+            subject: Subject ID (int or string)
+            full_url: If True, return full S3 URL; if False, return relative path
+            
+        Returns:
+            S3 URL or relative path pattern for fsaverage ROI masks
+        """
+        subject_num = self._normalize_subject_id(subject)
+        pat = f"nsddata/ppdata/subj{subject_num:02d}/fsaverage/*roi*.nii.gz"
+        
+        if full_url:
+            return f"{self.paths.base_url}/{pat}"
+        return pat
+    
+    def mni_roi_masks_path(
+        self,
+        subject: SubjectId,
+        full_url: bool = True
+    ) -> str:
+        """
+        Generate S3 path pattern for MNI ROI masks.
+        
+        Args:
+            subject: Subject ID (int or string)
+            full_url: If True, return full S3 URL; if False, return relative path
+            
+        Returns:
+            S3 URL or relative path pattern for MNI ROI masks
+        """
+        subject_num = self._normalize_subject_id(subject)
+        pat = f"nsddata/ppdata/subj{subject_num:02d}/MNI/*roi*.nii.gz"
+        
+        if full_url:
+            return f"{self.paths.base_url}/{pat}"
+        return pat
+    
     # COCO dataset fallback URLs
     
     def coco_http_url(
@@ -383,6 +430,180 @@ class NSDLayout:
             
         except (ValueError, TypeError):
             return False
+    
+    def beta_session_pattern(self, subject: SubjectId) -> str:
+        """
+        Generate glob pattern for all beta session files for a subject
+        
+        Args:
+            subject: Subject ID
+            
+        Returns:
+            Full S3 URL glob pattern suitable for fsspec.glob
+        """
+        subject_num = self._normalize_subject_id(subject)
+        
+        # Build pattern for all sessions - use string format for wildcard
+        pattern = "nsddata_betas/ppdata/subj{subject:02d}/{resolution}/{preprocessing}/betas_session*.nii.gz".format(
+            subject=subject_num,
+            resolution=self.paths.default_resolution,
+            preprocessing=self.paths.default_preprocessing
+        )
+        
+        return f"{self.paths.base_url}/{pattern}"
+        
+    def format_s3_path(self, relative_path: str) -> str:
+        """
+        Convert relative path to full S3 URL
+        
+        Args:
+            relative_path: Relative path within the bucket
+            
+        Returns:
+            Full S3 URL
+        """
+        if relative_path.startswith(('s3://', 'https://')):
+            return relative_path
+            
+        # Remove leading slash if present
+        if relative_path.startswith('/'):
+            relative_path = relative_path[1:]
+            
+        return f"{self.paths.base_url}/{relative_path}"
+    
+    def index_path(
+        self, 
+        index_name: str = "nsd_canonical_index",
+        format: str = "parquet",
+        full_url: bool = True,
+        subject_partitioned: str = None
+    ) -> str:
+        """
+        Generate S3 path for index files (Parquet or CSV)
+        
+        Args:
+            index_name: Name of the index (default: "nsd_canonical_index") 
+            format: File format ("parquet" or "csv")
+            full_url: If True, return full S3 URL; if False, return relative path
+            subject_partitioned: If provided (e.g., "subj01"), returns partitioned path:
+                                'nsd_index/subject=subjXX/index.parquet' for the builder.
+                                If None, returns demo format: 'nsd_indices/<name>.parquet'
+            
+        Returns:
+            S3 URL or relative path to index file
+        """
+        if format not in ["parquet", "csv"]:
+            raise ValueError(f"Unsupported format: {format}. Use 'parquet' or 'csv'")
+        
+        if subject_partitioned:
+            # Subject-partitioned format for production builder
+            relative_path = f"nsd_index/subject={subject_partitioned}/index.{format}"
+        else:
+            # Demo format for testing
+            relative_path = f"nsd_indices/{index_name}.{format}"
+        
+        if full_url:
+            return f"{self.paths.base_url}/{relative_path}"
+        return relative_path
+    
+    def write_parquet_to_s3(
+        self, 
+        df: pd.DataFrame, 
+        s3_path: str,
+        **kwargs
+    ) -> None:
+        """
+        Write DataFrame to S3 as Parquet with robust error handling
+        
+        Args:
+            df: DataFrame to write
+            s3_path: Full S3 URL (e.g., 's3://bucket/path/file.parquet')
+            **kwargs: Additional arguments passed to to_parquet()
+            
+        Raises:
+            ValueError: If s3_path is not a valid S3 URL
+            Exception: If write operation fails
+        """
+        if not s3_path.startswith('s3://'):
+            raise ValueError(f"s3_path must start with 's3://': {s3_path}")
+        
+        logger.info(f"Writing {len(df)} rows to S3 Parquet: {s3_path}")
+        
+        # Retry logic for transient errors
+        for attempt in range(2):
+            try:
+                # Use fsspec for S3 access (works with anonymous access)
+                with fsspec.open(s3_path, 'wb') as f:
+                    # Convert to parquet bytes in memory
+                    parquet_buffer = io.BytesIO()
+                    df.to_parquet(parquet_buffer, index=False, **kwargs)
+                    
+                    # Write to S3
+                    f.write(parquet_buffer.getvalue())
+                    
+                logger.info(f"Successfully wrote Parquet to S3: {s3_path}")
+                return
+                
+            except Exception as e:
+                if attempt == 0:  # First attempt failed, retry once
+                    import time
+                    logger.warning(f"S3 write attempt {attempt + 1} failed: {e}, retrying...")
+                    time.sleep(1)
+                else:  # Second attempt failed, raise
+                    logger.error(f"Failed to write Parquet to S3 {s3_path}: {e}")
+                    raise
+    
+    def read_parquet_from_s3(self, s3_path: str, **kwargs) -> pd.DataFrame:
+        """
+        Read DataFrame from S3 Parquet with robust error handling
+        
+        Args:
+            s3_path: Full S3 URL (e.g., 's3://bucket/path/file.parquet')
+            **kwargs: Additional arguments passed to read_parquet()
+            
+        Returns:
+            DataFrame loaded from S3 Parquet
+            
+        Raises:
+            ValueError: If s3_path is not a valid S3 URL
+            Exception: If read operation fails
+        """
+        if not s3_path.startswith('s3://'):
+            raise ValueError(f"s3_path must start with 's3://': {s3_path}")
+        
+        logger.info(f"Reading Parquet from S3: {s3_path}")
+        
+        # Retry logic for transient errors
+        for attempt in range(2):
+            try:
+                # Use fsspec for S3 access
+                with fsspec.open(s3_path, 'rb') as f:
+                    df = pd.read_parquet(f, **kwargs)
+                    
+                logger.info(f"Successfully read {len(df)} rows from S3 Parquet")
+                return df
+                
+            except Exception as e:
+                if attempt == 0:  # First attempt failed, retry once
+                    import time
+                    logger.warning(f"S3 read attempt {attempt + 1} failed: {e}, retrying...")
+                    time.sleep(1)
+                else:  # Second attempt failed, raise
+                    logger.error(f"Failed to read Parquet from S3 {s3_path}: {e}")
+                    raise
+    
+    def write_parquet_local(self, df: pd.DataFrame, local_path: str, **kwargs) -> None:
+        """
+        Write DataFrame to local Parquet file with directory creation
+        
+        Args:
+            df: DataFrame to write
+            local_path: Local file path
+            **kwargs: Additional arguments passed to to_parquet()
+        """
+        from pathlib import Path
+        Path(local_path).parent.mkdir(parents=True, exist_ok=True)
+        df.to_parquet(local_path, index=False, **kwargs)
     
     def __repr__(self) -> str:
         return (

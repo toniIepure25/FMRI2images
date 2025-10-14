@@ -73,13 +73,13 @@ def create_development_plan(stim_df, beta_files):
 PHASE 1: DATA PREPARATION (Start Here!)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Goal: Get a small working dataset to validate your pipeline
+Goal: Get a small working dataset using the canonical index
 
 Steps:
 1. Download stimulus metadata CSV (already working ✅)
-2. Download 1-2 beta files for subj01 (~1GB total)
-3. Create a small subset of stimulus-fMRI pairs
-4. Implement basic data loading pipeline
+2. Build canonical Parquet index for proper trial mapping
+3. Sample rows from canonical index to form datasets
+4. Implement data loading using exact trial mappings
 
 Commands to get started:
 ```bash
@@ -90,13 +90,13 @@ mkdir -p data/nsd
 wget https://natural-scenes-dataset.s3.amazonaws.com/nsddata/experiments/nsd/nsd_stim_info_merged.csv \\
      -O data/nsd/nsd_stim_info_merged.csv
 
-# Download a few beta files for testing
-wget https://natural-scenes-dataset.s3.amazonaws.com/nsddata_betas/ppdata/subj01/func1pt8mm/betas_fithrf_GLMdenoise_RR/betas_session01.nii.gz \\
-     -O data/nsd/betas_session01.nii.gz
+# Build canonical index using our pipeline
+python -m fmri2img.data.nsd_index_builder --subjects subj01 --max-trials 100 \\
+  --output-path data/nsd/canonical_index.parquet
 ```
 
-PHASE 2: STIMULUS HANDLING
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 2: CANONICAL INDEX USAGE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Since the HDF5 file is 39GB, consider these alternatives:
 
@@ -164,7 +164,7 @@ Loss functions:
     
     # Calculate practical data sizes
     subj1_trials = stim_df[stim_df['subject1'] == 1].shape[0]
-    estimated_sessions = subj1_trials // 750  # ~750 trials per session
+    approx_sessions = subj1_trials // 750  # 750 is approximate - varies per session!
     
     print(f"""
 PRACTICAL NUMBERS FOR YOUR PROJECT:
@@ -172,9 +172,13 @@ PRACTICAL NUMBERS FOR YOUR PROJECT:
 
 Subject 1 Statistics:
 - Total trials: {subj1_trials:,}
-- Estimated sessions: ~{estimated_sessions}
+- Approximate sessions: ~{approx_sessions} (⚠️  750/session is approximate!)
 - Data size per session: ~500MB
-- Total fMRI data: ~{estimated_sessions * 0.5:.1f}GB
+- Total fMRI data: ~{approx_sessions * 0.5:.1f}GB
+
+⚠️  CRITICAL: Use canonical index for exact trial counts!
+❌ Never use fixed 750 trials/session for mapping!
+✅ Build Parquet index for production-ready trial mapping
 
 Recommended starting subset:
 - Subjects: 1 (start small)

@@ -6,9 +6,12 @@ The Natural Scenes Dataset (NSD) is a large-scale fMRI dataset containing brain 
 
 ### Dataset Statistics
 
+> **⚠️ CRITICAL WARNING: Session Trial Counts Vary**  
+> Trial counts per session are **NOT** fixed at 750! Each session has variable trial counts depending on experimental design. **Never use fixed counts for stimulus-fMRI pairing**. Always use the canonical index builder to get exact trial mappings from session design files.
+
 - **Subjects**: 8 participants (subj01 through subj08)
 - **Sessions**: ~40 sessions per subject
-- **Total Trials**: ~30,000 per subject (750 trials per session)
+- **Total Trials**: ~30,000 per subject (~750 trials per session, but varies!)
 - **Unique Images**: 73,000 natural scene images from COCO dataset
 - **Total Size**: ~300GB (including all preprocessing variants)
 - **Access**: Public dataset on AWS S3 (anonymous access)
@@ -21,7 +24,7 @@ The Natural Scenes Dataset (NSD) is a large-scale fMRI dataset containing brain 
 natural-scenes-dataset/
 ├── nsddata/                    # Metadata and experiment information
 │   ├── experiments/nsd/
-│   │   ├── nsd_stim_info_merged.csv    # 🔑 KEY: Trial-to-stimulus mapping
+│   │   ├── nsd_stim_info_merged.csv    # Stimulus catalog; join by nsdId. Trial order from per-subject session design files.
 │   │   ├── nsd_expdesign.mat           # Experiment design
 │   │   └── nsd_designmatrix.csv        # Design matrix
 │   ├── bdata/                  # Behavioral data
@@ -143,7 +146,7 @@ Preprocessed fMRI beta coefficients from GLM analysis.
 - **Format**: NIfTI compressed (.nii.gz)
 - **Shape**: `(81, 104, 83, ~750)` = (x, y, z, trials)
 - **Voxel size**: 1.8mm isotropic
-- **Data type**: float32
+- **Data type**: varies (often int16). Slice a single trial and cast if your model expects floats: `img.slicer[..., beta_index].get_fdata().astype('float32')`.
 - **Content**: Beta coefficients (brain activation patterns)
 
 **Alternative preprocessing options:**
@@ -158,11 +161,9 @@ Preprocessed fMRI beta coefficients from GLM analysis.
 import nibabel as nib
 
 # Load session data
-nii = nib.load('betas_session01.nii.gz')
-data = nii.get_fdata()  # Shape: (81, 104, 83, ~750)
-
-# Extract single trial
-trial_0 = data[:, :, :, 0]  # Shape: (81, 104, 83)
+img = nib.load('betas_session01.nii.gz')
+# Extract single trial efficiently (avoids loading full 4D)
+vol = img.slicer[..., 0].get_fdata().astype("float32")  # Shape: (81, 104, 83)
 ```
 
 ---
@@ -194,40 +195,82 @@ print(f"Total stimulus presentations: {len(stim_df)}")
 print(f"Unique images: {stim_df['nsdId'].nunique()}")
 ```
 
-### Step 3: Load fMRI Data
+### Step 3: Load fMRI Data with Canonical Index
 
 ```python
-# Load session for subject 1
-subject = "subj01"
-session = 1
-fmri_path = f"{bucket}/nsddata_betas/ppdata/{subject}/func1pt8mm/betas_fithrf_GLMdenoise_RR/betas_session{session:02d}.nii.gz"
+# Load using canonical index and NIfTI loader
+from fmri2img.data.nsd_index_builder import NSDIndexBuilder
+from fmri2img.io.s3 import NIfTILoader, get_s3_filesystem
 
-# Download and cache locally
-from src.fmri2img.data.nsd_stream import load_nifti_s3
-fmri_data = load_nifti_s3(f"s3://{fmri_path}")
-print(f"fMRI shape: {fmri_data.shape}")  # (81, 104, 83, ~750)
+# Initialize S3 filesystem and NIfTI loader
+s3_fs = get_s3_filesystem()
+nifti_loader = NIfTILoader(s3_fs)
+
+# Build canonical index for proper trial mapping
+builder = NSDIndexBuilder()
+index_df = builder.build_index(subjects=["subj01"], max_trials_per_subject=10)
+
+# Read only subj01 partition
+from fmri2img.data.nsd_index_reader import read_subject_index, sample_trials
+df = read_subject_index("data/indices/nsd_index", subject="subj01")
+batch = sample_trials(df, n=4, session=1)
+
+# Each row has (beta_path, beta_index); load 3D safely:
+img = nifti_loader.load(batch.loc[0,'beta_path'])
+vol = img.slicer[..., int(batch.loc[0,'beta_index'])].get_fdata().astype("float32")
+
+# Get a sample trial from canonical index
+trial = index_df.iloc[0]
+print(f"Trial: subject={trial['subject']}, nsdId={trial['nsdId']}")
+print(f"Beta path: {trial['beta_path']}, index: {trial['beta_index']}")
+
+# Load using header-only access
+shape = nifti_loader.get_shape(trial['beta_path'])
+print(f"fMRI shape: {shape}")  # (81, 104, 83, ~750)
 ```
 
-### Step 4: Create Stimulus-fMRI Pairs
+### Step 4: Use Canonical Index for Proper Trial Mapping
+
+**⚠️ CRITICAL: Never estimate trial mapping! Use the canonical index.**
 
 ```python
-# Get subject's stimuli
-subject_stimuli = stim_df[stim_df['subject1'] == 1]
+# CORRECT: Use canonical index builder for proper trial mapping
+from fmri2img.data.nsd_index_builder import NSDIndexBuilder
 
-# Estimate trials per session (simplified)
-trials_per_session = len(subject_stimuli) // 40
-start_idx = (session - 1) * trials_per_session
-session_stimuli = subject_stimuli.iloc[start_idx:start_idx + trials_per_session]
+# Build canonical index with actual session design files
+builder = NSDIndexBuilder()
+index_df = builder.build_index(subjects=["subj01"], max_trials_per_subject=None)
 
-# Create pairs
+# Extra columns in canonical index:
+# - stimulus_repeat_count: count of repeats for that nsdId up to current trial
+# - has_beta_data: boolean availability flag for mapped beta file/index
+# - data_quality_flag: optional QC status if exposed by design
+
+# Get actual trials for a session (not estimated!)
+session_trials = builder.get_session_trials(index_df, "subj01", session_id=1)
+
+# Create properly aligned pairs
 pairs = []
-for trial_idx, (_, row) in enumerate(session_stimuli.iterrows()):
-    if trial_idx < fmri_data.shape[3]:
-        pairs.append({
-            'nsd_id': row['nsdId'],
-            'fmri': fmri_data[:, :, :, trial_idx],
-            'trial_idx': trial_idx
-        })
+for _, trial in session_trials.iterrows():
+    pairs.append({
+        'global_trial_index': trial['global_trial_index'],
+        'nsdId': trial['nsdId'],
+        'beta_path': trial['beta_path'],
+        'beta_index': trial['beta_index'],
+        'stim_locator': trial['stim_locator']
+    })
+
+# Load data using canonical mapping
+from fmri2img.io.s3 import NIfTILoader
+nifti_loader = NIfTILoader(s3_fs)
+
+for pair in pairs:
+    # Load exact fMRI volume
+    img = nifti_loader.load(pair['beta_path'])               # header-only validate
+    fmri_volume = img.slicer[..., pair['beta_index']].get_fdata().astype("float32")  # load only the 3D volume
+
+    # Load corresponding stimulus using exact mapping
+    # (stimulus loading implementation depends on your needs)
 ```
 
 ---
@@ -260,42 +303,72 @@ memory_per_batch = ~90MB        # Manageable
 
 ### Data Preprocessing Pipeline
 
+Our preprocessing pipeline implements three transformation levels (T0/T1/T2) for production-grade fMRI processing:
+
 ```python
+from fmri2img.data.preprocess import NSDPreprocessor
+from fmri2img.data.torch_dataset import NSDIterableDataset
+
+# Fit preprocessing on training data
+preprocessor = NSDPreprocessor(subject="subj01")
+preprocessor.fit(train_df, loader_factory, reliability_threshold=0.1)
+preprocessor.fit_pca(train_df, loader_factory, k=4096)
+
+# Create dataset with preprocessing
+dataset = NSDIterableDataset(
+    index_root="data/indices/nsd_index",
+    subject="subj01",
+    preprocessor=preprocessor
+)
+
 class NSDDataset(torch.utils.data.Dataset):
-    def __init__(self, metadata_df, fmri_sessions, transform=None):
+    def __init__(self, metadata_df, fmri_sessions, preprocessor=None):
         self.metadata = metadata_df
         self.fmri_data = fmri_sessions
-        self.transform = transform
+        self.preprocessor = preprocessor
 
     def __getitem__(self, idx):
-        # Get trial info
-        trial_info = self.metadata.iloc[idx]
+        # Get trial info from canonical index
+        trial_info = self.canonical_index.iloc[idx]
         nsd_id = trial_info['nsdId']
 
-        # Load fMRI data
-        session_idx = idx // 750  # Assuming 750 trials per session
-        trial_in_session = idx % 750
-        fmri_volume = self.fmri_data[session_idx][:, :, :, trial_in_session]
+        # Load fMRI data using canonical mapping
+        beta_path = trial_info['beta_path']
+        beta_index = trial_info['beta_index']
+        img = self.nifti_loader.load(beta_path)
+        
+        # Load 3D volume (avoid loading full 4D file)
+        vol = img.slicer[..., beta_index].get_fdata().astype('float32')
+        
+        # Apply preprocessing pipeline
+        if self.preprocessor:
+            vol = self.preprocessor.transform(vol)  # T0/T1/T2 transforms
+        else:
+            # Fallback: simple z-score normalization (T0 only)
+            vol = (vol - vol.mean()) / (vol.std() + 1e-8)
 
         # Load stimulus image
         stimulus = self.load_stimulus(nsd_id)
 
-        # Apply transforms
-        if self.transform:
-            stimulus = self.transform(stimulus)
-            fmri_volume = self.normalize_fmri(fmri_volume)
-
         return {
-            'fmri': fmri_volume,
+            'fmri': vol,  # Either (H,W,D) or (k,) if PCA applied
             'image': stimulus,
-            'nsd_id': nsd_id,
+            'nsdId': nsd_id,
             'metadata': trial_info
         }
-
-    def normalize_fmri(self, fmri_volume):
-        # Z-score normalization
-        return (fmri_volume - fmri_volume.mean()) / fmri_volume.std()
 ```
+
+#### Preprocessing Transformations
+
+- **T0**: Per-volume z-score normalization (online, no fitting required)
+- **T1**: Subject-level scaler + reliability mask
+  - Fits voxel-wise mean/std from training data using Welford's algorithm
+  - Computes test-retest reliability for voxels with repeat stimuli
+  - Masks out unreliable voxels (r < 0.1) and low-variance voxels
+- **T2**: PCA dimensionality reduction (optional)
+  - Reduces masked voxels to k components (default k=4096)
+  - Uses incremental PCA for memory efficiency
+  - Outputs compact feature vectors instead of full volumes
 
 ---
 

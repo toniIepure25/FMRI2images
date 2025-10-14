@@ -1,1 +1,14 @@
-awscli
+fsspec
+s3fs
+pandas
+numpy
+nibabel
+pyarrow
+tqdm
+h5py
+pyyaml
+# torch
+# torchvision
+# open_clip_torch
+# pillow
+# requests

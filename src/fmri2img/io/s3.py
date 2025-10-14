@@ -3,13 +3,16 @@ Robust S3 Data Loaders for Natural Scenes Dataset
 
 This module provides memory-safe, cached loaders for NIfTI and HDF5 files
 from S3 storage. Handles large files efficiently with proper error handling.
+All header operations are strictly header-only with no voxel reads during 
+header ops for maximum efficiency.
 
 Key Features:
-- Memory-safe streaming of large files
+- Memory-safe streaming of large files with chunked copy
 - Automatic caching with fsspec
 - Proper error handling and retries
 - Support for NIfTI and HDF5 formats
 - Context managers for resource cleanup
+- Header-only validation (no get_fdata() calls)
 """
 
 from __future__ import annotations
@@ -17,9 +20,11 @@ import logging
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Union, BinaryIO, Generator
+from typing import Any, Dict, Iterable, List, Optional, Union, BinaryIO, Generator, Tuple
 import tempfile
 import os
+import shutil
+import hashlib
 
 import fsspec
 import numpy as np
@@ -93,10 +98,17 @@ class S3FileSystem:
                 self._fs = fsspec.filesystem("s3", anon=self.anon)
         return self._fs
     
+    def _normalize(self, path: str) -> str:
+        """Accept 's3://bucket/key' or 'bucket/key'"""
+        if path.startswith("s3://"):
+            return path
+        return f"s3://{path}"
+    
     def exists(self, path: str) -> bool:
         """Check if S3 path exists"""
         try:
-            return self.fs.exists(path)
+            p = self._normalize(path)
+            return self.fs.exists(p)
         except Exception as e:
             logger.warning(f"Error checking if {path} exists: {e}")
             return False
@@ -104,7 +116,8 @@ class S3FileSystem:
     def glob(self, pattern: str) -> List[str]:
         """Glob pattern matching on S3"""
         try:
-            return self.fs.glob(pattern)
+            p = self._normalize(pattern)
+            return self.fs.glob(p)
         except Exception as e:
             logger.error(f"Error globbing {pattern}: {e}")
             return []
@@ -112,7 +125,8 @@ class S3FileSystem:
     def info(self, path: str) -> Dict[str, Any]:
         """Get file info from S3"""
         try:
-            return self.fs.info(path)
+            p = self._normalize(path)
+            return self.fs.info(p)
         except Exception as e:
             logger.error(f"Error getting info for {path}: {e}")
             raise S3LoadError(f"Cannot get info for {path}: {e}")
@@ -136,7 +150,8 @@ class S3FileSystem:
             File-like object
         """
         try:
-            with self.fs.open(path, mode, **kwargs) as f:
+            p = self._normalize(path)
+            with self.fs.open(p, mode, **kwargs) as f:
                 yield f
         except Exception as e:
             logger.error(f"Error opening {path}: {e}")
@@ -202,7 +217,7 @@ class NIfTILoader:
         Args:
             s3_path: S3 path to NIfTI file
             mmap: Use memory mapping (not recommended for S3)
-            validate: Validate file format
+            validate: Header-only validation by default (no data loading)
             
         Returns:
             nibabel image object
@@ -213,36 +228,36 @@ class NIfTILoader:
         logger.debug(f"Loading NIfTI from {s3_path}")
         
         try:
-            # For S3 files, we need to download to a temporary file first
-            # since nibabel needs a real file path for many operations
-            with self.s3_fs.open(s3_path) as s3_file:
-                # Create temporary file
-                with tempfile.NamedTemporaryFile(suffix='.nii.gz', delete=False) as temp_file:
-                    # Copy S3 data to temp file
-                    temp_file.write(s3_file.read())
-                    temp_file.flush()
-                    temp_path = temp_file.name
-                
-                try:
-                    # Load with nibabel using the temp file path
-                    img = nib.load(temp_path, mmap=mmap)
-                    
-                    if validate:
-                        # Basic validation
-                        if img.header is None:
-                            raise ValueError("Invalid NIfTI header")
-                        if img.get_fdata().size == 0:
-                            raise ValueError("Empty NIfTI data")
-                    
-                    logger.debug(f"Loaded NIfTI shape: {img.shape}")
-                    return img
-                    
-                finally:
-                    # Clean up temp file
-                    try:
-                        os.unlink(temp_path)
-                    except OSError:
-                        pass
+            # Download to cache directory manually for stable access
+            cache_dir = Path(self.s3_fs.cache_storage)
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Create a stable cache key from the S3 path
+            cache_key = hashlib.sha256(s3_path.encode()).hexdigest()
+            cache_file = cache_dir / f"{cache_key}.nii.gz"
+            
+            if not cache_file.exists():
+                logger.debug(f"Downloading {s3_path} to cache")
+                with self.s3_fs.open(s3_path, "rb") as s3_file:
+                    with open(cache_file, "wb") as f:
+                        shutil.copyfileobj(s3_file, f, length=1024*1024)
+            else:
+                logger.debug(f"Using cached file {cache_file}")
+            
+            # Load with nibabel using the local file path
+            img = nib.load(str(cache_file), mmap=mmap)
+            
+            if validate:
+                # Header-only validation - DO NOT call get_fdata()
+                if img.header is None:
+                    raise ValueError("Invalid NIfTI header")
+                if not hasattr(img, 'shape') or not img.shape:
+                    raise ValueError("Invalid NIfTI shape")
+                # Test that header.get_zooms() is accessible
+                _ = img.header.get_zooms()
+            
+            logger.debug(f"Loaded NIfTI shape: {img.shape}")
+            return img
                 
         except Exception as e:
             logger.error(f"Failed to load NIfTI from {s3_path}: {e}")
@@ -281,7 +296,7 @@ class NIfTILoader:
         Returns:
             Dictionary with header information
         """
-        img = self.load(s3_path)
+        img = self.load(s3_path, validate=False)  # Use existing img object
         header = img.header
         
         return {
@@ -291,6 +306,19 @@ class NIfTILoader:
             'voxel_size': header.get_zooms(),
             'units': header.get_xyzt_units()
         }
+    
+    def get_shape(self, s3_path: str) -> Tuple[int, ...]:
+        """
+        Get NIfTI shape without loading full data.
+        
+        Args:
+            s3_path: S3 path to NIfTI file
+            
+        Returns:
+            Tuple with shape (X, Y, Z, N)
+        """
+        img = self.load(s3_path, validate=False)
+        return img.shape
 
 
 class HDF5Loader:
@@ -325,16 +353,24 @@ class HDF5Loader:
         logger.debug(f"Opening HDF5 from {s3_path}")
         
         try:
-            with self.s3_fs.open(s3_path, 'rb') as s3_file:
-                # Create temporary file for h5py (which needs seekable file)
-                with tempfile.NamedTemporaryFile() as temp_file:
-                    # Copy S3 data to temp file
-                    temp_file.write(s3_file.read())
-                    temp_file.flush()
-                    
-                    # Open with h5py
-                    with h5py.File(temp_file.name, mode) as hf:
-                        yield hf
+            import shutil
+            import tempfile
+            import os
+            
+            # Use chunked copy similar to NIfTILoader
+            with self.s3_fs.open(s3_path, "rb") as s3_file:
+                with tempfile.NamedTemporaryFile(suffix=".h5", delete=False) as tmp:
+                    shutil.copyfileobj(s3_file, tmp, length=1024*1024)
+                    temp_path = tmp.name
+            
+            try:
+                with h5py.File(temp_path, mode) as hf:
+                    yield hf
+            finally:
+                try:
+                    os.unlink(temp_path)
+                except OSError:
+                    pass
                         
         except Exception as e:
             logger.error(f"Failed to open HDF5 from {s3_path}: {e}")
@@ -458,6 +494,14 @@ class CSVLoader:
         
         try:
             with self.s3_fs.open(s3_path, 'r') as f:
+                # Use nullable dtypes if pandas >= 2.0 to avoid mixed int issues
+                try:
+                    import pandas as pd_version
+                    if hasattr(pd, '__version__') and pd.__version__ >= '2.0':
+                        pandas_kwargs.setdefault('dtype_backend', 'numpy_nullable')
+                except:
+                    pass  # Fall back silently for older pandas
+                
                 df = pd.read_csv(f, **pandas_kwargs)
                 logger.debug(f"Loaded CSV shape: {df.shape}")
                 return df

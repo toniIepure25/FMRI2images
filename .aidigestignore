@@ -112,3 +112,9 @@ Thumbs.db
 .Spotlight-V100
 .Trashes
 ehthumbs.db
+
+fmri2img.egg-info
+test_redirect_index
+/data/
+
+outputs

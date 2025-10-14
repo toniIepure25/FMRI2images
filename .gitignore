@@ -12,3 +12,8 @@ __pycache__
 *.py[cod]
 *$py.class
 *.pyc
+
+fmri2img.egg-info
+test_redirect_index
+data/
+outputs/

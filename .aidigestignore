@@ -118,3 +118,5 @@ test_redirect_index
 /data/
 
 outputs
+
+.pytest_cache/

@@ -495,6 +495,8 @@ def main():
                         help="Force enable preprocessing (overrides auto-detection)")
     parser.add_argument("--no-preproc", action="store_true",
                         help="Force disable preprocessing (overrides auto-detection)")
+    parser.add_argument("--skip-sd-cache-check", action="store_true",
+                        help="Skip Stable Diffusion cache check and do not prompt")
     parser.add_argument("--preproc-dir", type=Path,
                         help="Path to preprocessing directory (auto-discovered if not provided)")
     
@@ -632,12 +634,25 @@ def main():
     print(f"Steps:         {args.steps}")
     print()
     
-    # Check SD cache
+    # Check SD cache with robust method
     model_id_for_cache = args.model_id or "runwayml/stable-diffusion-v1-5"
     print(f"Checking SD cache for: {model_id_for_cache}")
+    print()
     
-    if not check_sd_cache(model_id_for_cache):
-        print()
+    def _is_sd_cached(mid: str) -> bool:
+        """Robust check: try constructing the pipeline offline."""
+        try:
+            from diffusers import StableDiffusionPipeline
+            StableDiffusionPipeline.from_pretrained(mid, local_files_only=True)
+            return True
+        except Exception:
+            return False
+    
+    cached = True
+    if not args.skip_sd_cache_check:
+        cached = _is_sd_cached(model_id_for_cache)
+    
+    if not cached and not args.skip_sd_cache_check:
         print("=" * 80)
         print("  WARNING: Stable Diffusion model not cached!")
         print("=" * 80)
@@ -658,7 +673,11 @@ def main():
             print("Aborted.")
             return 1
     else:
-        print(f"✓ SD model cached: {model_id_for_cache}\n")
+        if args.skip_sd_cache_check:
+            print("⊘ SD cache check skipped (--skip-sd-cache-check)")
+        else:
+            print(f"✓ Stable Diffusion appears cached (local_files_only=True succeeded)")
+        print()
     
     # Step 1: Decode
     exit_code = run_decode(

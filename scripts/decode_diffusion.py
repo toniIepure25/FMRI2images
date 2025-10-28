@@ -831,20 +831,53 @@ def main():
         
         # Build small gallery for NN retrieval (for comparison)
         logger.info(f"Building gallery for NN comparison (limit={args.gallery_limit})...")
-        all_nsd_ids = clip_cache.get_all_ids()
-        all_embeddings = clip_cache.get_batch(all_nsd_ids)
         
-        # Exclude test samples
-        mask = ~np.isin(all_nsd_ids, test_nsd_ids)
-        gallery_nsd_ids = all_nsd_ids[mask]
-        gallery_embeddings = all_embeddings[mask]
+        def _safe_get_all_clip_ids(cache):
+            """Backward-compatible helper to get all IDs from various CLIP cache implementations."""
+            # Try common method names first
+            for name in ("get_all_ids", "get_ids", "list_ids"):
+                if hasattr(cache, name):
+                    try:
+                        return list(getattr(cache, name)())
+                    except Exception:
+                        pass
+            # Fallbacks
+            try:
+                # common parquet-backed cache: df with 'nsd_id' or 'id'
+                df = getattr(cache, "df", None)
+                if df is not None:
+                    col = "nsd_id" if "nsd_id" in df.columns else ("id" if "id" in df.columns else None)
+                    if col:
+                        return list(df[col].unique())
+            except Exception:
+                pass
+            return []
         
-        if len(gallery_nsd_ids) > args.gallery_limit:
-            indices = np.random.choice(len(gallery_nsd_ids), size=args.gallery_limit, replace=False)
-            gallery_nsd_ids = gallery_nsd_ids[indices]
-            gallery_embeddings = gallery_embeddings[indices]
+        all_nsd_ids = _safe_get_all_clip_ids(clip_cache)
+        if not all_nsd_ids:
+            logger.warning("CLIP cache IDs could not be enumerated; skipping gallery build")
+            all_nsd_ids = []
         
-        logger.info(f"✅ Gallery size: {len(gallery_embeddings)}")
+        gallery_nsd_ids = []
+        gallery_embeddings = None
+        
+        if all_nsd_ids:
+            all_embeddings = clip_cache.get_batch(all_nsd_ids)
+            
+            # Exclude test samples
+            mask = ~np.isin(all_nsd_ids, test_nsd_ids)
+            gallery_nsd_ids = all_nsd_ids[mask]
+            gallery_embeddings = all_embeddings[mask]
+            
+            if len(gallery_nsd_ids) > args.gallery_limit:
+                indices = np.random.choice(len(gallery_nsd_ids), size=args.gallery_limit, replace=False)
+                gallery_nsd_ids = gallery_nsd_ids[indices]
+                gallery_embeddings = gallery_embeddings[indices]
+            
+            logger.info(f"✅ Gallery size: {len(gallery_embeddings)}")
+        else:
+            # Graceful degrade: continue without NN gallery
+            logger.info("Proceeding without NN gallery (generation and per-sample eval will continue).")
         
         # Generate images
         logger.info("\n" + "=" * 80)
@@ -874,14 +907,19 @@ def main():
                 generated_img.save(img_path)
                 logger.info(f"  ✅ Saved generated image: {img_path}")
                 
-                # Find nearest neighbor for comparison
-                # Compute similarity to gallery
-                sim_to_gallery = cosine_sim(clip_pred.reshape(1, -1), gallery_embeddings)[0]
-                nn_idx = np.argmax(sim_to_gallery)
-                nn_nsd_id = gallery_nsd_ids[nn_idx]
-                nn_cosine = sim_to_gallery[nn_idx]
-                
-                logger.info(f"  NN retrieval: NSD ID {nn_nsd_id} (cosine: {nn_cosine:.4f})")
+                # Find nearest neighbor for comparison (if gallery available)
+                nn_nsd_id = None
+                nn_cosine = None
+                if gallery_embeddings is not None and len(gallery_embeddings) > 0:
+                    # Compute similarity to gallery
+                    sim_to_gallery = cosine_sim(clip_pred.reshape(1, -1), gallery_embeddings)[0]
+                    nn_idx = np.argmax(sim_to_gallery)
+                    nn_nsd_id = gallery_nsd_ids[nn_idx]
+                    nn_cosine = sim_to_gallery[nn_idx]
+                    
+                    logger.info(f"  NN retrieval: NSD ID {nn_nsd_id} (cosine: {nn_cosine:.4f})")
+                else:
+                    logger.info(f"  NN retrieval: skipped (no gallery)")
                 
                 # For now, we don't have actual images, so skip grid creation
                 # In a full implementation, you'd load the actual image via COCO/NSD dataset
@@ -892,8 +930,8 @@ def main():
                     "trial_id": i,
                     "nsdId": int(nsd_id),
                     "cosine_pred_gt": float(cosine),
-                    "nn_nsdId": int(nn_nsd_id),
-                    "nn_cosine": float(nn_cosine),
+                    "nn_nsdId": int(nn_nsd_id) if nn_nsd_id is not None else None,
+                    "nn_cosine": float(nn_cosine) if nn_cosine is not None else None,
                     "image_path": str(img_path)
                 })
                 

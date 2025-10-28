@@ -16,7 +16,9 @@ __pycache__
 fmri2img.egg-info
 test_redirect_index
 data/
-outputs/\
+outputs/
 .pytest_cache/
 codebase.md
 /preproc/
+
+*.npy

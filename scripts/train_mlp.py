@@ -407,6 +407,18 @@ def main():
         # Save model
         checkpoint_path = Path(args.checkpoint_dir) / args.subject / "mlp.pt"
         
+        # Build preprocessing metadata
+        preproc_meta = {}
+        if preprocessor.is_fitted_:
+            preproc_meta = {
+                "used_preproc": True,
+                "k": preproc_summary.get("pca_components"),
+                "reliability_thr": preproc_summary.get("reliability_threshold"),
+                "path": str(preprocessor.preproc_dir) if hasattr(preprocessor, "preproc_dir") else str(Path(args.preproc_dir) / args.subject)
+            }
+        else:
+            preproc_meta = {"used_preproc": False}
+        
         meta = {
             "input_dim": input_dim,
             "hidden": args.hidden,
@@ -417,6 +429,7 @@ def main():
             "weight_decay": args.wd,
             "mse_weight": args.mse_weight,
             "subject": args.subject,
+            "preproc": preproc_meta,
         }
         
         save_mlp(final_model, str(checkpoint_path), meta)

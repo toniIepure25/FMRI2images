@@ -531,9 +531,12 @@ def main():
     
     # Preprocessing
     parser.add_argument("--use-preproc", action="store_true",
-                       help="Use preprocessing (T0/T1/T2)")
+                       help="Force enable preprocessing (overrides auto-detection)")
+    parser.add_argument("--no-preproc", action="store_true",
+                       help="Force disable preprocessing (overrides auto-detection)")
     parser.add_argument("--preproc-dir", required=False,
-                       help="Preprocessing directory (REQUIRED if --use-preproc is set). Must match the preprocessing used during encoder training. Example: outputs/preproc/subj01/rel=0.100_k=4")
+                       help="Preprocessing directory. If not specified and preprocessing is enabled, "
+                            "will use the path from encoder checkpoint metadata.")
     
     # Diffusion model
     parser.add_argument("--model-id", default="stabilityai/stable-diffusion-2-1",
@@ -627,8 +630,51 @@ def main():
         else:
             logger.info("CLIP Adapter: DISABLED (using 512-D embeddings directly)")
         
-        # Load encoder
+        # Load encoder and its metadata
         encoder = load_encoder(args.encoder, Path(args.ckpt), args.device)
+        
+        # Load encoder checkpoint metadata for preprocessing
+        ckpt_meta = torch.load(args.ckpt, map_location="cpu").get("meta", {})
+        preproc_meta = ckpt_meta.get("preproc", {})
+        preproc_trained_with = preproc_meta.get("used_preproc", False)
+        expected_input_dim = ckpt_meta.get("input_dim")
+        
+        # Resolve preprocessing flag
+        if args.use_preproc and args.no_preproc:
+            logger.error("ERROR: Cannot specify both --use-preproc and --no-preproc")
+            sys.exit(1)
+        
+        if args.use_preproc:
+            preproc_enabled = True
+        elif args.no_preproc:
+            preproc_enabled = False
+        else:
+            # Auto-detect from metadata
+            preproc_enabled = preproc_trained_with
+        
+        # Determine preprocessing directory
+        preproc_dir = None
+        if preproc_enabled:
+            if args.preproc_dir:
+                preproc_dir = Path(args.preproc_dir)
+            elif preproc_meta.get("path"):
+                preproc_dir = Path(preproc_meta["path"])
+            else:
+                logger.error("ERROR: Preprocessing enabled but no preprocessing directory specified")
+                logger.error("Either provide --preproc-dir or ensure checkpoint metadata contains preprocessing path")
+                sys.exit(1)
+            
+            if not preproc_dir.exists():
+                logger.error(f"ERROR: Preprocessing directory not found: {preproc_dir}")
+                sys.exit(1)
+            
+            logger.info(f"✓ Preprocessing: ENABLED from {preproc_dir}")
+            logger.info(f"  Expected input_dim: {expected_input_dim}")
+        else:
+            if preproc_trained_with:
+                logger.warning("WARNING: Model was trained WITH preprocessing but --no-preproc specified")
+                logger.warning("This may cause dimension mismatch errors")
+            logger.info("Preprocessing: DISABLED")
         
         # Load index
         logger.info(f"Loading index for {args.subject}...")
@@ -648,37 +694,26 @@ def main():
         stats = clip_cache.stats()
         logger.info(f"✅ CLIP cache loaded: {stats['cache_size']} embeddings")
         
-        # Load preprocessing
-        if args.use_preproc:
-            if not args.preproc_dir:
-                logger.error("ERROR: --preproc-dir is required when --use-preproc is set!")
-                logger.error("The preprocessing directory must match the one used during encoder training.")
-                logger.error("Example: --preproc-dir outputs/preproc/subj01/rel=0.100_k=4")
-                logger.error("Available directories:")
-                preproc_base = Path(f"outputs/preproc/{args.subject}")
-                if preproc_base.exists():
-                    for d in sorted(preproc_base.iterdir()):
-                        if d.is_dir() and (d / "meta.json").exists():
-                            logger.error(f"  - {d}")
-                return 1
-            
+        # Setup preprocessing based on resolved flag
+        preprocessor = None
+        if preproc_enabled:
             logger.info("Loading preprocessing artifacts...")
             preprocessor = NSDPreprocessor(subject=args.subject)
-            preprocessor.set_out_dir(args.preproc_dir)  # Override default path
+            preprocessor.set_out_dir(str(preproc_dir))
             success = preprocessor.load_artifacts()
             if not success:
-                logger.error(f"ERROR: Failed to load preprocessing artifacts from {args.preproc_dir}")
+                logger.error(f"ERROR: Failed to load preprocessing artifacts from {preproc_dir}")
                 return 1
             summary = preprocessor.summary()
             logger.info(f"✅ Preprocessing loaded: {summary}")
             
             if summary.get('n_voxels_kept', 0) == 0:
                 logger.error("ERROR: Preprocessing artifacts are empty or invalid!")
-                logger.error("Make sure the specified preprocessing directory contains valid artifacts.")
                 return 1
         else:
-            # No preprocessing (use raw voxels)
-            logger.warning("No preprocessing specified; this may not match training setup!")
+            # No preprocessing
+            if not preproc_trained_with:
+                logger.info("No preprocessing (model trained on raw voxels)")
             preprocessor = None
         
         # Initialize NIfTI loader
@@ -693,6 +728,27 @@ def main():
         if len(X_test) == 0:
             logger.error("No valid test samples extracted!")
             return 1
+        
+        # Validate feature dimensions match expected input_dim
+        actual_feature_dim = X_test.shape[1]
+        if expected_input_dim and actual_feature_dim != expected_input_dim:
+            logger.error("=" * 80)
+            logger.error(f"PREPROCESSING MISMATCH ERROR")
+            logger.error("=" * 80)
+            logger.error(f"Model expects {expected_input_dim} features but got {actual_feature_dim}.")
+            logger.error("")
+            if preproc_enabled:
+                logger.error(f"Preprocessing is ENABLED but dimensions don't match.")
+                logger.error(f"Check that the preprocessing directory is correct: {preproc_dir}")
+            else:
+                logger.error(f"Preprocessing is DISABLED but model was trained WITH preprocessing.")
+                logger.error(f"Solution: Enable preprocessing with --use-preproc")
+                if preproc_meta.get("path"):
+                    logger.error(f"Suggested path: --preproc-dir {preproc_meta['path']}")
+            logger.error("=" * 80)
+            return 1
+        
+        logger.info(f"✅ Feature dimensions match: {actual_feature_dim} features")
         
         # Predict CLIP embeddings
         logger.info("Predicting CLIP embeddings from test fMRI...")

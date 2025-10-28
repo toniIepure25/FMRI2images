@@ -127,6 +127,8 @@ def run_decode(
     subject: str,
     index_root: Optional[Path],
     index_file: Optional[Path],
+    preproc_enabled: bool,
+    preproc_path: Optional[str],
 ) -> int:
     """
     Run decode_diffusion.py to generate reconstructions.
@@ -176,6 +178,12 @@ def run_decode(
         
         if clip_target_dim:
             cmd.extend(["--clip-target-dim", str(clip_target_dim)])
+    
+    # Add preprocessing if enabled
+    if preproc_enabled:
+        cmd.append("--use-preproc")
+        if preproc_path:
+            cmd.extend(["--preproc-dir", preproc_path])
     
     print("Command:", " ".join(cmd))
     print()
@@ -482,6 +490,12 @@ def main():
     parser.add_argument("--model-id", type=str,
                         help="Diffusion model ID (e.g., stabilityai/stable-diffusion-2-1)")
     
+    # Preprocessing
+    parser.add_argument("--use-preproc", action="store_true",
+                        help="Force enable preprocessing (overrides auto-detection)")
+    parser.add_argument("--no-preproc", action="store_true",
+                        help="Force disable preprocessing (overrides auto-detection)")
+    
     args = parser.parse_args()
     
     # Validation
@@ -500,6 +514,36 @@ def main():
     if not args.clip_cache.exists():
         print(f"ERROR: CLIP cache not found: {args.clip_cache}")
         return 1
+    
+    # Load encoder metadata to determine preprocessing requirements
+    encoder_ckpt = torch.load(args.ckpt, map_location="cpu")
+    encoder_meta = encoder_ckpt.get("meta", {})
+    
+    # Determine if preprocessing should be enabled
+    preproc_meta = encoder_meta.get("preproc", {})
+    preproc_trained_with = preproc_meta.get("used_preproc", False)
+    
+    # Resolve preprocessing flag
+    if args.use_preproc and args.no_preproc:
+        print("ERROR: Cannot specify both --use-preproc and --no-preproc")
+        return 1
+    
+    if args.use_preproc:
+        preproc_enabled = True
+    elif args.no_preproc:
+        preproc_enabled = False
+    else:
+        # Auto-detect from metadata
+        preproc_enabled = preproc_trained_with
+    
+    # Print preprocessing banner
+    if preproc_enabled:
+        preproc_k = preproc_meta.get("k", "unknown")
+        preproc_thr = preproc_meta.get("reliability_thr", "unknown")
+        preproc_path = preproc_meta.get("path", "unknown")
+        print(f"✓ Preprocessing: ENABLED (k={preproc_k}, thr={preproc_thr}) from {preproc_path}")
+    else:
+        print("✓ Preprocessing: DISABLED")
     
     # Load adapter metadata if using adapter
     clip_target_dim = None
@@ -575,6 +619,8 @@ def main():
         subject=args.subject,
         index_root=args.index_root,
         index_file=args.index_file,
+        preproc_enabled=preproc_enabled,
+        preproc_path=preproc_meta.get("path") if preproc_enabled else None,
     )
     
     if exit_code != 0:

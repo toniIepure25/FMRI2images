@@ -495,6 +495,8 @@ def main():
                         help="Force enable preprocessing (overrides auto-detection)")
     parser.add_argument("--no-preproc", action="store_true",
                         help="Force disable preprocessing (overrides auto-detection)")
+    parser.add_argument("--preproc-dir", type=Path,
+                        help="Path to preprocessing directory (auto-discovered if not provided)")
     
     args = parser.parse_args()
     
@@ -536,12 +538,66 @@ def main():
         # Auto-detect from metadata
         preproc_enabled = preproc_trained_with
     
+    # Determine preprocessing path
+    preproc_path = None
+    if preproc_enabled:
+        # Priority: CLI arg > metadata > auto-discover
+        if args.preproc_dir:
+            preproc_path = args.preproc_dir
+        elif preproc_meta.get("path"):
+            preproc_path = Path(preproc_meta["path"])
+        else:
+            # Auto-discover preprocessing directory
+            preproc_base = Path("outputs/preproc") / args.subject
+            if preproc_base.exists():
+                candidates = []
+                expected_dim = encoder_meta.get("input_dim")
+                
+                for subdir in preproc_base.iterdir():
+                    if not subdir.is_dir():
+                        continue
+                    meta_json = subdir / "meta.json"
+                    if not meta_json.exists():
+                        continue
+                    
+                    try:
+                        import json
+                        with open(meta_json) as f:
+                            preproc_meta_json = json.load(f)
+                        
+                        # Check if dimensions match
+                        pca_k = preproc_meta_json.get("pca_components")
+                        if expected_dim and pca_k == expected_dim:
+                            candidates.append((subdir, subdir.stat().st_mtime))
+                        elif not expected_dim:
+                            # No expected dim, add all candidates
+                            candidates.append((subdir, subdir.stat().st_mtime))
+                    except Exception:
+                        continue
+                
+                if candidates:
+                    # Pick most recent
+                    candidates.sort(key=lambda x: x[1], reverse=True)
+                    preproc_path = candidates[0][0]
+                    print(f"✓ Auto-discovered preprocessing directory: {preproc_path}")
+                else:
+                    print(f"ERROR: Preprocessing enabled but no valid directory found")
+                    print(f"       Searched in: {preproc_base}")
+                    print(f"       Expected dim: {expected_dim}")
+                    print(f"       Solution: Provide --preproc-dir explicitly")
+                    return 1
+            else:
+                print(f"ERROR: Preprocessing enabled but directory not found: {preproc_base}")
+                print(f"       Solution: Provide --preproc-dir explicitly")
+                return 1
+    
     # Print preprocessing banner
     if preproc_enabled:
-        preproc_k = preproc_meta.get("k", "unknown")
+        preproc_k = preproc_meta.get("k", encoder_meta.get("input_dim", "unknown"))
         preproc_thr = preproc_meta.get("reliability_thr", "unknown")
-        preproc_path = preproc_meta.get("path", "unknown")
-        print(f"✓ Preprocessing: ENABLED (k={preproc_k}, thr={preproc_thr}) from {preproc_path}")
+        print(f"✓ Preprocessing: ENABLED (k={preproc_k}, thr={preproc_thr})")
+        if preproc_path:
+            print(f"  Path: {preproc_path}")
     else:
         print("✓ Preprocessing: DISABLED")
     
@@ -620,7 +676,7 @@ def main():
         index_root=args.index_root,
         index_file=args.index_file,
         preproc_enabled=preproc_enabled,
-        preproc_path=preproc_meta.get("path") if preproc_enabled else None,
+        preproc_path=str(preproc_path) if preproc_path else None,
     )
     
     if exit_code != 0:

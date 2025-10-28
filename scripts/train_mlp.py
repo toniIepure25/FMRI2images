@@ -414,10 +414,17 @@ def main():
                 "used_preproc": True,
                 "k": preproc_summary.get("pca_components"),
                 "reliability_thr": preproc_summary.get("reliability_threshold"),
-                "path": str(preprocessor.preproc_dir) if hasattr(preprocessor, "preproc_dir") else str(Path(args.preproc_dir) / args.subject)
+                "path": str(preprocessor.preproc_dir) if hasattr(preprocessor, "preproc_dir") else str(Path(args.preproc_dir) / args.subject),
+                "subject": args.subject
             }
         else:
-            preproc_meta = {"used_preproc": False}
+            preproc_meta = {
+                "used_preproc": False,
+                "k": None,
+                "reliability_thr": None,
+                "path": None,
+                "subject": args.subject
+            }
         
         meta = {
             "input_dim": input_dim,

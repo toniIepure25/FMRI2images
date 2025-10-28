@@ -484,7 +484,12 @@ def main():
                 gen_images, vision_model, processor, args.device
             )
         else:
-            gen_embeddings = encode_images(gen_images, clip_model, preprocess, args.device)
+            gen_embeddings = encode_images(
+                images=gen_images,
+                model=clip_model,
+                preprocess=preprocess,
+                device=args.device,
+            )
         
         logger.info(f"✅ Generated embeddings: {gen_embeddings.shape}")
         

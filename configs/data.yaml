@@ -82,6 +82,19 @@ splits:
   test_ratio: 0.1
   random_seed: 42
 
+preprocess:
+  reliability_threshold: 0.1 # Minimum split-half correlation for voxel inclusion
+  min_variance: 1.0e-6 # Fallback variance threshold
+  pca_k: 4096 # Default number of PCA components
+
+ablation:
+  # Reliability sweep follows NSD practice to trade voxel count vs. SNR
+  # (GLMsingle/NSD reliability literature: PMC)
+  rel_grid: [0.05, 0.1, 0.2]
+  # Dimensionality sweep (PCA) mirrors principal-component regression
+  # used in encoding/decoding work (standard in vision-fMRI)
+  pca_k_grid: [512, 1024, 4096]
+
 logging:
   level: "INFO"
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

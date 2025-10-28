@@ -1,122 +1,119 @@
 # AI Digest Ignore File
-
 # This file specifies which files and directories should be ignored by npx ai-digest
 
-# Cache
-
-.cache
-cache
-
-# Virtual environments
-
+# Virtual Environments & Dependencies
 .venv/
 venv/
 env/
-
-# Python cache and compiled files
-
-**pycache**/
-_.pyc
-_.pyo
-_.pyd
-.Python
-_.so
-.tox/
-.coverage
-.pytest_cache/
-\*.egg-info/
-build/
-dist/
-
-# Data and cache directories
-
-.cache/
-data/
-datasets/
-_.hdf5
-_.nii.gz
-_.npy
-_.npz
-
-# Model checkpoints and weights
-
-checkpoints/
-models/
-weights/
-_.pth
-_.pt
-_.ckpt
-_.safetensors
-
-# Environment and configuration files with secrets
-
-.env
-_.key
-_.pem
-config.json
-secrets.json
-
-# IDE and editor files
-
-.vscode/
-.idea/
-_.swp
-_.swo
-\*~
-.DS_Store
-
-# Log files
-
-logs/
-\*.log
-
-# Temporary files
-
-tmp/
-temp/
-\*.tmp
-
-# Large binary files
-
-_.zip
-_.tar.gz
-_.tar.bz2
-_.rar
-\*.7z
-
-# Jupyter notebook checkpoints
-
-.ipynb_checkpoints/
-
-# Git directory
-
-.git/
-
-# Documentation build outputs
-
-docs/\_build/
-docs/build/
-
-# Package manager files
-
 node_modules/
 package-lock.json
 yarn.lock
 
-# OS generated files
+# Python Cache & Compiled Files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg-info/
+build/
+dist/
+.tox/
+.coverage
+.pytest_cache/
 
+# Data Files & Caches
+.cache/
+cache/
+data/
+datasets/
+outputs/
+test_redirect_index/
+
+# Large data files
+*.hdf5
+*.nii.gz
+*.npy
+*.npz
+*.parquet
+*.csv
+*.tsv
+*.json.gz
+
+# Model Checkpoints & Weights
+checkpoints/
+models/
+weights/
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.pkl
+
+# Environment & Secrets
+.env
+*.key
+*.pem
+config.json
+secrets.json
+
+# IDE & Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
 Thumbs.db
-.DS*Store
 .DS_Store?
-.*\*
+._*
 .Spotlight-V100
 .Trashes
 ehthumbs.db
 
-fmri2img.egg-info
-test_redirect_index
-/data/
+# Logs & Temporary Files
+logs/
+*.log
+tmp/
+temp/
+*.tmp
 
-outputs
+# Archives & Compressed Files
+*.zip
+*.tar.gz
+*.tar.bz2
+*.rar
+*.7z
 
-.pytest_cache/
+# Jupyter & Notebooks
+.ipynb_checkpoints/
+
+# Git & Version Control
+.git/
+.gitignore
+
+# Documentation Builds
+docs/_build/
+docs/build/
+
+# Test Files
+test_*.json
+*_test.json
+test_results/
+test_outputs/
+
+# Generated Documentation
+docs/
+
+# HuggingFace Cache
+.cache/huggingface/
+
+# Package Info
+fmri2img.egg-info/
+clip_cache/
+/scripts/
+checkpoints/
+*.npy
+*.npz
+/preproc/

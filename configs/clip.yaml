@@ -1,0 +1,10 @@
+# CLIP Model Configuration
+# =========================
+# This is the SINGLE SOURCE OF TRUTH for CLIP model settings.
+# Do NOT hardcode model names elsewhere in the codebase.
+
+model_name: "ViT-B/32" # Lock this; do not change elsewhere
+pretrained: "openai"
+device: "cuda"
+batch_size: 64
+embedding_dim: 512 # Expected embedding dimension

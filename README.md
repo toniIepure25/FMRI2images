@@ -30,6 +30,22 @@ This project implements fMRI-to-image reconstruction using the Natural Scenes Da
 - `scripts/nsd_build_clip_cache.py` - CLI to build CLIP embeddings cache
 - `scripts/test_roi.py` - Test script for ROI functionality
 
+### Phase 5: Ridge Baseline ✨ **NEW**
+
+- `src/fmri2img/models/ridge.py` - Ridge regression encoder (fMRI → CLIP)
+- `src/fmri2img/eval/retrieval.py` - Retrieval evaluation metrics
+- `scripts/train_ridge.py` - Full training pipeline with alpha selection
+- `docs/RIDGE_BASELINE.md` - Comprehensive documentation
+
+**Features**:
+
+- L2-regularized linear regression with hyperparameter selection
+- Validation-based alpha tuning (no test leakage)
+- L2-normalized predictions for cosine similarity
+- Retrieval@K evaluation (K=1,5,10) + ranking metrics
+- Complete train/val/test splits
+- Model persistence with save/load
+
 Note: GLMdenoise betas are already denoised; this layer standardizes & reduces dimensionality.
 
 ## Important Notes
@@ -84,6 +100,7 @@ The preprocessing pipeline implements three transformation levels:
 - **T2**: PCA dimensionality reduction to k components OR ROI pooling
 
 Example preprocessing workflow:
+
 ```bash
 # Fit standard preprocessing with PCA
 python scripts/nsd_fit_preproc.py --subject subj01 --k 4096 --reliability-thr 0.1
@@ -115,12 +132,14 @@ roi_means = pooler.pool(vol)  # (n_roi,) - mean per anatomical region
 ### CLIP Embeddings Cache
 
 CLIP cache stores precomputed ViT-B/32 embeddings (512-dim) for NSD stimuli in a Parquet file with enforced schema:
+
 - **nsdId**: int32 (NSD stimulus identifier)
 - **clip512**: fixed-length list[float32, 512] (CLIP vision embedding)
 
 **Image Loading**: Primary path is `nsd_stimuli.hdf5` via nsdId (fast, S3-backed). Falls back to COCO HTTP if HDF5 access fails and cocoId is available.
 
 **Build Cache**:
+
 ```bash
 # From partitioned index (recommended)
 python scripts/build_clip_cache.py \
@@ -140,6 +159,7 @@ python scripts/build_clip_cache.py \
 ```
 
 **Use in Dataset**:
+
 ```python
 from fmri2img.data.clip_cache import CLIPCache
 from fmri2img.data.torch_dataset import NSDIterableDataset
@@ -163,8 +183,50 @@ dataset = NSDIterableDataset(
 for batch in dataset:
     fmri = batch["fmri"]      # (H,W,D) or (k,) after PCA
     clip = batch["clip"]      # (512,) CLIP embedding (L2 normalized)
-    nsd_id = batch["nsdId"]   # int
 ```
+
+### Ridge Baseline Training
+
+Train a reproducible Ridge regression baseline to map fMRI → CLIP embeddings:
+
+```bash
+# Quick test (works with current k=4 PCA, uses 256 samples)
+python scripts/train_ridge.py \
+    --subject subj01 \
+    --use-preproc \
+    --clip-cache outputs/clip_cache/clip.parquet \
+    --limit 256 \
+    --alpha-grid "1,10"
+
+# Full training via Makefile
+make ridge
+
+# Full training with custom config
+python scripts/train_ridge.py \
+    --index-root data/indices/nsd_index \
+    --subject subj01 \
+    --use-preproc \
+    --clip-cache outputs/clip_cache/clip.parquet \
+    --alpha-grid "0.1,1,3,10,30,100" \
+    --limit 2048  # Remove for all data
+```
+
+**Output**:
+
+- **Model**: `checkpoints/ridge/subj01/ridge.pkl` (loadable via `RidgeEncoder.load()`)
+- **Report**: `outputs/reports/subj01/ridge_eval.json` (cosine, MSE, R@K metrics)
+
+**Evaluation Metrics**:
+
+- Cosine similarity (with ground truth)
+- MSE loss
+- Retrieval@1/5/10 (% queries with true image in top-K)
+- Mean/median rank, MRR
+
+See `docs/RIDGE_BASELINE.md` for complete documentation.
+nsd_id = batch["nsdId"] # int
+
+````
 
 **Common Mistake**:
 ```python
@@ -177,9 +239,10 @@ dataset = NSDIterableDataset(..., clip_cache=cache)
 
 # ✓ Or use string path:
 dataset = NSDIterableDataset(..., clip_cache="path/to/cache.parquet")
-```
+````
 
 **API Reference**:
+
 ```python
 from fmri2img.data.clip_cache import CLIPCache
 
@@ -209,6 +272,7 @@ stats = cache.stats()  # {"cache_size": N, "path": "..."}
 ```
 
 **Implementation Details**:
+
 - Uses PyArrow schema enforcement for type safety
 - Deduplicates automatically on nsdId (keeps latest)
 - Resume support: builder skips already-cached IDs

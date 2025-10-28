@@ -1,0 +1,32 @@
+{
+  "subject": "subj01",
+  "model": "CLIPAdapter",
+  "source_dim": 512,
+  "target_dim": 1024,
+  "target_model": "stabilityai/stable-diffusion-2-1",
+  "data_splits": {
+    "n_train": 3,
+    "n_val": 1,
+    "n_test": 1,
+    "n_train_valid": 3,
+    "n_val_valid": 1,
+    "n_test_valid": 1
+  },
+  "hyperparameters": {
+    "use_layernorm": true,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "mse_weight": 0.5,
+    "batch_size": 256,
+    "best_epoch": 0
+  },
+  "validation_metrics": {
+    "best_cosine": -Infinity
+  },
+  "test_metrics": {
+    "cosine": NaN,
+    "cosine_std": NaN,
+    "mse": 0.0009765625
+  },
+  "model_checkpoint": "checkpoints/clip_adapter/subj01/adapter_smoke.pt"
+}

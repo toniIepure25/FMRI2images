@@ -19,3 +19,4 @@ data/
 outputs/\
 .pytest_cache/
 codebase.md
+/preproc/

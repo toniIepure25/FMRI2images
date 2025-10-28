@@ -7,8 +7,15 @@ pyarrow
 tqdm
 h5py
 pyyaml
+matplotlib
+seaborn
+scikit-learn
+# Deep learning (optional, for MLP encoder and diffusion)
 # torch
 # torchvision
 # open_clip_torch
 # pillow
 # requests
+# diffusers
+# transformers
+# accelerate

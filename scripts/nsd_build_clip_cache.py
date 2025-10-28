@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 """
-CLIP Embedding Cache Builder
-============================
+CLIP Embedding Cache Builder (DEPRECATED - use build_clip_cache.py instead)
+============================================================================
 
-Builds CLIP embeddings cache for NSD stimuli from stimulus info.
+⚠️  DEPRECATION NOTICE:
+    This script is deprecated in favor of scripts/build_clip_cache.py which:
+    - Uses centralized CLIP config from configs/clip.yaml
+    - Has better HDF5 + COCO HTTP fallback handling
+    - Supports resume from partially built caches
+    - Provides comprehensive logging to outputs/logs/
 
-Usage:
+    Please use:
+        python scripts/build_clip_cache.py --index-file <path> --cache <output>
+
+LEGACY USAGE (maintained for backward compatibility):
     python scripts/nsd_build_clip_cache.py --stim-info cache/nsd_stim_info_merged.csv --limit 1000
     python scripts/nsd_build_clip_cache.py --from-index data/indices/nsd_index/subject=subj01/
 """
@@ -26,6 +34,13 @@ except ImportError:
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Show deprecation warning on import
+logger.warning("=" * 80)
+logger.warning("⚠️  DEPRECATION WARNING")
+logger.warning("This script (nsd_build_clip_cache.py) is deprecated.")
+logger.warning("Please use: scripts/build_clip_cache.py instead")
+logger.warning("=" * 80)
 
 
 def load_stimulus_info(stim_info_path: str, limit: Optional[int] = None) -> pd.DataFrame:

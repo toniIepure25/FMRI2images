@@ -98,9 +98,13 @@ def main():
     parser.add_argument("--session", type=int, help="Specific session to use (optional)")
     parser.add_argument("--k", type=int, default=4096, help="Number of PCA components")
     parser.add_argument("--reliability-thr", type=float, default=0.1, 
-                       help="Test-retest reliability threshold")
+                       help="Test-retest split-half reliability threshold (r >= threshold for voxel retention)")
     parser.add_argument("--min-variance", type=float, default=1e-6,
-                       help="Minimum variance threshold")
+                       help="Minimum variance threshold (fallback when insufficient repeats)")
+    parser.add_argument("--min-repeat-ids", type=int, default=20,
+                       help="Minimum number of repeated stimulus IDs required for split-half reliability")
+    parser.add_argument("--seed", type=int, default=42,
+                       help="Random seed for split-half reliability computation")
     parser.add_argument("--no-pca", action="store_true", help="Skip PCA fitting")
     parser.add_argument("--roi-mode", choices=["pool"], help="Enable ROI pooling mode")
     parser.add_argument("--config", default="configs/data.yaml", help="Data config file")
@@ -146,7 +150,9 @@ def main():
             train_df, 
             loader_factory,
             reliability_threshold=args.reliability_thr,
-            min_variance=args.min_variance
+            min_variance=args.min_variance,
+            min_repeat_ids=args.min_repeat_ids,
+            seed=args.seed
         )
         
         # Fit PCA if requested

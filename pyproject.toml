@@ -18,7 +18,9 @@ dependencies = [
     "pyarrow",
     "tqdm",
     "h5py",
-    "pyyaml"
+    "pyyaml",
+    "matplotlib",
+    "seaborn"
 ]
 
 [project.optional-dependencies]
@@ -35,6 +37,15 @@ dev = [
     "open_clip_torch",
     "pillow",
     "requests"
+]
+
+diffusion = [
+    "torch",
+    "torchvision",
+    "diffusers",
+    "transformers",
+    "accelerate",
+    "pillow"
 ]
 
 [tool.black]

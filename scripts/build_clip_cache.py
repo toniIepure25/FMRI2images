@@ -7,6 +7,8 @@ Populates clip_cache.parquet with embeddings for all images in NSD index.
 Loads images from nsd_stimuli.hdf5 via nsdId, with COCO HTTP fallback.
 Supports batching, GPU, and automatic resume from existing cache.
 
+CLIP model configuration is loaded from configs/clip.yaml (single source of truth).
+
 Usage:
     # From single index file
     python scripts/build_clip_cache.py \
@@ -26,10 +28,12 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+import os
 from pathlib import Path
 from typing import List, Optional, Tuple
 from glob import glob
 from contextlib import nullcontext
+from datetime import datetime
 
 import numpy as np
 import pandas as pd
@@ -41,13 +45,7 @@ from tqdm import tqdm
 from fmri2img.data.clip_cache import CLIPCache
 from fmri2img.io.s3 import HDF5Loader
 from fmri2img.io.nsd_layout import NSDLayout
-
-# CLIP imports
-try:
-    import open_clip
-    OPEN_CLIP_AVAILABLE = True
-except ImportError:
-    OPEN_CLIP_AVAILABLE = False
+from fmri2img.utils.clip_utils import load_clip_model, load_clip_config, verify_embedding_dimension
 
 # Optional requests for COCO fallback
 try:
@@ -56,11 +54,45 @@ try:
 except ImportError:
     REQUESTS_AVAILABLE = False
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
-)
-log = logging.getLogger(__name__)
+# Setup logging from config
+def setup_logging():
+    """Setup logging with timestamped file in outputs/logs/"""
+    import yaml
+    
+    # Load logging config
+    log_config_path = Path("configs/logging.yaml")
+    if log_config_path.exists():
+        with open(log_config_path, 'r') as f:
+            log_config = yaml.safe_load(f)
+        log_dir = Path(log_config.get('log_dir', 'outputs/logs'))
+        log_level = log_config.get('level', 'INFO')
+        log_format = log_config.get('format', '%(asctime)s [%(levelname)s] %(message)s')
+    else:
+        log_dir = Path('outputs/logs')
+        log_level = 'INFO'
+        log_format = '%(asctime)s [%(levelname)s] %(message)s'
+    
+    # Create log directory
+    log_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create timestamped log file
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    log_file = log_dir / f'build_clip_cache_{timestamp}.log'
+    
+    # Configure logging
+    logging.basicConfig(
+        level=getattr(logging, log_level),
+        format=log_format,
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler()
+        ]
+    )
+    
+    return logging.getLogger(__name__)
+
+log = setup_logging()
+log.info(f"Log file: {[h.baseFilename for h in log.handlers if isinstance(h, logging.FileHandler)][0]}")
 
 
 def load_index(
@@ -146,6 +178,10 @@ def load_image_from_hdf5(
     """
     Load image from nsd_stimuli.hdf5 by nsdId.
     
+    Robust handling of S3 HDF5 fragility:
+    - Catches OSError for truncated files
+    - Returns None on any error (caller handles fallback)
+    
     Args:
         hdf5_loader: HDF5Loader instance
         hdf5_path: S3 path to nsd_stimuli.hdf5
@@ -172,10 +208,15 @@ def load_image_from_hdf5(
                 log.debug(f"Unexpected image shape for nsdId={nsd_id}: {img_arr.shape}")
                 return None
             
+            log.debug(f"✓ Loaded nsdId={nsd_id} from HDF5")
             return img
     except OSError as e:
-        # Truncated file or other HDF5 error - log at debug level
+        # Truncated file or other HDF5 error (common with S3)
         log.debug(f"HDF5 OSError for nsdId={nsd_id}: {e}")
+        return None
+    except KeyError as e:
+        # Missing key in HDF5
+        log.debug(f"HDF5 KeyError for nsdId={nsd_id}: {e}")
         return None
     except Exception as e:
         log.debug(f"HDF5 load failed for nsdId={nsd_id}: {e}")
@@ -209,6 +250,7 @@ def load_image_from_coco(
         
         from io import BytesIO
         img = Image.open(BytesIO(response.content)).convert('RGB')
+        log.debug(f"✓ Loaded cocoId={coco_id} from COCO HTTP")
         return img
     except Exception as e:
         log.debug(f"COCO HTTP load failed for cocoId={coco_id}: {e}")
@@ -219,17 +261,21 @@ def load_image(
     hdf5_loader: HDF5Loader,
     hdf5_path: str,
     layout: NSDLayout,
-    row: pd.Series
+    row: pd.Series,
+    load_stats: dict
 ) -> Tuple[Optional[Image.Image], int]:
     """
     Load image for a given index row (nsdId required, cocoId optional).
+    
     Tries HDF5 first, falls back to COCO HTTP immediately on any error.
+    Logs which path was used (HDF5 vs JPEG) via load_stats.
     
     Args:
         hdf5_loader: HDF5Loader instance
         hdf5_path: S3 path to nsd_stimuli.hdf5
         layout: NSDLayout instance
         row: Index row with nsdId and optionally cocoId/cocoSplit
+        load_stats: Dictionary to track loading statistics
         
     Returns:
         (PIL Image or None, nsdId)
@@ -239,6 +285,7 @@ def load_image(
     # Try HDF5 first
     img = load_image_from_hdf5(hdf5_loader, hdf5_path, nsd_id)
     if img is not None:
+        load_stats['hdf5'] = load_stats.get('hdf5', 0) + 1
         return img, nsd_id
     
     # HDF5 failed - try COCO fallback if available
@@ -248,26 +295,61 @@ def load_image(
         if pd.isna(coco_split):
             coco_split = "train2017"
         
-        log.warning(f"HDF5 failed for nsdId={nsd_id}, falling back to COCO HTTP")
+        # Single WARNING per nsdId
+        log.warning(f"HDF5 failed for nsdId={nsd_id}, falling back to COCO HTTP (cocoId={coco_id})")
         img = load_image_from_coco(layout, coco_id, coco_split)
         if img is not None:
-            log.debug(f"Successfully loaded nsdId={nsd_id} via COCO fallback")
+            load_stats['coco_http'] = load_stats.get('coco_http', 0) + 1
             return img, nsd_id
     
+    # Both failed
+    load_stats['failed'] = load_stats.get('failed', 0) + 1
     return None, nsd_id
 
 
-def load_clip_model(device: str = "cuda"):
-    """Load OpenCLIP ViT-B/32 model and preprocessor."""
-    if not OPEN_CLIP_AVAILABLE:
-        raise ImportError("open_clip_torch required. Install with: pip install open-clip-torch")
+def autocast_ctx(device: str):
+    """
+    Get appropriate autocast context for device.
     
-    model, _, preprocess = open_clip.create_model_and_transforms(
-        "ViT-B-32", pretrained="openai"
-    )
-    model = model.to(device).eval()
-    log.info(f"Loaded CLIP ViT-B/32 model on {device}")
-    return model, preprocess
+    Args:
+        device: Device string ("cuda" or "cpu")
+        
+    Returns:
+        Context manager for autocast or nullcontext
+    """
+    if device == "cuda" and torch.cuda.is_available():
+        return torch.amp.autocast("cuda")
+    return nullcontext()
+
+
+def compute_embeddings_batch(
+    model,
+    preprocess,
+    images: List[Image.Image],
+    device: str = "cuda"
+) -> np.ndarray:
+    """
+    Compute CLIP embeddings for a batch of images.
+    
+    Args:
+        model: CLIP model
+        preprocess: CLIP preprocessing function
+        images: List of PIL Images
+        device: Device for computation
+    
+    Returns:
+        (N, 512) float32 array, L2 normalized
+    """
+    # Preprocess images
+    imgs_tensor = torch.stack([preprocess(img) for img in images]).to(device)
+    
+    # Extract embeddings with autocast
+    with torch.no_grad(), autocast_ctx(device):
+        features = model.encode_image(imgs_tensor)
+        # L2 normalize
+        features = features / features.norm(dim=-1, keepdim=True)
+    
+    return features.cpu().numpy().astype(np.float32)
 
 
 def autocast_ctx(device: str):
@@ -422,8 +504,10 @@ Examples:
         log.info("✓ All embeddings already cached!")
         return
     
-    # Load CLIP model
-    model, preprocess = load_clip_model(device=args.device)
+    # Load CLIP model from config
+    log.info("Loading CLIP model from configs/clip.yaml")
+    model, preprocess, clip_config = load_clip_model(device=args.device)
+    log.info(f"CLIP model: {clip_config['model_name']} → {clip_config['embedding_dim']}-dim embeddings")
     
     # Initialize loaders
     hdf5_loader = HDF5Loader()
@@ -446,6 +530,7 @@ Examples:
     
     total_processed = 0
     total_failed = 0
+    load_stats = {'hdf5': 0, 'coco_http': 0, 'failed': 0}  # Track loading sources
     
     for batch_idx in tqdm(range(num_batches), desc="Building CLIP cache"):
         start_idx = batch_idx * batch_size
@@ -464,13 +549,12 @@ Examples:
                     continue
                 
                 row = nsd_to_row[nsd_id]
-                img, _ = load_image(hdf5_loader, hdf5_path, layout, row)
+                img, _ = load_image(hdf5_loader, hdf5_path, layout, row, load_stats)
                 
                 if img is not None:
                     images.append(img)
                     valid_nsd_ids.append(nsd_id)
                 else:
-                    log.warning(f"Failed to load image for nsdId={nsd_id}")
                     total_failed += 1
             except Exception as e:
                 log.warning(f"Error loading nsdId={nsd_id}: {e}")
@@ -483,6 +567,9 @@ Examples:
         # Compute embeddings
         try:
             embeddings = compute_embeddings_batch(model, preprocess, images, device=args.device)
+            
+            # Verify dimension matches config
+            verify_embedding_dimension(embeddings, config_path="configs/clip.yaml")
             
             # Save to cache
             rows = pd.DataFrame({
@@ -504,8 +591,19 @@ Examples:
     log.info(f"  Total in cache: {stats['cache_size']} embeddings")
     log.info(f"  Newly processed: {total_processed} images")
     log.info(f"  Failed: {total_failed} images")
+    log.info(f"  Image loading sources:")
+    log.info(f"    - HDF5: {load_stats['hdf5']} images")
+    log.info(f"    - COCO HTTP: {load_stats['coco_http']} images")
+    log.info(f"    - Failed: {load_stats['failed']} images")
     log.info(f"  Cache location: {stats['path']}")
     log.info("=" * 60)
+    
+    # Assert cache is not empty
+    if stats['cache_size'] == 0 and len(todo_ids) > 0:
+        raise RuntimeError(
+            "CLIP cache is empty after processing! "
+            "Check that images are accessible and CLIP model is working."
+        )
 
 
 if __name__ == "__main__":

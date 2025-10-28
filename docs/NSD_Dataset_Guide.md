@@ -336,10 +336,10 @@ class NSDDataset(torch.utils.data.Dataset):
         beta_path = trial_info['beta_path']
         beta_index = trial_info['beta_index']
         img = self.nifti_loader.load(beta_path)
-        
+
         # Load 3D volume (avoid loading full 4D file)
         vol = img.slicer[..., beta_index].get_fdata().astype('float32')
-        
+
         # Apply preprocessing pipeline
         if self.preprocessor:
             vol = self.preprocessor.transform(vol)  # T0/T1/T2 transforms

@@ -739,12 +739,16 @@ def main():
             logger.error("")
             if preproc_enabled:
                 logger.error(f"Preprocessing is ENABLED but dimensions don't match.")
-                logger.error(f"Check that the preprocessing directory is correct: {preproc_dir}")
+                logger.error(f"Current preprocessing directory: {preproc_dir}")
+                logger.error(f"Check that the directory matches the model's training configuration.")
             else:
                 logger.error(f"Preprocessing is DISABLED but model was trained WITH preprocessing.")
-                logger.error(f"Solution: Enable preprocessing with --use-preproc")
+                logger.error(f"")
+                logger.error(f"Solution 1: Enable preprocessing with --use-preproc")
                 if preproc_meta.get("path"):
-                    logger.error(f"Suggested path: --preproc-dir {preproc_meta['path']}")
+                    logger.error(f"  Suggested path: --preproc-dir {preproc_meta['path']}")
+                logger.error(f"Solution 2: Let the system auto-discover the correct preprocessing directory")
+                logger.error(f"  (omit --no-preproc and --preproc-dir flags)")
             logger.error("=" * 80)
             return 1
         

@@ -162,14 +162,19 @@ def main():
         
         # Print summary
         summary = preprocessor.summary()
-        logger.info("Preprocessing fitted successfully!")
+        logger.info("=" * 80)
+        logger.info("PREPROCESSING SUMMARY")
+        logger.info("=" * 80)
         logger.info(f"Subject: {summary['subject']}")
         logger.info(f"Voxels kept: {summary.get('n_voxels_kept', 'N/A'):,} / {summary.get('n_voxels_total', 'N/A'):,} "
                    f"({summary.get('voxel_retention_rate', 0):.1%})")
+        logger.info(f"Reliability threshold: {summary.get('reliability_threshold', 'N/A')}")
         
         if summary.get('pca_fitted', False):
-            logger.info(f"PCA components: {summary.get('pca_components', 'N/A')}")
+            logger.info(f"PCA components (k_eff): {summary.get('pca_components', 'N/A')}")
             logger.info(f"Explained variance: {summary.get('explained_variance_ratio', 0):.1%}")
+        else:
+            logger.info("PCA: not fitted")
             
         if summary.get('roi_fitted', False):
             logger.info(f"ROI pooling: {summary.get('n_rois', 'N/A')} regions")
@@ -177,14 +182,38 @@ def main():
             if roi_names:
                 logger.info(f"ROI names: {', '.join(roi_names[:5])}{'...' if len(roi_names) > 5 else ''}")
         
-        # Print artifacts locations
+        # Read and display final meta.json
         artifacts_dir = Path(args.out_dir) / args.subject
+        meta_path = artifacts_dir / "meta.json"
+        if meta_path.exists():
+            import json
+            with open(meta_path) as f:
+                meta = json.load(f)
+            logger.info("=" * 80)
+            logger.info("METADATA (meta.json):")
+            logger.info(f"  pca_components: {meta.get('pca_components', 'N/A')}")
+            logger.info(f"  reliability_threshold: {meta.get('reliability_threshold', 'N/A')}")
+            logger.info(f"  reliability_method: {meta.get('reliability_method', 'N/A')}")
+            logger.info(f"  n_voxels_kept: {meta.get('n_voxels_kept', 'N/A')}")
+            logger.info(f"  n_train_samples: {meta.get('n_train_samples', 'N/A')}")
+        
+        # Print artifacts locations
+        logger.info("=" * 80)
         logger.info(f"Artifacts saved to: {artifacts_dir}")
-        for artifact in artifacts_dir.glob("*"):
-            logger.info(f"  - {artifact.name}")
+        for artifact in sorted(artifacts_dir.glob("*")):
+            size_mb = artifact.stat().st_size / (1024 * 1024) if artifact.is_file() else 0
+            logger.info(f"  - {artifact.name} ({size_mb:.2f} MB)" if artifact.is_file() else f"  - {artifact.name}/")
+        logger.info("=" * 80)
         
         return 0
         
+    except KeyError as e:
+        logger.error(f"Missing expected metadata key: {e}")
+        logger.error("This may indicate zero repeated stimuli or other data issues.")
+        logger.error("Check reliability_meta.json for details.")
+        import traceback
+        traceback.print_exc()
+        return 1
     except Exception as e:
         logger.error(f"Failed to fit preprocessing: {e}")
         import traceback

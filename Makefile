@@ -309,3 +309,123 @@ repair-adapter:
 		--subject $${SUBJECT:-subj01} \
 		--model-id $${MODEL:-stabilityai/stable-diffusion-2-1}
 	@echo "✅ Adapter metadata repaired"
+
+# ════════════════════════════════════════════════════════════════════════════
+# PUBLICATION-READY AUTOMATION
+# ════════════════════════════════════════════════════════════════════════════
+
+SUBJECTS := subj01 subj02 subj03
+MODEL_ID := stabilityai/stable-diffusion-2-1
+CACHE_DIR := outputs/clip_cache
+RECON_DIR := outputs/recon
+REPORTS_DIR := outputs/reports
+FIGURES_DIR := $(REPORTS_DIR)/figures
+TARGET_CACHE := $(CACHE_DIR)/target_clip_$(shell echo $(MODEL_ID) | sed 's/\//_/g').parquet
+
+.PHONY: pipeline build_target_cache reconstruct_all eval_all_subjects summarize_reports generate_figures
+
+# Complete publication pipeline
+pipeline: build_target_cache reconstruct_all eval_all_subjects summarize_reports generate_figures
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "✅ PUBLICATION PIPELINE COMPLETE!"
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "📊 Reports:      $(REPORTS_DIR)/summary_*.csv"
+	@echo "📈 Figures:      $(FIGURES_DIR)/"
+	@echo "🖼️  Reconstructions: $(RECON_DIR)/"
+	@echo "════════════════════════════════════════════════════════════════"
+
+# Build 1024-D target CLIP cache for SD 2.1
+build_target_cache:
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "Building 1024-D CLIP cache for $(MODEL_ID)..."
+	@echo "════════════════════════════════════════════════════════════════"
+	@mkdir -p $(CACHE_DIR)
+	$(PY) scripts/nsd_build_clip_cache.py \
+		--model-id $(MODEL_ID) \
+		--output-dir $(CACHE_DIR) \
+		--device cuda \
+		--batch-size 32
+
+# Reconstruct test sets for all subjects
+reconstruct_all: $(foreach subj,$(SUBJECTS),reconstruct_$(subj))
+
+reconstruct_%:
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "Reconstructing test set for $*..."
+	@echo "════════════════════════════════════════════════════════════════"
+	@mkdir -p $(RECON_DIR)/$*/ridge_diffusion/images
+	$(PY) scripts/decode_diffusion.py \
+		--subject $* \
+		--model-id $(MODEL_ID) \
+		--output-dir $(RECON_DIR)/$*/ridge_diffusion \
+		--split test \
+		--num-inference-steps 50 \
+		--guidance-scale 7.5 \
+		--device cuda \
+		--batch-size 4
+
+# Evaluate all subjects with all gallery types
+eval_all_subjects: $(foreach subj,$(SUBJECTS),eval_full_$(subj))
+
+eval_full_%:
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "Evaluating reconstructions for $* (3 gallery types)..."
+	@echo "════════════════════════════════════════════════════════════════"
+	@mkdir -p $(REPORTS_DIR)/$*
+	@# Gallery: matched
+	$(PY) scripts/eval_reconstruction.py \
+		--subject $* \
+		--recon-dir $(RECON_DIR)/$*/ridge_diffusion/images \
+		--clip-cache $(TARGET_CACHE) \
+		--use-adapter \
+		--model-id $(MODEL_ID) \
+		--gallery matched \
+		--image-source hdf5 \
+		--out-csv $(REPORTS_DIR)/$*/eval_matched.csv \
+		--out-json $(REPORTS_DIR)/$*/eval_matched.json \
+		--out-fig $(REPORTS_DIR)/$*/eval_matched_grid.png
+	@# Gallery: test
+	$(PY) scripts/eval_reconstruction.py \
+		--subject $* \
+		--recon-dir $(RECON_DIR)/$*/ridge_diffusion/images \
+		--clip-cache $(TARGET_CACHE) \
+		--use-adapter \
+		--model-id $(MODEL_ID) \
+		--gallery test \
+		--image-source hdf5 \
+		--out-csv $(REPORTS_DIR)/$*/eval_test.csv \
+		--out-json $(REPORTS_DIR)/$*/eval_test.json \
+		--out-fig $(REPORTS_DIR)/$*/eval_test_grid.png
+	@# Gallery: all
+	$(PY) scripts/eval_reconstruction.py \
+		--subject $* \
+		--recon-dir $(RECON_DIR)/$*/ridge_diffusion/images \
+		--clip-cache $(TARGET_CACHE) \
+		--use-adapter \
+		--model-id $(MODEL_ID) \
+		--gallery all \
+		--image-source hdf5 \
+		--out-csv $(REPORTS_DIR)/$*/eval_all.csv \
+		--out-json $(REPORTS_DIR)/$*/eval_all.json \
+		--out-fig $(REPORTS_DIR)/$*/eval_all_grid.png
+
+# Summarize all evaluation reports
+summarize_reports:
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "Summarizing evaluation reports..."
+	@echo "════════════════════════════════════════════════════════════════"
+	$(PY) scripts/summarize_reports.py \
+		--reports-dir $(REPORTS_DIR) \
+		--output-csv $(REPORTS_DIR)/summary_by_subject.csv \
+		--output-md $(REPORTS_DIR)/SUMMARY.md
+
+# Generate publication figures
+generate_figures:
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "Generating publication figures..."
+	@echo "════════════════════════════════════════════════════════════════"
+	@mkdir -p $(FIGURES_DIR)
+	$(PY) scripts/plot_metrics.py \
+		--reports-dir $(REPORTS_DIR) \
+		--output-dir $(FIGURES_DIR) \
+		--subjects $(SUBJECTS)

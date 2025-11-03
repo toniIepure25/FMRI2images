@@ -758,26 +758,52 @@ def main():
         logger.info("Predicting CLIP embeddings from test fMRI...")
         Y_pred = encoder.predict(X_test)
         
-        # Apply CLIP adapter if provided
+        # Store original 512-D predictions
+        Y_pred_512 = Y_pred  # MLP output (N, 512)
+        Y_pred_for_sd = Y_pred_512  # Default for SD conditioning
+        
+        # If adapter is enabled, project to 1024 for diffusion ONLY
+        Y_pred_1024 = None
         if clip_adapter:
-            logger.info(f"Applying CLIP adapter: {Y_pred.shape[1]}D → {adapter_target_dim}D...")
+            logger.info(f"Applying CLIP adapter: {Y_pred_512.shape[1]}D → {adapter_target_dim}D...")
             with torch.no_grad():
-                Y_pred_tensor = torch.from_numpy(Y_pred).float().to(args.device)
-                Y_pred_adapted = clip_adapter(Y_pred_tensor).cpu().numpy()
-            Y_pred = Y_pred_adapted
-            logger.info(f"✅ Adapter applied: output shape {Y_pred.shape}")
+                Y_pred_tensor = torch.from_numpy(Y_pred_512).float().to(args.device)
+                Y_pred_1024 = clip_adapter(Y_pred_tensor).cpu().numpy()
+            Y_pred_for_sd = Y_pred_1024
+            logger.info(f"✅ Adapter applied: output shape {Y_pred_1024.shape}")
         
         # Normalize predictions to unit length (standard CLIP space)
-        Y_pred_norms = np.linalg.norm(Y_pred, axis=1, keepdims=True)
-        Y_pred_normalized = Y_pred / (Y_pred_norms + 1e-8)
+        def _norm(x: np.ndarray) -> np.ndarray:
+            return x / (np.linalg.norm(x, axis=1, keepdims=True) + 1e-8)
         
-        logger.info(f"✅ Predictions: {Y_pred_normalized.shape}")
+        Y_pred_normalized = _norm(Y_pred_for_sd)
+        
+        logger.info(f"✅ Predictions for SD: {Y_pred_normalized.shape}")
         logger.info(f"   Normalized to unit length (mean norm: {np.linalg.norm(Y_pred_normalized, axis=1).mean():.4f})")
         
-        # Compute cosine similarities for logging
-        cosine_scores = (Y_pred_normalized * Y_test).sum(axis=1)
-        mean_cosine = cosine_scores.mean()
-        logger.info(f"   Mean cosine (pred vs GT): {mean_cosine:.4f}")
+        # Safe cosine computation - compare in matching dimensions
+        cosine_scores = None
+        try:
+            if Y_test.shape[1] == Y_pred_512.shape[1]:
+                # GT and pred are both 512-D
+                cosine_scores = (_norm(Y_pred_512) * _norm(Y_test)).sum(axis=1)
+            elif clip_adapter is not None and Y_pred_1024 is not None and Y_test.shape[1] == Y_pred_1024.shape[1]:
+                # GT is 1024-D, compare with adapted predictions
+                cosine_scores = (_norm(Y_pred_1024) * _norm(Y_test)).sum(axis=1)
+            else:
+                logger.warning(
+                    f"Cosine skipped: GT dim={Y_test.shape[1]} "
+                    f"vs pred dims 512{' and 1024' if clip_adapter is not None else ''}"
+                )
+        except Exception as e:
+            logger.warning(f"Cosine computation failed but continuing: {e}")
+        
+        if cosine_scores is not None:
+            mean_cosine = float(np.mean(cosine_scores))
+            logger.info(f"   Mean cosine (pred vs GT): {mean_cosine:.4f}")
+        else:
+            mean_cosine = None
+            logger.info("   Cosine not computed (dimension mismatch).")
         
         # Create output directories
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -796,8 +822,8 @@ def main():
                 "clip_adapter": str(args.clip_adapter) if args.clip_adapter else None,
                 "clip_adapter_target_dim": adapter_target_dim if clip_adapter else None,
                 "n_test_samples": len(X_test),
-                "mean_cosine_similarity": float(mean_cosine),
-                "cosine_scores": cosine_scores.tolist(),
+                "mean_cosine_similarity": float(mean_cosine) if mean_cosine is not None else None,
+                "cosine_scores": cosine_scores.tolist() if cosine_scores is not None else None,
                 "test_nsd_ids": test_nsd_ids.tolist(),
             }
             
@@ -806,7 +832,8 @@ def main():
                 json.dump(results, f, indent=2)
             
             logger.info(f"✅ Test results saved to {results_file}")
-            logger.info(f"   Mean cosine similarity: {mean_cosine:.4f}")
+            if mean_cosine is not None:
+                logger.info(f"   Mean cosine similarity: {mean_cosine:.4f}")
             logger.info(f"   Test samples: {len(X_test)}")
             if clip_adapter:
                 logger.info(f"   CLIP Adapter: {adapter_meta.get('in_dim')}D → {adapter_target_dim}D")
@@ -886,11 +913,17 @@ def main():
         
         results = []
         
+        # Handle None cosine_scores for zip
+        cosine_scores_iter = cosine_scores if cosine_scores is not None else [None] * len(test_nsd_ids)
+        
         for i, (clip_pred, clip_gt, nsd_id, cosine) in enumerate(zip(
-            Y_pred_normalized, Y_test, test_nsd_ids, cosine_scores
+            Y_pred_normalized, Y_test, test_nsd_ids, cosine_scores_iter
         )):
             logger.info(f"\n[{i+1}/{len(test_nsd_ids)}] Generating image for NSD ID {nsd_id}...")
-            logger.info(f"  Cosine (pred vs GT): {cosine:.4f}")
+            if cosine is not None:
+                logger.info(f"  Cosine (pred vs GT): {cosine:.4f}")
+            else:
+                logger.info(f"  Cosine (pred vs GT): not computed")
             
             try:
                 # Generate image from predicted CLIP embedding
@@ -929,7 +962,7 @@ def main():
                 results.append({
                     "trial_id": i,
                     "nsdId": int(nsd_id),
-                    "cosine_pred_gt": float(cosine),
+                    "cosine_pred_gt": float(cosine) if cosine is not None else None,
                     "nn_nsdId": int(nn_nsd_id) if nn_nsd_id is not None else None,
                     "nn_cosine": float(nn_cosine) if nn_cosine is not None else None,
                     "image_path": str(img_path)
@@ -950,7 +983,7 @@ def main():
                 "guidance_scale": args.guidance,
                 "num_inference_steps": args.steps,
                 "n_generated": len(results),
-                "mean_cosine": float(mean_cosine),
+                "mean_cosine": float(mean_cosine) if mean_cosine is not None else None,
                 "results": results
             }, f, indent=2)
         

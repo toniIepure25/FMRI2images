@@ -1304,6 +1304,8 @@ format: "%(asctime)s [%(levelname)s] %(message)s"
 
 ```
 PY=python
+PREPROC_FLAG := $(if $(USE_PREPROC),--use-preproc,)
+PREPROC_DIR_FLAG := $(if $(PREPROC_DIR),--preproc-dir $(PREPROC_DIR),)
 
 .PHONY: setup index test demo sanity read-index check-index clean build-clip-cache check-headers clip-cache-small smoke-tests clean-logs help ridge repair-adapter
 
@@ -1334,6 +1336,12 @@ help:
 	@echo "  make recon-eval         - Generate + evaluate (512-D, one-click)"
 	@echo "  make recon-eval-adapter - Generate + evaluate (768/1024-D, one-click)"
 	@echo "  make compare-evals      - Aggregate multiple evaluations with bootstrap CIs"
+	@echo ""
+	@echo "Environment Variables:"
+	@echo "  USE_PREPROC=1                     - Enable preprocessing (auto-detected from checkpoint if not set)"
+	@echo "  PREPROC_DIR=<path>                - Override preprocessing directory (auto-discovered if not set)"
+	@echo "  MODEL=<model-id>                  - Override diffusion model (e.g., stabilityai/stable-diffusion-2-1)"
+	@echo "  LIMIT=<n>                         - Limit number of samples to process"
 	@echo ""
 	@echo "Diffusion Image Generation:"
 	@echo "  make download-sd        - Download Stable Diffusion model (one-time, ~5GB)"
@@ -1504,6 +1512,8 @@ recon-eval:
 		--ckpt $${CKPT:-checkpoints/mlp/subj01/mlp.pt} \
 		--clip-cache outputs/clip_cache/clip.parquet \
 		$${MODEL:+--model-id $$MODEL} \
+		$(PREPROC_FLAG) \
+		$(PREPROC_DIR_FLAG) \
 		--output-dir outputs/recon/$${SUBJECT:-subj01}/auto_no_adapter \
 		--report-dir outputs/reports/$${SUBJECT:-subj01} \
 		--limit $${LIMIT:-64} \
@@ -1522,6 +1532,8 @@ recon-eval-adapter:
 		--use-adapter \
 		--adapter $${ADAPTER:-checkpoints/clip_adapter/subj01/adapter.pt} \
 		--model-id $${MODEL:-stabilityai/stable-diffusion-2-1} \
+		$(PREPROC_FLAG) \
+		$(PREPROC_DIR_FLAG) \
 		--output-dir outputs/recon/$${SUBJECT:-subj01}/auto_with_adapter \
 		--report-dir outputs/reports/$${SUBJECT:-subj01} \
 		--limit $${LIMIT:-64} \
@@ -2308,6 +2320,12 @@ python3 src/fmri2img/scripts/test_orchestrator.py
 **Testing:** All smoke tests passed (5/5)
 
 **Documentation:** Complete with usage guide and examples
+
+```
+
+# pq
+
+```
 
 ```
 

@@ -117,3 +117,6 @@ checkpoints/
 *.npy
 *.npz
 /preproc/
+
+reports/
+recon/

@@ -45,6 +45,7 @@ from tqdm import tqdm
 from fmri2img.data.clip_cache import CLIPCache
 from fmri2img.io.s3 import HDF5Loader
 from fmri2img.io.nsd_layout import NSDLayout
+from fmri2img.io.image_loader import RobustImageLoader
 from fmri2img.utils.clip_utils import load_clip_model, load_clip_config, verify_embedding_dimension
 
 # Optional requests for COCO fallback
@@ -54,45 +55,49 @@ try:
 except ImportError:
     REQUESTS_AVAILABLE = False
 
-# Setup logging from config
-def setup_logging():
-    """Setup logging with timestamped file in outputs/logs/"""
-    import yaml
-    
-    # Load logging config
-    log_config_path = Path("configs/logging.yaml")
-    if log_config_path.exists():
-        with open(log_config_path, 'r') as f:
-            log_config = yaml.safe_load(f)
-        log_dir = Path(log_config.get('log_dir', 'outputs/logs'))
-        log_level = log_config.get('level', 'INFO')
-        log_format = log_config.get('format', '%(asctime)s [%(levelname)s] %(message)s')
-    else:
-        log_dir = Path('outputs/logs')
-        log_level = 'INFO'
-        log_format = '%(asctime)s [%(levelname)s] %(message)s'
-    
-    # Create log directory
-    log_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Create timestamped log file
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    log_file = log_dir / f'build_clip_cache_{timestamp}.log'
-    
-    # Configure logging
-    logging.basicConfig(
-        level=getattr(logging, log_level),
-        format=log_format,
-        handlers=[
-            logging.FileHandler(log_file),
-            logging.StreamHandler()
-        ]
-    )
-    
-    return logging.getLogger(__name__)
 
-log = setup_logging()
-log.info(f"Log file: {[h.baseFilename for h in log.handlers if isinstance(h, logging.FileHandler)][0]}")
+# Setup logging early (before any log.info() calls)
+log = logging.getLogger("build_clip_cache")
+log.setLevel(logging.INFO)
+if not log.handlers:
+    _sh = logging.StreamHandler(sys.stdout)
+    _sh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    log.addHandler(_sh)
+
+
+def configure_file_logging(log_file: Optional[str] = None) -> None:
+    """
+    Configure optional file logging.
+    
+    Args:
+        log_file: Optional path to log file. If None, log to stdout only.
+    """
+    if log_file:
+        log_path = Path(log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.FileHandler(log_path)
+        file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+        log.addHandler(file_handler)
+        log.info(f"Log file: {log_file}")
+    else:
+        log.info("Log file: none (stdout only)")
+
+
+def setup_logging(log_file: Optional[str] = None) -> logging.Logger:
+    """
+    Setup logging with stdout always, and optional file handler.
+    
+    DEPRECATED: Use configure_file_logging() instead.
+    This is kept for backward compatibility.
+    
+    Args:
+        log_file: Optional path to log file. If None, log to stdout only.
+        
+    Returns:
+        Configured logger instance
+    """
+    configure_file_logging(log_file)
+    return log
 
 
 def load_index(
@@ -433,19 +438,46 @@ Examples:
     parser.add_argument("--subject", type=str, default=None,
                         help="Subject filter (e.g., 'subj01')")
     parser.add_argument("--cache", type=str, default="outputs/clip_cache/clip.parquet",
-                        help="Path to CLIP cache parquet file")
+                        help="Path to CLIP cache parquet file (canonical output flag)")
+    parser.add_argument("--out", type=str, default=None,
+                        help="(Alias for --cache) Output path, for backward compatibility")
     parser.add_argument("--batch-size", "--batch", type=int, default=128, dest="batch_size",
                         help="Batch size for CLIP inference")
     parser.add_argument("--device", type=str, default="cuda",
                         help="Device for CLIP model (cuda/cpu)")
     parser.add_argument("--max-items", "--limit", type=int, default=None, dest="max_items",
                         help="Max items to process (for testing)")
+    parser.add_argument("--include-ids", action="store_true", default=True,
+                        help="Include nsd_id column in output (default: True)")
+    parser.add_argument("--log-file", type=str, default=None,
+                        help="Optional log file path (if not set, logs to stdout only)")
     
     # Legacy flags (no-ops, for backward compatibility)
     parser.add_argument("--use-hdf5", action="store_true",
                         help="(Deprecated, no-op) HDF5 is now default")
     
     args = parser.parse_args()
+    
+    # Handle --out as alias for --cache
+    if args.out:
+        if args.cache != "outputs/clip_cache/clip.parquet":  # Non-default cache was provided
+            # Both provided, --cache wins
+            cache_path = args.cache
+        else:
+            # Only --out provided
+            cache_path = args.out
+    else:
+        cache_path = args.cache
+    
+    # Configure file logging first (before any other log.info calls)
+    configure_file_logging(log_file=args.log_file)
+    
+    # Log --out alias usage
+    if args.out:
+        if args.cache != "outputs/clip_cache/clip.parquet":
+            log.info(f"Note: Both --out and --cache provided; using --cache={cache_path}")
+        else:
+            log.info(f"Note: --out is an alias for --cache; writing to {cache_path}")
     
     # Handle legacy --index flag
     if args.index:
@@ -457,18 +489,32 @@ Examples:
     if args.use_hdf5:
         log.warning("⚠️  --use-hdf5 is deprecated (HDF5 is now the default path)")
     
-    # Validate index source
+    # Resolve index source with improved default handling
     if not args.index_file and not args.index_root:
-        # Try default path
-        default_path = "data/indices/nsd_index/subject=subj01/index.parquet"
-        if Path(default_path).exists():
-            log.info(f"No index specified, using default: {default_path}")
-            args.index_file = default_path
+        # Compute default based on subject
+        subject = args.subject or "subj01"
+        default_index = Path("data/indices/nsd_index") / f"subject={subject}" / "index.parquet"
+        
+        if default_index.exists():
+            log.info(f"No index specified, using default: {default_index}")
+            args.index_file = str(default_index)
         else:
-            parser.print_help()
-            print("\n❌ Error: Must provide either --index-root or --index-file")
-            print(f"   (Default path {default_path} not found)")
+            log.error(f"NSD index not found at: {default_index}")
+            log.error(f"Hint: pass --index-file <.../index.parquet> or --index-root <data/indices/nsd_index>,")
+            log.error(f"      or generate the index first (e.g., make nsd-index SUBJECT={subject}).")
             sys.exit(1)
+    
+    # Log configuration
+    log.info("=" * 60)
+    log.info("CLIP Cache Build Configuration")
+    log.info("=" * 60)
+    log.info(f"Subject:     {args.subject or 'all'}")
+    log.info(f"Device:      {args.device}")
+    log.info(f"Cache path:  {cache_path}")
+    log.info(f"Batch size:  {args.batch_size}")
+    log.info(f"Limit:       {args.max_items or 'none'}")
+    log.info(f"Include IDs: {args.include_ids}")
+    log.info("=" * 60)
     
     # Load index
     try:
@@ -481,13 +527,18 @@ Examples:
         log.error(f"Failed to load index: {e}")
         sys.exit(1)
     
+    # Check if index is empty
+    if len(df) == 0:
+        log.warning("Index is empty after filtering. Nothing to process.")
+        sys.exit(1)
+    
     # Get unique nsdIds
     all_nsd_ids = df["nsdId"].unique().tolist()
     log.info(f"Found {len(all_nsd_ids)} unique nsdIds in index")
     
     # Initialize CLIP cache
-    log.info(f"Loading CLIP cache from {args.cache}")
-    clip_cache = CLIPCache(cache_path=args.cache)
+    log.info(f"Loading CLIP cache from {cache_path}")
+    clip_cache = CLIPCache(cache_path=cache_path)
     clip_cache.load()
     
     # Compute todo list (resume logic)
@@ -509,11 +560,19 @@ Examples:
     model, preprocess, clip_config = load_clip_model(device=args.device)
     log.info(f"CLIP model: {clip_config['model_name']} → {clip_config['embedding_dim']}-dim embeddings")
     
-    # Initialize loaders
-    hdf5_loader = HDF5Loader()
+    # Initialize robust image loader with fallback chain
     layout = NSDLayout()
-    hdf5_path = layout.stim_hdf5_path(full_url=True)
-    log.info(f"Will load images from: {hdf5_path}")
+    local_hdf5 = os.getenv('NSD_HDF5', 'cache/nsd_hdf5/nsd_stimuli.hdf5')
+    s3_hdf5 = layout.stim_hdf5_path(full_url=True)
+    
+    image_loader = RobustImageLoader(
+        local_hdf5_path=local_hdf5 if Path(local_hdf5).exists() else None,
+        s3_hdf5_path=s3_hdf5,
+        coco_cache_dir=".cache/coco",
+        enable_warnings=True
+    )
+    
+    log.info(f"Image load order: Local HDF5 → S3 HDF5 → COCO HTTP (with caching)")
     
     # Create lookup for rows by nsdId (handle multiple rows per nsdId)
     nsd_to_row = {}
@@ -530,7 +589,6 @@ Examples:
     
     total_processed = 0
     total_failed = 0
-    load_stats = {'hdf5': 0, 'coco_http': 0, 'failed': 0}  # Track loading sources
     
     for batch_idx in tqdm(range(num_batches), desc="Building CLIP cache"):
         start_idx = batch_idx * batch_size
@@ -549,7 +607,7 @@ Examples:
                     continue
                 
                 row = nsd_to_row[nsd_id]
-                img, _ = load_image(hdf5_loader, hdf5_path, layout, row, load_stats)
+                img = image_loader.load(row)
                 
                 if img is not None:
                     images.append(img)
@@ -571,11 +629,25 @@ Examples:
             # Verify dimension matches config
             verify_embedding_dimension(embeddings, config_path="configs/clip.yaml")
             
+            # Build cache rows with proper schema
+            if args.include_ids:
+                # Include nsd_id as int column + embedding as single list column
+                rows = pd.DataFrame({
+                    "nsd_id": [int(nid) for nid in valid_nsd_ids],
+                    "embedding": [emb.astype(np.float32).tolist() for emb in embeddings]
+                })
+            else:
+                # Only embedding column (backward compatibility)
+                rows = pd.DataFrame({
+                    "embedding": [emb.astype(np.float32).tolist() for emb in embeddings]
+                })
+            
+            # Also keep legacy "clip512" column name for CLIPCache compatibility
+            rows["clip512"] = rows.get("embedding", [emb.astype(np.float32).tolist() for emb in embeddings])
+            if args.include_ids and "nsd_id" in rows.columns:
+                rows["nsdId"] = rows["nsd_id"]  # Legacy column name
+            
             # Save to cache
-            rows = pd.DataFrame({
-                "nsdId": valid_nsd_ids,
-                "clip512": [emb.tolist() for emb in embeddings]
-            })
             clip_cache.save_rows(rows)
             
             total_processed += len(valid_nsd_ids)
@@ -583,6 +655,9 @@ Examples:
         except Exception as e:
             log.error(f"Failed to process batch {batch_idx}: {e}")
             continue
+    
+    # Get final loading stats
+    load_stats = image_loader.get_stats()
     
     # Final stats
     stats = clip_cache.stats()
@@ -592,9 +667,11 @@ Examples:
     log.info(f"  Newly processed: {total_processed} images")
     log.info(f"  Failed: {total_failed} images")
     log.info(f"  Image loading sources:")
-    log.info(f"    - HDF5: {load_stats['hdf5']} images")
-    log.info(f"    - COCO HTTP: {load_stats['coco_http']} images")
-    log.info(f"    - Failed: {load_stats['failed']} images")
+    log.info(f"    - Local HDF5: {load_stats.get('local_hdf5', 0)} images")
+    log.info(f"    - S3 HDF5: {load_stats.get('s3_hdf5', 0)} images")
+    log.info(f"    - COCO (cached): {load_stats.get('coco_cached', 0)} images")
+    log.info(f"    - COCO (HTTP): {load_stats.get('coco_http', 0)} images")
+    log.info(f"    - Failed: {load_stats.get('failed', 0)} images")
     log.info(f"  Cache location: {stats['path']}")
     log.info("=" * 60)
     
@@ -604,6 +681,38 @@ Examples:
             "CLIP cache is empty after processing! "
             "Check that images are accessible and CLIP model is working."
         )
+    
+    # Validate final schema
+    final_df = pd.read_parquet(cache_path)
+    log.info(f"Validating final schema at {cache_path}")
+    
+    # Ensure nsd_id exists (create alias from image_id if needed)
+    if "nsd_id" not in final_df.columns:
+        if "nsdId" in final_df.columns:
+            final_df["nsd_id"] = final_df["nsdId"]
+        elif "image_id" in final_df.columns:
+            log.info("Creating nsd_id alias from image_id column")
+            final_df["nsd_id"] = final_df["image_id"]
+        else:
+            log.warning("⚠️  Cache missing nsd_id column (compatibility issue)")
+    
+    # Ensure embedding exists
+    if "embedding" not in final_df.columns:
+        if "clip512" in final_df.columns:
+            log.info("Creating embedding alias from clip512 column")
+            final_df["embedding"] = final_df["clip512"]
+        else:
+            log.warning("⚠️  Cache missing embedding column")
+    
+    # Save if we added aliases
+    if "nsd_id" in final_df.columns or "embedding" in final_df.columns:
+        final_df.to_parquet(cache_path, index=False)
+    
+    log.info(f"✓ Wrote {len(final_df)} rows to {cache_path}")
+    if "nsd_id" in final_df.columns and "embedding" in final_df.columns:
+        log.info(f"  Schema: nsd_id (int), embedding (512-D float32 list)")
+    else:
+        log.info(f"  Columns: {list(final_df.columns)}")
 
 
 if __name__ == "__main__":

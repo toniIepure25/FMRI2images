@@ -250,7 +250,8 @@ def extract_features_and_targets(
 def setup_diffusion_pipeline(
     model_id: str,
     device: str,
-    dtype_str: str = "float16",
+    dtype_str: str = "float32",
+    scheduler_name: str = "dpm",
     fail_if_missing: bool = False
 ):
     """
@@ -264,13 +265,14 @@ def setup_diffusion_pipeline(
         model_id: HuggingFace model ID (e.g., "stabilityai/stable-diffusion-2-1")
         device: "cuda" or "cpu"
         dtype_str: "float16" or "float32"
+        scheduler_name: "dpm", "euler", "pndm", or "default"
         fail_if_missing: If True, fail fast if model not cached
     
     Returns:
         StableDiffusionPipeline configured for CLIP embedding injection
     """
     import torch
-    from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
+    from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler, EulerDiscreteScheduler, PNDMScheduler
     import time
     import threading
     
@@ -327,12 +329,15 @@ def setup_diffusion_pipeline(
         heartbeat_thread.start()
     
     # Determine dtype
-    if dtype_str == "float16" and device == "cuda" and torch.cuda.is_available():
-        dtype = torch.float16
+    dtype = torch.float32 if dtype_str == "float32" else torch.float16
+    
+    if dtype == torch.float16 and device == "cuda" and torch.cuda.is_available():
         logger.info("Using float16 precision (CUDA available)")
-    else:
+    elif dtype == torch.float16:
+        logger.warning("float16 requested but CUDA unavailable, falling back to float32")
         dtype = torch.float32
-        logger.info("Using float32 precision (CPU or CUDA unavailable)")
+    else:
+        logger.info("Using float32 precision")
     
     # Load pipeline (downloads if needed)
     try:
@@ -351,20 +356,30 @@ def setup_diffusion_pipeline(
             heartbeat_thread.join(timeout=1)
             logger.info("✅ Download complete!")
         
-        # Use DPMSolver++ for faster inference (fewer steps needed)
-        pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+        # Configure scheduler based on user choice
+        if scheduler_name == "dpm":
+            pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+            logger.info("✓ Scheduler: DPMSolverMultistep (fast, high quality)")
+        elif scheduler_name == "euler":
+            pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
+            logger.info("✓ Scheduler: EulerDiscrete")
+        elif scheduler_name == "pndm":
+            pipe.scheduler = PNDMScheduler.from_config(pipe.scheduler.config)
+            logger.info("✓ Scheduler: PNDM")
+        else:
+            # Keep default scheduler
+            logger.info(f"✓ Scheduler: {pipe.scheduler.__class__.__name__} (default)")
         
         # Move to device
         pipe = pipe.to(device)
         
-        # Enable memory optimizations if on CUDA
-        if device == "cuda" and torch.cuda.is_available():
-            try:
-                pipe.enable_attention_slicing()
-                pipe.enable_vae_slicing()
-                logger.info("✅ Enabled memory optimizations (attention slicing, VAE slicing)")
-            except Exception as e:
-                logger.warning(f"Could not enable memory optimizations: {e}")
+        # Enable memory optimizations (always safe, helps prevent OOM)
+        try:
+            pipe.enable_attention_slicing()
+            pipe.enable_vae_slicing()
+            logger.info("✅ Enabled memory optimizations (attention slicing, VAE slicing)")
+        except Exception as e:
+            logger.warning(f"Could not enable memory optimizations: {e}")
         
         logger.info(f"✅ Diffusion pipeline loaded on {device}")
         return pipe
@@ -377,24 +392,26 @@ def setup_diffusion_pipeline(
 def generate_image_from_clip_embedding(
     pipe,
     clip_embedding: np.ndarray,
-    guidance_scale: float = 7.5,
+    guidance_scale: float = 5.0,
     num_inference_steps: int = 50,
     seed: int = 42,
-    negative_prompt: str = "blurry, low quality, distorted"
+    negative_prompt: str = "blurry, low quality, distorted",
+    blend_alpha: float = 1.0
 ) -> "PIL.Image":
     """
-    Generate image from CLIP embedding using Stable Diffusion.
+    Generate image from CLIP embedding using Stable Diffusion with proper OpenCLIP conditioning.
     
-    This is the unCLIP-style conditioning: we directly inject the predicted
-    CLIP vector as the prompt embedding, bypassing text encoding.
+    For SD-2.1, this properly handles the (B, 77, 1024) sequence embedding shape and
+    blends the predicted 1024-D CLIP vector into the pooled embedding space.
     
     Args:
-        pipe: StableDiffusionPipeline
-        clip_embedding: CLIP vector (512,), L2-normalized
-        guidance_scale: Classifier-free guidance strength
+        pipe: StableDiffusionPipeline (SD-2.1 with OpenCLIP)
+        clip_embedding: CLIP vector (512,) or (1024,) from fMRI prediction
+        guidance_scale: Classifier-free guidance strength (default: 5.0, use 1.0 to disable CFG)
         num_inference_steps: Number of denoising steps
         seed: Random seed for reproducibility
         negative_prompt: Negative text prompt (optional)
+        blend_alpha: Blending weight for predicted embedding (1.0 = full replacement)
     
     Returns:
         Generated PIL Image
@@ -404,53 +421,241 @@ def generate_image_from_clip_embedding(
     # Set seed for reproducibility
     generator = torch.Generator(device=pipe.device).manual_seed(seed)
     
-    # Prepare CLIP embedding as prompt_embeds
-    # SD expects shape (batch_size, seq_len, hidden_dim)
-    # CLIP gives us (512,), we need to expand to (1, 77, 768) for SD 2.1
-    # Note: SD 2.1 uses OpenCLIP which has different dims than original CLIP
+    # Convert to torch tensor and move to device (keep float32 throughout)
+    pred_clip = torch.from_numpy(clip_embedding).float().to(pipe.device)
     
-    # Convert to torch tensor and move to device
-    clip_tensor = torch.from_numpy(clip_embedding).float().to(pipe.device)
+    # Ensure it's 1-D for a single sample
+    if pred_clip.dim() == 1:
+        pred_clip = pred_clip.unsqueeze(0)  # (1, D)
     
-    # Normalize to unit length (should already be normalized, but ensure)
-    clip_tensor = clip_tensor / torch.norm(clip_tensor, dim=0, keepdim=True)
+    batch_size = pred_clip.shape[0]
     
-    # For SD 2.1, we need to project CLIP ViT-B/32 (512D) to OpenCLIP ViT-H/14 (1024D)
-    # This is a limitation: different CLIP models have different dims
-    # Workaround: pad/project the embedding or use text as fallback
+    # Clean predicted embedding: remove NaN/Inf and normalize
+    pred_clip = torch.nan_to_num(pred_clip, nan=0.0, posinf=1.0, neginf=-1.0)
+    pred_clip = pred_clip / (pred_clip.norm(dim=-1, keepdim=True).clamp_min(1e-6))
     
-    # Simple approach: use text prompt as fallback with CLIP guidance
-    # More advanced: train a projection layer (future work)
+    # Log prediction stats
+    logger.info(f"📊 Predicted CLIP embedding stats:")
+    logger.info(f"   Shape: {pred_clip.shape}, Dtype: {pred_clip.dtype}")
+    logger.info(f"   Range: [{pred_clip.min().item():.4f}, {pred_clip.max().item():.4f}]")
+    logger.info(f"   Mean: {pred_clip.mean().item():.4f}, Norm: {pred_clip.norm(dim=-1).mean().item():.4f}")
+    logger.info(f"   First 3 values: {pred_clip[0, :3].tolist()}")
     
-    # For now, we'll use a generic prompt and modify the pipeline's attention
-    # This is a simplified unCLIP implementation
+    # Verify no NaN/Inf after cleaning
+    if not torch.isfinite(pred_clip).all():
+        logger.error("❌ Predicted embedding still contains non-finite values after cleaning!")
+        raise ValueError("Non-finite values in predicted CLIP embedding")
     
-    # Generate with generic prompt (CLIP embedding will influence via attention)
-    prompt = "a photograph"  # Generic prompt as fallback
+    # Get proper conditioning embeddings from the pipeline's text encoder
+    # This gives us the correct (B, 77, 1024) sequence shape for SD-2.1
+    with torch.no_grad():
+        # Get conditional embeddings (empty prompt gives us base structure)
+        prompt_list = [""] * batch_size
+        
+        # Use encode_prompt to get properly shaped embeddings
+        # For SD-2.1, this returns (prompt_embeds, negative_prompt_embeds) or similar
+        # The exact signature depends on diffusers version
+        try:
+            # Try modern diffusers API (>= 0.25)
+            prompt_embeds = pipe.encode_prompt(
+                prompt=prompt_list,
+                device=pipe.device,
+                num_images_per_prompt=1,
+                do_classifier_free_guidance=(guidance_scale > 1.0)
+            )
+            
+            # Handle different return formats
+            if isinstance(prompt_embeds, tuple):
+                if len(prompt_embeds) == 2:
+                    # (cond_embeds, uncond_embeds)
+                    cond_embeds, uncond_embeds = prompt_embeds
+                    pooled_embeds = None
+                elif len(prompt_embeds) == 4:
+                    # (cond_embeds, uncond_embeds, cond_pooled, uncond_pooled)
+                    cond_embeds, uncond_embeds, cond_pooled, uncond_pooled = prompt_embeds
+                    pooled_embeds = (cond_pooled, uncond_pooled)
+                else:
+                    # Fallback: use first element
+                    cond_embeds = prompt_embeds[0]
+                    uncond_embeds = None
+                    pooled_embeds = None
+            else:
+                cond_embeds = prompt_embeds
+                uncond_embeds = None
+                pooled_embeds = None
+                
+        except Exception as e:
+            logger.warning(f"encode_prompt failed ({e}), trying fallback encoding...")
+            # Fallback: manual encoding
+            text_inputs = pipe.tokenizer(
+                prompt_list,
+                padding="max_length",
+                max_length=pipe.tokenizer.model_max_length,
+                truncation=True,
+                return_tensors="pt"
+            ).to(pipe.device)
+            
+            cond_embeds = pipe.text_encoder(text_inputs.input_ids)[0]  # (B, 77, 1024)
+            uncond_embeds = None
+            pooled_embeds = None
+        
+        # Clean conditional embeddings
+        cond_embeds = torch.nan_to_num(cond_embeds, nan=0.0, posinf=1.0, neginf=-1.0)
+        
+        logger.info(f"✅ Got conditioning embeddings: shape={cond_embeds.shape}, dtype={cond_embeds.dtype}")
+        
+        # If we have pooled embeddings, blend our prediction into them
+        if pooled_embeds is not None and pred_clip.shape[1] == 1024:
+            cond_pooled, uncond_pooled = pooled_embeds
+            cond_pooled = torch.nan_to_num(cond_pooled, nan=0.0, posinf=1.0, neginf=-1.0)
+            uncond_pooled = torch.nan_to_num(uncond_pooled, nan=0.0, posinf=1.0, neginf=-1.0)
+            
+            # Normalize pooled embeddings
+            cond_pooled = cond_pooled / (cond_pooled.norm(dim=-1, keepdim=True).clamp_min(1e-6))
+            uncond_pooled = uncond_pooled / (uncond_pooled.norm(dim=-1, keepdim=True).clamp_min(1e-6))
+            
+            # Blend predicted embedding into conditional pooled
+            new_pooled = torch.nn.functional.normalize(
+                blend_alpha * pred_clip + (1 - blend_alpha) * cond_pooled,
+                dim=-1
+            )
+            pooled_embeds = (new_pooled, uncond_pooled)
+            logger.info(f"✅ Blended prediction into pooled embeddings (alpha={blend_alpha})")
+        
+        # For unconditional (negative prompt), always use encode_prompt with empty string
+        if guidance_scale > 1.0 and uncond_embeds is None:
+            try:
+                uncond_result = pipe.encode_prompt(
+                    prompt=[""] * batch_size,
+                    device=pipe.device,
+                    num_images_per_prompt=1,
+                    do_classifier_free_guidance=False
+                )
+                if isinstance(uncond_result, tuple):
+                    uncond_embeds = uncond_result[0]
+                else:
+                    uncond_embeds = uncond_result
+            except:
+                # Fallback: use zeros (less ideal)
+                uncond_embeds = torch.zeros_like(cond_embeds)
+            
+            uncond_embeds = torch.nan_to_num(uncond_embeds, nan=0.0, posinf=1.0, neginf=-1.0)
     
-    # Encode negative prompt
-    if negative_prompt:
-        negative_prompt_embeds = pipe._encode_prompt(
-            negative_prompt,
-            device=pipe.device,
-            num_images_per_prompt=1,
-            do_classifier_free_guidance=True,
-            negative_prompt=None
-        )
-    else:
-        negative_prompt_embeds = None
+    # Prepare latents
+    latents_shape = (batch_size, pipe.unet.config.in_channels, 
+                    pipe.unet.config.sample_size, pipe.unet.config.sample_size)
+    latents = torch.randn(latents_shape, generator=generator, device=pipe.device, dtype=torch.float32)
     
-    # Generate image
-    with torch.autocast(pipe.device.type if pipe.device.type != "cpu" else "cpu"):
-        output = pipe(
-            prompt=prompt,
-            guidance_scale=guidance_scale,
-            num_inference_steps=num_inference_steps,
-            generator=generator,
-            negative_prompt=negative_prompt if negative_prompt else None
-        )
+    # Safety check on initial latents
+    if not torch.isfinite(latents).all():
+        logger.error("❌ Initial latents contain non-finite values!")
+        raise ValueError("Non-finite initial latents")
     
-    return output.images[0]
+    logger.info(f"✅ Initialized latents: shape={latents.shape}, range=[{latents.min():.3f}, {latents.max():.3f}]")
+    
+    # Scale latents by scheduler's init noise sigma
+    latents = latents * pipe.scheduler.init_noise_sigma
+    
+    # Set timesteps
+    pipe.scheduler.set_timesteps(num_inference_steps, device=pipe.device)
+    timesteps = pipe.scheduler.timesteps
+    
+    # Denoising loop with CFG guards
+    logger.info(f"🎨 Starting denoising ({num_inference_steps} steps, guidance={guidance_scale})...")
+    
+    for i, t in enumerate(timesteps):
+        # Check latents health
+        if not torch.isfinite(latents).all():
+            logger.warning(f"⚠️  Non-finite latents at step {i}, clamping...")
+            latents = torch.nan_to_num(latents, nan=0.0, posinf=10.0, neginf=-10.0)
+            latents = latents.clamp(-10, 10)
+        
+        # Expand latents for CFG
+        if guidance_scale > 1.0:
+            latent_model_input = torch.cat([latents] * 2)
+        else:
+            latent_model_input = latents
+        
+        latent_model_input = pipe.scheduler.scale_model_input(latent_model_input, t)
+        
+        # Predict noise with UNet
+        with torch.no_grad():
+            # Prepare encoder hidden states for UNet
+            if guidance_scale > 1.0:
+                encoder_hidden_states = torch.cat([uncond_embeds, cond_embeds])
+            else:
+                encoder_hidden_states = cond_embeds
+            
+            # CFG guards: clean embeddings before UNet call
+            encoder_hidden_states = torch.nan_to_num(encoder_hidden_states, nan=0.0)
+            latent_model_input = torch.nan_to_num(latent_model_input, nan=0.0)
+            
+            noise_pred = pipe.unet(
+                latent_model_input,
+                t,
+                encoder_hidden_states=encoder_hidden_states
+            ).sample
+            
+            # CFG guards: clean noise prediction
+            noise_pred = torch.nan_to_num(noise_pred, nan=0.0)
+        
+        # Perform CFG
+        if guidance_scale > 1.0:
+            noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+            noise_pred_uncond = torch.nan_to_num(noise_pred_uncond, nan=0.0)
+            noise_pred_text = torch.nan_to_num(noise_pred_text, nan=0.0)
+            noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+        
+        # Scheduler step
+        latents = pipe.scheduler.step(noise_pred, t, latents).prev_sample
+        latents = torch.nan_to_num(latents, nan=0.0)
+        
+        # Log progress every 10 steps
+        if i % 10 == 0 or i == len(timesteps) - 1:
+            lat_min, lat_max = latents.min().item(), latents.max().item()
+            logger.info(f"   Step {i:3d}/{len(timesteps)}: latents=[{lat_min:6.3f}, {lat_max:6.3f}]")
+            
+            if not torch.isfinite(latents).all():
+                logger.error(f"❌ Non-finite latents detected at step {i}!")
+                logger.error(f"   NaN count: {torch.isnan(latents).sum()}")
+                logger.error(f"   Inf count: {torch.isinf(latents).sum()}")
+                raise ValueError(f"Non-finite latents at step {i}")
+    
+    # Decode latents to image
+    logger.info("🖼️  Decoding latents to image...")
+    latents = 1 / pipe.vae.config.scaling_factor * latents
+    
+    with torch.no_grad():
+        # Ensure VAE decode uses float32
+        image = pipe.vae.decode(latents.to(torch.float32)).sample
+        
+        # Safety: clean decoded image
+        image = torch.nan_to_num(image, nan=0.0, posinf=1.0, neginf=-1.0)
+        
+        # Check for non-finite values
+        if not torch.isfinite(image).all():
+            logger.warning("⚠️  Non-finite values in decoded image, cleaning...")
+            image = torch.nan_to_num(image, nan=0.0, posinf=1.0, neginf=-1.0)
+    
+    # Post-process: clamp to [-1, 1] and convert to [0, 1]
+    image = image.clamp(-1, 1)
+    image = (image + 1.0) / 2.0
+    
+    # Convert to PIL
+    image = image.cpu().permute(0, 2, 3, 1).numpy()
+    image = (image * 255).round().astype("uint8")
+    
+    # Check for valid uint8 range
+    if image.min() < 0 or image.max() > 255:
+        logger.warning(f"⚠️  Image values out of uint8 range: [{image.min()}, {image.max()}]")
+        image = image.clip(0, 255)
+    
+    from PIL import Image
+    pil_image = Image.fromarray(image[0])
+    
+    logger.info(f"✅ Generated image: size={pil_image.size}, mode={pil_image.mode}")
+    
+    return pil_image
 
 
 def create_comparison_grid(
@@ -551,10 +756,24 @@ def main():
                        help="Target CLIP dimension (768 for SD-1.5, 1024 for SD-2.1). "
                             "Auto-detected if not specified.")
     
-    parser.add_argument("--guidance", type=float, default=7.5,
-                       help="Classifier-free guidance scale")
+    # Diffusion generation parameters
+    parser.add_argument("--guidance", type=float, default=5.0,
+                       help="Classifier-free guidance scale (default: 5.0)")
     parser.add_argument("--steps", type=int, default=50,
                        help="Number of denoising steps")
+    parser.add_argument("--dtype", default="float32", choices=["float16", "float32"],
+                       help="Model precision (default: float32). Use float16 for faster inference on GPU.")
+    parser.add_argument("--scheduler", default="dpm", choices=["dpm", "euler", "pndm", "default"],
+                       help="Diffusion scheduler (default: dpm). Options: dpm=DPMSolverMultistep, "
+                            "euler=EulerDiscrete, pndm=PNDM, default=keep model's default")
+    parser.add_argument("--blend-alpha", type=float, default=1.0,
+                       help="Blending weight for predicted CLIP embedding (1.0=full replacement, 0.0=baseline)")
+    
+    # Debugging flags
+    parser.add_argument("--no-adapter", action="store_true",
+                       help="Bypass CLIP adapter even if --clip-adapter is provided (for debugging)")
+    parser.add_argument("--no-cfg", action="store_true",
+                       help="Disable classifier-free guidance (sets guidance=1.0)")
     
     # Evaluation
     parser.add_argument("--limit", type=int, help="Limit number of test samples")
@@ -566,8 +785,6 @@ def main():
     
     # System
     parser.add_argument("--device", default="cuda", help="Device (cuda or cpu)")
-    parser.add_argument("--dtype", default="float16", choices=["float16", "float32"],
-                       help="Model precision")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--test-mode", action="store_true",
                        help="Test mode: skip diffusion, only test encoder pipeline and save predictions")
@@ -589,6 +806,9 @@ def main():
         logger.info(f"Encoder: {args.encoder}")
         logger.info(f"Checkpoint: {args.ckpt}")
         logger.info(f"Diffusion model: {args.model_id}")
+        logger.info(f"Device: {args.device}")
+        logger.info(f"Dtype: {args.dtype}")
+        logger.info(f"Scheduler: {args.scheduler}")
         logger.info(f"Guidance scale: {args.guidance}")
         logger.info(f"Inference steps: {args.steps}")
         logger.info(f"Output directory: {output_dir}")
@@ -603,26 +823,57 @@ def main():
             args.device = "cpu"
             args.dtype = "float32"  # Force float32 on CPU
         
+        # Handle debugging flags
+        if args.no_cfg:
+            args.guidance = 1.0
+            logger.info("⚠️  CFG disabled (--no-cfg): guidance forced to 1.0")
+        
         # Load CLIP adapter if specified
         clip_adapter = None
         adapter_target_dim = None
-        if args.clip_adapter:
+        adapter_metadata = None
+        if args.clip_adapter and not args.no_adapter:
             logger.info(f"Loading CLIP adapter from {args.clip_adapter}")
-            clip_adapter, adapter_meta = load_adapter(args.clip_adapter, map_location=args.device)
-            clip_adapter = clip_adapter.to(args.device)
-            clip_adapter.eval()
-            
-            adapter_target_dim = adapter_meta.get("out_dim")
-            logger.info(f"✅ CLIP Adapter loaded: {adapter_meta.get('in_dim')}D → {adapter_target_dim}D")
-            
-            # Validate target dimension if specified
-            if args.clip_target_dim and args.clip_target_dim != adapter_target_dim:
-                logger.warning(f"WARNING: --clip-target-dim={args.clip_target_dim} but adapter outputs {adapter_target_dim}D")
-                logger.warning(f"Using adapter's dimension: {adapter_target_dim}D")
-            
-            args.clip_target_dim = adapter_target_dim
+            try:
+                clip_adapter, adapter_metadata = load_adapter(args.clip_adapter, map_location=args.device)
+                clip_adapter = clip_adapter.to(args.device)
+                clip_adapter.eval()
+                
+                # Get target dimension from metadata (prefer target_dim, fallback to out_dim)
+                adapter_target_dim = adapter_metadata.get("target_dim", adapter_metadata.get("out_dim"))
+                adapter_input_dim = adapter_metadata.get("input_dim", adapter_metadata.get("in_dim", 512))
+                adapter_model_id = adapter_metadata.get("model_id", "unknown")
+                
+                logger.info(f"✅ CLIP Adapter loaded: {adapter_input_dim}D → {adapter_target_dim}D")
+                logger.info(f"   Adapter metadata: model_id={adapter_model_id}, "
+                           f"subject={adapter_metadata.get('subject', 'unknown')}")
+                
+                # Validate target dimension if specified
+                if args.clip_target_dim and args.clip_target_dim != adapter_target_dim:
+                    logger.warning(f"⚠️  --clip-target-dim={args.clip_target_dim} but adapter outputs {adapter_target_dim}D")
+                    logger.warning(f"   Using adapter's dimension: {adapter_target_dim}D")
+                
+                # Check model_id consistency if --model-id was specified
+                if args.model_id and adapter_model_id != "unknown" and adapter_model_id != args.model_id:
+                    logger.warning(f"⚠️  Adapter was trained for {adapter_model_id} but using {args.model_id}")
+                    logger.warning(f"   This may cause dimension mismatches or degraded quality")
+                
+                args.clip_target_dim = adapter_target_dim
+                
+            except FileNotFoundError as e:
+                logger.error(f"❌ {e}")
+                sys.exit(1)
+            except Exception as e:
+                logger.error(f"❌ Failed to load adapter: {e}")
+                sys.exit(1)
         elif args.clip_target_dim:
-            logger.warning("--clip-target-dim specified but no --clip-adapter provided. Will be ignored.")
+            logger.warning("⚠️  --clip-target-dim specified but no --clip-adapter provided. Will be ignored.")
+        
+        # Handle --no-adapter flag
+        if args.no_adapter and args.clip_adapter:
+            logger.warning("⚠️  --no-adapter specified: bypassing CLIP adapter for debugging")
+            clip_adapter = None
+            adapter_target_dim = None
         
         # Log adapter status
         if clip_adapter:
@@ -769,8 +1020,22 @@ def main():
             with torch.no_grad():
                 Y_pred_tensor = torch.from_numpy(Y_pred_512).float().to(args.device)
                 Y_pred_1024 = clip_adapter(Y_pred_tensor).cpu().numpy()
+                
+                # NaN check after adapter
+                if not np.isfinite(Y_pred_1024).all():
+                    logger.error("=" * 80)
+                    logger.error("ERROR: Adapter output contains NaN or Inf values!")
+                    logger.error("=" * 80)
+                    logger.error(f"NaN count: {np.isnan(Y_pred_1024).sum()}")
+                    logger.error(f"Inf count: {np.isinf(Y_pred_1024).sum()}")
+                    logger.error(f"Input range: [{Y_pred_512.min():.4f}, {Y_pred_512.max():.4f}]")
+                    logger.error(f"Output range: [{np.nanmin(Y_pred_1024):.4f}, {np.nanmax(Y_pred_1024):.4f}]")
+                    logger.error("This will cause black images. Check adapter training and normalization.")
+                    raise ValueError("Adapter output has NaN/Inf values")
+                
             Y_pred_for_sd = Y_pred_1024
             logger.info(f"✅ Adapter applied: output shape {Y_pred_1024.shape}")
+            logger.info(f"   Output range: [{Y_pred_1024.min():.4f}, {Y_pred_1024.max():.4f}]")
         
         # Normalize predictions to unit length (standard CLIP space)
         def _norm(x: np.ndarray) -> np.ndarray:
@@ -778,8 +1043,18 @@ def main():
         
         Y_pred_normalized = _norm(Y_pred_for_sd)
         
+        # Final NaN check before generation
+        if not np.isfinite(Y_pred_normalized).all():
+            logger.error("=" * 80)
+            logger.error("ERROR: Normalized predictions contain NaN or Inf!")
+            logger.error("=" * 80)
+            logger.error(f"NaN count: {np.isnan(Y_pred_normalized).sum()}")
+            logger.error(f"Inf count: {np.isinf(Y_pred_normalized).sum()}")
+            raise ValueError("Normalized predictions have NaN/Inf values")
+        
         logger.info(f"✅ Predictions for SD: {Y_pred_normalized.shape}")
         logger.info(f"   Normalized to unit length (mean norm: {np.linalg.norm(Y_pred_normalized, axis=1).mean():.4f})")
+        logger.info(f"   Range: [{Y_pred_normalized.min():.4f}, {Y_pred_normalized.max():.4f}]")
         
         # Safe cosine computation - compare in matching dimensions
         cosine_scores = None
@@ -801,6 +1076,7 @@ def main():
         if cosine_scores is not None:
             mean_cosine = float(np.mean(cosine_scores))
             logger.info(f"   Mean cosine (pred vs GT): {mean_cosine:.4f}")
+            logger.info(f"   Cosine range: [{cosine_scores.min():.4f}, {cosine_scores.max():.4f}]")
         else:
             mean_cosine = None
             logger.info("   Cosine not computed (dimension mismatch).")
@@ -848,8 +1124,14 @@ def main():
             args.model_id,
             args.device,
             args.dtype,
+            args.scheduler,
             fail_if_missing=args.fail_if_missing_model
         )
+        
+        # Disable safety checker for debugging (prevents false positives on research images)
+        if hasattr(pipe, 'safety_checker') and pipe.safety_checker is not None:
+            logger.info("🔓 Disabling safety checker for research use...")
+            pipe.safety_checker = lambda images, clip_input: (images, [False] * len(images))
         
         images_dir = output_dir / "images"
         grids_dir = output_dir / "grids"
@@ -932,7 +1214,8 @@ def main():
                     clip_pred,
                     guidance_scale=args.guidance,
                     num_inference_steps=args.steps,
-                    seed=args.seed + i  # Different seed per sample
+                    seed=args.seed + i,  # Different seed per sample
+                    blend_alpha=args.blend_alpha
                 )
                 
                 # Save generated image
@@ -980,8 +1263,13 @@ def main():
                 "encoder": args.encoder,
                 "checkpoint": args.ckpt,
                 "diffusion_model": args.model_id,
+                "device": args.device,
+                "dtype": args.dtype,
+                "scheduler": args.scheduler,
                 "guidance_scale": args.guidance,
                 "num_inference_steps": args.steps,
+                "clip_adapter": args.clip_adapter,
+                "clip_adapter_target_dim": adapter_target_dim if clip_adapter else None,
                 "n_generated": len(results),
                 "mean_cosine": float(mean_cosine) if mean_cosine is not None else None,
                 "results": results
@@ -991,6 +1279,10 @@ def main():
         logger.info("DIFFUSION DECODING COMPLETE")
         logger.info("=" * 80)
         logger.info(f"Generated {len(results)} images")
+        logger.info(f"Device: {args.device}, Dtype: {args.dtype}, Scheduler: {args.scheduler}")
+        logger.info(f"Guidance: {args.guidance}, Steps: {args.steps}")
+        if mean_cosine is not None:
+            logger.info(f"Mean cosine similarity (pred vs GT): {mean_cosine:.4f}")
         logger.info(f"Output directory: {output_dir}")
         logger.info(f"Summary: {summary_path}")
         

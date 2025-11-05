@@ -13,18 +13,19 @@ Outputs:
 - Visualization grid (PNG)
 - Thesis-ready Markdown summary
 
-Usage:
-    # No adapter (512-D)
+Usage Examples:
+
+    # Basic: No adapter (512-D), matched gallery
     python scripts/run_reconstruct_and_eval.py \\
         --subject subj01 \\
         --encoder mlp \\
         --ckpt checkpoints/mlp/subj01/mlp.pt \\
         --clip-cache outputs/clip_cache/clip.parquet \\
-        --output-dir outputs/recon/subj01/auto \\
+        --output-dir outputs/recon/subj01/mlp_512d \\
         --report-dir outputs/reports/subj01 \\
         --limit 64
 
-    # With adapter (1024-D)
+    # With adapter (1024-D), test gallery
     python scripts/run_reconstruct_and_eval.py \\
         --subject subj01 \\
         --encoder mlp \\
@@ -33,9 +34,25 @@ Usage:
         --adapter checkpoints/clip_adapter/subj01/adapter.pt \\
         --model-id stabilityai/stable-diffusion-2-1 \\
         --clip-cache outputs/clip_cache/clip.parquet \\
-        --output-dir outputs/recon/subj01/auto_adapter \\
+        --output-dir outputs/recon/subj01/mlp_1024d \\
         --report-dir outputs/reports/subj01 \\
-        --limit 64
+        --gallery test \\
+        --image-source hdf5 \\
+        --limit 32
+        
+    # All galleries mode
+    python scripts/run_reconstruct_and_eval.py \\
+        --subject subj01 \\
+        --encoder mlp \\
+        --ckpt checkpoints/mlp/subj01/mlp.pt \\
+        --clip-cache outputs/clip_cache/clip.parquet \\
+        --output-dir outputs/recon/subj01/mlp_all \\
+        --report-dir outputs/reports/subj01 \\
+        --all-galleries \\
+        --limit 32
+
+Makefile Integration:
+    make reconstruct-and-eval SUBJ=subj01 ENCODER=mlp GALLERY=test
 """
 
 import argparse
@@ -44,7 +61,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 
 import torch
 
@@ -93,24 +110,30 @@ def check_sd_cache(model_id: str = "runwayml/stable-diffusion-v1-5") -> bool:
 
 def load_adapter_metadata(adapter_path: Path) -> Dict[str, Any]:
     """
-    Load adapter metadata to get target dimension.
+    Load adapter metadata to get target dimension using robust loader.
     
     Returns:
         Dictionary with 'target_dim' and other metadata.
     """
+    from fmri2img.models.clip_adapter import load_adapter
+    
     if not adapter_path.exists():
         raise FileNotFoundError(f"Adapter not found: {adapter_path}")
     
-    ckpt = torch.load(adapter_path, map_location="cpu")
-    
-    if "metadata" not in ckpt:
-        raise ValueError(f"Adapter missing metadata: {adapter_path}")
-    
-    metadata = ckpt["metadata"]
-    if "target_dim" not in metadata:
-        raise ValueError(f"Adapter metadata missing target_dim: {adapter_path}")
-    
-    return metadata
+    try:
+        _, metadata = load_adapter(str(adapter_path), map_location="cpu")
+        
+        # Get target_dim (prefer target_dim, fallback to out_dim)
+        target_dim = metadata.get("target_dim", metadata.get("out_dim"))
+        if target_dim is None:
+            raise ValueError(f"Adapter metadata missing target_dim: {adapter_path}")
+        
+        # Ensure it's in metadata
+        metadata["target_dim"] = target_dim
+        
+        return metadata
+    except Exception as e:
+        raise ValueError(f"Failed to load adapter metadata from {adapter_path}: {e}")
 
 
 def run_decode(
@@ -129,19 +152,38 @@ def run_decode(
     index_file: Optional[Path],
     preproc_enabled: bool,
     preproc_path: Optional[str],
-) -> int:
+) -> Tuple[int, Optional[int]]:
     """
     Run decode_diffusion.py to generate reconstructions.
     
     Returns:
-        Exit code (0 = success).
+        Tuple of (exit_code, detected_target_dim)
     """
     print_banner("Step 1/3: Generate Reconstructions")
     
     script_path = Path(__file__).parent / "decode_diffusion.py"
     if not script_path.exists():
         print(f"ERROR: decode_diffusion.py not found at {script_path}")
-        return 1
+        return 1, None
+    
+    # Auto-detect target_dim from adapter if using adapter
+    detected_target_dim = None
+    if use_adapter and adapter_path:
+        try:
+            metadata = load_adapter_metadata(adapter_path)
+            detected_target_dim = metadata["target_dim"]
+            print(f"   Auto-detected adapter target_dim: {detected_target_dim}D")
+            
+            # Override clip_target_dim if not explicitly set
+            if clip_target_dim is None:
+                clip_target_dim = detected_target_dim
+            elif clip_target_dim != detected_target_dim:
+                print(f"   ⚠️  WARNING: --clip-target-dim={clip_target_dim} but adapter uses {detected_target_dim}D")
+                print(f"   Using adapter's dimension: {detected_target_dim}D")
+                clip_target_dim = detected_target_dim
+        except Exception as e:
+            print(f"ERROR: Failed to load adapter metadata: {e}")
+            return 1, None
     
     # Build command
     cmd = [
@@ -166,10 +208,10 @@ def run_decode(
     if use_adapter:
         if not adapter_path:
             print("ERROR: --use-adapter requires --adapter")
-            return 1
+            return 1, None
         if not model_id:
             print("ERROR: --use-adapter requires --model-id")
-            return 1
+            return 1, None
         
         cmd.extend([
             "--clip-adapter", str(adapter_path),
@@ -193,10 +235,10 @@ def run_decode(
     
     if result.returncode != 0:
         print(f"\nERROR: decode_diffusion.py failed with exit code {result.returncode}")
-        return result.returncode
+        return result.returncode, None
     
     print(f"\n✓ Decoding complete: {output_dir}")
-    return 0
+    return 0, detected_target_dim
 
 
 def run_eval(
@@ -209,14 +251,22 @@ def run_eval(
     index_root: Optional[Path],
     index_file: Optional[Path],
     limit: int,
+    gallery: str,
+    image_source: str,
+    nsd_hdf5: Optional[Path],
 ) -> int:
     """
-    Run eval_reconstruction.py to evaluate generated images.
+    Run eval_reconstruction.py to evaluate generated images for a specific gallery.
     
+    Args:
+        gallery: Retrieval gallery type (matched, test, all)
+        image_source: Source for visualization images (auto, s3, png, hdf5)
+        nsd_hdf5: Optional path to NSD HDF5 file
+        
     Returns:
         Exit code (0 = success).
     """
-    print_banner("Step 2/3: Evaluate Reconstructions")
+    print_banner(f"Evaluate Reconstructions (gallery={gallery})")
     
     script_path = Path(__file__).parent / "eval_reconstruction.py"
     if not script_path.exists():
@@ -226,10 +276,10 @@ def run_eval(
     # Create report directory
     report_dir.mkdir(parents=True, exist_ok=True)
     
-    # Output paths
-    csv_path = report_dir / "recon_eval.csv"
-    json_path = report_dir / "recon_eval.json"
-    fig_path = report_dir / "recon_grid.png"
+    # Output paths with gallery suffix
+    csv_path = report_dir / f"recon_eval_{gallery}.csv"
+    json_path = report_dir / f"recon_eval_{gallery}.json"
+    fig_path = report_dir / f"recon_grid_{gallery}.png"
     
     # Build command
     cmd = [
@@ -242,6 +292,8 @@ def run_eval(
         "--out-json", str(json_path),
         "--out-fig", str(fig_path),
         "--limit", str(limit),
+        "--gallery", gallery,
+        "--image-source", image_source,
     ]
     
     # Add index specification
@@ -261,6 +313,10 @@ def run_eval(
             "--model-id", model_id,
         ])
     
+    # Add NSD HDF5 if provided
+    if nsd_hdf5:
+        cmd.extend(["--nsd-hdf5", str(nsd_hdf5)])
+    
     print("Command:", " ".join(cmd))
     print()
     
@@ -271,7 +327,7 @@ def run_eval(
         print(f"\nERROR: eval_reconstruction.py failed with exit code {result.returncode}")
         return result.returncode
     
-    print(f"\n✓ Evaluation complete: {report_dir}")
+    print(f"\n✓ Evaluation complete ({gallery}): {report_dir}")
     return 0
 
 
@@ -286,18 +342,22 @@ def create_markdown_summary(
     adapter_path: Optional[Path],
     recon_dir: Path,
     limit: int,
+    gallery: str = "matched",
 ) -> int:
     """
     Create thesis-ready Markdown summary from evaluation results.
     
+    Args:
+        gallery: Gallery type used for primary summary
+        
     Returns:
         Exit code (0 = success).
     """
     print_banner("Step 3/3: Generate Markdown Summary")
     
-    json_path = report_dir / "recon_eval.json"
-    csv_path = report_dir / "recon_eval.csv"
-    fig_path = report_dir / "recon_grid.png"
+    json_path = report_dir / f"recon_eval_{gallery}.json"
+    csv_path = report_dir / f"recon_eval_{gallery}.csv"
+    fig_path = report_dir / f"recon_grid_{gallery}.png"
     
     if not json_path.exists():
         print(f"ERROR: Evaluation JSON not found: {json_path}")
@@ -482,6 +542,20 @@ def main():
     parser.add_argument("--steps", type=int, default=50,
                         help="Diffusion steps (default: 50)")
     
+    # Retrieval gallery configuration
+    parser.add_argument("--gallery", type=str, default="matched",
+                        choices=["matched", "test", "all"],
+                        help="Retrieval gallery type (default: matched)")
+    parser.add_argument("--all-galleries", action="store_true",
+                        help="Run evaluation for all gallery types (matched, test, all)")
+    
+    # Image source configuration
+    parser.add_argument("--image-source", type=str, default="hdf5",
+                        choices=["hdf5", "files"],
+                        help="Source for visualization images: 'hdf5' (NSD HDF5 file) or 'files' (PNG/S3) (default: hdf5)")
+    parser.add_argument("--nsd-hdf5", type=Path,
+                        help="Path to NSD HDF5 file (optional, for HDF5 image source)")
+    
     # Adapter
     parser.add_argument("--use-adapter", action="store_true",
                         help="Use CLIP adapter for dimension alignment")
@@ -502,21 +576,82 @@ def main():
     
     args = parser.parse_args()
     
-    # Validation
-    if args.use_adapter and not args.adapter:
-        print("ERROR: --use-adapter requires --adapter")
-        return 1
+    # ============================================================================
+    # VALIDATION: Strict checks with actionable error messages
+    # ============================================================================
     
-    if args.use_adapter and not args.model_id:
-        print("ERROR: --use-adapter requires --model-id")
-        return 1
+    # Check adapter requirements
+    if args.use_adapter:
+        if not args.adapter:
+            print("=" * 80)
+            print("ERROR: --use-adapter requires --adapter PATH")
+            print("=" * 80)
+            print()
+            print("You must provide the path to a CLIP adapter checkpoint.")
+            print()
+            print("Example:")
+            print("  --use-adapter \\")
+            print("  --adapter checkpoints/clip_adapter/subj01/adapter.pt \\")
+            print("  --model-id stabilityai/stable-diffusion-2-1")
+            print()
+            return 1
+        
+        if not args.model_id:
+            print("=" * 80)
+            print("ERROR: --use-adapter requires --model-id MODEL_ID")
+            print("=" * 80)
+            print()
+            print("You must specify the diffusion model ID when using an adapter.")
+            print()
+            print("Common model IDs:")
+            print("  stabilityai/stable-diffusion-2-1")
+            print("  runwayml/stable-diffusion-v1-5")
+            print()
+            print("Example:")
+            print("  --use-adapter \\")
+            print("  --adapter checkpoints/clip_adapter/subj01/adapter.pt \\")
+            print("  --model-id stabilityai/stable-diffusion-2-1")
+            print()
+            return 1
+        
+        if not args.adapter.exists():
+            print("=" * 80)
+            print(f"ERROR: Adapter checkpoint not found")
+            print("=" * 80)
+            print()
+            print(f"Path: {args.adapter}")
+            print()
+            print("Solution:")
+            print("  1. Check the path is correct")
+            print("  2. Train an adapter first: make train-adapter SUBJ=subj01")
+            print()
+            return 1
     
+    # Check required files exist
     if not args.ckpt.exists():
-        print(f"ERROR: Encoder checkpoint not found: {args.ckpt}")
+        print("=" * 80)
+        print(f"ERROR: Encoder checkpoint not found")
+        print("=" * 80)
+        print()
+        print(f"Path: {args.ckpt}")
+        print()
+        print("Solution:")
+        print(f"  Train the {args.encoder} encoder first:")
+        print(f"    make train-{args.encoder} SUBJ={args.subject}")
+        print()
         return 1
     
     if not args.clip_cache.exists():
-        print(f"ERROR: CLIP cache not found: {args.clip_cache}")
+        print("=" * 80)
+        print(f"ERROR: CLIP cache not found")
+        print("=" * 80)
+        print()
+        print(f"Path: {args.clip_cache}")
+        print()
+        print("Solution:")
+        print("  Build the CLIP cache first:")
+        print("    make build-clip-cache")
+        print()
         return 1
     
     # Load encoder metadata to determine preprocessing requirements
@@ -617,21 +752,47 @@ def main():
     # Determine CLIP dimension for evaluation
     clip_dim = clip_target_dim if args.use_adapter else 512
     
-    # Print configuration
+    # Determine galleries to evaluate
+    if args.all_galleries:
+        galleries = ["matched", "test", "all"]
+        print(f"✓ Running all galleries: {', '.join(galleries)}")
+    else:
+        galleries = [args.gallery]
+        print(f"✓ Running single gallery: {args.gallery}")
+    
+    # Create output directories
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    args.report_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Print configuration banner
     print_banner("Reconstruct & Evaluate Workflow")
-    print(f"Subject:       {args.subject}")
-    print(f"Encoder:       {args.encoder}")
-    print(f"Checkpoint:    {args.ckpt}")
-    print(f"Adapter:       {'Yes' if args.use_adapter else 'No'}")
+    print("CONFIGURATION")
+    print("-" * 80)
+    print(f"  Subject:         {args.subject}")
+    print(f"  Encoder:         {args.encoder}")
+    print(f"  Checkpoint:      {args.ckpt.name}")
+    print()
+    print(f"  Adapter:         {'✓ ENABLED' if args.use_adapter else '✗ Disabled'}")
     if args.use_adapter:
-        print(f"  Path:        {args.adapter}")
-        print(f"  Model ID:    {args.model_id}")
-        print(f"  Target Dim:  {clip_target_dim}")
-    print(f"CLIP Space:    {clip_dim}-D")
-    print(f"Output Dir:    {args.output_dir}")
-    print(f"Report Dir:    {args.report_dir}")
-    print(f"Limit:         {args.limit}")
-    print(f"Steps:         {args.steps}")
+        print(f"    Path:          {args.adapter.name}")
+        print(f"    Model ID:      {args.model_id}")
+        print(f"    Target Dim:    {clip_target_dim}D")
+    print()
+    print(f"  CLIP Space:      {clip_dim}D ({('ViT-B/32' if clip_dim == 512 else f'{clip_target_dim}D target')})")
+    print(f"  Galleries:       {', '.join(galleries)}")
+    print(f"  Image Source:    {args.image_source}")
+    if args.nsd_hdf5:
+        print(f"  NSD HDF5:        {args.nsd_hdf5}")
+    print()
+    print(f"  Output Dir:      {args.output_dir}")
+    print(f"  Report Dir:      {args.report_dir}")
+    print(f"  Limit:           {args.limit} samples")
+    print(f"  Diffusion Steps: {args.steps}")
+    if args.index_root:
+        print(f"  Index Root:      {args.index_root}")
+    elif args.index_file:
+        print(f"  Index File:      {args.index_file}")
+    print("-" * 80)
     print()
     
     # Check SD cache with robust method
@@ -680,7 +841,7 @@ def main():
         print()
     
     # Step 1: Decode
-    exit_code = run_decode(
+    exit_code, detected_target_dim = run_decode(
         encoder=args.encoder,
         ckpt_path=args.ckpt,
         output_dir=args.output_dir,
@@ -701,23 +862,34 @@ def main():
     if exit_code != 0:
         return exit_code
     
-    # Step 2: Evaluate
-    exit_code = run_eval(
-        subject=args.subject,
-        recon_dir=args.output_dir,
-        clip_cache=args.clip_cache,
-        report_dir=args.report_dir,
-        use_adapter=args.use_adapter,
-        model_id=args.model_id,
-        index_root=args.index_root,
-        index_file=args.index_file,
-        limit=args.limit,
-    )
+    # Determine recon_dir (where images are actually stored)
+    recon_dir = args.output_dir / "images"
+    if not recon_dir.exists():
+        # Fallback: decode_diffusion.py might have written directly to output_dir
+        recon_dir = args.output_dir
     
-    if exit_code != 0:
-        return exit_code
+    # Step 2: Evaluate (loop over galleries)
+    for gallery in galleries:
+        exit_code = run_eval(
+            subject=args.subject,
+            recon_dir=recon_dir,
+            clip_cache=args.clip_cache,
+            report_dir=args.report_dir,
+            use_adapter=args.use_adapter,
+            model_id=args.model_id,
+            index_root=args.index_root,
+            index_file=args.index_file,
+            limit=args.limit,
+            gallery=gallery,
+            image_source=args.image_source,
+            nsd_hdf5=args.nsd_hdf5,
+        )
+        
+        if exit_code != 0:
+            return exit_code
     
-    # Step 3: Create Markdown summary
+    # Step 3: Create Markdown summary (use first gallery for backward compatibility)
+    primary_gallery = galleries[0]
     exit_code = create_markdown_summary(
         report_dir=args.report_dir,
         subject=args.subject,
@@ -727,19 +899,43 @@ def main():
         clip_dim=clip_dim,
         ckpt_path=args.ckpt,
         adapter_path=args.adapter,
-        recon_dir=args.output_dir,
+        recon_dir=recon_dir,
         limit=args.limit,
+        gallery=primary_gallery,
     )
     
     if exit_code != 0:
         return exit_code
     
     print(f"\n{'='*80}")
-    print("  ALL STEPS COMPLETE!")
+    print("  ✓ ALL STEPS COMPLETE!")
     print(f"{'='*80}\n")
-    print(f"📁 Images:  {args.output_dir}")
-    print(f"📊 Reports: {args.report_dir}")
-    print(f"📝 Summary: {args.report_dir}/recon_eval_summary.md")
+    print(f"📁 Generated Images:     {recon_dir}")
+    print(f"📊 Evaluation Reports:   {args.report_dir}")
+    print(f"📝 Markdown Summary:     {args.report_dir}/recon_eval_summary.md")
+    print()
+    print("Evaluation outputs per gallery:")
+    for gallery in galleries:
+        print(f"  • {gallery:8s} → CSV, JSON, PNG")
+    print()
+    
+    # BOLD NOTE about CLIP space
+    if args.use_adapter and detected_target_dim:
+        print("🔍 " + "=" * 76)
+        print(f"   NOTE: Evaluation performed in {detected_target_dim}D CLIP space")
+        print(f"         (matching generation with adapter)")
+        print("=" * 80)
+    else:
+        print("🔍 " + "=" * 76)
+        print(f"   NOTE: Evaluation performed in 512D CLIP space (ViT-B/32)")
+        print(f"         (no adapter used)")
+        print("=" * 80)
+    print()
+    
+    print("Next steps:")
+    print(f"  • View summary:    cat {args.report_dir}/recon_eval_summary.md")
+    print(f"  • View grid:       open {args.report_dir}/recon_grid_{galleries[0]}.png")
+    print(f"  • Compare evals:   python scripts/compare_evals.py --report-dir {args.report_dir}")
     print()
     
     return 0

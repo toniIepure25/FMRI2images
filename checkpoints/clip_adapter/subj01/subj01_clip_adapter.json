@@ -18,15 +18,15 @@
     "weight_decay": 0.0001,
     "mse_weight": 0.5,
     "batch_size": 256,
-    "best_epoch": 0
+    "best_epoch": 30
   },
   "validation_metrics": {
-    "best_cosine": -Infinity
+    "best_cosine": 0.1454128921031952
   },
   "test_metrics": {
-    "cosine": NaN,
-    "cosine_std": NaN,
-    "mse": 0.0009765625
+    "cosine": 0.3138236105442047,
+    "cosine_std": 0.0,
+    "mse": 0.001340188318863511
   },
-  "model_checkpoint": "checkpoints/clip_adapter/subj01/adapter_smoke.pt"
+  "model_checkpoint": "checkpoints/clip_adapter/subj01/adapter.pt"
 }

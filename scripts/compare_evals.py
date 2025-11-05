@@ -63,6 +63,41 @@ def discover_eval_jsons(
     return json_files
 
 
+def flatten_dict(
+    d: Dict,
+    parent_key: str = "",
+    sep: str = "_"
+) -> Dict:
+    """
+    Flatten nested dictionary one level deep.
+    
+    Converts nested dicts like {"a": {"b": 1, "c": 2}} to {"a_b": 1, "a_c": 2}.
+    Handles only depth-1 nesting to avoid issues with DataFrame creation.
+    
+    Args:
+        d: Dictionary to flatten
+        parent_key: Prefix for nested keys
+        sep: Separator between parent and child keys
+        
+    Returns:
+        Flattened dictionary with all scalar values
+    """
+    items = []
+    
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        
+        if isinstance(v, dict):
+            # Flatten one level
+            for nested_k, nested_v in v.items():
+                nested_key = f"{new_key}{sep}{nested_k}"
+                items.append((nested_key, nested_v))
+        else:
+            items.append((new_key, v))
+    
+    return dict(items)
+
+
 def load_per_sample_csv(json_path: Path) -> Optional[pd.DataFrame]:
     """
     Load per-sample CSV if available.
@@ -119,7 +154,10 @@ def compute_run_metrics(
     # Load JSON
     data = load_eval_json(json_path)
     
-    # Extract metadata
+    # Flatten nested dicts to avoid unhashable type errors in DataFrame
+    data = flatten_dict(data)
+    
+    # Extract metadata (using flattened keys)
     run_name = guess_run_name(json_path)
     clip_space = data.get("clip_space", "unknown")
     clip_dim = data.get("clip_dim", 512)
@@ -129,18 +167,16 @@ def compute_run_metrics(
     encoder = data.get("encoder", "unknown")
     steps = data.get("steps", None)
     
-    # Extract aggregate metrics from JSON
-    clipscore_data = data.get("clipscore", {})
-    retrieval_data = data.get("retrieval", {})
-    ranking_data = data.get("ranking", {})
-    
-    clipscore_mean = clipscore_data.get("mean", np.nan)
-    clipscore_std = clipscore_data.get("std", np.nan)
-    r1 = retrieval_data.get("R@1", np.nan)
-    r5 = retrieval_data.get("R@5", np.nan)
-    r10 = retrieval_data.get("R@10", np.nan)
-    mean_rank = ranking_data.get("mean_rank", np.nan)
-    mrr = ranking_data.get("mrr", np.nan)
+    # Extract aggregate metrics from flattened JSON
+    # Note: nested keys are now flattened with underscores
+    # e.g., "clipscore": {"mean": 0.5} -> "clipscore_mean": 0.5
+    clipscore_mean = data.get("clipscore_mean", np.nan)
+    clipscore_std = data.get("clipscore_std", np.nan)
+    r1 = data.get("retrieval_R@1", np.nan)
+    r5 = data.get("retrieval_R@5", np.nan)
+    r10 = data.get("retrieval_R@10", np.nan)
+    mean_rank = data.get("ranking_mean_rank", np.nan)
+    mrr = data.get("ranking_mrr", np.nan)
     
     # Try to load per-sample data for bootstrap
     csv_df = load_per_sample_csv(json_path)
@@ -165,6 +201,12 @@ def compute_run_metrics(
         "mean_rank": mean_rank,
         "mrr": mrr,
     }
+    
+    # Add flattened gallery metadata if present
+    # e.g., retrieval_gallery_type, retrieval_gallery_size, etc.
+    for key in data:
+        if key.startswith("retrieval_gallery_") or key.startswith("adapter_ablation_"):
+            result[key] = data[key]
     
     # Bootstrap CIs if per-sample data available
     if csv_df is not None and len(csv_df) > 0:
@@ -242,6 +284,32 @@ def compute_run_metrics(
     return result
 
 
+def sanitize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Sanitize DataFrame to prevent unhashable type errors.
+    
+    Converts dict/list columns to stable string representations.
+    
+    Args:
+        df: Input DataFrame
+        
+    Returns:
+        Sanitized DataFrame with all hashable values
+    """
+    df = df.copy()
+    
+    for col in df.columns:
+        # Check if column contains dicts or lists
+        sample_val = df[col].iloc[0] if len(df) > 0 else None
+        
+        if isinstance(sample_val, (dict, list)):
+            # Convert to stable JSON string
+            df[col] = df[col].apply(lambda x: json.dumps(x, sort_keys=True) if isinstance(x, (dict, list)) else x)
+            print(f"  Sanitized column '{col}' (dict/list → JSON string)")
+    
+    return df
+
+
 def create_comparison_dataframe(
     run_metrics: List[Dict]
 ) -> pd.DataFrame:
@@ -256,11 +324,30 @@ def create_comparison_dataframe(
     """
     df = pd.DataFrame(run_metrics)
     
+    # Sanitize to prevent unhashable type errors
+    df = sanitize_dataframe(df)
+    
     # Sort by: adapter (desc), clip_dim (desc), R@1 (desc)
-    df = df.sort_values(
-        by=["use_adapter", "clip_dim", "r1"],
-        ascending=[False, False, False]
-    )
+    # Check if sort columns exist
+    sort_cols = []
+    sort_orders = []
+    
+    if "use_adapter" in df.columns:
+        sort_cols.append("use_adapter")
+        sort_orders.append(False)
+    
+    if "clip_dim" in df.columns:
+        sort_cols.append("clip_dim")
+        sort_orders.append(False)
+    
+    if "r1" in df.columns:
+        sort_cols.append("r1")
+        sort_orders.append(False)
+    
+    if sort_cols:
+        df = df.sort_values(by=sort_cols, ascending=sort_orders)
+    else:
+        print("  Warning: No sort columns found, keeping original order")
     
     return df
 

@@ -534,7 +534,10 @@ def _downsample_embeddings(embeddings: np.ndarray, target_dim: int) -> np.ndarra
 
 def _load_adapter(subject: str, in_dim: int, out_dim: int, device: str):
     """
-    Load adapter checkpoint with dimension validation.
+    Load adapter checkpoint with dimension validation and metadata handling.
+    
+    Uses the robust load_adapter function that handles legacy checkpoints
+    and missing metadata gracefully.
     
     Args:
         subject: Subject ID
@@ -543,60 +546,45 @@ def _load_adapter(subject: str, in_dim: int, out_dim: int, device: str):
         device: Device to load on
     
     Returns:
-        Adapter model or None if load fails
+        Tuple of (adapter_model, metadata) or (None, None) if load fails
     """
+    from fmri2img.models.clip_adapter import load_adapter
+    
     adapter_path = Path(f"checkpoints/clip_adapter/{subject}/adapter.pt")
     
     if not adapter_path.exists():
         logger.warning(f"⚠️  Adapter not found: {adapter_path}")
-        return None
+        logger.warning(f"   Hint: Train an adapter first with scripts/train_clip_adapter.py")
+        return None, None
     
     try:
         logger.info(f"🔧 Loading adapter: {adapter_path}")
-        checkpoint = torch.load(adapter_path, map_location=device)
+        adapter, metadata = load_adapter(str(adapter_path), map_location=device)
+        adapter.eval()
         
-        # Handle different checkpoint formats
-        adapter = None
-        if isinstance(checkpoint, dict):
-            if 'model_state_dict' in checkpoint:
-                state_dict = checkpoint['model_state_dict']
-            elif 'state_dict' in checkpoint:
-                state_dict = checkpoint['state_dict']
-            else:
-                state_dict = checkpoint
-            
-            # Try to extract weight matrix and validate dimensions
-            weight_key = None
-            for key in state_dict.keys():
-                if 'weight' in key.lower() and len(state_dict[key].shape) == 2:
-                    weight_key = key
-                    break
-            
-            if weight_key:
-                weight = state_dict[weight_key]
-                # Check if dimensions match (weight can be out×in or in×out)
-                if weight.shape == (out_dim, in_dim):
-                    # Standard orientation: out×in
-                    adapter = {'weight': weight.to(device), 'bias': state_dict.get(weight_key.replace('weight', 'bias'), None)}
-                elif weight.shape == (in_dim, out_dim):
-                    # Transposed orientation: in×out
-                    adapter = {'weight': weight.t().to(device), 'bias': state_dict.get(weight_key.replace('weight', 'bias'), None)}
-                else:
-                    logger.warning(f"⚠️  Adapter dimension mismatch: expected ({out_dim}, {in_dim}) or ({in_dim}, {out_dim}), got {weight.shape}")
-                    return None
-                
-                if adapter['bias'] is not None:
-                    adapter['bias'] = adapter['bias'].to(device)
-        else:
-            # It's a model object
-            adapter = checkpoint
-            adapter.eval()
+        # Get dimensions from metadata (prefer target_dim/input_dim, fallback to out_dim/in_dim)
+        adapter_in_dim = metadata.get("input_dim", metadata.get("in_dim", 512))
+        adapter_out_dim = metadata.get("target_dim", metadata.get("out_dim", 1024))
         
-        return adapter
+        # Validate dimensions
+        if adapter_in_dim != in_dim:
+            logger.warning(f"⚠️  Adapter input dimension mismatch: expected {in_dim}D, got {adapter_in_dim}D")
+            logger.warning(f"   Using adapter's dimension: {adapter_in_dim}D")
         
+        if adapter_out_dim != out_dim:
+            logger.warning(f"⚠️  Adapter output dimension mismatch: expected {out_dim}D, got {adapter_out_dim}D")
+            logger.warning(f"   Using adapter's dimension: {adapter_out_dim}D")
+        
+        return adapter, metadata
+        
+    except FileNotFoundError as e:
+        logger.warning(f"❌ {e}")
+        return None, None
     except Exception as e:
         logger.warning(f"❌ Failed to load adapter: {e}")
-        return None
+        import traceback
+        traceback.print_exc()
+        return None, None
 
 
 def align_clip_spaces(
@@ -646,29 +634,31 @@ def align_clip_spaces(
     # Try to apply adapter if available
     adapter_applied = False
     if use_adapter:
-        adapter = _load_adapter(subject, gen_dim, gt_dim, device)
+        adapter, adapter_metadata = _load_adapter(subject, gen_dim, gt_dim, device)
         
         if adapter is not None:
             try:
+                # Get actual output dimension from metadata
+                adapter_out_dim = adapter_metadata.get("target_dim", adapter_metadata.get("out_dim", gt_dim))
+                
+                logger.info(f"🔧 Applying adapter: {gen_dim}D → {adapter_out_dim}D")
+                
                 gen_tensor = torch.tensor(gen_embeddings, dtype=torch.float32, device=device)
                 
-                if isinstance(adapter, dict):
-                    # Apply linear projection: y = xW^T + b
-                    with torch.no_grad():
-                        gen_embeddings = torch.mm(gen_tensor, adapter['weight'].t())
-                        if adapter['bias'] is not None:
-                            gen_embeddings = gen_embeddings + adapter['bias']
-                        gen_embeddings = gen_embeddings.cpu().numpy()
-                else:
-                    # It's a model object
-                    with torch.no_grad():
-                        gen_embeddings = adapter(gen_tensor).cpu().numpy()
+                # Apply adapter (it's a nn.Module)
+                with torch.no_grad():
+                    gen_embeddings = adapter(gen_tensor).cpu().numpy()
                 
                 logger.info(f"✅ Adapter applied: new shape={gen_embeddings.shape}")
                 adapter_applied = True
                 
                 # Update gen_dim after adapter application
                 gen_dim = gen_embeddings.shape[1]
+                
+                # Check if dimensions now match
+                if gen_dim != gt_dim:
+                    logger.warning(f"⚠️  Adapter output ({gen_dim}D) != ground truth ({gt_dim}D)")
+                    logger.warning(f"   Proceeding with adapter's dimension for evaluation")
                 
             except Exception as e:
                 logger.warning(f"❌ Adapter application failed: {e}")
@@ -1056,14 +1046,20 @@ def main():
     parser.add_argument("--config", default="configs/data.yaml",
                        help="Data config file")
     parser.add_argument("--image-source", choices=["auto", "s3", "png", "hdf5"], default="auto",
-                       help="Source for GT/NN visualization images (auto tries s3→png→hdf5)")
+                       help="Source for ground truth visualization images:\n"
+                            "  'auto' - try sources in order: S3 → PNG → HDF5\n"
+                            "  's3' - AWS S3 bucket (natural-scenes-dataset)\n"
+                            "  'png' - local PNG files\n"
+                            "  'hdf5' - NSD HDF5 file (fastest, requires --nsd-hdf5)")
     parser.add_argument("--nsd-hdf5", type=str, default=None,
-                       help="Override HDF5 path (default: NSD_HDF5 env or 'cache/nsd_hdf5/nsd_stimuli.hdf5')")
+                       help="Path to NSD HDF5 file (default: NSD_HDF5 env or 'cache/nsd_hdf5/nsd_stimuli.hdf5')")
     
     # Retrieval gallery
     parser.add_argument("--gallery", choices=["matched", "test", "all"], default="matched",
-                       help="Retrieval gallery: 'matched' (only GT of reconstructed images), "
-                            "'test' (all test split GTs), 'all' (train+val+test GTs)")
+                       help="Retrieval gallery type:\n"
+                            "  'matched' - only ground truth images from reconstructed samples (standard eval)\n"
+                            "  'test' - all test split ground truth images (harder)\n"
+                            "  'all' - train+val+test ground truth images (hardest, most realistic)")
     
     # Performance
     parser.add_argument("--faiss", action="store_true",
@@ -1094,9 +1090,12 @@ def main():
             logger.info(f"Loading index for {args.subject} from {args.index_root}")
             df = read_subject_index(args.index_root, args.subject)
         
-        if args.limit:
+        total_samples = len(df)
+        if args.limit and args.limit < total_samples:
             df = df.head(args.limit)
-            logger.info(f"Limited to {len(df)} samples")
+            logger.info(f"✓ Limiting evaluation: {len(df)} of {total_samples} samples (--limit={args.limit})")
+        else:
+            logger.info(f"✓ Evaluating {len(df)} samples")
         
         # Split data (same as training)
         import yaml

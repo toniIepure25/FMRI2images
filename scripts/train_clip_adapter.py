@@ -614,15 +614,44 @@ def main():
         logger.info(f"Cosine: {test_metrics['cosine']:.4f} ± {test_metrics['cosine_std']:.4f}")
         logger.info(f"MSE: {test_metrics['mse']:.4f}")
         
-        # Save adapter
+        # Save adapter with metadata
+        from datetime import datetime
+        
         output_path = Path(args.out)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
-        meta = {
+        # Get repo version from pyproject.toml
+        repo_version = "unknown"
+        try:
+            # Try Python 3.11+ tomllib
+            try:
+                import tomllib
+                pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+                if pyproject_path.exists():
+                    with open(pyproject_path, "rb") as f:
+                        pyproject = tomllib.load(f)
+                        repo_version = pyproject.get("project", {}).get("version", "unknown")
+            except ImportError:
+                # Fallback: simple regex parsing for version
+                pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+                if pyproject_path.exists():
+                    import re
+                    text = pyproject_path.read_text()
+                    match = re.search(r'version\s*=\s*"([^"]+)"', text)
+                    if match:
+                        repo_version = match.group(1)
+        except Exception:
+            pass
+        
+        # Build metadata with required fields
+        metadata = {
             "subject": args.subject,
             "model_id": args.model_id,
-            "in_dim": 512,
-            "out_dim": target_dim,
+            "input_dim": 512,          # fMRI→CLIP predicted dim (ViT-B/32)
+            "target_dim": target_dim,  # CLIP dim expected by diffusion model
+            "created_at": datetime.now().isoformat(),
+            "repo_version": repo_version,
+            # Additional training info
             "use_layernorm": args.use_layernorm,
             "best_epoch": best_epoch,
             "best_val_cosine": float(best_val_cosine),
@@ -633,8 +662,14 @@ def main():
             "mse_weight": args.mse_weight,
         }
         
-        final_adapter.save(str(output_path), meta)
+        final_adapter.save(str(output_path), metadata)
+        
+        # Log metadata confirmation
         logger.info(f"✅ Adapter saved to {output_path}")
+        logger.info(f"   Saved adapter with metadata: {{subject={metadata['subject']}, "
+                   f"model_id={metadata['model_id']}, input_dim={metadata['input_dim']}, "
+                   f"target_dim={metadata['target_dim']}, created_at={metadata['created_at']}, "
+                   f"repo_version={metadata['repo_version']}}}")
         
         # Save JSON report
         report = {

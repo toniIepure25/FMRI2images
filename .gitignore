@@ -22,3 +22,4 @@ codebase.md
 /preproc/
 
 *.npy
+*.pt

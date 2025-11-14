@@ -1,64 +1,154 @@
-# AI Digest Ignore File
-# This file specifies which files and directories should be ignored by npx ai-digest
+# ============================================================================
+# AI Digest Ignore File - PRODUCTION PIPELINE FOCUSED
+# ============================================================================
+# This file is optimized to include ONLY code relevant to run_production.sh
+# Perfect for generating codebase.md for ChatGPT to understand the pipeline
+# 
+# INCLUDED (Essential Pipeline Code):
+# - scripts/run_production.sh and its 9 dependent scripts
+# - configs/production_optimal.yaml and production_improved.yaml
+# - src/fmri2img/ package (models, data loaders, utils)
+# - Core documentation (README, setup files, key docs)
+#
+# EXCLUDED (Not Relevant):
+# - All data files, outputs, checkpoints, caches
+# - Test scripts, experimental code, old/deprecated scripts
+# - IDE configs, logs, temp files
+# ============================================================================
 
-# Virtual Environments & Dependencies
-.venv/
-venv/
-env/
-node_modules/
-package-lock.json
-yarn.lock
+# ============================================================================
+# 1. DATA & OUTPUTS (Exclude All - No Data in Codebase Context)
+# ============================================================================
+# Raw data directories
+cache/
+data/
+datasets/
+raw_data/
+processed_data/
+test_redirect_index/
 
-# Python Cache & Compiled Files
+# Generated outputs
+outputs/
+output/
+results/
+reports/
+recon/
+preproc/
+figures/
+plots/
+checkpoints/
+saved_models/
+models/
+weights/
+pretrained/
+
+# Subject-specific data
+*/subj01/*
+*/subj02/*
+*/subj03/*
+*/subj04/*
+*/subj05/*
+*/subj06/*
+*/subj07/*
+*/subj08/*
+
+# ============================================================================
+# 2. BINARY & DATA FILES (Exclude All Large/Binary Formats)
+# ============================================================================
+# Neuroimaging
+*.hdf5
+*.h5
+*.nii
+*.nii.gz
+*.mgz
+*.mgh
+
+# NumPy/Pandas
+*.npy
+*.npz
+*.parquet
+*.feather
+*.hdf
+
+# Images
+*.png
+*.jpg
+*.jpeg
+*.tiff
+*.tif
+*.gif
+*.bmp
+*.webp
+
+# Model weights
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.pkl
+*.pickle
+*.bin
+*.pb
+*.onnx
+
+# Large text data
+*.csv
+*.tsv
+*.json.gz
+*.jsonl
+*.jsonl.gz
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+*.gz
+*.bz2
+*.xz
+
+# ============================================================================
+# 3. PYTHON CACHE & BUILD ARTIFACTS (Standard Python Exclusions)
+# ============================================================================
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
 *.so
+*.egg
 *.egg-info/
+.eggs/
 build/
 dist/
+*.egg-info
+.pytest_cache/
+.mypy_cache/
 .tox/
 .coverage
-.pytest_cache/
+htmlcov/
 
-# Data Files & Caches
-.cache/
-cache/
-data/
-datasets/
-outputs/
-test_redirect_index/
-
-# Large data files
-*.hdf5
-*.nii.gz
-*.npy
-*.npz
-*.parquet
-*.csv
-*.tsv
-*.json.gz
-
-# Model Checkpoints & Weights
-checkpoints/
-models/
-weights/
-*.pth
-*.pt
-*.ckpt
-*.safetensors
-*.pkl
-
-# Environment & Secrets
+# ============================================================================
+# 4. ENVIRONMENT & SECRETS
+# ============================================================================
+.venv/
+venv/
+env/
+ENV/
+node_modules/
 .env
+.env.*
+!.env.example
 *.key
 *.pem
-config.json
+credentials.json
 secrets.json
 
-# IDE & Editor Files
+# ============================================================================
+# 5. IDE & OS FILES
+# ============================================================================
 .vscode/
 .idea/
 *.swp
@@ -66,57 +156,174 @@ secrets.json
 *~
 .DS_Store
 Thumbs.db
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
+Desktop.ini
 
-# Logs & Temporary Files
+# ============================================================================
+# 6. LOGS & TEMPORARY FILES
+# ============================================================================
 logs/
+log/
 *.log
+*.log.*
 tmp/
 temp/
 *.tmp
+*.temp
+*.bak
+*.backup
+*.old
 
-# Archives & Compressed Files
-*.zip
-*.tar.gz
-*.tar.bz2
-*.rar
-*.7z
+# ============================================================================
+# 7. EXCLUDE SPECIFIC SCRIPT CATEGORIES
+# ============================================================================
+# These scripts are NOT used by run_production.sh
 
-# Jupyter & Notebooks
-.ipynb_checkpoints/
+# Test scripts (not part of production pipeline)
+scripts/test_*.py
+scripts/*_test.py
+scripts/verify_*.py
+scripts/check_*.py
+scripts/repair_*.py
 
-# Git & Version Control
+# Experimental/development scripts
+scripts/ablate_*.py
+scripts/report_*.py
+scripts/plot_*.py
+scripts/summarize_*.py
+
+# Old/deprecated NSD-specific scripts (not used in production)
+scripts/nsd_*.py
+scripts/download_*.py
+scripts/reconstruct_nn.py
+scripts/run_reconstruct_and_eval.py
+
+# Development/debugging scripts
+scripts/smoke_*.py
+scripts/train_smoke.py
+scripts/test_roi.py
+scripts/test_clip_refactoring.py
+
+# ============================================================================
+# 8. EXCLUDE SPECIFIC CONFIGS (Keep Only Production Configs)
+# ============================================================================
+# Keep: configs/production_optimal.yaml
+# Keep: configs/production_improved.yaml
+
+# ============================================================================
+# 9. EXCLUDE NON-ESSENTIAL DOCUMENTATION
+# ============================================================================
+# Keep only the most important docs, exclude verbose/historical ones
+docs/ABLATION_SUMMARY.md
+docs/DIFFUSION_SUMMARY.md
+docs/SKLEARN_DEPENDENCY_FIX.md
+docs/PREVENTING_MODEL_DOWNLOAD_BLOCKING.md
+docs/REPORTING_RECONSTRUCTION.md
+docs/NSD_Dataset_Guide.md
+docs/SURGICAL_CHANGES_GUIDE.md
+CLEANUP_SUMMARY.md
+*.md
+# Keep these essential docs:
+# !README.md
+# !docs/ARCHITECTURE_IMPROVEMENTS.md
+# !docs/IMPROVEMENTS_READY.md
+# !docs/OPTIMAL_CONFIGURATION_GUIDE.md
+# !docs/MLP_IMPLEMENTATION.md
+# !docs/RIDGE_BASELINE.md
+# !docs/DIFFUSION_DECODER.md
+# !docs/PREPROCESSING_IMPLEMENTATION.md
+# !docs/GETTING_STARTED_DIFFUSION.md
+
+# ============================================================================
+# 10. GIT & VERSION CONTROL
+# ============================================================================
 .git/
 .gitignore
+.gitattributes
+*.orig
 
-# Documentation Builds
-docs/_build/
-docs/build/
+# ============================================================================
+# 11. JUPYTER CHECKPOINTS
+# ============================================================================
+.ipynb_checkpoints/
+*-checkpoint.ipynb
 
-# Test Files
-test_*.json
-*_test.json
-test_results/
-test_outputs/
-
-# Generated Documentation
-docs/
-
-# HuggingFace Cache
-.cache/huggingface/
-
-# Package Info
-fmri2img.egg-info/
+# ============================================================================
+# 12. CACHE DIRECTORIES
+# ============================================================================
+.cache/
+*_cache/
 clip_cache/
-/scripts/
-checkpoints/
-*.npy
-*.npz
-/preproc/
+embeddings/
+transformers_cache/
+diffusers_cache/
+.cache/huggingface/
+.cache/torch/
 
-reports/
-recon/
+# ============================================================================
+# SUMMARY OF WHAT'S INCLUDED
+# ============================================================================
+# ✅ INCLUDED (Perfect for ChatGPT Context):
+#
+# 1. CORE PIPELINE SCRIPT:
+#    - scripts/run_production.sh (main orchestrator)
+#
+# 2. PRODUCTION SCRIPTS (9 scripts called by run_production.sh):
+#    - scripts/build_full_index.py
+#    - scripts/build_clip_cache.py
+#    - scripts/train_mlp.py
+#    - scripts/build_target_clip_cache_robust.py
+#    - scripts/build_target_clip_cache.py (fallback)
+#    - scripts/train_clip_adapter.py
+#    - scripts/decode_diffusion.py
+#    - scripts/eval_reconstruction.py
+#    - scripts/compare_evals.py
+#
+# 3. CONFIGURATION FILES:
+#    - configs/production_optimal.yaml (main config - k=100 PCA)
+#    - configs/production_improved.yaml (alternative config)
+#
+# 4. SOURCE CODE (src/fmri2img/):
+#    - src/fmri2img/__init__.py
+#    - src/fmri2img/data/ (dataset loaders, preprocessing)
+#    - src/fmri2img/models/ (MLP, adapter, encoders)
+#    - src/fmri2img/eval/ (evaluation metrics)
+#    - src/fmri2img/io/ (I/O utilities)
+#    - src/fmri2img/utils/ (helper functions)
+#
+# 5. ESSENTIAL DOCUMENTATION:
+#    - README.md (project overview)
+#    - docs/ARCHITECTURE_IMPROVEMENTS.md (NEW - improvement ideas)
+#    - docs/IMPROVEMENTS_READY.md (NEW - ready to run guide)
+#    - docs/OPTIMAL_CONFIGURATION_GUIDE.md (configuration docs)
+#    - docs/MLP_IMPLEMENTATION.md (architecture details)
+#    - docs/DIFFUSION_DECODER.md (diffusion pipeline)
+#    - docs/PREPROCESSING_IMPLEMENTATION.md (preprocessing details)
+#    - docs/RIDGE_BASELINE.md (baseline comparison)
+#    - docs/GETTING_STARTED_DIFFUSION.md (setup guide)
+#
+# 6. SETUP FILES:
+#    - pyproject.toml (package config)
+#    - requirements.txt (dependencies)
+#    - Makefile (build commands)
+#    - setup.py/setup.cfg (if exists)
+#
+# ❌ EXCLUDED (Not Relevant for Understanding Pipeline):
+# - All data files (*.npy, *.parquet, *.hdf5, etc.)
+# - All output files (generated images, reports, checkpoints)
+# - All test/experimental/deprecated scripts
+# - IDE configs, logs, cache directories
+# - Binary files, archives, temporary files
+# - Old/unused configuration files
+#
+# ============================================================================
+# USAGE: Generate perfect codebase.md for ChatGPT
+# ============================================================================
+# Run: npx ai-digest
+# Output: codebase.md with ~50-100KB of essential pipeline code
+# Perfect for ChatGPT to understand:
+#   - Complete pipeline architecture
+#   - All production scripts and their dependencies
+#   - Configuration settings (k=100 PCA, MLP architecture, diffusion)
+#   - Source code for models, data loaders, utilities
+#   - Essential documentation and setup instructions
+# ============================================================================

@@ -153,14 +153,30 @@ def _try_load_hdf5(
         return images
     
     try:
-        from fmri2img.io.s3 import HDF5Loader
+        # Check for local HDF5 file first
+        local_hdf5 = None
+        env_path = os.getenv('NSD_HDF5')
+        if env_path and Path(env_path).exists():
+            local_hdf5 = Path(env_path)
+            logger.debug(f"Using local HDF5 from $NSD_HDF5: {local_hdf5}")
+        else:
+            default_path = Path("cache/nsd_hdf5/nsd_stimuli.hdf5")
+            if default_path.exists():
+                local_hdf5 = default_path
+                logger.debug(f"Using local HDF5 from default location: {local_hdf5}")
         
-        hdf5_path = layout.stim_hdf5_path()
-        logger.debug(f"Opening HDF5: {hdf5_path}")
+        # Use local file if available, otherwise fall back to S3
+        if local_hdf5:
+            logger.debug(f"Opening local HDF5: {local_hdf5}")
+            h5file = h5py.File(local_hdf5, 'r')
+        else:
+            from fmri2img.io.s3 import HDF5Loader
+            hdf5_path = layout.stim_hdf5_path()
+            logger.debug(f"Opening HDF5 from S3: {hdf5_path}")
+            hdf5_loader = HDF5Loader(s3_fs)
+            h5file = hdf5_loader.open(hdf5_path)
         
-        hdf5_loader = HDF5Loader(s3_fs)
-        
-        with hdf5_loader.open(hdf5_path) as h5file:
+        with h5file:
             if "imgBrick" not in h5file:
                 logger.warning("HDF5 file missing 'imgBrick' dataset")
                 return images

@@ -23,3 +23,8 @@ codebase.md
 
 *.npy
 *.pt
+*.pkl
+*.bak
+*.pt
+*.json
+*.parquet

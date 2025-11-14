@@ -167,41 +167,66 @@ def extract_features_and_targets(
     Y_list = []
     nsd_ids = []
     
+    # OPTIMIZATION: Group samples by beta_path to load each file only once
+    from collections import defaultdict
+    from tqdm import tqdm
+    
+    samples_by_file = defaultdict(list)
     for idx, row in df.iterrows():
+        beta_path = row["beta_path"]
+        samples_by_file[beta_path].append({
+            'beta_index': int(row["beta_index"]),
+            'nsdId': int(row["nsdId"]),
+            'row_idx': idx
+        })
+    
+    logger.info(f"Loading from {len(samples_by_file)} unique beta files")
+    
+    # Process each beta file once
+    for beta_path, samples in tqdm(samples_by_file.items(), desc=f"Loading {desc}"):
         try:
-            # Load fMRI volume
-            beta_path = row["beta_path"]
-            beta_index = int(row["beta_index"])
-            nsd_id = int(row["nsdId"])
-            
+            # Load the 4D beta file ONCE
+            logger.debug(f"Loading {beta_path} for {len(samples)} samples")
             img = nifti_loader.load(beta_path)
             data_4d = img.get_fdata()
-            vol = data_4d[..., beta_index].astype(np.float32)
             
-            # Apply preprocessing if available
-            if preprocessor and preprocessor.is_fitted_:
-                # T0: z-score (online)
-                vol_z = preprocessor.transform_T0(vol)
-                # T1 + T2: scaler + reliability mask + PCA
-                features = preprocessor.transform(vol_z)
-            else:
-                # No preprocessing: flatten
-                features = vol.flatten()
-            
-            # Get CLIP embedding
-            clip_dict = clip_cache.get([nsd_id])
-            if nsd_id not in clip_dict:
-                logger.warning(f"CLIP embedding missing for nsdId={nsd_id}, skipping")
-                continue
-            
-            clip_emb = clip_dict[nsd_id]  # Already L2-normalized
-            
-            X_list.append(features)
-            Y_list.append(clip_emb)
-            nsd_ids.append(nsd_id)
+            # Extract all volumes needed from this file
+            for sample in samples:
+                try:
+                    beta_index = sample['beta_index']
+                    nsd_id = sample['nsdId']
+                    
+                    # Extract single volume
+                    vol = data_4d[..., beta_index].astype(np.float32)
+                    
+                    # Apply preprocessing if available
+                    if preprocessor and preprocessor.is_fitted_:
+                        # T0: z-score (online)
+                        vol_z = preprocessor.transform_T0(vol)
+                        # T1 + T2: scaler + reliability mask + PCA
+                        features = preprocessor.transform(vol_z)
+                    else:
+                        # No preprocessing: flatten
+                        features = vol.flatten()
+                    
+                    # Get CLIP embedding
+                    clip_dict = clip_cache.get([nsd_id])
+                    if nsd_id not in clip_dict:
+                        logger.warning(f"CLIP embedding missing for nsdId={nsd_id}, skipping")
+                        continue
+                    
+                    clip_emb = clip_dict[nsd_id]  # Already L2-normalized
+                    
+                    X_list.append(features)
+                    Y_list.append(clip_emb)
+                    nsd_ids.append(nsd_id)
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to process sample nsdId={nsd_id}, beta_index={beta_index}: {e}")
+                    continue
             
         except Exception as e:
-            logger.warning(f"Failed to process row {idx}: {e}")
+            logger.warning(f"Failed to load beta file {beta_path}: {e}")
             continue
     
     if len(X_list) == 0:

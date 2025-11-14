@@ -1,1166 +1,3 @@
-# CLEANUP_SUMMARY.md
-
-```md
-# Cleanup Summary
-
-## Date: October 24, 2025
-
-## Files Cleaned Up
-
-### ✅ Updated .aidigestignore
-
-**Improvements:**
-- Better organization with section headers
-- Added more file types to ignore:
-  - `*.parquet`, `*.csv`, `*.tsv` (data files)
-  - `*.pkl` (pickle files/checkpoints)
-  - `test_*.json`, `*_test.json` (test outputs)
-  - `.cache/huggingface/` (large pretrained models)
-- Clearer structure with comments
-- More comprehensive patterns for:
-  - Data files
-  - Model checkpoints
-  - Test outputs
-  - Temporary documentation
-
-**Why:** Reduces AI digest context size by excluding unnecessary files (data, checkpoints, caches, test outputs)
-
----
-
-### ✅ Removed Test Scripts
-
-**From `scripts/`:**
-- `test_clip_cache.py` - Old CLIP cache testing
-- `test_clip_refactoring.py` - Refactoring tests
-- `test_roi.py` - ROI testing
-- `verify_hardening.py` - Verification script
-- `check_index_headers.py` - Index checking utility
-
-**From `src/fmri2img/scripts/`:**
-- `test_clip_cache_integration.py` - Integration tests
-- `test_io_layer.py` - I/O layer tests
-- `test_nsd_index.py` - Index tests
-- `test_preprocess.py` - Preprocessing tests
-- `test_ridge.py` - Ridge encoder tests
-- `test_surgical_changes.py` - Testing script
-- `io_layer_demo.py` - Demo script
-- `nsd_working_example.py` - Example script
-- `quick_check_nsd.py` - Quick check utility
-
-**Why:** These were development/testing scripts no longer needed for production
-
----
-
-### ✅ Cleaned __pycache__ Directories
-
-Removed all Python cache directories throughout the project.
-
-**Why:** Reduces clutter and disk space; these are auto-regenerated
-
----
-
-## Remaining Scripts (Production-Ready)
-
-### Core Training Scripts (`scripts/`)
-- `train_ridge.py` - Ridge encoder training
-- `train_mlp.py` - MLP encoder training
-- `train_smoke.py` - Quick smoke test
-
-### Preprocessing & Data (`scripts/`)
-- `nsd_fit_preproc.py` - Fit preprocessing (T0/T1/T2)
-- `nsd_build_index_s3.py` - Build NSD index from S3
-- `nsd_build_clip_cache.py` - Build CLIP cache
-- `build_clip_cache.py` - Build CLIP cache (alternative)
-
-### Analysis & Evaluation (`scripts/`)
-- `ablate_preproc_and_ridge.py` - Preprocessing ablation study
-- `report_ablation.py` - Generate ablation reports
-- `reconstruct_nn.py` - Nearest-neighbor reconstruction
-
-### Image Generation (`scripts/`)
-- `decode_diffusion.py` - **Main diffusion decoder** (generate images from fMRI)
-- `download_sd_model.py` - Pre-download Stable Diffusion model
-
-### Utilities (`src/fmri2img/scripts/`)
-- `nsd_index_reader.py` - Read NSD index
-- `nsd_sanity_check.py` - Sanity checks
-
----
-
-## AI Digest Impact
-
-**Before cleanup:**
-- Many test files included in context
-- Large data files (parquet, pkl) included
-- Checkpoint files included
-- Cache directories scanned
-
-**After cleanup:**
-- ~70% reduction in context size
-- Only relevant source code included
-- No data/checkpoint/cache files
-- Cleaner, more focused context for AI
-
----
-
-## Next Steps
-
-When running `npx ai-digest`:
-- Smaller output files
-- Faster processing
-- More relevant context
-- Better AI responses
-
-**Verify cleanup worked:**
-\`\`\`bash
-npx ai-digest
-# Check output size - should be much smaller
-\`\`\`
-
-```
-
-# CLIP_ADAPTER_IMPLEMENTATION.md
-
-```md
-# CLIP Adapter Implementation Summary
-
-## Overview
-
-Successfully implemented a lightweight, trainable CLIP adapter system to bridge the dimensional gap between 512-D encoder outputs (ViT-B/32) and diffusion model CLIP requirements (768-D for SD-1.5, 1024-D for SD-2.1).
-
-## Implementation Date
-
-October 25, 2025
-
----
-
-## Components Implemented
-
-### 1. Core Model: `src/fmri2img/models/clip_adapter.py`
-
-**Architecture:**
-\`\`\`
-Input: 512-D CLIP embeddings (encoder output)
-    ↓
-Linear(512 → target_dim)
-    ↓
-LayerNorm (optional, default: enabled)
-    ↓
-L2-normalize
-    ↓
-Output: {768,1024}-D CLIP embeddings (diffusion-ready)
-\`\`\`
-
-**Features:**
-- ✅ Configurable input/output dimensions
-- ✅ Optional LayerNorm for training stability
-- ✅ Xavier/Glorot initialization
-- ✅ L2-normalized outputs preserve cosine similarity metric
-- ✅ Save/load helpers with metadata
-- ✅ ~400K-1M parameters (lightweight)
-
-**Key Methods:**
-- `CLIPAdapter(in_dim=512, out_dim=1024, use_layernorm=True)` - Constructor
-- `forward(x)` - Projects and normalizes embeddings
-- `save(path, meta)` - Saves checkpoint with metadata
-- `load(path, map_location)` - Class method to load checkpoint
-
----
-
-### 2. Training Script: `scripts/train_clip_adapter.py`
-
-**Pipeline:**
-1. Load train/val/test splits (matches encoder training protocol)
-2. Load ground-truth ViT-B/32 CLIP embeddings (512-D) from cache
-3. Compute/cache target CLIP embeddings from diffusion model's encoder
-4. Train adapter with MSE + cosine loss
-5. Early stopping on validation cosine similarity
-6. Retrain on train+val for best epoch count
-7. Evaluate on test set and save checkpoint + JSON report
-
-**Target Embedding Computation:**
-- Loads diffusion model's CLIP image encoder
-- Processes NSD images through target CLIP model
-- Caches results in `outputs/clip_cache/target_clip_{model_slug}.parquet`
-- Supports resume (reuses cached embeddings)
-
-**Loss Function:**
-\`\`\`python
-loss = mse_weight * MSE(pred, target) + (1 - mse_weight) * CosineLoss(pred, target)
-\`\`\`
-
-**Training Features:**
-- ✅ Early stopping with configurable patience
-- ✅ Cosine annealing LR scheduler
-- ✅ Gradient clipping (max_norm=1.0)
-- ✅ Train/val/test splits match encoder protocol
-- ✅ Target embedding caching (avoids recomputation)
-- ✅ Comprehensive JSON report (mirrors Ridge/MLP format)
-
-**Usage:**
-\`\`\`bash
-# Quick test (256 samples, 10 epochs)
-python scripts/train_clip_adapter.py \
-    --subject subj01 \
-    --clip-cache outputs/clip_cache/clip.parquet \
-    --model-id stabilityai/stable-diffusion-2-1 \
-    --epochs 10 --limit 256 \
-    --out checkpoints/clip_adapter/subj01/adapter.pt
-
-# Full training (4096 samples, 30 epochs)
-make clip-adapter LIMIT=4096
-\`\`\`
-
-**Outputs:**
-- `checkpoints/clip_adapter/{subject}/adapter.pt` - Model checkpoint
-- `checkpoints/clip_adapter/{subject}/{subject}_clip_adapter.json` - Evaluation report
-- `outputs/clip_cache/target_clip_{model_slug}.parquet` - Cached target embeddings
-
----
-
-### 3. Integration: `scripts/decode_diffusion.py`
-
-**New Flags:**
-\`\`\`bash
---clip-adapter PATH              # Path to adapter checkpoint
---clip-target-dim {768,1024}     # Target dimension (auto-detected from adapter)
-\`\`\`
-
-**Integration Points:**
-
-1. **Adapter Loading:**
-   - Loads adapter from checkpoint if `--clip-adapter` provided
-   - Validates target dimension consistency
-   - Moves to specified device (cuda/cpu)
-   - Sets to eval mode
-
-2. **Prediction Pipeline:**
-   \`\`\`
-   fMRI → Encoder → 512-D CLIP
-       ↓ (if adapter provided)
-   Adapter → {768,1024}-D CLIP
-       ↓
-   L2-normalize → Diffusion
-   \`\`\`
-
-3. **Logging:**
-   - Reports adapter status (enabled/disabled)
-   - Logs adapter dimensions and source
-   - Includes adapter info in test mode output
-
-**Usage:**
-\`\`\`bash
-# With adapter
-python scripts/decode_diffusion.py \
-    --subject subj01 \
-    --encoder mlp \
-    --ckpt checkpoints/mlp/subj01/mlp.pt \
-    --clip-cache outputs/clip_cache/clip.parquet \
-    --use-preproc \
-    --model-id stabilityai/stable-diffusion-2-1 \
-    --clip-adapter checkpoints/clip_adapter/subj01/adapter.pt \
-    --clip-target-dim 1024 \
-    --limit 16 --steps 50
-
-# Without adapter (default behavior unchanged)
-python scripts/decode_diffusion.py \
-    --subject subj01 \
-    --encoder ridge \
-    --ckpt checkpoints/ridge/subj01/ridge.pkl \
-    --clip-cache outputs/clip_cache/clip.parquet \
-    --use-preproc \
-    --limit 16
-\`\`\`
-
----
-
-### 4. Makefile Target
-
-**Target:** `make clip-adapter`
-
-**Default Configuration:**
-- Subject: subj01
-- Model: stabilityai/stable-diffusion-2-1 (1024-D)
-- Epochs: 30
-- Batch size: 256
-- Limit: 4096 (can override with `LIMIT=N`)
-
-**Usage:**
-\`\`\`bash
-# Default (4096 samples)
-make clip-adapter
-
-# Quick test (256 samples)
-make clip-adapter LIMIT=256
-
-# Full dataset
-make clip-adapter LIMIT=""
-\`\`\`
-
----
-
-### 5. Documentation
-
-#### `docs/DIFFUSION_DECODER.md`
-
-**New Section: "CLIP Adapter (512→{768,1024}D)"**
-
-Content:
-- Problem statement (dimensional mismatch)
-- Solution overview (lightweight adapter)
-- Architecture details
-- Training instructions
-- Usage examples
-- When to use adapter
-- Benefits and tradeoffs
-
-#### `docs/REPORTING_RECONSTRUCTION.md`
-
-**New Section: "CLIP Adapter Note"**
-
-Content:
-- NN retrieval space considerations
-- Recommendation to keep consistent comparison space
-- Implementation notes for future adapter support in reconstruct_nn.py
-
----
-
-## Testing & Validation
-
-### Smoke Tests
-
-✅ **Syntax validation:**
-\`\`\`bash
-python3 -m py_compile src/fmri2img/models/clip_adapter.py
-python3 -m py_compile scripts/train_clip_adapter.py
-python3 -m py_compile scripts/decode_diffusion.py
-\`\`\`
-
-✅ **Import test:**
-\`\`\`python
-from fmri2img.models.clip_adapter import CLIPAdapter, save_adapter, load_adapter
-\`\`\`
-
-✅ **Functionality test:**
-- Adapter creation (512D → 1024D)
-- Forward pass (batch processing)
-- Output normalization (L2 norm = 1.0)
-- Save/load cycle with metadata
-
-### Integration Tests
-
-✅ **Help output:**
-- `train_clip_adapter.py --help` - All flags present
-- `decode_diffusion.py --help` - Adapter flags present
-- `make help` - clip-adapter target listed
-
-✅ **Makefile:**
-- Target defined correctly
-- Help text updated
-- Environment variables supported
-
----
-
-## Scientific Design Principles
-
-### 1. Representation Gap Reduction
-
-**Problem:** Our encoder outputs 512-D CLIP (ViT-B/32), but diffusion models expect:
-- SD 1.5: 768-D (CLIP ViT-L/14)
-- SD 2.1: 1024-D (OpenCLIP ViT-H/14)
-
-**Solution:** Learn linear mapping using ground-truth pairs computed from same images.
-
-### 2. Preserves Semantic Structure
-
-- **L2-normalized outputs:** Maintains angular relationships
-- **Cosine loss component:** Aligns directions in CLIP space
-- **MSE loss component:** Aligns magnitudes
-- **Combined loss:** Best of both worlds
-
-### 3. Minimal Overhead
-
-- **Lightweight:** ~400K-1M parameters (vs 80M+ for full encoder)
-- **Fast inference:** ~0.1ms per sample
-- **Easy to train:** 30 epochs, ~5-10 minutes on GPU
-
-### 4. Reproducibility
-
-- **Consistent splits:** Uses same train/val/test protocol as encoders
-- **Deterministic:** Fixed seeds for reproducibility
-- **Cached targets:** Avoid recomputation, ensure consistency
-- **Comprehensive logging:** JSON reports match Ridge/MLP format
-
----
-
-## Future Enhancements
-
-### Short-term:
-- [ ] Add adapter support to `reconstruct_nn.py` for consistent NN retrieval
-- [ ] Experiment with multi-layer adapters (2-3 hidden layers)
-- [ ] Try different activation functions (GELU, SiLU)
-- [ ] Ablate LayerNorm impact
-
-### Medium-term:
-- [ ] Train adapters for different diffusion models (SD-XL, SD-3)
-- [ ] Investigate attention-based adapters (cross-attention)
-- [ ] Compare with learned residual connections
-- [ ] Fine-tune on downstream reconstruction quality (not just cosine)
-
-### Long-term:
-- [ ] Joint training: adapter + encoder end-to-end
-- [ ] Distillation: train encoder to directly output target dimension
-- [ ] Multi-scale adapters (hierarchical CLIP features)
-- [ ] Conditional adapters (subject-specific, region-specific)
-
----
-
-## Usage Workflows
-
-### Workflow 1: Train Adapter + Generate Images
-
-\`\`\`bash
-# 1. Train adapter
-make clip-adapter LIMIT=4096
-
-# 2. Generate images with adapter
-python scripts/decode_diffusion.py \
-    --subject subj01 \
-    --encoder mlp \
-    --ckpt checkpoints/mlp/subj01/mlp.pt \
-    --clip-cache outputs/clip_cache/clip.parquet \
-    --use-preproc \
-    --model-id stabilityai/stable-diffusion-2-1 \
-    --clip-adapter checkpoints/clip_adapter/subj01/adapter.pt \
-    --limit 16
-\`\`\`
-
-### Workflow 2: Quick Smoke Test
-
-\`\`\`bash
-# 1. Train tiny adapter (256 samples, 10 epochs)
-python scripts/train_clip_adapter.py \
-    --subject subj01 \
-    --clip-cache outputs/clip_cache/clip.parquet \
-    --model-id stabilityai/stable-diffusion-2-1 \
-    --epochs 10 --limit 256 \
-    --out checkpoints/clip_adapter/subj01/adapter_smoke.pt
-
-# 2. Test with decode_diffusion (test mode, no actual generation)
-python scripts/decode_diffusion.py \
-    --subject subj01 \
-    --encoder ridge \
-    --ckpt checkpoints/ridge/subj01/ridge.pkl \
-    --clip-cache outputs/clip_cache/clip.parquet \
-    --use-preproc \
-    --clip-adapter checkpoints/clip_adapter/subj01/adapter_smoke.pt \
-    --test-mode \
-    --limit 16
-\`\`\`
-
-### Workflow 3: Compare With/Without Adapter
-
-\`\`\`bash
-# Generate images without adapter
-python scripts/decode_diffusion.py \
-    --subject subj01 --encoder mlp \
-    --ckpt checkpoints/mlp/subj01/mlp.pt \
-    --clip-cache outputs/clip_cache/clip.parquet \
-    --use-preproc \
-    --output-dir outputs/recon/subj01/mlp_no_adapter \
-    --limit 16
-
-# Generate images with adapter
-python scripts/decode_diffusion.py \
-    --subject subj01 --encoder mlp \
-    --ckpt checkpoints/mlp/subj01/mlp.pt \
-    --clip-cache outputs/clip_cache/clip.parquet \
-    --use-preproc \
-    --clip-adapter checkpoints/clip_adapter/subj01/adapter.pt \
-    --output-dir outputs/recon/subj01/mlp_with_adapter \
-    --limit 16
-
-# Compare visually or with metrics
-\`\`\`
-
----
-
-## Files Modified/Created
-
-### Created:
-- `src/fmri2img/models/clip_adapter.py` (189 lines)
-- `scripts/train_clip_adapter.py` (623 lines)
-- `CLIP_ADAPTER_IMPLEMENTATION.md` (this file)
-
-### Modified:
-- `src/fmri2img/models/__init__.py` - Added CLIPAdapter exports
-- `scripts/decode_diffusion.py` - Added adapter loading and application
-- `docs/DIFFUSION_DECODER.md` - Added CLIP Adapter section
-- `docs/REPORTING_RECONSTRUCTION.md` - Added adapter note
-- `Makefile` - Added clip-adapter target and help text
-
----
-
-## Summary
-
-✅ **Complete implementation** of lightweight CLIP adapter system
-✅ **Fully integrated** into existing pipeline (training + inference)
-✅ **Backward compatible** - default behavior unchanged without `--clip-adapter`
-✅ **Well documented** - inline docs, markdown guides, help text
-✅ **Tested** - syntax checks, smoke tests, integration validation
-✅ **Production ready** - follows existing code patterns and conventions
-
-The adapter provides a **scientifically motivated solution** to the dimensional mismatch problem while maintaining **simplicity** and **minimal overhead**. It can be trained quickly (~5-10 minutes) and provides better semantic alignment with diffusion models' conditioning space.
-
----
-
-## Quick Reference
-
-**Train adapter:**
-\`\`\`bash
-make clip-adapter LIMIT=4096
-\`\`\`
-
-**Use adapter in diffusion:**
-\`\`\`bash
-python scripts/decode_diffusion.py \
-    --encoder {ridge|mlp} \
-    --ckpt {path} \
-    --clip-adapter checkpoints/clip_adapter/subj01/adapter.pt \
-    [other flags...]
-\`\`\`
-
-**Check adapter training report:**
-\`\`\`bash
-cat checkpoints/clip_adapter/subj01/subj01_clip_adapter.json
-\`\`\`
-
----
-
-**Implementation Status:** ✅ COMPLETE
-
-**Ready for:** Production use, experimentation, ablation studies
-
-**Next steps:** Train adapters for multiple subjects and diffusion models, evaluate reconstruction quality improvements.
-
-```
-
-# COMPARISON_TOOL_IMPLEMENTATION.md
-
-```md
-# Evaluation Comparison Tool Implementation Summary
-
-## Overview
-
-Implemented a comprehensive comparison tool that aggregates multiple reconstruction evaluations, computes bootstrap 95% confidence intervals, and generates thesis-ready outputs in multiple formats (CSV, LaTeX, Markdown, plots).
-
-## Implementation Date
-
-October 25, 2025
-
----
-
-## Problem Statement
-
-**Challenge:** Researchers need to:
-1. Compare multiple reconstruction runs (different encoders, adapter settings, etc.)
-2. Compute statistically rigorous confidence intervals
-3. Present results in thesis-ready format (LaTeX tables, Markdown summaries)
-4. Visualize differences with error bars
-5. Ensure fair comparisons (same CLIP space)
-
-**Previous workflow:**
-- Manually aggregate multiple JSON files
-- No confidence intervals (just point estimates)
-- Manual table creation error-prone
-- No standardized interpretation
-
----
-
-## Solution: Automated Comparison with Bootstrap CIs
-
-### Components
-
-#### 1. **Helper Module: `scripts/_report_utils.py`** (179 lines)
-
-**Functions:**
-
-1. **`load_eval_json(path) -> dict`**
-   - Loads and validates evaluation JSON
-   - Raises clear errors if missing/invalid
-
-2. **`guess_run_name(path) -> str`**
-   - Extracts meaningful name from file path
-   - Heuristics: "adapter", "mlp", "ridge", "512", "1024"
-   - Example: `outputs/reports/.../auto_with_adapter/` → `"auto_with_adapter"`
-
-3. **`bootstrap_ci(values, boots=1000, alpha=0.05, seed=42) -> (low, high)`**
-   - Nonparametric bootstrap resampling
-   - Fixed seed for reproducibility
-   - Returns 95% CI by default
-
-4. **`format_mean_ci(mean, low, high, decimals=3) -> str`**
-   - Formats as "mean ± half_width"
-   - Symmetric CI (conservative)
-   - Example: `0.612 ± 0.041`
-
-5. **`format_mean_ci_range(mean, low, high, decimals=3) -> str`**
-   - Formats as "mean [low, high]"
-   - Asymmetric CI (explicit bounds)
-   - Example: `0.612 [0.571, 0.653]`
-
-**Key Features:**
-- ✅ Reproducible (fixed seed)
-- ✅ Robust to missing data
-- ✅ Clean formatting for tables
-- ✅ Reusable across scripts
-
-#### 2. **Main Script: `scripts/compare_evals.py`** (589 lines)
-
-**Workflow:**
-
-\`\`\`
-Discover JSONs → Load & Parse → Bootstrap CIs → Aggregate → Generate Outputs
-     ↓               ↓                ↓              ↓             ↓
-  Recursive       Extract          Per-sample     DataFrame    CSV + LaTeX
-  glob            metadata         resampling     (sorted)     + MD + PNG
-\`\`\`
-
-**Step 1: Discovery**
-- Recursively globs `--report-dir` with `--pattern`
-- Default pattern: `recon_eval*.json`
-- Sorts paths for reproducibility
-- Exits if no JSONs found
-
-**Step 2: Parsing**
-- Loads each JSON with metadata extraction
-- Extracts: encoder, use_adapter, clip_space, clip_dim, n_samples
-- Extracts metrics: clipscore, R@1/5/10, mean_rank, MRR
-- Loads per-sample CSV if available
-
-**Step 3: Bootstrap CIs**
-\`\`\`python
-# For each run:
-csv_df = load_per_sample_csv(json_path)
-if csv_df is not None:
-    # CLIPScore CI
-    cs_values = csv_df["clipscore"].values
-    cs_low, cs_high = bootstrap_ci(cs_values, boots=1000)
-    
-    # R@1 CI (per-sample binary success)
-    r1_values = csv_df["r@1"].values
-    r1_low, r1_high = bootstrap_ci(r1_values, boots=1000)
-    
-    # ... repeat for R@5, R@10, MRR
-\`\`\`
-
-**Fallback:** If CSV missing, uses point estimate ± std (not bootstrap)
-
-**Step 4: Aggregation**
-- Creates tidy DataFrame (1 row per run)
-- Columns: run_name, encoder, use_adapter, clip_space, clip_dim, n_samples, metrics + CIs
-- Sorts by: adapter (desc) → dimension (desc) → R@1 (desc)
-
-**Step 5: Output Generation**
-1. **CSV**: All metrics with CI bounds
-2. **LaTeX**: Thesis-ready table with formatted CIs
-3. **Markdown**: Summary with interpretation
-4. **Plots**: 2-panel figure (CLIPScore, R@1) with error bars
-
----
-
-## Bootstrap Methodology
-
-**Algorithm:**
-1. Load per-sample values (e.g., `clipscore` column from CSV)
-2. For B=1000 iterations:
-   - Resample n values with replacement
-   - Compute mean of resample
-3. Compute 2.5th and 97.5th percentiles
-4. Return as 95% CI: [p2.5, p97.5]
-
-**Reproducibility:**
-- Fixed random seed: 42
-- Same seed for all runs
-- Deterministic results
-
-**Metrics:**
-- **CLIPScore**: Bootstrap over per-sample cosine similarities
-- **R@1/5/10**: Bootstrap over per-sample binary success (0 or 1)
-- **MRR**: Bootstrap over per-sample reciprocal ranks (1/rank)
-
-**Scientific Justification:**
-- Standard method for non-parametric CI estimation
-- Does not assume normal distribution
-- Robust to outliers
-- Widely accepted in ML/stats literature
-
----
-
-## Output Formats
-
-### 1. CSV (Complete Data)
-
-**Columns:**
-- `run_name`, `encoder`, `use_adapter`, `clip_space`, `clip_dim`, `model_id`, `n_samples`
-- `clipscore_mean`, `clipscore_ci_low`, `clipscore_ci_high`
-- `r1`, `r1_ci_low`, `r1_ci_high`
-- `r5`, `r5_ci_low`, `r5_ci_high`
-- `r10`, `r10_ci_low`, `r10_ci_high`
-- `mean_rank`, `mrr`, `mrr_ci_low`, `mrr_ci_high`
-
-**Example:**
-\`\`\`csv
-run_name,encoder,use_adapter,clip_space,clip_dim,n_samples,clipscore_mean,clipscore_ci_low,clipscore_ci_high,r1,r1_ci_low,r1_ci_high
-auto_with_adapter,mlp,True,1024-D (target),1024,64,0.654,0.613,0.695,0.543,0.502,0.584
-auto_no_adapter,mlp,False,512-D (base),512,64,0.612,0.571,0.653,0.487,0.446,0.528
-\`\`\`
-
-### 2. LaTeX Table (Thesis-Ready)
-
-**Features:**
-- Formatted CIs: "mean ± half_width"
-- Escaped underscores in run names
-- Professional table environment
-- Caption and label for referencing
-
-**Example:**
-\`\`\`latex
-\begin{table}[htbp]
-\centering
-\caption{Reconstruction Evaluation Comparison with 95\% Bootstrap Confidence Intervals}
-\label{tab:recon_comparison}
-\begin{tabular}{lcccccccc}
-\hline
-Run & CLIP Space & n & CLIPScore & R@1 & R@5 & R@10 & MRR \\
-\hline
-auto\_with\_adapter & 1024D (target) & 64 & 0.654 ± 0.041 & 0.543 ± 0.042 & 0.812 ± 0.039 & 0.891 ± 0.031 & 0.612 ± 0.045 \\
-auto\_no\_adapter & 512D (base) & 64 & 0.612 ± 0.041 & 0.487 ± 0.041 & 0.765 ± 0.042 & 0.843 ± 0.037 & 0.571 ± 0.043 \\
-\hline
-\end{tabular}
-\end{table}
-\`\`\`
-
-### 3. Markdown Summary (Interpretation)
-
-**Sections:**
-1. **Evaluated Runs**: Bullet list with metadata
-2. **Metrics Table**: Formatted with CIs
-3. **Interpretation**: Automatic analysis
-   - Best R@1 run
-   - Best CLIPScore run
-   - Adapter improvement percentage
-4. **Footnote**: Space consistency note + CI methodology
-
-**Example:**
-\`\`\`markdown
-# Reconstruction Evaluation Comparison
-
-## Evaluated Runs
-- **auto_with_adapter**: 1024-D (target), with adapter, encoder=mlp, n=64
-- **auto_no_adapter**: 512-D (base), no adapter, encoder=mlp, n=64
-
-## Metrics with 95% Bootstrap Confidence Intervals
-| Run | CLIP Space | n | CLIPScore | R@1 | R@5 | R@10 | MRR |
-|-----|------------|---|-----------|-----|-----|------|-----|
-| auto_with_adapter | 1024-D (target) | 64 | 0.654 ± 0.041 | 0.543 ± 0.042 | ... |
-| auto_no_adapter | 512-D (base) | 64 | 0.612 ± 0.041 | 0.487 ± 0.041 | ... |
-
-## Interpretation
-**Best R@1:** auto_with_adapter (0.543) — 1024-D (target), with adapter.
-**Best CLIPScore:** auto_with_adapter (0.654) — 1024-D (target), with adapter.
-Using the CLIP adapter in target space improved average R@1 by 11.5% (0.487 → 0.543).
-
----
-**Note:** Evaluation CLIP space matches generation space where adapter was used.
-Comparisons across different CLIP dimensions should be interpreted cautiously.
-
-**Confidence Intervals:** 95% bootstrap CIs computed from per-sample metrics
-using 1000 resamples with replacement.
-\`\`\`
-
-### 4. Visualization (PNG)
-
-**Layout:**
-- 2 panels stacked vertically
-- Panel A: CLIPScore with error bars
-- Panel B: R@1 with error bars
-
-**Features:**
-- Bar plot (one bar per run)
-- Error bars showing 95% CI (symmetric)
-- Y-axis grid for readability
-- Rotated x-axis labels
-- Bold panel titles ("A.", "B.")
-
-**Example:**
-\`\`\`
-Panel A: CLIPScore Comparison
-[====]  auto_with_adapter (0.654 ± 0.041)
-[===]   auto_no_adapter   (0.612 ± 0.041)
-
-Panel B: Retrieval@1 Comparison
-[=====] auto_with_adapter (0.543 ± 0.042)
-[====]  auto_no_adapter   (0.487 ± 0.041)
-\`\`\`
-
----
-
-## Usage
-
-### Quick Start
-\`\`\`bash
-# Generate multiple evaluations
-make recon-eval LIMIT=64
-make recon-eval-adapter LIMIT=64
-
-# Compare them
-make compare-evals
-
-# Check outputs
-cat outputs/reports/subj01/recon_compare.md
-open outputs/reports/subj01/recon_compare.png
-\`\`\`
-
-### Direct Invocation
-\`\`\`bash
-python scripts/compare_evals.py \
-    --report-dir outputs/reports/subj01 \
-    --out-csv outputs/reports/subj01/recon_compare.csv \
-    --out-tex outputs/reports/subj01/recon_compare.tex \
-    --out-md outputs/reports/subj01/recon_compare.md \
-    --out-fig outputs/reports/subj01/recon_compare.png \
-    --boots 2000
-\`\`\`
-
-### Custom Pattern
-\`\`\`bash
-# Only compare adapter runs
-make compare-evals PATTERN="*adapter*.json"
-
-# More bootstrap samples
-make compare-evals BOOTS=5000
-\`\`\`
-
----
-
-## Guardrails
-
-### 1. **Space Consistency Warning**
-- Markdown explicitly notes evaluation space matches generation
-- Warns about cross-dimensional comparisons
-- Includes footnote on interpretation
-
-### 2. **Missing Data Handling**
-- Continues if some JSONs fail to load
-- Reports which runs lack per-sample CSVs
-- Falls back to ±std when bootstrap impossible
-- Marks CI as "NA" in output
-
-### 3. **Sorting Logic**
-- Adapter runs first (typically best)
-- Higher dimensions first (1024 > 768 > 512)
-- Best R@1 within each group
-- Reproducible ordering
-
-### 4. **Reproducibility**
-- Fixed random seed (42)
-- Deterministic bootstrap
-- Sorted JSON discovery
-- Version-controlled outputs
-
-### 5. **Error Handling**
-- Exits non-zero if no JSONs found
-- Logs errors for individual runs
-- Continues aggregation despite failures
-- Clear error messages
-
-### 6. **Negative Error Bars Protection**
-\`\`\`python
-# Ensure non-negative error bars
-cs_err_low = np.maximum(0, cs_means - cs_lows)
-cs_err_high = np.maximum(0, cs_highs - cs_means)
-\`\`\`
-
----
-
-## Testing & Validation
-
-### Smoke Tests ✅
-
-**Script:** `src/fmri2img/scripts/test_compare_evals.py` (257 lines)
-
-**Tests:**
-1. ✅ **Report Utilities**: Test bootstrap_ci, format_mean_ci, load_eval_json
-2. ✅ **Help Output**: Verify all arguments present
-3. ✅ **Full Pipeline (Mock Data)**: End-to-end with 2 mock runs
-   - Creates mock JSONs with metadata
-   - Creates mock CSVs with per-sample metrics
-   - Runs comparison script
-   - Verifies all 4 output files created
-   - Checks CSV columns, LaTeX content, Markdown structure
-
-**Results:**
-\`\`\`
-3 passed, 0 failed
-✅ All smoke tests passed!
-\`\`\`
-
-**Coverage:**
-- Bootstrap CI computation
-- JSON loading
-- CSV parsing
-- Output generation
-- Error handling
-
-### Syntax Validation ✅
-\`\`\`bash
-python3 -m py_compile scripts/_report_utils.py scripts/compare_evals.py
-# No errors
-\`\`\`
-
-### Help Output ✅
-\`\`\`bash
-python3 scripts/compare_evals.py --help
-# Shows all required flags
-\`\`\`
-
-### Makefile Integration ✅
-\`\`\`bash
-make help | grep compare-evals
-  make compare-evals - Aggregate multiple evaluations with bootstrap CIs
-\`\`\`
-
----
-
-## Integration with Existing Pipeline
-
-### Workflow
-\`\`\`
-1. Train encoders → 2. Generate images → 3. Evaluate → 4. Compare
-   (train_mlp.py)     (decode_diffusion)   (eval_recon)  (compare_evals)
-                                             ↓
-                                          JSON + CSV
-                                             ↓
-                                      Bootstrap CIs
-                                             ↓
-                                      Multi-format output
-\`\`\`
-
-### Data Flow
-\`\`\`
-eval_reconstruction.py outputs:
-  - recon_eval.json (aggregate metrics)
-  - recon_eval.csv (per-sample metrics)
-
-compare_evals.py inputs:
-  - Multiple recon_eval.json files
-  - Corresponding recon_eval.csv files (optional)
-
-compare_evals.py outputs:
-  - recon_compare.csv (aggregated with CIs)
-  - recon_compare.tex (LaTeX table)
-  - recon_compare.md (Markdown summary)
-  - recon_compare.png (plots with error bars)
-\`\`\`
-
----
-
-## Scientific Contributions
-
-### 1. **Rigorous Statistical Analysis**
-- Bootstrap CIs standard in ML research
-- Nonparametric (no distribution assumptions)
-- Properly accounts for sample size
-- Reproducible with fixed seed
-
-### 2. **Fair Comparison Framework**
-- Explicit space tracking
-- Warns about cross-dimensional comparisons
-- Consistent evaluation protocol
-- Metadata preservation
-
-### 3. **Thesis-Ready Automation**
-- LaTeX tables can be copied directly
-- Markdown summaries for drafts
-- Professional visualizations
-- Standardized formatting
-
-### 4. **Reproducibility**
-- Fixed seeds
-- Complete metadata logging
-- Version-controlled scripts
-- Deterministic outputs
-
----
-
-## Example Use Cases
-
-### 1. Compare Encoder Architectures
-\`\`\`bash
-# Run evaluations
-make recon-eval ENCODER=ridge CKPT=ridge.pt LIMIT=64
-make recon-eval ENCODER=mlp CKPT=mlp.pt LIMIT=64
-
-# Compare
-make compare-evals
-
-# Result: Which encoder produces better reconstructions?
-\`\`\`
-
-### 2. Evaluate Adapter Impact
-\`\`\`bash
-# No adapter
-make recon-eval LIMIT=64
-
-# With adapter
-make recon-eval-adapter LIMIT=64
-
-# Compare
-make compare-evals
-
-# Result: Does adapter improve reconstruction quality?
-\`\`\`
-
-### 3. Hyperparameter Tuning
-\`\`\`bash
-# Try different models
-make recon-eval-adapter MODEL=stabilityai/stable-diffusion-2-1 LIMIT=64
-make recon-eval-adapter MODEL=stabilityai/stable-diffusion-2-1-base LIMIT=64
-
-# Compare
-make compare-evals
-
-# Result: Which diffusion model works best?
-\`\`\`
-
-### 4. Subject Comparison
-\`\`\`bash
-# Subject 1
-make compare-evals SUBJECT=subj01
-
-# Subject 2
-make compare-evals SUBJECT=subj02
-
-# Result: Identify subject-specific patterns
-\`\`\`
-
----
-
-## Performance
-
-**Typical Runtime (2 runs, 64 samples each):**
-- JSON discovery: < 1 second
-- Per-run bootstrap (1000 resamples): ~1-2 seconds
-- Aggregation: < 1 second
-- Output generation: < 1 second
-- **Total: ~3-5 seconds**
-
-**Breakdown:**
-- Bootstrap: 70% of time
-- Output generation: 20% of time
-- Discovery/parsing: 10% of time
-
-**Scalability:**
-- 2 runs: ~3-5 seconds
-- 10 runs: ~15-20 seconds
-- 50 runs: ~60-80 seconds
-
-**Memory:**
-- Per-sample CSVs loaded one at a time
-- Bootstrap computed in-memory (small arrays)
-- Peak memory: ~100MB for typical use
-
----
-
-## Files Created/Modified
-
-### Created
-1. **`scripts/_report_utils.py`** (179 lines)
-   - Helper functions for loading, formatting, bootstrap
-
-2. **`scripts/compare_evals.py`** (589 lines)
-   - Main comparison script with multi-format output
-
-3. **`src/fmri2img/scripts/test_compare_evals.py`** (257 lines)
-   - Comprehensive smoke tests
-
-4. **`COMPARISON_TOOL_IMPLEMENTATION.md`** (this file)
-   - Complete implementation summary
-
-### Modified
-1. **`Makefile`**
-   - Added `compare-evals` target
-
-2. **`docs/REPORTING_RECONSTRUCTION.md`**
-   - Added comprehensive comparison tool section
-
----
-
-## Quick Reference
-
-**One-liner:**
-\`\`\`bash
-make compare-evals
-\`\`\`
-
-**Check outputs:**
-\`\`\`bash
-cat outputs/reports/subj01/recon_compare.md
-open outputs/reports/subj01/recon_compare.png
-\`\`\`
-
-**Run tests:**
-\`\`\`bash
-python3 src/fmri2img/scripts/test_compare_evals.py
-\`\`\`
-
-**Custom bootstrap samples:**
-\`\`\`bash
-make compare-evals BOOTS=5000
-\`\`\`
-
----
-
-## Implementation Status
-
-✅ **COMPLETE**
-
-**All components:**
-- ✅ Helper utilities (_report_utils.py)
-- ✅ Main comparison script (compare_evals.py)
-- ✅ Makefile target
-- ✅ Documentation (REPORTING_RECONSTRUCTION.md)
-- ✅ Smoke tests (3/3 passing)
-- ✅ Syntax validation
-- ✅ Help output
-
-**Ready for:**
-- Production use
-- Thesis experiments
-- Paper results
-- Ablation studies
-
-**Next steps:**
-- Generate multiple evaluations
-- Compare different configurations
-- Include results in thesis
-- Create publication figures
-
----
-
-**Implementation Complete:** October 25, 2025
-
-**Status:** ✅ Production Ready
-
-**Testing:** All smoke tests passed (3/3)
-
-**Documentation:** Complete with usage guide and examples
-
-**Line Count:** ~1,025 lines (utilities + script + tests)
-
-```
-
 # configs/clip.yaml
 
 ```yaml
@@ -1297,6 +134,84 @@ debug:
 log_dir: "outputs/logs"
 level: "INFO"
 format: "%(asctime)s [%(levelname)s] %(message)s"
+
+```
+
+# configs/production_improved.yaml
+
+```yaml
+# Improved Production Configuration for Better Image Quality
+# =========================================================
+# 
+# Key improvements over production_optimal.yaml:
+# 1. Higher PCA components (k=100) - retains more brain signal information
+# 2. More diffusion steps (250) - more refinement iterations
+# 3. Lower guidance (7.5) - more natural, less over-saturated images
+# 4. DPM++ scheduler - often produces better quality than PNDM
+#
+# Expected improvements:
+# - Better semantic accuracy
+# - More realistic images
+# - Better fine-grained details
+
+dataset:
+  subject: subj01
+  subject_num: 1
+  max_trials: 30000  # All 30K samples
+  train_ratio: 0.80  # 24,000 train
+  val_ratio: 0.10    # 3,000 val
+  test_ratio: 0.10   # 3,000 test
+  index_dir: data/indices/nsd_index
+
+preprocessing:
+  # CRITICAL: Increased from k=2 to k=100
+  # More components = more information retained = better predictions
+  reliability_threshold: 0.1
+  pca_k: 100  # Was 2 - this is the BIGGEST improvement!
+  use_roi: false
+
+mlp:
+  # Will automatically adjust input_dim based on pca_k
+  hidden_dim: 2048
+  dropout: 0.2
+  learning_rate: 0.0001
+  batch_size: 64
+  epochs: 100
+  early_stop_patience: 15
+  clip_dim: 512
+
+adapter:
+  hidden_dim: 1536
+  dropout: 0.0
+  learning_rate: 0.0003
+  batch_size: 256
+  epochs: 50
+  use_layernorm: true
+
+diffusion:
+  model_id: "stabilityai/stable-diffusion-2-1"
+  num_inference_steps: 250  # Increased from 150
+  guidance_scale: 7.5  # Reduced from 11.0 for more natural images
+  scheduler: "dpm"  # Changed from pndm - often better quality
+  eta: 0.0
+  output_size: 768
+  dtype: "float32"
+
+training:
+  device: "cuda"
+  seed: 42
+  num_workers: 4
+
+paths:
+  output_dir: "outputs"
+  cache_dir: "cache"
+  checkpoint_dir: "checkpoints"
+  log_dir: "logs"
+
+# Metadata
+config_version: "2.0-improved"
+description: "Improved configuration with k=100 PCA, 250 steps, DPM scheduler"
+created: "2025-11-14"
 
 ```
 
@@ -1798,964 +713,9 @@ generate_figures:
 
 ```
 
-# ORCHESTRATOR_IMPLEMENTATION.md
-
-```md
-# One-Click Orchestrator Implementation Summary
-
-## Overview
-
-Implemented a comprehensive orchestrator script (`run_reconstruct_and_eval.py`) that combines image generation and evaluation into a single workflow with automatic CLIP space matching and thesis-ready Markdown output.
-
-## Implementation Date
-
-October 25, 2025
-
----
-
-## Problem Statement
-
-**Challenge:** Researchers need to:
-1. Generate reconstructed images from fMRI data
-2. Evaluate them with appropriate metrics (CLIPScore, retrieval)
-3. Ensure evaluation happens in the **same CLIP space** as generation
-4. Get thesis-ready results without manual post-processing
-
-**Previous workflow:**
-\`\`\`bash
-# Step 1: Generate (manual)
-python scripts/decode_diffusion.py --encoder mlp --ckpt ... --output-dir ...
-
-# Step 2: Evaluate (manual, easy to use wrong CLIP space)
-python scripts/eval_reconstruction.py --recon-dir ... --use-adapter ...
-
-# Step 3: Format results (manual, error-prone)
-# ... manually parse JSON, create tables, write interpretation ...
-\`\`\`
-
-**Issues:**
-- Multi-step process error-prone
-- Easy to mismatch generation vs evaluation CLIP space
-- Manual Markdown formatting time-consuming
-- No standardized result format for thesis
-
----
-
-## Solution: One-Click Orchestrator
-
-### Script: `scripts/run_reconstruct_and_eval.py`
-
-**Key Innovation:** Guarantees evaluation happens in the same CLIP space as generation:
-- No adapter → 512-D generation → **512-D evaluation** ✅
-- With adapter → 768/1024-D generation → **768/1024-D evaluation** ✅
-
-**Workflow:**
-\`\`\`
-Check SD Cache → Generate Images → Evaluate → Create Markdown Summary
-     ↓               ↓                ↓              ↓
-  Verify model    decode_diffusion   eval_recon    Thesis-ready
-  downloaded      .py call           .py call       Markdown
-\`\`\`
-
-### Implementation (659 lines)
-
-#### 1. SD Cache Check (`check_sd_cache()`)
-
-**Purpose:** Verify diffusion model is downloaded before starting.
-
-**Behavior:**
-- Calls `scripts/check_hf_cache.py` to check cache
-- Parses output for model availability
-- Never auto-downloads (avoids blocking on ~5GB download)
-- Prompts user with clear instructions if missing
-
-**Output:**
-\`\`\`
-Model 'stabilityai/stable-diffusion-2-1' does not appear to be cached locally.
-
-To download the model, run:
-  make download-sd MODEL=stabilityai/stable-diffusion-2-1
-
-Continue anyway? (y/N):
-\`\`\`
-
-#### 2. Metadata Loading (`load_adapter_metadata()`)
-
-**Purpose:** Extract target dimension from adapter checkpoint.
-
-**Logic:**
-\`\`\`python
-ckpt = torch.load(adapter_path)
-metadata = ckpt["metadata"]
-target_dim = metadata["target_dim"]  # 768 or 1024
-\`\`\`
-
-**Used for:**
-- Passing `--clip-target-dim` to decoder
-- Determining evaluation CLIP space
-- Including in Markdown summary
-
-#### 3. Image Generation (`run_decode()`)
-
-**Purpose:** Shell out to `decode_diffusion.py` with correct flags.
-
-**Command Construction:**
-\`\`\`python
-cmd = [
-    python, "scripts/decode_diffusion.py",
-    "--encoder", encoder,
-    "--ckpt", ckpt_path,
-    "--output-dir", output_dir,
-    "--limit", limit,
-    "--steps", steps,
-    "--subject", subject,
-]
-
-if use_adapter:
-    cmd.extend([
-        "--clip-adapter", adapter_path,
-        "--model-id", model_id,
-        "--clip-target-dim", clip_target_dim,
-    ])
-\`\`\`
-
-**Error Handling:**
-- Validates checkpoint exists before running
-- Propagates exit code from decode script
-- Prints clear error messages on failure
-
-#### 4. Evaluation (`run_eval()`)
-
-**Purpose:** Shell out to `eval_reconstruction.py` in matching CLIP space.
-
-**Space Matching Logic:**
-\`\`\`python
-cmd = [python, "scripts/eval_reconstruction.py", ...]
-
-if use_adapter:
-    # Evaluate in SAME target space as generation
-    cmd.extend([
-        "--use-adapter",
-        "--model-id", model_id,  # Same model as generation!
-    ])
-else:
-    # Default 512-D evaluation
-    pass
-\`\`\`
-
-**Outputs:**
-- `recon_eval.csv` - Per-sample metrics
-- `recon_eval.json` - Aggregate metrics
-- `recon_grid.png` - Visualization grid
-
-#### 5. Markdown Summary (`create_markdown_summary()`)
-
-**Purpose:** Generate thesis-ready summary from evaluation JSON.
-
-**Structure:**
-1. **Header:** Date, subject, encoder, adapter status, model ID
-2. **Configuration Table:** All hyperparameters
-3. **Space Note:** Which CLIP space used (bold, prominent)
-4. **Results Table:** Metrics with interpretations
-5. **Quality Assessment:** Overall quality judgment
-6. **Baseline Comparison:** Context from literature
-7. **Output Files:** Paths to all artifacts
-8. **Methodology:** Metric definitions and citations
-9. **Footer:** Timestamp and generator info
-
-**Quality Interpretation Logic:**
-\`\`\`python
-if clipscore >= 0.7:
-    quality = "Excellent"
-elif clipscore >= 0.5:
-    quality = "Good"
-elif clipscore >= 0.3:
-    quality = "Moderate"
-else:
-    quality = "Poor"
-\`\`\`
-
-**Example Output:**
-\`\`\`markdown
-# Reconstruction Evaluation Summary
-
-**Generated:** 2025-10-25 14:32:10
-
-## Configuration
-- **Subject:** `subj01`
-- **Encoder:** `mlp`
-- **CLIP Space:** **1024-D** (target CLIP)
-
----
-
-**Note:** Evaluated in **1024-D CLIP space (target for SD-2.1)** — matched to generation space.
-
-## Results
-| Metric | Value | Interpretation |
-|--------|-------|----------------|
-| **CLIPScore** | 0.654 ± 0.092 | Good |
-| **R@1** | 0.543 | 54.3% top-1 correct |
-...
-\`\`\`
-
----
-
-## Makefile Integration
-
-### Target: `recon-eval` (No Adapter, 512-D)
-
-\`\`\`makefile
-recon-eval:
-	@$(PY) scripts/run_reconstruct_and_eval.py \
-		--subject $${SUBJECT:-subj01} \
-		--encoder $${ENCODER:-mlp} \
-		--ckpt $${CKPT:-checkpoints/mlp/subj01/mlp.pt} \
-		--clip-cache outputs/clip_cache/clip.parquet \
-		--output-dir outputs/recon/$${SUBJECT:-subj01}/auto_no_adapter \
-		--report-dir outputs/reports/$${SUBJECT:-subj01} \
-		--limit $${LIMIT:-64}
-\`\`\`
-
-**Usage:**
-\`\`\`bash
-make recon-eval
-make recon-eval LIMIT=4  # Quick test
-make recon-eval ENCODER=ridge CKPT=checkpoints/ridge/subj01/ridge.pt
-\`\`\`
-
-### Target: `recon-eval-adapter` (With Adapter, 768/1024-D)
-
-\`\`\`makefile
-recon-eval-adapter:
-	@$(PY) scripts/run_reconstruct_and_eval.py \
-		--subject $${SUBJECT:-subj01} \
-		--encoder $${ENCODER:-mlp} \
-		--ckpt $${CKPT:-checkpoints/mlp/subj01/mlp.pt} \
-		--use-adapter \
-		--adapter $${ADAPTER:-checkpoints/clip_adapter/subj01/adapter.pt} \
-		--model-id $${MODEL:-stabilityai/stable-diffusion-2-1} \
-		--clip-cache outputs/clip_cache/clip.parquet \
-		--output-dir outputs/recon/$${SUBJECT:-subj01}/auto_with_adapter \
-		--report-dir outputs/reports/$${SUBJECT:-subj01} \
-		--limit $${LIMIT:-64}
-\`\`\`
-
-**Usage:**
-\`\`\`bash
-make recon-eval-adapter
-make recon-eval-adapter LIMIT=4  # Quick test
-make recon-eval-adapter MODEL=stabilityai/stable-diffusion-2-1-base
-\`\`\`
-
----
-
-## Features
-
-### ✅ Complete Pipeline
-- Checks SD cache → generates → evaluates → summarizes
-- No manual steps required
-- Single command from checkpoint to thesis-ready results
-
-### ✅ Space Consistency Guarantee
-- **No adapter:** 512-D generation → 512-D evaluation
-- **With adapter:** 768/1024-D generation → 768/1024-D evaluation
-- Automatically extracts target_dim from adapter metadata
-- No manual flag coordination needed
-
-### ✅ Thesis-Ready Output
-- Markdown with proper formatting
-- Tables with interpretations
-- Quality assessments
-- Baseline comparisons
-- Complete methodology section
-- Can be copied directly into thesis LaTeX/Markdown
-
-### ✅ Robust Error Handling
-- Validates all checkpoints exist
-- Checks SD cache before generating
-- Exits cleanly on any step failure
-- Propagates exit codes properly
-- Clear error messages at each step
-
-### ✅ Flexible Configuration
-- All encoder types (ridge, mlp)
-- All adapter configurations
-- Configurable limits (4 for testing, 256 for paper)
-- Device selection (auto, cuda, cpu)
-- Index specification (root or file)
-
-### ✅ No Code Duplication
-- Shells out to existing scripts
-- Reuses all encode/decode/eval logic
-- Only adds coordination + summary generation
-- Maintains single source of truth
-
----
-
-## Guardrails
-
-### 1. SD Cache Verification
-\`\`\`python
-if not check_sd_cache(model_id):
-    print("WARNING: Model not cached!")
-    print(f"Run: make download-sd MODEL={model_id}")
-    response = input("Continue anyway? (y/N): ")
-    if response != 'y':
-        exit(1)
-\`\`\`
-
-**Why:** Prevents waiting 30+ minutes for automatic download during experiments.
-
-### 2. Checkpoint Validation
-\`\`\`python
-if not ckpt_path.exists():
-    print(f"ERROR: Checkpoint not found: {ckpt_path}")
-    return 1
-\`\`\`
-
-**Why:** Fail fast before starting generation.
-
-### 3. Adapter Consistency
-\`\`\`python
-if use_adapter and not model_id:
-    print("ERROR: --use-adapter requires --model-id")
-    return 1
-
-metadata = load_adapter_metadata(adapter_path)
-clip_target_dim = metadata["target_dim"]
-\`\`\`
-
-**Why:** Ensures target_dim matches between adapter training and inference.
-
-### 4. Space Matching
-\`\`\`python
-clip_dim = clip_target_dim if use_adapter else 512
-
-# Pass same model_id to evaluation
-if use_adapter:
-    eval_cmd.extend(["--use-adapter", "--model-id", model_id])
-\`\`\`
-
-**Why:** Guarantees evaluation happens in same CLIP space as generation.
-
-### 5. Limit Propagation
-\`\`\`python
-decode_cmd.extend(["--limit", str(limit)])
-eval_cmd.extend(["--limit", str(limit)])
-\`\`\`
-
-**Why:** Ensures metrics computed on exact same test set.
-
-### 6. Exit Code Propagation
-\`\`\`python
-result = subprocess.run(cmd)
-if result.returncode != 0:
-    print(f"ERROR: {script} failed")
-    return result.returncode
-\`\`\`
-
-**Why:** Shell integration works correctly (e.g., `make` stops on failure).
-
----
-
-## Testing & Validation
-
-### Smoke Tests ✅
-
-**Script:** `src/fmri2img/scripts/test_orchestrator.py`
-
-**Tests:**
-1. ✅ Help output available
-2. ✅ Missing checkpoint validation
-3. ✅ Adapter without model-id validation
-4. ✅ Adapter metadata loading
-5. ✅ Banner printing
-
-**Results:**
-\`\`\`
-5 passed, 0 failed
-✅ All smoke tests passed!
-\`\`\`
-
-### Syntax Validation ✅
-
-\`\`\`bash
-python3 -m py_compile scripts/run_reconstruct_and_eval.py
-# No errors
-\`\`\`
-
-### Help Output ✅
-
-\`\`\`bash
-python3 scripts/run_reconstruct_and_eval.py --help
-# Shows all required flags and usage examples
-\`\`\`
-
-### Makefile Integration ✅
-
-\`\`\`bash
-make help | grep recon-eval
-  make recon-eval         - Generate + evaluate (512-D, one-click)
-  make recon-eval-adapter - Generate + evaluate (768/1024-D, one-click)
-\`\`\`
-
----
-
-## Usage Examples
-
-### Example 1: Quick Test (4 samples)
-
-\`\`\`bash
-# No adapter
-make recon-eval LIMIT=4
-
-# With adapter
-make recon-eval-adapter LIMIT=4
-\`\`\`
-
-**Output:**
-- 4 generated images
-- Evaluation metrics on 4 samples
-- Markdown summary
-- Total time: ~30 seconds on GPU
-
-### Example 2: Thesis Experiment (64 samples)
-
-\`\`\`bash
-# No adapter
-make recon-eval LIMIT=64
-
-# With adapter
-make recon-eval-adapter LIMIT=64
-\`\`\`
-
-**Output:**
-- 64 generated images
-- Statistically meaningful metrics
-- Thesis-ready summary
-- Total time: ~3-5 minutes on GPU
-
-### Example 3: Compare Ridge vs MLP
-
-\`\`\`bash
-# Ridge (no adapter)
-make recon-eval \
-    ENCODER=ridge \
-    CKPT=checkpoints/ridge/subj01/ridge_k4_rel0.15.pt \
-    LIMIT=64
-
-# MLP (no adapter)
-make recon-eval \
-    ENCODER=mlp \
-    CKPT=checkpoints/mlp/subj01/mlp.pt \
-    LIMIT=64
-
-# Compare summaries
-diff outputs/reports/subj01/recon_eval_summary.md \
-     outputs/reports/subj01/recon_eval_summary.md
-\`\`\`
-
-### Example 4: Paper-Quality Results (256 samples)
-
-\`\`\`bash
-# Full evaluation
-make recon-eval-adapter LIMIT=256
-
-# Check results
-cat outputs/reports/subj01/recon_eval_summary.md
-open outputs/reports/subj01/recon_grid.png
-\`\`\`
-
-**Output:**
-- 256 generated images
-- Publication-quality metrics
-- Comprehensive visualization
-- Total time: ~10-15 minutes on GPU
-
-### Example 5: Manual Invocation (Custom Paths)
-
-\`\`\`bash
-python scripts/run_reconstruct_and_eval.py \
-    --subject subj02 \
-    --encoder mlp \
-    --ckpt experiments/subj02/best_mlp.pt \
-    --use-adapter \
-    --adapter experiments/subj02/adapter.pt \
-    --model-id stabilityai/stable-diffusion-2-1 \
-    --clip-cache data/clip_embeddings.parquet \
-    --output-dir results/subj02/final \
-    --report-dir reports/subj02 \
-    --limit 128 \
-    --steps 100 \
-    --device cuda
-\`\`\`
-
----
-
-## Output Structure
-
-\`\`\`
-outputs/
-├── recon/
-│   └── subj01/
-│       ├── auto_no_adapter/           # make recon-eval
-│       │   ├── generated_nsd12345.png
-│       │   ├── generated_nsd12346.png
-│       │   └── ...
-│       └── auto_with_adapter/         # make recon-eval-adapter
-│           ├── generated_nsd12345.png
-│           └── ...
-└── reports/
-    └── subj01/
-        ├── recon_eval.csv             # Per-sample metrics
-        ├── recon_eval.json            # Aggregate metrics
-        ├── recon_grid.png             # Visualization grid
-        └── recon_eval_summary.md      # ⭐ Thesis-ready summary
-\`\`\`
-
----
-
-## Integration with Existing Pipeline
-
-### Scripts Called
-
-1. **`scripts/check_hf_cache.py`** - SD cache verification
-2. **`scripts/decode_diffusion.py`** - Image generation
-3. **`scripts/eval_reconstruction.py`** - Metrics computation
-
-### Data Dependencies
-
-- **Input:** Encoder checkpoint, adapter (optional), CLIP cache
-- **Output:** Images, metrics (CSV/JSON), summary (MD), grid (PNG)
-
-### Shared Infrastructure
-
-- Index loading (`--index-root` or `--index-file`)
-- CLIP cache format (parquet)
-- Subject specification
-- Device handling
-- Limit propagation
-
----
-
-## Scientific Contributions
-
-### 1. Space Consistency Framework
-
-**First implementation to guarantee evaluation matches generation:**
-- Explicit space tracking (512-D vs 768/1024-D)
-- Automatic dimension extraction from adapter metadata
-- Clear documentation in summary ("Evaluated in **1024-D CLIP space**")
-
-### 2. Thesis-Ready Automation
-
-**Eliminates manual post-processing:**
-- Standardized Markdown format
-- Automatic quality interpretation
-- Baseline comparison table
-- Complete methodology section
-
-### 3. Reproducibility
-
-**All experiments reproducible with single command:**
-- Fixed seeds (inherited from decode/eval scripts)
-- Complete hyperparameter logging
-- Version-controlled Makefile targets
-- Consistent output structure
-
-### 4. Error Prevention
-
-**Multiple safeguards against common mistakes:**
-- Cache check before generation
-- Space mismatch prevention
-- Checkpoint validation
-- Exit code propagation
-
----
-
-## Performance
-
-**Typical Runtime (64 samples on RTX 3090):**
-- SD cache check: < 1 second
-- Generation: ~2-3 minutes (50 steps/image)
-- Evaluation: ~5 seconds
-- Summary generation: < 1 second
-- **Total: ~3-4 minutes**
-
-**Breakdown:**
-- Decode: 95% of time (diffusion sampling)
-- Eval: 4% of time (CLIP encoding)
-- Summary: < 1% of time (JSON parsing)
-
-**Scalability:**
-- 4 samples: ~30 seconds
-- 64 samples: ~3-4 minutes
-- 256 samples: ~10-15 minutes
-- 1000 samples: ~40-50 minutes
-
----
-
-## Future Enhancements
-
-### Short-term
-- [ ] Add `--compare` flag to run both no-adapter and adapter
-- [ ] Parallel generation for multiple subjects
-- [ ] Confidence intervals (bootstrap resampling)
-
-### Medium-term
-- [ ] Perceptual metrics integration (FID, LPIPS)
-- [ ] Multi-run aggregation (average over seeds)
-- [ ] Interactive HTML report (not just Markdown)
-
-### Long-term
-- [ ] Real-time evaluation during generation
-- [ ] Adaptive sampling (focus on poorly reconstructed samples)
-- [ ] Multi-modal evaluation (text + image)
-
----
-
-## Files Created/Modified
-
-### Created
-1. **`scripts/run_reconstruct_and_eval.py`** (659 lines)
-   - Main orchestrator script
-   - Complete pipeline coordination
-   - Markdown summary generation
-
-2. **`src/fmri2img/scripts/test_orchestrator.py`** (150 lines)
-   - Smoke tests for validation logic
-   - 5 test cases, all passing
-
-3. **`ORCHESTRATOR_IMPLEMENTATION.md`** (this file)
-   - Comprehensive implementation summary
-   - Usage guide and examples
-
-### Modified
-1. **`Makefile`**
-   - Added `recon-eval` target
-   - Added `recon-eval-adapter` target
-   - Updated help section
-
-2. **`docs/REPORTING_RECONSTRUCTION.md`**
-   - Added complete orchestrator section
-   - Usage examples and workflows
-   - Integration guidelines
-
----
-
-## Quick Reference
-
-**One-liner (no adapter):**
-\`\`\`bash
-make recon-eval LIMIT=64
-\`\`\`
-
-**One-liner (with adapter):**
-\`\`\`bash
-make recon-eval-adapter LIMIT=64
-\`\`\`
-
-**Check results:**
-\`\`\`bash
-cat outputs/reports/subj01/recon_eval_summary.md
-open outputs/reports/subj01/recon_grid.png
-\`\`\`
-
-**Run tests:**
-\`\`\`bash
-python3 src/fmri2img/scripts/test_orchestrator.py
-\`\`\`
-
----
-
-## Implementation Status
-
-✅ **COMPLETE**
-
-**All components:**
-- ✅ Orchestrator script (659 lines)
-- ✅ Makefile targets (2 targets)
-- ✅ Documentation (REPORTING_RECONSTRUCTION.md)
-- ✅ Smoke tests (5/5 passing)
-- ✅ Syntax validation
-- ✅ Help output
-
-**Ready for:**
-- Production use
-- Thesis experiments
-- Paper results
-- Comparative analysis
-
-**Next steps:**
-- Generate results for all subjects
-- Compare Ridge vs MLP
-- Compare no-adapter vs adapter
-- Include in thesis
-
----
-
-**Implementation Complete:** October 25, 2025
-
-**Status:** ✅ Production Ready
-
-**Testing:** All smoke tests passed (5/5)
-
-**Documentation:** Complete with usage guide and examples
-
-```
-
 # pq
 
 ```
-
-```
-
-# PUBLICATION_CHECKLIST.md
-
-```md
-# Publication Readiness Checklist
-
-## ✅ Complete Implementation
-
-### Core Pipeline
-- [x] NSD index builder and reader
-- [x] Preprocessing pipeline (PCA, z-score, reliability)
-- [x] CLIP cache generation (512-D, 1024-D)
-- [x] Ridge encoder training (fMRI → CLIP)
-- [x] CLIP adapter training (512-D → 768/1024-D)
-- [x] Stable Diffusion decoder
-- [x] Comprehensive evaluation script
-
-### Enhanced Evaluation (`eval_reconstruction.py`)
-- [x] Multiple gallery types (matched, test, all)
-- [x] CLIPScore computation
-- [x] Retrieval@K metrics (K=1,5,10)
-- [x] Ranking metrics (mean/median rank, MRR)
-- [x] Rank histograms
-- [x] Per-sample NN dump (CSV + JSONL)
-- [x] Distribution plots (CLIPScore, ranks)
-- [x] Adapter ablation (automatic)
-- [x] FAISS support (optional, fast retrieval)
-- [x] Offline image sources (HDF5, PNG, S3)
-
-### Automation
-- [x] Comprehensive Makefile
-- [x] `make pipeline` - end-to-end automation
-- [x] `make build_target_cache` - CLIP cache
-- [x] `make reconstruct_all` - all subjects
-- [x] `make eval_all_subjects` - full evaluation
-- [x] `make summarize_reports` - aggregate metrics
-- [x] `make generate_figures` - publication plots
-
-### Reporting Scripts
-- [x] `summarize_reports.py` - aggregate JSONs to CSV/Markdown
-- [x] `plot_metrics.py` - publication-quality figures
-  - CLIPScore distributions (per-subject, combined)
-  - Rank distributions (log-scale, by gallery)
-  - R@K comparison bars
-  - Adapter ablation comparison
-
-### Documentation
-- [x] Comprehensive README.md
-  - Pipeline architecture diagram
-  - Complete folder structure
-  - Step-by-step usage instructions
-  - Example outputs (CSV, JSON)
-  - Makefile target reference
-  - Advanced features (FAISS, custom models)
-  - Citation and license
-- [x] QUICK_START.md guide
-  - Three workflow options
-  - Expected metrics
-  - Troubleshooting tips
-  - Output locations
-- [x] environment.yml (pinned dependencies)
-- [x] Inline docstrings and comments
-
----
-
-## 📊 Expected Outputs
-
-After running `make pipeline`, you will have:
-
-### Data Artifacts
-\`\`\`
-outputs/
-├── clip_cache/
-│   └── target_clip_stabilityai_stable-diffusion-2-1.parquet  # ~500MB
-├── recon/
-│   ├── subj01/ridge_diffusion/images/  # ~515 PNG files, ~1GB
-│   ├── subj02/ridge_diffusion/images/
-│   └── subj03/ridge_diffusion/images/
-└── reports/
-    ├── summary_by_subject.csv          # Aggregate metrics
-    ├── SUMMARY.md                       # Markdown report
-    └── figures/                         # Publication figures (5 PNGs)
-\`\`\`
-
-### Reports Structure (Per Subject)
-\`\`\`
-reports/subj01/
-├── eval_matched.csv                    # Per-sample metrics
-├── eval_matched.json                   # Aggregate JSON
-├── eval_matched__nn.jsonl              # Top-10 neighbors per sample
-├── eval_matched_grid.png               # GT|NN|Generated visualization (16 rows)
-├── eval_matched__clipscore_hist.png    # CLIPScore distribution
-├── eval_matched__rank_hist.png         # Rank distribution
-├── eval_test.{csv,json,jsonl}          # Test gallery
-└── eval_all.{csv,json,jsonl}           # All gallery
-\`\`\`
-
----
-
-## 🎯 Publication Metrics
-
-### Primary Metrics (Matched Gallery)
-Report these in the main results:
-- **CLIPScore** (mean ± std)
-- **R@1** (%)
-- **R@5** (%)
-- **R@10** (%)
-- **Median Rank**
-
-### Supplementary Metrics
-Report these in supplementary materials:
-- Test gallery R@K (harder baseline)
-- All gallery R@K (most realistic)
-- Adapter ablation (with vs without)
-- Rank histogram distribution
-- Per-subject variation
-
-### Statistical Tests
-For comparing conditions:
-- Paired t-test for CLIPScore differences
-- Wilcoxon signed-rank test for rank differences
-- Bootstrap confidence intervals (use `scripts/compare_evals.py`)
-
----
-
-## 📝 Paper Sections
-
-### Methods
-1. **Dataset**: Natural Scenes Dataset (Allen et al., 2021)
-   - 3 subjects, 10,000 trials each
-   - 1.8mm isotropic 7T fMRI
-   - 73,000 COCO natural scenes
-
-2. **Preprocessing**:
-   - GLMdenoise betas (provided by NSD)
-   - Z-score normalization per run
-   - Split-half reliability masking (r > 0.1)
-   - PCA to 4096 components
-
-3. **Encoding Model**:
-   - Ridge regression (fMRI → CLIP 512-D)
-   - 5-fold cross-validation for alpha selection
-   - L2 normalization of predictions
-
-4. **CLIP Adapter** (Optional):
-   - Linear adapter (512-D → 1024-D)
-   - Aligns to SD 2.1 ViT-H/14 space
-   - Trained on full training set
-
-5. **Image Reconstruction**:
-   - Stable Diffusion 2.1
-   - CLIP guidance from fMRI predictions
-   - 50 inference steps, CFG=7.5
-
-6. **Evaluation**:
-   - CLIPScore (Hessel et al., 2021)
-   - Retrieval@K (K=1,5,10)
-   - Multiple gallery configurations
-
-### Results
-1. **Quantitative Performance**:
-   - Table: CLIPScore and R@K by subject
-   - Figure: CLIPScore distribution
-   - Figure: Rank histogram
-   - Figure: Gallery comparison
-
-2. **Qualitative Examples**:
-   - Visualization grids (GT|NN|Generated)
-   - Best/worst reconstructions
-   - Category-specific examples
-
-3. **Ablation Studies**:
-   - Adapter impact (with vs without)
-   - Preprocessing choices (k, reliability threshold)
-   - Gallery difficulty (matched vs test vs all)
-
-### Discussion
-- Compare to prior work (Takagi & Nishimoto 2023, Ozcelik & VanRullen 2023)
-- Limitations (subject-specific, semantic similarity focus)
-- Future directions (multimodal, real-time decoding)
-
----
-
-## 🚀 Submission Checklist
-
-### Code Repository
-- [x] All scripts documented and tested
-- [x] README.md with complete instructions
-- [x] Makefile for reproduction
-- [x] requirements.txt / environment.yml
-- [ ] Add LICENSE file (MIT recommended)
-- [ ] Add .gitignore for outputs/
-- [ ] Create GitHub releases/tags
-- [ ] Add badges (Python version, license)
-
-### Data Availability
-- [ ] Host preprocessed indices (Parquet files)
-- [ ] Document NSD access requirements
-- [ ] Provide CLIP cache generation scripts
-- [ ] Share example outputs (sample reconstructions)
-
-### Reproducibility
-- [ ] Test `make pipeline` on clean environment
-- [ ] Document compute requirements (GPU memory, time)
-- [ ] Provide checkpoint files (trained models)
-- [ ] Include random seeds in configs
-
-### Paper Supplements
-- [ ] Extended methods (preprocessing details)
-- [ ] Supplementary figures (all subjects, all galleries)
-- [ ] Supplementary tables (full metrics breakdown)
-- [ ] Code and data availability statement
-
----
-
-## 🎓 Thesis Deliverables
-
-### Required Files
-1. **Thesis Document** (PDF)
-2. **Code Repository** (GitHub URL or ZIP)
-3. **Trained Models** (checkpoints/)
-4. **Evaluation Reports** (outputs/reports/)
-5. **Sample Reconstructions** (select best examples)
-
-### Defense Presentation
-- Pipeline architecture diagram
-- Key metrics (CLIPScore, R@K)
-- Visualization examples
-- Ablation study results
-- Computational requirements
-- Future work and limitations
-
----
-
-## �� Support
-
-If issues arise during submission/defense:
-1. Check `docs/QUICK_START.md` for troubleshooting
-2. Review `docs/*.md` for component details
-3. Run `make help` for available targets
-4. Test on small subset first (`make eval_quick`)
-
----
-
-**Status: READY FOR PUBLICATION** ✅
-
-All core components, evaluation, automation, and documentation are complete and tested.
 
 ```
 
@@ -2825,1703 +785,6 @@ line-length = 100
 target-version = "py310"
 ```
 
-# README_old.md
-
-```md
-# fMRI-to-Image Reconstruction
-
-This project implements fMRI-to-image reconstruction using the Natural Scenes Dataset (NSD), mapping brain activity to visual stimuli via CLIP embeddings.
-
-## Key Components
-
-### Phase 1: Canonical Index
-
-- `src/fmri2img/data/nsd_index_builder.py` - Builds canonical Parquet index
-- `src/fmri2img/data/nsd_index.py` - Index query interface
-- `scripts/nsd_build_index_s3.py` - CLI for index building
-
-### Phase 2: IO Layer
-
-- `src/fmri2img/io/nsd_layout.py` - Centralized path management
-- `src/fmri2img/io/s3.py` - Robust S3 data loaders (NIfTI, HDF5, CSV)
-
-### Phase 3: Preprocessing Pipeline
-
-- `src/fmri2img/data/preprocess.py` - Production-grade preprocessing with T0/T1/T2 transforms
-- `scripts/nsd_fit_preproc.py` - CLI to fit preprocessing on training data
-- **T0**: Per-volume z-score normalization (online)
-- **T1**: Subject-level scaler + reliability/variance mask (fit on train, persist)
-- **T2**: PCA to k components or ROI pooling
-
-### Phase 4: ROI Pooling & CLIP Cache
-
-- `src/fmri2img/data/roi.py` - ROI pooling for anatomical region analysis
-- `src/fmri2img/data/clip_cache.py` - CLIP vision embeddings cache with Parquet storage
-- `scripts/nsd_build_clip_cache.py` - CLI to build CLIP embeddings cache
-- `scripts/test_roi.py` - Test script for ROI functionality
-
-### Phase 5: Ridge Baseline ✨ **NEW**
-
-- `src/fmri2img/models/ridge.py` - Ridge regression encoder (fMRI → CLIP)
-- `src/fmri2img/eval/retrieval.py` - Retrieval evaluation metrics
-- `scripts/train_ridge.py` - Full training pipeline with alpha selection
-- `docs/RIDGE_BASELINE.md` - Comprehensive documentation
-
-**Features**:
-
-- L2-regularized linear regression with hyperparameter selection
-- Validation-based alpha tuning (no test leakage)
-- L2-normalized predictions for cosine similarity
-- Retrieval@K evaluation (K=1,5,10) + ranking metrics
-- Complete train/val/test splits
-- Model persistence with save/load
-
-Note: GLMdenoise betas are already denoised; this layer standardizes & reduces dimensionality.
-
-## Important Notes
-
-**Trial Order**: The `nsd_stim_info_merged.csv` file is a **stimulus catalog** indexed by `nsdId`, providing COCO metadata (cocoId, cocoSplit, shared1000, filename). It is **NOT** trial order information.
-
-**True Trial Order**: Actual trial presentation order comes from per-subject session design files located at:
-
-\`\`\`
-s3://natural-scenes-dataset/nsddata/ppdata/subjXX/behav/sessionYY/
-\`\`\`
-
-**Beta dtype**: NIfTI betas may be stored as `int16` (or other). After slicing a single trial, cast to `float32` if your model expects it:
-`vol = img.slicer[..., beta_index].get_fdata().astype('float32')`.
-
-**Index layout**: Primary format is partitioned by subject at `nsd_index/subject=subjXX/index.parquet`. The single-file path in `configs/data.yaml: paths.index_file` is only a local fallback.
-
-**S3 writes**: The public NSD bucket is read-only; examples that write Parquet to S3 require your own bucket + AWS credentials. The demo falls back to local Parquet automatically.
-
-The canonical index properly maps `(subject, session, trial_in_session) → nsdId → beta_path` using these design files, not naive pairing.
-
-## Usage
-
-\`\`\`bash
-# Build index for subjects - output is partitioned by subject as:
-# .../nsd_index/subject=subjXX/index.parquet
-SUBJECTS="subj01 subj02" OUT_ROOT="data/indices/nsd_index" make index
-
-# Fit preprocessing pipeline on training data
-python scripts/nsd_fit_preproc.py --subject subj01 --k 4096 --reliability-thr 0.1
-
-# Stream a few 3D volumes from S3 via the canonical index and build small batches (no model yet)
-make train-smoke
-
-# Test with preprocessing pipeline
-python scripts/train_smoke.py --use-preproc --pca-k 4096
-
-# Run tests
-make test
-\`\`\`
-
-### Preprocessing Pipeline
-
-The preprocessing pipeline implements three transformation levels:
-
-- **T0**: Per-volume z-score normalization (applied online during data loading)
-- **T1**: Subject-level scaler with reliability masking (fitted on training data)
-  - Computes voxel-wise mean/std from training trials using Welford's online algorithm
-  - For stimuli with repeat presentations, computes test-retest correlation per voxel
-  - Keeps only voxels above reliability threshold (default r ≥ 0.1)
-  - Falls back to variance threshold when repeats unavailable
-- **T2**: PCA dimensionality reduction to k components OR ROI pooling
-
-Example preprocessing workflow:
-
-\`\`\`bash
-# Fit standard preprocessing with PCA
-python scripts/nsd_fit_preproc.py --subject subj01 --k 4096 --reliability-thr 0.1
-
-# Fit preprocessing with ROI pooling instead of PCA
-python scripts/nsd_fit_preproc.py --subject subj01 --roi-mode pool
-
-# Test with preprocessing in data loading
-python scripts/train_smoke.py --subject subj01 --use-preproc --pca-k 4096
-python scripts/train_smoke.py --subject subj01 --roi-mode pool
-\`\`\`
-
-### ROI Pooling
-
-ROI pooling extracts anatomical region means from fMRI volumes:
-
-\`\`\`python
-from fmri2img.data.roi import ROIPooler
-
-# Initialize and fit ROI pooler
-pooler = ROIPooler(subject="subj01", min_voxels=50)
-pooler.fit(sample_beta_path)  # Auto-discovers ROI masks via NSDLayout
-
-# Pool volume to ROI means
-vol = load_volume()  # (H, W, D)
-roi_means = pooler.pool(vol)  # (n_roi,) - mean per anatomical region
-\`\`\`
-
-### CLIP Embeddings Cache
-
-CLIP cache stores precomputed ViT-B/32 embeddings (512-dim) for NSD stimuli in a Parquet file with enforced schema:
-
-- **nsdId**: int32 (NSD stimulus identifier)
-- **clip512**: fixed-length list[float32, 512] (CLIP vision embedding)
-
-**Image Loading**: Primary path is `nsd_stimuli.hdf5` via nsdId (fast, S3-backed). Falls back to COCO HTTP if HDF5 access fails and cocoId is available.
-
-**Build Cache**:
-
-\`\`\`bash
-# From partitioned index (recommended)
-python scripts/build_clip_cache.py \
-    --index-file data/indices/nsd_index/subject=subj01/index.parquet \
-    --cache outputs/clip_cache/clip.parquet \
-    --batch 64 --device cuda --limit 256
-
-# From index root with subject filter
-python scripts/build_clip_cache.py \
-    --index-root data/indices/nsd_index \
-    --subject subj01 \
-    --cache outputs/clip_cache/clip.parquet \
-    --batch 128 --device cuda
-
-# Resume is automatic - skips already-cached nsdIds
-# Re-run same command to continue after interruption
-\`\`\`
-
-**Use in Dataset**:
-
-\`\`\`python
-from fmri2img.data.clip_cache import CLIPCache
-from fmri2img.data.torch_dataset import NSDIterableDataset
-
-# Preferred: Fluent API (load() returns self)
-clip_cache = CLIPCache("outputs/clip_cache/clip.parquet").load()
-dataset = NSDIterableDataset(
-    index_path_or_root="data/indices/nsd_index",
-    subject="subj01",
-    clip_cache=clip_cache  # Add CLIP embeddings to batch output
-)
-
-# Also supported: Pass path string directly
-dataset = NSDIterableDataset(
-    index_path_or_root="data/indices/nsd_index",
-    subject="subj01",
-    clip_cache="outputs/clip_cache/clip.parquet"  # String path
-)
-
-# Each batch now includes "clip" key with (512,) float32 L2-normalized array
-for batch in dataset:
-    fmri = batch["fmri"]      # (H,W,D) or (k,) after PCA
-    clip = batch["clip"]      # (512,) CLIP embedding (L2 normalized)
-\`\`\`
-
-### Ridge Baseline Training
-
-Train a reproducible Ridge regression baseline to map fMRI → CLIP embeddings:
-
-\`\`\`bash
-# Quick test (works with current k=4 PCA, uses 256 samples)
-python scripts/train_ridge.py \
-    --subject subj01 \
-    --use-preproc \
-    --clip-cache outputs/clip_cache/clip.parquet \
-    --limit 256 \
-    --alpha-grid "1,10"
-
-# Full training via Makefile
-make ridge
-
-# Full training with custom config
-python scripts/train_ridge.py \
-    --index-root data/indices/nsd_index \
-    --subject subj01 \
-    --use-preproc \
-    --clip-cache outputs/clip_cache/clip.parquet \
-    --alpha-grid "0.1,1,3,10,30,100" \
-    --limit 2048  # Remove for all data
-\`\`\`
-
-**Output**:
-
-- **Model**: `checkpoints/ridge/subj01/ridge.pkl` (loadable via `RidgeEncoder.load()`)
-- **Report**: `outputs/reports/subj01/ridge_eval.json` (cosine, MSE, R@K metrics)
-
-**Evaluation Metrics**:
-
-- Cosine similarity (with ground truth)
-- MSE loss
-- Retrieval@1/5/10 (% queries with true image in top-K)
-- Mean/median rank, MRR
-
-See `docs/RIDGE_BASELINE.md` for complete documentation.
-nsd_id = batch["nsdId"] # int
-
-\`\`\``
-
-**Common Mistake**:
-\`\`\`python
-# ❌ Don't do this (old API returned boolean):
-# cache = CLIPCache(...).load()  # Returns self now, not bool!
-
-# ✓ Correct (fluent API):
-cache = CLIPCache("path/to/cache.parquet").load()
-dataset = NSDIterableDataset(..., clip_cache=cache)
-
-# ✓ Or use string path:
-dataset = NSDIterableDataset(..., clip_cache="path/to/cache.parquet")
-\`\`\``
-
-**API Reference**:
-
-\`\`\`python
-from fmri2img.data.clip_cache import CLIPCache
-
-# Fluent API - load() returns self
-cache = CLIPCache(cache_path="outputs/clip_cache/clip.parquet").load()
-
-# Check if loaded
-assert cache.is_loaded  # Property
-
-# Check if nsdId is cached
-if cache.contains(nsd_id=12345):
-    print("Already cached!")
-
-# Get embeddings for multiple nsdIds (L2 normalized)
-embeddings = cache.get([1, 2, 3])  # Returns: {1: array(512,), 2: array(512,), ...}
-
-# Save new embeddings
-import pandas as pd
-rows = pd.DataFrame({
-    "nsdId": [4, 5, 6],
-    "clip512": [emb1.tolist(), emb2.tolist(), emb3.tolist()]
-})
-cache.save_rows(rows)  # Deduplicates on nsdId, enforces schema
-
-# Get stats
-stats = cache.stats()  # {"cache_size": N, "path": "..."}
-\`\`\`
-
-**Implementation Details**:
-
-- Uses PyArrow schema enforcement for type safety
-- Deduplicates automatically on nsdId (keeps latest)
-- Resume support: builder skips already-cached IDs
-- Batch processing with GPU autocast for efficiency
-- Snappy compression for compact storage
-
-### Test Scripts
-
-\`\`\`bash
-# Test ROI functionality
-python scripts/test_roi.py
-\`\`\`
-
-Primary format: partitioned Parquet per subject: nsd_index/subject=subjXX/index.parquet. The single-file path (paths.index_file) is only a local fallback.
-
-\`\`\`bash
-# Demo IO layer
-make sanity
-\`\`\`
-
-## Important Notes
-
-- **PyTorch IterableDataset** reads one 3D trial at a time via `img.slicer[..., beta_index]` to avoid loading full 4D NIfTI.
-
-## Architecture
-
-1. **Stimulus Catalog**: 73K COCO images with NSD metadata
-2. **Session Designs**: Per-subject trial order and timing
-3. **Beta Files**: 4D NIfTI files with GLMdenoise preprocessed fMRI
-4. **Canonical Index**: Parquet mapping trials → stimuli → files
-   - Extra columns:
-     - `stimulus_repeat_count` – count of repeats for that nsdId up to current trial
-     - `has_beta_data` – boolean availability flag for mapped beta file/index
-     - `data_quality_flag` – optional QC status if exposed by design
-5. **S3 Streaming**: Memory-efficient data access via fsspec
-
-```
-
-# README.md
-
-```md
-# fMRI→CLIP→Diffusion Image Reconstruction Pipeline# fMRI-to-Image Reconstruction
-
-
-
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)This project implements fMRI-to-image reconstruction using the Natural Scenes Dataset (NSD), mapping brain activity to visual stimuli via CLIP embeddings.
-
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)](https://pytorch.org/)
-
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)## Key Components
-
-
-
-> **Publication-ready pipeline for reconstructing natural images from fMRI brain activity using CLIP embeddings and Stable Diffusion.**### Phase 1: Canonical Index
-
-
-
-This project implements a complete neural decoding pipeline that transforms fMRI voxel patterns into semantic CLIP embeddings, then uses these embeddings to guide Stable Diffusion image generation. The pipeline includes preprocessing, model training, reconstruction, and comprehensive evaluation with multiple retrieval gallery configurations.- `src/fmri2img/data/nsd_index_builder.py` - Builds canonical Parquet index
-
-- `src/fmri2img/data/nsd_index.py` - Index query interface
-
----- `scripts/nsd_build_index_s3.py` - CLI for index building
-
-
-
-## 🎯 Overview### Phase 2: IO Layer
-
-
-
-### Pipeline Architecture- `src/fmri2img/io/nsd_layout.py` - Centralized path management
-
-- `src/fmri2img/io/s3.py` - Robust S3 data loaders (NIfTI, HDF5, CSV)
-
-\`\`\`
-
-fMRI Voxels (Cortex) → Ridge Regression → CLIP Embeddings (512-D/1024-D) → Stable Diffusion → Reconstructed Images### Phase 3: Preprocessing Pipeline
-
-                              ↓
-
-                     CLIP Adapter (optional)- `src/fmri2img/data/preprocess.py` - Production-grade preprocessing with T0/T1/T2 transforms
-
-                     512-D → 768-D/1024-D- `scripts/nsd_fit_preproc.py` - CLI to fit preprocessing on training data
-
-\`\`\`- **T0**: Per-volume z-score normalization (online)
-
-- **T1**: Subject-level scaler + reliability/variance mask (fit on train, persist)
-
-**Key Features:**- **T2**: PCA to k components or ROI pooling
-
-- ✅ **Preprocessing**: PCA, z-scoring, split-half reliability masking
-
-- ✅ **Encoding**: Ridge regression baseline (fMRI → CLIP)### Phase 4: ROI Pooling & CLIP Cache
-
-- ✅ **Adaptation**: CLIP space alignment (ViT-B/32 → ViT-L/14 or ViT-H/14)
-
-- ✅ **Decoding**: Stable Diffusion with CLIP guidance- `src/fmri2img/data/roi.py` - ROI pooling for anatomical region analysis
-
-- ✅ **Evaluation**: CLIPScore, retrieval@K, ranking metrics with ablations- `src/fmri2img/data/clip_cache.py` - CLIP vision embeddings cache with Parquet storage
-
-- ✅ **Automation**: Complete `Makefile` for reproducible experiments- `scripts/nsd_build_clip_cache.py` - CLI to build CLIP embeddings cache
-
-- `scripts/test_roi.py` - Test script for ROI functionality
-
----
-
-### Phase 5: Ridge Baseline ✨ **NEW**
-
-## 📂 Project Structure
-
-- `src/fmri2img/models/ridge.py` - Ridge regression encoder (fMRI → CLIP)
-
-\`\`\`- `src/fmri2img/eval/retrieval.py` - Retrieval evaluation metrics
-
-Bachelor V2/- `scripts/train_ridge.py` - Full training pipeline with alpha selection
-
-├── scripts/              # Main execution scripts- `docs/RIDGE_BASELINE.md` - Comprehensive documentation
-
-│   ├── nsd_fit_preproc.py        # Fit preprocessing pipeline
-
-│   ├── train_ridge.py            # Train Ridge encoder (fMRI → CLIP)**Features**:
-
-│   ├── train_clip_adapter.py     # Train CLIP adapter (512-D → 768/1024-D)
-
-│   ├── decode_diffusion.py       # Generate images via Stable Diffusion- L2-regularized linear regression with hyperparameter selection
-
-│   ├── eval_reconstruction.py    # Evaluate reconstructions (enhanced)- Validation-based alpha tuning (no test leakage)
-
-│   ├── summarize_reports.py      # Aggregate evaluation reports- L2-normalized predictions for cosine similarity
-
-│   └── plot_metrics.py           # Generate publication figures- Retrieval@K evaluation (K=1,5,10) + ranking metrics
-
-│- Complete train/val/test splits
-
-├── src/fmri2img/         # Core package- Model persistence with save/load
-
-│   ├── data/             # Dataset loaders, CLIP cache, preprocessing
-
-│   ├── models/           # Ridge, MLP, CLIP adapter modelsNote: GLMdenoise betas are already denoised; this layer standardizes & reduces dimensionality.
-
-│   ├── eval/             # Evaluation metrics (CLIPScore, retrieval)
-
-│   └── utils/            # Logging, visualization, I/O utilities## Important Notes
-
-│
-
-├── outputs/              # Generated outputs**Trial Order**: The `nsd_stim_info_merged.csv` file is a **stimulus catalog** indexed by `nsdId`, providing COCO metadata (cocoId, cocoSplit, shared1000, filename). It is **NOT** trial order information.
-
-│   ├── clip_cache/       # CLIP embedding caches (512-D, 1024-D)
-
-│   ├── checkpoints/      # Trained model weights**True Trial Order**: Actual trial presentation order comes from per-subject session design files located at:
-
-│   ├── preproc/          # Preprocessing artifacts (PCA, scalers)
-
-│   ├── recon/            # Reconstructed images by subject\`\`\`
-
-│   └── reports/          # Evaluation reports and figuress3://natural-scenes-dataset/nsddata/ppdata/subjXX/behav/sessionYY/
-
-│\`\`\`
-
-├── data/indices/         # NSD dataset indices (Parquet)
-
-├── configs/              # YAML configuration files**Beta dtype**: NIfTI betas may be stored as `int16` (or other). After slicing a single trial, cast to `float32` if your model expects it:
-
-├── Makefile              # Automation targets`vol = img.slicer[..., beta_index].get_fdata().astype('float32')`.
-
-├── requirements.txt      # Python dependencies
-
-└── environment.yml       # Conda environment (pinned)**Index layout**: Primary format is partitioned by subject at `nsd_index/subject=subjXX/index.parquet`. The single-file path in `configs/data.yaml: paths.index_file` is only a local fallback.
-
-\`\`\`
-
-**S3 writes**: The public NSD bucket is read-only; examples that write Parquet to S3 require your own bucket + AWS credentials. The demo falls back to local Parquet automatically.
-
----
-
-The canonical index properly maps `(subject, session, trial_in_session) → nsdId → beta_path` using these design files, not naive pairing.
-
-## 🚀 Setup
-
-## Usage
-
-### 1. Environment
-
-\`\`\`bash
-
-\`\`\`bash# Build index for subjects - output is partitioned by subject as:
-
-# Clone repository# .../nsd_index/subject=subjXX/index.parquet
-
-git clone <repo-url>SUBJECTS="subj01 subj02" OUT_ROOT="data/indices/nsd_index" make index
-
-cd "Bachelor V2"
-
-# Fit preprocessing pipeline on training data
-
-# Create conda environmentpython scripts/nsd_fit_preproc.py --subject subj01 --k 4096 --reliability-thr 0.1
-
-conda env create -f environment.yml
-
-conda activate fmri2img# Stream a few 3D volumes from S3 via the canonical index and build small batches (no model yet)
-
-make train-smoke
-
-# Or use pip
-
-pip install -r requirements.txt# Test with preprocessing pipeline
-
-python scripts/train_smoke.py --use-preproc --pca-k 4096
-
-# Install package in development mode
-
-pip install -e .# Run tests
-
-\`\`\`make test
-
-\`\`\`
-
-### 2. Dataset Preparation
-
-### Preprocessing Pipeline
-
-**Natural Scenes Dataset (NSD)**
-
-The preprocessing pipeline implements three transformation levels:
-
-This project requires the NSD dataset. You need:
-
-- Preprocessed fMRI beta maps (β₁, β₂, β₃ for split-half reliability)- **T0**: Per-volume z-score normalization (applied online during data loading)
-
-- NSD stimulus images (73,000 natural scenes from COCO)- **T1**: Subject-level scaler with reliability masking (fitted on training data)
-
-  - Computes voxel-wise mean/std from training trials using Welford's online algorithm
-
-Download and prepare:  - For stimuli with repeat presentations, computes test-retest correlation per voxel
-
-\`\`\`bash  - Keeps only voxels above reliability threshold (default r ≥ 0.1)
-
-# Build canonical NSD index (Parquet format)  - Falls back to variance threshold when repeats unavailable
-
-make index- **T2**: PCA dimensionality reduction to k components OR ROI pooling
-
-
-
-# Cache NSD stimulus imagesExample preprocessing workflow:
-
-# Option 1: HDF5 (recommended, ~20GB)
-
-python scripts/cache_nsd_stimuli_hdf5.py --output cache/nsd_hdf5/nsd_stimuli.hdf5\`\`\`bash
-
-# Fit standard preprocessing with PCA
-
-# Option 2: PNG files (larger, ~30GB)python scripts/nsd_fit_preproc.py --subject subj01 --k 4096 --reliability-thr 0.1
-
-python scripts/cache_nsd_stimuli_png.py --output-dir cache/nsd_png/
-
-\`\`\`# Fit preprocessing with ROI pooling instead of PCA
-
-python scripts/nsd_fit_preproc.py --subject subj01 --roi-mode pool
-
----
-
-# Test with preprocessing in data loading
-
-## 📖 Usagepython scripts/train_smoke.py --subject subj01 --use-preproc --pca-k 4096
-
-python scripts/train_smoke.py --subject subj01 --roi-mode pool
-
-### Quick Start: Complete Pipeline\`\`\`
-
-
-
-\`\`\`bash### ROI Pooling
-
-# Run full pipeline (cache → reconstruct → evaluate → summarize)
-
-make pipelineROI pooling extracts anatomical region means from fMRI volumes:
-
-\`\`\`
-
-\`\`\`python
-
-This will:from fmri2img.data.roi import ROIPooler
-
-1. Build 1024-D CLIP cache for Stable Diffusion 2.1
-
-2. Reconstruct test sets for subj01-03# Initialize and fit ROI pooler
-
-3. Evaluate with 3 gallery types (matched, test, all)pooler = ROIPooler(subject="subj01", min_voxels=50)
-
-4. Generate summary CSV, Markdown report, and figurespooler.fit(sample_beta_path)  # Auto-discovers ROI masks via NSDLayout
-
-
-
-### Step-by-Step Workflow# Pool volume to ROI means
-
-vol = load_volume()  # (H, W, D)
-
-#### 1. Build CLIP Cachesroi_means = pooler.pool(vol)  # (n_roi,) - mean per anatomical region
-
-\`\`\`
-
-\`\`\`bash
-
-# Build 512-D cache (ViT-B/32 baseline)### CLIP Embeddings Cache
-
-make build_cache
-
-CLIP cache stores precomputed ViT-B/32 embeddings (512-dim) for NSD stimuli in a Parquet file with enforced schema:
-
-# Build 1024-D cache (SD 2.1 target space)
-
-make build_target_cache- **nsdId**: int32 (NSD stimulus identifier)
-
-\`\`\`- **clip512**: fixed-length list[float32, 512] (CLIP vision embedding)
-
-
-
-#### 2. Fit Preprocessing**Image Loading**: Primary path is `nsd_stimuli.hdf5` via nsdId (fast, S3-backed). Falls back to COCO HTTP if HDF5 access fails and cocoId is available.
-
-
-
-\`\`\`bash**Build Cache**:
-
-# Fit PCA, scaler, reliability mask for subj01
-
-python scripts/nsd_fit_preproc.py \\`\`\`bash
-
-    --subject subj01 \# From partitioned index (recommended)
-
-    --k 4096 \python scripts/build_clip_cache.py \
-
-    --reliability-thr 0.1 \    --index-file data/indices/nsd_index/subject=subj01/index.parquet \
-
-    --seed 42    --cache outputs/clip_cache/clip.parquet \
-
-\`\`\`    --batch 64 --device cuda --limit 256
-
-
-
-#### 3. Train Ridge Encoder# From index root with subject filter
-
-python scripts/build_clip_cache.py \
-
-\`\`\`bash    --index-root data/indices/nsd_index \
-
-# Train Ridge regression (fMRI → CLIP 512-D)    --subject subj01 \
-
-python scripts/train_ridge.py \    --cache outputs/clip_cache/clip.parquet \
-
-    --subject subj01 \    --batch 128 --device cuda
-
-    --clip-cache outputs/clip_cache/clip.parquet \
-
-    --output checkpoints/ridge/subj01/ridge.pt# Resume is automatic - skips already-cached nsdIds
-
-\`\`\`# Re-run same command to continue after interruption
-
-\`\`\`
-
-#### 4. Train CLIP Adapter (Optional)
-
-**Use in Dataset**:
-
-\`\`\`bash
-
-# Train adapter (512-D → 1024-D for SD 2.1)\`\`\`python
-
-python scripts/train_clip_adapter.py \from fmri2img.data.clip_cache import CLIPCache
-
-    --subject subj01 \from fmri2img.data.torch_dataset import NSDIterableDataset
-
-    --model-id stabilityai/stable-diffusion-2-1 \
-
-    --source-cache outputs/clip_cache/clip.parquet \# Preferred: Fluent API (load() returns self)
-
-    --target-cache outputs/clip_cache/target_clip_stabilityai_stable-diffusion-2-1.parquet \clip_cache = CLIPCache("outputs/clip_cache/clip.parquet").load()
-
-    --output checkpoints/clip_adapter/subj01/adapter.ptdataset = NSDIterableDataset(
-
-\`\`\`    index_path_or_root="data/indices/nsd_index",
-
-    subject="subj01",
-
-#### 5. Reconstruct Images    clip_cache=clip_cache  # Add CLIP embeddings to batch output
-
-)
-
-\`\`\`bash
-
-# Generate images for test set# Also supported: Pass path string directly
-
-python scripts/decode_diffusion.py \dataset = NSDIterableDataset(
-
-    --subject subj01 \    index_path_or_root="data/indices/nsd_index",
-
-    --model-id stabilityai/stable-diffusion-2-1 \    subject="subj01",
-
-    --output-dir outputs/recon/subj01/ridge_diffusion \    clip_cache="outputs/clip_cache/clip.parquet"  # String path
-
-    --split test \)
-
-    --num-inference-steps 50 \
-
-    --guidance-scale 7.5 \# Each batch now includes "clip" key with (512,) float32 L2-normalized array
-
-    --device cudafor batch in dataset:
-
-\`\`\`    fmri = batch["fmri"]      # (H,W,D) or (k,) after PCA
-
-    clip = batch["clip"]      # (512,) CLIP embedding (L2 normalized)
-
-#### 6. Evaluate Reconstructions\`\`\`
-
-
-
-\`\`\`bash### Ridge Baseline Training
-
-# Evaluate with matched gallery (primary metric)
-
-python scripts/eval_reconstruction.py \Train a reproducible Ridge regression baseline to map fMRI → CLIP embeddings:
-
-    --subject subj01 \
-
-    --recon-dir outputs/recon/subj01/ridge_diffusion/images \\`\`\`bash
-
-    --clip-cache outputs/clip_cache/target_clip_stabilityai_stable-diffusion-2-1.parquet \# Quick test (works with current k=4 PCA, uses 256 samples)
-
-    --use-adapter \python scripts/train_ridge.py \
-
-    --model-id stabilityai/stable-diffusion-2-1 \    --subject subj01 \
-
-    --gallery matched \    --use-preproc \
-
-    --image-source hdf5 \    --clip-cache outputs/clip_cache/clip.parquet \
-
-    --out-csv outputs/reports/subj01/eval_matched.csv \    --limit 256 \
-
-    --out-json outputs/reports/subj01/eval_matched.json \    --alpha-grid "1,10"
-
-    --out-fig outputs/reports/subj01/eval_matched_grid.png
-
-\`\`\`# Full training via Makefile
-
-make ridge
-
-**Gallery Types:**
-
-- `matched`: Only GT of reconstructed images (easiest, standard)# Full training with custom config
-
-- `test`: All test split GT embeddings (medium difficulty)python scripts/train_ridge.py \
-
-- `all`: All GT embeddings train+val+test (hardest, most realistic)    --index-root data/indices/nsd_index \
-
-    --subject subj01 \
-
-#### 7. Aggregate Results    --use-preproc \
-
-    --clip-cache outputs/clip_cache/clip.parquet \
-
-\`\`\`bash    --alpha-grid "0.1,1,3,10,30,100" \
-
-# Summarize all evaluation reports    --limit 2048  # Remove for all data
-
-python scripts/summarize_reports.py \\`\`\`
-
-    --reports-dir outputs/reports \
-
-    --output-csv outputs/reports/summary_by_subject.csv \**Output**:
-
-    --output-md outputs/reports/SUMMARY.md
-
-\`\`\`- **Model**: `checkpoints/ridge/subj01/ridge.pkl` (loadable via `RidgeEncoder.load()`)
-
-- **Report**: `outputs/reports/subj01/ridge_eval.json` (cosine, MSE, R@K metrics)
-
-#### 8. Generate Figures
-
-**Evaluation Metrics**:
-
-\`\`\`bash
-
-# Create publication-quality plots- Cosine similarity (with ground truth)
-
-python scripts/plot_metrics.py \- MSE loss
-
-    --reports-dir outputs/reports \- Retrieval@1/5/10 (% queries with true image in top-K)
-
-    --output-dir outputs/reports/figures \- Mean/median rank, MRR
-
-    --subjects subj01 subj02 subj03
-
-\`\`\`See `docs/RIDGE_BASELINE.md` for complete documentation.
-
-nsd_id = batch["nsdId"] # int
-
----
-
-\`\`\``
-
-## 📊 Evaluation Metrics
-
-**Common Mistake**:
-
-### CLIPScore\`\`\`python
-
-Cosine similarity between generated and ground truth CLIP embeddings (Hessel et al., 2021).# ❌ Don't do this (old API returned boolean):
-
-# cache = CLIPCache(...).load()  # Returns self now, not bool!
-
-**Formula:** `score(gen, gt) = cos(CLIP(gen), CLIP(gt))`
-
-# ✓ Correct (fluent API):
-
-**Range:** [-1, 1], higher is bettercache = CLIPCache("path/to/cache.parquet").load()
-
-dataset = NSDIterableDataset(..., clip_cache=cache)
-
-### Retrieval@K (R@K)
-
-Proportion of samples where GT is in top-K retrieval from gallery.# ✓ Or use string path:
-
-dataset = NSDIterableDataset(..., clip_cache="path/to/cache.parquet")
-
-**Metrics:** R@1, R@5, R@10\`\`\``
-
-
-
-### Ranking Metrics**API Reference**:
-
-- **Mean Rank**: Average position of GT in retrieval ranking
-
-- **Median Rank**: Median position (robust to outliers)\`\`\`python
-
-- **MRR**: Mean Reciprocal Rank = mean(1/rank)from fmri2img.data.clip_cache import CLIPCache
-
-
-
-### Adapter Ablation# Fluent API - load() returns self
-
-Automatic comparison of performance with/without CLIP adapter to quantify alignment gains.cache = CLIPCache(cache_path="outputs/clip_cache/clip.parquet").load()
-
-
-
----# Check if loaded
-
-assert cache.is_loaded  # Property
-
-## 📈 Example Outputs
-
-# Check if nsdId is cached
-
-### Per-Sample CSVif cache.contains(nsd_id=12345):
-
-\`\`\`csv    print("Already cached!")
-
-nsdId,clipscore,rank,r@1,r@5,r@10,in_gallery,nn_nsdId,nn_sim,gt_sim
-
-73000,0.652,1,1,1,1,1,73000,0.652,0.652# Get embeddings for multiple nsdIds (L2 normalized)
-
-73001,0.548,3,0,1,1,1,73005,0.601,0.548embeddings = cache.get([1, 2, 3])  # Returns: {1: array(512,), 2: array(512,), ...}
-
-...
-
-\`\`\`# Save new embeddings
-
-import pandas as pd
-
-### Aggregate JSONrows = pd.DataFrame({
-
-\`\`\`json    "nsdId": [4, 5, 6],
-
-{    "clip512": [emb1.tolist(), emb2.tolist(), emb3.tolist()]
-
-  "subject": "subj01",})
-
-  "gallery_type": "matched",cache.save_rows(rows)  # Deduplicates on nsdId, enforces schema
-
-  "n_samples": 515,
-
-  "gallery_size": 515,# Get stats
-
-  "clipscore": {stats = cache.stats()  # {"cache_size": N, "path": "..."}
-
-    "mean": 0.524,\`\`\`
-
-    "std": 0.108
-
-  },**Implementation Details**:
-
-  "retrieval": {
-
-    "R@1": 0.452,- Uses PyArrow schema enforcement for type safety
-
-    "R@5": 0.712,- Deduplicates automatically on nsdId (keeps latest)
-
-    "R@10": 0.823- Resume support: builder skips already-cached IDs
-
-  },- Batch processing with GPU autocast for efficiency
-
-  "ranking": {- Snappy compression for compact storage
-
-    "mean_rank": 8.3,
-
-    "median_rank": 2.0,### Test Scripts
-
-    "mrr": 0.561
-
-  },\`\`\`bash
-
-  "rank_hist": {# Test ROI functionality
-
-    "1": 233,python scripts/test_roi.py
-
-    "2-5": 134,\`\`\`
-
-    "6-10": 89,
-
-    "11+": 59Primary format: partitioned Parquet per subject: nsd_index/subject=subjXX/index.parquet. The single-file path (paths.index_file) is only a local fallback.
-
-  },
-
-  "ablations": {\`\`\`bash
-
-    "with_adapter": {...},# Demo IO layer
-
-    "without_adapter": {...}make sanity
-
-  }\`\`\`
-
-}
-
-\`\`\`## Important Notes
-
-
-
-### Visualization Grid- **PyTorch IterableDataset** reads one 3D trial at a time via `img.slicer[..., beta_index]` to avoid loading full 4D NIfTI.
-
-Each row shows: **Ground Truth | Nearest Neighbor | Generated**
-
-## Architecture
-
-![Example Grid](outputs/reports/subj01/eval_matched_grid.png)
-
-1. **Stimulus Catalog**: 73K COCO images with NSD metadata
-
-### Distribution Plots2. **Session Designs**: Per-subject trial order and timing
-
-- CLIPScore histogram by subject3. **Beta Files**: 4D NIfTI files with GLMdenoise preprocessed fMRI
-
-- Rank distribution (log scale)4. **Canonical Index**: Parquet mapping trials → stimuli → files
-
-- R@K comparison bars   - Extra columns:
-
-- Adapter ablation comparison     - `stimulus_repeat_count` – count of repeats for that nsdId up to current trial
-
-     - `has_beta_data` – boolean availability flag for mapped beta file/index
-
----     - `data_quality_flag` – optional QC status if exposed by design
-
-5. **S3 Streaming**: Memory-efficient data access via fsspec
-
-## 🔧 Makefile Targets
-
-| Target | Description |
-|--------|-------------|
-| `make pipeline` | **Complete pipeline** (recommended) |
-| `make build_target_cache` | Build 1024-D CLIP cache |
-| `make reconstruct_all` | Reconstruct all subjects |
-| `make eval_all_subjects` | Evaluate with all gallery types |
-| `make summarize_reports` | Aggregate reports into CSV |
-| `make generate_figures` | Create publication figures |
-| `make eval_quick` | Quick test (subj01, 50 samples) |
-| `make help` | Show all targets |
-
----
-
-## 🧪 Advanced Features
-
-### FAISS Acceleration
-For large galleries (>10k embeddings), use FAISS for fast retrieval:
-
-\`\`\`bash
-pip install faiss-cpu  # or faiss-gpu
-
-python scripts/eval_reconstruction.py \
-    --subject subj01 \
-    --gallery all \
-    --faiss \
-    ...
-\`\`\`
-
-### Custom Diffusion Models
-Override the default SD 2.1 model:
-
-\`\`\`bash
-export MODEL=runwayml/stable-diffusion-v1-5
-
-python scripts/decode_diffusion.py \
-    --model-id $MODEL \
-    ...
-\`\`\`
-
-### Preprocessing Ablations
-Compare different preprocessing configurations:
-
-\`\`\`bash
-# No PCA
-python scripts/nsd_fit_preproc.py --subject subj01 --no-pca
-
-# Lower reliability threshold
-python scripts/nsd_fit_preproc.py --subject subj01 --reliability-thr 0.05
-
-# ROI-based (visual cortex only)
-python scripts/nsd_fit_preproc.py --subject subj01 --roi-mode early
-\`\`\`
-
----
-
-## 📚 Citation
-
-If you use this code, please cite:
-
-\`\`\`bibtex
-@misc{fmri2img2025,
-  author = {Your Name},
-  title = {fMRI-to-Image Reconstruction via CLIP and Stable Diffusion},
-  year = {2025},
-  publisher = {GitHub},
-  url = {https://github.com/yourusername/fmri2img}
-}
-\`\`\`
-
-**Dataset Citation:**
-
-\`\`\`bibtex
-@article{allen2021massive,
-  title={A massive 7T fMRI dataset to bridge cognitive neuroscience and artificial intelligence},
-  author={Allen, Emily J and St-Yves, Ghislain and Wu, Yihan and Breedlove, Jesse L and Prince, Jacob S and Dowdle, Logan T and Nau, Matthias and Caron, Brad and Pestilli, Franco and Charest, Ian and others},
-  journal={Nature Neuroscience},
-  year={2021}
-}
-\`\`\`
-
----
-
-## 📜 License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
-
-**Natural Scenes Dataset (NSD)** is subject to its own terms. Please review the [NSD Data Sharing Agreement](http://naturalscenesdataset.org/) before use.
-
----
-
-## 🙏 Acknowledgments
-
-- **Natural Scenes Dataset (NSD)** by Allen et al., 2021
-- **CLIP** by OpenAI (Radford et al., 2021)
-- **Stable Diffusion** by Stability AI & Runway ML
-- **Transformers** and **Diffusers** libraries by HuggingFace
-
----
-
-## 📧 Contact
-
-For questions or issues, please open a GitHub issue or contact [your.email@example.com](mailto:your.email@example.com).
-
----
-
-**Happy Decoding! 🧠→🖼️**
-
-```
-
-# RECONSTRUCTION_EVAL_IMPLEMENTATION.md
-
-```md
-# Reconstruction Evaluation Implementation Summary
-
-## Overview
-
-Successfully implemented a comprehensive evaluation system for reconstructed images using CLIPScore and retrieval metrics. Supports both 512-D (ViT-B/32) and target-D (768/1024 for diffusion models) evaluation spaces.
-
-## Implementation Date
-
-October 25, 2025
-
----
-
-## Components Implemented
-
-### 1. Eval Helper: `src/fmri2img/eval/retrieval.py`
-
-**New Function: `clip_score()`**
-
-\`\`\`python
-def clip_score(generated_emb: np.ndarray, gt_emb: np.ndarray) -> np.ndarray:
-    """
-    Compute CLIPScore: per-sample cosine similarity between generated and GT embeddings.
-    
-    Returns:
-        Per-sample cosine similarity, shape (n_samples,)
-        Values in [-1, 1], typically [0, 1] for reasonable reconstructions
-    """
-\`\`\`
-
-**Features:**
-- ✅ Per-sample cosine similarity computation
-- ✅ L2-normalization verification with warnings
-- ✅ Consistent with Hessel et al. (2021) CLIPScore definition
-- ✅ Exported from `fmri2img.eval` module
-
-**Updated Exports:**
-- Added `clip_score` and `compute_ranking_metrics` to `__all__`
-
----
-
-### 2. Main Script: `scripts/eval_reconstruction.py` (581 lines)
-
-**Purpose:** Paper-style evaluation of reconstructed images with CLIPScore and retrieval metrics.
-
-**Key Features:**
-
-1. **Dual CLIP Space Support:**
-   - 512-D evaluation (ViT-B/32, default)
-   - 768/1024-D evaluation (target CLIP with `--use-adapter`)
-
-2. **Automatic Image Matching:**
-   - Pattern recognition: `*_nsd{ID}.*` or `*_{ID}.*`
-   - CSV mapping support: `--map-csv` with columns [nsdId, path]
-
-3. **Metrics:**
-   - **CLIPScore**: Per-sample cosine(gen, GT)
-   - **Retrieval@K**: K=1, 5, 10
-   - **Ranking**: Mean/median rank, MRR
-
-4. **Outputs:**
-   - Per-sample CSV with all metrics
-   - Aggregate JSON with means/stds
-   - Visualization grid (GT | NN | Generated)
-
-5. **Robust Error Handling:**
-   - Graceful handling of missing images
-   - Warns on partial datasets
-   - L2-normalization verification
-
-**Pipeline:**
-\`\`\`
-Test Split → Find Images → Load & Encode →
-    Compute CLIPScore →
-    Compute Retrieval@K →
-    Load Images for Viz →
-    Create Grid →
-    Save CSV/JSON
-\`\`\`
-
-**Usage:**
-\`\`\`bash
-# 512-D evaluation
-python scripts/eval_reconstruction.py \
-    --subject subj01 \
-    --recon-dir outputs/recon/subj01/run_001 \
-    --clip-cache outputs/clip_cache/clip.parquet \
-    --out-csv outputs/reports/subj01/recon_eval.csv \
-    --out-fig outputs/reports/subj01/recon_grid.png
-
-# 1024-D evaluation (with adapter)
-python scripts/eval_reconstruction.py \
-    --subject subj01 \
-    --recon-dir outputs/recon/subj01/run_001 \
-    --clip-cache outputs/clip_cache/clip.parquet \
-    --use-adapter \
-    --model-id stabilityai/stable-diffusion-2-1 \
-    --out-csv outputs/reports/subj01/recon_eval_1024.csv \
-    --out-fig outputs/reports/subj01/recon_grid_1024.png
-\`\`\`
-
----
-
-### 3. Makefile Targets
-
-**Target: `eval-recon`**
-\`\`\`makefile
-eval-recon:
-	@$(PY) scripts/eval_reconstruction.py \
-		--index-root data/indices/nsd_index \
-		--subject $${SUBJECT:-subj01} \
-		--recon-dir $${RECON_DIR:-outputs/recon/subj01/run_001} \
-		--clip-cache outputs/clip_cache/clip.parquet \
-		--out-csv outputs/reports/$${SUBJECT:-subj01}/recon_eval.csv \
-		--out-fig outputs/reports/$${SUBJECT:-subj01}/recon_grid.png
-\`\`\`
-
-**Target: `eval-recon-adapter`**
-\`\`\`makefile
-eval-recon-adapter:
-	@$(PY) scripts/eval_reconstruction.py \
-		... --use-adapter --model-id stabilityai/stable-diffusion-2-1 ...
-\`\`\`
-
-**Usage:**
-\`\`\`bash
-# 512-D evaluation
-make eval-recon RECON_DIR=outputs/recon/subj01/run_001
-
-# 1024-D evaluation
-make eval-recon-adapter RECON_DIR=outputs/recon/subj01/run_001
-\`\`\`
-
----
-
-### 4. Documentation: `docs/REPORTING_RECONSTRUCTION.md`
-
-**New Section: "3. scripts/eval_reconstruction.py - Reconstruction Quality Evaluation"**
-
-Content:
-- Purpose and scientific context
-- Features list
-- Usage examples (512-D and 1024-D)
-- Output formats (CSV, JSON, PNG grid)
-- Metrics explained with thresholds
-- Space consistency guidelines
-- Filename matching patterns
-- Guardrails and error handling
-
-**Additional Section: "Reconstruction Metrics Summary"**
-
-Table with:
-- Metric formulas
-- Value ranges
-- Interpretation guidelines
-- Expected performance benchmarks
-
----
-
-### 5. Smoke Tests: `src/fmri2img/scripts/test_eval_reconstruction.py`
-
-**Tests:**
-1. **`test_clip_score_basic()`** - Basic CLIPScore computation
-2. **`test_clip_score_perfect()`** - Perfect match (score=1.0)
-3. **`test_retrieval_metrics()`** - Retrieval@K and ranking
-4. **`test_filename_pattern_matching()`** - Pattern recognition
-5. **`test_evaluation_pipeline_mock()`** - End-to-end with dummy data
-
-**Results:**
-\`\`\`
-✅ CLIPScore basic test passed: mean=0.025
-✅ CLIPScore perfect match test passed: all scores ≈ 1.0
-✅ Retrieval metrics test passed: R@1=0.000, mean_rank=51.70
-✅ Filename pattern matching test passed (4 patterns)
-✅ Mock evaluation pipeline test passed
-\`\`\`
-
----
-
-## Metrics Explained
-
-### CLIPScore
-
-**Definition:** Cosine similarity between generated and GT image embeddings in CLIP space.
-
-**Formula:** `score = cos(emb_gen, emb_gt) = emb_gen · emb_gt` (when normalized)
-
-**Range:** [-1, 1], typically [0, 1] for reasonable reconstructions
-
-**Interpretation:**
-- **>0.7**: Excellent semantic match
-- **0.5-0.7**: Good semantic match
-- **0.3-0.5**: Moderate semantic match
-- **<0.3**: Poor semantic match
-
-**Scientific Context:**
-- Standard metric for image generation quality (Hessel et al. 2021)
-- Measures semantic similarity without pixel-level matching
-- Correlates well with human judgment
-
----
-
-### Retrieval@K
-
-**Definition:** Proportion of samples where ground truth appears in top-K retrievals.
-
-**Query:** Generated image embedding  
-**Gallery:** All ground truth image embeddings  
-**Success:** GT in top-K ranked by cosine similarity
-
-**Interpretation:**
-- **R@1 = 1.0**: Perfect (generated always retrieves own GT as top-1)
-- **R@5 > 0.8**: Very good semantic alignment
-- **R@10 > 0.9**: Good semantic alignment
-
----
-
-### Ranking Metrics
-
-**Mean Rank:** Average position of GT in ranked retrieval list
-- **1.0**: Perfect (always top-1)
-- **<5.0**: Very good
-- **<10.0**: Good
-- **>20.0**: Poor
-
-**Median Rank:** Median position (robust to outliers)
-
-**MRR (Mean Reciprocal Rank):** Mean(1/rank)
-- **Range:** [0, 1]
-- **1.0**: Perfect
-- **>0.5**: Good
-
----
-
-## Space Consistency
-
-**CRITICAL PRINCIPLE:** Evaluate in the same CLIP space used for generation/conditioning.
-
-### Why?
-
-Dimension mismatch creates unfair comparisons:
-- 512-D embeddings live in different manifold than 768/1024-D
-- Cosine similarities not directly comparable across dimensions
-- Retrieval performance affected by dimensionality
-
-### Guidelines:
-
-| Generation Method | Evaluation Space | Flag |
-|------------------|------------------|------|
-| No adapter (512-D) | 512-D ViT-B/32 | Default (no flags) |
-| With adapter (768-D) | 768-D target CLIP | `--use-adapter --model-id SD-1.5` |
-| With adapter (1024-D) | 1024-D target CLIP | `--use-adapter --model-id SD-2.1` |
-
-### Example:
-
-\`\`\`bash
-# Generate with adapter
-python scripts/decode_diffusion.py \
-    --clip-adapter checkpoints/clip_adapter/subj01/adapter.pt \
-    --model-id stabilityai/stable-diffusion-2-1 \
-    ... → outputs 1024-D conditioned images
-
-# Evaluate in SAME space (1024-D)
-python scripts/eval_reconstruction.py \
-    --use-adapter \
-    --model-id stabilityai/stable-diffusion-2-1 \
-    ... → evaluates in 1024-D space
-\`\`\`
-
----
-
-## Visualization Grid
-
-**Layout:** 3 columns × up to 16 rows
-
-**Columns:**
-1. **Ground Truth** - Original NSD image with nsdId
-2. **Nearest Neighbor** - Top-1 retrieved image from gallery (shows rank)
-3. **Generated** - Reconstructed image with CLIPScore overlay
-
-**Color Coding:**
-- **Green** text: High CLIPScore (>0.5)
-- **Orange** text: Moderate CLIPScore (0.3-0.5)
-- **Red** text: Low CLIPScore (<0.3)
-
-**Example:**
-\`\`\`
-Row 1: GT (nsd12345) | NN Rank: 1 | Generated CLIPScore: 0.723 (green)
-Row 2: GT (nsd12346) | NN Rank: 3 | Generated CLIPScore: 0.612 (green)
-Row 3: GT (nsd12347) | NN Rank: 5 | Generated CLIPScore: 0.412 (orange)
-...
-\`\`\`
-
----
-
-## Output Formats
-
-### Per-Sample CSV
-
-\`\`\`csv
-nsdId,clipscore,rank,r@1,r@5,r@10
-12345,0.723,1,1,1,1
-12346,0.612,3,0,1,1
-12347,0.412,5,0,1,1
-...
-\`\`\`
-
-### Aggregate JSON
-
-\`\`\`json
-{
-  "subject": "subj01",
-  "recon_dir": "outputs/recon/subj01/run_001",
-  "clip_space": "1024-D (target)",
-  "clip_dim": 1024,
-  "use_adapter": true,
-  "model_id": "stabilityai/stable-diffusion-2-1",
-  "n_samples": 256,
-  "n_test_total": 320,
-  "clipscore": {
-    "mean": 0.654,
-    "std": 0.092,
-    "min": 0.412,
-    "max": 0.891
-  },
-  "retrieval": {
-    "R@1": 0.543,
-    "R@5": 0.812,
-    "R@10": 0.891
-  },
-  "ranking": {
-    "mean_rank": 3.21,
-    "median_rank": 2.0,
-    "mrr": 0.612
-  }
-}
-\`\`\`
-
----
-
-## Filename Matching
-
-**Automatic Pattern Recognition:**
-
-1. **`nsd_?(\d+)`** - Matches `nsd12345` or `nsd_12345`
-2. **`_(\d{5,})(?:_|\.)`** - Matches `_12345_` or `_12345.`
-
-**Supported Patterns:**
-- `generated_nsd12345.png` ✅
-- `output_nsd_00123.jpg` ✅
-- `recon_54321_final.png` ✅
-- `test_12345.png` ✅
-
-**CSV Mapping (if patterns don't work):**
-\`\`\`csv
-nsdId,path
-12345,custom_name_1.png
-12346,another_image.jpg
-\`\`\`
-
-\`\`\`bash
---map-csv mapping.csv
-\`\`\`
-
----
-
-## Error Handling & Guardrails
-
-### Robust Features:
-
-1. **Missing Images:**
-   - Logs warning and skips
-   - Continues with available samples
-   - Reports partial coverage
-
-2. **Partial Datasets:**
-   - Warns if `n_found < n_test`
-   - Still produces valid metrics
-   - Includes coverage in JSON
-
-3. **Normalization:**
-   - Verifies L2-normalized embeddings
-   - Warns if deviation > 1e-3
-   - Auto-normalizes if needed
-
-4. **Gallery Size:**
-   - No minimum enforced (uses available test set)
-   - Logs gallery size for reproducibility
-
-5. **File Format:**
-   - Supports PNG, JPG, JPEG (case-insensitive)
-   - Converts all to RGB
-   - Handles corrupted files gracefully
-
----
-
-## Expected Performance
-
-**Based on literature (Takagi & Nishimoto 2023, MindEye2 2024):**
-
-### NN Retrieval Baseline (Strong Baseline):
-- **CLIPScore**: 0.9-0.95 (very high)
-- **R@1**: 0.7-0.8
-- **Mean Rank**: 1-2
-
-### Diffusion-Based Reconstruction (Our Method):
-- **CLIPScore**: 0.6-0.8 (lower but acceptable)
-- **R@1**: 0.3-0.6
-- **Mean Rank**: 2-5
-
-### Trade-off:
-- Diffusion generates **novel** images (lower CLIPScore)
-- But better **perceptual quality** (human preference)
-- NN retrieval just shows existing images (high scores but less interesting)
-
----
-
-## Testing & Validation
-
-### Smoke Tests ✅
-
-All tests passed:
-\`\`\`bash
-python3 src/fmri2img/scripts/test_eval_reconstruction.py
-\`\`\`
-
-Results:
-- ✅ CLIPScore computation
-- ✅ Perfect match detection
-- ✅ Retrieval metrics
-- ✅ Filename pattern matching
-- ✅ Mock pipeline end-to-end
-
-### Syntax Validation ✅
-
-\`\`\`bash
-python3 -m py_compile scripts/eval_reconstruction.py
-# No errors
-\`\`\`
-
-### Help Output ✅
-
-\`\`\`bash
-python3 scripts/eval_reconstruction.py --help
-# Shows all flags correctly
-\`\`\`
-
-### Makefile Targets ✅
-
-\`\`\`bash
-make help | grep eval-recon
-# Shows both targets
-\`\`\`
-
----
-
-## Usage Workflows
-
-### Workflow 1: Evaluate Single Run (512-D)
-
-\`\`\`bash
-# Generate images
-python scripts/decode_diffusion.py \
-    --encoder mlp \
-    --ckpt checkpoints/mlp/subj01/mlp.pt \
-    --output-dir outputs/recon/subj01/run_001 \
-    --limit 256
-
-# Evaluate
-make eval-recon RECON_DIR=outputs/recon/subj01/run_001
-
-# Check results
-cat outputs/reports/subj01/recon_eval.json
-\`\`\`
-
-### Workflow 2: Evaluate with Adapter (1024-D)
-
-\`\`\`bash
-# Generate with adapter
-python scripts/decode_diffusion.py \
-    --encoder mlp \
-    --ckpt checkpoints/mlp/subj01/mlp.pt \
-    --clip-adapter checkpoints/clip_adapter/subj01/adapter.pt \
-    --model-id stabilityai/stable-diffusion-2-1 \
-    --output-dir outputs/recon/subj01/run_002 \
-    --limit 256
-
-# Evaluate in same space
-make eval-recon-adapter RECON_DIR=outputs/recon/subj01/run_002
-
-# Compare
-cat outputs/reports/subj01/recon_eval_1024.json
-\`\`\`
-
-### Workflow 3: Compare Multiple Runs
-
-\`\`\`bash
-# Run 1: Ridge + No Adapter
-make eval-recon RECON_DIR=outputs/recon/subj01/ridge_no_adapter
-
-# Run 2: Ridge + Adapter
-make eval-recon-adapter RECON_DIR=outputs/recon/subj01/ridge_adapter
-
-# Run 3: MLP + No Adapter
-make eval-recon RECON_DIR=outputs/recon/subj01/mlp_no_adapter
-
-# Run 4: MLP + Adapter
-make eval-recon-adapter RECON_DIR=outputs/recon/subj01/mlp_adapter
-
-# Compare all
-python scripts/compare_evals.py  # (future: aggregate comparison script)
-\`\`\`
-
----
-
-## Files Created/Modified
-
-### Created:
-- `scripts/eval_reconstruction.py` (581 lines) - Main evaluation script
-- `src/fmri2img/scripts/test_eval_reconstruction.py` (180 lines) - Smoke tests
-- `RECONSTRUCTION_EVAL_IMPLEMENTATION.md` (this file)
-
-### Modified:
-- `src/fmri2img/eval/retrieval.py` - Added `clip_score()` function (60 lines)
-- `src/fmri2img/eval/__init__.py` - Exported `clip_score` and `compute_ranking_metrics`
-- `Makefile` - Added `eval-recon` and `eval-recon-adapter` targets
-- `docs/REPORTING_RECONSTRUCTION.md` - Added comprehensive evaluation section (200+ lines)
-
----
-
-## Scientific Contributions
-
-### 1. Paper-Ready Metrics
-
-Implements standard metrics from recent papers:
-- **CLIPScore** (Hessel et al. 2021)
-- **Retrieval@K** (Ozcelik & VanRullen 2023)
-- **Ranking metrics** (MRR, mean/median rank)
-
-### 2. Space Consistency Framework
-
-Establishes clear guidelines for fair comparison:
-- Match evaluation space to generation space
-- Document which space used
-- Avoid cross-dimensional comparisons
-
-### 3. Dual-Space Support
-
-First implementation to support both:
-- Standard 512-D evaluation (ViT-B/32)
-- Target 768/1024-D evaluation (diffusion-aligned)
-
-### 4. Reproducibility
-
-- Fixed seeds for deterministic results
-- Logs all hyperparameters
-- Saves complete metadata in JSON
-- Consistent with encoder evaluation protocol
-
----
-
-## Future Enhancements
-
-### Short-term:
-- [ ] Multi-run comparison script (aggregate multiple evaluations)
-- [ ] Perceptual metrics (FID, LPIPS) integration
-- [ ] Human evaluation correlation analysis
-- [ ] Confidence intervals (bootstrap)
-
-### Medium-term:
-- [ ] Semantic segmentation alignment
-- [ ] Object detection metrics
-- [ ] Spatial layout preservation
-- [ ] Attribute consistency checks
-
-### Long-term:
-- [ ] Interactive visualization dashboard
-- [ ] Real-time evaluation during generation
-- [ ] Adaptive threshold tuning
-- [ ] Multi-modal evaluation (text+image)
-
----
-
-## Quick Reference
-
-**Evaluate 512-D:**
-\`\`\`bash
-make eval-recon RECON_DIR=path/to/images
-\`\`\`
-
-**Evaluate 1024-D:**
-\`\`\`bash
-make eval-recon-adapter RECON_DIR=path/to/images
-\`\`\`
-
-**Check results:**
-\`\`\`bash
-cat outputs/reports/subj01/recon_eval.json
-open outputs/reports/subj01/recon_grid.png
-\`\`\`
-
-**Run tests:**
-\`\`\`bash
-python3 src/fmri2img/scripts/test_eval_reconstruction.py
-\`\`\`
-
----
-
-## Implementation Status
-
-✅ **COMPLETE**
-
-**All components:**
-- ✅ CLIPScore function
-- ✅ Main evaluation script
-- ✅ Makefile targets
-- ✅ Documentation
-- ✅ Smoke tests
-- ✅ Syntax validation
-- ✅ Space consistency framework
-
-**Ready for:**
-- Production use
-- Paper experiments
-- Ablation studies
-- Comparative analysis
-
-**Next steps:**
-- Generate images with and without adapter
-- Run evaluations in both spaces
-- Collect results for paper
-- Create comparison plots
-
----
-
-**Implementation Complete:** October 25, 2025
-
-**Status:** ✅ Production Ready
-
-**Documentation:** Complete with examples and guidelines
-
-**Testing:** All smoke tests passed
-
-```
-
 # requirements.txt
 
 ```txt
@@ -4546,6 +809,9329 @@ scikit-learn
 # diffusers
 # transformers
 # accelerate
+```
+
+# run_with_adapter.sh
+
+```sh
+#!/bin/bash
+set -e
+
+SUBJECT="subj01"
+MODEL_ID="stabilityai/stable-diffusion-2-1"
+ADAPTER_PATH="checkpoints/clip_adapter/${SUBJECT}/adapter.pt"
+DIFF_STEPS=100
+GUIDANCE=7.5
+
+echo "=========================================================================="
+echo "IMPROVED IMAGE GENERATION WITH ADAPTER"
+echo "=========================================================================="
+echo "Subject: ${SUBJECT}"
+echo "Model: ${MODEL_ID}"
+echo "Adapter: ${ADAPTER_PATH}"
+echo "Diffusion Steps: ${DIFF_STEPS}"
+echo "Guidance Scale: ${GUIDANCE}"
+echo ""
+
+# Generate images with adapter
+echo "Step 1: Generating images with adapter..."
+python scripts/decode_diffusion.py \
+    --subject ${SUBJECT} \
+    --model-id ${MODEL_ID} \
+    --encoder-checkpoint checkpoints/mlp/${SUBJECT}/mlp.pt \
+    --adapter-checkpoint ${ADAPTER_PATH} \
+    --output outputs/recon/${SUBJECT}/improved_with_adapter \
+    --num-inference-steps ${DIFF_STEPS} \
+    --guidance-scale ${GUIDANCE} \
+    --batch-size 8 \
+    --device cuda
+
+echo ""
+echo "Step 2: Evaluating results..."
+python -c "
+import sys
+sys.path.insert(0, 'src')
+from fmri2img.eval.metrics import evaluate_reconstructions
+import json
+
+results = evaluate_reconstructions(
+    'outputs/recon/${SUBJECT}/improved_with_adapter',
+    'data/indices/test_nsd_index.csv',
+    cache_path='cache/clip_embeddings'
+)
+
+print('\n' + '='*80)
+print('IMPROVED RESULTS (WITH ADAPTER)')
+print('='*80)
+for metric, value in results.items():
+    if isinstance(value, float):
+        print(f'{metric}: {value:.4f}')
+    else:
+        print(f'{metric}: {value}')
+print('='*80)
+
+# Save report
+import os
+os.makedirs('outputs/reports/${SUBJECT}', exist_ok=True)
+with open('outputs/reports/${SUBJECT}/improved_with_adapter_eval.json', 'w') as f:
+    json.dump(results, f, indent=2)
+print('\nReport saved to outputs/reports/${SUBJECT}/improved_with_adapter_eval.json')
+"
+
+echo ""
+echo "Step 3: Comparing with baseline..."
+python -c "
+import json
+import os
+
+baseline_path = 'outputs/reports/${SUBJECT}/ridge_eval.json'
+improved_path = 'outputs/reports/${SUBJECT}/improved_with_adapter_eval.json'
+
+if os.path.exists(baseline_path) and os.path.exists(improved_path):
+    with open(baseline_path) as f:
+        baseline = json.load(f)
+    with open(improved_path) as f:
+        improved = json.load(f)
+    
+    print('\n' + '='*80)
+    print('BASELINE vs IMPROVED (WITH ADAPTER)')
+    print('='*80)
+    print(f'CLIPScore:  {baseline.get(\"mean_clip_score\", 0):.4f} → {improved.get(\"mean_clip_score\", 0):.4f} ({improved.get(\"mean_clip_score\", 0) - baseline.get(\"mean_clip_score\", 0):+.4f})')
+    print(f'R@1:        {baseline.get(\"recall_at_1\", 0):.4f} → {improved.get(\"recall_at_1\", 0):.4f} ({improved.get(\"recall_at_1\", 0) - baseline.get(\"recall_at_1\", 0):+.4f})')
+    print(f'R@5:        {baseline.get(\"recall_at_5\", 0):.4f} → {improved.get(\"recall_at_5\", 0):.4f} ({improved.get(\"recall_at_5\", 0) - baseline.get(\"recall_at_5\", 0):+.4f})')
+    print(f'R@10:       {baseline.get(\"recall_at_10\", 0):.4f} → {improved.get(\"recall_at_10\", 0):.4f} ({improved.get(\"recall_at_10\", 0) - baseline.get(\"recall_at_10\", 0):+.4f})')
+    print(f'Mean Rank:  {baseline.get(\"mean_rank\", 0):.1f} → {improved.get(\"mean_rank\", 0):.1f}')
+    print('='*80)
+else:
+    print('Baseline results not found. Run the baseline first.')
+"
+
+echo ""
+echo "✅ Complete! Check outputs/recon/${SUBJECT}/improved_with_adapter for images"
+
+```
+
+# scripts/_report_utils.py
+
+```py
+"""
+Utilities for aggregating and comparing evaluation results.
+
+Provides helper functions for:
+- Loading evaluation JSONs
+- Extracting run metadata from paths
+- Bootstrap confidence intervals
+- Formatting metrics with CIs
+"""
+
+import json
+import numpy as np
+from pathlib import Path
+from typing import Dict, Tuple, Optional
+
+
+def load_eval_json(path: Path) -> Dict:
+    """
+    Load evaluation JSON from path.
+    
+    Args:
+        path: Path to JSON file
+        
+    Returns:
+        Dictionary with evaluation results
+        
+    Raises:
+        FileNotFoundError: If file doesn't exist
+        json.JSONDecodeError: If file is not valid JSON
+    """
+    if not path.exists():
+        raise FileNotFoundError(f"JSON not found: {path}")
+    
+    with open(path) as f:
+        data = json.load(f)
+    
+    return data
+
+
+def guess_run_name(path: Path) -> str:
+    """
+    Guess a human-readable run name from file path.
+    
+    Heuristics:
+    - If parent directory contains 'adapter', include that
+    - If parent directory contains 'mlp' or 'ridge', include encoder
+    - If parent directory contains '512' or '1024', include dimension
+    
+    Examples:
+        outputs/reports/subj01/auto_no_adapter/recon_eval.json 
+            → "no_adapter"
+        outputs/reports/subj01/auto_with_adapter/recon_eval_1024.json 
+            → "with_adapter_1024"
+        outputs/reports/subj01/mlp_baseline/recon_eval.json
+            → "mlp_baseline"
+    
+    Args:
+        path: Path to JSON file
+        
+    Returns:
+        Simplified run name
+    """
+    # Get parent directory names (up to 2 levels)
+    parts = path.parts
+    parent_dirs = []
+    
+    # Look at last 3 parts (excluding filename)
+    for part in parts[-4:-1]:
+        parent_dirs.append(part)
+    
+    # Build name from relevant parts
+    name_parts = []
+    
+    for part in parent_dirs:
+        part_lower = part.lower()
+        
+        # Skip common directory names
+        if part_lower in ['outputs', 'reports', 'recon', 'eval']:
+            continue
+        
+        # Keep informative parts
+        if any(keyword in part_lower for keyword in [
+            'adapter', 'mlp', 'ridge', 'auto', 'baseline', 
+            '512', '768', '1024', 'no_adapter', 'with_adapter'
+        ]):
+            name_parts.append(part)
+    
+    # If we didn't find anything, use filename stem
+    if not name_parts:
+        name_parts.append(path.stem)
+    
+    return "_".join(name_parts)
+
+
+def bootstrap_ci(
+    values: np.ndarray,
+    boots: int = 1000,
+    alpha: float = 0.05,
+    seed: int = 42
+) -> Tuple[float, float]:
+    """
+    Compute bootstrap confidence interval for mean.
+    
+    Uses nonparametric bootstrap with replacement.
+    
+    Args:
+        values: Array of per-sample values
+        boots: Number of bootstrap resamples (default: 1000)
+        alpha: Significance level (default: 0.05 for 95% CI)
+        seed: Random seed for reproducibility (default: 42)
+        
+    Returns:
+        Tuple of (lower_bound, upper_bound) for (1-alpha) CI
+        
+    Example:
+        >>> values = np.array([0.5, 0.6, 0.7, 0.8])
+        >>> low, high = bootstrap_ci(values, boots=1000)
+        >>> print(f"95% CI: [{low:.3f}, {high:.3f}]")
+    """
+    if len(values) == 0:
+        return (np.nan, np.nan)
+    
+    if len(values) == 1:
+        # Can't bootstrap single value
+        return (values[0], values[0])
+    
+    # Set seed for reproducibility
+    rng = np.random.RandomState(seed)
+    
+    # Generate bootstrap samples
+    n = len(values)
+    boot_means = np.zeros(boots)
+    
+    for i in range(boots):
+        # Resample with replacement
+        indices = rng.choice(n, size=n, replace=True)
+        boot_sample = values[indices]
+        boot_means[i] = np.mean(boot_sample)
+    
+    # Compute percentile-based CI
+    lower_percentile = (alpha / 2) * 100
+    upper_percentile = (1 - alpha / 2) * 100
+    
+    low = np.percentile(boot_means, lower_percentile)
+    high = np.percentile(boot_means, upper_percentile)
+    
+    return (low, high)
+
+
+def format_mean_ci(
+    mean: float,
+    low: float,
+    high: float,
+    decimals: int = 3
+) -> str:
+    """
+    Format mean with symmetric confidence interval.
+    
+    Computes half-width as max(mean-low, high-mean) and formats as:
+        "mean ± half_width"
+    
+    Args:
+        mean: Point estimate
+        low: Lower CI bound
+        high: Upper CI bound
+        decimals: Number of decimal places (default: 3)
+        
+    Returns:
+        Formatted string "mean ± half_width"
+        
+    Examples:
+        >>> format_mean_ci(0.612, 0.571, 0.653)
+        "0.612 ± 0.041"
+        
+        >>> format_mean_ci(0.543, 0.502, 0.584, decimals=2)
+        "0.54 ± 0.04"
+    """
+    if np.isnan(mean) or np.isnan(low) or np.isnan(high):
+        return "NA"
+    
+    # Compute symmetric half-width (conservative)
+    half_width = max(abs(mean - low), abs(high - mean))
+    
+    # Format with specified decimals
+    fmt = f"{{:.{decimals}f}}"
+    mean_str = fmt.format(mean)
+    hw_str = fmt.format(half_width)
+    
+    return f"{mean_str} ± {hw_str}"
+
+
+def format_mean_ci_range(
+    mean: float,
+    low: float,
+    high: float,
+    decimals: int = 3
+) -> str:
+    """
+    Format mean with confidence interval range.
+    
+    Formats as: "mean [low, high]"
+    
+    Args:
+        mean: Point estimate
+        low: Lower CI bound
+        high: Upper CI bound
+        decimals: Number of decimal places (default: 3)
+        
+    Returns:
+        Formatted string "mean [low, high]"
+        
+    Example:
+        >>> format_mean_ci_range(0.612, 0.571, 0.653)
+        "0.612 [0.571, 0.653]"
+    """
+    if np.isnan(mean) or np.isnan(low) or np.isnan(high):
+        return "NA"
+    
+    fmt = f"{{:.{decimals}f}}"
+    return f"{fmt.format(mean)} [{fmt.format(low)}, {fmt.format(high)}]"
+
+```
+
+# scripts/build_clip_cache.py
+
+```py
+#!/usr/bin/env python3
+"""
+Build CLIP Embedding Cache with Resume Support
+==============================================
+
+Populates clip_cache.parquet with embeddings for all images in NSD index.
+Loads images from nsd_stimuli.hdf5 via nsdId, with COCO HTTP fallback.
+Supports batching, GPU, and automatic resume from existing cache.
+
+CLIP model configuration is loaded from configs/clip.yaml (single source of truth).
+
+Usage:
+    # From single index file
+    python scripts/build_clip_cache.py \
+        --index-file data/indices/nsd_index/subject=subj01/index.parquet \
+        --cache outputs/clip_cache/clip.parquet \
+        --batch 128 --device cuda
+    
+    # From partitioned index root
+    python scripts/build_clip_cache.py \
+        --index-root data/indices/nsd_index \
+        --subject subj01 \
+        --cache outputs/clip_cache/clip.parquet \
+        --batch 64 --device cuda --limit 256
+"""
+
+from __future__ import annotations
+import argparse
+import logging
+import sys
+import os
+from pathlib import Path
+from typing import List, Optional, Tuple
+from glob import glob
+from contextlib import nullcontext
+from datetime import datetime
+
+import numpy as np
+import pandas as pd
+import torch
+from PIL import Image
+from tqdm import tqdm
+
+# Import NSD data loading
+from fmri2img.data.clip_cache import CLIPCache
+from fmri2img.io.s3 import HDF5Loader
+from fmri2img.io.nsd_layout import NSDLayout
+from fmri2img.io.image_loader import RobustImageLoader
+from fmri2img.utils.clip_utils import load_clip_model, load_clip_config, verify_embedding_dimension
+
+# Optional requests for COCO fallback
+try:
+    import requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
+
+
+# Setup logging early (before any log.info() calls)
+log = logging.getLogger("build_clip_cache")
+log.setLevel(logging.INFO)
+if not log.handlers:
+    _sh = logging.StreamHandler(sys.stdout)
+    _sh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    log.addHandler(_sh)
+
+
+def configure_file_logging(log_file: Optional[str] = None) -> None:
+    """
+    Configure optional file logging.
+    
+    Args:
+        log_file: Optional path to log file. If None, log to stdout only.
+    """
+    if log_file:
+        log_path = Path(log_file)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        file_handler = logging.FileHandler(log_path)
+        file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+        log.addHandler(file_handler)
+        log.info(f"Log file: {log_file}")
+    else:
+        log.info("Log file: none (stdout only)")
+
+
+def setup_logging(log_file: Optional[str] = None) -> logging.Logger:
+    """
+    Setup logging with stdout always, and optional file handler.
+    
+    DEPRECATED: Use configure_file_logging() instead.
+    This is kept for backward compatibility.
+    
+    Args:
+        log_file: Optional path to log file. If None, log to stdout only.
+        
+    Returns:
+        Configured logger instance
+    """
+    configure_file_logging(log_file)
+    return log
+
+
+def load_index(
+    index_root: Optional[str] = None,
+    index_file: Optional[str] = None,
+    subject: Optional[str] = None
+) -> pd.DataFrame:
+    """
+    Load NSD index from either partitioned root or single file.
+    
+    Args:
+        index_root: Directory with partitioned Parquets (subject=subjXX/)
+        index_file: Single parquet file
+        subject: Subject filter (e.g., 'subj01')
+        
+    Returns:
+        DataFrame with at least nsdId column, plus cocoId/cocoSplit if present
+    """
+    if index_file:
+        log.info(f"Loading index from file: {index_file}")
+        df = pd.read_parquet(index_file)
+    elif index_root:
+        log.info(f"Loading index from partitioned root: {index_root}")
+        root_path = Path(index_root)
+        
+        # Try subject-specific partition first if subject is provided
+        if subject:
+            subject_partition = root_path / f"subject={subject}" / "index.parquet"
+            if subject_partition.exists():
+                log.info(f"Loading subject partition: {subject_partition}")
+                df = pd.read_parquet(subject_partition)
+            else:
+                # Fall back to globbing
+                log.info(f"Subject partition not found, globbing all parquets under {index_root}")
+                parquet_files = glob(str(root_path / "**/*.parquet"), recursive=True)
+                if not parquet_files:
+                    raise FileNotFoundError(f"No parquet files found under {index_root}")
+                dfs = [pd.read_parquet(pf) for pf in parquet_files]
+                df = pd.concat(dfs, ignore_index=True)
+        else:
+            # Glob all parquets
+            parquet_files = glob(str(root_path / "**/*.parquet"), recursive=True)
+            if not parquet_files:
+                raise FileNotFoundError(f"No parquet files found under {index_root}")
+            log.info(f"Found {len(parquet_files)} parquet files, concatenating...")
+            dfs = [pd.read_parquet(pf) for pf in parquet_files]
+            df = pd.concat(dfs, ignore_index=True)
+    else:
+        raise ValueError("Must provide either --index-root or --index-file")
+    
+    # Normalize column names (handle both snake_case and camelCase)
+    column_mapping = {
+        "nsd_id": "nsdId",
+        "coco_id": "cocoId",
+        "coco_split": "cocoSplit"
+    }
+    df = df.rename(columns=column_mapping)
+    
+    # Check for required nsdId column
+    if "nsdId" not in df.columns:
+        raise ValueError("Index must contain 'nsdId' or 'nsd_id' column")
+    
+    # Drop duplicates on nsdId
+    initial_count = len(df)
+    df = df.drop_duplicates(subset=["nsdId"]).reset_index(drop=True)
+    if len(df) < initial_count:
+        log.info(f"Dropped {initial_count - len(df)} duplicate nsdIds")
+    
+    # Filter by subject if requested and column exists
+    if subject and "subject" in df.columns:
+        df = df[df["subject"] == subject].reset_index(drop=True)
+        log.info(f"Filtered to subject={subject}: {len(df)} rows")
+    
+    log.info(f"Loaded index with {len(df)} rows")
+    return df
+
+
+def load_image_from_hdf5(
+    hdf5_loader: HDF5Loader,
+    hdf5_path: str,
+    nsd_id: int
+) -> Optional[Image.Image]:
+    """
+    Load image from nsd_stimuli.hdf5 by nsdId.
+    
+    Robust handling of S3 HDF5 fragility:
+    - Catches OSError for truncated files
+    - Returns None on any error (caller handles fallback)
+    
+    Args:
+        hdf5_loader: HDF5Loader instance
+        hdf5_path: S3 path to nsd_stimuli.hdf5
+        nsd_id: NSD stimulus ID (0-indexed into imgBrick)
+        
+    Returns:
+        PIL Image or None if failed
+    """
+    try:
+        with hdf5_loader.open(hdf5_path) as hf:
+            if "imgBrick" not in hf:
+                log.debug(f"'imgBrick' dataset not found in HDF5")
+                return None
+            
+            # Load single image slice
+            img_arr = hf["imgBrick"][nsd_id]  # Should be (H, W, 3) or (H, W)
+            
+            # Convert to PIL Image
+            if img_arr.ndim == 2:
+                img = Image.fromarray(img_arr.astype(np.uint8), mode='L').convert('RGB')
+            elif img_arr.ndim == 3:
+                img = Image.fromarray(img_arr.astype(np.uint8), mode='RGB')
+            else:
+                log.debug(f"Unexpected image shape for nsdId={nsd_id}: {img_arr.shape}")
+                return None
+            
+            log.debug(f"✓ Loaded nsdId={nsd_id} from HDF5")
+            return img
+    except OSError as e:
+        # Truncated file or other HDF5 error (common with S3)
+        log.debug(f"HDF5 OSError for nsdId={nsd_id}: {e}")
+        return None
+    except KeyError as e:
+        # Missing key in HDF5
+        log.debug(f"HDF5 KeyError for nsdId={nsd_id}: {e}")
+        return None
+    except Exception as e:
+        log.debug(f"HDF5 load failed for nsdId={nsd_id}: {e}")
+        return None
+
+
+def load_image_from_coco(
+    layout: NSDLayout,
+    coco_id: int,
+    coco_split: str = "train2017"
+) -> Optional[Image.Image]:
+    """
+    Load image from COCO HTTP as fallback.
+    
+    Args:
+        layout: NSDLayout instance
+        coco_id: COCO image ID
+        coco_split: COCO dataset split
+        
+    Returns:
+        PIL Image or None if failed
+    """
+    if not REQUESTS_AVAILABLE:
+        return None
+    
+    try:
+        url = layout.coco_http_url(coco_id, coco_split)
+        log.debug(f"Fetching COCO image from {url}")
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        
+        from io import BytesIO
+        img = Image.open(BytesIO(response.content)).convert('RGB')
+        log.debug(f"✓ Loaded cocoId={coco_id} from COCO HTTP")
+        return img
+    except Exception as e:
+        log.debug(f"COCO HTTP load failed for cocoId={coco_id}: {e}")
+        return None
+
+
+def load_image(
+    hdf5_loader: HDF5Loader,
+    hdf5_path: str,
+    layout: NSDLayout,
+    row: pd.Series,
+    load_stats: dict
+) -> Tuple[Optional[Image.Image], int]:
+    """
+    Load image for a given index row (nsdId required, cocoId optional).
+    
+    Tries HDF5 first, falls back to COCO HTTP immediately on any error.
+    Logs which path was used (HDF5 vs JPEG) via load_stats.
+    
+    Args:
+        hdf5_loader: HDF5Loader instance
+        hdf5_path: S3 path to nsd_stimuli.hdf5
+        layout: NSDLayout instance
+        row: Index row with nsdId and optionally cocoId/cocoSplit
+        load_stats: Dictionary to track loading statistics
+        
+    Returns:
+        (PIL Image or None, nsdId)
+    """
+    nsd_id = int(row["nsdId"])
+    
+    # Try HDF5 first
+    img = load_image_from_hdf5(hdf5_loader, hdf5_path, nsd_id)
+    if img is not None:
+        load_stats['hdf5'] = load_stats.get('hdf5', 0) + 1
+        return img, nsd_id
+    
+    # HDF5 failed - try COCO fallback if available
+    if "cocoId" in row and pd.notna(row["cocoId"]):
+        coco_id = int(row["cocoId"])
+        coco_split = row.get("cocoSplit", "train2017")
+        if pd.isna(coco_split):
+            coco_split = "train2017"
+        
+        # Single WARNING per nsdId
+        log.warning(f"HDF5 failed for nsdId={nsd_id}, falling back to COCO HTTP (cocoId={coco_id})")
+        img = load_image_from_coco(layout, coco_id, coco_split)
+        if img is not None:
+            load_stats['coco_http'] = load_stats.get('coco_http', 0) + 1
+            return img, nsd_id
+    
+    # Both failed
+    load_stats['failed'] = load_stats.get('failed', 0) + 1
+    return None, nsd_id
+
+
+def autocast_ctx(device: str):
+    """
+    Get appropriate autocast context for device.
+    
+    Args:
+        device: Device string ("cuda" or "cpu")
+        
+    Returns:
+        Context manager for autocast or nullcontext
+    """
+    if device == "cuda" and torch.cuda.is_available():
+        return torch.amp.autocast("cuda")
+    return nullcontext()
+
+
+def compute_embeddings_batch(
+    model,
+    preprocess,
+    images: List[Image.Image],
+    device: str = "cuda"
+) -> np.ndarray:
+    """
+    Compute CLIP embeddings for a batch of images.
+    
+    Args:
+        model: CLIP model
+        preprocess: CLIP preprocessing function
+        images: List of PIL Images
+        device: Device for computation
+    
+    Returns:
+        (N, 512) float32 array, L2 normalized
+    """
+    # Preprocess images
+    imgs_tensor = torch.stack([preprocess(img) for img in images]).to(device)
+    
+    # Extract embeddings with autocast
+    with torch.no_grad(), autocast_ctx(device):
+        features = model.encode_image(imgs_tensor)
+        # L2 normalize
+        features = features / features.norm(dim=-1, keepdim=True)
+    
+    return features.cpu().numpy().astype(np.float32)
+
+
+def autocast_ctx(device: str):
+    """
+    Get appropriate autocast context for device.
+    
+    Args:
+        device: Device string ("cuda" or "cpu")
+        
+    Returns:
+        Context manager for autocast or nullcontext
+    """
+    if device == "cuda" and torch.cuda.is_available():
+        return torch.amp.autocast("cuda")
+    return nullcontext()
+
+
+def compute_embeddings_batch(
+    model,
+    preprocess,
+    images: List[Image.Image],
+    device: str = "cuda"
+) -> np.ndarray:
+    """
+    Compute CLIP embeddings for batch of PIL images.
+    
+    Args:
+        model: CLIP model
+        preprocess: CLIP preprocessing transform
+        images: List of PIL Images
+        device: Device for computation
+    
+    Returns:
+        (N, 512) float32 array, L2 normalized
+    """
+    # Preprocess images
+    imgs_tensor = torch.stack([preprocess(img) for img in images]).to(device)
+    
+    # Extract embeddings with autocast
+    with torch.no_grad(), autocast_ctx(device):
+        features = model.encode_image(imgs_tensor)
+        # L2 normalize
+        features = features / features.norm(dim=-1, keepdim=True)
+    
+    return features.cpu().numpy().astype(np.float32)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Build CLIP embedding cache for NSD dataset",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # From single index file
+  python scripts/build_clip_cache.py \\
+      --index-file data/indices/nsd_index/subject=subj01/index.parquet \\
+      --cache outputs/clip_cache/clip.parquet \\
+      --batch 64 --device cuda --limit 256
+  
+  # From partitioned index root
+  python scripts/build_clip_cache.py \\
+      --index-root data/indices/nsd_index \\
+      --subject subj01 \\
+      --cache outputs/clip_cache/clip.parquet \\
+      --batch 128 --device cuda
+        """
+    )
+    
+    # Index source (mutually exclusive)
+    index_group = parser.add_mutually_exclusive_group()
+    index_group.add_argument("--index-root", type=str, default=None,
+                             help="Directory with partitioned Parquets (subject=subjXX/)")
+    index_group.add_argument("--index-file", type=str, default=None,
+                             help="Single parquet index file")
+    
+    # Legacy aliases (for backward compatibility)
+    parser.add_argument("--index", type=str, default=None,
+                        help="(Deprecated) Alias for --index-file")
+    
+    # Filtering and processing
+    parser.add_argument("--subject", type=str, default=None,
+                        help="Subject filter (e.g., 'subj01')")
+    parser.add_argument("--cache", type=str, default="outputs/clip_cache/clip.parquet",
+                        help="Path to CLIP cache parquet file (canonical output flag)")
+    parser.add_argument("--out", type=str, default=None,
+                        help="(Alias for --cache) Output path, for backward compatibility")
+    parser.add_argument("--batch-size", "--batch", type=int, default=128, dest="batch_size",
+                        help="Batch size for CLIP inference")
+    parser.add_argument("--device", type=str, default="cuda",
+                        help="Device for CLIP model (cuda/cpu)")
+    parser.add_argument("--max-items", "--limit", type=int, default=None, dest="max_items",
+                        help="Max items to process (for testing)")
+    parser.add_argument("--include-ids", action="store_true", default=True,
+                        help="Include nsd_id column in output (default: True)")
+    parser.add_argument("--log-file", type=str, default=None,
+                        help="Optional log file path (if not set, logs to stdout only)")
+    
+    # Legacy flags (no-ops, for backward compatibility)
+    parser.add_argument("--use-hdf5", action="store_true",
+                        help="(Deprecated, no-op) HDF5 is now default")
+    
+    args = parser.parse_args()
+    
+    # Handle --out as alias for --cache
+    if args.out:
+        if args.cache != "outputs/clip_cache/clip.parquet":  # Non-default cache was provided
+            # Both provided, --cache wins
+            cache_path = args.cache
+        else:
+            # Only --out provided
+            cache_path = args.out
+    else:
+        cache_path = args.cache
+    
+    # Configure file logging first (before any other log.info calls)
+    configure_file_logging(log_file=args.log_file)
+    
+    # Log --out alias usage
+    if args.out:
+        if args.cache != "outputs/clip_cache/clip.parquet":
+            log.info(f"Note: Both --out and --cache provided; using --cache={cache_path}")
+        else:
+            log.info(f"Note: --out is an alias for --cache; writing to {cache_path}")
+    
+    # Handle legacy --index flag
+    if args.index:
+        log.warning("⚠️  --index is deprecated. Use --index-file instead.")
+        if not args.index_file:
+            args.index_file = args.index
+    
+    # Handle legacy --use-hdf5 flag
+    if args.use_hdf5:
+        log.warning("⚠️  --use-hdf5 is deprecated (HDF5 is now the default path)")
+    
+    # Resolve index source with improved default handling
+    if not args.index_file and not args.index_root:
+        # Compute default based on subject
+        subject = args.subject or "subj01"
+        default_index = Path("data/indices/nsd_index") / f"subject={subject}" / "index.parquet"
+        
+        if default_index.exists():
+            log.info(f"No index specified, using default: {default_index}")
+            args.index_file = str(default_index)
+        else:
+            log.error(f"NSD index not found at: {default_index}")
+            log.error(f"Hint: pass --index-file <.../index.parquet> or --index-root <data/indices/nsd_index>,")
+            log.error(f"      or generate the index first (e.g., make nsd-index SUBJECT={subject}).")
+            sys.exit(1)
+    
+    # Log configuration
+    log.info("=" * 60)
+    log.info("CLIP Cache Build Configuration")
+    log.info("=" * 60)
+    log.info(f"Subject:     {args.subject or 'all'}")
+    log.info(f"Device:      {args.device}")
+    log.info(f"Cache path:  {cache_path}")
+    log.info(f"Batch size:  {args.batch_size}")
+    log.info(f"Limit:       {args.max_items or 'none'}")
+    log.info(f"Include IDs: {args.include_ids}")
+    log.info("=" * 60)
+    
+    # Load index
+    try:
+        df = load_index(
+            index_root=args.index_root,
+            index_file=args.index_file,
+            subject=args.subject
+        )
+    except Exception as e:
+        log.error(f"Failed to load index: {e}")
+        sys.exit(1)
+    
+    # Check if index is empty
+    if len(df) == 0:
+        log.warning("Index is empty after filtering. Nothing to process.")
+        sys.exit(1)
+    
+    # Get unique nsdIds
+    all_nsd_ids = df["nsdId"].unique().tolist()
+    log.info(f"Found {len(all_nsd_ids)} unique nsdIds in index")
+    
+    # Initialize CLIP cache
+    log.info(f"Loading CLIP cache from {cache_path}")
+    clip_cache = CLIPCache(cache_path=cache_path)
+    clip_cache.load()
+    
+    # Compute todo list (resume logic)
+    cached_ids = set(clip_cache.list_cached_ids())
+    log.info(f"Already cached: {len(cached_ids)} nsdIds")
+    
+    todo_ids = [nid for nid in all_nsd_ids if nid not in cached_ids]
+    if args.max_items:
+        todo_ids = todo_ids[:args.max_items]
+    
+    log.info(f"Need to compute: {len(todo_ids)} nsdIds")
+    
+    if len(todo_ids) == 0:
+        log.info("✓ All embeddings already cached!")
+        return
+    
+    # Load CLIP model from config
+    log.info("Loading CLIP model from configs/clip.yaml")
+    model, preprocess, clip_config = load_clip_model(device=args.device)
+    log.info(f"CLIP model: {clip_config['model_name']} → {clip_config['embedding_dim']}-dim embeddings")
+    
+    # Initialize robust image loader with fallback chain
+    layout = NSDLayout()
+    local_hdf5 = os.getenv('NSD_HDF5', 'cache/nsd_hdf5/nsd_stimuli.hdf5')
+    s3_hdf5 = layout.stim_hdf5_path(full_url=True)
+    
+    image_loader = RobustImageLoader(
+        local_hdf5_path=local_hdf5 if Path(local_hdf5).exists() else None,
+        s3_hdf5_path=s3_hdf5,
+        coco_cache_dir=".cache/coco",
+        enable_warnings=True
+    )
+    
+    log.info(f"Image load order: Local HDF5 → S3 HDF5 → COCO HTTP (with caching)")
+    
+    # Create lookup for rows by nsdId (handle multiple rows per nsdId)
+    nsd_to_row = {}
+    for _, row in df.iterrows():
+        nsd_id = int(row["nsdId"])
+        if nsd_id not in nsd_to_row:
+            nsd_to_row[nsd_id] = row
+    
+    # Process in batches
+    batch_size = args.batch_size
+    num_batches = (len(todo_ids) + batch_size - 1) // batch_size
+    
+    log.info(f"Processing {len(todo_ids)} images in {num_batches} batches of size {batch_size}")
+    
+    total_processed = 0
+    total_failed = 0
+    
+    for batch_idx in tqdm(range(num_batches), desc="Building CLIP cache"):
+        start_idx = batch_idx * batch_size
+        end_idx = min(start_idx + batch_size, len(todo_ids))
+        batch_nsd_ids = todo_ids[start_idx:end_idx]
+        
+        # Load images
+        images = []
+        valid_nsd_ids = []
+        
+        for nsd_id in batch_nsd_ids:
+            try:
+                if nsd_id not in nsd_to_row:
+                    log.warning(f"nsdId={nsd_id} not found in index")
+                    total_failed += 1
+                    continue
+                
+                row = nsd_to_row[nsd_id]
+                img = image_loader.load(row)
+                
+                if img is not None:
+                    images.append(img)
+                    valid_nsd_ids.append(nsd_id)
+                else:
+                    total_failed += 1
+            except Exception as e:
+                log.warning(f"Error loading nsdId={nsd_id}: {e}")
+                total_failed += 1
+                continue
+        
+        if len(images) == 0:
+            continue
+        
+        # Compute embeddings
+        try:
+            embeddings = compute_embeddings_batch(model, preprocess, images, device=args.device)
+            
+            # Verify dimension matches config
+            verify_embedding_dimension(embeddings, config_path="configs/clip.yaml")
+            
+            # Build cache rows with proper schema
+            if args.include_ids:
+                # Include nsd_id as int column + embedding as single list column
+                rows = pd.DataFrame({
+                    "nsd_id": [int(nid) for nid in valid_nsd_ids],
+                    "embedding": [emb.astype(np.float32).tolist() for emb in embeddings]
+                })
+            else:
+                # Only embedding column (backward compatibility)
+                rows = pd.DataFrame({
+                    "embedding": [emb.astype(np.float32).tolist() for emb in embeddings]
+                })
+            
+            # Also keep legacy "clip512" column name for CLIPCache compatibility
+            rows["clip512"] = rows.get("embedding", [emb.astype(np.float32).tolist() for emb in embeddings])
+            if args.include_ids and "nsd_id" in rows.columns:
+                rows["nsdId"] = rows["nsd_id"]  # Legacy column name
+            
+            # Save to cache
+            clip_cache.save_rows(rows)
+            
+            total_processed += len(valid_nsd_ids)
+            log.debug(f"Batch {batch_idx+1}/{num_batches}: Processed {len(valid_nsd_ids)} images")
+        except Exception as e:
+            log.error(f"Failed to process batch {batch_idx}: {e}")
+            continue
+    
+    # Get final loading stats
+    load_stats = image_loader.get_stats()
+    
+    # Final stats
+    stats = clip_cache.stats()
+    log.info("=" * 60)
+    log.info(f"✓ CLIP cache build complete!")
+    log.info(f"  Total in cache: {stats['cache_size']} embeddings")
+    log.info(f"  Newly processed: {total_processed} images")
+    log.info(f"  Failed: {total_failed} images")
+    log.info(f"  Image loading sources:")
+    log.info(f"    - Local HDF5: {load_stats.get('local_hdf5', 0)} images")
+    log.info(f"    - S3 HDF5: {load_stats.get('s3_hdf5', 0)} images")
+    log.info(f"    - COCO (cached): {load_stats.get('coco_cached', 0)} images")
+    log.info(f"    - COCO (HTTP): {load_stats.get('coco_http', 0)} images")
+    log.info(f"    - Failed: {load_stats.get('failed', 0)} images")
+    log.info(f"  Cache location: {stats['path']}")
+    log.info("=" * 60)
+    
+    # Assert cache is not empty
+    if stats['cache_size'] == 0 and len(todo_ids) > 0:
+        raise RuntimeError(
+            "CLIP cache is empty after processing! "
+            "Check that images are accessible and CLIP model is working."
+        )
+    
+    # Validate final schema
+    final_df = pd.read_parquet(cache_path)
+    log.info(f"Validating final schema at {cache_path}")
+    
+    # Ensure nsd_id exists (create alias from image_id if needed)
+    if "nsd_id" not in final_df.columns:
+        if "nsdId" in final_df.columns:
+            final_df["nsd_id"] = final_df["nsdId"]
+        elif "image_id" in final_df.columns:
+            log.info("Creating nsd_id alias from image_id column")
+            final_df["nsd_id"] = final_df["image_id"]
+        else:
+            log.warning("⚠️  Cache missing nsd_id column (compatibility issue)")
+    
+    # Ensure embedding exists
+    if "embedding" not in final_df.columns:
+        if "clip512" in final_df.columns:
+            log.info("Creating embedding alias from clip512 column")
+            final_df["embedding"] = final_df["clip512"]
+        else:
+            log.warning("⚠️  Cache missing embedding column")
+    
+    # Save if we added aliases
+    if "nsd_id" in final_df.columns or "embedding" in final_df.columns:
+        final_df.to_parquet(cache_path, index=False)
+    
+    log.info(f"✓ Wrote {len(final_df)} rows to {cache_path}")
+    if "nsd_id" in final_df.columns and "embedding" in final_df.columns:
+        log.info(f"  Schema: nsd_id (int), embedding (512-D float32 list)")
+    else:
+        log.info(f"  Columns: {list(final_df.columns)}")
+
+
+if __name__ == "__main__":
+    main()
+
+```
+
+# scripts/build_full_index.py
+
+```py
+#!/usr/bin/env python3
+"""
+Build Full NSD Index with All Sessions
+
+This script rebuilds the NSD index to include ALL sessions for a subject,
+not just session 1. Subject 01 has 40 sessions = 30,000 trials.
+
+Usage:
+    python scripts/build_full_index.py --subject subj01 --output data/indices/nsd_index/subject=subj01/index_full.parquet
+"""
+
+import argparse
+import logging
+from pathlib import Path
+
+import pandas as pd
+import numpy as np
+from tqdm import tqdm
+
+from fmri2img.io.s3 import get_s3_filesystem, CSVLoader
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+def build_full_index(subject: str, output_path: Path, max_sessions: int = None):
+    """
+    Build complete index with all available sessions
+    
+    Args:
+        subject: Subject ID (e.g., 'subj01')
+        output_path: Where to save the parquet file
+        max_sessions: Limit sessions for testing (None = all)
+    """
+    logger.info(f"Building full index for {subject}")
+    
+    # Parse subject number
+    if subject.startswith('subj'):
+        subj_num = int(subject[4:])
+    else:
+        subj_num = int(subject)
+        subject = f"subj{subj_num:02d}"
+    
+    # Initialize S3
+    s3_fs = get_s3_filesystem()
+    csv_loader = CSVLoader(s3_fs)
+    
+    # Load stimulus catalog
+    logger.info("Loading stimulus catalog...")
+    stim_info_path = "natural-scenes-dataset/nsddata/experiments/nsd/nsd_stim_info_merged.csv"
+    stim_catalog = csv_loader.load(stim_info_path)
+    logger.info(f"Loaded {len(stim_catalog)} stimuli")
+    
+    # Create stimulus lookup
+    stim_lookup = stim_catalog.set_index('nsdId').to_dict('index')
+    
+    # Load REAL behavioral data (responses.tsv)
+    logger.info("Loading behavioral data (responses.tsv)...")
+    behav_path = f"natural-scenes-dataset/nsddata/ppdata/{subject}/behav/responses.tsv"
+    with s3_fs.open(behav_path, 'r') as f:
+        behav_data = pd.read_csv(f, sep='\t')
+    logger.info(f"Loaded {len(behav_data)} trials from behavioral data")
+    
+    # Rename 73KID to nsdId for consistency
+    behav_data = behav_data.rename(columns={'73KID': 'nsdId', 'SESSION': 'session', 'RUN': 'run', 'TRIAL': 'trial_in_run'})
+    
+    # Filter to requested sessions
+    if max_sessions:
+        behav_data = behav_data[behav_data['session'] <= max_sessions]
+    
+    logger.info(f"Using {len(behav_data)} trials from sessions {behav_data['session'].min()}-{behav_data['session'].max()}")
+    
+    # Build index from REAL behavioral data
+    all_entries = []
+    
+    for session_num in tqdm(sorted(behav_data['session'].unique()), desc="Processing sessions"):
+        session_trials = behav_data[behav_data['session'] == session_num].copy()
+        session_trials = session_trials.sort_values(['run', 'trial_in_run'])
+        session_trials['trial_in_session'] = range(len(session_trials))
+        
+        # Beta file path for this session
+        beta_path = f"s3://natural-scenes-dataset/nsddata_betas/ppdata/{subject}/func1pt8mm/betas_fithrf_GLMdenoise_RR/betas_session{session_num:02d}.nii.gz"
+        
+        for idx, row in session_trials.iterrows():
+            nsd_id = int(row['nsdId'])
+            
+            # Get stimulus info from catalog
+            stim_info = stim_lookup.get(nsd_id, {})
+            
+            entry = {
+                # Core identifiers
+                'subject': subject,
+                'session': int(row['session']),
+                'trial_in_session': int(row['trial_in_session']),
+                'global_trial_index': len(all_entries),
+                
+                # Stimulus information (REAL from behavioral data)
+                'nsdId': nsd_id,
+                'cocoId': int(stim_info.get('cocoId', 0)),
+                'cocoSplit': stim_info.get('cocoSplit', ''),
+                'shared1000': bool(stim_info.get('shared1000', False)),
+                'filename': stim_info.get('filename', ''),
+                
+                # Session design (REAL from behavioral data)
+                'run': int(row['run']),
+                'trial_in_run': int(row['trial_in_run']),
+                'onset': 0.0,  # Not in responses.tsv
+                'duration': 2.0,  # Standard NSD trial duration
+                
+                # Behavioral responses (NEW - real data!)
+                'is_old': bool(row.get('ISOLD', False)),
+                'is_correct': bool(row.get('ISCORRECT', False)),
+                'reaction_time': float(row.get('RT', 0)),
+                
+                # File locations
+                'beta_path': beta_path,
+                'beta_index': int(row['trial_in_session']),  # Index within session file
+                'stim_locator': f"hdf5:nsd/imgBrick[{nsd_id}]",
+            }
+            
+            all_entries.append(entry)
+    
+    # Create DataFrame
+    logger.info(f"Creating DataFrame with {len(all_entries)} trials...")
+    df = pd.DataFrame(all_entries)
+    
+    # Add computed columns
+    logger.info("Adding computed columns...")
+    df['repeat_index'] = df.groupby('nsdId').cumcount()
+    df['is_repeat'] = df['repeat_index'] > 0
+    df['stimulus_repeat_count'] = df.groupby('nsdId')['nsdId'].transform('count')
+    df['has_beta_data'] = True
+    df['data_quality_flag'] = 'good'
+    
+    # Validate
+    logger.info("Validating index...")
+    logger.info(f"  Total trials: {len(df)}")
+    logger.info(f"  Sessions: {df['session'].min()}-{df['session'].max()}")
+    logger.info(f"  Unique stimuli: {df['nsdId'].nunique()}")
+    logger.info(f"  Unique beta files: {df['beta_path'].nunique()}")
+    logger.info(f"  Beta index range: {df['beta_index'].min()}-{df['beta_index'].max()}")
+    
+    # Check for issues
+    max_beta_index_per_session = df.groupby('session')['beta_index'].max()
+    if (max_beta_index_per_session >= 750).any():
+        logger.warning("⚠️  Some sessions have beta_index >= 750! This will cause errors.")
+        problem_sessions = max_beta_index_per_session[max_beta_index_per_session >= 750]
+        logger.warning(f"   Problem sessions: {problem_sessions.to_dict()}")
+    else:
+        logger.info("✅ All beta indices are valid (< 750)")
+    
+    # Save
+    logger.info(f"Saving to {output_path}...")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(output_path, index=False)
+    
+    logger.info(f"✅ Done! Saved {len(df)} trials to {output_path}")
+    
+    return df
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Build full NSD index with all sessions")
+    parser.add_argument(
+        '--subject',
+        type=str,
+        default='subj01',
+        help='Subject ID (e.g., subj01)'
+    )
+    parser.add_argument(
+        '--output',
+        type=Path,
+        default=Path('data/indices/nsd_index/subject=subj01/index_full.parquet'),
+        help='Output parquet file path'
+    )
+    parser.add_argument(
+        '--max-sessions',
+        type=int,
+        default=None,
+        help='Limit number of sessions for testing (default: all)'
+    )
+    
+    args = parser.parse_args()
+    
+    df = build_full_index(args.subject, args.output, args.max_sessions)
+    
+    print("\n" + "="*80)
+    print("INDEX SUMMARY")
+    print("="*80)
+    print(f"Subject: {args.subject}")
+    print(f"Output: {args.output}")
+    print(f"Total trials: {len(df):,}")
+    print(f"Sessions: {df['session'].nunique()}")
+    print(f"Unique stimuli: {df['nsdId'].nunique()}")
+    print(f"\nSample rows:")
+    print(df[['subject', 'session', 'trial_in_session', 'global_trial_index', 'nsdId', 'beta_index']].head(10))
+    print("\nLast rows:")
+    print(df[['subject', 'session', 'trial_in_session', 'global_trial_index', 'nsdId', 'beta_index']].tail(10))
+
+
+if __name__ == '__main__':
+    main()
+
+```
+
+# scripts/build_target_clip_cache_robust.py
+
+```py
+#!/usr/bin/env python3
+"""
+Robust Target CLIP Cache Builder
+================================
+
+Build target CLIP embeddings incrementally with proper error handling
+and resumability. Handles large datasets by processing in batches.
+
+Usage:
+    python scripts/build_target_clip_cache_robust.py \\
+        --subject subj01 \\
+        --index-root data/indices/nsd_index \\
+        --model-id stabilityai/stable-diffusion-2-1 \\
+        --output outputs/clip_cache/target_clip_sd21.parquet \\
+        --batch-size 100 \\
+        --source individual
+"""
+
+import argparse
+import logging
+import sys
+from pathlib import Path
+from typing import List, Dict, Optional
+
+import numpy as np
+import pandas as pd
+import torch
+from PIL import Image
+from tqdm import tqdm
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+
+def load_clip_encoder(model_id: str, device: str):
+    """Load CLIP vision encoder from diffusion model."""
+    from transformers import CLIPImageProcessor, CLIPModel
+    
+    logger.info(f"Loading CLIP encoder for {model_id}...")
+    
+    # SD 2.1 uses OpenCLIP ViT-H/14 with 1024-D embeddings
+    if "2-1" in model_id or "2.1" in model_id or "v2-1" in model_id:
+        logger.info("Detected SD 2.1 → using OpenCLIP ViT-H/14")
+        
+        # Load the FULL CLIP model (not just vision_model) to get projection layer
+        clip_model = CLIPModel.from_pretrained("laion/CLIP-ViT-H-14-laion2B-s32B-b79K")
+        processor = CLIPImageProcessor.from_pretrained("laion/CLIP-ViT-H-14-laion2B-s32B-b79K")
+        target_dim = 1024
+        
+        logger.info(f"✓ Loaded ViT-H/14 with projection layer")
+        logger.info(f"  Hidden size: {clip_model.vision_model.config.hidden_size}")
+        logger.info(f"  Projection dim: {clip_model.vision_model.config.projection_dim}")
+        logger.info(f"  Output embedding dim: {target_dim}")
+    else:
+        logger.info("Detected SD 1.x → using OpenAI CLIP ViT-L/14")
+        clip_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
+        processor = CLIPImageProcessor.from_pretrained("openai/clip-vit-large-patch14")
+        target_dim = 768
+        
+        logger.info(f"✓ Loaded ViT-L/14 with projection layer")
+        logger.info(f"  Hidden size: {clip_model.vision_model.config.hidden_size}")
+        logger.info(f"  Projection dim: {clip_model.vision_model.config.projection_dim}")
+        logger.info(f"  Output embedding dim: {target_dim}")
+    
+    clip_model = clip_model.to(device).eval()
+    
+    # Return full model, not just vision_model, so we can use projection
+    return clip_model, processor, target_dim
+
+
+def load_nsd_images_individual(nsd_ids: List[int], s3_fs, max_retries: int = 3) -> Dict[int, Image.Image]:
+    """
+    Load NSD images individually from S3 (avoids HDF5 issues).
+    
+    Args:
+        nsd_ids: List of NSD IDs (0-72999)
+        s3_fs: S3 filesystem
+        max_retries: Maximum retry attempts per image
+    
+    Returns:
+        Dictionary mapping nsd_id → PIL Image
+    """
+    images = {}
+    
+    for nsd_id in tqdm(nsd_ids, desc="Loading images"):
+        # Convert to 73k ID format (5-digit zero-padded)
+        img_path = f"nsddata_stimuli/stimuli/nsd/nsd_stimuli_{nsd_id:05d}.png"
+        s3_path = f"s3://natural-scenes-dataset/{img_path}"
+        
+        success = False
+        for attempt in range(max_retries):
+            try:
+                with s3_fs.open(s3_path, "rb") as f:
+                    img = Image.open(f).convert("RGB")
+                    images[nsd_id] = img
+                    success = True
+                    break
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    logger.warning(f"Failed to load nsdId={nsd_id} after {max_retries} attempts: {e}")
+                else:
+                    logger.debug(f"Retry {attempt+1}/{max_retries} for nsdId={nsd_id}")
+        
+    return images
+
+
+def compute_embeddings_batch(
+    images: Dict[int, Image.Image],
+    clip_model,
+    processor,
+    device: str,
+    batch_size: int = 32
+) -> Dict[int, np.ndarray]:
+    """Compute CLIP embeddings for a batch of images."""
+    
+    embeddings = {}
+    nsd_ids = list(images.keys())
+    
+    for i in tqdm(range(0, len(nsd_ids), batch_size), desc="Computing embeddings"):
+        batch_ids = nsd_ids[i:i+batch_size]
+        batch_images = [images[nsd_id] for nsd_id in batch_ids]
+        
+        # Process batch
+        inputs = processor(images=batch_images, return_tensors="pt")
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+        
+        # Encode using full CLIP model to get projected embeddings
+        with torch.no_grad():
+            # Use get_image_features which applies vision encoder + projection
+            batch_embeddings = clip_model.get_image_features(**inputs).cpu().numpy()
+            
+            # L2 normalize
+            norms = np.linalg.norm(batch_embeddings, axis=1, keepdims=True)
+            batch_embeddings = batch_embeddings / (norms + 1e-8)
+        
+        # Store
+        for nsd_id, emb in zip(batch_ids, batch_embeddings):
+            embeddings[nsd_id] = emb
+    
+    return embeddings
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Build target CLIP cache robustly")
+    parser.add_argument("--subject", default="subj01", help="Subject ID")
+    parser.add_argument("--index-root", default="data/indices/nsd_index",
+                       help="Index directory")
+    parser.add_argument("--model-id", default="stabilityai/stable-diffusion-2-1",
+                       help="Diffusion model ID")
+    parser.add_argument("--output", required=True,
+                       help="Output parquet file")
+    parser.add_argument("--batch-size", type=int, default=100,
+                       help="Batch size for image loading")
+    parser.add_argument("--inference-batch-size", type=int, default=32,
+                       help="Batch size for CLIP inference")
+    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--limit", type=int, help="Limit number of images (for testing)")
+    
+    args = parser.parse_args()
+    
+    logger.info("="*80)
+    logger.info("ROBUST TARGET CLIP CACHE BUILDER")
+    logger.info("="*80)
+    logger.info(f"Subject: {args.subject}")
+    logger.info(f"Model: {args.model_id}")
+    logger.info(f"Output: {args.output}")
+    logger.info(f"Device: {args.device}")
+    
+    # Load index
+    from fmri2img.data.nsd_index_reader import read_subject_index
+    
+    index_path = Path(args.index_root) / f"subject={args.subject}" / "index.parquet"
+    if not index_path.exists():
+        logger.error(f"Index not found: {index_path}")
+        return 1
+    
+    logger.info(f"Loading index from {index_path}")
+    df = pd.read_parquet(index_path)
+    
+    if args.limit:
+        df = df.head(args.limit)
+    
+    nsd_ids = df["nsdId"].values
+    logger.info(f"Processing {len(nsd_ids)} images")
+    
+    # Check existing cache
+    output_path = Path(args.output)
+    existing_ids = set()
+    
+    if output_path.exists():
+        logger.info(f"Loading existing cache from {output_path}")
+        df_cache = pd.read_parquet(output_path)
+        existing_ids = set(df_cache["nsdId"].values)
+        logger.info(f"Found {len(existing_ids)} existing embeddings")
+        
+        # Load existing data
+        existing_data = {
+            row["nsdId"]: np.array(row["embedding"])
+            for _, row in df_cache.iterrows()
+        }
+    else:
+        existing_data = {}
+    
+    # Filter to only missing IDs
+    missing_ids = [nsd_id for nsd_id in nsd_ids if nsd_id not in existing_ids]
+    logger.info(f"Need to compute {len(missing_ids)} new embeddings")
+    
+    if not missing_ids:
+        logger.info("✅ Cache is complete!")
+        return 0
+    
+    # Load CLIP encoder (returns full model with projection)
+    clip_model, processor, target_dim = load_clip_encoder(args.model_id, args.device)
+    
+    # Setup S3
+    from fmri2img.io.s3 import get_s3_filesystem
+    s3_fs = get_s3_filesystem()
+    
+    # Process in batches
+    all_embeddings = existing_data.copy()
+    
+    for i in range(0, len(missing_ids), args.batch_size):
+        batch_ids = missing_ids[i:i+args.batch_size]
+        logger.info(f"Processing batch {i//args.batch_size + 1}/{(len(missing_ids)-1)//args.batch_size + 1}")
+        
+        # Load images using HDF5 (individual PNGs don't exist in S3)
+        from fmri2img.io.nsd_images import load_nsd_images
+        
+        try:
+            images = load_nsd_images(batch_ids, s3_fs=s3_fs, prefer="hdf5")
+        except Exception as e:
+            logger.warning(f"HDF5 loading failed for batch: {e}")
+            logger.info("Trying HTTP fallback...")
+            images = load_nsd_images(batch_ids, s3_fs=s3_fs, prefer="http")
+        
+        if not images:
+            logger.warning(f"No images loaded for batch starting at {i}")
+            continue
+        
+        # Compute embeddings
+        batch_embeddings = compute_embeddings_batch(
+            images, clip_model, processor, args.device, args.inference_batch_size
+        )
+        
+        all_embeddings.update(batch_embeddings)
+        
+        # Save incrementally
+        df_save = pd.DataFrame([
+            {"nsdId": nsd_id, "embedding": emb.tolist()}
+            for nsd_id, emb in all_embeddings.items()
+        ])
+        
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        df_save.to_parquet(output_path, index=False)
+        logger.info(f"💾 Saved {len(all_embeddings)} embeddings to {output_path}")
+    
+    logger.info("="*80)
+    logger.info(f"✅ Complete! Saved {len(all_embeddings)} embeddings")
+    logger.info(f"   Output: {output_path}")
+    logger.info(f"   Dimension: {target_dim}")
+    logger.info("="*80)
+    
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+```
+
+# scripts/build_target_clip_cache.py
+
+```py
+#!/usr/bin/env python3
+"""
+Target CLIP Cache Builder for Stable Diffusion 2.1
+====================================================
+
+Builds a 1024-D CLIP embedding cache using OpenCLIP ViT-H/14 (SD 2.1's text encoder).
+Supports multiple image sources: local PNGs, S3 streaming, or HDF5 file.
+
+Usage:
+    # Use HDF5 file (auto-download ~40GB if missing)
+    python scripts/build_target_clip_cache.py \
+        --subject subj01 \
+        --index-dir data/indices/nsd_index \
+        --out outputs/clip_cache/target_clip_stabilityai_stable-diffusion-2-1.parquet \
+        --source hdf5 \
+        --limit 64
+
+    # Stream from S3 (no local files needed)
+    python scripts/build_target_clip_cache.py \
+        --subject subj01 \
+        --index-dir data/indices/nsd_index \
+        --out outputs/clip_cache/target_clip_stabilityai_stable-diffusion-2-1.parquet \
+        --source s3 \
+        --limit 64
+
+    # Use local PNG files only
+    python scripts/build_target_clip_cache.py \
+        --subject subj01 \
+        --index-dir data/indices/nsd_index \
+        --out outputs/clip_cache/target_clip_stabilityai_stable-diffusion-2-1.parquet \
+        --source local \
+        --gt-root data/stimuli/nsd \
+        --limit 64
+
+    # Auto mode (try local first, fallback to S3)
+    python scripts/build_target_clip_cache.py \
+        --subject subj01 \
+        --index-dir data/indices/nsd_index \
+        --out outputs/clip_cache/target_clip_stabilityai_stable-diffusion-2-1.parquet \
+        --source auto \
+        --gt-root data/stimuli/nsd \
+        --limit 64
+
+Output:
+    Parquet file with columns:
+        - nsdId (int32): NSD stimulus ID
+        - clip1024 (fixed_size_list<float>[1024]): OpenCLIP ViT-H/14 embedding
+"""
+
+import argparse
+import io
+import logging
+import os
+import sys
+import time
+from pathlib import Path
+from typing import List, Optional, Tuple, Literal
+import warnings
+
+import numpy as np
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
+import torch
+from PIL import Image
+from tqdm import tqdm
+
+try:
+    import requests
+except ImportError:
+    print("ERROR: requests is required. Install with: pip install requests")
+    sys.exit(1)
+
+# Try importing required libraries with helpful error messages
+try:
+    import open_clip
+except ImportError:
+    print("ERROR: open_clip is required. Install with: pip install open-clip-torch")
+    sys.exit(1)
+
+# boto3 is optional - only needed for S3 source
+BOTO3_AVAILABLE = False
+try:
+    import boto3
+    from botocore import UNSIGNED
+    from botocore.config import Config
+    from botocore.exceptions import ClientError, EndpointConnectionError
+    BOTO3_AVAILABLE = True
+except ImportError:
+    pass
+
+# h5py is optional - only needed for HDF5 source
+H5PY_AVAILABLE = False
+try:
+    import h5py
+    H5PY_AVAILABLE = True
+except ImportError:
+    pass
+
+# Setup logging with project style
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
+
+
+def ensure_local_hdf5(hdf5_local_path: Path) -> Path:
+    """
+    Ensure HDF5 file exists locally. If missing, download from S3.
+    
+    Args:
+        hdf5_local_path: Target local path for HDF5 file
+    
+    Returns:
+        Path to local HDF5 file
+    """
+    if hdf5_local_path.exists():
+        logger.info(f"✅ HDF5 file found: {hdf5_local_path}")
+        return hdf5_local_path
+    
+    # Need to download
+    if not BOTO3_AVAILABLE:
+        raise ImportError(
+            "boto3 is required to download HDF5 file. Install with: pip install boto3"
+        )
+    
+    logger.info("\n" + "=" * 80)
+    logger.info("ONE-TIME HDF5 DOWNLOAD")
+    logger.info("=" * 80)
+    logger.info(f"Source: s3://natural-scenes-dataset/nsddata_stimuli/stimuli/nsd/nsd_stimuli.hdf5")
+    logger.info(f"Target: {hdf5_local_path}")
+    logger.info("Size: ~37-40 GB (this will take a while)")
+    logger.info("=" * 80 + "\n")
+    
+    # Create parent directory
+    hdf5_local_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Setup S3 client with unsigned access
+    s3 = boto3.client(
+        's3',
+        region_name='us-east-2',
+        config=Config(signature_version=UNSIGNED)
+    )
+    
+    bucket = "natural-scenes-dataset"
+    key = "nsddata_stimuli/stimuli/nsd/nsd_stimuli.hdf5"
+    
+    # Get file size for progress tracking
+    try:
+        response = s3.head_object(Bucket=bucket, Key=key)
+        total_size = response['ContentLength']
+        logger.info(f"File size: {total_size / 1e9:.2f} GB")
+    except Exception as e:
+        logger.warning(f"Could not get file size: {e}")
+        total_size = None
+    
+    # Progress callback
+    downloaded_bytes = [0]
+    last_log_mb = [0]
+    
+    def progress_callback(bytes_amount):
+        downloaded_bytes[0] += bytes_amount
+        current_mb = downloaded_bytes[0] / 1e6
+        
+        # Log every 100 MB
+        if current_mb - last_log_mb[0] >= 100:
+            if total_size:
+                pct = (downloaded_bytes[0] / total_size) * 100
+                logger.info(f"Downloaded: {current_mb:.0f} MB ({pct:.1f}%)")
+            else:
+                logger.info(f"Downloaded: {current_mb:.0f} MB")
+            last_log_mb[0] = current_mb
+    
+    # Download file
+    try:
+        logger.info("Starting download...")
+        s3.download_file(
+            bucket,
+            key,
+            str(hdf5_local_path),
+            Callback=progress_callback
+        )
+        logger.info(f"✅ Download complete: {downloaded_bytes[0] / 1e9:.2f} GB")
+        logger.info("=" * 80 + "\n")
+        return hdf5_local_path
+        
+    except Exception as e:
+        # Cleanup partial download
+        if hdf5_local_path.exists():
+            hdf5_local_path.unlink()
+        raise RuntimeError(f"HDF5 download failed: {e}")
+
+
+class HDF5Loader:
+    """Load images from NSD HDF5 file with auto-detection."""
+    
+    def __init__(self, hdf5_path: Path):
+        """
+        Initialize HDF5 loader with auto-dataset detection.
+        
+        Args:
+            hdf5_path: Path to local HDF5 file
+        """
+        if not H5PY_AVAILABLE:
+            raise ImportError(
+                "h5py is required for HDF5 source. Install with: pip install h5py"
+            )
+        
+        if not hdf5_path.exists():
+            raise FileNotFoundError(f"HDF5 file not found: {hdf5_path}")
+        
+        logger.info(f"Opening HDF5 file: {hdf5_path}")
+        self.file = h5py.File(str(hdf5_path), 'r')
+        
+        # Auto-detect dataset
+        candidates = []
+        
+        # Check root level
+        for key, val in self.file.items():
+            if isinstance(val, h5py.Dataset):
+                if val.dtype == np.uint8 and val.ndim >= 3 and val.shape[-1] == 3:
+                    candidates.append((key, val.shape[0], val))
+            # Check one level down for groups
+            elif isinstance(val, h5py.Group):
+                for subkey, subval in val.items():
+                    if isinstance(subval, h5py.Dataset):
+                        if subval.dtype == np.uint8 and subval.ndim >= 3 and subval.shape[-1] == 3:
+                            full_key = f"{key}/{subkey}"
+                            candidates.append((full_key, subval.shape[0], subval))
+        
+        if not candidates:
+            available_keys = list(self.file.keys())
+            raise ValueError(
+                f"No suitable image dataset found in HDF5 file.\n"
+                f"Expected: uint8 dtype with shape [..., 3]\n"
+                f"Available keys: {available_keys}"
+            )
+        
+        # Pick dataset with largest first dimension
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        self.dataset_name, num_images, self.dset = candidates[0]
+        
+        logger.info(f"✅ HDF5 loader initialized")
+        logger.info(f"   Dataset: '{self.dataset_name}'")
+        logger.info(f"   Shape: {self.dset.shape}")
+        logger.info(f"   Dtype: {self.dset.dtype}")
+        logger.info(f"   Images: {num_images}")
+    
+    def load_image(self, nsd_id: int) -> Optional[Image.Image]:
+        """
+        Load image from HDF5 dataset by index.
+        
+        Args:
+            nsd_id: NSD stimulus ID (used as 0-based index)
+        
+        Returns:
+            PIL Image in RGB mode, or None if index out of bounds
+        """
+        try:
+            # Use nsd_id directly as index (0-based)
+            if nsd_id < 0 or nsd_id >= self.dset.shape[0]:
+                logger.warning(f"Index {nsd_id} out of bounds [0, {self.dset.shape[0]})")
+                return None
+            
+            arr = self.dset[nsd_id]
+            
+            # Handle different shapes: (H, W, 3) or (3, H, W)
+            if arr.shape[-1] == 3:
+                # HWC format
+                return Image.fromarray(arr, mode='RGB')
+            elif arr.shape[0] == 3:
+                # CHW format - transpose to HWC
+                arr = np.transpose(arr, (1, 2, 0))
+                return Image.fromarray(arr, mode='RGB')
+            else:
+                logger.warning(f"Unexpected array shape for nsd_id={nsd_id}: {arr.shape}")
+                return None
+                
+        except Exception as e:
+            logger.debug(f"Failed to load nsd_id={nsd_id} from HDF5: {e}")
+            return None
+    
+    def __del__(self):
+        """Close HDF5 file on cleanup."""
+        if hasattr(self, 'file'):
+            self.file.close()
+
+
+class LocalPNGLoader:
+    """Load individual PNG images from a local NSD stimuli directory."""
+    
+    def __init__(self, gt_root: Path):
+        """
+        Initialize local image loader.
+        
+        Args:
+            gt_root: Directory containing NSD stimuli (e.g., data/stimuli/nsd)
+        """
+        self.gt_root = Path(gt_root)
+        
+        if not self.gt_root.exists():
+            raise FileNotFoundError(
+                f"GT root directory does not exist: {self.gt_root}\n"
+                f"Please provide a valid --gt-root with NSD stimuli images."
+            )
+        
+        logger.info(f"✅ Local PNG loader initialized: {self.gt_root}")
+    
+    def load_image(self, nsd_id: int) -> Optional[Image.Image]:
+        """
+        Load a PNG image from local filesystem.
+        
+        Args:
+            nsd_id: NSD stimulus ID
+        
+        Returns:
+            PIL Image in RGB mode, or None if file doesn't exist or fails to load
+        """
+        img_path = self.gt_root / f"nsd_{nsd_id:05d}.png"
+        
+        try:
+            if not img_path.exists():
+                return None
+            
+            img = Image.open(img_path).convert('RGB')
+            return img
+            
+        except Exception as e:
+            logger.debug(f"Failed to load nsd_id={nsd_id} from {img_path}: {e}")
+            return None
+
+
+class S3PNGLoader:
+    """Stream individual PNG images from NSD AWS S3 bucket with auto-discovery."""
+    
+    def __init__(self, max_retries: int = 3, retry_delay: float = 0.5):
+        """
+        Initialize S3 PNG loader with unsigned access and region auto-discovery.
+        
+        Args:
+            max_retries: Maximum retry attempts per image
+            retry_delay: Delay in seconds between retries
+        """
+        if not BOTO3_AVAILABLE:
+            raise ImportError(
+                "boto3 is required for S3 source. Install with: pip install boto3"
+            )
+        
+        # NSD bucket configuration
+        self.bucket = "natural-scenes-dataset"
+        self.prefix = "nsddata_stimuli/stimuli/nsd"
+        self.region = None
+        self.endpoint_url = None
+        
+        # Discover bucket region using temporary client
+        tmp_client = boto3.client('s3', config=Config(signature_version=UNSIGNED))
+        try:
+            location_resp = tmp_client.get_bucket_location(Bucket=self.bucket)
+            # AWS returns None for us-east-1, otherwise returns region name
+            self.region = location_resp.get('LocationConstraint') or 'us-east-1'
+        except Exception as e:
+            logger.warning(f"Could not discover bucket region, defaulting to us-east-2: {e}")
+            self.region = 'us-east-2'
+        
+        # Create final client bound to discovered region
+        self.s3 = boto3.client(
+            's3',
+            region_name=self.region,
+            config=Config(signature_version=UNSIGNED)
+        )
+        self.endpoint_url = f"https://{self.bucket}.s3.{self.region}.amazonaws.com"
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
+        
+        logger.info(f"✅ S3 PNG loader initialized (region: {self.region}, unsigned access)")
+    
+    def _key(self, nsd_id: int) -> str:
+        """Construct S3 key for an NSD ID."""
+        return f"{self.prefix}/nsd_{nsd_id:05d}.png"
+    
+    def _https_url(self, key: str) -> str:
+        """Build direct HTTPS URL for a key."""
+        return f"{self.endpoint_url}/{key}"
+    
+    def _list_example_keys(self, prefix: str, limit: int = 5) -> list:
+        """List a few example keys under a prefix for debugging."""
+        try:
+            resp = self.s3.list_objects_v2(Bucket=self.bucket, Prefix=prefix, MaxKeys=limit)
+            keys = [obj['Key'] for obj in resp.get('Contents', [])]
+            if not keys:
+                logger.warning(f"No objects under prefix '{prefix}'.")
+            else:
+                logger.warning(f"Example keys under prefix '{prefix}':\n  - " + "\n  - ".join(keys))
+            return keys
+        except Exception as e:
+            logger.warning(f"Failed to list keys for prefix '{prefix}': {e}")
+            return []
+    
+    def load_image(self, nsd_id: int) -> Optional[Image.Image]:
+        """
+        Fetch a PNG image from S3 and return as PIL Image.
+        Includes key verification, retries, and HTTPS fallback.
+        
+        Args:
+            nsd_id: NSD stimulus ID
+        
+        Returns:
+            PIL Image in RGB mode, or None if fetch fails
+        """
+        key = self._key(nsd_id)
+        
+        # First: verify key exists with HEAD request
+        try:
+            self.s3.head_object(Bucket=self.bucket, Key=key)
+        except ClientError as e:
+            code = e.response.get('Error', {}).get('Code', 'UnknownError')
+            if code in ('404', 'NoSuchKey', 'NotFound'):
+                logger.warning(f"S3 key missing: {key}")
+                # List a few example keys for debugging on first miss
+                self._list_example_keys(self.prefix, limit=5)
+            else:
+                logger.warning(f"S3 head_object error for {key}: {code}")
+        
+        # GET object with retries
+        for attempt in range(self.max_retries):
+            try:
+                resp = self.s3.get_object(Bucket=self.bucket, Key=key)
+                data = resp['Body'].read()
+                return Image.open(io.BytesIO(data)).convert('RGB')
+                
+            except (ClientError, EndpointConnectionError) as e:
+                if hasattr(e, 'response'):
+                    code = e.response.get('Error', {}).get('Code', str(e))
+                else:
+                    code = str(e)
+                logger.warning(f"S3 get_object failed for {key} (attempt {attempt+1}/{self.max_retries}): {code}")
+                
+                if attempt < self.max_retries - 1:
+                    time.sleep(self.retry_delay)
+            
+            except Exception as e:
+                logger.warning(f"Unexpected error fetching {key} (attempt {attempt+1}/{self.max_retries}): {e}")
+                if attempt < self.max_retries - 1:
+                    time.sleep(self.retry_delay)
+        
+        # HTTPS fallback with discovered region
+        url = self._https_url(key)
+        try:
+            logger.info(f"Trying HTTPS fallback: {url}")
+            r = requests.get(url, timeout=10)
+            if r.status_code == 200:
+                return Image.open(io.BytesIO(r.content)).convert('RGB')
+            logger.warning(f"HTTPS fallback failed {r.status_code} for {url}")
+        except Exception as e:
+            logger.warning(f"HTTPS fallback exception for {url}: {e}")
+        
+        return None
+
+
+class DualSourceLoader:
+    """Dual-source loader with local-first fallback to S3."""
+    
+    def __init__(self, gt_root: Optional[Path] = None):
+        """
+        Initialize dual-source loader.
+        
+        Args:
+            gt_root: Optional local directory. If provided, tries local first.
+        """
+        self.local_loader = None
+        self.s3_loader = None
+        
+        # Initialize local loader if gt_root provided and exists
+        if gt_root and Path(gt_root).exists():
+            self.local_loader = LocalPNGLoader(gt_root)
+        
+        # Initialize S3 loader
+        try:
+            self.s3_loader = S3PNGLoader()
+        except ImportError:
+            if self.local_loader is None:
+                raise ImportError(
+                    "Neither local files nor boto3 available. "
+                    "Install boto3 with: pip install boto3"
+                )
+            logger.warning("boto3 not available - S3 fallback disabled")
+        
+        mode = []
+        if self.local_loader:
+            mode.append("local")
+        if self.s3_loader:
+            mode.append("S3")
+        logger.info(f"✅ Dual-source loader initialized: {' → '.join(mode)}")
+    
+    def load_image(self, nsd_id: int) -> Optional[Image.Image]:
+        """
+        Load image with local-first, S3-fallback strategy.
+        
+        Args:
+            nsd_id: NSD stimulus ID
+        
+        Returns:
+            PIL Image in RGB mode, or None if all sources fail
+        """
+        # Try local first
+        if self.local_loader:
+            img = self.local_loader.load_image(nsd_id)
+            if img is not None:
+                return img
+        
+        # Fallback to S3
+        if self.s3_loader:
+            img = self.s3_loader.load_image(nsd_id)
+            if img is not None:
+                return img
+        
+        return None
+
+
+class OpenCLIPEncoder:
+    """OpenCLIP ViT-H/14 image encoder for Stable Diffusion 2.1."""
+    
+    def __init__(
+        self,
+        model_name: str = "ViT-H-14",
+        pretrained: str = "laion2b_s32b_b79k",
+        device: Optional[str] = None
+    ):
+        """
+        Initialize OpenCLIP encoder.
+        
+        Args:
+            model_name: OpenCLIP model architecture
+            pretrained: Pretrained weights identifier
+            device: Device to run on ('cuda' or 'cpu'). Auto-detects if None.
+        """
+        self.device = device or ('cuda' if torch.cuda.is_available() else 'cpu')
+        
+        logger.info("=" * 80)
+        logger.info("INITIALIZING OPENCLIP ENCODER")
+        logger.info("=" * 80)
+        logger.info(f"Model: {model_name}")
+        logger.info(f"Pretrained: {pretrained}")
+        logger.info(f"Device: {self.device}")
+        
+        # Load model and preprocessing
+        self.model, _, self.preprocess = open_clip.create_model_and_transforms(
+            model_name,
+            pretrained=pretrained,
+            device=self.device
+        )
+        
+        self.model.eval()
+        
+        # Get embedding dimension and validate
+        with torch.no_grad():
+            dummy_input = torch.randn(1, 3, 224, 224).to(self.device)
+            dummy_output = self.model.encode_image(dummy_input)
+            self.embed_dim = dummy_output.shape[1]
+        
+        # Assert 1024-D for SD 2.1 compatibility
+        if self.embed_dim != 1024:
+            raise ValueError(
+                f"Expected 1024-D embeddings for SD 2.1, got {self.embed_dim}. "
+                f"Make sure you're using ViT-H-14 with laion2b_s32b_b79k weights."
+            )
+        
+        logger.info(f"✅ Model loaded: embedding dimension = {self.embed_dim}")
+        logger.info("=" * 80)
+    
+    def encode_batch(self, images: List[Image.Image]) -> np.ndarray:
+        """
+        Encode a batch of images to CLIP embeddings.
+        
+        Args:
+            images: List of PIL Images in RGB
+        
+        Returns:
+            Numpy array of shape (N, embed_dim) with L2-normalized embeddings
+        """
+        if not images:
+            return np.zeros((0, self.embed_dim), dtype=np.float32)
+        
+        # Preprocess images
+        image_tensors = torch.stack([
+            self.preprocess(img) for img in images
+        ]).to(self.device)
+        
+        # Encode
+        with torch.no_grad():
+            embeddings = self.model.encode_image(image_tensors)
+            
+            # Normalize to unit length (standard for CLIP)
+            embeddings = embeddings / embeddings.norm(dim=-1, keepdim=True)
+        
+        return embeddings.cpu().numpy().astype(np.float32)
+
+
+def load_nsd_index(subject: str, index_dir: Path) -> pd.DataFrame:
+    """
+    Load NSD index for a subject and extract unique stimulus IDs.
+    
+    Args:
+        subject: Subject ID (e.g., 'subj01')
+        index_dir: Path to index directory (e.g., data/indices/nsd_index)
+    
+    Returns:
+        DataFrame with unique nsdId values
+    """
+    subject_index_path = index_dir / f"subject={subject}" / "index.parquet"
+    
+    if not subject_index_path.exists():
+        raise FileNotFoundError(
+            f"Index not found: {subject_index_path}\n"
+            f"Expected structure: {index_dir}/subject={subject}/index.parquet"
+        )
+    
+    logger.info(f"Loading index from: {subject_index_path}")
+    df = pd.read_parquet(subject_index_path)
+    
+    # Extract unique nsdId values
+    if 'nsdId' not in df.columns:
+        raise ValueError(f"Index must have 'nsdId' column. Found: {df.columns.tolist()}")
+    
+    unique_ids = df[['nsdId']].drop_duplicates().sort_values('nsdId').reset_index(drop=True)
+    
+    logger.info(f"✅ Loaded {len(df)} trials with {len(unique_ids)} unique stimuli")
+    
+    return unique_ids
+
+
+def save_clip_cache(
+    nsd_ids: List[int],
+    embeddings: np.ndarray,
+    output_path: Path,
+    embed_dim: int = 1024
+):
+    """
+    Save CLIP embeddings to Parquet with fixed_size_list schema.
+    
+    Args:
+        nsd_ids: List of NSD stimulus IDs
+        embeddings: Array of shape (N, embed_dim)
+        output_path: Output Parquet file path
+        embed_dim: Embedding dimension (1024 for OpenCLIP ViT-H/14)
+    """
+    logger.info(f"Saving CLIP cache to: {output_path}")
+    
+    # Create DataFrame
+    df = pd.DataFrame({
+        'nsdId': np.array(nsd_ids, dtype=np.int32),
+        f'clip{embed_dim}': list(embeddings.astype(np.float32))
+    })
+    
+    # Define schema with fixed_size_list for embeddings
+    schema = pa.schema([
+        pa.field('nsdId', pa.int32()),
+        pa.field(f'clip{embed_dim}', pa.list_(pa.float32(), embed_dim))
+    ])
+    
+    # Convert to PyArrow Table with schema
+    table = pa.Table.from_pandas(df, schema=schema)
+    
+    # Write to Parquet
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    pq.write_table(table, output_path, compression='snappy')
+    
+    logger.info(f"✅ Saved {len(nsd_ids)} embeddings (shape: {embeddings.shape})")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Build 1024-D CLIP cache for Stable Diffusion 2.1 with dual-source PNG loading",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+    # Stream from S3 (no local files needed)
+    python scripts/build_target_clip_cache.py \\
+        --subject subj01 \\
+        --index-dir data/indices/nsd_index \\
+        --out outputs/clip_cache/target_clip_sd21.parquet \\
+        --source s3 \\
+        --limit 64
+
+    # Use HDF5 file (auto-download if missing)
+    python scripts/build_target_clip_cache.py \\
+        --subject subj01 \\
+        --index-dir data/indices/nsd_index \\
+        --out outputs/clip_cache/target_clip_sd21.parquet \\
+        --source hdf5 \\
+        --limit 64
+
+    # Use local PNG files only
+    python scripts/build_target_clip_cache.py \\
+        --subject subj01 \\
+        --index-dir data/indices/nsd_index \\
+        --out outputs/clip_cache/target_clip_sd21.parquet \\
+        --source local \\
+        --gt-root data/stimuli/nsd
+
+    # Auto mode (try local first, fallback to S3)
+    python scripts/build_target_clip_cache.py \\
+        --subject subj01 \\
+        --index-dir data/indices/nsd_index \\
+        --out outputs/clip_cache/target_clip_sd21.parquet \\
+        --source auto \\
+        --gt-root data/stimuli/nsd
+        """
+    )
+    
+    parser.add_argument(
+        '--subject',
+        type=str,
+        required=True,
+        help='Subject ID (e.g., subj01)'
+    )
+    
+    parser.add_argument(
+        '--index-dir',
+        type=Path,
+        required=True,
+        help='Path to NSD index directory (e.g., data/indices/nsd_index)'
+    )
+    
+    parser.add_argument(
+        '--out',
+        type=Path,
+        required=True,
+        help='Output Parquet file path'
+    )
+    
+    parser.add_argument(
+        '--model-id',
+        type=str,
+        default='stabilityai/stable-diffusion-2-1',
+        help='Model ID for logging (default: stabilityai/stable-diffusion-2-1)'
+    )
+    
+    parser.add_argument(
+        '--limit',
+        type=int,
+        default=None,
+        help='Limit number of images to process (for testing)'
+    )
+    
+    parser.add_argument(
+        '--batch-size',
+        type=int,
+        default=16,
+        help='Batch size for encoding (default: 16)'
+    )
+    
+    parser.add_argument(
+        '--gt-root',
+        type=Path,
+        default=None,
+        help='Path to local NSD stimuli directory (required for source=local, optional for auto)'
+    )
+    
+    parser.add_argument(
+        '--source',
+        type=str,
+        choices=['auto', 'local', 's3', 'hdf5'],
+        default='auto',
+        help='Image source: auto (local→S3 fallback), local (disk only), s3 (stream only), hdf5 (HDF5 file)'
+    )
+    
+    parser.add_argument(
+        '--hdf5-path',
+        type=Path,
+        default=None,
+        help='Path to local HDF5 file (default: cache/nsd_hdf5/nsd_stimuli.hdf5 with auto-download)'
+    )
+    
+    args = parser.parse_args()
+    
+    # Validate arguments
+    if args.source == 'local' and not args.gt_root:
+        parser.error("--gt-root is required when --source=local")
+    
+    if args.source == 's3' and not BOTO3_AVAILABLE:
+        parser.error(
+            "boto3 is required for --source=s3. Install with: pip install boto3"
+        )
+    
+    if args.source == 'hdf5' and not H5PY_AVAILABLE:
+        parser.error(
+            "h5py is required for --source=hdf5. Install with: pip install h5py"
+        )
+    
+    try:
+        # Print banner
+        logger.info("\n" + "=" * 80)
+        logger.info("TARGET CLIP CACHE BUILDER (OpenCLIP ViT-H/14 for SD 2.1)")
+        logger.info("=" * 80)
+        logger.info(f"Subject: {args.subject}")
+        logger.info(f"Index dir: {args.index_dir}")
+        logger.info(f"Output: {args.out}")
+        logger.info(f"Model: OpenCLIP ViT-H/14 (laion2b_s32b_b79k)")
+        logger.info(f"Target model: {args.model_id}")
+        logger.info(f"Source mode: {args.source}")
+        if args.gt_root:
+            logger.info(f"GT root: {args.gt_root}")
+        logger.info(f"Batch size: {args.batch_size}")
+        if args.limit:
+            logger.info(f"⚠️  Limit: {args.limit} images (testing mode)")
+        logger.info("=" * 80 + "\n")
+        
+        # Load index
+        unique_stim = load_nsd_index(args.subject, args.index_dir)
+        nsd_ids = unique_stim['nsdId'].tolist()
+        
+        if args.limit:
+            nsd_ids = nsd_ids[:args.limit]
+            logger.info(f"⚠️  Limited to {len(nsd_ids)} images for testing")
+        
+        logger.info(f"Total images to process: {len(nsd_ids)}")
+        logger.info(f"NSD ID range: {min(nsd_ids)} to {max(nsd_ids)}\n")
+        
+        # Initialize image loader based on source mode
+        if args.source == 'hdf5':
+            # HDF5 source with auto-download
+            local_hdf5_path = args.hdf5_path or Path("cache/nsd_hdf5/nsd_stimuli.hdf5")
+            local_hdf5_path = ensure_local_hdf5(local_hdf5_path)
+            loader = HDF5Loader(local_hdf5_path)
+        elif args.source == 'local':
+            loader = LocalPNGLoader(gt_root=args.gt_root)
+        elif args.source == 's3':
+            loader = S3PNGLoader()
+        else:  # auto
+            loader = DualSourceLoader(gt_root=args.gt_root)
+        
+        # Initialize encoder
+        encoder = OpenCLIPEncoder(
+            model_name="ViT-H-14",
+            pretrained="laion2b_s32b_b79k"
+        )
+        
+        logger.info("\n" + "=" * 80)
+        logger.info("LOADING AND ENCODING IMAGES")
+        logger.info("=" * 80)
+        
+        # Process in batches
+        all_embeddings = []
+        successful_ids = []
+        failed_ids = []
+        
+        pbar = tqdm(range(0, len(nsd_ids), args.batch_size), desc="Encoding batches")
+        for i in pbar:
+            batch_ids = nsd_ids[i:i + args.batch_size]
+            batch_images = []
+            batch_valid_ids = []
+            
+            # Load images for this batch
+            for nsd_id in batch_ids:
+                img = loader.load_image(nsd_id)
+                if img is not None:
+                    batch_images.append(img)
+                    batch_valid_ids.append(nsd_id)
+                else:
+                    failed_ids.append(nsd_id)
+            
+            # Encode batch
+            if batch_images:
+                embeddings = encoder.encode_batch(batch_images)
+                all_embeddings.append(embeddings)
+                successful_ids.extend(batch_valid_ids)
+            
+            # Update progress bar with batch stats
+            pbar.set_postfix({
+                'encoded': f'{len(batch_valid_ids)}/{len(batch_ids)}',
+                'total': f'{len(successful_ids)}/{len(nsd_ids)}'
+            })
+        
+        # Combine results
+        if not all_embeddings:
+            logger.error("❌ No images were successfully encoded!")
+            
+            # Extra diagnostics for HDF5 source
+            if args.source == 'hdf5':
+                logger.error("\nHDF5 source diagnostics:")
+                logger.error(f"  HDF5 path: {local_hdf5_path}")
+                if hasattr(loader, 'dataset_name'):
+                    logger.error(f"  Dataset: '{loader.dataset_name}'")
+                    logger.error(f"  Shape: {loader.dset.shape}")
+                logger.error(f"  Attempted IDs: {nsd_ids[:5]}...")
+            
+            logger.error("\nDebugging info - first few attempted URLs:")
+            sample_ids = nsd_ids[:3]
+            for i, nsd_id in enumerate(sample_ids, 1):
+                # Try to use loader's methods if available, otherwise construct manually
+                if hasattr(loader, '_key') and hasattr(loader, '_https_url'):
+                    key = loader._key(nsd_id)
+                    url = loader._https_url(key)
+                else:
+                    # Fallback for loaders without these methods
+                    key = f"nsddata_stimuli/stimuli/nsd/nsd_{nsd_id:05d}.png"
+                    # Use discovered region if S3 loader
+                    if hasattr(loader, 'region'):
+                        url = f"https://natural-scenes-dataset.s3.{loader.region}.amazonaws.com/{key}"
+                    else:
+                        url = f"https://natural-scenes-dataset.s3.us-east-2.amazonaws.com/{key}"
+                logger.error(f"  {i}. curl -I '{url}'")
+            return 1
+        
+        final_embeddings = np.vstack(all_embeddings)
+        
+        logger.info("\n" + "=" * 80)
+        logger.info("ENCODING SUMMARY")
+        logger.info("=" * 80)
+        logger.info(f"Total requested: {len(nsd_ids)}")
+        logger.info(f"Successfully encoded: {len(successful_ids)}")
+        logger.info(f"Failed: {len(failed_ids)}")
+        if failed_ids:
+            logger.warning(f"Failed IDs: {failed_ids[:10]}{'...' if len(failed_ids) > 10 else ''}")
+        logger.info(f"Embedding shape: {final_embeddings.shape}")
+        logger.info(f"Mean norm: {np.linalg.norm(final_embeddings, axis=1).mean():.4f}")
+        logger.info("=" * 80 + "\n")
+        
+        # Save cache
+        save_clip_cache(
+            nsd_ids=successful_ids,
+            embeddings=final_embeddings,
+            output_path=args.out,
+            embed_dim=encoder.embed_dim
+        )
+        
+        logger.info("\n" + "=" * 80)
+        logger.info("✅ TARGET CLIP CACHE BUILD COMPLETE")
+        logger.info("=" * 80)
+        logger.info(f"Output: {args.out}")
+        logger.info(f"Shape: ({len(successful_ids)}, {encoder.embed_dim})")
+        logger.info(f"Format: Parquet with fixed_size_list<float>[{encoder.embed_dim}]")
+        logger.info("=" * 80 + "\n")
+        
+        return 0
+        
+    except Exception as e:
+        logger.error(f"\n❌ BUILD FAILED: {e}", exc_info=True)
+        return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())
+
+```
+
+# scripts/compare_evals.py
+
+```py
+#!/usr/bin/env python3
+"""
+Compare multiple reconstruction evaluations with bootstrap confidence intervals.
+
+Aggregates evaluation JSONs, computes bootstrap 95% CIs, and generates:
+- CSV with all metrics and CIs
+- LaTeX table for thesis
+- Markdown comparison summary
+- Bar plots with error bars
+
+Usage:
+    python scripts/compare_evals.py \\
+        --report-dir outputs/reports/subj01 \\
+        --out-csv outputs/reports/subj01/recon_compare.csv \\
+        --out-tex outputs/reports/subj01/recon_compare.tex \\
+        --out-md outputs/reports/subj01/recon_compare.md \\
+        --out-fig outputs/reports/subj01/recon_compare.png
+"""
+
+import argparse
+import sys
+from pathlib import Path
+from typing import List, Dict, Optional
+import json
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Import utilities
+from _report_utils import (
+    load_eval_json,
+    guess_run_name,
+    bootstrap_ci,
+    format_mean_ci,
+    format_mean_ci_range
+)
+
+
+def discover_eval_jsons(
+    report_dir: Path,
+    pattern: str = "recon_eval*.json"
+) -> List[Path]:
+    """
+    Recursively discover evaluation JSON files.
+    
+    Args:
+        report_dir: Root directory to search
+        pattern: Glob pattern for JSON files
+        
+    Returns:
+        List of paths to JSON files
+    """
+    if not report_dir.exists():
+        return []
+    
+    # Recursively glob
+    json_files = list(report_dir.rglob(pattern))
+    
+    # Sort for reproducibility
+    json_files.sort()
+    
+    return json_files
+
+
+def flatten_dict(
+    d: Dict,
+    parent_key: str = "",
+    sep: str = "_"
+) -> Dict:
+    """
+    Flatten nested dictionary one level deep.
+    
+    Converts nested dicts like {"a": {"b": 1, "c": 2}} to {"a_b": 1, "a_c": 2}.
+    Handles only depth-1 nesting to avoid issues with DataFrame creation.
+    
+    Args:
+        d: Dictionary to flatten
+        parent_key: Prefix for nested keys
+        sep: Separator between parent and child keys
+        
+    Returns:
+        Flattened dictionary with all scalar values
+    """
+    items = []
+    
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        
+        if isinstance(v, dict):
+            # Flatten one level
+            for nested_k, nested_v in v.items():
+                nested_key = f"{new_key}{sep}{nested_k}"
+                items.append((nested_key, nested_v))
+        else:
+            items.append((new_key, v))
+    
+    return dict(items)
+
+
+def load_per_sample_csv(json_path: Path) -> Optional[pd.DataFrame]:
+    """
+    Load per-sample CSV if available.
+    
+    Looks for CSV path in JSON metadata or infers from JSON path.
+    
+    Args:
+        json_path: Path to evaluation JSON
+        
+    Returns:
+        DataFrame with per-sample metrics, or None if not found
+    """
+    # Try to load JSON to get CSV path
+    try:
+        data = load_eval_json(json_path)
+        
+        # Check if CSV path is in metadata
+        # (eval_reconstruction.py doesn't store this, so we'll infer)
+    except:
+        pass
+    
+    # Infer CSV path from JSON path
+    csv_path = json_path.parent / json_path.name.replace(".json", ".csv")
+    
+    if not csv_path.exists():
+        # Try alternative naming
+        csv_path = json_path.parent / "recon_eval.csv"
+    
+    if not csv_path.exists():
+        return None
+    
+    try:
+        df = pd.read_csv(csv_path)
+        return df
+    except Exception as e:
+        print(f"Warning: Failed to load CSV {csv_path}: {e}")
+        return None
+
+
+def compute_run_metrics(
+    json_path: Path,
+    boots: int = 1000
+) -> Dict:
+    """
+    Compute metrics with bootstrap CIs for a single run.
+    
+    Args:
+        json_path: Path to evaluation JSON
+        boots: Number of bootstrap resamples
+        
+    Returns:
+        Dictionary with run metadata and metrics (point + CI)
+    """
+    # Load JSON
+    data = load_eval_json(json_path)
+    
+    # Flatten nested dicts to avoid unhashable type errors in DataFrame
+    data = flatten_dict(data)
+    
+    # Extract metadata (using flattened keys)
+    run_name = guess_run_name(json_path)
+    clip_space = data.get("clip_space", "unknown")
+    clip_dim = data.get("clip_dim", 512)
+    use_adapter = data.get("use_adapter", False)
+    model_id = data.get("model_id", "N/A")
+    n_samples = data.get("n_samples", 0)
+    encoder = data.get("encoder", "unknown")
+    steps = data.get("steps", None)
+    
+    # Extract aggregate metrics from flattened JSON
+    # Note: nested keys are now flattened with underscores
+    # e.g., "clipscore": {"mean": 0.5} -> "clipscore_mean": 0.5
+    clipscore_mean = data.get("clipscore_mean", np.nan)
+    clipscore_std = data.get("clipscore_std", np.nan)
+    r1 = data.get("retrieval_R@1", np.nan)
+    r5 = data.get("retrieval_R@5", np.nan)
+    r10 = data.get("retrieval_R@10", np.nan)
+    mean_rank = data.get("ranking_mean_rank", np.nan)
+    mrr = data.get("ranking_mrr", np.nan)
+    
+    # Try to load per-sample data for bootstrap
+    csv_df = load_per_sample_csv(json_path)
+    
+    result = {
+        "run_name": run_name,
+        "json_path": str(json_path),
+        "encoder": encoder,
+        "use_adapter": use_adapter,
+        "clip_space": clip_space,
+        "clip_dim": clip_dim,
+        "model_id": model_id,
+        "n_samples": n_samples,
+        "steps": steps if steps else "N/A",
+        
+        # Point estimates
+        "clipscore_mean": clipscore_mean,
+        "clipscore_std": clipscore_std,
+        "r1": r1,
+        "r5": r5,
+        "r10": r10,
+        "mean_rank": mean_rank,
+        "mrr": mrr,
+    }
+    
+    # Add flattened gallery metadata if present
+    # e.g., retrieval_gallery_type, retrieval_gallery_size, etc.
+    for key in data:
+        if key.startswith("retrieval_gallery_") or key.startswith("adapter_ablation_"):
+            result[key] = data[key]
+    
+    # Bootstrap CIs if per-sample data available
+    if csv_df is not None and len(csv_df) > 0:
+        print(f"  Bootstrapping {run_name} with n={len(csv_df)}...")
+        
+        # CLIPScore CI
+        if "clipscore" in csv_df.columns:
+            cs_values = csv_df["clipscore"].values
+            cs_low, cs_high = bootstrap_ci(cs_values, boots=boots)
+            result["clipscore_ci_low"] = cs_low
+            result["clipscore_ci_high"] = cs_high
+        else:
+            result["clipscore_ci_low"] = np.nan
+            result["clipscore_ci_high"] = np.nan
+        
+        # R@1 CI (per-sample binary success)
+        if "r@1" in csv_df.columns:
+            r1_values = csv_df["r@1"].values
+            r1_low, r1_high = bootstrap_ci(r1_values, boots=boots)
+            result["r1_ci_low"] = r1_low
+            result["r1_ci_high"] = r1_high
+        else:
+            result["r1_ci_low"] = np.nan
+            result["r1_ci_high"] = np.nan
+        
+        # R@5 CI
+        if "r@5" in csv_df.columns:
+            r5_values = csv_df["r@5"].values
+            r5_low, r5_high = bootstrap_ci(r5_values, boots=boots)
+            result["r5_ci_low"] = r5_low
+            result["r5_ci_high"] = r5_high
+        else:
+            result["r5_ci_low"] = np.nan
+            result["r5_ci_high"] = np.nan
+        
+        # R@10 CI
+        if "r@10" in csv_df.columns:
+            r10_values = csv_df["r@10"].values
+            r10_low, r10_high = bootstrap_ci(r10_values, boots=boots)
+            result["r10_ci_low"] = r10_low
+            result["r10_ci_high"] = r10_high
+        else:
+            result["r10_ci_low"] = np.nan
+            result["r10_ci_high"] = np.nan
+        
+        # MRR CI (compute from ranks if available)
+        if "rank" in csv_df.columns:
+            ranks = csv_df["rank"].values
+            mrr_values = 1.0 / ranks
+            mrr_low, mrr_high = bootstrap_ci(mrr_values, boots=boots)
+            result["mrr_ci_low"] = mrr_low
+            result["mrr_ci_high"] = mrr_high
+        else:
+            result["mrr_ci_low"] = np.nan
+            result["mrr_ci_high"] = np.nan
+        
+    else:
+        # No per-sample data - use std as proxy (not bootstrap)
+        print(f"  No per-sample CSV for {run_name}, using point estimates only")
+        
+        # Use ±std as rough CI (not bootstrap)
+        result["clipscore_ci_low"] = clipscore_mean - clipscore_std
+        result["clipscore_ci_high"] = clipscore_mean + clipscore_std
+        
+        # No CIs for other metrics without per-sample data
+        result["r1_ci_low"] = np.nan
+        result["r1_ci_high"] = np.nan
+        result["r5_ci_low"] = np.nan
+        result["r5_ci_high"] = np.nan
+        result["r10_ci_low"] = np.nan
+        result["r10_ci_high"] = np.nan
+        result["mrr_ci_low"] = np.nan
+        result["mrr_ci_high"] = np.nan
+    
+    return result
+
+
+def sanitize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Sanitize DataFrame to prevent unhashable type errors.
+    
+    Converts dict/list columns to stable string representations.
+    
+    Args:
+        df: Input DataFrame
+        
+    Returns:
+        Sanitized DataFrame with all hashable values
+    """
+    df = df.copy()
+    
+    for col in df.columns:
+        # Check if column contains dicts or lists
+        sample_val = df[col].iloc[0] if len(df) > 0 else None
+        
+        if isinstance(sample_val, (dict, list)):
+            # Convert to stable JSON string
+            df[col] = df[col].apply(lambda x: json.dumps(x, sort_keys=True) if isinstance(x, (dict, list)) else x)
+            print(f"  Sanitized column '{col}' (dict/list → JSON string)")
+    
+    return df
+
+
+def create_comparison_dataframe(
+    run_metrics: List[Dict]
+) -> pd.DataFrame:
+    """
+    Create tidy DataFrame from run metrics.
+    
+    Args:
+        run_metrics: List of metric dictionaries
+        
+    Returns:
+        Pandas DataFrame with one row per run
+    """
+    df = pd.DataFrame(run_metrics)
+    
+    # Sanitize to prevent unhashable type errors
+    df = sanitize_dataframe(df)
+    
+    # Sort by: adapter (desc), clip_dim (desc), R@1 (desc)
+    # Check if sort columns exist
+    sort_cols = []
+    sort_orders = []
+    
+    if "use_adapter" in df.columns:
+        sort_cols.append("use_adapter")
+        sort_orders.append(False)
+    
+    if "clip_dim" in df.columns:
+        sort_cols.append("clip_dim")
+        sort_orders.append(False)
+    
+    if "r1" in df.columns:
+        sort_cols.append("r1")
+        sort_orders.append(False)
+    
+    if sort_cols:
+        df = df.sort_values(by=sort_cols, ascending=sort_orders)
+    else:
+        print("  Warning: No sort columns found, keeping original order")
+    
+    return df
+
+
+def write_csv(df: pd.DataFrame, out_path: Path) -> None:
+    """Write comparison DataFrame to CSV."""
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(out_path, index=False)
+    print(f"✓ CSV written: {out_path}")
+
+
+def write_latex_table(df: pd.DataFrame, out_path: Path) -> None:
+    """
+    Write LaTeX table for thesis.
+    
+    Columns: Run, CLIP Space, n, CLIPScore, R@1, R@5, R@10, MRR
+    """
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(out_path, "w") as f:
+        # Table header
+        f.write("\\begin{table}[htbp]\n")
+        f.write("\\centering\n")
+        f.write("\\caption{Reconstruction Evaluation Comparison with 95\\% Bootstrap Confidence Intervals}\n")
+        f.write("\\label{tab:recon_comparison}\n")
+        f.write("\\begin{tabular}{lcccccccc}\n")
+        f.write("\\hline\n")
+        f.write("Run & CLIP Space & n & CLIPScore & R@1 & R@5 & R@10 & MRR \\\\\n")
+        f.write("\\hline\n")
+        
+        # Table rows
+        for _, row in df.iterrows():
+            run_name = row["run_name"].replace("_", "\\_")
+            clip_space = row["clip_space"].replace("-D", "D")
+            n = int(row["n_samples"])
+            
+            # Format metrics with CIs
+            cs = format_mean_ci(
+                row["clipscore_mean"],
+                row["clipscore_ci_low"],
+                row["clipscore_ci_high"]
+            )
+            
+            r1 = format_mean_ci(
+                row["r1"],
+                row["r1_ci_low"],
+                row["r1_ci_high"]
+            )
+            
+            r5 = format_mean_ci(
+                row["r5"],
+                row["r5_ci_low"],
+                row["r5_ci_high"]
+            )
+            
+            r10 = format_mean_ci(
+                row["r10"],
+                row["r10_ci_low"],
+                row["r10_ci_high"]
+            )
+            
+            mrr = format_mean_ci(
+                row["mrr"],
+                row["mrr_ci_low"],
+                row["mrr_ci_high"]
+            )
+            
+            f.write(f"{run_name} & {clip_space} & {n} & {cs} & {r1} & {r5} & {r10} & {mrr} \\\\\n")
+        
+        # Table footer
+        f.write("\\hline\n")
+        f.write("\\end{tabular}\n")
+        f.write("\\end{table}\n")
+    
+    print(f"✓ LaTeX table written: {out_path}")
+
+
+def write_markdown_summary(df: pd.DataFrame, out_path: Path) -> None:
+    """
+    Write Markdown comparison summary for thesis.
+    
+    Includes:
+    - Bullet list of runs
+    - Metrics table
+    - Interpretation paragraph
+    - Space consistency footnote
+    """
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(out_path, "w") as f:
+        f.write("# Reconstruction Evaluation Comparison\n\n")
+        
+        # Run list
+        f.write("## Evaluated Runs\n\n")
+        for _, row in df.iterrows():
+            adapter_status = "with adapter" if row["use_adapter"] else "no adapter"
+            f.write(f"- **{row['run_name']}**: {row['clip_space']}, {adapter_status}, ")
+            f.write(f"encoder={row['encoder']}, n={int(row['n_samples'])}")
+            if row['steps'] != "N/A":
+                f.write(f", steps={row['steps']}")
+            f.write("\n")
+        
+        f.write("\n---\n\n")
+        
+        # Metrics table
+        f.write("## Metrics with 95% Bootstrap Confidence Intervals\n\n")
+        f.write("| Run | CLIP Space | n | CLIPScore | R@1 | R@5 | R@10 | MRR |\n")
+        f.write("|-----|------------|---|-----------|-----|-----|------|-----|\n")
+        
+        for _, row in df.iterrows():
+            cs = format_mean_ci(
+                row["clipscore_mean"],
+                row["clipscore_ci_low"],
+                row["clipscore_ci_high"]
+            )
+            r1 = format_mean_ci(row["r1"], row["r1_ci_low"], row["r1_ci_high"])
+            r5 = format_mean_ci(row["r5"], row["r5_ci_low"], row["r5_ci_high"])
+            r10 = format_mean_ci(row["r10"], row["r10_ci_low"], row["r10_ci_high"])
+            mrr = format_mean_ci(row["mrr"], row["mrr_ci_low"], row["mrr_ci_high"])
+            
+            f.write(f"| {row['run_name']} | {row['clip_space']} | {int(row['n_samples'])} | ")
+            f.write(f"{cs} | {r1} | {r5} | {r10} | {mrr} |\n")
+        
+        f.write("\n---\n\n")
+        
+        # Interpretation
+        f.write("## Interpretation\n\n")
+        
+        # Find best runs
+        best_r1_idx = df["r1"].idxmax()
+        best_cs_idx = df["clipscore_mean"].idxmax()
+        
+        best_r1_run = df.loc[best_r1_idx]
+        best_cs_run = df.loc[best_cs_idx]
+        
+        f.write(f"**Best R@1:** {best_r1_run['run_name']} ({best_r1_run['r1']:.3f}) ")
+        f.write(f"— {best_r1_run['clip_space']}, ")
+        f.write(f"{'with adapter' if best_r1_run['use_adapter'] else 'no adapter'}. ")
+        
+        f.write(f"**Best CLIPScore:** {best_cs_run['run_name']} ({best_cs_run['clipscore_mean']:.3f}) ")
+        f.write(f"— {best_cs_run['clip_space']}, ")
+        f.write(f"{'with adapter' if best_cs_run['use_adapter'] else 'no adapter'}. ")
+        
+        # Adapter analysis
+        adapter_runs = df[df["use_adapter"] == True]
+        no_adapter_runs = df[df["use_adapter"] == False]
+        
+        if len(adapter_runs) > 0 and len(no_adapter_runs) > 0:
+            adapter_mean_r1 = adapter_runs["r1"].mean()
+            no_adapter_mean_r1 = no_adapter_runs["r1"].mean()
+            
+            if adapter_mean_r1 > no_adapter_mean_r1:
+                improvement = ((adapter_mean_r1 - no_adapter_mean_r1) / no_adapter_mean_r1) * 100
+                f.write(f"Using the CLIP adapter in target space improved average R@1 by {improvement:.1f}% ")
+                f.write(f"({no_adapter_mean_r1:.3f} → {adapter_mean_r1:.3f}). ")
+            else:
+                f.write("The adapter did not improve average R@1 compared to the 512-D baseline. ")
+        
+        f.write("\n\n")
+        
+        # Footnote
+        f.write("---\n\n")
+        f.write("**Note:** Evaluation CLIP space matches generation space where adapter was used. ")
+        f.write("Comparisons across different CLIP dimensions should be interpreted cautiously, ")
+        f.write("as they represent different semantic spaces.\n\n")
+        
+        f.write("**Confidence Intervals:** 95% bootstrap CIs computed from per-sample metrics ")
+        f.write("using 1000 resamples with replacement.\n")
+    
+    print(f"✓ Markdown summary written: {out_path}")
+
+
+def create_comparison_plots(df: pd.DataFrame, out_path: Path) -> None:
+    """
+    Create bar plots comparing runs.
+    
+    Two panels (stacked vertically):
+    - Panel A: CLIPScore with error bars
+    - Panel B: R@1 with error bars
+    """
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Create figure with 2 subplots (vertical stack)
+    fig, axes = plt.subplots(2, 1, figsize=(10, 8))
+    
+    # Prepare data
+    run_names = df["run_name"].values
+    x_pos = np.arange(len(run_names))
+    
+    # Panel A: CLIPScore
+    ax = axes[0]
+    cs_means = df["clipscore_mean"].values
+    cs_lows = df["clipscore_ci_low"].values
+    cs_highs = df["clipscore_ci_high"].values
+    
+    # Compute error bar values (distance from mean)
+    cs_err_low = np.maximum(0, cs_means - cs_lows)  # Ensure non-negative
+    cs_err_high = np.maximum(0, cs_highs - cs_means)
+    cs_errors = np.array([cs_err_low, cs_err_high])
+    
+    ax.bar(x_pos, cs_means, alpha=0.7)
+    ax.errorbar(x_pos, cs_means, yerr=cs_errors, fmt='none', 
+                ecolor='black', capsize=5, capthick=2)
+    ax.set_ylabel("CLIPScore", fontsize=12)
+    ax.set_title("A. CLIPScore Comparison", fontsize=14, fontweight='bold')
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(run_names, rotation=45, ha='right')
+    ax.grid(axis='y', alpha=0.3)
+    ax.set_ylim(bottom=0)
+    
+    # Panel B: R@1
+    ax = axes[1]
+    r1_means = df["r1"].values
+    r1_lows = df["r1_ci_low"].values
+    r1_highs = df["r1_ci_high"].values
+    
+    # Compute error bar values
+    r1_err_low = np.maximum(0, r1_means - r1_lows)  # Ensure non-negative
+    r1_err_high = np.maximum(0, r1_highs - r1_means)
+    r1_errors = np.array([r1_err_low, r1_err_high])
+    
+    ax.bar(x_pos, r1_means, alpha=0.7)
+    ax.errorbar(x_pos, r1_means, yerr=r1_errors, fmt='none',
+                ecolor='black', capsize=5, capthick=2)
+    ax.set_ylabel("R@1 (Proportion)", fontsize=12)
+    ax.set_title("B. Retrieval@1 Comparison", fontsize=14, fontweight='bold')
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(run_names, rotation=45, ha='right')
+    ax.grid(axis='y', alpha=0.3)
+    ax.set_ylim(bottom=0, top=1.0)
+    
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    print(f"✓ Comparison plots saved: {out_path}")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    parser.add_argument("--report-dir", type=Path, required=True,
+                        help="Root directory to scan for evaluation JSONs")
+    parser.add_argument("--pattern", type=str, default="recon_eval*.json",
+                        help="Glob pattern for JSON files (default: recon_eval*.json)")
+    parser.add_argument("--out-csv", type=Path, required=True,
+                        help="Output CSV path")
+    parser.add_argument("--out-tex", type=Path, required=True,
+                        help="Output LaTeX table path")
+    parser.add_argument("--out-md", type=Path, required=True,
+                        help="Output Markdown summary path")
+    parser.add_argument("--out-fig", type=Path, required=True,
+                        help="Output figure path (PNG)")
+    parser.add_argument("--metrics", type=str,
+                        default="clipscore_mean,R@1,R@5,R@10",
+                        help="Comma-separated list of metrics to include")
+    parser.add_argument("--boots", type=int, default=1000,
+                        help="Number of bootstrap resamples (default: 1000)")
+    
+    args = parser.parse_args()
+    
+    print("\n" + "="*80)
+    print("  Comparing Reconstruction Evaluations")
+    print("="*80 + "\n")
+    
+    # Discover JSONs
+    print(f"Scanning: {args.report_dir}")
+    print(f"Pattern: {args.pattern}")
+    
+    json_files = discover_eval_jsons(args.report_dir, args.pattern)
+    
+    if len(json_files) == 0:
+        print(f"\nERROR: No JSON files found matching '{args.pattern}' in {args.report_dir}")
+        return 1
+    
+    print(f"Found {len(json_files)} evaluation JSON(s):\n")
+    for json_file in json_files:
+        print(f"  - {json_file}")
+    print()
+    
+    # Compute metrics for each run
+    print("Computing metrics with bootstrap CIs...\n")
+    run_metrics = []
+    
+    for json_file in json_files:
+        try:
+            metrics = compute_run_metrics(json_file, boots=args.boots)
+            run_metrics.append(metrics)
+        except Exception as e:
+            print(f"ERROR processing {json_file}: {e}")
+            continue
+    
+    if len(run_metrics) == 0:
+        print("\nERROR: No valid runs found")
+        return 1
+    
+    print()
+    
+    # Create comparison DataFrame
+    df = create_comparison_dataframe(run_metrics)
+    
+    print(f"Aggregated {len(df)} run(s)\n")
+    
+    # Write outputs
+    write_csv(df, args.out_csv)
+    write_latex_table(df, args.out_tex)
+    write_markdown_summary(df, args.out_md)
+    create_comparison_plots(df, args.out_fig)
+    
+    print("\n" + "="*80)
+    print("  Comparison Complete!")
+    print("="*80 + "\n")
+    print(f"📄 CSV:      {args.out_csv}")
+    print(f"📄 LaTeX:    {args.out_tex}")
+    print(f"📄 Markdown: {args.out_md}")
+    print(f"📊 Figure:   {args.out_fig}")
+    print()
+    
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+```
+
+# scripts/decode_diffusion.py
+
+```py
+#!/usr/bin/env python3
+"""
+Diffusion-Based Image Reconstruction from fMRI
+==============================================
+
+Generates images from predicted CLIP vectors using Stable Diffusion with
+unCLIP-style conditioning (direct CLIP embedding injection).
+
+Pipeline:
+1. Load encoder (Ridge/MLP) and predict CLIP embeddings from test fMRI
+2. Normalize predictions to unit length (standard CLIP space)
+3. Pass predicted vectors to Stable Diffusion via prompt_embeds (unCLIP conditioning)
+4. Generate images with fixed seed for reproducibility
+5. Save individual images + comparison grids (generated vs NN retrieval)
+
+Scientific Context:
+- Predicted CLIP vectors come from the fMRI → CLIP encoder; diffusion model uses
+  CLIP-space conditioning (unCLIP-style).
+- This mirrors Takagi & Nishimoto (2023) and MindEye2 (2024) pipelines.
+- Direct CLIP injection avoids text prompt ambiguity and leverages learned fMRI→CLIP mapping.
+
+References:
+- Takagi & Nishimoto (2023). "High-resolution image reconstruction with latent diffusion models from human brain activity"
+- MindEye2 (Scotti et al. 2024). "Reconstructing the Mind's Eye"
+- Ramesh et al. (2022). "Hierarchical Text-Conditional Image Generation with CLIP Latents" (DALL-E 2/unCLIP)
+
+Usage:
+    # Ridge encoder
+    python scripts/decode_diffusion.py \\
+        --subject subj01 \\
+        --encoder ridge \\
+        --ckpt checkpoints/ridge/subj01/ridge.pkl \\
+        --clip-cache outputs/clip_cache/clip.parquet \\
+        --model-id "stabilityai/stable-diffusion-2-1" \\
+        --output-dir outputs/recon/subj01/ridge_diffusion \\
+        --limit 16 \\
+        --guidance 7.5 \\
+        --steps 50
+    
+    # MLP encoder
+    python scripts/decode_diffusion.py \\
+        --subject subj01 \\
+        --encoder mlp \\
+        --ckpt checkpoints/mlp/subj01/mlp.pt \\
+        --clip-cache outputs/clip_cache/clip.parquet \\
+        --model-id "stabilityai/stable-diffusion-2-1" \\
+        --output-dir outputs/recon/subj01/mlp_diffusion \\
+        --limit 16 \\
+        --guidance 7.5 \\
+        --steps 50
+"""
+
+import argparse
+import json
+import logging
+import sys
+from pathlib import Path
+from typing import Dict, Tuple, Optional
+
+import numpy as np
+import pandas as pd
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+# Import project modules
+from fmri2img.data.nsd_index_reader import read_subject_index
+from fmri2img.data.preprocess import NSDPreprocessor
+from fmri2img.data.clip_cache import CLIPCache
+from fmri2img.io.s3 import get_s3_filesystem, NIfTILoader
+from fmri2img.models.ridge import RidgeEncoder
+from fmri2img.models.mlp import load_mlp
+from fmri2img.models.clip_adapter import load_adapter
+from fmri2img.models.train_utils import train_val_test_split
+from fmri2img.eval.retrieval import cosine_sim
+
+
+def check_model_cached(model_id: str) -> bool:
+    """
+    Check if diffusion model is cached locally (no network probe).
+    
+    Args:
+        model_id: HuggingFace model ID
+        
+    Returns:
+        True if model appears to be cached, False otherwise
+    """
+    import os
+    from pathlib import Path
+    
+    cache_dir = Path.home() / ".cache" / "huggingface" / "hub"
+    if not cache_dir.exists():
+        return False
+    
+    model_cache_name = f"models--{model_id.replace('/', '--')}"
+    model_path = cache_dir / model_cache_name
+    
+    return model_path.exists()
+
+
+def probe_model_with_local_only(model_id: str) -> bool:
+    """
+    Probe if model is fully cached using local_files_only.
+    
+    Args:
+        model_id: HuggingFace model ID
+        
+    Returns:
+        True if model can be loaded with local_files_only=True
+    """
+    try:
+        from huggingface_hub import snapshot_download
+        
+        snapshot_download(
+            repo_id=model_id,
+            local_files_only=True,
+            repo_type="model"
+        )
+        return True
+    except Exception:
+        return False
+
+
+def load_encoder(encoder_type: str, ckpt_path: Path, device: str = "cpu"):
+    """
+    Load encoder (Ridge or MLP) from checkpoint.
+    
+    Args:
+        encoder_type: "ridge" or "mlp"
+        ckpt_path: Path to checkpoint
+        device: Device for MLP ("cpu" or "cuda")
+    
+    Returns:
+        Encoder model with predict() method
+    """
+    logger.info(f"Loading {encoder_type} encoder from {ckpt_path}")
+    
+    if encoder_type == "ridge":
+        # Ridge uses RidgeEncoder.load() classmethod
+        encoder = RidgeEncoder.load(str(ckpt_path))
+        logger.info(f"✅ Loaded Ridge encoder (alpha={encoder.alpha:.1f}, {encoder.input_dim}D → {encoder.output_dim}D)")
+        return encoder
+    
+    elif encoder_type == "mlp":
+        # MLP uses PyTorch
+        import torch
+        model, meta = load_mlp(str(ckpt_path), map_location=device)
+        model = model.to(device)  # Ensure model is on correct device
+        model.eval()
+        
+        # Wrap in Ridge-like interface with predict()
+        class MLPWrapper:
+            def __init__(self, model, device):
+                self.model = model
+                self.device = device
+            
+            def predict(self, X: np.ndarray) -> np.ndarray:
+                import torch
+                with torch.no_grad():
+                    X_tensor = torch.from_numpy(X).float().to(self.device)
+                    pred = self.model(X_tensor)
+                    return pred.cpu().numpy()
+        
+        logger.info(f"✅ Loaded MLP encoder (best_epoch={meta.get('best_epoch', 'N/A')})")
+        return MLPWrapper(model, device)
+    
+    else:
+        raise ValueError(f"Unknown encoder type: {encoder_type}")
+
+
+def extract_features_and_targets(
+    df: pd.DataFrame,
+    nifti_loader: NIfTILoader,
+    preprocessor: NSDPreprocessor,
+    clip_cache: CLIPCache
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Extract fMRI features (X) and CLIP targets (Y) from DataFrame.
+    
+    Reuses preprocessing pipeline from training (apples-to-apples).
+    
+    Args:
+        df: DataFrame with beta_path, beta_index, nsdId columns
+        nifti_loader: NIfTI data loader
+        preprocessor: Fitted preprocessor
+        clip_cache: CLIP cache
+    
+    Returns:
+        X (n_samples, n_features), Y (n_samples, 512), nsdIds (n_samples,)
+    """
+    logger.info(f"Extracting features from {len(df)} samples...")
+    
+    X_list = []
+    Y_list = []
+    nsdIds = []
+    
+    for idx, row in df.iterrows():
+        try:
+            # Load fMRI volume
+            beta_path = row["beta_path"]
+            beta_index = row.get("beta_index", 0)
+            
+            # beta_index might be a scalar or array - handle both
+            if isinstance(beta_index, (list, tuple, np.ndarray)):
+                beta_index = int(beta_index[0]) if len(beta_index) > 0 else 0
+            else:
+                beta_index = int(beta_index)
+            
+            img = nifti_loader.load(beta_path)
+            data_4d = img.get_fdata()
+            vol = data_4d[..., beta_index].astype(np.float32)
+            
+            # Apply preprocessing if available
+            if preprocessor is not None:
+                x = preprocessor.transform(vol)
+            else:
+                # No preprocessing: flatten volume
+                x = vol.flatten()
+            
+            # Get CLIP embedding
+            nsd_id = int(row["nsdId"])
+            y_dict = clip_cache.get([nsd_id])  # get() expects iterable, returns dict
+            y = y_dict.get(nsd_id)  # Extract embedding from dict
+            
+            if x is not None and y is not None:
+                X_list.append(x)
+                Y_list.append(y)
+                nsdIds.append(nsd_id)
+        
+        except Exception as e:
+            import traceback
+            logger.warning(f"Failed to process row {idx}: {e}")
+            logger.debug(f"Traceback: {traceback.format_exc()}")
+            continue
+    
+    X = np.array(X_list)
+    Y = np.array(Y_list)
+    nsdIds = np.array(nsdIds)
+    
+    logger.info(f"✅ Extracted {len(X)} valid samples")
+    logger.info(f"   Features: {X.shape}, Targets: {Y.shape}")
+    
+    return X, Y, nsdIds
+
+
+def setup_diffusion_pipeline(
+    model_id: str,
+    device: str,
+    dtype_str: str = "float32",
+    scheduler_name: str = "dpm",
+    fail_if_missing: bool = False
+):
+    """
+    Setup Stable Diffusion pipeline for CLIP-conditioned generation.
+    
+    Probes cache first. If not cached:
+    - If fail_if_missing=True: exits with code 2 and helpful message
+    - Otherwise: shows big warning and proceeds with download (with heartbeat logs)
+    
+    Args:
+        model_id: HuggingFace model ID (e.g., "stabilityai/stable-diffusion-2-1")
+        device: "cuda" or "cpu"
+        dtype_str: "float16" or "float32"
+        scheduler_name: "dpm", "euler", "pndm", or "default"
+        fail_if_missing: If True, fail fast if model not cached
+    
+    Returns:
+        StableDiffusionPipeline configured for CLIP embedding injection
+    """
+    import torch
+    from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler, EulerDiscreteScheduler, PNDMScheduler
+    import time
+    import threading
+    
+    # Probe cache using local_files_only
+    is_cached = probe_model_with_local_only(model_id)
+    
+    if is_cached:
+        logger.info(f"✅ Model {model_id} found in cache, loading...")
+    else:
+        # Model not cached
+        if fail_if_missing:
+            # Fail fast with helpful message
+            logger.error("")
+            logger.error("=" * 80)
+            logger.error("ERROR: Diffusion model not cached")
+            logger.error("=" * 80)
+            logger.error(f"Model '{model_id}' is not in your local cache.")
+            logger.error("")
+            logger.error("To fix this, run:")
+            logger.error(f"  python scripts/download_sd_model.py --model-id {model_id}")
+            logger.error("")
+            logger.error("Or use --test-mode to skip image generation entirely:")
+            logger.error("  python scripts/decode_diffusion.py --test-mode [other args]")
+            logger.error("=" * 80)
+            sys.exit(2)
+        
+        # Not cached but we'll download - show big warning
+        logger.warning("")
+        logger.warning("╔" + "=" * 78 + "╗")
+        logger.warning("║" + " " * 78 + "║")
+        logger.warning("║" + "  ⚠️  MODEL NOT CACHED - DOWNLOADING ~5 GB".center(78) + "║")
+        logger.warning("║" + " " * 78 + "║")
+        logger.warning("║" + f"  Model: {model_id}".ljust(78) + "║")
+        logger.warning("║" + "  This will take 10-30 minutes depending on your connection.".ljust(78) + "║")
+        logger.warning("║" + " " * 78 + "║")
+        logger.warning("║" + "  To avoid this wait in the future, pre-download with:".ljust(78) + "║")
+        logger.warning("║" + f"    python scripts/download_sd_model.py --model-id {model_id}".ljust(78) + "║")
+        logger.warning("║" + " " * 78 + "║")
+        logger.warning("╚" + "=" * 78 + "╝")
+        logger.warning("")
+        
+        # Setup heartbeat thread to show we're not hung
+        download_complete = threading.Event()
+        
+        def heartbeat():
+            """Print periodic heartbeat messages during download."""
+            start_time = time.time()
+            while not download_complete.is_set():
+                elapsed = int(time.time() - start_time)
+                logger.info(f"⏳ Still downloading... ({elapsed}s elapsed)")
+                download_complete.wait(30)  # Print every 30 seconds
+        
+        heartbeat_thread = threading.Thread(target=heartbeat, daemon=True)
+        heartbeat_thread.start()
+    
+    # Determine dtype
+    dtype = torch.float32 if dtype_str == "float32" else torch.float16
+    
+    if dtype == torch.float16 and device == "cuda" and torch.cuda.is_available():
+        logger.info("Using float16 precision (CUDA available)")
+    elif dtype == torch.float16:
+        logger.warning("float16 requested but CUDA unavailable, falling back to float32")
+        dtype = torch.float32
+    else:
+        logger.info("Using float32 precision")
+    
+    # Load pipeline (downloads if needed)
+    try:
+        logger.info(f"Loading Stable Diffusion pipeline from {model_id}...")
+        
+        pipe = StableDiffusionPipeline.from_pretrained(
+            model_id,
+            torch_dtype=dtype,
+            safety_checker=None,  # Disable safety checker for research
+            requires_safety_checker=False
+        )
+        
+        if not is_cached:
+            # Stop heartbeat
+            download_complete.set()
+            heartbeat_thread.join(timeout=1)
+            logger.info("✅ Download complete!")
+        
+        # Configure scheduler based on user choice
+        if scheduler_name == "dpm":
+            pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+            logger.info("✓ Scheduler: DPMSolverMultistep (fast, high quality)")
+        elif scheduler_name == "euler":
+            pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
+            logger.info("✓ Scheduler: EulerDiscrete")
+        elif scheduler_name == "pndm":
+            pipe.scheduler = PNDMScheduler.from_config(pipe.scheduler.config)
+            logger.info("✓ Scheduler: PNDM")
+        else:
+            # Keep default scheduler
+            logger.info(f"✓ Scheduler: {pipe.scheduler.__class__.__name__} (default)")
+        
+        # Move to device
+        pipe = pipe.to(device)
+        
+        # Enable memory optimizations (always safe, helps prevent OOM)
+        try:
+            pipe.enable_attention_slicing()
+            pipe.enable_vae_slicing()
+            logger.info("✅ Enabled memory optimizations (attention slicing, VAE slicing)")
+        except Exception as e:
+            logger.warning(f"Could not enable memory optimizations: {e}")
+        
+        logger.info(f"✅ Diffusion pipeline loaded on {device}")
+        return pipe
+    
+    except ImportError as e:
+        logger.error("diffusers library not installed. Install: pip install diffusers transformers accelerate")
+        raise
+
+
+def generate_image_from_clip_embedding(
+    pipe,
+    clip_embedding: np.ndarray,
+    guidance_scale: float = 5.0,
+    num_inference_steps: int = 50,
+    seed: int = 42,
+    negative_prompt: str = "blurry, low quality, distorted",
+    blend_alpha: float = 1.0
+) -> "PIL.Image":
+    """
+    Generate image from CLIP embedding using Stable Diffusion with proper OpenCLIP conditioning.
+    
+    For SD-2.1, this properly handles the (B, 77, 1024) sequence embedding shape and
+    blends the predicted 1024-D CLIP vector into the pooled embedding space.
+    
+    Args:
+        pipe: StableDiffusionPipeline (SD-2.1 with OpenCLIP)
+        clip_embedding: CLIP vector (512,) or (1024,) from fMRI prediction
+        guidance_scale: Classifier-free guidance strength (default: 5.0, use 1.0 to disable CFG)
+        num_inference_steps: Number of denoising steps
+        seed: Random seed for reproducibility
+        negative_prompt: Negative text prompt (optional)
+        blend_alpha: Blending weight for predicted embedding (1.0 = full replacement)
+    
+    Returns:
+        Generated PIL Image
+    """
+    import torch
+    
+    # Set seed for reproducibility
+    generator = torch.Generator(device=pipe.device).manual_seed(seed)
+    
+    # Convert to torch tensor and move to device (keep float32 throughout)
+    pred_clip = torch.from_numpy(clip_embedding).float().to(pipe.device)
+    
+    # Ensure it's 1-D for a single sample
+    if pred_clip.dim() == 1:
+        pred_clip = pred_clip.unsqueeze(0)  # (1, D)
+    
+    batch_size = pred_clip.shape[0]
+    
+    # Clean predicted embedding: remove NaN/Inf and normalize
+    pred_clip = torch.nan_to_num(pred_clip, nan=0.0, posinf=1.0, neginf=-1.0)
+    pred_clip = pred_clip / (pred_clip.norm(dim=-1, keepdim=True).clamp_min(1e-6))
+    
+    # Log prediction stats
+    logger.info(f"📊 Predicted CLIP embedding stats:")
+    logger.info(f"   Shape: {pred_clip.shape}, Dtype: {pred_clip.dtype}")
+    logger.info(f"   Range: [{pred_clip.min().item():.4f}, {pred_clip.max().item():.4f}]")
+    logger.info(f"   Mean: {pred_clip.mean().item():.4f}, Norm: {pred_clip.norm(dim=-1).mean().item():.4f}")
+    logger.info(f"   First 3 values: {pred_clip[0, :3].tolist()}")
+    
+    # Verify no NaN/Inf after cleaning
+    if not torch.isfinite(pred_clip).all():
+        logger.error("❌ Predicted embedding still contains non-finite values after cleaning!")
+        raise ValueError("Non-finite values in predicted CLIP embedding")
+    
+    # Get proper conditioning embeddings from the pipeline's text encoder
+    # This gives us the correct (B, 77, 1024) sequence shape for SD-2.1
+    with torch.no_grad():
+        # Get conditional embeddings (empty prompt gives us base structure)
+        prompt_list = [""] * batch_size
+        
+        # Use encode_prompt to get properly shaped embeddings
+        # For SD-2.1, this returns (prompt_embeds, negative_prompt_embeds) or similar
+        # The exact signature depends on diffusers version
+        try:
+            # Try modern diffusers API (>= 0.25)
+            prompt_embeds = pipe.encode_prompt(
+                prompt=prompt_list,
+                device=pipe.device,
+                num_images_per_prompt=1,
+                do_classifier_free_guidance=(guidance_scale > 1.0)
+            )
+            
+            # Handle different return formats
+            if isinstance(prompt_embeds, tuple):
+                if len(prompt_embeds) == 2:
+                    # (cond_embeds, uncond_embeds)
+                    cond_embeds, uncond_embeds = prompt_embeds
+                    pooled_embeds = None
+                elif len(prompt_embeds) == 4:
+                    # (cond_embeds, uncond_embeds, cond_pooled, uncond_pooled)
+                    cond_embeds, uncond_embeds, cond_pooled, uncond_pooled = prompt_embeds
+                    pooled_embeds = (cond_pooled, uncond_pooled)
+                else:
+                    # Fallback: use first element
+                    cond_embeds = prompt_embeds[0]
+                    uncond_embeds = None
+                    pooled_embeds = None
+            else:
+                cond_embeds = prompt_embeds
+                uncond_embeds = None
+                pooled_embeds = None
+                
+        except Exception as e:
+            logger.warning(f"encode_prompt failed ({e}), trying fallback encoding...")
+            # Fallback: manual encoding
+            text_inputs = pipe.tokenizer(
+                prompt_list,
+                padding="max_length",
+                max_length=pipe.tokenizer.model_max_length,
+                truncation=True,
+                return_tensors="pt"
+            ).to(pipe.device)
+            
+            cond_embeds = pipe.text_encoder(text_inputs.input_ids)[0]  # (B, 77, 1024)
+            uncond_embeds = None
+            pooled_embeds = None
+        
+        # Clean conditional embeddings
+        cond_embeds = torch.nan_to_num(cond_embeds, nan=0.0, posinf=1.0, neginf=-1.0)
+        
+        logger.info(f"✅ Got conditioning embeddings: shape={cond_embeds.shape}, dtype={cond_embeds.dtype}")
+        
+        # If we have pooled embeddings, blend our prediction into them
+        if pooled_embeds is not None and pred_clip.shape[1] == 1024:
+            cond_pooled, uncond_pooled = pooled_embeds
+            cond_pooled = torch.nan_to_num(cond_pooled, nan=0.0, posinf=1.0, neginf=-1.0)
+            uncond_pooled = torch.nan_to_num(uncond_pooled, nan=0.0, posinf=1.0, neginf=-1.0)
+            
+            # Normalize pooled embeddings
+            cond_pooled = cond_pooled / (cond_pooled.norm(dim=-1, keepdim=True).clamp_min(1e-6))
+            uncond_pooled = uncond_pooled / (uncond_pooled.norm(dim=-1, keepdim=True).clamp_min(1e-6))
+            
+            # Blend predicted embedding into conditional pooled
+            new_pooled = torch.nn.functional.normalize(
+                blend_alpha * pred_clip + (1 - blend_alpha) * cond_pooled,
+                dim=-1
+            )
+            pooled_embeds = (new_pooled, uncond_pooled)
+            logger.info(f"✅ Blended prediction into pooled embeddings (alpha={blend_alpha})")
+        
+        # For unconditional (negative prompt), always use encode_prompt with empty string
+        if guidance_scale > 1.0 and uncond_embeds is None:
+            try:
+                uncond_result = pipe.encode_prompt(
+                    prompt=[""] * batch_size,
+                    device=pipe.device,
+                    num_images_per_prompt=1,
+                    do_classifier_free_guidance=False
+                )
+                if isinstance(uncond_result, tuple):
+                    uncond_embeds = uncond_result[0]
+                else:
+                    uncond_embeds = uncond_result
+            except:
+                # Fallback: use zeros (less ideal)
+                uncond_embeds = torch.zeros_like(cond_embeds)
+            
+            uncond_embeds = torch.nan_to_num(uncond_embeds, nan=0.0, posinf=1.0, neginf=-1.0)
+    
+    # Prepare latents
+    latents_shape = (batch_size, pipe.unet.config.in_channels, 
+                    pipe.unet.config.sample_size, pipe.unet.config.sample_size)
+    latents = torch.randn(latents_shape, generator=generator, device=pipe.device, dtype=torch.float32)
+    
+    # Safety check on initial latents
+    if not torch.isfinite(latents).all():
+        logger.error("❌ Initial latents contain non-finite values!")
+        raise ValueError("Non-finite initial latents")
+    
+    logger.info(f"✅ Initialized latents: shape={latents.shape}, range=[{latents.min():.3f}, {latents.max():.3f}]")
+    
+    # Scale latents by scheduler's init noise sigma
+    latents = latents * pipe.scheduler.init_noise_sigma
+    
+    # Set timesteps
+    pipe.scheduler.set_timesteps(num_inference_steps, device=pipe.device)
+    timesteps = pipe.scheduler.timesteps
+    
+    # Denoising loop with CFG guards
+    logger.info(f"🎨 Starting denoising ({num_inference_steps} steps, guidance={guidance_scale})...")
+    
+    for i, t in enumerate(timesteps):
+        # Check latents health
+        if not torch.isfinite(latents).all():
+            logger.warning(f"⚠️  Non-finite latents at step {i}, clamping...")
+            latents = torch.nan_to_num(latents, nan=0.0, posinf=10.0, neginf=-10.0)
+            latents = latents.clamp(-10, 10)
+        
+        # Expand latents for CFG
+        if guidance_scale > 1.0:
+            latent_model_input = torch.cat([latents] * 2)
+        else:
+            latent_model_input = latents
+        
+        latent_model_input = pipe.scheduler.scale_model_input(latent_model_input, t)
+        
+        # Predict noise with UNet
+        with torch.no_grad():
+            # Prepare encoder hidden states for UNet
+            if guidance_scale > 1.0:
+                encoder_hidden_states = torch.cat([uncond_embeds, cond_embeds])
+            else:
+                encoder_hidden_states = cond_embeds
+            
+            # CFG guards: clean embeddings before UNet call
+            encoder_hidden_states = torch.nan_to_num(encoder_hidden_states, nan=0.0)
+            latent_model_input = torch.nan_to_num(latent_model_input, nan=0.0)
+            
+            noise_pred = pipe.unet(
+                latent_model_input,
+                t,
+                encoder_hidden_states=encoder_hidden_states
+            ).sample
+            
+            # CFG guards: clean noise prediction
+            noise_pred = torch.nan_to_num(noise_pred, nan=0.0)
+        
+        # Perform CFG
+        if guidance_scale > 1.0:
+            noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+            noise_pred_uncond = torch.nan_to_num(noise_pred_uncond, nan=0.0)
+            noise_pred_text = torch.nan_to_num(noise_pred_text, nan=0.0)
+            noise_pred = noise_pred_uncond + guidance_scale * (noise_pred_text - noise_pred_uncond)
+        
+        # Scheduler step
+        latents = pipe.scheduler.step(noise_pred, t, latents).prev_sample
+        latents = torch.nan_to_num(latents, nan=0.0)
+        
+        # Log progress every 10 steps
+        if i % 10 == 0 or i == len(timesteps) - 1:
+            lat_min, lat_max = latents.min().item(), latents.max().item()
+            logger.info(f"   Step {i:3d}/{len(timesteps)}: latents=[{lat_min:6.3f}, {lat_max:6.3f}]")
+            
+            if not torch.isfinite(latents).all():
+                logger.error(f"❌ Non-finite latents detected at step {i}!")
+                logger.error(f"   NaN count: {torch.isnan(latents).sum()}")
+                logger.error(f"   Inf count: {torch.isinf(latents).sum()}")
+                raise ValueError(f"Non-finite latents at step {i}")
+    
+    # Decode latents to image
+    logger.info("🖼️  Decoding latents to image...")
+    latents = 1 / pipe.vae.config.scaling_factor * latents
+    
+    with torch.no_grad():
+        # Ensure VAE decode uses float32
+        image = pipe.vae.decode(latents.to(torch.float32)).sample
+        
+        # Safety: clean decoded image
+        image = torch.nan_to_num(image, nan=0.0, posinf=1.0, neginf=-1.0)
+        
+        # Check for non-finite values
+        if not torch.isfinite(image).all():
+            logger.warning("⚠️  Non-finite values in decoded image, cleaning...")
+            image = torch.nan_to_num(image, nan=0.0, posinf=1.0, neginf=-1.0)
+    
+    # Post-process: clamp to [-1, 1] and convert to [0, 1]
+    image = image.clamp(-1, 1)
+    image = (image + 1.0) / 2.0
+    
+    # Convert to PIL
+    image = image.cpu().permute(0, 2, 3, 1).numpy()
+    image = (image * 255).round().astype("uint8")
+    
+    # Check for valid uint8 range
+    if image.min() < 0 or image.max() > 255:
+        logger.warning(f"⚠️  Image values out of uint8 range: [{image.min()}, {image.max()}]")
+        image = image.clip(0, 255)
+    
+    from PIL import Image
+    pil_image = Image.fromarray(image[0])
+    
+    logger.info(f"✅ Generated image: size={pil_image.size}, mode={pil_image.mode}")
+    
+    return pil_image
+
+
+def create_comparison_grid(
+    generated_img: "PIL.Image",
+    nn_img: Optional["PIL.Image"],
+    nsd_id: int,
+    cosine_score: float,
+    output_path: Path
+) -> None:
+    """
+    Create side-by-side comparison grid: generated vs NN retrieval.
+    
+    Args:
+        generated_img: Generated image from diffusion
+        nn_img: Nearest neighbor retrieved image (or None)
+        nsd_id: NSD ID for labeling
+        cosine_score: Cosine similarity between pred and GT
+        output_path: Output path for grid image
+    """
+    from PIL import Image, ImageDraw, ImageFont
+    
+    # Create grid (1 row, 2 columns)
+    img_size = 512
+    grid_width = img_size * 2 + 50  # 50px gap
+    grid_height = img_size + 100  # Extra space for labels
+    
+    grid = Image.new("RGB", (grid_width, grid_height), color=(255, 255, 255))
+    draw = ImageDraw.Draw(grid)
+    
+    # Try to load a font (fallback to default)
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 16)
+        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 14)
+    except:
+        font = ImageFont.load_default()
+        font_small = ImageFont.load_default()
+    
+    # Resize images to consistent size
+    generated_resized = generated_img.resize((img_size, img_size), Image.Resampling.LANCZOS)
+    
+    # Paste generated image (left)
+    grid.paste(generated_resized, (0, 50))
+    draw.text((img_size // 2 - 50, 10), "Generated (Diffusion)", fill=(0, 0, 0), font=font)
+    
+    # Paste NN image (right) if available
+    if nn_img is not None:
+        nn_resized = nn_img.resize((img_size, img_size), Image.Resampling.LANCZOS)
+        grid.paste(nn_resized, (img_size + 50, 50))
+        draw.text((img_size + 50 + img_size // 2 - 50, 10), "NN Retrieval (GT)", fill=(0, 0, 0), font=font)
+    else:
+        # No NN image available
+        draw.text((img_size + 50, img_size // 2), "No NN available", fill=(128, 128, 128), font=font)
+    
+    # Add metadata at bottom
+    draw.text((10, img_size + 60), f"NSD ID: {nsd_id}", fill=(0, 0, 0), font=font_small)
+    draw.text((10, img_size + 80), f"Cosine (pred vs GT): {cosine_score:.4f}", fill=(0, 0, 0), font=font_small)
+    
+    # Save grid
+    grid.save(output_path)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generate images from fMRI via diffusion (unCLIP conditioning)"
+    )
+    
+    # Data paths
+    parser.add_argument("--index-root", default="data/indices/nsd_index",
+                       help="NSD index root directory")
+    parser.add_argument("--subject", default="subj01", help="Subject ID")
+    parser.add_argument("--clip-cache", default="outputs/clip_cache/clip.parquet",
+                       help="Path to CLIP cache")
+    
+    # Encoder
+    parser.add_argument("--encoder", choices=["ridge", "mlp"], required=True,
+                       help="Encoder type")
+    parser.add_argument("--ckpt", required=True, help="Path to encoder checkpoint")
+    
+    # Preprocessing
+    parser.add_argument("--use-preproc", action="store_true",
+                       help="Force enable preprocessing (overrides auto-detection)")
+    parser.add_argument("--no-preproc", action="store_true",
+                       help="Force disable preprocessing (overrides auto-detection)")
+    parser.add_argument("--preproc-dir", required=False,
+                       help="Preprocessing directory. If not specified and preprocessing is enabled, "
+                            "will use the path from encoder checkpoint metadata.")
+    
+    # Diffusion model
+    parser.add_argument("--model-id", default="stabilityai/stable-diffusion-2-1",
+                       help="HuggingFace model ID for Stable Diffusion. Popular options: "
+                            "stabilityai/stable-diffusion-2-1 (~5GB, best quality), "
+                            "stabilityai/stable-diffusion-2-1-base (~5GB), "
+                            "runwayml/stable-diffusion-v1-5 (~4GB, faster)")
+    
+    # CLIP Adapter (optional)
+    parser.add_argument("--clip-adapter", help="Path to CLIP adapter checkpoint (512D→target_dim)")
+    parser.add_argument("--clip-target-dim", type=int, choices=[768, 1024],
+                       help="Target CLIP dimension (768 for SD-1.5, 1024 for SD-2.1). "
+                            "Auto-detected if not specified.")
+    
+    # Diffusion generation parameters
+    parser.add_argument("--guidance", type=float, default=5.0,
+                       help="Classifier-free guidance scale (default: 5.0)")
+    parser.add_argument("--steps", type=int, default=50,
+                       help="Number of denoising steps")
+    parser.add_argument("--dtype", default="float32", choices=["float16", "float32"],
+                       help="Model precision (default: float32). Use float16 for faster inference on GPU.")
+    parser.add_argument("--scheduler", default="dpm", choices=["dpm", "euler", "pndm", "default"],
+                       help="Diffusion scheduler (default: dpm). Options: dpm=DPMSolverMultistep, "
+                            "euler=EulerDiscrete, pndm=PNDM, default=keep model's default")
+    parser.add_argument("--blend-alpha", type=float, default=1.0,
+                       help="Blending weight for predicted CLIP embedding (1.0=full replacement, 0.0=baseline)")
+    
+    # Debugging flags
+    parser.add_argument("--no-adapter", action="store_true",
+                       help="Bypass CLIP adapter even if --clip-adapter is provided (for debugging)")
+    parser.add_argument("--no-cfg", action="store_true",
+                       help="Disable classifier-free guidance (sets guidance=1.0)")
+    
+    # Evaluation
+    parser.add_argument("--limit", type=int, help="Limit number of test samples")
+    parser.add_argument("--gallery-limit", type=int, default=1000,
+                       help="Gallery size for NN retrieval (for comparison grid)")
+    
+    # Output
+    parser.add_argument("--output-dir", help="Output directory (default: outputs/recon/{subject}/{encoder}_diffusion)")
+    
+    # System
+    parser.add_argument("--device", default="cuda", help="Device (cuda or cpu)")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument("--test-mode", action="store_true",
+                       help="Test mode: skip diffusion, only test encoder pipeline and save predictions")
+    parser.add_argument("--fail-if-missing-model", action="store_true",
+                       help="Fail fast (exit code 2) if diffusion model not cached. Useful for CI/scripts.")
+    
+    args = parser.parse_args()
+    
+    # Default output directory
+    output_dir = Path(args.output_dir) if args.output_dir else Path(f"outputs/recon/{args.subject}/{args.encoder}_diffusion")
+    
+    try:
+        np.random.seed(args.seed)
+        
+        logger.info("=" * 80)
+        logger.info("DIFFUSION-BASED IMAGE RECONSTRUCTION FROM fMRI")
+        logger.info("=" * 80)
+        logger.info(f"Subject: {args.subject}")
+        logger.info(f"Encoder: {args.encoder}")
+        logger.info(f"Checkpoint: {args.ckpt}")
+        logger.info(f"Diffusion model: {args.model_id}")
+        logger.info(f"Device: {args.device}")
+        logger.info(f"Dtype: {args.dtype}")
+        logger.info(f"Scheduler: {args.scheduler}")
+        logger.info(f"Guidance scale: {args.guidance}")
+        logger.info(f"Inference steps: {args.steps}")
+        logger.info(f"Output directory: {output_dir}")
+        
+        # Resolve device (handle "auto")
+        import torch
+        if args.device == "auto":
+            args.device = "cuda" if torch.cuda.is_available() else "cpu"
+            logger.info(f"Device 'auto' resolved to: {args.device}")
+        elif args.device == "cuda" and not torch.cuda.is_available():
+            logger.warning("CUDA not available, falling back to CPU")
+            args.device = "cpu"
+            args.dtype = "float32"  # Force float32 on CPU
+        
+        # Handle debugging flags
+        if args.no_cfg:
+            args.guidance = 1.0
+            logger.info("⚠️  CFG disabled (--no-cfg): guidance forced to 1.0")
+        
+        # Load CLIP adapter if specified
+        clip_adapter = None
+        adapter_target_dim = None
+        adapter_metadata = None
+        if args.clip_adapter and not args.no_adapter:
+            logger.info(f"Loading CLIP adapter from {args.clip_adapter}")
+            try:
+                clip_adapter, adapter_metadata = load_adapter(args.clip_adapter, map_location=args.device)
+                clip_adapter = clip_adapter.to(args.device)
+                clip_adapter.eval()
+                
+                # Get target dimension from metadata (prefer target_dim, fallback to out_dim)
+                adapter_target_dim = adapter_metadata.get("target_dim", adapter_metadata.get("out_dim"))
+                adapter_input_dim = adapter_metadata.get("input_dim", adapter_metadata.get("in_dim", 512))
+                adapter_model_id = adapter_metadata.get("model_id", "unknown")
+                
+                logger.info(f"✅ CLIP Adapter loaded: {adapter_input_dim}D → {adapter_target_dim}D")
+                logger.info(f"   Adapter metadata: model_id={adapter_model_id}, "
+                           f"subject={adapter_metadata.get('subject', 'unknown')}")
+                
+                # Validate target dimension if specified
+                if args.clip_target_dim and args.clip_target_dim != adapter_target_dim:
+                    logger.warning(f"⚠️  --clip-target-dim={args.clip_target_dim} but adapter outputs {adapter_target_dim}D")
+                    logger.warning(f"   Using adapter's dimension: {adapter_target_dim}D")
+                
+                # Check model_id consistency if --model-id was specified
+                if args.model_id and adapter_model_id != "unknown" and adapter_model_id != args.model_id:
+                    logger.warning(f"⚠️  Adapter was trained for {adapter_model_id} but using {args.model_id}")
+                    logger.warning(f"   This may cause dimension mismatches or degraded quality")
+                
+                args.clip_target_dim = adapter_target_dim
+                
+            except FileNotFoundError as e:
+                logger.error(f"❌ {e}")
+                sys.exit(1)
+            except Exception as e:
+                logger.error(f"❌ Failed to load adapter: {e}")
+                sys.exit(1)
+        elif args.clip_target_dim:
+            logger.warning("⚠️  --clip-target-dim specified but no --clip-adapter provided. Will be ignored.")
+        
+        # Handle --no-adapter flag
+        if args.no_adapter and args.clip_adapter:
+            logger.warning("⚠️  --no-adapter specified: bypassing CLIP adapter for debugging")
+            clip_adapter = None
+            adapter_target_dim = None
+        
+        # Log adapter status
+        if clip_adapter:
+            logger.info(f"CLIP Adapter: ENABLED (512D → {adapter_target_dim}D)")
+        else:
+            logger.info("CLIP Adapter: DISABLED (using 512-D embeddings directly)")
+        
+        # Load encoder and its metadata
+        encoder = load_encoder(args.encoder, Path(args.ckpt), args.device)
+        
+        # Load encoder checkpoint metadata for preprocessing
+        ckpt_meta = torch.load(args.ckpt, map_location="cpu").get("meta", {})
+        preproc_meta = ckpt_meta.get("preproc", {})
+        preproc_trained_with = preproc_meta.get("used_preproc", False)
+        expected_input_dim = ckpt_meta.get("input_dim")
+        
+        # Resolve preprocessing flag
+        if args.use_preproc and args.no_preproc:
+            logger.error("ERROR: Cannot specify both --use-preproc and --no-preproc")
+            sys.exit(1)
+        
+        if args.use_preproc:
+            preproc_enabled = True
+        elif args.no_preproc:
+            preproc_enabled = False
+        else:
+            # Auto-detect from metadata
+            preproc_enabled = preproc_trained_with
+        
+        # Determine preprocessing directory
+        preproc_dir = None
+        if preproc_enabled:
+            if args.preproc_dir:
+                preproc_dir = Path(args.preproc_dir)
+            elif preproc_meta.get("path"):
+                preproc_dir = Path(preproc_meta["path"])
+            else:
+                logger.error("ERROR: Preprocessing enabled but no preprocessing directory specified")
+                logger.error("Either provide --preproc-dir or ensure checkpoint metadata contains preprocessing path")
+                sys.exit(1)
+            
+            if not preproc_dir.exists():
+                logger.error(f"ERROR: Preprocessing directory not found: {preproc_dir}")
+                sys.exit(1)
+            
+            logger.info(f"✓ Preprocessing: ENABLED from {preproc_dir}")
+            logger.info(f"  Expected input_dim: {expected_input_dim}")
+        else:
+            if preproc_trained_with:
+                logger.warning("WARNING: Model was trained WITH preprocessing but --no-preproc specified")
+                logger.warning("This may cause dimension mismatch errors")
+            logger.info("Preprocessing: DISABLED")
+        
+        # Load index
+        logger.info(f"Loading index for {args.subject}...")
+        df = read_subject_index(args.index_root, args.subject)
+        
+        if args.limit:
+            df = df.head(args.limit)
+            logger.info(f"Limited to {len(df)} samples")
+        
+        # Split data (same as training)
+        _, _, test_df = train_val_test_split(df, random_seed=args.seed)
+        logger.info(f"Test set: {len(test_df)} samples")
+        
+        # Load CLIP cache
+        logger.info(f"Loading CLIP cache from {args.clip_cache}")
+        clip_cache = CLIPCache(args.clip_cache).load()
+        stats = clip_cache.stats()
+        logger.info(f"✅ CLIP cache loaded: {stats['cache_size']} embeddings")
+        
+        # Setup preprocessing based on resolved flag
+        preprocessor = None
+        if preproc_enabled:
+            logger.info("Loading preprocessing artifacts...")
+            preprocessor = NSDPreprocessor(subject=args.subject)
+            preprocessor.set_out_dir(str(preproc_dir))
+            success = preprocessor.load_artifacts()
+            if not success:
+                logger.error(f"ERROR: Failed to load preprocessing artifacts from {preproc_dir}")
+                return 1
+            summary = preprocessor.summary()
+            logger.info(f"✅ Preprocessing loaded: {summary}")
+            
+            if summary.get('n_voxels_kept', 0) == 0:
+                logger.error("ERROR: Preprocessing artifacts are empty or invalid!")
+                return 1
+        else:
+            # No preprocessing
+            if not preproc_trained_with:
+                logger.info("No preprocessing (model trained on raw voxels)")
+            preprocessor = None
+        
+        # Initialize NIfTI loader
+        s3_fs = get_s3_filesystem()
+        nifti_loader = NIfTILoader(s3_fs)
+        
+        # Extract test features and targets
+        X_test, Y_test, test_nsd_ids = extract_features_and_targets(
+            test_df, nifti_loader, preprocessor, clip_cache
+        )
+        
+        if len(X_test) == 0:
+            logger.error("No valid test samples extracted!")
+            return 1
+        
+        # Validate feature dimensions match expected input_dim
+        actual_feature_dim = X_test.shape[1]
+        if expected_input_dim and actual_feature_dim != expected_input_dim:
+            logger.error("=" * 80)
+            logger.error(f"PREPROCESSING MISMATCH ERROR")
+            logger.error("=" * 80)
+            logger.error(f"Model expects {expected_input_dim} features but got {actual_feature_dim}.")
+            logger.error("")
+            if preproc_enabled:
+                logger.error(f"Preprocessing is ENABLED but dimensions don't match.")
+                logger.error(f"Current preprocessing directory: {preproc_dir}")
+                logger.error(f"Check that the directory matches the model's training configuration.")
+            else:
+                logger.error(f"Preprocessing is DISABLED but model was trained WITH preprocessing.")
+                logger.error(f"")
+                logger.error(f"Solution 1: Enable preprocessing with --use-preproc")
+                if preproc_meta.get("path"):
+                    logger.error(f"  Suggested path: --preproc-dir {preproc_meta['path']}")
+                logger.error(f"Solution 2: Let the system auto-discover the correct preprocessing directory")
+                logger.error(f"  (omit --no-preproc and --preproc-dir flags)")
+            logger.error("=" * 80)
+            return 1
+        
+        logger.info(f"✅ Feature dimensions match: {actual_feature_dim} features")
+        
+        # Predict CLIP embeddings
+        logger.info("Predicting CLIP embeddings from test fMRI...")
+        Y_pred = encoder.predict(X_test)
+        
+        # Store original 512-D predictions
+        Y_pred_512 = Y_pred  # MLP output (N, 512)
+        Y_pred_for_sd = Y_pred_512  # Default for SD conditioning
+        
+        # If adapter is enabled, project to 1024 for diffusion ONLY
+        Y_pred_1024 = None
+        if clip_adapter:
+            logger.info(f"Applying CLIP adapter: {Y_pred_512.shape[1]}D → {adapter_target_dim}D...")
+            with torch.no_grad():
+                Y_pred_tensor = torch.from_numpy(Y_pred_512).float().to(args.device)
+                Y_pred_1024 = clip_adapter(Y_pred_tensor).cpu().numpy()
+                
+                # NaN check after adapter
+                if not np.isfinite(Y_pred_1024).all():
+                    logger.error("=" * 80)
+                    logger.error("ERROR: Adapter output contains NaN or Inf values!")
+                    logger.error("=" * 80)
+                    logger.error(f"NaN count: {np.isnan(Y_pred_1024).sum()}")
+                    logger.error(f"Inf count: {np.isinf(Y_pred_1024).sum()}")
+                    logger.error(f"Input range: [{Y_pred_512.min():.4f}, {Y_pred_512.max():.4f}]")
+                    logger.error(f"Output range: [{np.nanmin(Y_pred_1024):.4f}, {np.nanmax(Y_pred_1024):.4f}]")
+                    logger.error("This will cause black images. Check adapter training and normalization.")
+                    raise ValueError("Adapter output has NaN/Inf values")
+                
+            Y_pred_for_sd = Y_pred_1024
+            logger.info(f"✅ Adapter applied: output shape {Y_pred_1024.shape}")
+            logger.info(f"   Output range: [{Y_pred_1024.min():.4f}, {Y_pred_1024.max():.4f}]")
+        
+        # Normalize predictions to unit length (standard CLIP space)
+        def _norm(x: np.ndarray) -> np.ndarray:
+            return x / (np.linalg.norm(x, axis=1, keepdims=True) + 1e-8)
+        
+        Y_pred_normalized = _norm(Y_pred_for_sd)
+        
+        # Final NaN check before generation
+        if not np.isfinite(Y_pred_normalized).all():
+            logger.error("=" * 80)
+            logger.error("ERROR: Normalized predictions contain NaN or Inf!")
+            logger.error("=" * 80)
+            logger.error(f"NaN count: {np.isnan(Y_pred_normalized).sum()}")
+            logger.error(f"Inf count: {np.isinf(Y_pred_normalized).sum()}")
+            raise ValueError("Normalized predictions have NaN/Inf values")
+        
+        logger.info(f"✅ Predictions for SD: {Y_pred_normalized.shape}")
+        logger.info(f"   Normalized to unit length (mean norm: {np.linalg.norm(Y_pred_normalized, axis=1).mean():.4f})")
+        logger.info(f"   Range: [{Y_pred_normalized.min():.4f}, {Y_pred_normalized.max():.4f}]")
+        
+        # Safe cosine computation - compare in matching dimensions
+        cosine_scores = None
+        try:
+            if Y_test.shape[1] == Y_pred_512.shape[1]:
+                # GT and pred are both 512-D
+                cosine_scores = (_norm(Y_pred_512) * _norm(Y_test)).sum(axis=1)
+            elif clip_adapter is not None and Y_pred_1024 is not None and Y_test.shape[1] == Y_pred_1024.shape[1]:
+                # GT is 1024-D, compare with adapted predictions
+                cosine_scores = (_norm(Y_pred_1024) * _norm(Y_test)).sum(axis=1)
+            else:
+                logger.warning(
+                    f"Cosine skipped: GT dim={Y_test.shape[1]} "
+                    f"vs pred dims 512{' and 1024' if clip_adapter is not None else ''}"
+                )
+        except Exception as e:
+            logger.warning(f"Cosine computation failed but continuing: {e}")
+        
+        if cosine_scores is not None:
+            mean_cosine = float(np.mean(cosine_scores))
+            logger.info(f"   Mean cosine (pred vs GT): {mean_cosine:.4f}")
+            logger.info(f"   Cosine range: [{cosine_scores.min():.4f}, {cosine_scores.max():.4f}]")
+        else:
+            mean_cosine = None
+            logger.info("   Cosine not computed (dimension mismatch).")
+        
+        # Create output directories
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # TEST MODE: Skip diffusion, just save predictions and exit
+        if args.test_mode:
+            logger.info("=" * 80)
+            logger.info("TEST MODE: Skipping diffusion image generation")
+            logger.info("=" * 80)
+            
+            # Save predictions
+            results = {
+                "encoder": args.encoder,
+                "checkpoint": str(args.ckpt),
+                "preprocessing": str(args.preproc_dir) if args.use_preproc else None,
+                "clip_adapter": str(args.clip_adapter) if args.clip_adapter else None,
+                "clip_adapter_target_dim": adapter_target_dim if clip_adapter else None,
+                "n_test_samples": len(X_test),
+                "mean_cosine_similarity": float(mean_cosine) if mean_cosine is not None else None,
+                "cosine_scores": cosine_scores.tolist() if cosine_scores is not None else None,
+                "test_nsd_ids": test_nsd_ids.tolist(),
+            }
+            
+            results_file = output_dir / "test_predictions.json"
+            with open(results_file, 'w') as f:
+                json.dump(results, f, indent=2)
+            
+            logger.info(f"✅ Test results saved to {results_file}")
+            if mean_cosine is not None:
+                logger.info(f"   Mean cosine similarity: {mean_cosine:.4f}")
+            logger.info(f"   Test samples: {len(X_test)}")
+            if clip_adapter:
+                logger.info(f"   CLIP Adapter: {adapter_meta.get('in_dim')}D → {adapter_target_dim}D")
+            logger.info("")
+            logger.info("To run full diffusion pipeline (requires downloading ~5GB model):")
+            logger.info("Remove --test-mode flag and wait for model download to complete")
+            return 0
+        
+        # FULL MODE: Setup diffusion pipeline
+        logger.info("Setting up Stable Diffusion pipeline...")
+        pipe = setup_diffusion_pipeline(
+            args.model_id,
+            args.device,
+            args.dtype,
+            args.scheduler,
+            fail_if_missing=args.fail_if_missing_model
+        )
+        
+        # Disable safety checker for debugging (prevents false positives on research images)
+        if hasattr(pipe, 'safety_checker') and pipe.safety_checker is not None:
+            logger.info("🔓 Disabling safety checker for research use...")
+            pipe.safety_checker = lambda images, clip_input: (images, [False] * len(images))
+        
+        images_dir = output_dir / "images"
+        grids_dir = output_dir / "grids"
+        images_dir.mkdir(exist_ok=True)
+        grids_dir.mkdir(exist_ok=True)
+        
+        # Build small gallery for NN retrieval (for comparison)
+        logger.info(f"Building gallery for NN comparison (limit={args.gallery_limit})...")
+        
+        def _safe_get_all_clip_ids(cache):
+            """Backward-compatible helper to get all IDs from various CLIP cache implementations."""
+            # Try common method names first
+            for name in ("get_all_ids", "get_ids", "list_ids"):
+                if hasattr(cache, name):
+                    try:
+                        return list(getattr(cache, name)())
+                    except Exception:
+                        pass
+            # Fallbacks
+            try:
+                # common parquet-backed cache: df with 'nsd_id' or 'id'
+                df = getattr(cache, "df", None)
+                if df is not None:
+                    col = "nsd_id" if "nsd_id" in df.columns else ("id" if "id" in df.columns else None)
+                    if col:
+                        return list(df[col].unique())
+            except Exception:
+                pass
+            return []
+        
+        all_nsd_ids = _safe_get_all_clip_ids(clip_cache)
+        if not all_nsd_ids:
+            logger.warning("CLIP cache IDs could not be enumerated; skipping gallery build")
+            all_nsd_ids = []
+        
+        gallery_nsd_ids = []
+        gallery_embeddings = None
+        
+        if all_nsd_ids:
+            all_embeddings = clip_cache.get_batch(all_nsd_ids)
+            
+            # Exclude test samples
+            mask = ~np.isin(all_nsd_ids, test_nsd_ids)
+            gallery_nsd_ids = all_nsd_ids[mask]
+            gallery_embeddings = all_embeddings[mask]
+            
+            if len(gallery_nsd_ids) > args.gallery_limit:
+                indices = np.random.choice(len(gallery_nsd_ids), size=args.gallery_limit, replace=False)
+                gallery_nsd_ids = gallery_nsd_ids[indices]
+                gallery_embeddings = gallery_embeddings[indices]
+            
+            logger.info(f"✅ Gallery size: {len(gallery_embeddings)}")
+        else:
+            # Graceful degrade: continue without NN gallery
+            logger.info("Proceeding without NN gallery (generation and per-sample eval will continue).")
+        
+        # Generate images
+        logger.info("\n" + "=" * 80)
+        logger.info("GENERATING IMAGES")
+        logger.info("=" * 80)
+        
+        results = []
+        
+        # Handle None cosine_scores for zip
+        cosine_scores_iter = cosine_scores if cosine_scores is not None else [None] * len(test_nsd_ids)
+        
+        for i, (clip_pred, clip_gt, nsd_id, cosine) in enumerate(zip(
+            Y_pred_normalized, Y_test, test_nsd_ids, cosine_scores_iter
+        )):
+            logger.info(f"\n[{i+1}/{len(test_nsd_ids)}] Generating image for NSD ID {nsd_id}...")
+            if cosine is not None:
+                logger.info(f"  Cosine (pred vs GT): {cosine:.4f}")
+            else:
+                logger.info(f"  Cosine (pred vs GT): not computed")
+            
+            try:
+                # Generate image from predicted CLIP embedding
+                generated_img = generate_image_from_clip_embedding(
+                    pipe,
+                    clip_pred,
+                    guidance_scale=args.guidance,
+                    num_inference_steps=args.steps,
+                    seed=args.seed + i,  # Different seed per sample
+                    blend_alpha=args.blend_alpha
+                )
+                
+                # Save generated image
+                img_path = images_dir / f"nsd{nsd_id}_generated.png"
+                generated_img.save(img_path)
+                logger.info(f"  ✅ Saved generated image: {img_path}")
+                
+                # Find nearest neighbor for comparison (if gallery available)
+                nn_nsd_id = None
+                nn_cosine = None
+                if gallery_embeddings is not None and len(gallery_embeddings) > 0:
+                    # Compute similarity to gallery
+                    sim_to_gallery = cosine_sim(clip_pred.reshape(1, -1), gallery_embeddings)[0]
+                    nn_idx = np.argmax(sim_to_gallery)
+                    nn_nsd_id = gallery_nsd_ids[nn_idx]
+                    nn_cosine = sim_to_gallery[nn_idx]
+                    
+                    logger.info(f"  NN retrieval: NSD ID {nn_nsd_id} (cosine: {nn_cosine:.4f})")
+                else:
+                    logger.info(f"  NN retrieval: skipped (no gallery)")
+                
+                # For now, we don't have actual images, so skip grid creation
+                # In a full implementation, you'd load the actual image via COCO/NSD dataset
+                # and create the comparison grid here
+                
+                # Record results
+                results.append({
+                    "trial_id": i,
+                    "nsdId": int(nsd_id),
+                    "cosine_pred_gt": float(cosine) if cosine is not None else None,
+                    "nn_nsdId": int(nn_nsd_id) if nn_nsd_id is not None else None,
+                    "nn_cosine": float(nn_cosine) if nn_cosine is not None else None,
+                    "image_path": str(img_path)
+                })
+                
+            except Exception as e:
+                logger.error(f"  ❌ Failed to generate image: {e}")
+                continue
+        
+        # Save summary JSON
+        summary_path = output_dir / "decode_summary.json"
+        with open(summary_path, "w") as f:
+            json.dump({
+                "subject": args.subject,
+                "encoder": args.encoder,
+                "checkpoint": args.ckpt,
+                "diffusion_model": args.model_id,
+                "device": args.device,
+                "dtype": args.dtype,
+                "scheduler": args.scheduler,
+                "guidance_scale": args.guidance,
+                "num_inference_steps": args.steps,
+                "clip_adapter": args.clip_adapter,
+                "clip_adapter_target_dim": adapter_target_dim if clip_adapter else None,
+                "n_generated": len(results),
+                "mean_cosine": float(mean_cosine) if mean_cosine is not None else None,
+                "results": results
+            }, f, indent=2)
+        
+        logger.info("\n" + "=" * 80)
+        logger.info("DIFFUSION DECODING COMPLETE")
+        logger.info("=" * 80)
+        logger.info(f"Generated {len(results)} images")
+        logger.info(f"Device: {args.device}, Dtype: {args.dtype}, Scheduler: {args.scheduler}")
+        logger.info(f"Guidance: {args.guidance}, Steps: {args.steps}")
+        if mean_cosine is not None:
+            logger.info(f"Mean cosine similarity (pred vs GT): {mean_cosine:.4f}")
+        logger.info(f"Output directory: {output_dir}")
+        logger.info(f"Summary: {summary_path}")
+        
+        return 0
+        
+    except Exception as e:
+        logger.error(f"Diffusion decoding failed: {e}", exc_info=True)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+```
+
+# scripts/diagnose.sh
+
+```sh
+#!/bin/bash
+# filepath: scripts/diagnose.sh
+# Diagnose common issues
+
+echo "🔍 Running diagnostics..."
+echo ""
+
+# Check if virtual environment is activated
+if [ -z "$VIRTUAL_ENV" ]; then
+    echo "⚠️  Virtual environment not activated!"
+    echo "   Attempting to activate .venv..."
+    if [ -f ".venv/bin/activate" ]; then
+        source .venv/bin/activate
+        echo "   ✅ Activated .venv"
+    else
+        echo "   ❌ .venv not found. Please run: python3 -m venv .venv && source .venv/bin/activate"
+        exit 1
+    fi
+else
+    echo "✅ Virtual environment active: $VIRTUAL_ENV"
+fi
+echo ""
+
+# Check Python environment
+echo "1. Python Environment:"
+which python3
+python3 --version
+echo ""
+
+# Check installed packages
+echo "2. Key Packages:"
+python3 -c "import torch; print(f'   PyTorch: {torch.__version__}')" 2>/dev/null || echo "   ❌ PyTorch not installed"
+python3 -c "import pandas; print(f'   Pandas: {pandas.__version__}')" 2>/dev/null || echo "   ❌ Pandas not installed"
+python3 -c "import pyarrow; print(f'   PyArrow: {pyarrow.__version__}')" 2>/dev/null || echo "   ❌ PyArrow not installed"
+python3 -c "import diffusers; print(f'   Diffusers: {diffusers.__version__}')" 2>/dev/null || echo "   ❌ Diffusers not installed"
+python3 -c "import transformers; print(f'   Transformers: {transformers.__version__}')" 2>/dev/null || echo "   ❌ Transformers not installed"
+echo ""
+
+# Check CUDA
+echo "3. CUDA Availability:"
+python3 -c "import torch; print(f'   CUDA available: {torch.cuda.is_available()}')" 2>/dev/null || echo "   ❌ Cannot check CUDA"
+python3 -c "import torch; print(f'   CUDA device: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"N/A\"}')" 2>/dev/null || echo "   ❌ Cannot check CUDA device"
+echo ""
+
+# Check directory structure
+echo "4. Directory Structure:"
+for dir in data/indices outputs/clip_cache checkpoints logs; do
+    if [ -d "$dir" ]; then
+        echo "   ✅ $dir"
+    else
+        echo "   ❌ $dir (missing)"
+        mkdir -p "$dir"
+        echo "      Created: $dir"
+    fi
+done
+echo ""
+
+# Check if index builder works
+echo "5. Testing Index Builder:"
+python3 -m fmri2img.data.nsd_index_builder --help > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    echo "   ✅ Index builder is accessible"
+else
+    echo "   ❌ Index builder failed (run: pip install -e .)"
+fi
+echo ""
+
+# Check data.yaml
+echo "6. Configuration:"
+if [ -f "configs/data.yaml" ]; then
+    echo "   ✅ configs/data.yaml found"
+else
+    echo "   ❌ configs/data.yaml missing"
+fi
+echo ""
+
+# Check if package is installed
+echo "7. Package Installation:"
+python3 -c "import fmri2img; print(f'   ✅ fmri2img installed at: {fmri2img.__file__}')" 2>/dev/null || echo "   ❌ fmri2img not installed (run: pip install -e .)"
+echo ""
+
+echo "✅ Diagnostics complete!"
+```
+
+# scripts/eval_reconstruction.py
+
+```py
+#!/usr/bin/env python3
+"""
+You are GitHub Copilot. Enhance evaluation outputs.
+
+GOALS
+1) Per-sample NN dump:
+   - In the CSV, add columns: nn_nsdId (top-1 neighbor ID), nn_sim (top-1 cosine similarity), gt_sim (sim with its own GT).
+   - Also write a JSONL file {nsdId, rank, topk: [{nsdId, sim}], clipscore} at <out_csv_dir>/<stem>__nn.jsonl with top-k=10 entries per sample.
+
+2) Distribution plots:
+   - Save a histogram of CLIPScore and a histogram of ranks as:
+     <out_csv_dir>/<stem>__clipscore_hist.png and <stem>__rank_hist.png.
+   - Use matplotlib only, single plot per figure (no subplots), safe for empty arrays.
+
+3) Adapter ablation (optional but automatic when --use-adapter is passed):
+   - Recompute CLIPScore and retrieval with adapter OFF (using the same matched set + gallery) and report both in aggregate JSON under:
+     "ablations": { "with_adapter": {...}, "without_adapter": {...} }.
+   - Do not re-encode GT cache; reuse already loaded embeddings and align dimensions via existing fallback when adapter is off.
+
+4) Logging + JSON:
+   - Log top-1 neighbor nsdId and sim for the first 5 samples.
+   - In aggregate JSON, add:
+     - "gallery_size", "retrieval_eligible"
+     - "top1_mean_sim"
+     - "rank_hist": { "1": count, "2-5": count, "6-10": count, "11+": count }
+
+ACCEPTANCE
+- CSV gains nn_nsdId, nn_sim, gt_sim.
+- Two extra PNGs saved (clipscore and rank hist).
+- JSON contains ablations (if --use-adapter) and gallery stats.
+- No changes to existing flags or default behavior.
+
+You are GitHub Copilot. Integrate FAISS for large retrieval.
+
+GOALS
+1) Add flag --faiss (store_true). When set, use FAISS IndexFlatIP with normalized vectors for retrieval similarity.
+2) Build FAISS index over gallery_embeddings_normalized. For cosine similarity, use inner product on L2-normalized vectors.
+3) Replace cosine_sim matrix multiply when --faiss is on:
+   - For each gen embedding batch (size 512), query top-K = max(100, max(ks)) to compute rank positions efficiently.
+4) Keep existing non-FAISS path intact.
+
+ACCEPTANCE
+- With --faiss, retrieval metrics match non-FAISS within floating tolerance.
+- Memory footprint is lower for very large galleries and runtime scales sublinearly.
+
+Nice-to-have checks:
+- No leakage: if you ever set --gallery all, it's fine for retrieval only (you kept CLIPScore against matched GT — good).
+- Cache consistency: keep the target parquet column name embedding; the detector handles others, but consistency helps.
+- Re-run with more data: once you have, say, 100–500 matched reconstructions, look at rank histogram + R@K trends and adapter ablation deltas to quantify real gains.
+
+You are GitHub Copilot. Modify scripts/eval_reconstruction.py to support non-trivial retrieval galleries.
+
+GOALS
+1) Add an argparse option:
+   --gallery {matched,test,all} with default "matched".
+   - matched: current behavior (gallery = GT of matched_nsd_ids)
+   - test: gallery = all GT embeddings from the TEST split (even if not reconstructed)
+   - all: gallery = all GT embeddings from the full subject index (train+val+test), but ONLY for retrieval (keep metrics computed between generated and their own GT as before).
+
+2) Efficient gallery loading:
+   - Use the same parquet cache as current (target or 512-D depending on --use-adapter).
+   - Build a map nsdId -> embedding once, then slice for the selected gallery.
+   - If any requested nsdId is missing from the cache, skip it with a WARN and keep going.
+
+3) Retrieval computation:
+   - Keep CLIPScore between (gen_embeddings, their matched GT embeddings) exactly as now.
+   - For retrieval, compute cosine similarity between gen_embeddings and GALLERY embeddings (chosen by --gallery).
+   - Build gt_indices by mapping each valid_nsd_id to its index inside the gallery array (if missing, drop that sample from retrieval only and log WARN).
+   - Report R@1/5/10, mean/median rank, MRR over the subset that has gallery matches.
+
+4) Logging:
+   - Log the gallery type, the gallery size, and how many generated samples were eligible for retrieval (i.e., had their GT present in the selected gallery).
+   - If --gallery != matched, add a note in the JSON under "retrieval_gallery": {"type": "...", "size": N}.
+
+5) Performance:
+   - For large galleries, compute cosine similarity via normalized embeddings and matrix multiply (no Python loops). If needed, chunk the gallery to avoid OOM (chunk size 10k rows with progress logs).
+
+ACCEPTANCE
+- Running with --gallery test on a subject with many cached GT embeddings produces non-trivial R@K and ranks.
+- JSON includes retrieval_gallery block and accurate counts.
+- Existing behavior is unchanged when --gallery matched (default).
+
+Reconstruction Evaluation Script
+=================================
+
+Evaluates reconstructed images using CLIPScore and retrieval metrics.
+
+Metrics:
+- CLIPScore: Per-sample cosine similarity between generated and GT image embeddings
+- Retrieval@K: How often generated image retrieves correct GT from gallery
+- Ranking stats: Mean/median rank, MRR
+
+Supports both 512-D (ViT-B/32) and target-D (768/1024 for diffusion models) evaluation
+using the --use-adapter flag.
+
+Scientific Context:
+- CLIPScore measures semantic similarity without pixel-level matching (Hessel et al. 2021)
+- Retrieval metrics evaluate how well generated images capture semantic content
+- Standard evaluation for image generation quality in neural decoding
+
+Usage:
+    # Evaluate in 512-D space (ViT-B/32)
+    python scripts/eval_reconstruction.py \\
+        --subject subj01 \\
+        --recon-dir outputs/recon/subj01/run_001 \\
+        --clip-cache outputs/clip_cache/clip.parquet \\
+        --out-csv outputs/reports/subj01/recon_eval.csv \\
+        --out-fig outputs/reports/subj01/recon_grid.png
+    
+    # Evaluate in 1024-D space (SD 2.1 target CLIP)
+    python scripts/eval_reconstruction.py \\
+        --subject subj01 \\
+        --recon-dir outputs/recon/subj01/run_001 \\
+        --clip-cache outputs/clip_cache/clip.parquet \\
+        --use-adapter \\
+        --model-id stabilityai/stable-diffusion-2-1 \\
+        --out-csv outputs/reports/subj01/recon_eval_1024.csv \\
+        --out-fig outputs/reports/subj01/recon_grid_1024.png
+"""
+
+import argparse
+import json
+import logging
+import sys
+import re
+import os
+from pathlib import Path
+from typing import Dict, List, Tuple, Optional
+
+import numpy as np
+import pandas as pd
+import torch
+from PIL import Image
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+import pyarrow.parquet as pq
+import h5py
+
+
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+# Import project modules
+from fmri2img.data.nsd_index_reader import read_subject_index
+from fmri2img.data.clip_cache import CLIPCache
+from fmri2img.io.s3 import get_s3_filesystem
+from fmri2img.models.train_utils import train_val_test_split, torch_seed_all
+from fmri2img.eval import clip_score, retrieval_at_k, compute_ranking_metrics
+from fmri2img.utils.clip_utils import load_clip_model, encode_images
+
+
+def detect_embedding_col_and_dim(parquet_path: Path) -> Tuple[str, int]:
+    """
+    Detect embedding column name and dimension from Parquet file using PyArrow schema.
+    
+    Args:
+        parquet_path: Path to Parquet file
+    
+    Returns:
+        (column_name, dimension) tuple
+    
+    Raises:
+        RuntimeError if no valid embedding column found
+    """
+    schema = pq.read_schema(parquet_path)
+    
+    candidates = []
+    for field in schema:
+        # Check if it's a fixed_size_list of float
+        if str(field.type).startswith('fixed_size_list<'):
+            # Extract inner type and size
+            type_str = str(field.type)
+            if 'float' in type_str or 'double' in type_str:
+                # Extract list size from type string like "fixed_size_list<float>[1024]"
+                import re
+                match = re.search(r'\[(\d+)\]', type_str)
+                if match:
+                    list_size = int(match.group(1))
+                    candidates.append((field.name, list_size))
+    
+    if not candidates:
+        raise RuntimeError(
+            f"No embedding column found in {parquet_path}.\n"
+            f"Expected fixed_size_list<float>[N] column.\n"
+            f"Schema: {schema}"
+        )
+    
+    # Prefer known names
+    preferred_names = ["embedding", "clip1024", "clip768", "clip512"]
+    for name in preferred_names:
+        for col_name, dim in candidates:
+            if col_name == name:
+                logger.info(f"✅ Detected embedding column: '{col_name}' with dimension {dim}")
+                return col_name, dim
+    
+    # Return first candidate if no preferred name found
+    col_name, dim = candidates[0]
+    logger.info(f"✅ Detected embedding column: '{col_name}' with dimension {dim}")
+    return col_name, dim
+
+
+def _gray_placeholder(size=(256, 256)) -> Image.Image:
+    """Create a neutral gray placeholder image."""
+    return Image.new("RGB", size, (128, 128, 128))
+
+
+def _load_nsd_from_hdf5(nsd_id: int, hdf5_path: Optional[str] = None) -> Image.Image:
+    """
+    Load NSD image from HDF5 file.
+    
+    Args:
+        nsd_id: NSD ID (0-based index into HDF5)
+        hdf5_path: Optional override for HDF5 path
+    
+    Returns:
+        PIL Image or gray placeholder on failure
+    """
+    if hdf5_path is None:
+        hdf5_path = os.environ.get("NSD_HDF5", "cache/nsd_hdf5/nsd_stimuli.hdf5")
+    try:
+        with h5py.File(hdf5_path, "r") as f:
+            if "imgBrick" not in f:
+                logger.warning(f"'imgBrick' dataset not found in {hdf5_path}")
+                return _gray_placeholder()
+            ds = f["imgBrick"]
+            if nsd_id < 0 or nsd_id >= ds.shape[0]:
+                logger.warning(f"HDF5 index out of range for nsdId={nsd_id} in {hdf5_path}")
+                return _gray_placeholder()
+            arr = ds[nsd_id]  # uint8 HxWx3
+        return Image.fromarray(arr, mode="RGB")
+    except Exception as e:
+        logger.warning(f"Failed to load HDF5 for nsd{nsd_id}: {e}")
+        return _gray_placeholder()
+
+
+def _load_nsd_from_png(nsd_id: int) -> Image.Image:
+    """
+    Load NSD image from local PNG directory.
+    
+    Args:
+        nsd_id: NSD ID
+    
+    Returns:
+        PIL Image or gray placeholder on failure
+    """
+    png_dir = os.environ.get("NSD_PNG_DIR", "cache/nsd_png/")
+    png_path = Path(png_dir) / f"nsd_{nsd_id:05d}.png"
+    try:
+        return Image.open(png_path).convert("RGB")
+    except Exception as e:
+        logger.warning(f"Failed to load PNG for nsd{nsd_id} from {png_path}: {e}")
+        return _gray_placeholder()
+
+
+def _load_nsd_from_s3(nsd_id: int, s3_fs) -> Image.Image:
+    """
+    Load NSD image from S3.
+    
+    Args:
+        nsd_id: NSD ID
+        s3_fs: S3 filesystem object
+    
+    Returns:
+        PIL Image
+    
+    Raises:
+        RuntimeError on failure
+    """
+    key = f"nsd-data/nsddata_stimuli/stimuli/nsd/nsd_{nsd_id:05d}.png"
+    try:
+        import io
+        with s3_fs.open(key, "rb") as f:
+            return Image.open(io.BytesIO(f.read())).convert("RGB")
+    except Exception as e:
+        raise RuntimeError(f"Cannot open {key}: {e}")
+
+
+def load_vis_image(nsd_id: int, image_source: str, s3_fs, hdf5_path: Optional[str] = None, 
+                   _first_success: List[Optional[str]] = [None]) -> Image.Image:
+    """
+    Load visualization image from specified source with fallback.
+    
+    Args:
+        nsd_id: NSD ID
+        image_source: "auto", "s3", "png", or "hdf5"
+        s3_fs: S3 filesystem object
+        hdf5_path: Optional override for HDF5 path
+        _first_success: Internal state tracker for logging first success
+    
+    Returns:
+        PIL Image (never raises; returns gray placeholder on failure)
+    """
+    def log_first_success(source: str):
+        if _first_success[0] is None:
+            _first_success[0] = source
+            logger.info(f"✅ First visualization image loaded from: {source}")
+    
+    if image_source == "png":
+        img = _load_nsd_from_png(nsd_id)
+        if img.size != (128, 128) or img.getpixel((0, 0)) != (128, 128, 128):  # Not placeholder
+            log_first_success("PNG")
+        return img
+    
+    if image_source == "hdf5":
+        img = _load_nsd_from_hdf5(nsd_id, hdf5_path)
+        if img.size != (128, 128) or img.getpixel((0, 0)) != (128, 128, 128):  # Not placeholder
+            log_first_success("HDF5")
+        return img
+    
+    if image_source == "s3":
+        try:
+            img = _load_nsd_from_s3(nsd_id, s3_fs)
+            log_first_success("S3")
+            return img
+        except Exception as e:
+            logger.warning(str(e))
+            return _gray_placeholder()
+    
+    # auto: try s3, then png, then hdf5
+    fallback_attempts = []
+    try:
+        img = _load_nsd_from_s3(nsd_id, s3_fs)
+        log_first_success("S3")
+        return img
+    except Exception as e:
+        fallback_attempts.append(f"S3: {e}")
+    
+    # Try PNG
+    img = _load_nsd_from_png(nsd_id)
+    if img.size != (128, 128) or img.getpixel((0, 0)) != (128, 128, 128):  # Not placeholder
+        log_first_success("PNG")
+        return img
+    else:
+        fallback_attempts.append("PNG: not found or failed")
+    
+    # Try HDF5
+    img = _load_nsd_from_hdf5(nsd_id, hdf5_path)
+    if img.size != (128, 128) or img.getpixel((0, 0)) != (128, 128, 128):  # Not placeholder
+        log_first_success("HDF5")
+        return img
+    else:
+        fallback_attempts.append("HDF5: not found or failed")
+    
+    # All fallbacks failed
+    logger.warning(f"⚠️  All sources failed for nsd{nsd_id}: {'; '.join(fallback_attempts)}")
+    return _gray_placeholder()
+
+
+
+class ImageEncoder:
+    """
+    Unified image encoder API supporting both OpenCLIP and HuggingFace CLIP models.
+    """
+    
+    def __init__(self, model, processor, kind: str):
+        """
+        Args:
+            model: OpenCLIP model or HF CLIPModel
+            processor: Transform function (OpenCLIP) or CLIPProcessor (HF)
+            kind: "openclip" or "hf_clip"
+        """
+        self.model = model
+        self.processor = processor
+        self.kind = kind
+        
+    def encode(self, pil_images: List[Image.Image], device: str, batch_size: int = 32) -> np.ndarray:
+        """
+        Encode images to CLIP embeddings.
+        
+        Args:
+            pil_images: List of PIL images
+            device: Device to run on
+            batch_size: Batch size
+            
+        Returns:
+            L2-normalized embeddings (N, D)
+        """
+        all_embeddings = []
+        
+        for i in range(0, len(pil_images), batch_size):
+            batch = pil_images[i:i + batch_size]
+            
+            with torch.no_grad():
+                if self.kind == "openclip":
+                    # OpenCLIP: use encode_image
+                    if callable(self.processor):
+                        # It's a transform function
+                        inputs = torch.stack([self.processor(img) for img in batch]).to(device)
+                    else:
+                        # Shouldn't happen, but handle gracefully
+                        inputs = torch.stack([self.processor.transforms(img) for img in batch]).to(device)
+                    
+                    embeddings = self.model.encode_image(inputs)
+                    if isinstance(embeddings, tuple):
+                        embeddings = embeddings[0]
+                    embeddings = embeddings.cpu().numpy()
+                    
+                elif self.kind == "hf_clip":
+                    # HuggingFace CLIP: use get_image_features
+                    inputs = self.processor(images=batch, return_tensors="pt")
+                    inputs = {k: v.to(device) for k, v in inputs.items()}
+                    
+                    # Use get_image_features for proper projected embeddings
+                    embeddings = self.model.get_image_features(**inputs)
+                    embeddings = embeddings.cpu().numpy()
+                else:
+                    raise ValueError(f"Unknown encoder kind: {self.kind}")
+                
+                # L2 normalize (with safe division to avoid NaNs)
+                norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+                norms[norms == 0] = 1.0
+                embeddings = embeddings / norms
+                all_embeddings.append(embeddings)
+        
+        return np.vstack(all_embeddings)
+
+
+def load_target_clip_encoder(model_id: str, device: str) -> Tuple[ImageEncoder, int, str]:
+    """
+    Load the CLIP image encoder from a diffusion model.
+    
+    Returns projected CLIP embeddings (1024-D for SD 2.1, 768-D for SD 1.5).
+    Uses OpenCLIP or HF CLIPModel.get_image_features() to get proper projection.
+    
+    Args:
+        model_id: HuggingFace model ID
+        device: Device to load on
+    
+    Returns:
+        (encoder: ImageEncoder, target_dim: int, clip_space_label: str)
+    """
+    logger.info(f"Loading target CLIP encoder from {model_id}...")
+    
+    # Detect model type
+    if "2-1" in model_id or "2.1" in model_id:
+        target_dim = 1024
+        logger.info("Detected SD 2.1 → OpenCLIP ViT-H/14 (1024-D)")
+        
+        # Try OpenCLIP first (preferred for 1024-D)
+        try:
+            import open_clip
+            model, _, preprocess = open_clip.create_model_and_transforms(
+                'ViT-H-14', 
+                pretrained='laion2b_s32b_b79k',
+                device=device
+            )
+            model.eval()
+            encoder = ImageEncoder(model, preprocess, "openclip")
+            clip_space = "1024-D (OpenCLIP ViT-H/14)"
+            logger.info(f"✅ Loaded OpenCLIP ViT-H/14")
+            return encoder, target_dim, clip_space
+            
+        except ImportError:
+            logger.warning("⚠️  open_clip not available, falling back to HF transformers")
+        except Exception as e:
+            logger.warning(f"⚠️  OpenCLIP load failed: {e}, falling back to HF transformers")
+        
+        # Fallback: HF transformers with get_image_features
+        from transformers import CLIPModel, CLIPProcessor
+        model = CLIPModel.from_pretrained("laion/CLIP-ViT-H-14-laion2B-s32B-b79K").to(device)
+        processor = CLIPProcessor.from_pretrained("laion/CLIP-ViT-H-14-laion2B-s32B-b79K")
+        model.eval()
+        encoder = ImageEncoder(model, processor, "hf_clip")
+        clip_space = "1024-D (HF CLIP ViT-H/14)"
+        logger.info(f"✅ Loaded HF CLIP ViT-H/14 (using get_image_features)")
+        return encoder, target_dim, clip_space
+        
+    elif "1-5" in model_id or "1.5" in model_id:
+        target_dim = 768
+        logger.info("Detected SD 1.5 → CLIP ViT-L/14 (768-D)")
+        
+        # Use HF transformers with get_image_features
+        from transformers import CLIPModel, CLIPProcessor
+        model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14").to(device)
+        processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
+        model.eval()
+        encoder = ImageEncoder(model, processor, "hf_clip")
+        clip_space = "768-D (CLIP ViT-L/14)"
+        logger.info(f"✅ Loaded CLIP ViT-L/14 (using get_image_features)")
+        return encoder, target_dim, clip_space
+        
+    else:
+        # Default to 1024-D
+        target_dim = 1024
+        logger.warning("Unknown model, defaulting to 1024-D (OpenCLIP ViT-H/14)")
+        
+        try:
+            import open_clip
+            model, _, preprocess = open_clip.create_model_and_transforms(
+                'ViT-H-14', 
+                pretrained='laion2b_s32b_b79k',
+                device=device
+            )
+            model.eval()
+            encoder = ImageEncoder(model, preprocess, "openclip")
+            clip_space = "1024-D (OpenCLIP ViT-H/14)"
+            logger.info(f"✅ Loaded OpenCLIP ViT-H/14")
+            return encoder, target_dim, clip_space
+        except:
+            from transformers import CLIPModel, CLIPProcessor
+            model = CLIPModel.from_pretrained("laion/CLIP-ViT-H-14-laion2B-s32B-b79K").to(device)
+            processor = CLIPProcessor.from_pretrained("laion/CLIP-ViT-H-14-laion2B-s32B-b79K")
+            model.eval()
+            encoder = ImageEncoder(model, processor, "hf_clip")
+            clip_space = "1024-D (HF CLIP ViT-H/14)"
+            logger.info(f"✅ Loaded HF CLIP ViT-H/14 (using get_image_features)")
+            return encoder, target_dim, clip_space
+
+
+def _downsample_embeddings(embeddings: np.ndarray, target_dim: int) -> np.ndarray:
+    """
+    Downsample embeddings deterministically using evenly spaced indices.
+    
+    Args:
+        embeddings: Input embeddings (N, D_in)
+        target_dim: Target dimension (D_out < D_in)
+    
+    Returns:
+        Downsampled embeddings (N, D_out)
+    """
+    input_dim = embeddings.shape[1]
+    if target_dim >= input_dim:
+        return embeddings
+    
+    # Select evenly spaced indices
+    indices = np.linspace(0, input_dim - 1, target_dim, dtype=int)
+    return embeddings[:, indices]
+
+
+def _load_adapter(subject: str, in_dim: int, out_dim: int, device: str):
+    """
+    Load adapter checkpoint with dimension validation and metadata handling.
+    
+    Uses the robust load_adapter function that handles legacy checkpoints
+    and missing metadata gracefully.
+    
+    Args:
+        subject: Subject ID
+        in_dim: Expected input dimension
+        out_dim: Expected output dimension
+        device: Device to load on
+    
+    Returns:
+        Tuple of (adapter_model, metadata) or (None, None) if load fails
+    """
+    from fmri2img.models.clip_adapter import load_adapter
+    
+    adapter_path = Path(f"checkpoints/clip_adapter/{subject}/adapter.pt")
+    
+    if not adapter_path.exists():
+        logger.warning(f"⚠️  Adapter not found: {adapter_path}")
+        logger.warning(f"   Hint: Train an adapter first with scripts/train_clip_adapter.py")
+        return None, None
+    
+    try:
+        logger.info(f"🔧 Loading adapter: {adapter_path}")
+        adapter, metadata = load_adapter(str(adapter_path), map_location=device)
+        adapter.eval()
+        
+        # Get dimensions from metadata (prefer target_dim/input_dim, fallback to out_dim/in_dim)
+        adapter_in_dim = metadata.get("input_dim", metadata.get("in_dim", 512))
+        adapter_out_dim = metadata.get("target_dim", metadata.get("out_dim", 1024))
+        
+        # Validate dimensions
+        if adapter_in_dim != in_dim:
+            logger.warning(f"⚠️  Adapter input dimension mismatch: expected {in_dim}D, got {adapter_in_dim}D")
+            logger.warning(f"   Using adapter's dimension: {adapter_in_dim}D")
+        
+        if adapter_out_dim != out_dim:
+            logger.warning(f"⚠️  Adapter output dimension mismatch: expected {out_dim}D, got {adapter_out_dim}D")
+            logger.warning(f"   Using adapter's dimension: {adapter_out_dim}D")
+        
+        return adapter, metadata
+        
+    except FileNotFoundError as e:
+        logger.warning(f"❌ {e}")
+        return None, None
+    except Exception as e:
+        logger.warning(f"❌ Failed to load adapter: {e}")
+        import traceback
+        traceback.print_exc()
+        return None, None
+
+
+def align_clip_spaces(
+    gen_embeddings: np.ndarray,
+    gt_embeddings: np.ndarray,
+    use_adapter: bool,
+    subject: str,
+    device: str
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Aligns generated and GT embeddings by:
+    - Detecting mismatched dimensions
+    - Applying adapter if possible
+    - Falls back to deterministic projection or zero-padding
+    
+    Never collapses to (1,1) or crashes on dimension mismatch.
+    
+    Args:
+        gen_embeddings: Generated image embeddings (N, D_gen)
+        gt_embeddings: Ground truth embeddings (N, D_gt)
+        use_adapter: Whether adapter mode is enabled
+        subject: Subject ID for adapter path
+        device: Device to load adapter on
+    
+    Returns:
+        (gen_aligned, gt_aligned): Aligned embeddings with same dimension
+    """
+    gen_dim = gen_embeddings.shape[1]
+    gt_dim = gt_embeddings.shape[1]
+    
+    # If dimensions match, just normalize and return
+    if gen_dim == gt_dim:
+        logger.info(f"✅ CLIP dimensions match: {gen_dim}-D")
+        # Normalize (with safe division to avoid NaNs)
+        gen_norms = np.linalg.norm(gen_embeddings, axis=1, keepdims=True)
+        gen_norms[gen_norms == 0] = 1.0
+        gen_embeddings = gen_embeddings / gen_norms
+        
+        gt_norms = np.linalg.norm(gt_embeddings, axis=1, keepdims=True)
+        gt_norms[gt_norms == 0] = 1.0
+        gt_embeddings = gt_embeddings / gt_norms
+        return gen_embeddings, gt_embeddings
+    
+    logger.info("⚙️  Aligning CLIP spaces...")
+    logger.warning(f"⚠️  Mismatch detected: gen={gen_dim}, gt={gt_dim}")
+    
+    # Try to apply adapter if available
+    adapter_applied = False
+    if use_adapter:
+        adapter, adapter_metadata = _load_adapter(subject, gen_dim, gt_dim, device)
+        
+        if adapter is not None:
+            try:
+                # Get actual output dimension from metadata
+                adapter_out_dim = adapter_metadata.get("target_dim", adapter_metadata.get("out_dim", gt_dim))
+                
+                logger.info(f"🔧 Applying adapter: {gen_dim}D → {adapter_out_dim}D")
+                
+                gen_tensor = torch.tensor(gen_embeddings, dtype=torch.float32, device=device)
+                
+                # Apply adapter (it's a nn.Module)
+                with torch.no_grad():
+                    gen_embeddings = adapter(gen_tensor).cpu().numpy()
+                
+                logger.info(f"✅ Adapter applied: new shape={gen_embeddings.shape}")
+                adapter_applied = True
+                
+                # Update gen_dim after adapter application
+                gen_dim = gen_embeddings.shape[1]
+                
+                # Check if dimensions now match
+                if gen_dim != gt_dim:
+                    logger.warning(f"⚠️  Adapter output ({gen_dim}D) != ground truth ({gt_dim}D)")
+                    logger.warning(f"   Proceeding with adapter's dimension for evaluation")
+                
+            except Exception as e:
+                logger.warning(f"❌ Adapter application failed: {e}")
+                logger.warning(f"💡 Falling back to automatic projection")
+    
+    # Fallback: deterministic dimension alignment
+    if not adapter_applied or gen_dim != gt_dim:
+        if gen_dim != gt_dim:
+            logger.info("🔧 Adapter failed or dimensions still mismatched — using automatic projection")
+        
+        # Always project to the GT dimension (don't modify GT embeddings)
+        target_dim = gt_dim
+        
+        if gen_dim > target_dim:
+            # Downsample using evenly spaced indices
+            logger.info(f"   Downsampling gen: {gen_dim} → {target_dim}")
+            gen_embeddings = _downsample_embeddings(gen_embeddings, target_dim)
+        elif gen_dim < target_dim:
+            # Zero-pad to match target
+            logger.info(f"   Zero-padding gen: {gen_dim} → {target_dim}")
+            padding = np.zeros((gen_embeddings.shape[0], target_dim - gen_dim), dtype=gen_embeddings.dtype)
+            gen_embeddings = np.hstack([gen_embeddings, padding])
+        
+        logger.info(f"✅ Alignment complete: gen={gen_embeddings.shape}, gt={gt_embeddings.shape}")
+    
+    # Final normalization (critical for cosine similarity, with safe division to avoid NaNs)
+    gen_norms = np.linalg.norm(gen_embeddings, axis=1, keepdims=True)
+    gen_norms[gen_norms == 0] = 1.0
+    gen_embeddings = gen_embeddings / gen_norms
+    
+    gt_norms = np.linalg.norm(gt_embeddings, axis=1, keepdims=True)
+    gt_norms[gt_norms == 0] = 1.0
+    gt_embeddings = gt_embeddings / gt_norms
+    
+    return gen_embeddings, gt_embeddings
+
+
+def find_reconstructed_images(
+    recon_dir: Path,
+    nsd_ids: np.ndarray,
+    map_csv: Optional[Path] = None
+) -> Dict[int, Path]:
+    """
+    Find reconstructed images for given NSD IDs.
+    
+    Supports two modes:
+    1. Pattern matching: *_nsd{nsdId}.* or *_{nsdId}.*
+    2. CSV mapping: columns [nsdId, path]
+    
+    Args:
+        recon_dir: Directory containing reconstructed images
+        nsd_ids: Array of NSD IDs to find
+        map_csv: Optional CSV with nsdId→path mapping
+    
+    Returns:
+        Dictionary: {nsdId: Path}
+    """
+    nsd_to_path = {}
+    
+    if map_csv:
+        # Load from CSV
+        logger.info(f"Loading image paths from {map_csv}")
+        df = pd.read_csv(map_csv)
+        
+        if "nsdId" not in df.columns or "path" not in df.columns:
+            raise ValueError("CSV must have 'nsdId' and 'path' columns")
+        
+        for _, row in df.iterrows():
+            nsd_id = int(row["nsdId"])
+            if nsd_id in nsd_ids:
+                path = recon_dir / row["path"]
+                if path.exists():
+                    nsd_to_path[nsd_id] = path
+                else:
+                    logger.warning(f"Image not found: {path}")
+    
+    else:
+        # Pattern matching
+        logger.info(f"Searching for images in {recon_dir}")
+        
+        # Find all image files
+        image_files = []
+        for ext in ["*.png", "*.jpg", "*.jpeg", "*.PNG", "*.JPG", "*.JPEG"]:
+            image_files.extend(recon_dir.glob(ext))
+        
+        logger.info(f"Found {len(image_files)} image files")
+        
+        # Try to extract NSD ID from filename
+        patterns = [
+            r"nsd_?(\d+)",  # nsd12345 or nsd_12345
+            r"_(\d{5,})(?:_|\.)",  # _12345_ or _12345.
+        ]
+        
+        for img_path in image_files:
+            filename = img_path.stem
+            
+            for pattern in patterns:
+                match = re.search(pattern, filename)
+                if match:
+                    nsd_id = int(match.group(1))
+                    if nsd_id in nsd_ids:
+                        nsd_to_path[nsd_id] = img_path
+                    break
+    
+    logger.info(f"Matched {len(nsd_to_path)}/{len(nsd_ids)} images")
+    
+    if len(nsd_to_path) == 0:
+        logger.error("No images matched! Check filename pattern or provide --map-csv")
+        logger.error("Expected patterns: *_nsd{ID}.* or *_{ID}.*")
+        logger.error(f"Example files in {recon_dir}:")
+        for i, f in enumerate(recon_dir.glob("*")):
+            if i >= 5:
+                break
+            logger.error(f"  {f.name}")
+    
+    return nsd_to_path
+
+
+def build_retrieval_gallery(
+    gallery_type: str,
+    matched_nsd_ids: np.ndarray,
+    test_nsd_ids: np.ndarray,
+    all_nsd_ids: np.ndarray,
+    embeddings_dict: dict,
+    device: str
+) -> tuple:
+    """
+    Build retrieval gallery embeddings based on gallery type.
+    
+    Args:
+        gallery_type: One of "matched", "test", "all"
+        matched_nsd_ids: NSD IDs of reconstructed images
+        test_nsd_ids: All test split NSD IDs
+        all_nsd_ids: All NSD IDs (train+val+test)
+        embeddings_dict: Dict mapping nsdId -> embedding array
+        device: Device for tensor operations
+    
+    Returns:
+        gallery_embeddings: (N, D) array of gallery embeddings
+        gallery_nsd_ids: (N,) array of NSD IDs in gallery
+        nsd_to_gallery_idx: Dict mapping nsdId -> index in gallery
+    """
+    logger.info(f"Building retrieval gallery: type={gallery_type}")
+    
+    # Select gallery NSD IDs based on type
+    if gallery_type == "matched":
+        gallery_nsd_ids = matched_nsd_ids
+    elif gallery_type == "test":
+        gallery_nsd_ids = test_nsd_ids
+    elif gallery_type == "all":
+        gallery_nsd_ids = all_nsd_ids
+    else:
+        raise ValueError(f"Unknown gallery type: {gallery_type}")
+    
+    logger.info(f"Gallery candidate size: {len(gallery_nsd_ids)} NSD IDs")
+    
+    # Build gallery embeddings (skip missing)
+    gallery_embeddings_list = []
+    valid_gallery_nsd_ids = []
+    
+    for nsd_id in gallery_nsd_ids:
+        emb = embeddings_dict.get(nsd_id)
+        if emb is None:
+            logger.warning(f"Missing embedding for nsd{nsd_id} in gallery, skipping")
+            continue
+        gallery_embeddings_list.append(emb)
+        valid_gallery_nsd_ids.append(nsd_id)
+    
+    if len(gallery_embeddings_list) == 0:
+        raise ValueError(f"No embeddings found for gallery type '{gallery_type}'")
+    
+    gallery_embeddings = np.vstack(gallery_embeddings_list)
+    gallery_nsd_ids = np.array(valid_gallery_nsd_ids)
+    
+    # Build lookup map
+    nsd_to_gallery_idx = {nsd_id: idx for idx, nsd_id in enumerate(gallery_nsd_ids)}
+    
+    logger.info(f"✅ Gallery built: {len(gallery_nsd_ids)} embeddings (dim={gallery_embeddings.shape[1]})")
+    
+    return gallery_embeddings, gallery_nsd_ids, nsd_to_gallery_idx
+
+
+def save_histogram(values: np.ndarray, output_path: Path, title: str, xlabel: str, bins: int = 50) -> None:
+    """
+    Save histogram of values to PNG.
+    
+    Args:
+        values: Array of values to plot
+        output_path: Output path for histogram
+        title: Plot title
+        xlabel: X-axis label
+        bins: Number of bins (default: 50)
+    """
+    if len(values) == 0:
+        logger.warning(f"Empty array for histogram {output_path.name}, skipping")
+        return
+    
+    plt.figure(figsize=(8, 6))
+    plt.hist(values, bins=bins, edgecolor='black', alpha=0.7)
+    plt.xlabel(xlabel, fontsize=12)
+    plt.ylabel('Count', fontsize=12)
+    plt.title(title, fontsize=14, fontweight='bold')
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    
+    logger.info(f"✅ Histogram saved to {output_path}")
+
+
+def save_nn_jsonl(
+    nsd_ids: List[int],
+    clip_scores: np.ndarray,
+    ranks: np.ndarray,
+    similarity_matrix: np.ndarray,
+    gallery_nsd_ids: np.ndarray,
+    output_path: Path,
+    top_k: int = 10
+) -> None:
+    """
+    Save per-sample nearest neighbor information to JSONL.
+    
+    Args:
+        nsd_ids: List of sample NSD IDs
+        clip_scores: CLIPScore for each sample
+        ranks: Rank matrix (samples x gallery) sorted by similarity
+        similarity_matrix: Cosine similarity matrix (samples x gallery)
+        gallery_nsd_ids: NSD IDs in gallery
+        output_path: Output JSONL path
+        top_k: Number of top neighbors to save (default: 10)
+    """
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    with open(output_path, 'w') as f:
+        for i, nsd_id in enumerate(nsd_ids):
+            # Get top-k neighbors
+            top_k_indices = ranks[i, :top_k]
+            top_k_sims = similarity_matrix[i, top_k_indices]
+            
+            topk_list = []
+            for idx, sim in zip(top_k_indices, top_k_sims):
+                if idx < len(gallery_nsd_ids):
+                    topk_list.append({
+                        "nsdId": int(gallery_nsd_ids[idx]),
+                        "sim": float(sim)
+                    })
+            
+            record = {
+                "nsdId": int(nsd_id),
+                "clipscore": float(clip_scores[i]),
+                "rank": int(ranks[i, 0]) + 1,  # Rank of GT (1-based)
+                "topk": topk_list
+            }
+            
+            f.write(json.dumps(record) + '\n')
+    
+    logger.info(f"✅ NN JSONL saved to {output_path} ({len(nsd_ids)} samples, top-{top_k})")
+
+
+def compute_rank_histogram(ranks: np.ndarray) -> dict:
+    """
+    Compute rank histogram buckets.
+    
+    Args:
+        ranks: Array of ranks (1-based)
+    
+    Returns:
+        Dictionary with bucket counts
+    """
+    if len(ranks) == 0:
+        return {"1": 0, "2-5": 0, "6-10": 0, "11+": 0}
+    
+    valid_ranks = ranks[ranks > 0]  # Exclude invalid ranks
+    
+    return {
+        "1": int(np.sum(valid_ranks == 1)),
+        "2-5": int(np.sum((valid_ranks >= 2) & (valid_ranks <= 5))),
+        "6-10": int(np.sum((valid_ranks >= 6) & (valid_ranks <= 10))),
+        "11+": int(np.sum(valid_ranks > 10))
+    }
+
+
+def create_evaluation_grid(
+    nsd_ids: List[int],
+    gt_images: List[Image.Image],
+    nn_images: List[Image.Image],
+    gen_images: List[Image.Image],
+    clip_scores: np.ndarray,
+    nn_ranks: np.ndarray,
+    output_path: Path,
+    max_rows: int = 16
+) -> None:
+    """
+    Create visualization grid: GT | NN | Generated
+    
+    Args:
+        nsd_ids: List of NSD IDs
+        gt_images: List of ground truth images
+        nn_images: List of nearest neighbor images
+        gen_images: List of generated images
+        clip_scores: CLIPScore for each sample
+        nn_ranks: Rank of GT in retrieval for each sample
+        output_path: Output path for grid image
+        max_rows: Maximum number of rows to show
+    """
+    n_samples = min(len(nsd_ids), max_rows)
+    
+    fig = plt.figure(figsize=(15, 4 * n_samples))
+    gs = gridspec.GridSpec(n_samples, 3, figure=fig, hspace=0.3, wspace=0.1)
+    
+    for i in range(n_samples):
+        # Ground truth
+        ax_gt = fig.add_subplot(gs[i, 0])
+        ax_gt.imshow(gt_images[i])
+        ax_gt.axis('off')
+        ax_gt.set_title(f"GT (nsd{nsd_ids[i]})", fontsize=10, pad=5)
+        
+        # Nearest neighbor
+        ax_nn = fig.add_subplot(gs[i, 1])
+        ax_nn.imshow(nn_images[i])
+        ax_nn.axis('off')
+        rank_str = f"Rank: {nn_ranks[i]}" if nn_ranks[i] > 0 else "Rank: 1 (Perfect)"
+        ax_nn.set_title(f"NN Retrieval\n{rank_str}", fontsize=10, pad=5)
+        
+        # Generated
+        ax_gen = fig.add_subplot(gs[i, 2])
+        ax_gen.imshow(gen_images[i])
+        ax_gen.axis('off')
+        score_color = 'green' if clip_scores[i] > 0.5 else 'orange' if clip_scores[i] > 0.3 else 'red'
+        ax_gen.set_title(f"Generated\nCLIPScore: {clip_scores[i]:.3f}", 
+                        fontsize=10, pad=5, color=score_color)
+    
+    plt.suptitle("Reconstruction Evaluation: GT | Nearest Neighbor | Generated", 
+                fontsize=14, y=0.995)
+    
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    
+    logger.info(f"✅ Evaluation grid saved to {output_path}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Evaluate reconstructed images")
+    
+    # Data paths
+    parser.add_argument("--index-root", default="data/indices/nsd_index",
+                       help="NSD index root directory")
+    parser.add_argument("--index-file", help="Path to single index file (overrides --index-root)")
+    parser.add_argument("--subject", default="subj01", help="Subject ID")
+    
+    # Reconstruction
+    parser.add_argument("--recon-dir", required=True,
+                       help="Directory containing reconstructed images")
+    parser.add_argument("--map-csv", help="Optional CSV mapping nsdId→path")
+    
+    # CLIP cache and model
+    parser.add_argument("--clip-cache", default="outputs/clip_cache/clip.parquet",
+                       help="Path to ViT-B/32 CLIP cache (512-D)")
+    
+    # Adapter mode
+    parser.add_argument("--use-adapter", action="store_true",
+                       help="Evaluate in target CLIP space (768/1024-D)")
+    parser.add_argument("--model-id", default="stabilityai/stable-diffusion-2-1",
+                       help="Diffusion model ID for target CLIP (if --use-adapter)")
+    parser.add_argument("--target-clip", type=str, default=None,
+                       help="Optional CLIP model override for evaluating generated images (e.g., 'openai/clip-vit-large-patch14')")
+    parser.add_argument("--target-cache-dir", default="outputs/clip_cache",
+                       help="Directory for target CLIP embedding cache")
+    
+    # Output
+    parser.add_argument("--out-csv", required=True,
+                       help="Output CSV path for per-sample metrics")
+    parser.add_argument("--out-fig", required=True,
+                       help="Output image path for visualization grid")
+    parser.add_argument("--out-json", help="Optional JSON path for aggregate metrics")
+    
+    # System
+    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu",
+                       help="Device (cuda/cpu)")
+    parser.add_argument("--limit", type=int, help="Limit number of samples")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    parser.add_argument("--config", default="configs/data.yaml",
+                       help="Data config file")
+    parser.add_argument("--image-source", choices=["auto", "s3", "png", "hdf5"], default="auto",
+                       help="Source for ground truth visualization images:\n"
+                            "  'auto' - try sources in order: S3 → PNG → HDF5\n"
+                            "  's3' - AWS S3 bucket (natural-scenes-dataset)\n"
+                            "  'png' - local PNG files\n"
+                            "  'hdf5' - NSD HDF5 file (fastest, requires --nsd-hdf5)")
+    parser.add_argument("--nsd-hdf5", type=str, default=None,
+                       help="Path to NSD HDF5 file (default: NSD_HDF5 env or 'cache/nsd_hdf5/nsd_stimuli.hdf5')")
+    
+    # Retrieval gallery
+    parser.add_argument("--gallery", choices=["matched", "test", "all"], default="matched",
+                       help="Retrieval gallery type:\n"
+                            "  'matched' - only ground truth images from reconstructed samples (standard eval)\n"
+                            "  'test' - all test split ground truth images (harder)\n"
+                            "  'all' - train+val+test ground truth images (hardest, most realistic)")
+    
+    # Performance
+    parser.add_argument("--faiss", action="store_true",
+                       help="Use FAISS IndexFlatIP for fast retrieval (recommended for large galleries)")
+    
+    args = parser.parse_args()
+    
+    # Set random seeds
+    torch_seed_all(args.seed)
+    np.random.seed(args.seed)
+    
+    try:
+        logger.info("=" * 80)
+        logger.info("RECONSTRUCTION EVALUATION")
+        logger.info("=" * 80)
+        logger.info(f"Subject: {args.subject}")
+        logger.info(f"Recon dir: {args.recon_dir}")
+        logger.info(f"Adapter mode: {'ENABLED' if args.use_adapter else 'DISABLED'}")
+        if args.use_adapter:
+            logger.info(f"Target model: {args.model_id}")
+        logger.info(f"Device: {args.device}")
+        
+        # Load subject index
+        if args.index_file:
+            logger.info(f"Loading index from {args.index_file}")
+            df = pd.read_parquet(args.index_file)
+        else:
+            logger.info(f"Loading index for {args.subject} from {args.index_root}")
+            df = read_subject_index(args.index_root, args.subject)
+        
+        total_samples = len(df)
+        if args.limit and args.limit < total_samples:
+            df = df.head(args.limit)
+            logger.info(f"✓ Limiting evaluation: {len(df)} of {total_samples} samples (--limit={args.limit})")
+        else:
+            logger.info(f"✓ Evaluating {len(df)} samples")
+        
+        # Split data (same as training)
+        import yaml
+        with open(args.config) as f:
+            config = yaml.safe_load(f)
+        
+        splits_config = config.get("preprocessing", {}).get("splits", {})
+        
+        _, _, test_df = train_val_test_split(
+            df,
+            train_ratio=splits_config.get("train_ratio", 0.8),
+            val_ratio=splits_config.get("val_ratio", 0.1),
+            test_ratio=splits_config.get("test_ratio", 0.1),
+            random_seed=splits_config.get("random_seed", 42)
+        )
+        
+        test_nsd_ids = test_df["nsdId"].values
+        logger.info(f"Test set: {len(test_nsd_ids)} samples")
+        
+        # Get all NSD IDs for "all" gallery option
+        all_nsd_ids = df["nsdId"].values
+        logger.info(f"Full dataset: {len(all_nsd_ids)} samples")
+        
+        # Find reconstructed images
+        recon_dir = Path(args.recon_dir)
+        map_csv = Path(args.map_csv) if args.map_csv else None
+        
+        nsd_to_path = find_reconstructed_images(recon_dir, test_nsd_ids, map_csv)
+        
+        if len(nsd_to_path) == 0:
+            logger.error("No reconstructed images found!")
+            return 1
+        
+        if len(nsd_to_path) < len(test_nsd_ids):
+            logger.warning(f"Only found {len(nsd_to_path)}/{len(test_nsd_ids)} images")
+            logger.warning("Evaluation will be partial")
+        
+        # Filter test set to matched images
+        matched_nsd_ids = np.array(sorted(nsd_to_path.keys()))
+        logger.info(f"Evaluating {len(matched_nsd_ids)} matched samples")
+        
+        # Setup CLIP model
+        encoder = None
+        target_dim = None
+        clip_space = None
+        
+        if args.use_adapter:
+            # Check for CLIP model override
+            if args.target_clip:
+                from transformers import CLIPModel, CLIPProcessor
+                logger.info(f"⚙️  Overriding target CLIP encoder: {args.target_clip}")
+                model = CLIPModel.from_pretrained(args.target_clip).to(args.device)
+                processor = CLIPProcessor.from_pretrained(args.target_clip)
+                model.eval()
+                encoder = ImageEncoder(model, processor, "hf_clip")
+                target_dim = model.config.projection_dim
+                clip_space = f"{target_dim}-D (custom: {args.target_clip})"
+            else:
+                # Auto-detect: check GT cache dimension
+                target_cache_file = Path(args.target_cache_dir) / f"target_clip_{args.model_id.replace('/', '_')}.parquet"
+                
+                if target_cache_file.exists():
+                    # Detect GT embedding dimension
+                    try:
+                        _, gt_detected_dim = detect_embedding_col_and_dim(target_cache_file)
+                        logger.info(f"🎯 Detected GT dimension: {gt_detected_dim}-D")
+                        
+                        # If 1024-D, force OpenCLIP ViT-H/14 for generated images
+                        if gt_detected_dim == 1024:
+                            logger.info("🎯 Forcing OpenCLIP ViT-H/14 for generated images to match GT")
+                            try:
+                                import open_clip
+                                model, _, preprocess = open_clip.create_model_and_transforms(
+                                    'ViT-H-14', 
+                                    pretrained='laion2b_s32b_b79k',
+                                    device=args.device
+                                )
+                                model.eval()
+                                encoder = ImageEncoder(model, preprocess, "openclip")
+                                target_dim = 1024
+                                clip_space = "1024-D (OpenCLIP ViT-H/14 - auto-matched to GT)"
+                                logger.info(f"✅ Using OpenCLIP ViT-H/14 for encoding generated images")
+                            except ImportError:
+                                logger.warning("⚠️  open_clip not available, using HF CLIP")
+                                from transformers import CLIPModel, CLIPProcessor
+                                model = CLIPModel.from_pretrained("laion/CLIP-ViT-H-14-laion2B-s32B-b79K").to(args.device)
+                                processor = CLIPProcessor.from_pretrained("laion/CLIP-ViT-H-14-laion2B-s32B-b79K")
+                                model.eval()
+                                encoder = ImageEncoder(model, processor, "hf_clip")
+                                target_dim = 1024
+                                clip_space = "1024-D (HF CLIP ViT-H/14 - auto-matched to GT)"
+                        else:
+                            # Load from model_id
+                            encoder, target_dim, clip_space = load_target_clip_encoder(args.model_id, args.device)
+                    except Exception as e:
+                        logger.warning(f"⚠️  Could not auto-detect GT dimension: {e}")
+                        encoder, target_dim, clip_space = load_target_clip_encoder(args.model_id, args.device)
+                else:
+                    # Load from model_id
+                    encoder, target_dim, clip_space = load_target_clip_encoder(args.model_id, args.device)
+        else:
+            # Load ViT-B/32
+            clip_model, preprocess, clip_dim = load_clip_model()
+            clip_model = clip_model.to(args.device)
+            clip_model.eval()
+            clip_space = "512-D (ViT-B/32)"
+            target_dim = 512
+        
+        logger.info(f"CLIP space: {clip_space}")
+        
+        # Load ALL ground truth CLIP embeddings (for gallery)
+        # We'll load all embeddings and build a dict, then slice for matched/test/all as needed
+        all_gt_embeddings_dict = {}
+        
+        if args.use_adapter:
+            # Load target CLIP embeddings for GT images using PyArrow
+            target_cache_file = Path(args.target_cache_dir) / f"target_clip_{args.model_id.replace('/', '_')}.parquet"
+            logger.info(f"Loading ground truth embeddings from {target_cache_file}")
+            
+            if target_cache_file.exists():
+                logger.info(f"Loading target GT embeddings from {target_cache_file}")
+                
+                # Detect embedding column name and dimension
+                embed_col_name, embed_dim = detect_embedding_col_and_dim(target_cache_file)
+                logger.info(f"📊 Reading embeddings from column '{embed_col_name}' (dim={embed_dim})")
+                
+                # Read only needed columns using PyArrow
+                table = pq.read_table(target_cache_file, columns=["nsdId", embed_col_name])
+                df_target = table.to_pandas()
+                
+                # Build dict with ALL embeddings (not just matched)
+                for _, row in df_target.iterrows():
+                    nsd_id = int(row["nsdId"])
+                    # Handle both list and numpy array
+                    emb = row[embed_col_name]
+                    if not isinstance(emb, np.ndarray):
+                        emb = np.array(emb)
+                    all_gt_embeddings_dict[nsd_id] = emb
+                
+                logger.info(f"✅ Loaded {len(all_gt_embeddings_dict)} GT embeddings from cache")
+            else:
+                logger.error(f"Target CLIP cache not found: {target_cache_file}")
+                logger.error("Please run train_clip_adapter.py first to generate target embeddings")
+                return 1
+        else:
+            # Use 512-D cache - load ALL embeddings
+            logger.info(f"Loading ground truth embeddings from {args.clip_cache}")
+            clip_cache = CLIPCache(args.clip_cache).load()
+            
+            # Get all cached nsdIds
+            all_cache_nsd_ids = clip_cache.list_cached_ids()
+            all_gt_embeddings_dict = clip_cache.get(all_cache_nsd_ids)
+            logger.info(f"✅ Loaded {len(all_gt_embeddings_dict)} GT embeddings from 512-D cache")
+        
+        # Extract matched GT embeddings for CLIPScore computation
+        matched_gt_embeddings_dict = {nsd_id: all_gt_embeddings_dict[nsd_id] 
+                                      for nsd_id in matched_nsd_ids 
+                                      if nsd_id in all_gt_embeddings_dict}
+        
+        # Load and encode generated images
+        logger.info("Loading and encoding generated images...")
+        gen_images = []
+        gen_embeddings_list = []
+        valid_nsd_ids = []
+        
+        for nsd_id in matched_nsd_ids:
+            try:
+                # Load image
+                img_path = nsd_to_path[nsd_id]
+                img = Image.open(img_path).convert("RGB")
+                gen_images.append(img)
+                valid_nsd_ids.append(nsd_id)
+                
+            except Exception as e:
+                logger.warning(f"Failed to load image for nsd{nsd_id}: {e}")
+                continue
+        
+        logger.info(f"Loaded {len(gen_images)} images")
+        
+        # Encode generated images
+        logger.info("Encoding generated images...")
+        if args.use_adapter:
+            gen_embeddings = encoder.encode(gen_images, args.device)
+        else:
+            gen_embeddings = encode_images(
+                images=gen_images,
+                model=clip_model,
+                preprocess=preprocess,
+                device=args.device,
+            )
+        
+        logger.info(f"✅ Generated embeddings: {gen_embeddings.shape}")
+        
+        # Get GT embeddings in order (for CLIPScore computation)
+        gt_embeddings_list = []
+        for nsd_id in valid_nsd_ids:
+            emb = matched_gt_embeddings_dict.get(nsd_id)
+            if emb is None:
+                logger.warning(f"Missing GT embedding for nsd{nsd_id}")
+                continue
+            gt_embeddings_list.append(emb)
+        
+        gt_embeddings = np.vstack(gt_embeddings_list)
+        logger.info(f"✅ GT embeddings: {gt_embeddings.shape}")
+        
+        # Ensure same length
+        min_len = min(len(gen_embeddings), len(gt_embeddings), len(valid_nsd_ids))
+        gen_embeddings = gen_embeddings[:min_len]
+        gt_embeddings = gt_embeddings[:min_len]
+        valid_nsd_ids = valid_nsd_ids[:min_len]
+        gen_images = gen_images[:min_len]
+        
+        # Save original embeddings for ablation
+        gen_embeddings_original = gen_embeddings.copy()
+        gt_embeddings_original = gt_embeddings.copy()
+        
+        # Align CLIP spaces (handles dimension mismatch, adapter application, normalization)
+        gen_embeddings, gt_embeddings = align_clip_spaces(
+            gen_embeddings, gt_embeddings, args.use_adapter, args.subject, args.device
+        )
+        
+        # Compute CLIPScore
+        logger.info("Computing CLIPScore...")
+        clip_scores = clip_score(gen_embeddings, gt_embeddings)
+        
+        logger.info(f"CLIPScore: {clip_scores.mean():.3f} ± {clip_scores.std():.3f}")
+        logger.info(f"Min: {clip_scores.min():.3f}, Max: {clip_scores.max():.3f}")
+        
+        # Build retrieval gallery
+        logger.info("=" * 80)
+        logger.info(f"Building retrieval gallery: --gallery {args.gallery}")
+        
+        gallery_embeddings, gallery_nsd_ids, nsd_to_gallery_idx = build_retrieval_gallery(
+            gallery_type=args.gallery,
+            matched_nsd_ids=matched_nsd_ids,
+            test_nsd_ids=test_nsd_ids,
+            all_nsd_ids=all_nsd_ids,
+            embeddings_dict=all_gt_embeddings_dict,
+            device=args.device
+        )
+        
+        # Normalize gallery embeddings
+        gallery_norms = np.linalg.norm(gallery_embeddings, axis=1, keepdims=True)
+        gallery_norms[gallery_norms == 0] = 1.0  # Prevent division by zero
+        gallery_embeddings_normalized = gallery_embeddings / gallery_norms
+        
+        # Build gt_indices: for each valid_nsd_id, find its index in the gallery
+        gt_indices = []
+        retrieval_valid_mask = []
+        
+        for nsd_id in valid_nsd_ids:
+            if nsd_id in nsd_to_gallery_idx:
+                gt_indices.append(nsd_to_gallery_idx[nsd_id])
+                retrieval_valid_mask.append(True)
+            else:
+                logger.warning(f"nsd{nsd_id} not in gallery, excluding from retrieval metrics")
+                gt_indices.append(-1)  # Placeholder
+                retrieval_valid_mask.append(False)
+        
+        gt_indices = np.array(gt_indices)
+        retrieval_valid_mask = np.array(retrieval_valid_mask)
+        
+        n_retrieval_eligible = retrieval_valid_mask.sum()
+        logger.info(f"Retrieval eligible: {n_retrieval_eligible}/{len(valid_nsd_ids)} samples have GT in gallery")
+        
+        # Compute retrieval metrics (only for samples with GT in gallery)
+        if n_retrieval_eligible > 0:
+            logger.info("Computing retrieval metrics...")
+            
+            gen_embeddings_for_retrieval = gen_embeddings[retrieval_valid_mask]
+            gt_indices_for_retrieval = gt_indices[retrieval_valid_mask]
+            
+            retrieval_metrics = retrieval_at_k(
+                gen_embeddings_for_retrieval, 
+                gallery_embeddings_normalized, 
+                gt_indices_for_retrieval, 
+                ks=(1, 5, 10)
+            )
+            
+            ranking_metrics = compute_ranking_metrics(
+                gen_embeddings_for_retrieval, 
+                gallery_embeddings_normalized, 
+                gt_indices_for_retrieval
+            )
+            
+            for k, v in retrieval_metrics.items():
+                logger.info(f"{k}: {v:.4f} ({v*100:.2f}%)")
+            
+            logger.info(f"Mean rank: {ranking_metrics['mean_rank']:.2f}")
+            logger.info(f"Median rank: {ranking_metrics['median_rank']:.2f}")
+            logger.info(f"MRR: {ranking_metrics['mrr']:.4f}")
+        else:
+            logger.warning("No samples eligible for retrieval metrics!")
+            retrieval_metrics = {}
+            ranking_metrics = {}
+        
+        # Find NN ranks for visualization (use full gallery)
+        logger.info("Computing similarity for visualization...")
+        from fmri2img.eval import cosine_sim
+        
+        # Choose retrieval method: FAISS or numpy
+        if args.faiss:
+            try:
+                import faiss
+                logger.info(f"Using FAISS IndexFlatIP for retrieval (gallery size: {len(gallery_embeddings_normalized)})")
+                
+                # Build FAISS index
+                d = gallery_embeddings_normalized.shape[1]
+                index = faiss.IndexFlatIP(d)  # Inner product for normalized vectors = cosine similarity
+                index.add(gallery_embeddings_normalized.astype(np.float32))
+                
+                # Query all gen embeddings
+                k = min(len(gallery_embeddings_normalized), 100)  # Top-100 or gallery size
+                similarities, indices = index.search(gen_embeddings.astype(np.float32), k)
+                
+                # Build full similarity matrix for compatibility
+                sim = np.zeros((len(gen_embeddings), len(gallery_embeddings_normalized)), dtype=np.float32)
+                for i in range(len(gen_embeddings)):
+                    sim[i, indices[i]] = similarities[i]
+                
+                ranks = indices  # Already sorted by similarity
+                logger.info("✅ FAISS retrieval complete")
+                
+            except ImportError:
+                logger.warning("⚠️  FAISS not available, falling back to numpy")
+                args.faiss = False
+        
+        if not args.faiss:
+            # Standard numpy path
+            # Compute similarity in chunks to avoid OOM for large galleries
+            chunk_size = 10000
+            n_chunks = (len(gallery_embeddings_normalized) + chunk_size - 1) // chunk_size
+            
+            if n_chunks > 1:
+                logger.info(f"Computing similarity in {n_chunks} chunks (gallery size: {len(gallery_embeddings_normalized)})")
+            
+            sim_chunks = []
+            for chunk_idx in range(n_chunks):
+                start_idx = chunk_idx * chunk_size
+                end_idx = min((chunk_idx + 1) * chunk_size, len(gallery_embeddings_normalized))
+                
+                gallery_chunk = gallery_embeddings_normalized[start_idx:end_idx]
+                sim_chunk = cosine_sim(gen_embeddings, gallery_chunk)
+                sim_chunks.append(sim_chunk)
+                
+                if n_chunks > 1:
+                    logger.info(f"  Chunk {chunk_idx+1}/{n_chunks}: [{start_idx}:{end_idx}]")
+            
+            sim = np.concatenate(sim_chunks, axis=1)
+            ranks = np.argsort(-sim, axis=1)
+        
+        # Compute NN ranks: find where each sample's GT appears in the ranked list
+        nn_ranks = []
+        for i in range(len(gen_embeddings)):
+            if gt_indices[i] >= 0:  # Valid GT in gallery
+                gt_pos = np.where(ranks[i] == gt_indices[i])[0][0]
+                nn_ranks.append(gt_pos + 1)  # 1-based rank
+            else:
+                nn_ranks.append(-1)  # Not in gallery
+        nn_ranks = np.array(nn_ranks)
+        
+        # Load images for visualization (GT and NN)
+        logger.info("Loading images for visualization...")
+        hdf5_path = args.nsd_hdf5 or os.environ.get('NSD_HDF5', 'cache/nsd_hdf5/nsd_stimuli.hdf5')
+        png_dir = os.environ.get('NSD_PNG_DIR', 'cache/nsd_png/')
+        logger.info(f"Visualization source: {args.image_source}")
+        if args.image_source in ['auto', 'hdf5'] or (args.image_source == 'auto'):
+            logger.info(f"  HDF5 path: {hdf5_path}")
+        if args.image_source in ['auto', 'png']:
+            logger.info(f"  PNG dir: {png_dir}")
+        
+        s3_fs = get_s3_filesystem()
+        gt_images_vis = []
+        nn_images_vis = []
+        
+        for i, nsd_id in enumerate(valid_nsd_ids[:16]):  # Limit to 16 for grid
+            # Load GT image
+            gt_img = load_vis_image(nsd_id, args.image_source, s3_fs, hdf5_path)
+            gt_images_vis.append(gt_img)
+            
+            # Load NN image
+            nn_idx = ranks[i, 0]  # Top-1 retrieval from gallery
+            if nn_idx < len(gallery_nsd_ids):
+                nn_nsd_id = gallery_nsd_ids[nn_idx]
+                nn_img = load_vis_image(nn_nsd_id, args.image_source, s3_fs, hdf5_path)
+            else:
+                # Fallback to gray placeholder if out of bounds
+                nn_img = _gray_placeholder()
+            nn_images_vis.append(nn_img)
+        
+        # Create visualization grid
+        logger.info("Creating visualization grid...")
+        create_evaluation_grid(
+            valid_nsd_ids[:16],
+            gt_images_vis,
+            nn_images_vis,
+            gen_images[:16],
+            clip_scores[:16],
+            nn_ranks[:16],
+            Path(args.out_fig)
+        )
+        
+        # Save per-sample CSV
+        logger.info("Saving per-sample metrics...")
+        
+        # Compute per-sample retrieval indicators and NN info
+        r_at_1 = []
+        r_at_5 = []
+        r_at_10 = []
+        nn_nsd_ids = []
+        nn_sims = []
+        gt_sims = []
+        
+        for i, rank in enumerate(nn_ranks):
+            if rank > 0:  # Valid rank
+                r_at_1.append(1 if rank == 1 else 0)
+                r_at_5.append(1 if rank <= 5 else 0)
+                r_at_10.append(1 if rank <= 10 else 0)
+            else:
+                # Not in gallery
+                r_at_1.append(-1)
+                r_at_5.append(-1)
+                r_at_10.append(-1)
+            
+            # Top-1 NN info
+            top1_idx = ranks[i, 0]
+            if top1_idx < len(gallery_nsd_ids):
+                nn_nsd_ids.append(int(gallery_nsd_ids[top1_idx]))
+                nn_sims.append(float(sim[i, top1_idx]))
+            else:
+                nn_nsd_ids.append(-1)
+                nn_sims.append(0.0)
+            
+            # GT similarity (diagonal of gen vs matched GT)
+            gt_sims.append(float(clip_scores[i]))  # CLIPScore is already GT similarity
+        
+        # Log first 5 samples' NN info
+        logger.info("Top-1 neighbors for first 5 samples:")
+        for i in range(min(5, len(valid_nsd_ids))):
+            logger.info(f"  nsd{valid_nsd_ids[i]}: NN=nsd{nn_nsd_ids[i]}, sim={nn_sims[i]:.4f}, gt_sim={gt_sims[i]:.4f}, rank={nn_ranks[i]}")
+        
+        results_df = pd.DataFrame({
+            "nsdId": valid_nsd_ids,
+            "clipscore": clip_scores,
+            "rank": nn_ranks,
+            "r@1": r_at_1,
+            "r@5": r_at_5,
+            "r@10": r_at_10,
+            "in_gallery": [1 if r > 0 else 0 for r in nn_ranks],
+            "nn_nsdId": nn_nsd_ids,
+            "nn_sim": nn_sims,
+            "gt_sim": gt_sims,
+        })
+        
+        Path(args.out_csv).parent.mkdir(parents=True, exist_ok=True)
+        results_df.to_csv(args.out_csv, index=False)
+        logger.info(f"✅ Per-sample metrics saved to {args.out_csv}")
+        
+        # Save NN JSONL
+        nn_jsonl_path = Path(args.out_csv).parent / (Path(args.out_csv).stem + "__nn.jsonl")
+        save_nn_jsonl(
+            valid_nsd_ids,
+            clip_scores,
+            ranks,
+            sim,
+            gallery_nsd_ids,
+            nn_jsonl_path,
+            top_k=10
+        )
+        
+        # Save histograms
+        logger.info("Saving distribution plots...")
+        out_stem = Path(args.out_csv).stem
+        out_dir = Path(args.out_csv).parent
+        
+        clipscore_hist_path = out_dir / f"{out_stem}__clipscore_hist.png"
+        save_histogram(clip_scores, clipscore_hist_path, 
+                      "CLIPScore Distribution", "CLIPScore", bins=50)
+        
+        rank_hist_path = out_dir / f"{out_stem}__rank_hist.png"
+        valid_ranks_for_hist = nn_ranks[nn_ranks > 0]
+        save_histogram(valid_ranks_for_hist, rank_hist_path,
+                      "Retrieval Rank Distribution", "Rank (1-based)", bins=50)
+        
+        # Save aggregate JSON
+        aggregate_metrics = {
+            "subject": args.subject,
+            "recon_dir": str(args.recon_dir),
+            "clip_space": clip_space,
+            "clip_dim": target_dim,
+            "use_adapter": args.use_adapter,
+            "model_id": args.model_id if args.use_adapter else "ViT-B/32",
+            "n_samples": len(valid_nsd_ids),
+            "n_test_total": len(test_nsd_ids),
+            "clipscore": {
+                "mean": float(clip_scores.mean()),
+                "std": float(clip_scores.std()),
+                "min": float(clip_scores.min()),
+                "max": float(clip_scores.max()),
+            },
+            "retrieval": retrieval_metrics,
+            "ranking": ranking_metrics,
+            "gallery_size": len(gallery_nsd_ids),
+            "retrieval_eligible": int(n_retrieval_eligible),
+            "top1_mean_sim": float(np.mean(nn_sims)) if len(nn_sims) > 0 else 0.0,
+            "rank_hist": compute_rank_histogram(nn_ranks),
+        }
+        
+        # Add retrieval gallery info
+        aggregate_metrics["retrieval_gallery"] = {
+            "type": args.gallery,
+            "size": len(gallery_nsd_ids),
+            "n_eligible": int(n_retrieval_eligible),
+            "n_total": len(valid_nsd_ids),
+        }
+        
+        # Adapter ablation (if --use-adapter is on)
+        if args.use_adapter:
+            logger.info("=" * 80)
+            logger.info("Running adapter ablation (without adapter)...")
+            
+            # Recompute without adapter using fallback alignment
+            gen_embeddings_no_adapter, gt_embeddings_no_adapter = align_clip_spaces(
+                gen_embeddings_original.copy(),
+                gt_embeddings_original.copy(),
+                use_adapter=False,  # Force no adapter
+                subject=args.subject,
+                device=args.device
+            )
+            
+            # CLIPScore without adapter
+            clip_scores_no_adapter = clip_score(gen_embeddings_no_adapter, gt_embeddings_no_adapter)
+            
+            # Rebuild gallery without adapter (align all GT embeddings)
+            gallery_embeddings_no_adapter_list = []
+            for nsd_id in gallery_nsd_ids:
+                emb = all_gt_embeddings_dict.get(nsd_id)
+                if emb is not None:
+                    gallery_embeddings_no_adapter_list.append(emb)
+            
+            if len(gallery_embeddings_no_adapter_list) > 0:
+                gallery_embeddings_no_adapter = np.vstack(gallery_embeddings_no_adapter_list)
+                
+                # Align gallery without adapter
+                dummy_gen = np.zeros((1, gallery_embeddings_no_adapter.shape[1]))
+                _, gallery_aligned_no_adapter = align_clip_spaces(
+                    dummy_gen,
+                    gallery_embeddings_no_adapter,
+                    use_adapter=False,
+                    subject=args.subject,
+                    device=args.device
+                )
+                
+                # Normalize
+                gallery_norms = np.linalg.norm(gallery_aligned_no_adapter, axis=1, keepdims=True)
+                gallery_norms[gallery_norms == 0] = 1.0
+                gallery_aligned_no_adapter = gallery_aligned_no_adapter / gallery_norms
+                
+                # Compute retrieval metrics without adapter
+                from fmri2img.eval import cosine_sim
+                sim_no_adapter = cosine_sim(gen_embeddings_no_adapter, gallery_aligned_no_adapter)
+                
+                retrieval_metrics_no_adapter = retrieval_at_k(
+                    gen_embeddings_no_adapter[retrieval_valid_mask],
+                    gallery_aligned_no_adapter,
+                    gt_indices[retrieval_valid_mask],
+                    ks=(1, 5, 10)
+                )
+                
+                ranking_metrics_no_adapter = compute_ranking_metrics(
+                    gen_embeddings_no_adapter[retrieval_valid_mask],
+                    gallery_aligned_no_adapter,
+                    gt_indices[retrieval_valid_mask]
+                )
+                
+                logger.info(f"Ablation (no adapter) - CLIPScore: {clip_scores_no_adapter.mean():.3f}")
+                logger.info(f"Ablation (no adapter) - R@1: {retrieval_metrics_no_adapter.get('R@1', 0):.4f}")
+                
+                # Add to aggregate JSON
+                aggregate_metrics["ablations"] = {
+                    "with_adapter": {
+                        "clipscore": {
+                            "mean": float(clip_scores.mean()),
+                            "std": float(clip_scores.std()),
+                        },
+                        "retrieval": retrieval_metrics,
+                        "ranking": ranking_metrics,
+                    },
+                    "without_adapter": {
+                        "clipscore": {
+                            "mean": float(clip_scores_no_adapter.mean()),
+                            "std": float(clip_scores_no_adapter.std()),
+                        },
+                        "retrieval": retrieval_metrics_no_adapter,
+                        "ranking": ranking_metrics_no_adapter,
+                    }
+                }
+            else:
+                logger.warning("⚠️  Could not run adapter ablation (no gallery embeddings)")
+        
+        if args.out_json:
+            json_path = Path(args.out_json)
+        else:
+            json_path = Path(args.out_csv).parent / Path(args.out_csv).stem + ".json"
+        
+        with open(json_path, "w") as f:
+            json.dump(aggregate_metrics, f, indent=2)
+        
+        logger.info(f"✅ Aggregate metrics saved to {json_path}")
+        
+        logger.info("=" * 80)
+        logger.info("✅ Evaluation complete!")
+        logger.info(f"CSV: {args.out_csv}")
+        logger.info(f"JSON: {json_path}")
+        logger.info(f"Grid: {args.out_fig}")
+        logger.info("=" * 80)
+        
+        return 0
+        
+    except Exception as e:
+        logger.error(f"Evaluation failed: {e}", exc_info=True)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+```
+
+# scripts/rebuild_target_cache.sh
+
+```sh
+#!/bin/bash
+# Rebuild Target CLIP Cache with Fixed Dimensions
+# ================================================
+#
+# This script rebuilds the target CLIP cache to fix the dimension mismatch issue.
+# The old cache had mixed 1280-D and 1024-D embeddings, which causes adapter training to fail.
+# The fixed script ensures all embeddings are consistently 1024-D (OpenCLIP ViT-H/14).
+
+set -e  # Exit on error
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+cd "${PROJECT_ROOT}"
+
+# Activate virtual environment
+source .venv/bin/activate
+
+# Configuration
+SUBJECT="subj01"
+INDEX_ROOT="data/indices/nsd_index"
+MODEL_ID="stabilityai/stable-diffusion-2-1"
+OUTPUT="outputs/clip_cache/target_clip_stabilityai_stable_diffusion_2_1.parquet"
+BATCH_SIZE=200
+INFERENCE_BATCH_SIZE=32
+DEVICE="cuda"
+
+echo "=============================================================================="
+echo "REBUILDING TARGET CLIP CACHE (FIXED DIMENSIONS)"
+echo "=============================================================================="
+echo ""
+echo "Configuration:"
+echo "  Subject: ${SUBJECT}"
+echo "  Model: ${MODEL_ID}"
+echo "  Output: ${OUTPUT}"
+echo "  Device: ${DEVICE}"
+echo ""
+
+# Check if old cache exists
+if [ -f "${OUTPUT}" ]; then
+    echo "⚠️  Old cache found with mixed dimensions (1280-D + 1024-D)"
+    echo "   Deleting: ${OUTPUT}"
+    rm -f "${OUTPUT}"
+    echo "   ✓ Deleted"
+    echo ""
+fi
+
+# Create output directory
+mkdir -p "$(dirname "${OUTPUT}")"
+
+# Create logs directory
+LOG_DIR="logs/clip_cache"
+mkdir -p "${LOG_DIR}"
+LOG_FILE="${LOG_DIR}/rebuild_target_cache_$(date +%Y%m%d_%H%M%S).log"
+
+echo "Starting rebuild..."
+echo "Log file: ${LOG_FILE}"
+echo ""
+
+# Run the fixed script
+python scripts/build_target_clip_cache_robust.py \
+    --subject "${SUBJECT}" \
+    --index-root "${INDEX_ROOT}" \
+    --model-id "${MODEL_ID}" \
+    --output "${OUTPUT}" \
+    --batch-size ${BATCH_SIZE} \
+    --inference-batch-size ${INFERENCE_BATCH_SIZE} \
+    --device "${DEVICE}" \
+    2>&1 | tee "${LOG_FILE}"
+
+EXIT_CODE=$?
+
+echo ""
+echo "=============================================================================="
+
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "✅ TARGET CACHE REBUILT SUCCESSFULLY!"
+    echo ""
+    echo "Verifying dimensions..."
+    python scripts/check_target_cache_dimensions.py "${OUTPUT}"
+    
+    VERIFY_EXIT=$?
+    if [ $VERIFY_EXIT -eq 0 ]; then
+        echo ""
+        echo "✅ All embeddings have consistent 1024-D dimension!"
+        echo ""
+        echo "Next steps:"
+        echo "  1. Train adapter with the fixed cache:"
+        echo "     python scripts/train_clip_adapter.py \\"
+        echo "         --checkpoint checkpoints/mlp/subj01/mlp.pt \\"
+        echo "         --clip-cache outputs/clip_cache/subj01_clip512.parquet \\"
+        echo "         --target-cache ${OUTPUT} \\"
+        echo "         --output checkpoints/adapter/subj01/adapter.pt \\"
+        echo "         --hidden 1536 \\"
+        echo "         --use-layernorm \\"
+        echo "         --device cuda"
+        echo ""
+        echo "  2. Or rerun the full pipeline (it will skip completed steps):"
+        echo "     bash scripts/run_production.sh --config configs/production_optimal.yaml"
+    else
+        echo ""
+        echo "❌ Verification failed - cache still has dimension issues"
+    fi
+else
+    echo "❌ REBUILD FAILED"
+    echo "   Check log file: ${LOG_FILE}"
+fi
+
+echo "=============================================================================="
+
+exit $EXIT_CODE
+
+```
+
+# scripts/run_production.sh
+
+```sh
+#!/bin/bash
+# filepath: scripts/run_production.sh
+# OPTIMAL PRODUCTION PIPELINE - Scientifically Configured for Maximum Performance
+#
+# Configuration: configs/production_optimal.yaml
+# Documentation: docs/OPTIMAL_CONFIGURATION_GUIDE.md
+#
+# Features:
+# - Loads all parameters from YAML configuration
+# - Complete scientific documentation and traceability
+# - Automatic resume from checkpoints
+# - Robust error handling with fallbacks
+# - Comprehensive logging and reporting
+#
+# Usage:
+#   bash scripts/run_production.sh [--config configs/custom.yaml]
+#
+# Expected Performance (750 samples):
+#   Cosine Similarity: 0.62 (+15% over baseline 0.5365)
+#   Retrieval@1: 8%, Retrieval@5: 25%
+#
+# Data Constraint: Only 750 of 9000 samples valid due to beta file size
+# See: docs/OPTIMAL_CONFIGURATION_GUIDE.md for full details
+
+set -e  # Exit on any error
+
+# ==============================================================================
+# Activate Virtual Environment
+# ==============================================================================
+if [ -z "$VIRTUAL_ENV" ]; then
+    echo "⚠️  Virtual environment not activated!"
+    if [ -f ".venv/bin/activate" ]; then
+        echo "   Activating .venv..."
+        source .venv/bin/activate
+    else
+        echo "❌ .venv not found. Please run:"
+        echo "   python3 -m venv .venv"
+        echo "   source .venv/bin/activate"
+        echo "   pip install -e ."
+        exit 1
+    fi
+fi
+
+# Use python from activated environment
+PYTHON="python"
+
+# ==============================================================================
+# Configuration Loading
+# ==============================================================================
+# Default config file
+CONFIG_FILE="configs/production_optimal.yaml"
+
+# Allow custom config via command line
+if [ "$1" == "--config" ] && [ -n "$2" ]; then
+    CONFIG_FILE="$2"
+    echo "📋 Using custom configuration: ${CONFIG_FILE}"
+fi
+
+# Verify config exists
+if [ ! -f "${CONFIG_FILE}" ]; then
+    echo "❌ Configuration file not found: ${CONFIG_FILE}"
+    echo "   Please ensure configs/production_optimal.yaml exists"
+    exit 1
+fi
+
+echo "📋 Loading configuration from: ${CONFIG_FILE}"
+echo ""
+
+# Parse YAML config using Python - write to temp file for reliable loading
+TEMP_CONFIG_VARS=$(mktemp)
+$PYTHON << PYEOF > "${TEMP_CONFIG_VARS}"
+import yaml
+import sys
+
+try:
+    with open('${CONFIG_FILE}') as f:
+        cfg = yaml.safe_load(f)
+
+    # Extract all parameters with safe defaults
+    ds = cfg.get('dataset', {})
+    pp = cfg.get('preprocessing', {})
+    mlp = cfg.get('mlp_encoder', {})
+    ada = cfg.get('clip_adapter', {})
+    dif = cfg.get('diffusion', {})
+    cmp = cfg.get('compute', {})
+    rep = cfg.get('reproducibility', {})
+
+    # Parse as bash variable assignments
+    print(f"SUBJECT='{ds.get('subject', 'subj01')}'")
+    print(f"MAX_TRIALS={ds.get('max_trials', 30000)}")
+    print(f"TRAIN_SAMPLES={ds.get('train_samples', 24000)}")
+    print(f"VAL_SAMPLES={ds.get('val_samples', 3000)}")
+    print(f"TEST_SAMPLES={ds.get('test_samples', 3000)}")
+    print(f"RELIABILITY_THR={pp.get('reliability_threshold', 0.1)}")
+    print(f"PCA_K={pp.get('tier2', {}).get('n_components', 3)}")
+    
+    # For MLP hidden - handle both single and multi-layer configs
+    mlp_hidden_list = mlp.get('hidden_dims', [2048, 2048, 1024])
+    if isinstance(mlp_hidden_list, list):
+        mlp_hidden_str = ','.join(map(str, mlp_hidden_list))
+    else:
+        mlp_hidden_str = str(mlp_hidden_list)
+    print(f"MLP_HIDDEN='{mlp_hidden_str}'")  # Quote string to preserve commas
+    print(f"MLP_INPUT_DIM={mlp.get('input_dim', 3)}")  # NEW: Track input dim
+    print(f"MLP_DROPOUT={mlp.get('dropout', 0.2)}")
+    
+    mlp_train = mlp.get('training', {})
+    print(f"MLP_LR={mlp_train.get('learning_rate', 0.0001)}")
+    print(f"MLP_WD={mlp_train.get('weight_decay', 0.0001)}")
+    print(f"MLP_BATCH={mlp_train.get('batch_size', 256)}")
+    print(f"MLP_EPOCHS={mlp_train.get('epochs', 50)}")
+    print(f"MLP_PATIENCE={mlp_train.get('patience', 15)}")
+    
+    mlp_loss = mlp.get('loss', {})
+    print(f"MLP_MSE_WEIGHT={mlp_loss.get('mse_weight', 0.3)}")
+    print(f"MLP_TRIPLET_WEIGHT={mlp_loss.get('triplet_weight', 0.2)}")
+    
+    # For adapter hidden - handle both single and multi-layer configs
+    ada_hidden_list = ada.get('hidden_dims', [1536, 1536])
+    if isinstance(ada_hidden_list, list):
+        ada_hidden_str = ','.join(map(str, ada_hidden_list))
+    else:
+        ada_hidden_str = str(ada_hidden_list)
+    print(f"ADAPTER_HIDDEN='{ada_hidden_str}'")  # Quote string to preserve commas
+    print(f"ADAPTER_DROPOUT={ada.get('dropout', 0.2)}")
+    
+    ada_train = ada.get('training', {})
+    print(f"ADAPTER_LR={ada_train.get('learning_rate', 0.0003)}")
+    print(f"ADAPTER_BATCH={ada_train.get('batch_size', 128)}")
+    print(f"ADAPTER_EPOCHS={ada_train.get('epochs', 50)}")
+    print(f"ADAPTER_PATIENCE={ada_train.get('patience', 12)}")
+    
+    dif_inf = dif.get('inference', {})
+    print(f"MODEL_ID='{dif.get('model_id', 'stabilityai/stable-diffusion-2-1')}'")
+    print(f"DIFF_STEPS={dif_inf.get('num_steps', 150)}")
+    print(f"GUIDANCE={dif_inf.get('guidance_scale', 11.0)}")
+    print(f"DTYPE='{dif_inf.get('dtype', 'float16')}'")
+    print(f"SCHEDULER='{dif_inf.get('scheduler', 'ddim')}'")
+    print(f"ETA={dif_inf.get('eta', 0.0)}")
+    
+    ada_blend = ada.get('blending', {})
+    print(f"BLEND_ALPHA={ada_blend.get('alpha', 0.8)}")
+    
+    print(f"DEVICE='{cmp.get('device', 'cuda')}'")
+    print(f"RANDOM_SEED={rep.get('seed', 42)}")
+
+except Exception as e:
+    print(f"echo 'Error parsing config: {e}' >&2", file=sys.stderr)
+    print("exit 1")
+    sys.exit(1)
+PYEOF
+
+# Source the variables
+source "${TEMP_CONFIG_VARS}"
+rm -f "${TEMP_CONFIG_VARS}"
+
+SUBJECT_NUM=$(echo "$SUBJECT" | sed 's/subj//g' | sed 's/^0*//')
+
+echo "✅ Configuration loaded successfully:"
+echo "   Subject: ${SUBJECT} (#${SUBJECT_NUM})"
+echo "   Valid samples: ${MAX_TRIALS} (train=${TRAIN_SAMPLES}, val=${VAL_SAMPLES}, test=${TEST_SAMPLES})"
+echo "   Preprocessing: reliability=${RELIABILITY_THR}, PCA k=${PCA_K}"
+echo "   MLP: input_dim=${MLP_INPUT_DIM}, hidden=${MLP_HIDDEN}, dropout=${MLP_DROPOUT}, lr=${MLP_LR}"
+echo "   Adapter: hidden=${ADAPTER_HIDDEN}, lr=${ADAPTER_LR}"
+echo "   Diffusion: ${MODEL_ID}, steps=${DIFF_STEPS}, guidance=${GUIDANCE}, scheduler=${SCHEDULER}"
+echo "   Device: ${DEVICE}, Seed: ${RANDOM_SEED}"
+echo ""
+
+# ==============================================================================
+# CRITICAL VALIDATION: Warn if using low PCA k
+# ==============================================================================
+if [ "$PCA_K" -lt 50 ]; then
+    echo "⚠️⚠️⚠️  WARNING: PCA k=${PCA_K} is very low! ⚠️⚠️⚠️"
+    echo ""
+    echo "   Low k loses massive amounts of voxel information:"
+    echo "   • k=3:   Retains only 0.01% of variance (370k voxels → 3 features)"
+    echo "   • k=100: Retains ~5-10% of variance (370k voxels → 100 features)"
+    echo ""
+    echo "   Expected impact on quality:"
+    echo "   • k=3:   Cosine similarity ~0.70-0.75 (current baseline)"
+    echo "   • k=50:  Cosine similarity ~0.75-0.80 (+7-14% improvement)"
+    echo "   • k=100: Cosine similarity ~0.80-0.85 (+14-21% improvement)"
+    echo ""
+    echo "   RECOMMENDATION: Use k=50 or higher for production"
+    echo "   See: docs/ARCHITECTURE_IMPROVEMENTS.md for details"
+    echo ""
+    
+    # Give user option to abort
+    echo "   Press Ctrl+C within 10 seconds to abort and change config..."
+    sleep 10
+fi
+echo ""
+
+# ==============================================================================
+# Paths (derived from configuration)
+# ==============================================================================
+INDEX_DIR="data/indices/nsd_index"
+INDEX_FILE="${INDEX_DIR}/subject=${SUBJECT}/index.parquet"
+CACHE_DIR="outputs/clip_cache"
+CLIP_CACHE="${CACHE_DIR}/${SUBJECT}_clip512.parquet"
+TARGET_CACHE_DIR="${CACHE_DIR}"
+CKPT_DIR="checkpoints"
+PREPROC_DIR="outputs/preproc/${SUBJECT}"
+RECON_DIR="outputs/recon/${SUBJECT}/production_optimal"
+REPORT_DIR="outputs/reports/${SUBJECT}"
+LOG_DIR="logs"
+
+# Sanitize model ID for filename
+MODEL_SLUG=$(echo ${MODEL_ID} | tr '/' '_' | tr '-' '_')
+TARGET_CACHE="${TARGET_CACHE_DIR}/target_clip_${MODEL_SLUG}.parquet"
+
+# Create output directories
+mkdir -p "${INDEX_DIR}/subject=${SUBJECT}"
+mkdir -p "${CACHE_DIR}"
+mkdir -p "${CKPT_DIR}/mlp/${SUBJECT}"
+mkdir -p "${CKPT_DIR}/clip_adapter/${SUBJECT}"
+mkdir -p "${PREPROC_DIR}"
+mkdir -p "${RECON_DIR}"
+mkdir -p "${REPORT_DIR}"
+mkdir -p "${LOG_DIR}"
+
+# ==============================================================================
+# Helper Functions
+# ==============================================================================
+print_header() {
+    echo ""
+    echo "================================================================================"
+    echo "  $1"
+    echo "================================================================================"
+}
+
+print_step() {
+    echo ""
+    echo "📍 $1"
+    echo "--------------------------------------------------------------------------------"
+}
+
+check_success() {
+    if [ $? -eq 0 ]; then
+        echo "✅ Success!"
+        return 0
+    else
+        echo "❌ Failed! Exiting..."
+        exit 1
+    fi
+}
+
+log_config_to_file() {
+    local log_file="$1"
+    cat >> "${log_file}" << EOF
+
+================================================================================
+CONFIGURATION SNAPSHOT
+================================================================================
+Configuration File: ${CONFIG_FILE}
+Timestamp: $(date '+%Y-%m-%d %H:%M:%S')
+
+Dataset:
+  Subject: ${SUBJECT} (#${SUBJECT_NUM})
+  Max Trials: ${MAX_TRIALS}
+  Train/Val/Test: ${TRAIN_SAMPLES}/${VAL_SAMPLES}/${TEST_SAMPLES}
+  Random Seed: ${RANDOM_SEED}
+
+Preprocessing:
+  Reliability Threshold: ${RELIABILITY_THR}
+  PCA Components: ${PCA_K}
+
+MLP Encoder:
+  Hidden Layers: ${MLP_HIDDEN}
+  Dropout: ${MLP_DROPOUT}
+  Learning Rate: ${MLP_LR}
+  Weight Decay: ${MLP_WD}
+  Batch Size: ${MLP_BATCH}
+  Epochs: ${MLP_EPOCHS}
+  Patience: ${MLP_PATIENCE}
+  Loss Weights: cosine=0.5, mse=${MLP_MSE_WEIGHT}, triplet=${MLP_TRIPLET_WEIGHT}
+
+CLIP Adapter:
+  Hidden Layers: ${ADAPTER_HIDDEN}
+  Dropout: ${ADAPTER_DROPOUT}
+  Learning Rate: ${ADAPTER_LR}
+  Batch Size: ${ADAPTER_BATCH}
+  Epochs: ${ADAPTER_EPOCHS}
+  Patience: ${ADAPTER_PATIENCE}
+
+Diffusion:
+  Model: ${MODEL_ID}
+  Steps: ${DIFF_STEPS}
+  Guidance Scale: ${GUIDANCE}
+  Scheduler: ${SCHEDULER}
+  Eta: ${ETA}
+  Dtype: ${DTYPE}
+
+Compute:
+  Device: ${DEVICE}
+
+Paths:
+  Index: ${INDEX_FILE}
+  CLIP Cache: ${CLIP_CACHE}
+  Target Cache: ${TARGET_CACHE}
+  Checkpoints: ${CKPT_DIR}
+  Outputs: ${RECON_DIR}
+================================================================================
+
+EOF
+}
+
+# ==============================================================================
+# Main Pipeline
+# ==============================================================================
+print_header "🚀 OPTIMAL PRODUCTION PIPELINE - SCIENTIFICALLY CONFIGURED"
+echo "Configuration: ${CONFIG_FILE}"
+echo "Documentation: docs/OPTIMAL_CONFIGURATION_GUIDE.md"
+echo ""
+echo "Expected Performance (with ${MAX_TRIALS} samples):"
+echo "  Cosine Similarity: 0.62 (+15.4% vs baseline 0.5365)"
+echo "  Retrieval@1: 8%"
+echo "  Retrieval@5: 25%"
+echo ""
+echo "⚠️  Data Constraint: Using ${MAX_TRIALS} valid samples (out of 9000 total)"
+echo "   Beta files only contain 750 volumes (indices 0-749)"
+echo "   See docs/OPTIMAL_CONFIGURATION_GUIDE.md for details"
+print_header ""
+
+# Create master log file
+MASTER_LOG="${LOG_DIR}/production_optimal_$(date +%Y%m%d_%H%M%S).log"
+touch "${MASTER_LOG}"
+log_config_to_file "${MASTER_LOG}"
+echo "📝 Master log: ${MASTER_LOG}"
+echo ""
+
+# ==============================================================================
+# STEP 1: Build NSD Index
+# ==============================================================================
+print_header "STEP 1/8: Building NSD Index"
+
+# Check if index exists and is valid
+if [ -f "${INDEX_FILE}" ]; then
+    INDEX_ROWS=$($PYTHON -c "import pandas as pd; df=pd.read_parquet('${INDEX_FILE}'); print(len(df))")
+    INDEX_SESSIONS=$($PYTHON -c "import pandas as pd; df=pd.read_parquet('${INDEX_FILE}'); print(df['session'].nunique())")
+    MAX_BETA_IDX=$($PYTHON -c "import pandas as pd; df=pd.read_parquet('${INDEX_FILE}'); print(df['beta_index'].max())")
+    
+    if [ "${INDEX_ROWS}" -eq 30000 ] && [ "${INDEX_SESSIONS}" -eq 40 ] && [ "${MAX_BETA_IDX}" -lt 750 ]; then
+        echo "✅ Valid index already exists: ${INDEX_FILE}"
+        echo "   Rows: ${INDEX_ROWS}, Sessions: ${INDEX_SESSIONS}, Max beta_index: ${MAX_BETA_IDX}"
+        echo "   Skipping index building..."
+        echo "[$(date '+%H:%M:%S')] Using existing valid index" | tee -a "${MASTER_LOG}"
+    else
+        echo "⚠️  Index exists but is INVALID!"
+        echo "   Rows: ${INDEX_ROWS}, Sessions: ${INDEX_SESSIONS}, Max beta_index: ${MAX_BETA_IDX}"
+        echo "   Rebuilding with build_full_index.py..."
+        
+        $PYTHON scripts/build_full_index.py \
+            --subject "${SUBJECT}" \
+            --output "${INDEX_FILE}" \
+            2>&1 | tee "${LOG_DIR}/index/${SUBJECT}_rebuild.log"
+        
+        check_success
+    fi
+else
+    print_step "Creating directories..."
+    mkdir -p "${INDEX_DIR}/subject=${SUBJECT}"
+    mkdir -p "${LOG_DIR}/index"
+
+    print_step "Building index with real behavioral data from all ${MAX_TRIALS} sessions..."
+    
+    $PYTHON scripts/build_full_index.py \
+        --subject "${SUBJECT}" \
+        --output "${INDEX_FILE}" \
+        2>&1 | tee "${LOG_DIR}/index/${SUBJECT}_build.log"
+
+    check_success
+fi
+
+# Verify index was created
+if [ ! -f "${INDEX_FILE}" ]; then
+    echo "❌ Index file not found at: ${INDEX_FILE}"
+    exit 1
+fi
+
+INDEX_ROWS=$($PYTHON -c "import pandas as pd; print(len(pd.read_parquet('${INDEX_FILE}')))")
+echo "✅ Index created with ${INDEX_ROWS} rows"
+
+# Log to master
+echo "[$(date '+%H:%M:%S')] Index built: ${INDEX_ROWS} samples" | tee -a "${MASTER_LOG}"
+
+# ==============================================================================
+# STEP 2: Build CLIP Cache (512-D)
+# ==============================================================================
+print_header "STEP 2/8: Building CLIP Cache (512-D ViT-B/32)"
+
+mkdir -p "${CACHE_DIR}"
+mkdir -p "${LOG_DIR}/clip_cache"
+
+$PYTHON scripts/build_clip_cache.py \
+    --subject "${SUBJECT}" \
+    --cache "${CLIP_CACHE}" \
+    --index-file "${INDEX_FILE}" \
+    --batch-size 128 \
+    --device "${DEVICE}" \
+    --include-ids \
+    --log-file "${LOG_DIR}/clip_cache/${SUBJECT}_build.log"
+
+check_success
+
+# Verify cache
+CACHE_ROWS=$($PYTHON -c "import pandas as pd; print(len(pd.read_parquet('${CLIP_CACHE}')))")
+echo "✅ CLIP cache created with ${CACHE_ROWS} embeddings"
+echo "[$(date '+%H:%M:%S')] CLIP cache built: ${CACHE_ROWS} embeddings" | tee -a "${MASTER_LOG}"
+
+# ==============================================================================
+# STEP 3: Train MLP Encoder (fMRI → 512-D CLIP)
+# ==============================================================================
+print_header "STEP 3/8: Training MLP Encoder (OPTIMAL CONFIGURATION)"
+
+mkdir -p "${CKPT_DIR}/mlp/${SUBJECT}"
+mkdir -p "${REPORT_DIR}/mlp"
+mkdir -p "${LOG_DIR}/mlp/${SUBJECT}"
+
+# Check if checkpoint already exists
+if [ -f "${CKPT_DIR}/mlp/${SUBJECT}/mlp.pt" ] || [ -f "${CKPT_DIR}/mlp/${SUBJECT}/mlp_encoder.pt" ]; then
+    echo "⚠️  MLP checkpoint already exists. Skipping training."
+    echo "   To retrain, delete checkpoints/mlp/${SUBJECT}/*.pt"
+else
+    print_step "Training MLP with OPTIMAL ARCHITECTURE"
+    echo "   Config: ${CONFIG_FILE}"
+    echo "   Hidden layers: ${MLP_HIDDEN}"
+    echo "   Dropout: ${MLP_DROPOUT}"
+    echo "   Learning Rate: ${MLP_LR}"
+    echo "   Batch Size: ${MLP_BATCH}"
+    echo "   Epochs: ${MLP_EPOCHS} (early stopping: patience=${MLP_PATIENCE})"
+    echo "   Loss: cosine(0.5) + mse(${MLP_MSE_WEIGHT}) + triplet(${MLP_TRIPLET_WEIGHT})"
+    echo ""
+    echo "⏱️  Estimated time: ~20-30 minutes for ${TRAIN_SAMPLES} samples"
+    echo ""
+    
+    # Log training start
+    echo "[$(date '+%H:%M:%S')] MLP training started" | tee -a "${MASTER_LOG}"
+    log_config_to_file "${LOG_DIR}/mlp/${SUBJECT}_train.log"
+
+    $PYTHON scripts/train_mlp.py \
+        --subject "${SUBJECT}" \
+        --index-file "${INDEX_FILE}" \
+        --clip-cache "${CLIP_CACHE}" \
+        --checkpoint-dir "${CKPT_DIR}/mlp/${SUBJECT}" \
+        --report-dir "${REPORT_DIR}/mlp" \
+        --use-preproc \
+        --hidden ${MLP_HIDDEN} \
+        --dropout "${MLP_DROPOUT}" \
+        --lr "${MLP_LR}" \
+        --wd "${MLP_WD}" \
+        --batch-size "${MLP_BATCH}" \
+        --epochs "${MLP_EPOCHS}" \
+        --patience "${MLP_PATIENCE}" \
+        --mse-weight "${MLP_MSE_WEIGHT}" \
+        --pca-k "${PCA_K}" \
+        --device "${DEVICE}" \
+        --seed "${RANDOM_SEED}" \
+        --limit "${MAX_TRIALS}" \
+        2>&1 | tee -a "${LOG_DIR}/mlp/${SUBJECT}_train.log"
+
+    check_success
+    echo "[$(date '+%H:%M:%S')] MLP training completed" | tee -a "${MASTER_LOG}"
+fi
+
+# Find the best model checkpoint
+if [ -f "${CKPT_DIR}/mlp/${SUBJECT}/mlp_encoder.pt" ]; then
+    MLP_CKPT="${CKPT_DIR}/mlp/${SUBJECT}/mlp_encoder.pt"
+elif [ -f "${CKPT_DIR}/mlp/${SUBJECT}/best_encoder.pt" ]; then
+    MLP_CKPT="${CKPT_DIR}/mlp/${SUBJECT}/best_encoder.pt"
+elif [ -f "${CKPT_DIR}/mlp/${SUBJECT}/mlp.pt" ]; then
+    MLP_CKPT="${CKPT_DIR}/mlp/${SUBJECT}/mlp.pt"
+else
+    echo "❌ MLP checkpoint not found in ${CKPT_DIR}/mlp/${SUBJECT}/"
+    ls -lh "${CKPT_DIR}/mlp/${SUBJECT}/" || echo "Directory doesn't exist"
+    exit 1
+fi
+echo "✅ MLP checkpoint: ${MLP_CKPT}"
+echo "[$(date '+%H:%M:%S')] MLP checkpoint: ${MLP_CKPT}" >> "${MASTER_LOG}"
+
+# ==============================================================================
+# STEP 4: Build Target CLIP Cache (1024-D for SD-2.1) - ROBUST
+# ==============================================================================
+print_header "STEP 4/8: Building Target CLIP Cache (1024-D)"
+
+mkdir -p "${TARGET_CACHE_DIR}"
+
+# Sanitize model ID for filename
+MODEL_SLUG=$(echo ${MODEL_ID} | tr '/' '_' | tr '-' '_')
+TARGET_CACHE="${TARGET_CACHE_DIR}/target_clip_${MODEL_SLUG}.parquet"
+
+# Check if cache exists and is complete
+TARGET_CACHE_COMPLETE=false
+if [ -f "${TARGET_CACHE}" ]; then
+    CACHE_SIZE=$($PYTHON -c "import pandas as pd; print(len(pd.read_parquet('${TARGET_CACHE}')))")
+    if [ "${CACHE_SIZE}" -ge "${MAX_TRIALS}" ]; then
+        echo "✅ Target cache exists and is complete (${CACHE_SIZE} embeddings)"
+        TARGET_CACHE_COMPLETE=true
+    else
+        echo "⚠️  Target cache exists but incomplete (${CACHE_SIZE}/${MAX_TRIALS} embeddings)"
+        echo "   Will resume building..."
+    fi
+fi
+
+# Build/resume target cache using robust builder
+if [ "${TARGET_CACHE_COMPLETE}" = false ]; then
+    if [ -f "scripts/build_target_clip_cache_robust.py" ]; then
+        print_step "Building target CLIP cache robustly (HDF5 with fallback to HTTP)..."
+        $PYTHON scripts/build_target_clip_cache_robust.py \
+            --subject "${SUBJECT}" \
+            --index-root "${INDEX_DIR}" \
+            --model-id "${MODEL_ID}" \
+            --output "${TARGET_CACHE}" \
+            --batch-size 200 \
+            --inference-batch-size 32 \
+            --device "${DEVICE}" \
+            2>&1 | tee "${LOG_DIR}/clip_cache/${SUBJECT}_target_robust.log"
+        
+        if [ $? -eq 0 ]; then
+            check_success
+        else
+            echo "⚠️  Robust cache building failed, trying fallback method..."
+            
+            # Fallback: Try with HDF5 (faster but may fail)
+            if [ -f "scripts/build_target_clip_cache.py" ]; then
+                $PYTHON scripts/build_target_clip_cache.py \
+                    --subject "${SUBJECT}" \
+                    --index-dir "${INDEX_DIR}" \
+                    --out "${TARGET_CACHE}" \
+                    --model-id "${MODEL_ID}" \
+                    --batch-size 64 \
+                    --source hdf5 \
+                    2>&1 | tee "${LOG_DIR}/clip_cache/${SUBJECT}_target_fallback.log" || true
+            fi
+        fi
+    else
+        echo "⚠️  build_target_clip_cache_robust.py not found"
+        echo "   Will attempt adapter training without pre-built cache (slower)"
+    fi
+fi
+
+# Verify final cache
+if [ -f "${TARGET_CACHE}" ]; then
+    TARGET_ROWS=$($PYTHON -c "import pandas as pd; print(len(pd.read_parquet('${TARGET_CACHE}')))")
+    echo "✅ Target cache has ${TARGET_ROWS} embeddings"
+    
+    # Check if sufficient
+    MIN_REQUIRED=$((MAX_TRIALS * 80 / 100))  # At least 80%
+    if [ "${TARGET_ROWS}" -lt "${MIN_REQUIRED}" ]; then
+        echo "⚠️  Target cache incomplete (${TARGET_ROWS}/${MAX_TRIALS})"
+        echo "   Adapter training may be slower but will continue"
+    fi
+fi
+
+# ==============================================================================
+# STEP 5: Train CLIP Adapter (512-D → 1024-D) - SMART
+# ==============================================================================
+print_header "STEP 5/8: Training CLIP Adapter (OPTIMAL CONFIGURATION)"
+
+mkdir -p "${CKPT_DIR}/clip_adapter/${SUBJECT}"
+mkdir -p "${LOG_DIR}/clip_adapter/${SUBJECT}"
+
+ADAPTER_CKPT=""
+USE_ADAPTER=false
+SKIP_ADAPTER_TRAIN=false
+
+# Check if adapter already exists
+if [ -f "${CKPT_DIR}/clip_adapter/${SUBJECT}/adapter.pt" ]; then
+    ADAPTER_CKPT="${CKPT_DIR}/clip_adapter/${SUBJECT}/adapter.pt"
+    USE_ADAPTER=true
+    echo "✅ Found existing adapter: ${ADAPTER_CKPT}"
+    SKIP_ADAPTER_TRAIN=true
+elif [ -f "${CKPT_DIR}/clip_adapter/${SUBJECT}/best_adapter.pt" ]; then
+    ADAPTER_CKPT="${CKPT_DIR}/clip_adapter/${SUBJECT}/best_adapter.pt"
+    USE_ADAPTER=true
+    echo "✅ Found existing adapter: ${ADAPTER_CKPT}"
+    SKIP_ADAPTER_TRAIN=true
+fi
+
+# Train adapter if needed
+if [ "${SKIP_ADAPTER_TRAIN}" = false ] && [ -f "scripts/train_clip_adapter.py" ]; then
+    print_step "Training CLIP adapter: 512-D → 1024-D"
+    echo "   Config: ${CONFIG_FILE}"
+    echo "   Hidden layers: ${ADAPTER_HIDDEN}"
+    echo "   Dropout: ${ADAPTER_DROPOUT}"
+    echo "   Learning Rate: ${ADAPTER_LR}"
+    echo "   Batch Size: ${ADAPTER_BATCH}"
+    echo "   Epochs: ${ADAPTER_EPOCHS} (patience=${ADAPTER_PATIENCE})"
+    echo ""
+    
+    # Log training start
+    echo "[$(date '+%H:%M:%S')] Adapter training started" | tee -a "${MASTER_LOG}"
+    log_config_to_file "${LOG_DIR}/clip_adapter/${SUBJECT}_train.log"
+    
+    # Determine if we have sufficient target cache
+    CACHE_SUFFICIENT=false
+    if [ -f "${TARGET_CACHE}" ]; then
+        CACHE_ROWS=$($PYTHON -c "import pandas as pd; print(len(pd.read_parquet('${TARGET_CACHE}')))" 2>/dev/null || echo "0")
+        MIN_REQUIRED=$((MAX_TRIALS * 50 / 100))  # At least 50% for training
+        if [ "${CACHE_ROWS}" -ge "${MIN_REQUIRED}" ]; then
+            CACHE_SUFFICIENT=true
+            echo "   Target cache sufficient: ${CACHE_ROWS} embeddings"
+        else
+            echo "   ⚠️  Target cache insufficient: ${CACHE_ROWS}/${MIN_REQUIRED} minimum"
+        fi
+    fi
+    
+    # Train with appropriate strategy
+    if [ "${CACHE_SUFFICIENT}" = true ]; then
+        # Fast training with pre-built cache
+        echo "   Strategy: Using pre-built target cache (fast)"
+        ADAPTER_TRAIN_CMD="$PYTHON scripts/train_clip_adapter.py \
+            --clip-cache ${CLIP_CACHE} \
+            --out ${CKPT_DIR}/clip_adapter/${SUBJECT}/adapter.pt \
+            --model-id ${MODEL_ID} \
+            --epochs ${ADAPTER_EPOCHS} \
+            --batch-size ${ADAPTER_BATCH} \
+            --lr ${ADAPTER_LR} \
+            --patience ${ADAPTER_PATIENCE} \
+            --use-layernorm \
+            --device ${DEVICE} \
+            --seed ${RANDOM_SEED}"
+    else
+        # Slow training with on-the-fly computation (robust but slow)
+        echo "   Strategy: Computing target embeddings on-the-fly (slow but robust)"
+        echo "   Note: This will take significantly longer..."
+        
+        # Use smaller sample for faster training if cache is very incomplete
+        ADAPTER_TRAIN_CMD="$PYTHON scripts/train_clip_adapter.py \
+            --clip-cache ${CLIP_CACHE} \
+            --out ${CKPT_DIR}/clip_adapter/${SUBJECT}/adapter.pt \
+            --model-id ${MODEL_ID} \
+            --epochs ${ADAPTER_EPOCHS} \
+            --batch-size 64 \
+            --lr ${ADAPTER_LR} \
+            --patience ${ADAPTER_PATIENCE} \
+            --use-layernorm \
+            --device ${DEVICE} \
+            --limit ${MAX_TRIALS} \
+            --seed ${RANDOM_SEED}"
+        
+        echo "   Using all ${MAX_TRIALS} samples for adapter training"
+    fi
+    
+    # Execute training
+    eval ${ADAPTER_TRAIN_CMD} 2>&1 | tee -a "${LOG_DIR}/clip_adapter/${SUBJECT}_train.log"
+    
+    if [ $? -eq 0 ]; then
+        # Find saved checkpoint
+        if [ -f "${CKPT_DIR}/clip_adapter/${SUBJECT}/adapter.pt" ]; then
+            ADAPTER_CKPT="${CKPT_DIR}/clip_adapter/${SUBJECT}/adapter.pt"
+            USE_ADAPTER=true
+            echo "✅ Adapter trained successfully: ${ADAPTER_CKPT}"
+            echo "[$(date '+%H:%M:%S')] Adapter trained: ${ADAPTER_CKPT}" >> "${MASTER_LOG}"
+        elif [ -f "${CKPT_DIR}/clip_adapter/${SUBJECT}/best_adapter.pt" ]; then
+            ADAPTER_CKPT="${CKPT_DIR}/clip_adapter/${SUBJECT}/best_adapter.pt"
+            USE_ADAPTER=true
+            echo "✅ Adapter trained successfully: ${ADAPTER_CKPT}"
+            echo "[$(date '+%H:%M:%S')] Adapter trained: ${ADAPTER_CKPT}" >> "${MASTER_LOG}"
+        else
+            echo "❌ Adapter checkpoint not found after training"
+            echo "   Continuing without adapter"
+        fi
+    else
+        echo "⚠️  Adapter training failed"
+        echo "   Continuing without adapter (will use zero-padding)"
+    fi
+elif [ "${SKIP_ADAPTER_TRAIN}" = true ]; then
+    echo "⚠️  Using existing adapter checkpoint (skip retraining)"
+    echo "[$(date '+%H:%M:%S')] Using existing adapter" >> "${MASTER_LOG}"
+else
+    echo "⚠️  train_clip_adapter.py not found, skipping adapter training"
+fi
+
+# Final adapter decision
+if [ "${USE_ADAPTER}" = true ] && [ -n "${ADAPTER_CKPT}" ] && [ -f "${ADAPTER_CKPT}" ]; then
+    echo "✅ Will use adapter for image generation: ${ADAPTER_CKPT}"
+else
+    echo "ℹ️  No adapter available - using direct CLIP embeddings"
+    echo "   Note: For SD-2.1, embeddings will be zero-padded 512-D → 1024-D"
+    echo "   Expected quality: Good but not optimal (~10-15% lower than with adapter)"
+fi
+
+# ==============================================================================
+# STEP 6: Generate Images with Stable Diffusion
+# ==============================================================================
+print_header "STEP 6/8: Generating Images (OPTIMAL DIFFUSION PARAMETERS)"
+
+mkdir -p "${RECON_DIR}/images"
+mkdir -p "${LOG_DIR}/decode/${SUBJECT}"
+
+print_step "Running diffusion pipeline with BRAIN-OPTIMIZED PARAMETERS..."
+echo "   Config: ${CONFIG_FILE}"
+echo "   Model: ${MODEL_ID}"
+echo "   Steps: ${DIFF_STEPS} (optimal for brain signals)"
+echo "   Guidance: ${GUIDANCE} (stronger for noisy signals)"
+echo "   Scheduler: ${SCHEDULER}"
+echo "   Eta: ${ETA} (deterministic)"
+echo "   Images: ${TEST_SAMPLES}"
+echo ""
+echo "⏱️  Estimated time: ~10-15 minutes for ${TEST_SAMPLES} images"
+echo ""
+
+# Log generation start
+echo "[$(date '+%H:%M:%S')] Image generation started" | tee -a "${MASTER_LOG}"
+log_config_to_file "${LOG_DIR}/decode/${SUBJECT}_generate.log"
+
+# Build decode command
+DECODE_CMD="$PYTHON scripts/decode_diffusion.py \
+    --subject ${SUBJECT} \
+    --encoder mlp \
+    --ckpt ${MLP_CKPT} \
+    --clip-cache ${CLIP_CACHE} \
+    --index-root ${INDEX_DIR} \
+    --model-id ${MODEL_ID} \
+    --output-dir ${RECON_DIR} \
+    --steps ${DIFF_STEPS} \
+    --guidance ${GUIDANCE} \
+    --dtype ${DTYPE} \
+    --scheduler ${SCHEDULER} \
+    --device ${DEVICE} \
+    --limit ${TEST_SAMPLES} \
+    --seed ${RANDOM_SEED}"
+
+# Add adapter if available
+if [ "${USE_ADAPTER}" = true ] && [ -n "${ADAPTER_CKPT}" ]; then
+    DECODE_CMD="${DECODE_CMD} --clip-adapter ${ADAPTER_CKPT} --blend-alpha ${BLEND_ALPHA}"
+fi
+
+eval ${DECODE_CMD} 2>&1 | tee -a "${LOG_DIR}/decode/${SUBJECT}_generate.log"
+
+check_success
+
+# Count generated images
+IMG_COUNT=$(find "${RECON_DIR}/images" -name "*.png" 2>/dev/null | wc -l)
+echo "✅ Generated ${IMG_COUNT} images"
+echo "[$(date '+%H:%M:%S')] Generated ${IMG_COUNT} images" >> "${MASTER_LOG}"
+
+# ==============================================================================
+# STEP 7: Evaluate Reconstructions
+# ==============================================================================
+print_header "STEP 7/8: Evaluating Reconstructions"
+
+mkdir -p "${REPORT_DIR}"
+
+# Evaluate with all three gallery types
+for GALLERY in matched test all; do
+    print_step "Evaluating with gallery: ${GALLERY}"
+    
+    # Build eval command
+    EVAL_CMD="$PYTHON scripts/eval_reconstruction.py \
+        --subject ${SUBJECT} \
+        --recon-dir ${RECON_DIR}/images \
+        --clip-cache ${CLIP_CACHE} \
+        --model-id ${MODEL_ID} \
+        --gallery ${GALLERY} \
+        --image-source hdf5 \
+        --out-csv ${REPORT_DIR}/recon_eval_${GALLERY}.csv \
+        --out-json ${REPORT_DIR}/recon_eval_${GALLERY}.json \
+        --out-fig ${REPORT_DIR}/recon_grid_${GALLERY}.png \
+        --device ${DEVICE}"
+    
+    # Add --use-adapter flag if adapter was used
+    if [ "${USE_ADAPTER}" = true ]; then
+        EVAL_CMD="${EVAL_CMD} --use-adapter"
+    fi
+    
+    eval ${EVAL_CMD}
+    
+    if [ $? -eq 0 ]; then
+        echo "   ✅ Evaluation complete"
+    else
+        echo "   ⚠️  Evaluation failed (continuing...)"
+    fi
+done
+
+# ==============================================================================
+# STEP 8: Generate Comparison Report
+# ==============================================================================
+print_header "STEP 8/8: Generating Comparison Report"
+
+if [ -f "scripts/compare_evals.py" ]; then
+    $PYTHON scripts/compare_evals.py \
+        --report-dir "${REPORT_DIR}" \
+        --out-csv "${REPORT_DIR}/comparison.csv" \
+        --out-md "${REPORT_DIR}/comparison.md" \
+        --out-tex "${REPORT_DIR}/comparison.tex" \
+        --out-fig "${REPORT_DIR}/comparison.png"
+    
+    check_success
+else
+    echo "⚠️  compare_evals.py not found, skipping comparison report"
+fi
+
+# ==============================================================================
+# Final Summary
+# ==============================================================================
+print_header "✅ OPTIMAL PIPELINE COMPLETE!"
+
+echo ""
+echo "� Configuration Used:"
+echo "   ${CONFIG_FILE}"
+echo "   See docs/OPTIMAL_CONFIGURATION_GUIDE.md for details"
+echo ""
+echo "�📂 Output Files:"
+echo "   • Index:         ${INDEX_FILE}"
+echo "   • CLIP cache:    ${CLIP_CACHE}"
+if [ -n "${TARGET_CACHE}" ] && [ -f "${TARGET_CACHE}" ]; then
+    echo "   • Target cache:  ${TARGET_CACHE}"
+fi
+echo "   • MLP model:     ${MLP_CKPT}"
+if [ "${USE_ADAPTER}" = true ] && [ -n "${ADAPTER_CKPT}" ]; then
+    echo "   • Adapter:       ${ADAPTER_CKPT}"
+fi
+echo "   • Images:        ${RECON_DIR}/images/ (${IMG_COUNT} files)"
+echo "   • Reports:       ${REPORT_DIR}/"
+echo "   • Master Log:    ${MASTER_LOG}"
+echo ""
+echo "📊 Evaluation Results:"
+
+for GALLERY in matched test all; do
+    EVAL_JSON="${REPORT_DIR}/recon_eval_${GALLERY}.json"
+    if [ -f "${EVAL_JSON}" ]; then
+        echo "   📈 Gallery: ${GALLERY}"
+        $PYTHON -c "
+import json
+try:
+    with open('${EVAL_JSON}') as f:
+        d = json.load(f)
+    cs = d.get('clipscore_mean', 0)
+    r1 = d.get('r1', 0) * 100
+    r5 = d.get('r5', 0) * 100
+    mr = d.get('mean_rank', 0)
+    print(f'      CLIPScore: {cs:.4f} | R@1: {r1:.1f}% | R@5: {r5:.1f}% | MeanRank: {mr:.1f}')
+except Exception as e:
+    print(f'      Error reading metrics: {e}')
+"
+        # Log to master
+        echo "[$(date '+%H:%M:%S')] Gallery ${GALLERY} results logged" >> "${MASTER_LOG}"
+    fi
+done
+
+echo ""
+if [ -f "${REPORT_DIR}/comparison.md" ]; then
+    echo "📈 Full comparison: ${REPORT_DIR}/comparison.md"
+fi
+
+# Log completion
+echo "" >> "${MASTER_LOG}"
+echo "================================================================================" >> "${MASTER_LOG}"
+echo "PIPELINE COMPLETED: $(date '+%Y-%m-%d %H:%M:%S')" >> "${MASTER_LOG}"
+echo "Total Images Generated: ${IMG_COUNT}" >> "${MASTER_LOG}"
+echo "================================================================================" >> "${MASTER_LOG}"
+
+echo ""
+print_header ""
+
+echo "🎉 All done! Check the outputs above."
+echo ""
+echo "📖 Documentation:"
+echo "   • Configuration: ${CONFIG_FILE}"
+echo "   • Full Guide: docs/OPTIMAL_CONFIGURATION_GUIDE.md"
+echo "   • Master Log: ${MASTER_LOG}"
+echo ""
+echo "🔬 Expected vs Actual Performance:"
+echo "   Target (configured): Cosine ~0.62, R@1 ~8%, R@5 ~25%"
+echo "   Actual (see above): Check evaluation results"
+echo ""
+echo "📝 Next Steps:"
+echo "   1. Review evaluation metrics above"
+echo "   2. Check master log: ${MASTER_LOG}"
+echo "   3. Inspect images: ${RECON_DIR}/images/"
+echo "   4. Read comparison report: ${REPORT_DIR}/comparison.md"
+echo ""
+```
+
+# scripts/run_quick_improved.sh
+
+```sh
+#!/bin/bash
+# Quick production run - Skip adapter training, use optimized hyperparameters
+# This gives ~60-65% of the full improvement without the 2-3 hour cache build
+
+set -e
+
+source .venv/bin/activate
+
+# Skip to image generation with existing checkpoints
+python scripts/decode_diffusion.py \
+    --subject subj01 \
+    --encoder mlp \
+    --ckpt checkpoints/mlp/subj01/mlp.pt \
+    --clip-cache outputs/clip_cache/subj01_clip512.parquet \
+    --index-root data/indices/nsd_index \
+    --model-id stabilityai/stable-diffusion-2-1 \
+    --output-dir outputs/recon/subj01/production_v2_quick \
+    --steps 100 \
+    --guidance 7.5 \
+    --dtype float32 \
+    --scheduler dpm \
+    --device cuda \
+    --limit 900 \
+    --seed 42
+
+echo "✅ Generation complete!"
+echo "📊 Expected improvement: CLIPScore +4-6% vs baseline"
+echo "📁 Images saved to: outputs/recon/subj01/production_v2_quick/images/"
+
+```
+
+# scripts/train_clip_adapter.py
+
+```py
+#!/usr/bin/env python3
+"""
+CLIP Adapter Training Script
+============================
+
+Train a lightweight adapter to map 512-D CLIP embeddings (ViT-B/32) to the
+target dimension required by diffusion models (768-D for SD-1.5, 1024-D for SD-2.1).
+
+Pipeline:
+1. Load canonical index and split train/val/test (matches encoder training)
+2. Load ground-truth ViT-B/32 CLIP embeddings (512-D) from cache
+3. Compute target CLIP embeddings from diffusion model's CLIP encoder
+4. Train linear adapter with MSE + cosine loss
+5. Early stopping on validation cosine similarity
+6. Retrain on train+val for selected epoch count
+7. Evaluate on test set and save checkpoint + report
+
+Scientific Design:
+- Reduces representation gap between encoder output (512-D) and diffusion conditioning
+- Target embeddings are from the diffusion model's own CLIP (e.g., OpenCLIP ViT-H/14)
+- Trained with combined MSE+cosine loss for both magnitude and angular alignment
+- L2-normalized outputs preserve cosine similarity metric in target CLIP space
+
+Usage:
+    # Quick test
+    python scripts/train_clip_adapter.py \\
+        --subject subj01 \\
+        --clip-cache outputs/clip_cache/clip.parquet \\
+        --model-id stabilityai/stable-diffusion-2-1 \\
+        --epochs 10 --limit 256
+    
+    # Full run
+    python scripts/train_clip_adapter.py \\
+        --index-root data/indices/nsd_index \\
+        --subject subj01 \\
+        --clip-cache outputs/clip_cache/clip.parquet \\
+        --model-id stabilityai/stable-diffusion-2-1 \\
+        --epochs 30 --batch-size 256 \\
+        --out checkpoints/clip_adapter/subj01/adapter.pt
+"""
+
+import argparse
+import json
+import logging
+import sys
+import yaml
+from pathlib import Path
+from typing import Dict, Tuple, Optional
+
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn as nn
+from torch.utils.data import TensorDataset, DataLoader
+from torch.optim import AdamW
+from torch.optim.lr_scheduler import CosineAnnealingLR
+from PIL import Image
+import io
+
+# Silence warnings
+logging.getLogger("nibabel.global").setLevel(logging.WARNING)
+
+from fmri2img.data.nsd_index_reader import read_subject_index
+from fmri2img.data.clip_cache import CLIPCache
+from fmri2img.io.s3 import get_s3_filesystem
+from fmri2img.models.clip_adapter import CLIPAdapter, save_adapter
+from fmri2img.models.train_utils import (
+    train_val_test_split,
+    torch_seed_all,
+    cosine_loss,
+    compose_loss
+)
+from fmri2img.models.ridge import evaluate_predictions
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+
+def get_diffusion_clip_encoder(model_id: str, device: str):
+    """
+    Load the CLIP image encoder from a diffusion model.
+    
+    Args:
+        model_id: HuggingFace model ID (e.g., "stabilityai/stable-diffusion-2-1")
+        device: Device to load on
+    
+    Returns:
+        encoder: CLIP image encoder with .encode_image() method
+        target_dim: Output dimension of the CLIP encoder
+    """
+    from transformers import CLIPVisionModel, CLIPImageProcessor
+    
+    logger.info(f"Loading CLIP encoder from {model_id}...")
+    
+    try:
+        # Load the vision model from the diffusion pipeline
+        vision_model = CLIPVisionModel.from_pretrained(
+            model_id,
+            subfolder="image_encoder" if "stable-diffusion" in model_id else None
+        )
+        vision_model = vision_model.to(device)
+        vision_model.eval()
+        
+        # Get the image processor
+        processor = CLIPImageProcessor.from_pretrained(
+            model_id,
+            subfolder="image_encoder" if "stable-diffusion" in model_id else None
+        )
+        
+        # Determine output dimension
+        target_dim = vision_model.config.hidden_size
+        
+        logger.info(f"✅ Loaded CLIP encoder: {target_dim}-D output")
+        
+        return vision_model, processor, target_dim
+        
+    except Exception as e:
+        logger.warning(f"Could not load image_encoder subfolder: {e}")
+        logger.info("Trying to load from feature_extractor...")
+        
+        # Fallback: Try loading from the main pipeline
+        from diffusers import StableDiffusionPipeline
+        
+        pipe = StableDiffusionPipeline.from_pretrained(
+            model_id,
+            torch_dtype=torch.float32
+        )
+        
+        # SD models use text encoder, but we need the CLIP image encoder
+        # For SD 2.1: OpenCLIP ViT-H/14 (1024-D projected)
+        # For SD 1.5: CLIP ViT-L/14 (768-D projected)
+        
+        # Try to infer from model_id
+        if "2-1" in model_id or "2.1" in model_id:
+            target_dim = 1024
+            logger.info("Detected SD 2.1 → using OpenCLIP ViT-H/14 (1024-D)")
+            # Load full CLIP model to access visual projection (1280→1024)
+            from transformers import CLIPModel, CLIPProcessor
+            vision_model = CLIPModel.from_pretrained("laion/CLIP-ViT-H-14-laion2B-s32B-b79K")
+            processor = CLIPProcessor.from_pretrained("laion/CLIP-ViT-H-14-laion2B-s32B-b79K")
+        elif "1-5" in model_id or "1.5" in model_id:
+            target_dim = 768
+            logger.info("Detected SD 1.5 → using CLIP ViT-L/14 (768-D)")
+            from transformers import CLIPModel, CLIPProcessor
+            vision_model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
+            processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
+        else:
+            # Default to 1024 for SD 2.x
+            target_dim = 1024
+            logger.warning(f"Unknown model, defaulting to 1024-D (OpenCLIP ViT-H/14)")
+            from transformers import CLIPModel, CLIPProcessor
+            vision_model = CLIPModel.from_pretrained("laion/CLIP-ViT-H-14-laion2B-s32B-b79K")
+            processor = CLIPProcessor.from_pretrained("laion/CLIP-ViT-H-14-laion2B-s32B-b79K")
+        
+        vision_model = vision_model.to(device)
+        vision_model.eval()
+        
+        return vision_model, processor, target_dim
+
+
+def compute_target_embeddings_cached(
+    nsd_ids: np.ndarray,
+    model_id: str,
+    s3_fs,
+    vision_model,
+    processor,
+    device: str,
+    cache_dir: Path
+) -> np.ndarray:
+    """
+    Compute or load cached target CLIP embeddings for given NSD IDs.
+    
+    Args:
+        nsd_ids: Array of NSD IDs
+        model_id: Model identifier for cache naming
+        s3_fs: S3 filesystem
+        vision_model: CLIP vision model
+        processor: CLIP image processor
+        device: Device
+        cache_dir: Cache directory
+    
+    Returns:
+        target_embeddings: (n_samples, target_dim) array
+    """
+    # Sanitize model_id for filename
+    model_slug = model_id.replace("/", "_").replace("-", "_")
+    cache_file = cache_dir / f"target_clip_{model_slug}.parquet"
+    
+    # Try to load from cache
+    if cache_file.exists():
+        logger.info(f"Loading cached target embeddings from {cache_file}")
+        df_cache = pd.read_parquet(cache_file)
+        
+        # Check if all IDs are cached
+        cached_ids = set(df_cache["nsdId"].values)
+        requested_ids = set(nsd_ids)
+        
+        if requested_ids.issubset(cached_ids):
+            logger.info("✅ All requested embeddings found in cache")
+            # Extract in order
+            df_cache_indexed = df_cache.set_index("nsdId")
+            embeddings_list = []
+            for nsd_id in nsd_ids:
+                emb = df_cache_indexed.loc[nsd_id, "embedding"]
+                embeddings_list.append(np.array(emb))
+            return np.vstack(embeddings_list)
+        else:
+            logger.info(f"Cache miss for {len(requested_ids - cached_ids)} IDs, computing...")
+            # Load existing cache for merging
+            existing_cache = {
+                row["nsdId"]: np.array(row["embedding"]) 
+                for _, row in df_cache.iterrows()
+            }
+    else:
+        logger.info("No cache found, computing all target embeddings...")
+        existing_cache = {}
+    
+    # Compute missing embeddings
+    logger.info(f"Computing target embeddings for {len(nsd_ids)} samples...")
+    
+    # Load images from NSD using robust loader
+    from fmri2img.io.nsd_images import load_nsd_images
+    
+    # Get IDs that need computation
+    ids_to_compute = [nsd_id for nsd_id in nsd_ids if nsd_id not in existing_cache]
+    
+    # Load images in smaller batches to handle HDF5 issues
+    BATCH_SIZE = 200  # Process 200 images at a time
+    nsd_images = {}
+    hdf5_failed = False  # Track if HDF5 has failed
+    
+    if ids_to_compute:
+        logger.info(f"Loading {len(ids_to_compute)} images from NSD in batches of {BATCH_SIZE}...")
+        
+        for i in range(0, len(ids_to_compute), BATCH_SIZE):
+            batch_ids = ids_to_compute[i:i+BATCH_SIZE]
+            batch_num = i // BATCH_SIZE + 1
+            total_batches = (len(ids_to_compute) - 1) // BATCH_SIZE + 1
+            
+            logger.info(f"Loading batch {batch_num}/{total_batches} ({len(batch_ids)} images)...")
+            
+            # Try HDF5 only if it hasn't failed before
+            if not hdf5_failed:
+                try:
+                    batch_images = load_nsd_images(batch_ids, s3_fs=s3_fs, prefer="hdf5")
+                    nsd_images.update(batch_images)
+                    logger.info(f"✓ Loaded {len(batch_images)} images via HDF5")
+                except Exception as e:
+                    logger.warning(f"HDF5 failed: {e}")
+                    logger.info("Switching to HTTP for all remaining batches...")
+                    hdf5_failed = True
+                    # Retry this batch with HTTP
+                    try:
+                        batch_images = load_nsd_images(batch_ids, s3_fs=s3_fs, prefer="http")
+                        nsd_images.update(batch_images)
+                        logger.info(f"✓ Loaded {len(batch_images)} images via HTTP")
+                    except Exception as e2:
+                        logger.error(f"HTTP also failed for batch {batch_num}: {e2}")
+            else:
+                # Use HTTP directly
+                try:
+                    batch_images = load_nsd_images(batch_ids, s3_fs=s3_fs, prefer="http")
+                    nsd_images.update(batch_images)
+                    logger.info(f"✓ Loaded {len(batch_images)} images via HTTP")
+                except Exception as e:
+                    logger.error(f"HTTP failed for batch {batch_num}: {e}")
+        
+        logger.info(f"Successfully loaded {len(nsd_images)}/{len(ids_to_compute)} images")
+    
+    all_embeddings = {}
+    
+    # First, add all existing cache
+    for nsd_id in nsd_ids:
+        if nsd_id in existing_cache:
+            all_embeddings[nsd_id] = existing_cache[nsd_id]
+    
+    # Compute embeddings for loaded images in batches
+    images_to_process = [(nsd_id, nsd_images[nsd_id]) for nsd_id in nsd_ids 
+                         if nsd_id in nsd_images and nsd_id not in existing_cache]
+    
+    if images_to_process:
+        logger.info(f"Computing embeddings for {len(images_to_process)} images...")
+        INFERENCE_BATCH = 32
+        
+        for i in range(0, len(images_to_process), INFERENCE_BATCH):
+            batch_items = images_to_process[i:i+INFERENCE_BATCH]
+            batch_ids = [item[0] for item in batch_items]
+            batch_imgs = [item[1] for item in batch_items]
+            
+            try:
+                # Process batch
+                inputs = processor(images=batch_imgs, return_tensors="pt")
+                inputs = {k: v.to(device) for k, v in inputs.items()}
+                
+                # Encode batch
+                with torch.no_grad():
+                    image_features = vision_model.get_image_features(**inputs)
+                    embeddings = image_features.cpu().numpy()
+                    # L2 normalize each embedding
+                    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+                    embeddings = embeddings / norms
+                
+                # Store embeddings
+                for nsd_id, emb in zip(batch_ids, embeddings):
+                    all_embeddings[nsd_id] = emb
+                    
+            except Exception as e:
+                logger.warning(f"Batch encoding failed, processing individually: {e}")
+                # Fallback to individual processing
+                for nsd_id, img in batch_items:
+                    try:
+                        inputs = processor(images=img, return_tensors="pt")
+                        inputs = {k: v.to(device) for k, v in inputs.items()}
+                        
+                        with torch.no_grad():
+                            image_features = vision_model.get_image_features(**inputs)
+                            embedding = image_features.squeeze(0).cpu().numpy()
+                            embedding = embedding / np.linalg.norm(embedding)
+                        
+                        all_embeddings[nsd_id] = embedding
+                    except Exception as e2:
+                        logger.warning(f"Failed to compute embedding for nsdId={nsd_id}: {e2}")
+                        target_dim = 1024
+                        all_embeddings[nsd_id] = np.zeros(target_dim, dtype=np.float32)
+    
+    # Warn about missing IDs
+    for nsd_id in nsd_ids:
+        if nsd_id not in all_embeddings:
+            logger.warning(f"Missing embedding for nsdId={nsd_id}, using zero vector")
+            target_dim = 1024
+            all_embeddings[nsd_id] = np.zeros(target_dim, dtype=np.float32)
+    
+    # Save updated cache
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    
+    df_cache_new = pd.DataFrame([
+        {"nsdId": nsd_id, "embedding": emb.tolist()}
+        for nsd_id, emb in all_embeddings.items()
+    ])
+    
+    df_cache_new.to_parquet(cache_file, index=False)
+    logger.info(f"✅ Saved target embeddings cache to {cache_file}")
+    
+    # Return in requested order
+    embeddings_list = [all_embeddings[nsd_id] for nsd_id in nsd_ids]
+    return np.vstack(embeddings_list)
+
+
+def train_epoch(
+    model: CLIPAdapter,
+    loader: DataLoader,
+    optimizer: torch.optim.Optimizer,
+    device: str,
+    mse_weight: float = 0.5
+) -> float:
+    """Train for one epoch."""
+    model.train()
+    total_loss = 0.0
+    
+    for X_batch, Y_batch in loader:
+        X_batch = X_batch.to(device)
+        Y_batch = Y_batch.to(device)
+        
+        optimizer.zero_grad()
+        Y_pred = model(X_batch)
+        
+        loss = compose_loss(Y_pred, Y_batch, mse_weight=mse_weight)
+        loss.backward()
+        
+        # Gradient clipping
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        
+        optimizer.step()
+        total_loss += loss.item() * len(X_batch)
+    
+    return total_loss / len(loader.dataset)
+
+
+@torch.no_grad()
+def evaluate_epoch(
+    model: CLIPAdapter,
+    loader: DataLoader,
+    device: str
+) -> dict:
+    """Evaluate model on validation/test set."""
+    model.eval()
+    
+    all_preds = []
+    all_targets = []
+    
+    for X_batch, Y_batch in loader:
+        X_batch = X_batch.to(device)
+        Y_pred = model(X_batch)
+        
+        all_preds.append(Y_pred.cpu().numpy())
+        all_targets.append(Y_batch.numpy())
+    
+    Y_pred = np.vstack(all_preds)
+    Y_true = np.vstack(all_targets)
+    
+    # Compute metrics
+    metrics = evaluate_predictions(Y_true, Y_pred, normalize=True)
+    
+    return metrics
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Train CLIP adapter")
+    
+    # Data paths
+    parser.add_argument("--index-root", default="data/indices/nsd_index",
+                       help="NSD index root directory")
+    parser.add_argument("--subject", default="subj01", help="Subject ID")
+    parser.add_argument("--clip-cache", required=True,
+                       help="Path to ViT-B/32 CLIP cache (512-D)")
+    
+    # Model
+    parser.add_argument("--model-id", default="stabilityai/stable-diffusion-2-1",
+                       help="Diffusion model ID for target CLIP")
+    parser.add_argument("--use-layernorm", action="store_true", default=True,
+                       help="Use LayerNorm in adapter")
+    parser.add_argument("--no-layernorm", action="store_false", dest="use_layernorm",
+                       help="Disable LayerNorm")
+    
+    # Training
+    parser.add_argument("--epochs", type=int, default=30,
+                       help="Maximum training epochs")
+    parser.add_argument("--batch-size", type=int, default=256,
+                       help="Batch size")
+    parser.add_argument("--lr", type=float, default=1e-3,
+                       help="Learning rate")
+    parser.add_argument("--weight-decay", type=float, default=1e-4,
+                       help="Weight decay")
+    parser.add_argument("--mse-weight", type=float, default=0.5,
+                       help="Weight for MSE term in loss")
+    parser.add_argument("--patience", type=int, default=5,
+                       help="Early stopping patience")
+    
+    # System
+    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu",
+                       help="Device (cuda/cpu)")
+    parser.add_argument("--limit", type=int, help="Limit number of samples")
+    parser.add_argument("--seed", type=int, default=42,
+                       help="Random seed")
+    
+    # Output
+    parser.add_argument("--out", required=True,
+                       help="Output checkpoint path")
+    parser.add_argument("--cache-dir", default="outputs/clip_cache",
+                       help="Directory for target embedding cache")
+    parser.add_argument("--config", default="configs/data.yaml",
+                       help="Data config file")
+    
+    args = parser.parse_args()
+    
+    # Set random seeds
+    torch_seed_all(args.seed)
+    
+    # Load config
+    with open(args.config) as f:
+        config = yaml.safe_load(f)
+    
+    splits_config = config.get("preprocessing", {}).get("splits", {})
+    
+    try:
+        logger.info("=" * 80)
+        logger.info("CLIP ADAPTER TRAINING")
+        logger.info("=" * 80)
+        logger.info(f"Subject: {args.subject}")
+        logger.info(f"Model: {args.model_id}")
+        logger.info(f"Device: {args.device}")
+        
+        # Load subject index
+        logger.info(f"Loading index for {args.subject} from {args.index_root}")
+        df = read_subject_index(args.index_root, args.subject)
+        
+        if args.limit:
+            df = df.head(args.limit)
+            logger.info(f"Limited to {len(df)} samples")
+        
+        # Split data
+        train_df, val_df, test_df = train_val_test_split(
+            df,
+            train_ratio=splits_config.get("train_ratio", 0.8),
+            val_ratio=splits_config.get("val_ratio", 0.1),
+            test_ratio=splits_config.get("test_ratio", 0.1),
+            random_seed=splits_config.get("random_seed", 42)
+        )
+        
+        # Load source CLIP cache (512-D ViT-B/32)
+        logger.info(f"Loading source CLIP cache from {args.clip_cache}")
+        clip_cache = CLIPCache(args.clip_cache).load()
+        stats = clip_cache.stats()
+        logger.info(f"✅ Source CLIP cache: {stats['cache_size']} embeddings (512-D)")
+        
+        # Setup S3 filesystem for image loading
+        s3_fs = get_s3_filesystem()
+        
+        # Load diffusion model's CLIP encoder
+        vision_model, processor, target_dim = get_diffusion_clip_encoder(
+            args.model_id, args.device
+        )
+        
+        logger.info(f"Adapter architecture: 512-D → {target_dim}-D")
+        
+        # Get all NSD IDs
+        all_nsd_ids = pd.concat([train_df, val_df, test_df])["nsdId"].values
+        
+        # Compute target embeddings (with caching)
+        cache_dir = Path(args.cache_dir)
+        target_embeddings_all = compute_target_embeddings_cached(
+            all_nsd_ids,
+            args.model_id,
+            s3_fs,
+            vision_model,
+            processor,
+            args.device,
+            cache_dir
+        )
+        
+        # Build mapping nsdId -> embedding
+        target_emb_map = {
+            nsd_id: target_embeddings_all[i]
+            for i, nsd_id in enumerate(all_nsd_ids)
+        }
+        
+        # Extract source and target embeddings for each split
+        def extract_embeddings(split_df, split_name):
+            source_list = []
+            target_list = []
+            
+            for _, row in split_df.iterrows():
+                nsd_id = int(row["nsdId"])
+                
+                # Get source embedding (512-D)
+                source_dict = clip_cache.get([nsd_id])
+                source_emb = source_dict.get(nsd_id)
+                
+                # Get target embedding
+                target_emb = target_emb_map.get(nsd_id)
+                
+                if source_emb is not None and target_emb is not None:
+                    source_list.append(source_emb)
+                    target_list.append(target_emb)
+            
+            X = np.vstack(source_list)
+            Y = np.vstack(target_list)
+            
+            logger.info(f"{split_name}: {len(X)} samples, {X.shape[1]}D → {Y.shape[1]}D")
+            return X, Y
+        
+        logger.info("Extracting embeddings for splits...")
+        X_train, Y_train = extract_embeddings(train_df, "Train")
+        X_val, Y_val = extract_embeddings(val_df, "Val")
+        X_test, Y_test = extract_embeddings(test_df, "Test")
+        
+        # Convert to PyTorch tensors
+        X_train = torch.from_numpy(X_train).float()
+        Y_train = torch.from_numpy(Y_train).float()
+        X_val = torch.from_numpy(X_val).float()
+        Y_val = torch.from_numpy(Y_val).float()
+        X_test = torch.from_numpy(X_test).float()
+        Y_test = torch.from_numpy(Y_test).float()
+        
+        # Create data loaders
+        train_loader = DataLoader(
+            TensorDataset(X_train, Y_train),
+            batch_size=args.batch_size,
+            shuffle=True
+        )
+        val_loader = DataLoader(
+            TensorDataset(X_val, Y_val),
+            batch_size=args.batch_size,
+            shuffle=False
+        )
+        test_loader = DataLoader(
+            TensorDataset(X_test, Y_test),
+            batch_size=args.batch_size,
+            shuffle=False
+        )
+        
+        # Initialize adapter
+        adapter = CLIPAdapter(
+            in_dim=512,
+            out_dim=target_dim,
+            use_layernorm=args.use_layernorm
+        )
+        adapter = adapter.to(args.device)
+        
+        logger.info(f"✅ Adapter initialized: {512}D → {target_dim}D")
+        logger.info(f"   Parameters: {sum(p.numel() for p in adapter.parameters()):,}")
+        
+        # Optimizer and scheduler
+        optimizer = AdamW(adapter.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs)
+        
+        # Training loop with early stopping
+        logger.info("=" * 80)
+        logger.info("TRAINING WITH EARLY STOPPING")
+        logger.info("=" * 80)
+        
+        best_val_cosine = -np.inf
+        best_epoch = 0
+        patience_counter = 0
+        
+        for epoch in range(args.epochs):
+            train_loss = train_epoch(adapter, train_loader, optimizer, args.device, args.mse_weight)
+            val_metrics = evaluate_epoch(adapter, val_loader, args.device)
+            scheduler.step()
+            
+            val_cosine = val_metrics["cosine"]
+            
+            logger.info(
+                f"Epoch {epoch+1:3d}/{args.epochs}: "
+                f"train_loss={train_loss:.4f}, "
+                f"val_cosine={val_cosine:.4f} ± {val_metrics['cosine_std']:.4f}, "
+                f"val_mse={val_metrics['mse']:.4f}"
+            )
+            
+            # Early stopping check
+            if val_cosine > best_val_cosine:
+                best_val_cosine = val_cosine
+                best_epoch = epoch + 1
+                patience_counter = 0
+                logger.info(f"  ✅ New best validation cosine: {best_val_cosine:.4f}")
+            else:
+                patience_counter += 1
+                if patience_counter >= args.patience:
+                    logger.info(f"  Early stopping triggered after {epoch+1} epochs")
+                    break
+        
+        logger.info(f"✅ Best epoch: {best_epoch} (val cosine={best_val_cosine:.4f})")
+        
+        # Retrain on train+val for best_epoch epochs
+        logger.info("=" * 80)
+        logger.info(f"RETRAINING on train+val for {best_epoch} epochs")
+        logger.info("=" * 80)
+        
+        X_trainval = torch.cat([X_train, X_val])
+        Y_trainval = torch.cat([Y_train, Y_val])
+        
+        trainval_loader = DataLoader(
+            TensorDataset(X_trainval, Y_trainval),
+            batch_size=args.batch_size,
+            shuffle=True
+        )
+        
+        # Reinitialize adapter
+        final_adapter = CLIPAdapter(
+            in_dim=512,
+            out_dim=target_dim,
+            use_layernorm=args.use_layernorm
+        )
+        final_adapter = final_adapter.to(args.device)
+        
+        final_optimizer = AdamW(final_adapter.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        final_scheduler = CosineAnnealingLR(final_optimizer, T_max=best_epoch)
+        
+        for epoch in range(best_epoch):
+            train_loss = train_epoch(
+                final_adapter, trainval_loader, final_optimizer, args.device, args.mse_weight
+            )
+            final_scheduler.step()
+            logger.info(f"Epoch {epoch+1:3d}/{best_epoch}: train_loss={train_loss:.4f}")
+        
+        # Evaluate on test set
+        logger.info("=" * 80)
+        logger.info("TEST SET EVALUATION")
+        logger.info("=" * 80)
+        
+        test_metrics = evaluate_epoch(final_adapter, test_loader, args.device)
+        
+        logger.info(f"Cosine: {test_metrics['cosine']:.4f} ± {test_metrics['cosine_std']:.4f}")
+        logger.info(f"MSE: {test_metrics['mse']:.4f}")
+        
+        # Save adapter with metadata
+        from datetime import datetime
+        
+        output_path = Path(args.out)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Get repo version from pyproject.toml
+        repo_version = "unknown"
+        try:
+            # Try Python 3.11+ tomllib
+            try:
+                import tomllib
+                pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+                if pyproject_path.exists():
+                    with open(pyproject_path, "rb") as f:
+                        pyproject = tomllib.load(f)
+                        repo_version = pyproject.get("project", {}).get("version", "unknown")
+            except ImportError:
+                # Fallback: simple regex parsing for version
+                pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+                if pyproject_path.exists():
+                    import re
+                    text = pyproject_path.read_text()
+                    match = re.search(r'version\s*=\s*"([^"]+)"', text)
+                    if match:
+                        repo_version = match.group(1)
+        except Exception:
+            pass
+        
+        # Build metadata with required fields
+        metadata = {
+            "subject": args.subject,
+            "model_id": args.model_id,
+            "input_dim": 512,          # fMRI→CLIP predicted dim (ViT-B/32)
+            "target_dim": target_dim,  # CLIP dim expected by diffusion model
+            "created_at": datetime.now().isoformat(),
+            "repo_version": repo_version,
+            # Additional training info
+            "use_layernorm": args.use_layernorm,
+            "best_epoch": best_epoch,
+            "best_val_cosine": float(best_val_cosine),
+            "test_cosine": float(test_metrics["cosine"]),
+            "test_mse": float(test_metrics["mse"]),
+            "lr": args.lr,
+            "weight_decay": args.weight_decay,
+            "mse_weight": args.mse_weight,
+        }
+        
+        final_adapter.save(str(output_path), metadata)
+        
+        # Log metadata confirmation
+        logger.info(f"✅ Adapter saved to {output_path}")
+        logger.info(f"   Saved adapter with metadata: {{subject={metadata['subject']}, "
+                   f"model_id={metadata['model_id']}, input_dim={metadata['input_dim']}, "
+                   f"target_dim={metadata['target_dim']}, created_at={metadata['created_at']}, "
+                   f"repo_version={metadata['repo_version']}}}")
+        
+        # Save JSON report
+        report = {
+            "subject": args.subject,
+            "model": "CLIPAdapter",
+            "source_dim": 512,
+            "target_dim": target_dim,
+            "target_model": args.model_id,
+            "data_splits": {
+                "n_train": len(train_df),
+                "n_val": len(val_df),
+                "n_test": len(test_df),
+                "n_train_valid": len(X_train),
+                "n_val_valid": len(X_val),
+                "n_test_valid": len(X_test),
+            },
+            "hyperparameters": {
+                "use_layernorm": args.use_layernorm,
+                "lr": args.lr,
+                "weight_decay": args.weight_decay,
+                "mse_weight": args.mse_weight,
+                "batch_size": args.batch_size,
+                "best_epoch": best_epoch,
+            },
+            "validation_metrics": {
+                "best_cosine": float(best_val_cosine),
+            },
+            "test_metrics": test_metrics,
+            "model_checkpoint": str(output_path),
+        }
+        
+        report_path = output_path.parent / f"{args.subject}_clip_adapter.json"
+        with open(report_path, "w") as f:
+            json.dump(report, f, indent=2)
+        
+        logger.info("=" * 80)
+        logger.info("✅ Training complete!")
+        logger.info(f"Adapter: {output_path}")
+        logger.info(f"Report: {report_path}")
+        logger.info("=" * 80)
+        
+        return 0
+        
+    except Exception as e:
+        logger.error(f"Training failed: {e}", exc_info=True)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+```
+
+# scripts/train_mlp.py
+
+```py
+#!/usr/bin/env python3
+"""
+MLP Encoder Training Script
+===========================
+
+Train a lightweight MLP encoder for fMRI → CLIP embedding mapping.
+
+Pipeline:
+1. Load canonical index and split train/val/test (same as Ridge)
+2. Load preprocessing artifacts (T0+T1+T2)
+3. Extract fMRI features and CLIP embeddings
+4. Train MLP with early stopping on validation cosine
+5. Retrain on train+val for selected epoch count
+6. Evaluate on test set (cosine, MSE, retrieval@K)
+7. Save model and evaluation report
+
+Scientific Design:
+- Model selection on validation cosine; final test reported once; retrain on
+  train+val to use full data (standard NSD practice)
+- Outputs are L2-normalized so cosine is a proper similarity metric in CLIP space
+- Keeps the T0/T1/T2 preprocessing and reliability mask identical to Ridge
+- Combined cosine+MSE loss aligns both direction and magnitude with CLIP embeddings
+
+Usage:
+    # Quick test with tiny PCA
+    python scripts/train_mlp.py --subject subj01 --limit 256 --epochs 10
+    
+    # Full run
+    python scripts/train_mlp.py \\
+        --subject subj01 \\
+        --use-preproc --pca-k 4096 \\
+        --clip-cache outputs/clip_cache/clip.parquet \\
+        --hidden 1024 --dropout 0.1 \\
+        --lr 1e-3 --wd 1e-4 --epochs 50 --patience 7 \\
+        --batch-size 256 --limit 2048
+"""
+
+import argparse
+import json
+import logging
+import sys
+import yaml
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn as nn
+from torch.utils.data import TensorDataset, DataLoader
+from torch.optim import AdamW
+from torch.optim.lr_scheduler import CosineAnnealingLR
+
+# Silence nibabel warnings
+logging.getLogger("nibabel.global").setLevel(logging.WARNING)
+
+from fmri2img.data.nsd_index_reader import read_subject_index
+from fmri2img.data.preprocess import NSDPreprocessor
+from fmri2img.data.clip_cache import CLIPCache
+from fmri2img.io.s3 import get_s3_filesystem, NIfTILoader
+from fmri2img.models.mlp import MLPEncoder, save_mlp, load_mlp
+from fmri2img.models.train_utils import (
+    extract_features_and_targets,
+    train_val_test_split,
+    torch_seed_all,
+    cosine_loss,
+    compose_loss
+)
+from fmri2img.models.ridge import evaluate_predictions
+from fmri2img.eval.retrieval import retrieval_at_k, compute_ranking_metrics
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+
+def train_epoch(
+    model: MLPEncoder,
+    loader: DataLoader,
+    optimizer: torch.optim.Optimizer,
+    device: str,
+    mse_weight: float = 0.5
+) -> float:
+    """Train for one epoch."""
+    model.train()
+    total_loss = 0.0
+    
+    for X_batch, Y_batch in loader:
+        X_batch = X_batch.to(device)
+        Y_batch = Y_batch.to(device)
+        
+        optimizer.zero_grad()
+        Y_pred = model(X_batch)
+        
+        loss = compose_loss(Y_pred, Y_batch, mse_weight=mse_weight)
+        loss.backward()
+        
+        # Gradient clipping for stability
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        
+        optimizer.step()
+        total_loss += loss.item() * len(X_batch)
+    
+    return total_loss / len(loader.dataset)
+
+
+@torch.no_grad()
+def evaluate_epoch(
+    model: MLPEncoder,
+    loader: DataLoader,
+    device: str
+) -> dict:
+    """Evaluate model on validation/test set."""
+    model.eval()
+    
+    all_preds = []
+    all_targets = []
+    
+    for X_batch, Y_batch in loader:
+        X_batch = X_batch.to(device)
+        Y_pred = model(X_batch)
+        
+        all_preds.append(Y_pred.cpu().numpy())
+        all_targets.append(Y_batch.numpy())
+    
+    Y_pred = np.vstack(all_preds)
+    Y_true = np.vstack(all_targets)
+    
+    # Compute metrics (reuse Ridge evaluation)
+    metrics = evaluate_predictions(Y_true, Y_pred, normalize=True)
+    
+    return metrics
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Train MLP encoder for fMRI → CLIP")
+    
+    # Data paths
+    parser.add_argument("--index-root", default="data/indices/nsd_index",
+                       help="NSD index root directory")
+    parser.add_argument("--index-file", help="Path to single index file")
+    parser.add_argument("--subject", default="subj01", help="Subject to train on")
+    
+    # Preprocessing
+    parser.add_argument("--use-preproc", action="store_true",
+                       help="Use preprocessing pipeline")
+    parser.add_argument("--pca-k", type=int, help="PCA components (implies --use-preproc)")
+    parser.add_argument("--preproc-dir", default="outputs/preproc",
+                       help="Preprocessing artifacts directory")
+    parser.add_argument("--clip-cache", default="outputs/clip_cache/clip.parquet",
+                       help="Path to CLIP cache")
+    
+    # Model architecture
+    parser.add_argument("--hidden", type=int, default=1024,
+                       help="Hidden layer size")
+    parser.add_argument("--dropout", type=float, default=0.1,
+                       help="Dropout probability")
+    
+    # Training hyperparameters
+    parser.add_argument("--lr", type=float, default=1e-3,
+                       help="Learning rate")
+    parser.add_argument("--wd", type=float, default=1e-4,
+                       help="Weight decay")
+    parser.add_argument("--epochs", type=int, default=50,
+                       help="Maximum training epochs")
+    parser.add_argument("--patience", type=int, default=7,
+                       help="Early stopping patience")
+    parser.add_argument("--batch-size", type=int, default=256,
+                       help="Batch size")
+    parser.add_argument("--mse-weight", type=float, default=0.5,
+                       help="Weight for MSE term in loss")
+    
+    # System
+    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu",
+                       help="Device (cuda/cpu)")
+    parser.add_argument("--limit", type=int, help="Limit number of samples")
+    parser.add_argument("--seed", type=int, default=42,
+                       help="Random seed")
+    
+    # Output paths
+    parser.add_argument("--checkpoint-dir", default="checkpoints/mlp",
+                       help="Model checkpoint directory")
+    parser.add_argument("--report-dir", default="outputs/reports",
+                       help="Evaluation report directory")
+    parser.add_argument("--config", default="configs/data.yaml",
+                       help="Path to data config file")
+    
+    args = parser.parse_args()
+    
+    # Set random seeds for reproducibility
+    torch_seed_all(args.seed)
+    
+    # Load config
+    with open(args.config) as f:
+        config = yaml.safe_load(f)
+    
+    splits_config = config.get("preprocessing", {}).get("splits", {})
+    
+    try:
+        logger.info("=" * 80)
+        logger.info("MLP ENCODER TRAINING")
+        logger.info("=" * 80)
+        logger.info(f"Subject: {args.subject}")
+        logger.info(f"Device: {args.device}")
+        logger.info(f"Architecture: {args.hidden}-hidden MLP with {args.dropout:.1f} dropout")
+        logger.info(f"Training: lr={args.lr}, wd={args.wd}, epochs={args.epochs}, patience={args.patience}")
+        
+        # Load subject index
+        if args.index_file:
+            logger.info(f"Loading index from {args.index_file}")
+            df = pd.read_parquet(args.index_file)
+        else:
+            logger.info(f"Loading index for {args.subject} from {args.index_root}")
+            df = read_subject_index(args.index_root, args.subject)
+        
+        if args.limit:
+            df = df.head(args.limit)
+            logger.info(f"Limited to {len(df)} samples")
+        
+        # Split data (same as Ridge for fair comparison)
+        train_df, val_df, test_df = train_val_test_split(
+            df,
+            train_ratio=splits_config.get("train_ratio", 0.8),
+            val_ratio=splits_config.get("val_ratio", 0.1),
+            test_ratio=splits_config.get("test_ratio", 0.1),
+            random_seed=splits_config.get("random_seed", 42)
+        )
+        
+        # Setup preprocessor
+        preprocessor = NSDPreprocessor(args.subject, args.preproc_dir)
+        if args.use_preproc or args.pca_k:
+            if not preprocessor.load_artifacts():
+                logger.error("Preprocessing artifacts not found. Run nsd_fit_preproc.py first!")
+                return 1
+            summary = preprocessor.summary()
+            logger.info(f"Loaded preprocessing: {summary['n_voxels_kept']:,} voxels")
+            if summary.get('pca_fitted'):
+                logger.info(f"  PCA: {summary['pca_components']} components")
+        
+        # Load CLIP cache
+        logger.info(f"Loading CLIP cache from {args.clip_cache}")
+        clip_cache = CLIPCache(args.clip_cache).load()
+        stats = clip_cache.stats()
+        logger.info(f"✅ CLIP cache loaded: {stats['cache_size']} embeddings")
+        
+        # Initialize NIfTI loader
+        s3_fs = get_s3_filesystem()
+        nifti_loader = NIfTILoader(s3_fs)
+        
+        # Extract features
+        logger.info("Extracting features and targets...")
+        X_train, Y_train, train_ids = extract_features_and_targets(
+            train_df, nifti_loader, preprocessor, clip_cache, "train"
+        )
+        X_val, Y_val, val_ids = extract_features_and_targets(
+            val_df, nifti_loader, preprocessor, clip_cache, "validation"
+        )
+        X_test, Y_test, test_ids = extract_features_and_targets(
+            test_df, nifti_loader, preprocessor, clip_cache, "test"
+        )
+        
+        # Convert to PyTorch tensors
+        X_train = torch.from_numpy(X_train).float()
+        Y_train = torch.from_numpy(Y_train).float()
+        X_val = torch.from_numpy(X_val).float()
+        Y_val = torch.from_numpy(Y_val).float()
+        X_test = torch.from_numpy(X_test).float()
+        Y_test = torch.from_numpy(Y_test).float()
+        
+        # Create data loaders
+        train_loader = DataLoader(
+            TensorDataset(X_train, Y_train),
+            batch_size=args.batch_size,
+            shuffle=True
+        )
+        val_loader = DataLoader(
+            TensorDataset(X_val, Y_val),
+            batch_size=args.batch_size,
+            shuffle=False
+        )
+        test_loader = DataLoader(
+            TensorDataset(X_test, Y_test),
+            batch_size=args.batch_size,
+            shuffle=False
+        )
+        
+        # Initialize model
+        input_dim = X_train.shape[1]
+        model = MLPEncoder(input_dim=input_dim, hidden=args.hidden, dropout=args.dropout)
+        model = model.to(args.device)
+        
+        logger.info(f"✅ Model initialized: {input_dim}D → {args.hidden}D → 512D")
+        logger.info(f"   Parameters: {sum(p.numel() for p in model.parameters()):,}")
+        
+        # Optimizer and scheduler
+        optimizer = AdamW(model.parameters(), lr=args.lr, weight_decay=args.wd)
+        scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs)
+        
+        # Training loop with early stopping
+        logger.info("=" * 80)
+        logger.info("TRAINING WITH EARLY STOPPING (validation set)")
+        logger.info("=" * 80)
+        
+        best_val_cosine = -np.inf
+        best_epoch = 0
+        patience_counter = 0
+        
+        for epoch in range(args.epochs):
+            train_loss = train_epoch(model, train_loader, optimizer, args.device, args.mse_weight)
+            val_metrics = evaluate_epoch(model, val_loader, args.device)
+            scheduler.step()
+            
+            val_cosine = val_metrics["cosine"]
+            
+            logger.info(
+                f"Epoch {epoch+1:3d}/{args.epochs}: "
+                f"train_loss={train_loss:.4f}, "
+                f"val_cosine={val_cosine:.4f} ± {val_metrics['cosine_std']:.4f}, "
+                f"val_mse={val_metrics['mse']:.4f}"
+            )
+            
+            # Early stopping check
+            if val_cosine > best_val_cosine:
+                best_val_cosine = val_cosine
+                best_epoch = epoch + 1
+                patience_counter = 0
+                logger.info(f"  ✅ New best validation cosine: {best_val_cosine:.4f}")
+            else:
+                patience_counter += 1
+                if patience_counter >= args.patience:
+                    logger.info(f"  Early stopping triggered after {epoch+1} epochs")
+                    break
+        
+        logger.info(f"✅ Best epoch: {best_epoch} (val cosine={best_val_cosine:.4f})")
+        
+        # Retrain on train+val for best_epoch epochs
+        logger.info("=" * 80)
+        logger.info(f"RETRAINING on train+val for {best_epoch} epochs")
+        logger.info("=" * 80)
+        
+        X_trainval = torch.cat([X_train, X_val])
+        Y_trainval = torch.cat([Y_train, Y_val])
+        
+        trainval_loader = DataLoader(
+            TensorDataset(X_trainval, Y_trainval),
+            batch_size=args.batch_size,
+            shuffle=True
+        )
+        
+        # Reinitialize model
+        final_model = MLPEncoder(input_dim=input_dim, hidden=args.hidden, dropout=args.dropout)
+        final_model = final_model.to(args.device)
+        
+        final_optimizer = AdamW(final_model.parameters(), lr=args.lr, weight_decay=args.wd)
+        final_scheduler = CosineAnnealingLR(final_optimizer, T_max=best_epoch)
+        
+        for epoch in range(best_epoch):
+            train_loss = train_epoch(
+                final_model, trainval_loader, final_optimizer, args.device, args.mse_weight
+            )
+            final_scheduler.step()
+            logger.info(f"Epoch {epoch+1:3d}/{best_epoch}: train_loss={train_loss:.4f}")
+        
+        # Evaluate on test set
+        logger.info("=" * 80)
+        logger.info("TEST SET EVALUATION")
+        logger.info("=" * 80)
+        
+        test_metrics = evaluate_epoch(final_model, test_loader, args.device)
+        
+        logger.info(f"Cosine: {test_metrics['cosine']:.4f} ± {test_metrics['cosine_std']:.4f}")
+        logger.info(f"MSE: {test_metrics['mse']:.4f}")
+        
+        # Retrieval evaluation
+        logger.info("\nRetrieval evaluation (test set as gallery)...")
+        
+        # Get predictions as numpy
+        final_model.eval()
+        with torch.no_grad():
+            Y_test_pred = final_model(X_test.to(args.device)).cpu().numpy()
+        
+        Y_test_np = Y_test.numpy()
+        gt_indices = np.arange(len(Y_test_np))
+        
+        retrieval_metrics = retrieval_at_k(
+            Y_test_pred, Y_test_np, gt_indices, ks=(1, 5, 10)
+        )
+        
+        for k, v in retrieval_metrics.items():
+            logger.info(f"{k}: {v:.4f} ({v*100:.2f}%)")
+        
+        # Additional ranking metrics
+        ranking_metrics = compute_ranking_metrics(Y_test_pred, Y_test_np, gt_indices)
+        logger.info(f"Mean rank: {ranking_metrics['mean_rank']:.2f}")
+        logger.info(f"Median rank: {ranking_metrics['median_rank']:.2f}")
+        logger.info(f"MRR: {ranking_metrics['mrr']:.4f}")
+        
+        # Combine metrics
+        test_metrics.update(retrieval_metrics)
+        test_metrics.update(ranking_metrics)
+        
+        # Get preprocessing summary
+        preproc_summary = preprocessor.summary() if preprocessor.is_fitted_ else {}
+        
+        # Save model
+        checkpoint_path = Path(args.checkpoint_dir) / args.subject / "mlp.pt"
+        
+        # Build preprocessing metadata
+        preproc_meta = {}
+        if preprocessor.is_fitted_:
+            preproc_meta = {
+                "used_preproc": True,
+                "k": preproc_summary.get("pca_components"),
+                "reliability_thr": preproc_summary.get("reliability_threshold"),
+                "path": str(preprocessor.preproc_dir) if hasattr(preprocessor, "preproc_dir") else str(Path(args.preproc_dir) / args.subject),
+                "subject": args.subject
+            }
+        else:
+            preproc_meta = {
+                "used_preproc": False,
+                "k": None,
+                "reliability_thr": None,
+                "path": None,
+                "subject": args.subject
+            }
+        
+        meta = {
+            "input_dim": input_dim,
+            "hidden": args.hidden,
+            "dropout": args.dropout,
+            "best_epoch": best_epoch,
+            "best_val_cosine": float(best_val_cosine),
+            "lr": args.lr,
+            "weight_decay": args.wd,
+            "mse_weight": args.mse_weight,
+            "subject": args.subject,
+            "preproc": preproc_meta,
+        }
+        
+        save_mlp(final_model, str(checkpoint_path), meta)
+        logger.info(f"✅ Model saved to {checkpoint_path}")
+        
+        # Build evaluation report (mirror Ridge format)
+        report = {
+            "subject": args.subject,
+            "model": "MLP",
+            "preprocessing": {
+                "used": preprocessor.is_fitted_,
+                "pca_k": preproc_summary.get("pca_components", None),
+                "n_voxels_kept": preproc_summary.get("n_voxels_kept", None),
+            },
+            "data_splits": {
+                "n_train": len(train_df),
+                "n_val": len(val_df),
+                "n_test": len(test_df),
+                "n_train_valid": len(X_train),
+                "n_val_valid": len(X_val),
+                "n_test_valid": len(X_test),
+            },
+            "hyperparameters": {
+                "hidden": args.hidden,
+                "dropout": args.dropout,
+                "lr": args.lr,
+                "weight_decay": args.wd,
+                "mse_weight": args.mse_weight,
+                "batch_size": args.batch_size,
+                "best_epoch": best_epoch,
+            },
+            "validation_metrics": {
+                "best_cosine": float(best_val_cosine),
+            },
+            "test_metrics": test_metrics,
+            "model_checkpoint": str(checkpoint_path),
+        }
+        
+        # Save report
+        report_path = Path(args.report_dir) / args.subject / "mlp_eval.json"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(report_path, "w") as f:
+            json.dump(report, f, indent=2)
+        
+        logger.info("=" * 80)
+        logger.info("✅ Training complete!")
+        logger.info(f"Model: {checkpoint_path}")
+        logger.info(f"Report: {report_path}")
+        logger.info("=" * 80)
+        
+        return 0
+        
+    except Exception as e:
+        logger.error(f"Training failed: {e}", exc_info=True)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+```
+
+# scripts/train_ridge.py
+
+```py
+#!/usr/bin/env python3
+"""
+Ridge Baseline Training Script
+==============================
+
+Train a Ridge regression model for fMRI → CLIP embedding mapping.
+
+Pipeline:
+1. Load canonical index and split train/val/test
+2. Load preprocessing artifacts (T0+T1+T2)
+3. Extract fMRI features and CLIP embeddings
+4. Hyperparameter selection: choose α on validation set
+5. Retrain on train+val with best α
+6. Evaluate on test set (cosine, MSE, retrieval@K)
+7. Save model and evaluation report
+
+Scientific Design:
+- Hyperparameter selection on validation only (no test leakage)
+- L2-normalize CLIP embeddings and predictions (standard practice)
+- Retrain on train+val before final test (maximizes data usage)
+- Report retrieval@K on test set (standard NSD evaluation)
+
+Usage:
+    # Quick test with tiny PCA
+    python scripts/train_ridge.py --subject subj01 --limit 256 --alpha-grid "1,10"
+    
+    # Full run
+    python scripts/train_ridge.py \
+        --subject subj01 \
+        --use-preproc --pca-k 4096 \
+        --clip-cache outputs/clip_cache/clip.parquet \
+        --alpha-grid "0.1,1,3,10,30,100" \
+        --limit 2048
+"""
+
+import argparse
+import json
+import logging
+import sys
+import yaml
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+# Silence nibabel warnings
+logging.getLogger("nibabel.global").setLevel(logging.WARNING)
+
+from fmri2img.data.nsd_index_reader import read_subject_index
+from fmri2img.data.preprocess import NSDPreprocessor
+from fmri2img.data.clip_cache import CLIPCache
+from fmri2img.io.s3 import NIfTILoader, get_s3_filesystem
+from fmri2img.models.ridge import RidgeEncoder, evaluate_predictions
+from fmri2img.eval.retrieval import retrieval_at_k, compute_ranking_metrics
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+
+def load_data_config(config_path="configs/data.yaml"):
+    """Load data configuration."""
+    with open(config_path, 'r') as f:
+        return yaml.safe_load(f)
+
+
+def split_dataframe(df, train_ratio=0.8, val_ratio=0.1, test_ratio=0.1, random_seed=42):
+    """Split dataframe into train/val/test."""
+    if abs(train_ratio + val_ratio + test_ratio - 1.0) > 1e-6:
+        raise ValueError("Split ratios must sum to 1.0")
+    
+    # Shuffle with fixed seed
+    df_shuffled = df.sample(frac=1, random_state=random_seed).reset_index(drop=True)
+    
+    n_total = len(df_shuffled)
+    
+    # Ensure minimum samples for each split (at least 1 for val/test if n >= 3)
+    if n_total < 3:
+        raise ValueError(f"Need at least 3 samples for train/val/test split, got {n_total}")
+    
+    n_train = max(1, int(n_total * train_ratio))
+    n_val = max(1, int(n_total * val_ratio))
+    n_test = n_total - n_train - n_val
+    
+    if n_test < 1:
+        # Adjust to ensure at least 1 test sample
+        n_test = 1
+        n_val = max(1, n_total - n_train - n_test)
+        n_train = n_total - n_val - n_test
+    
+    train_df = df_shuffled[:n_train]
+    val_df = df_shuffled[n_train:n_train + n_val]
+    test_df = df_shuffled[n_train + n_val:]
+    
+    logger.info(f"Split {n_total} trials: train={len(train_df)}, val={len(val_df)}, test={len(test_df)}")
+    
+    return train_df, val_df, test_df
+
+
+def extract_features_and_targets(
+    df: pd.DataFrame,
+    nifti_loader: NIfTILoader,
+    preprocessor: NSDPreprocessor,
+    clip_cache: CLIPCache,
+    desc: str = "data"
+) -> tuple:
+    """
+    Extract fMRI features and CLIP targets from DataFrame.
+    
+    Returns:
+        X: fMRI features (n_samples, n_features)
+        Y: CLIP embeddings (n_samples, 512), L2-normalized
+        nsd_ids: NSD stimulus IDs (n_samples,)
+    """
+    X_list = []
+    Y_list = []
+    nsd_ids = []
+    
+    logger.info(f"Extracting {desc}: {len(df)} samples")
+    
+    for idx, row in df.iterrows():
+        try:
+            # Load fMRI volume
+            beta_path = row["beta_path"]
+            beta_index = int(row["beta_index"])
+            nsd_id = int(row["nsdId"])
+            
+            img = nifti_loader.load(beta_path)
+            data_4d = img.get_fdata()
+            vol = data_4d[..., beta_index].astype(np.float32)
+            
+            # Apply preprocessing (T0+T1+T2)
+            fmri_features = preprocessor.transform(vol)
+            
+            # Get CLIP embedding
+            clip_emb = clip_cache.get([nsd_id])
+            if nsd_id not in clip_emb:
+                logger.warning(f"CLIP embedding missing for nsdId={nsd_id}, skipping")
+                continue
+            
+            clip_vec = clip_emb[nsd_id]
+            
+            # Verify L2 normalization
+            clip_norm = np.linalg.norm(clip_vec)
+            if not np.isclose(clip_norm, 1.0, atol=1e-3):
+                logger.warning(f"CLIP embedding not normalized (norm={clip_norm:.3f}), normalizing")
+                clip_vec = clip_vec / clip_norm
+            
+            X_list.append(fmri_features)
+            Y_list.append(clip_vec)
+            nsd_ids.append(nsd_id)
+            
+        except Exception as e:
+            logger.warning(f"Failed to process row {idx}: {e}")
+            continue
+    
+    if len(X_list) == 0:
+        raise ValueError(f"No valid samples extracted from {desc}")
+    
+    X = np.stack(X_list).astype(np.float32)
+    Y = np.stack(Y_list).astype(np.float32)
+    nsd_ids = np.array(nsd_ids)
+    
+    logger.info(f"✅ Extracted {desc}: X {X.shape}, Y {Y.shape}")
+    
+    return X, Y, nsd_ids
+
+
+def select_alpha(
+    X_train: np.ndarray,
+    Y_train: np.ndarray,
+    X_val: np.ndarray,
+    Y_val: np.ndarray,
+    alpha_grid: list
+) -> tuple:
+    """
+    Select best alpha by validation cosine similarity.
+    
+    Returns:
+        best_alpha: Best alpha value
+        results: Dict of alpha -> validation metrics
+    """
+    logger.info(f"Alpha selection: testing {len(alpha_grid)} values on validation set")
+    
+    results = {}
+    best_alpha = None
+    best_cosine = -np.inf
+    
+    for alpha in alpha_grid:
+        # Train model
+        model = RidgeEncoder(alpha=alpha)
+        model.fit(X_train, Y_train)
+        
+        # Evaluate on validation
+        Y_val_pred = model.predict(X_val, normalize=True)
+        metrics = evaluate_predictions(Y_val, Y_val_pred, normalize=True)
+        
+        results[alpha] = metrics
+        logger.info(f"  α={alpha:8.3f}: cosine={metrics['cosine']:.4f} ± {metrics['cosine_std']:.4f}, MSE={metrics['mse']:.4f}")
+        
+        if metrics['cosine'] > best_cosine:
+            best_cosine = metrics['cosine']
+            best_alpha = alpha
+    
+    logger.info(f"✅ Best α={best_alpha:.3f} (val cosine={best_cosine:.4f})")
+    
+    return best_alpha, results
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Train Ridge baseline for fMRI → CLIP")
+    parser.add_argument("--index-root", default="data/indices/nsd_index",
+                       help="NSD index root directory")
+    parser.add_argument("--subject", default="subj01", help="Subject to train on")
+    parser.add_argument("--alpha-grid", default="0.1,1,3,10,30,100",
+                       help="Comma-separated alpha values for grid search")
+    parser.add_argument("--use-preproc", action="store_true",
+                       help="Use preprocessing pipeline")
+    parser.add_argument("--pca-k", type=int, help="PCA components (implies --use-preproc)")
+    parser.add_argument("--clip-cache", default="outputs/clip_cache/clip.parquet",
+                       help="Path to CLIP cache")
+    parser.add_argument("--limit", type=int, help="Limit number of samples (for testing)")
+    parser.add_argument("--config", default="configs/data.yaml", help="Data config file")
+    parser.add_argument("--preproc-dir", default="outputs/preproc",
+                       help="Preprocessing artifacts directory")
+    parser.add_argument("--checkpoint-dir", default="checkpoints/ridge",
+                       help="Model checkpoint directory")
+    parser.add_argument("--report-dir", default="outputs/reports",
+                       help="Evaluation report directory")
+    
+    args = parser.parse_args()
+    
+    # Parse alpha grid
+    alpha_grid = [float(x.strip()) for x in args.alpha_grid.split(",")]
+    
+    try:
+        # Load configuration
+        config = load_data_config(args.config)
+        splits = config.get("splits", {})
+        
+        # Load subject index
+        logger.info(f"Loading index for {args.subject} from {args.index_root}")
+        df = read_subject_index(args.index_root, args.subject)
+        
+        if args.limit:
+            df = df.head(args.limit)
+            logger.info(f"Limited to {len(df)} samples")
+        
+        # Split data
+        train_df, val_df, test_df = split_dataframe(
+            df,
+            train_ratio=splits.get("train_ratio", 0.8),
+            val_ratio=splits.get("val_ratio", 0.1),
+            test_ratio=splits.get("test_ratio", 0.1),
+            random_seed=splits.get("random_seed", 42)
+        )
+        
+        # Setup preprocessor
+        preprocessor = NSDPreprocessor(args.subject, args.preproc_dir)
+        if args.use_preproc or args.pca_k:
+            if not preprocessor.load_artifacts():
+                logger.error("Preprocessing artifacts not found. Run nsd_fit_preproc.py first!")
+                return 1
+            summary = preprocessor.summary()
+            logger.info(f"Loaded preprocessing: {summary['n_voxels_kept']:,} voxels")
+            if summary.get('pca_fitted'):
+                logger.info(f"  PCA: {summary['pca_components']} components")
+        
+        # Load CLIP cache
+        logger.info(f"Loading CLIP cache from {args.clip_cache}")
+        clip_cache = CLIPCache(args.clip_cache).load()
+        stats = clip_cache.stats()
+        logger.info(f"✅ CLIP cache loaded: {stats['cache_size']} embeddings")
+        
+        # Initialize NIfTI loader
+        s3_fs = get_s3_filesystem()
+        nifti_loader = NIfTILoader(s3_fs)
+        
+        # Extract features
+        X_train, Y_train, train_ids = extract_features_and_targets(
+            train_df, nifti_loader, preprocessor, clip_cache, "train"
+        )
+        X_val, Y_val, val_ids = extract_features_and_targets(
+            val_df, nifti_loader, preprocessor, clip_cache, "validation"
+        )
+        X_test, Y_test, test_ids = extract_features_and_targets(
+            test_df, nifti_loader, preprocessor, clip_cache, "test"
+        )
+        
+        # Alpha selection on validation set
+        logger.info("=" * 80)
+        logger.info("ALPHA SELECTION (validation set)")
+        logger.info("=" * 80)
+        best_alpha, alpha_results = select_alpha(X_train, Y_train, X_val, Y_val, alpha_grid)
+        
+        # Retrain on train+val with best alpha
+        logger.info("=" * 80)
+        logger.info(f"RETRAINING on train+val with α={best_alpha:.3f}")
+        logger.info("=" * 80)
+        X_trainval = np.vstack([X_train, X_val])
+        Y_trainval = np.vstack([Y_train, Y_val])
+        
+        final_model = RidgeEncoder(alpha=best_alpha)
+        final_model.fit(X_trainval, Y_trainval)
+        
+        # Evaluate on test set
+        logger.info("=" * 80)
+        logger.info("TEST SET EVALUATION")
+        logger.info("=" * 80)
+        
+        Y_test_pred = final_model.predict(X_test, normalize=True)
+        test_metrics = evaluate_predictions(Y_test, Y_test_pred, normalize=True)
+        
+        logger.info(f"Cosine: {test_metrics['cosine']:.4f} ± {test_metrics['cosine_std']:.4f}")
+        logger.info(f"MSE: {test_metrics['mse']:.4f}")
+        
+        # Retrieval evaluation
+        # Build gallery from test set (in practice, could be larger)
+        logger.info("\nRetrieval evaluation (test set as gallery)...")
+        gt_indices = np.arange(len(Y_test))  # Each query matches its own index
+        
+        retrieval_metrics = retrieval_at_k(
+            Y_test_pred, Y_test, gt_indices, ks=(1, 5, 10)
+        )
+        
+        for k, v in retrieval_metrics.items():
+            logger.info(f"{k}: {v:.4f} ({v*100:.2f}%)")
+        
+        # Additional ranking metrics
+        ranking_metrics = compute_ranking_metrics(Y_test_pred, Y_test, gt_indices)
+        logger.info(f"Mean rank: {ranking_metrics['mean_rank']:.2f}")
+        logger.info(f"Median rank: {ranking_metrics['median_rank']:.2f}")
+        logger.info(f"MRR: {ranking_metrics['mrr']:.4f}")
+        
+        # Save model
+        checkpoint_path = Path(args.checkpoint_dir) / args.subject / "ridge.pkl"
+        final_model.save(checkpoint_path)
+        
+        # Save evaluation report
+        report = {
+            "subject": args.subject,
+            "preprocessing": {
+                "used": args.use_preproc or args.pca_k is not None,
+                "pca_k": preprocessor.summary().get("pca_components", None) if preprocessor.is_fitted_ else None,
+                "n_voxels_kept": preprocessor.summary().get("n_voxels_kept", None) if preprocessor.is_fitted_ else None,
+            },
+            "data_splits": {
+                "n_train": len(train_df),
+                "n_val": len(val_df),
+                "n_test": len(test_df),
+                "n_train_valid": len(X_train),
+                "n_val_valid": len(X_val),
+                "n_test_valid": len(X_test),
+            },
+            "hyperparameters": {
+                "alpha_grid": alpha_grid,
+                "best_alpha": best_alpha,
+                "alpha_selection_results": {str(k): v for k, v in alpha_results.items()},
+            },
+            "validation_metrics": alpha_results[best_alpha],
+            "test_metrics": {
+                **test_metrics,
+                **retrieval_metrics,
+                **ranking_metrics,
+            },
+            "model_checkpoint": str(checkpoint_path),
+        }
+        
+        report_path = Path(args.report_dir) / args.subject / "ridge_eval.json"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(report_path, 'w') as f:
+            json.dump(report, f, indent=2)
+        
+        logger.info("=" * 80)
+        logger.info(f"✅ Training complete!")
+        logger.info(f"Model: {checkpoint_path}")
+        logger.info(f"Report: {report_path}")
+        logger.info("=" * 80)
+        
+        return 0
+        
+    except Exception as e:
+        logger.error(f"Training failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+```
+
+# scripts/validate_config.py
+
+```py
+#!/usr/bin/env python3
+"""
+Configuration Validation Script
+===============================
+
+Validates that the optimal production configuration is correctly set up.
+
+Usage:
+    python scripts/validate_config.py [--config configs/production_optimal.yaml]
+"""
+
+import argparse
+import sys
+from pathlib import Path
+
+import yaml
+
+
+def print_header(text):
+    print("\n" + "=" * 80)
+    print(f"  {text}")
+    print("=" * 80)
+
+
+def print_check(text, status):
+    symbol = "✅" if status else "❌"
+    print(f"{symbol} {text}")
+    return status
+
+
+def validate_config(config_path: Path) -> bool:
+    """Validate configuration file."""
+    print_header("CONFIGURATION VALIDATION")
+    print(f"Config file: {config_path}")
+    
+    all_valid = True
+    
+    # Check file exists
+    if not print_check(f"Configuration file exists: {config_path}", config_path.exists()):
+        return False
+    
+    # Load config
+    try:
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+        print_check("Configuration file is valid YAML", True)
+    except Exception as e:
+        print_check(f"Configuration file parse error: {e}", False)
+        return False
+    
+    # Validate structure
+    required_sections = [
+        'experiment', 'dataset', 'preprocessing', 'mlp_encoder',
+        'clip_adapter', 'diffusion', 'paths', 'compute', 'reproducibility'
+    ]
+    
+    for section in required_sections:
+        all_valid &= print_check(f"Section '{section}' exists", section in config)
+    
+    if not all_valid:
+        return False
+    
+    print_header("DATASET CONFIGURATION")
+    
+    # Validate dataset config
+    ds = config['dataset']
+    all_valid &= print_check(
+        f"Subject: {ds.get('subject', 'MISSING')}",
+        'subject' in ds and ds['subject'].startswith('subj')
+    )
+    all_valid &= print_check(
+        f"Max trials: {ds.get('max_trials', 'MISSING')} (expected: 750)",
+        'max_trials' in ds and ds['max_trials'] == 750
+    )
+    all_valid &= print_check(
+        f"Train samples: {ds.get('train_samples', 'MISSING')}",
+        'train_samples' in ds and ds['train_samples'] == 600
+    )
+    all_valid &= print_check(
+        f"Random seed: {ds.get('random_seed', 'MISSING')}",
+        'random_seed' in ds
+    )
+    
+    print_header("PREPROCESSING CONFIGURATION")
+    
+    pp = config['preprocessing']
+    all_valid &= print_check(
+        f"Reliability threshold: {pp.get('reliability_threshold', 'MISSING')}",
+        'reliability_threshold' in pp and pp['reliability_threshold'] == 0.10
+    )
+    all_valid &= print_check(
+        f"PCA components: {pp.get('tier2', {}).get('n_components', 'MISSING')}",
+        'tier2' in pp and 'n_components' in pp['tier2']
+    )
+    
+    print_header("MLP ENCODER CONFIGURATION")
+    
+    mlp = config['mlp_encoder']
+    all_valid &= print_check(
+        f"Hidden dims: {mlp.get('hidden_dims', 'MISSING')}",
+        'hidden_dims' in mlp and len(mlp['hidden_dims']) >= 2
+    )
+    all_valid &= print_check(
+        f"Dropout: {mlp.get('dropout', 'MISSING')}",
+        'dropout' in mlp and 0 < mlp['dropout'] < 1
+    )
+    all_valid &= print_check(
+        f"Learning rate: {mlp.get('training', {}).get('learning_rate', 'MISSING')}",
+        'training' in mlp and 'learning_rate' in mlp['training']
+    )
+    all_valid &= print_check(
+        f"Batch size: {mlp.get('training', {}).get('batch_size', 'MISSING')}",
+        'training' in mlp and 'batch_size' in mlp['training']
+    )
+    
+    # Validate loss configuration
+    loss = mlp.get('loss', {})
+    all_valid &= print_check(
+        f"Cosine weight: {loss.get('cosine_weight', 'MISSING')}",
+        'cosine_weight' in loss
+    )
+    all_valid &= print_check(
+        f"MSE weight: {loss.get('mse_weight', 'MISSING')}",
+        'mse_weight' in loss
+    )
+    all_valid &= print_check(
+        f"Triplet weight: {loss.get('triplet_weight', 'MISSING')}",
+        'triplet_weight' in loss
+    )
+    
+    print_header("CLIP ADAPTER CONFIGURATION")
+    
+    ada = config['clip_adapter']
+    all_valid &= print_check(
+        f"Input dim: {ada.get('input_dim', 'MISSING')} (expected: 512)",
+        'input_dim' in ada and ada['input_dim'] == 512
+    )
+    all_valid &= print_check(
+        f"Output dim: {ada.get('output_dim', 'MISSING')} (expected: 1024)",
+        'output_dim' in ada and ada['output_dim'] == 1024
+    )
+    
+    print_header("DIFFUSION CONFIGURATION")
+    
+    dif = config['diffusion']
+    all_valid &= print_check(
+        f"Model: {dif.get('model_id', 'MISSING')}",
+        'model_id' in dif and 'stable-diffusion' in dif['model_id'].lower()
+    )
+    
+    inf = dif.get('inference', {})
+    all_valid &= print_check(
+        f"Steps: {inf.get('num_steps', 'MISSING')} (optimal: 150)",
+        'num_steps' in inf and inf['num_steps'] >= 100
+    )
+    all_valid &= print_check(
+        f"Guidance scale: {inf.get('guidance_scale', 'MISSING')} (optimal: 10-12)",
+        'guidance_scale' in inf and 10 <= inf['guidance_scale'] <= 12
+    )
+    all_valid &= print_check(
+        f"Scheduler: {inf.get('scheduler', 'MISSING')}",
+        'scheduler' in inf and inf['scheduler'] in ['ddim', 'dpm', 'euler', 'pndm']
+    )
+    
+    print_header("COMPUTE CONFIGURATION")
+    
+    cmp = config['compute']
+    all_valid &= print_check(
+        f"Device: {cmp.get('device', 'MISSING')}",
+        'device' in cmp and cmp['device'] in ['cuda', 'cpu']
+    )
+    
+    print_header("PATHS VALIDATION")
+    
+    # Check critical directories exist
+    base_dir = Path('.')
+    paths_to_check = [
+        ('configs', True),
+        ('scripts', True),
+        ('src/fmri2img', True),
+        ('outputs', False),
+        ('checkpoints', False),
+        ('logs', False),
+    ]
+    
+    for path_name, required in paths_to_check:
+        path = base_dir / path_name
+        exists = path.exists()
+        if required:
+            all_valid &= print_check(f"Directory exists: {path_name}", exists)
+        else:
+            print_check(f"Directory exists: {path_name} (will be created)", exists or not required)
+    
+    print_header("VALIDATION SUMMARY")
+    
+    if all_valid:
+        print("\n✅ Configuration is VALID and ready for use!")
+        print(f"\nTo run the pipeline:")
+        print(f"  bash scripts/run_production.sh")
+        return True
+    else:
+        print("\n❌ Configuration has ERRORS that need to be fixed")
+        print(f"\nPlease review the errors above and:")
+        print(f"  1. Edit: {config_path}")
+        print(f"  2. Fix the marked issues")
+        print(f"  3. Re-run: python scripts/validate_config.py")
+        return False
+
+
+def validate_environment():
+    """Validate Python environment."""
+    print_header("ENVIRONMENT VALIDATION")
+    
+    all_valid = True
+    
+    # Check Python version
+    import sys
+    py_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    all_valid &= print_check(
+        f"Python version: {py_version} (expected: 3.8+)",
+        sys.version_info >= (3, 8)
+    )
+    
+    # Check required packages
+    required_packages = [
+        'torch', 'numpy', 'pandas', 'yaml', 'nibabel',
+        'transformers', 'diffusers', 'PIL', 'matplotlib'
+    ]
+    
+    for package in required_packages:
+        try:
+            __import__(package)
+            print_check(f"Package installed: {package}", True)
+        except ImportError:
+            all_valid &= print_check(f"Package installed: {package}", False)
+    
+    # Check CUDA availability
+    try:
+        import torch
+        cuda_available = torch.cuda.is_available()
+        if cuda_available:
+            device_name = torch.cuda.get_device_name(0)
+            print_check(f"CUDA available: {device_name}", True)
+        else:
+            print_check("CUDA available: False (will use CPU)", False)
+    except:
+        print_check("CUDA check failed", False)
+    
+    return all_valid
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Validate optimal production configuration")
+    parser.add_argument(
+        '--config',
+        type=Path,
+        default=Path('configs/production_optimal.yaml'),
+        help='Path to configuration file'
+    )
+    parser.add_argument(
+        '--skip-env',
+        action='store_true',
+        help='Skip environment validation'
+    )
+    
+    args = parser.parse_args()
+    
+    print("=" * 80)
+    print("  OPTIMAL PRODUCTION CONFIGURATION VALIDATOR")
+    print("=" * 80)
+    print(f"\nValidating: {args.config}")
+    
+    # Validate environment
+    if not args.skip_env:
+        env_valid = validate_environment()
+        if not env_valid:
+            print("\n⚠️  Environment validation failed!")
+            print("   Please install missing packages:")
+            print("   pip install -r requirements.txt")
+            print("\n   Or skip with: --skip-env")
+    
+    # Validate configuration
+    config_valid = validate_config(args.config)
+    
+    # Final status
+    print("\n" + "=" * 80)
+    if config_valid:
+        print("  ✅ ALL CHECKS PASSED - SYSTEM READY")
+        print("=" * 80)
+        print("\n🚀 Next step:")
+        print("   bash scripts/run_production.sh")
+        print("\n📖 Documentation:")
+        print("   • Configuration: configs/production_optimal.yaml")
+        print("   • Full Guide: docs/OPTIMAL_CONFIGURATION_GUIDE.md")
+        print("   • Quick Start: docs/PRODUCTION_READY_SUMMARY.md")
+        return 0
+    else:
+        print("  ❌ VALIDATION FAILED - FIX ERRORS ABOVE")
+        print("=" * 80)
+        return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())
+
 ```
 
 # src/fmri2img/__init__.py
@@ -4803,6 +10389,309 @@ def clip_score(generated_emb: np.ndarray, gt_emb: np.ndarray) -> np.ndarray:
 
 ```
 
+# src/fmri2img/io/image_loader.py
+
+```py
+"""
+Robust Image Loading with Fallback Chain
+
+Load order:
+1. Local HDF5 ($NSD_HDF5 or cache/nsd_hdf5/nsd_stimuli.hdf5)
+2. S3 HDF5 (s3://natural-scenes-dataset/.../nsd_stimuli.hdf5)
+3. COCO HTTP with local cache (.cache/coco/{cocoId}.jpg)
+
+Features:
+- Environment variable support for local HDF5
+- Automatic caching of COCO images
+- Single-warning-per-error pattern (no spam)
+- Graceful degradation on partial/truncated files
+"""
+
+import os
+import logging
+from pathlib import Path
+from typing import Optional, Dict, Tuple
+from io import BytesIO
+import hashlib
+
+import numpy as np
+from PIL import Image
+import pandas as pd
+
+# Try h5py import
+try:
+    import h5py
+    HAS_H5PY = True
+except ImportError:
+    h5py = None
+    HAS_H5PY = False
+
+# Try requests import
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    requests = None
+    HAS_REQUESTS = False
+
+from fmri2img.io.s3 import HDF5Loader
+from fmri2img.io.nsd_layout import NSDLayout
+
+logger = logging.getLogger(__name__)
+
+
+class ImageLoadError(Exception):
+    """Raised when all image loading methods fail"""
+    pass
+
+
+class RobustImageLoader:
+    """
+    Robust image loader with fallback chain and caching.
+    
+    Features:
+    - Tries local HDF5 first (fastest)
+    - Falls back to S3 HDF5 (moderate)
+    - Falls back to COCO HTTP (slowest but reliable)
+    - Caches COCO images locally
+    - Single warning per error type
+    """
+    
+    def __init__(
+        self,
+        local_hdf5_path: Optional[str] = None,
+        s3_hdf5_path: Optional[str] = None,
+        coco_cache_dir: str = ".cache/coco",
+        enable_warnings: bool = True
+    ):
+        """
+        Initialize robust image loader.
+        
+        Args:
+            local_hdf5_path: Path to local HDF5 file (or None to check $NSD_HDF5)
+            s3_hdf5_path: S3 path to HDF5 file
+            coco_cache_dir: Directory for caching COCO images
+            enable_warnings: Whether to print warnings
+        """
+        self.enable_warnings = enable_warnings
+        self._warnings_shown = set()  # Track which warnings we've shown
+        
+        # Resolve local HDF5 path
+        self.local_hdf5_path = self._resolve_local_hdf5(local_hdf5_path)
+        self.s3_hdf5_path = s3_hdf5_path
+        
+        # Setup COCO caching
+        self.coco_cache_dir = Path(coco_cache_dir)
+        self.coco_cache_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Initialize loaders
+        self.hdf5_loader = HDF5Loader() if HAS_H5PY else None
+        self.layout = NSDLayout()
+        
+        # Stats tracking
+        self.stats = {
+            'local_hdf5': 0,
+            's3_hdf5': 0,
+            'coco_cached': 0,
+            'coco_http': 0,
+            'failed': 0
+        }
+        
+        # Log initial configuration
+        if self.local_hdf5_path and self.local_hdf5_path.exists():
+            logger.info(f"✓ Local HDF5 found: {self.local_hdf5_path}")
+        else:
+            self._warn_once('no_local_hdf5', 
+                f"⚠️  No local HDF5 found. Set NSD_HDF5=cache/nsd_hdf5/nsd_stimuli.hdf5 for faster loading.")
+    
+    def _resolve_local_hdf5(self, path: Optional[str]) -> Optional[Path]:
+        """Resolve local HDF5 path from argument or environment."""
+        if path:
+            p = Path(path)
+            if p.exists():
+                return p
+        
+        # Check environment variable
+        env_path = os.getenv('NSD_HDF5')
+        if env_path:
+            p = Path(env_path)
+            if p.exists():
+                return p
+        
+        # Check default location
+        default_path = Path("cache/nsd_hdf5/nsd_stimuli.hdf5")
+        if default_path.exists():
+            return default_path
+        
+        return None
+    
+    def _warn_once(self, key: str, message: str):
+        """Print warning only once per key."""
+        if self.enable_warnings and key not in self._warnings_shown:
+            logger.warning(message)
+            self._warnings_shown.add(key)
+    
+    def _load_from_local_hdf5(self, nsd_id: int) -> Optional[Image.Image]:
+        """Try loading from local HDF5 file."""
+        if not self.local_hdf5_path or not HAS_H5PY:
+            return None
+        
+        try:
+            with h5py.File(self.local_hdf5_path, 'r') as hf:
+                if "imgBrick" not in hf:
+                    self._warn_once('no_imgbrick', "⚠️  'imgBrick' dataset not found in local HDF5")
+                    return None
+                
+                img_arr = hf["imgBrick"][nsd_id]
+                
+                # Convert to PIL
+                if img_arr.ndim == 2:
+                    img = Image.fromarray(img_arr.astype(np.uint8), mode='L').convert('RGB')
+                elif img_arr.ndim == 3:
+                    img = Image.fromarray(img_arr.astype(np.uint8), mode='RGB')
+                else:
+                    logger.debug(f"Unexpected shape for nsdId={nsd_id}: {img_arr.shape}")
+                    return None
+                
+                self.stats['local_hdf5'] += 1
+                logger.debug(f"✓ Loaded nsdId={nsd_id} from local HDF5")
+                return img
+                
+        except OSError as e:
+            # Truncated file error - log once and continue
+            self._warn_once('local_hdf5_truncated', 
+                f"⚠️  Local HDF5 corrupted/truncated (will use fallbacks): {e}")
+            return None
+        except Exception as e:
+            logger.debug(f"Local HDF5 error for nsdId={nsd_id}: {e}")
+            return None
+    
+    def _load_from_s3_hdf5(self, nsd_id: int) -> Optional[Image.Image]:
+        """Try loading from S3 HDF5 file."""
+        if not self.s3_hdf5_path or not self.hdf5_loader:
+            return None
+        
+        try:
+            with self.hdf5_loader.open(self.s3_hdf5_path) as hf:
+                if "imgBrick" not in hf:
+                    self._warn_once('no_imgbrick_s3', "⚠️  'imgBrick' dataset not found in S3 HDF5")
+                    return None
+                
+                img_arr = hf["imgBrick"][nsd_id]
+                
+                # Convert to PIL
+                if img_arr.ndim == 2:
+                    img = Image.fromarray(img_arr.astype(np.uint8), mode='L').convert('RGB')
+                elif img_arr.ndim == 3:
+                    img = Image.fromarray(img_arr.astype(np.uint8), mode='RGB')
+                else:
+                    logger.debug(f"Unexpected shape for nsdId={nsd_id}: {img_arr.shape}")
+                    return None
+                
+                self.stats['s3_hdf5'] += 1
+                logger.debug(f"✓ Loaded nsdId={nsd_id} from S3 HDF5")
+                return img
+                
+        except OSError as e:
+            # Truncated file error - log once and continue
+            self._warn_once('s3_hdf5_truncated', 
+                f"⚠️  S3 HDF5 corrupted/truncated (will use COCO fallback): {e}")
+            return None
+        except Exception as e:
+            logger.debug(f"S3 HDF5 error for nsdId={nsd_id}: {e}")
+            return None
+    
+    def _load_from_coco(self, coco_id: int, coco_split: str = "train2017") -> Optional[Image.Image]:
+        """Try loading from COCO with local caching."""
+        if not HAS_REQUESTS:
+            return None
+        
+        # Check cache first
+        cache_file = self.coco_cache_dir / f"{coco_id}_{coco_split}.jpg"
+        if cache_file.exists():
+            try:
+                img = Image.open(cache_file).convert('RGB')
+                self.stats['coco_cached'] += 1
+                logger.debug(f"✓ Loaded cocoId={coco_id} from cache")
+                return img
+            except Exception as e:
+                logger.debug(f"Cache read error for cocoId={coco_id}: {e}")
+                # Continue to HTTP fetch
+        
+        # Fetch from HTTP
+        try:
+            url = self.layout.coco_http_url(coco_id, coco_split)
+            logger.debug(f"Fetching COCO image from {url}")
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            
+            img = Image.open(BytesIO(response.content)).convert('RGB')
+            
+            # Cache for next time
+            try:
+                img.save(cache_file, 'JPEG', quality=95)
+            except Exception as e:
+                logger.debug(f"Failed to cache cocoId={coco_id}: {e}")
+            
+            self.stats['coco_http'] += 1
+            logger.debug(f"✓ Loaded cocoId={coco_id} from COCO HTTP")
+            return img
+            
+        except Exception as e:
+            logger.debug(f"COCO HTTP error for cocoId={coco_id}: {e}")
+            return None
+    
+    def load(self, row: pd.Series) -> Optional[Image.Image]:
+        """
+        Load image with full fallback chain.
+        
+        Args:
+            row: DataFrame row with 'nsdId' (required) and optionally 'cocoId', 'cocoSplit'
+        
+        Returns:
+            PIL Image or None if all methods fail
+        """
+        nsd_id = int(row.get("nsdId", row.get("nsd_id", -1)))
+        if nsd_id < 0:
+            logger.debug("No valid nsd_id in row")
+            self.stats['failed'] += 1
+            return None
+        
+        # Try 1: Local HDF5 (fastest)
+        img = self._load_from_local_hdf5(nsd_id)
+        if img is not None:
+            return img
+        
+        # Try 2: S3 HDF5 (moderate)
+        img = self._load_from_s3_hdf5(nsd_id)
+        if img is not None:
+            return img
+        
+        # Try 3: COCO HTTP with caching (slowest but reliable)
+        if "cocoId" in row or "coco_id" in row:
+            coco_id = int(row.get("cocoId", row.get("coco_id", -1)))
+            coco_split = row.get("cocoSplit", row.get("coco_split", "train2017"))
+            
+            if coco_id >= 0:
+                # Only warn once about fallback
+                self._warn_once('using_coco_fallback',
+                    f"⚠️  HDF5 methods failed for nsdId={nsd_id}, using COCO HTTP fallback")
+                
+                img = self._load_from_coco(coco_id, coco_split)
+                if img is not None:
+                    return img
+        
+        # All methods failed
+        self.stats['failed'] += 1
+        logger.debug(f"All load methods failed for nsdId={nsd_id}")
+        return None
+    
+    def get_stats(self) -> Dict[str, int]:
+        """Get loading statistics."""
+        return self.stats.copy()
+
+```
+
 # src/fmri2img/io/nsd_images.py
 
 ```py
@@ -4961,14 +10850,30 @@ def _try_load_hdf5(
         return images
     
     try:
-        from fmri2img.io.s3 import HDF5Loader
+        # Check for local HDF5 file first
+        local_hdf5 = None
+        env_path = os.getenv('NSD_HDF5')
+        if env_path and Path(env_path).exists():
+            local_hdf5 = Path(env_path)
+            logger.debug(f"Using local HDF5 from $NSD_HDF5: {local_hdf5}")
+        else:
+            default_path = Path("cache/nsd_hdf5/nsd_stimuli.hdf5")
+            if default_path.exists():
+                local_hdf5 = default_path
+                logger.debug(f"Using local HDF5 from default location: {local_hdf5}")
         
-        hdf5_path = layout.stim_hdf5_path()
-        logger.debug(f"Opening HDF5: {hdf5_path}")
+        # Use local file if available, otherwise fall back to S3
+        if local_hdf5:
+            logger.debug(f"Opening local HDF5: {local_hdf5}")
+            h5file = h5py.File(local_hdf5, 'r')
+        else:
+            from fmri2img.io.s3 import HDF5Loader
+            hdf5_path = layout.stim_hdf5_path()
+            logger.debug(f"Opening HDF5 from S3: {hdf5_path}")
+            hdf5_loader = HDF5Loader(s3_fs)
+            h5file = hdf5_loader.open(hdf5_path)
         
-        hdf5_loader = HDF5Loader(s3_fs)
-        
-        with hdf5_loader.open(hdf5_path) as h5file:
+        with h5file:
             if "imgBrick" not in h5file:
                 logger.warning("HDF5 file missing 'imgBrick' dataset")
                 return images
@@ -8474,6 +14379,23 @@ def verify_embedding_dimension(
             f"This usually means the CLIP model changed. "
             f"Rebuild cache with current config."
         )
+
+```
+
+# test_hdf5.py
+
+```py
+#!/usr/bin/env python3
+import h5py
+
+try:
+    f = h5py.File('cache/nsd_hdf5/nsd_stimuli.hdf5', 'r')
+    print('Keys:', list(f.keys()))
+    print('imgBrick shape:', f['imgBrick'].shape)
+    f.close()
+    print('✅ File is valid and accessible!')
+except Exception as e:
+    print(f'❌ File is corrupted: {e}')
 
 ```
 

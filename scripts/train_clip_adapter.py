@@ -228,47 +228,110 @@ def compute_target_embeddings_cached(
     # Get IDs that need computation
     ids_to_compute = [nsd_id for nsd_id in nsd_ids if nsd_id not in existing_cache]
     
+    # Load images in smaller batches to handle HDF5 issues
+    BATCH_SIZE = 200  # Process 200 images at a time
+    nsd_images = {}
+    hdf5_failed = False  # Track if HDF5 has failed
+    
     if ids_to_compute:
-        logger.info(f"Loading {len(ids_to_compute)} images from NSD...")
-        nsd_images = load_nsd_images(ids_to_compute, s3_fs=s3_fs, prefer="hdf5")
+        logger.info(f"Loading {len(ids_to_compute)} images from NSD in batches of {BATCH_SIZE}...")
+        
+        for i in range(0, len(ids_to_compute), BATCH_SIZE):
+            batch_ids = ids_to_compute[i:i+BATCH_SIZE]
+            batch_num = i // BATCH_SIZE + 1
+            total_batches = (len(ids_to_compute) - 1) // BATCH_SIZE + 1
+            
+            logger.info(f"Loading batch {batch_num}/{total_batches} ({len(batch_ids)} images)...")
+            
+            # Try HDF5 only if it hasn't failed before
+            if not hdf5_failed:
+                try:
+                    batch_images = load_nsd_images(batch_ids, s3_fs=s3_fs, prefer="hdf5")
+                    nsd_images.update(batch_images)
+                    logger.info(f"✓ Loaded {len(batch_images)} images via HDF5")
+                except Exception as e:
+                    logger.warning(f"HDF5 failed: {e}")
+                    logger.info("Switching to HTTP for all remaining batches...")
+                    hdf5_failed = True
+                    # Retry this batch with HTTP
+                    try:
+                        batch_images = load_nsd_images(batch_ids, s3_fs=s3_fs, prefer="http")
+                        nsd_images.update(batch_images)
+                        logger.info(f"✓ Loaded {len(batch_images)} images via HTTP")
+                    except Exception as e2:
+                        logger.error(f"HTTP also failed for batch {batch_num}: {e2}")
+            else:
+                # Use HTTP directly
+                try:
+                    batch_images = load_nsd_images(batch_ids, s3_fs=s3_fs, prefer="http")
+                    nsd_images.update(batch_images)
+                    logger.info(f"✓ Loaded {len(batch_images)} images via HTTP")
+                except Exception as e:
+                    logger.error(f"HTTP failed for batch {batch_num}: {e}")
+        
         logger.info(f"Successfully loaded {len(nsd_images)}/{len(ids_to_compute)} images")
-    else:
-        nsd_images = {}
     
     all_embeddings = {}
     
+    # First, add all existing cache
     for nsd_id in nsd_ids:
-        # Check existing cache first
         if nsd_id in existing_cache:
             all_embeddings[nsd_id] = existing_cache[nsd_id]
-            continue
+    
+    # Compute embeddings for loaded images in batches
+    images_to_process = [(nsd_id, nsd_images[nsd_id]) for nsd_id in nsd_ids 
+                         if nsd_id in nsd_images and nsd_id not in existing_cache]
+    
+    if images_to_process:
+        logger.info(f"Computing embeddings for {len(images_to_process)} images...")
+        INFERENCE_BATCH = 32
         
-        # Check if image was loaded
-        if nsd_id not in nsd_images:
-            logger.warning(f"Skipping nsdId={nsd_id} (image not available)")
-            continue
-        
-        try:
-            img = nsd_images[nsd_id]
+        for i in range(0, len(images_to_process), INFERENCE_BATCH):
+            batch_items = images_to_process[i:i+INFERENCE_BATCH]
+            batch_ids = [item[0] for item in batch_items]
+            batch_imgs = [item[1] for item in batch_items]
             
-            # Process image
-            inputs = processor(images=img, return_tensors="pt")
-            inputs = {k: v.to(device) for k, v in inputs.items()}
-            
-            # Encode - use get_image_features() to get projected embeddings
-            with torch.no_grad():
-                # This applies the visual projection (1280→1024 for ViT-H/14)
-                image_features = vision_model.get_image_features(**inputs)
-                embedding = image_features.squeeze(0).cpu().numpy()
-                # L2 normalize
-                embedding = embedding / np.linalg.norm(embedding)
-            
-            all_embeddings[nsd_id] = embedding
-            
-        except Exception as e:
-            logger.warning(f"Failed to compute embedding for nsdId={nsd_id}: {e}")
-            # Use zero vector as fallback
-            target_dim = existing_cache[list(existing_cache.keys())[0]].shape[0] if existing_cache else 1024
+            try:
+                # Process batch
+                inputs = processor(images=batch_imgs, return_tensors="pt")
+                inputs = {k: v.to(device) for k, v in inputs.items()}
+                
+                # Encode batch
+                with torch.no_grad():
+                    image_features = vision_model.get_image_features(**inputs)
+                    embeddings = image_features.cpu().numpy()
+                    # L2 normalize each embedding
+                    norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+                    embeddings = embeddings / norms
+                
+                # Store embeddings
+                for nsd_id, emb in zip(batch_ids, embeddings):
+                    all_embeddings[nsd_id] = emb
+                    
+            except Exception as e:
+                logger.warning(f"Batch encoding failed, processing individually: {e}")
+                # Fallback to individual processing
+                for nsd_id, img in batch_items:
+                    try:
+                        inputs = processor(images=img, return_tensors="pt")
+                        inputs = {k: v.to(device) for k, v in inputs.items()}
+                        
+                        with torch.no_grad():
+                            image_features = vision_model.get_image_features(**inputs)
+                            embedding = image_features.squeeze(0).cpu().numpy()
+                            embedding = embedding / np.linalg.norm(embedding)
+                        
+                        all_embeddings[nsd_id] = embedding
+                    except Exception as e2:
+                        logger.warning(f"Failed to compute embedding for nsdId={nsd_id}: {e2}")
+                        target_dim = 1024
+                        all_embeddings[nsd_id] = np.zeros(target_dim, dtype=np.float32)
+    
+    # Warn about missing IDs
+    for nsd_id in nsd_ids:
+        if nsd_id not in all_embeddings:
+            logger.warning(f"Missing embedding for nsdId={nsd_id}, using zero vector")
+            target_dim = 1024
             all_embeddings[nsd_id] = np.zeros(target_dim, dtype=np.float32)
     
     # Save updated cache

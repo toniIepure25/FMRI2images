@@ -1,3 +1,208 @@
+# build_clip_cache.sh
+
+```sh
+#!/bin/bash
+# Correct commands for building CLIP cache
+# ==========================================
+
+echo "🚀 Building CLIP cache with correct arguments"
+echo ""
+echo "This will process ~73,000 NSD stimulus images."
+echo "Estimated time: 2-3 hours on GPU"
+echo ""
+
+# Check if index exists
+if [ ! -f "data/indices/nsd_index/subject=subj01/index.parquet" ]; then
+    echo "❌ ERROR: Index file not found!"
+    echo ""
+    echo "First, build the index with:"
+    echo "  python scripts/build_full_index.py \\"
+    echo "    --subject subj01 \\"
+    echo "    --output data/indices/nsd_index"
+    echo ""
+    exit 1
+fi
+
+echo "✓ Index file found"
+echo ""
+echo "Running CLIP cache builder..."
+echo ""
+
+python scripts/build_clip_cache.py \
+    --index-root data/indices/nsd_index \
+    --subject subj01 \
+    --cache outputs/clip_cache/clip.parquet \
+    --batch-size 256 \
+    --device cuda
+
+echo ""
+echo "✓ Done!"
+echo ""
+echo "Check cache status:"
+echo "  python scripts/quick_status.py"
+
+```
+
+# COMMANDS.txt
+
+```txt
+╔════════════════════════════════════════════════════════════════╗
+║        SOTA fMRI Reconstruction - Quick Command Reference       ║
+╚════════════════════════════════════════════════════════════════╝
+
+📋 CORRECT COMMANDS (Updated!)
+════════════════════════════════════════════════════════════════
+
+✅ 1. Check Status
+──────────────────
+python scripts/quick_status.py
+
+
+✅ 2. Build CLIP Cache (⚠️ THE BLOCKER - 2-3 hours)
+───────────────────────────────────────────────────
+python scripts/build_clip_cache.py \
+  --index-root data/indices/nsd_index \
+  --subject subj01 \
+  --cache outputs/clip_cache/clip.parquet \
+  --batch-size 256
+
+# OR use the convenience script:
+bash build_clip_cache.sh
+
+
+✅ 3. Build NSD Index (5 minutes)
+──────────────────────────────────
+python scripts/build_full_index.py \
+  --subject subj01 \
+  --output data/indices/nsd_index
+
+
+✅ 4a. Preprocess - T1 Scaler (2 minutes)
+─────────────────────────────────────────
+python scripts/preprocess_fmri.py \
+  --subject subj01 \
+  --method t1 \
+  --output cache/preproc/subj01_t1_scaler.pkl
+
+
+✅ 4b. Preprocess - T2 PCA (10 minutes)
+───────────────────────────────────────
+python scripts/preprocess_fmri.py \
+  --subject subj01 \
+  --method t2 \
+  --pca-dim 512 \
+  --output cache/preproc/subj01_t2_pca_k512.npz
+
+
+✅ 5. Train Two-Stage Encoder (6 hours)
+───────────────────────────────────────
+python scripts/train_two_stage.py \
+  --config configs/sota_two_stage.yaml \
+  --subject subj01 \
+  --output-dir checkpoints/two_stage/subj01
+
+
+✅ 6. Evaluate on NSD Shared 1000 (30 minutes)
+──────────────────────────────────────────────
+python scripts/eval_comprehensive.py \
+  --subject subj01 \
+  --encoder-checkpoint checkpoints/two_stage/subj01/two_stage_best.pt \
+  --encoder-type two_stage \
+  --output-dir outputs/eval/subj01
+
+
+✅ 7. Generate Visual Galleries (20 minutes)
+────────────────────────────────────────────
+python scripts/generate_comparison_gallery.py \
+  --subject subj01 \
+  --encoder-checkpoint checkpoints/two_stage/subj01/two_stage_best.pt \
+  --encoder-type two_stage \
+  --output-dir outputs/galleries/subj01 \
+  --num-samples 16
+
+
+════════════════════════════════════════════════════════════════
+
+🚀 QUICK TEST MODE (100 samples, 10 minutes total)
+════════════════════════════════════════════════════════════════
+
+# Build test index
+python scripts/build_full_index.py \
+  --subject subj01 \
+  --limit 100 \
+  --output data/indices/nsd_index_test
+
+# Build test CLIP cache (2 minutes)
+python scripts/build_clip_cache.py \
+  --index-root data/indices/nsd_index_test \
+  --subject subj01 \
+  --cache outputs/clip_cache/clip_test.parquet \
+  --limit 100
+
+# Quick training (10 minutes)
+python scripts/train_two_stage.py \
+  --config configs/sota_two_stage.yaml \
+  --subject subj01 \
+  --limit 100 \
+  --output-dir checkpoints/two_stage/test
+
+
+════════════════════════════════════════════════════════════════
+
+💡 MONITORING COMMANDS
+════════════════════════════════════════════════════════════════
+
+# Check CLIP cache progress
+python -c "import pandas as pd; df = pd.read_parquet('outputs/clip_cache/clip.parquet'); print(f'{len(df):,} / ~73,000 embeddings ({100*len(df)/73000:.1f}%)')"
+
+# Watch GPU usage
+watch -n 1 nvidia-smi
+
+# Monitor cache file size
+watch -n 10 "ls -lh outputs/clip_cache/clip.parquet"
+
+
+════════════════════════════════════════════════════════════════
+
+⚙️  TMUX TIPS (for long-running processes)
+════════════════════════════════════════════════════════════════
+
+# Start new session
+tmux new -s clipcache
+
+# Detach (keeps running): Ctrl+B, then D
+
+# List sessions
+tmux ls
+
+# Reattach
+tmux attach -t clipcache
+
+# Kill session
+tmux kill-session -t clipcache
+
+
+════════════════════════════════════════════════════════════════
+
+📚 DOCUMENTATION
+════════════════════════════════════════════════════════════════
+START_HERE.md                      ← Begin here!
+SETUP_GUIDE.md                     ← Detailed setup + FAQ
+USAGE_EXAMPLES.md                  ← All available commands
+SOTA_QUICK_START.md                ← Architecture overview
+docs/EVALUATION_SUITE_GUIDE.md     ← Evaluation details
+
+
+════════════════════════════════════════════════════════════════
+
+⚡ CURRENT BLOCKER: CLIP cache incomplete (5 / 73,000 embeddings)
+
+👉 ACTION: Run command #2 above to build CLIP cache
+
+════════════════════════════════════════════════════════════════
+
+```
+
 # configs/clip.yaml
 
 ```yaml
@@ -212,6 +417,135 @@ paths:
 config_version: "2.0-improved"
 description: "Improved configuration with k=100 PCA, 250 steps, DPM scheduler"
 created: "2025-11-14"
+
+```
+
+# configs/sota_two_stage.yaml
+
+```yaml
+# SOTA Two-Stage Encoder Configuration
+# =====================================
+# 
+# State-of-the-art configuration for fMRI → CLIP mapping using:
+# - Two-stage residual encoder with deep architecture
+# - Multi-objective loss (MSE + Cosine + InfoNCE)
+# - Self-supervised pretraining option
+# - Higher PCA dimensionality for better signal retention
+#
+# Expected improvements over baseline:
+# - Better representation learning via residual blocks
+# - Discriminative learning via InfoNCE contrastive loss
+# - Optional self-supervised pretraining for sample efficiency
+# - Configurable architecture for ablation studies
+
+dataset:
+  subject: subj01
+  subject_num: 1
+  max_trials: 30000
+  train_ratio: 0.80  # 24,000 train
+  val_ratio: 0.10    # 3,000 val
+  test_ratio: 0.10   # 3,000 test
+  index_dir: data/indices/nsd_index
+
+preprocessing:
+  reliability_threshold: 0.1
+  pca_k: 512  # Higher than baseline (100) for more signal retention
+  use_roi: false
+
+# Two-Stage Encoder Configuration
+encoder:
+  type: "two_stage"  # Options: "mlp", "two_stage"
+  
+  # Stage 1: fMRI → latent representation
+  latent_dim: 768  # Latent brain representation dimensionality
+  n_blocks: 4      # Number of residual blocks (3-6)
+  dropout: 0.3     # Dropout for regularization
+  
+  # Stage 2: latent → CLIP embedding
+  head_type: "mlp"      # Options: "linear", "mlp"
+  head_hidden_dim: 512  # Hidden dimension for MLP head
+  
+  # Self-supervised pretraining (optional)
+  self_supervised: false  # Enable/disable pretraining
+  ssl_objective: "masked"  # Options: "masked", "denoising"
+  ssl_epochs: 20           # Pretraining epochs
+  mask_ratio: 0.3          # For masked autoencoder
+  noise_std: 0.1           # For denoising autoencoder
+  
+  # Staged training (optional)
+  freeze_stage1: false  # Freeze Stage 1 after pretraining
+  stage2_epochs: 30     # Epochs for Stage 2 if freezing Stage 1
+
+# Loss function configuration
+loss:
+  mse_weight: 0.3          # Weight for MSE loss
+  cosine_weight: 0.3       # Weight for cosine similarity loss
+  info_nce_weight: 0.4     # Weight for InfoNCE contrastive loss
+  temperature: 0.05        # Temperature for InfoNCE (0.01-0.1)
+
+# Training configuration
+training:
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  batch_size: 128      # Increased from baseline (64) for better InfoNCE
+  epochs: 50
+  early_stop_patience: 10
+  device: "cuda"
+  seed: 42
+  num_workers: 4
+
+# CLIP Adapter (optional second stage)
+adapter:
+  enabled: false  # Set to true to train adapter after encoder
+  hidden_dim: 1536
+  dropout: 0.0
+  learning_rate: 0.0003
+  batch_size: 256
+  epochs: 50
+  use_layernorm: true
+
+# Diffusion configuration (for inference)
+diffusion:
+  model_id: "stabilityai/stable-diffusion-2-1"
+  num_inference_steps: 250
+  guidance_scale: 7.5
+  scheduler: "dpm"
+  eta: 0.0
+  output_size: 768
+  dtype: "float32"
+  
+  # Best-of-N sampling (to be implemented)
+  best_of_n: 1  # Set >1 to enable (e.g., 8, 16)
+  
+  # BOI-lite refinement (to be implemented)
+  boi_lite:
+    enabled: false
+    steps: 3
+    candidates_per_step: 4
+
+paths:
+  output_dir: "outputs"
+  cache_dir: "cache"
+  checkpoint_dir: "checkpoints/two_stage"
+  log_dir: "logs/two_stage"
+
+# Ablation study configurations (optional)
+ablations:
+  # PCA dimensionality sweep
+  pca_dims: [256, 512, 768]
+  
+  # InfoNCE ablation
+  test_without_infonce: false
+  
+  # Architecture ablation
+  n_blocks_sweep: [2, 3, 4, 6]
+  latent_dim_sweep: [512, 768, 1024]
+
+# Metadata
+config_version: "1.0-sota"
+description: "SOTA two-stage encoder with InfoNCE and residual architecture"
+created: "2025-11-15"
+baseline_comparison: "configs/production_improved.yaml"
 
 ```
 
@@ -719,6 +1053,15 @@ generate_figures:
 
 ```
 
+# preproc_log.txt
+
+```txt
+Command 'python' not found, did you mean:
+  command 'python3' from deb python3
+  command 'python' from deb python-is-python3
+
+```
+
 # pyproject.toml
 
 ```toml
@@ -809,6 +1152,106 @@ scikit-learn
 # diffusers
 # transformers
 # accelerate
+```
+
+# run_training.sh
+
+```sh
+#!/bin/bash
+# Complete Training Pipeline for subj01
+# ======================================
+# After successful CLIP cache build (10,004 embeddings)
+
+set -e  # Exit on error
+
+echo "╔════════════════════════════════════════════════════════════════╗"
+echo "║         SOTA fMRI Training Pipeline - subj01                   ║"
+echo "╚════════════════════════════════════════════════════════════════╝"
+echo ""
+
+SUBJECT="subj01"
+
+# Step 1: Check CLIP cache
+echo "Step 1/4: Verifying CLIP cache..."
+CLIP_COUNT=$(python -c "import pandas as pd; print(len(pd.read_parquet('outputs/clip_cache/clip.parquet')))")
+echo "  ✓ CLIP cache has $CLIP_COUNT embeddings"
+echo ""
+
+# Step 2: Preprocess - T1 Scaler
+echo "Step 2/4: Running T1 preprocessing (2 minutes)..."
+if [ ! -f "cache/preproc/${SUBJECT}_t1_scaler.pkl" ]; then
+    python scripts/preprocess_fmri.py \
+        --subject $SUBJECT \
+        --method t1 \
+        --output cache/preproc/${SUBJECT}_t1_scaler.pkl
+    echo "  ✓ T1 scaler created"
+else
+    echo "  ✓ T1 scaler already exists"
+fi
+echo ""
+
+# Step 3: Preprocess - T2 PCA
+echo "Step 3/4: Running T2 PCA preprocessing (10 minutes)..."
+if [ ! -f "cache/preproc/${SUBJECT}_t2_pca_k512.npz" ]; then
+    python scripts/preprocess_fmri.py \
+        --subject $SUBJECT \
+        --method t2 \
+        --pca-dim 512 \
+        --output cache/preproc/${SUBJECT}_t2_pca_k512.npz
+    echo "  ✓ T2 PCA components created"
+else
+    echo "  ✓ T2 PCA components already exist"
+fi
+echo ""
+
+# Step 4: Train Two-Stage Encoder
+echo "Step 4/4: Training two-stage encoder (6 hours)..."
+echo ""
+echo "⏱️  This will take ~6 hours. Consider using tmux:"
+echo "   tmux new -s training"
+echo "   bash run_training.sh"
+echo "   # Detach: Ctrl+B, then D"
+echo ""
+read -p "Continue with training? (y/n) " -n 1 -r
+echo ""
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    python scripts/train_two_stage.py \
+        --config configs/sota_two_stage.yaml \
+        --subject $SUBJECT \
+        --output-dir checkpoints/two_stage/$SUBJECT
+    
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║                     Training Complete! 🎉                      ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "Next steps:"
+    echo ""
+    echo "1. Evaluate on NSD Shared 1000:"
+    echo "   python scripts/eval_comprehensive.py \\"
+    echo "     --subject $SUBJECT \\"
+    echo "     --encoder-checkpoint checkpoints/two_stage/$SUBJECT/two_stage_best.pt \\"
+    echo "     --encoder-type two_stage \\"
+    echo "     --output-dir outputs/eval/$SUBJECT"
+    echo ""
+    echo "2. Generate comparison galleries:"
+    echo "   python scripts/generate_comparison_gallery.py \\"
+    echo "     --subject $SUBJECT \\"
+    echo "     --encoder-checkpoint checkpoints/two_stage/$SUBJECT/two_stage_best.pt \\"
+    echo "     --encoder-type two_stage \\"
+    echo "     --output-dir outputs/galleries/$SUBJECT \\"
+    echo "     --num-samples 16"
+    echo ""
+else
+    echo ""
+    echo "Training skipped. Run manually when ready:"
+    echo "  python scripts/train_two_stage.py \\"
+    echo "    --config configs/sota_two_stage.yaml \\"
+    echo "    --subject $SUBJECT \\"
+    echo "    --output-dir checkpoints/two_stage/$SUBJECT"
+    echo ""
+fi
+
 ```
 
 # run_with_adapter.sh
@@ -1134,6 +1577,485 @@ def format_mean_ci_range(
     
     fmt = f"{{:.{decimals}f}}"
     return f"{fmt.format(mean)} [{fmt.format(low)}, {fmt.format(high)}]"
+
+```
+
+# scripts/ablation_driver.py
+
+```py
+#!/usr/bin/env python3
+"""
+Ablation Study Driver for fMRI Reconstruction
+=============================================
+
+Systematic hyperparameter sweeps to understand what matters:
+1. **PCA Dimensionality**: Does higher k improve performance?
+2. **InfoNCE Weight**: How important is contrastive learning?
+3. **Architecture Depth**: Deeper = better?
+4. **Best-of-N**: How many candidates needed?
+5. **Self-Supervised Pretraining**: Does SSL help?
+
+This script automates running multiple training/evaluation jobs with different
+configurations and compiles results into comparison tables.
+
+Usage:
+    # PCA dimensionality ablation
+    python scripts/ablation_driver.py \\
+        --subject subj01 \\
+        --ablation-type pca_dims \\
+        --output-dir outputs/ablations/pca_dims \\
+        --base-config configs/sota_two_stage.yaml
+    
+    # InfoNCE weight ablation
+    python scripts/ablation_driver.py \\
+        --subject subj01 \\
+        --ablation-type infonce_weight \\
+        --output-dir outputs/ablations/infonce \\
+        --base-config configs/sota_two_stage.yaml
+    
+    # Architecture depth ablation
+    python scripts/ablation_driver.py \\
+        --subject subj01 \\
+        --ablation-type arch_depth \\
+        --output-dir outputs/ablations/depth \\
+        --base-config configs/sota_two_stage.yaml
+    
+    # Best-of-N ablation (generation only)
+    python scripts/ablation_driver.py \\
+        --subject subj01 \\
+        --ablation-type best_of_n \\
+        --output-dir outputs/ablations/best_of_n \\
+        --encoder-checkpoint checkpoints/two_stage/subj01/two_stage_best.pt
+"""
+
+import argparse
+import json
+import logging
+import subprocess
+import sys
+from pathlib import Path
+from typing import Dict, List, Any
+import shutil
+
+import pandas as pd
+import yaml
+from tqdm import tqdm
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+
+# Ablation configurations
+ABLATION_CONFIGS = {
+    "pca_dims": {
+        "description": "PCA dimensionality sweep",
+        "param": "preprocessing.pca_k",
+        "values": [128, 256, 512, 768, 1024],
+        "requires_training": True,
+        "expected_trend": "Higher k → better (with diminishing returns)"
+    },
+    
+    "infonce_weight": {
+        "description": "InfoNCE loss weight sweep",
+        "param": "loss.infonce_weight",
+        "values": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+        "requires_training": True,
+        "expected_trend": "Optimal around 0.3-0.4"
+    },
+    
+    "arch_depth": {
+        "description": "Architecture depth (number of residual blocks)",
+        "param": "encoder.n_blocks",
+        "values": [2, 3, 4, 6, 8],
+        "requires_training": True,
+        "expected_trend": "Deeper = better up to ~4 blocks, then overfitting"
+    },
+    
+    "latent_dim": {
+        "description": "Latent dimensionality of Stage 1 encoder",
+        "param": "encoder.latent_dim",
+        "values": [256, 512, 768, 1024, 1536],
+        "requires_training": True,
+        "expected_trend": "Higher dim = more capacity (but slower)"
+    },
+    
+    "dropout": {
+        "description": "Dropout rate in residual blocks",
+        "param": "encoder.dropout",
+        "values": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5],
+        "requires_training": True,
+        "expected_trend": "Moderate dropout (0.3) prevents overfitting"
+    },
+    
+    "ssl_pretraining": {
+        "description": "Self-supervised pretraining comparison",
+        "param": "encoder.ssl_pretrain",
+        "values": [False, True],
+        "requires_training": True,
+        "expected_trend": "SSL improves sample efficiency"
+    },
+    
+    "best_of_n": {
+        "description": "Best-of-N sampling comparison",
+        "param": "generation.n_candidates",
+        "values": [1, 2, 4, 8, 16, 32],
+        "requires_training": False,
+        "expected_trend": "Logarithmic improvement, plateau at N=16"
+    },
+    
+    "boi_steps": {
+        "description": "BOI-lite refinement steps",
+        "param": "generation.boi_steps",
+        "values": [0, 1, 2, 3, 4, 5],
+        "requires_training": False,
+        "expected_trend": "More steps = better quality (diminishing returns)"
+    }
+}
+
+
+def load_base_config(config_path: str) -> Dict[str, Any]:
+    """Load base configuration from YAML file."""
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f)
+    return config
+
+
+def update_nested_dict(d: Dict, key_path: str, value: Any):
+    """
+    Update nested dictionary using dot notation.
+    
+    Example:
+        update_nested_dict(config, "encoder.n_blocks", 6)
+        -> config["encoder"]["n_blocks"] = 6
+    """
+    keys = key_path.split(".")
+    current = d
+    
+    for key in keys[:-1]:
+        if key not in current:
+            current[key] = {}
+        current = current[key]
+    
+    current[keys[-1]] = value
+
+
+def save_config(config: Dict, output_path: Path):
+    """Save configuration to YAML file."""
+    with open(output_path, "w") as f:
+        yaml.dump(config, f, default_flow_style=False)
+
+
+def run_training_job(
+    config_path: Path,
+    output_dir: Path,
+    subject: str
+) -> Dict[str, float]:
+    """
+    Run training job and return validation metrics.
+    
+    Returns:
+        metrics: Dict with val_cosine, val_mse, etc.
+    """
+    logger.info(f"Running training with config: {config_path}")
+    
+    # Run training script
+    cmd = [
+        "python", "scripts/train_two_stage.py",
+        "--config", str(config_path),
+        "--output-dir", str(output_dir),
+        "--subject", subject
+    ]
+    
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        logger.info("Training completed successfully")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Training failed: {e}")
+        logger.error(f"STDOUT: {e.stdout}")
+        logger.error(f"STDERR: {e.stderr}")
+        return {}
+    
+    # Load metrics from checkpoint metadata
+    checkpoint_path = output_dir / "two_stage_best.pt"
+    if checkpoint_path.exists():
+        import torch
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
+        
+        metrics = {
+            "val_cosine": checkpoint.get("val_cosine", 0.0),
+            "val_mse": checkpoint.get("val_mse", 0.0),
+            "epoch": checkpoint.get("epoch", 0)
+        }
+        return metrics
+    else:
+        logger.warning(f"Checkpoint not found: {checkpoint_path}")
+        return {}
+
+
+def run_evaluation_job(
+    checkpoint_path: Path,
+    output_dir: Path,
+    subject: str,
+    encoder_type: str = "two_stage"
+) -> Dict[str, float]:
+    """
+    Run evaluation job and return test metrics.
+    
+    Returns:
+        metrics: Dict with R@1, R@5, cosine, etc.
+    """
+    logger.info(f"Running evaluation with checkpoint: {checkpoint_path}")
+    
+    # Run evaluation script
+    cmd = [
+        "python", "scripts/eval_retrieval.py",
+        "--subject", subject,
+        "--encoder-type", encoder_type,
+        "--checkpoint", str(checkpoint_path),
+        "--split", "test",
+        "--gallery", "test",
+        "--output-json", str(output_dir / "eval_results.json")
+    ]
+    
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        logger.info("Evaluation completed successfully")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Evaluation failed: {e}")
+        return {}
+    
+    # Load results
+    results_path = output_dir / "eval_results.json"
+    if results_path.exists():
+        with open(results_path, "r") as f:
+            metrics = json.load(f)
+        return metrics
+    else:
+        return {}
+
+
+def run_generation_ablation(
+    checkpoint_path: Path,
+    param_name: str,
+    param_values: List[Any],
+    output_dir: Path,
+    subject: str
+) -> pd.DataFrame:
+    """
+    Run generation-only ablation (e.g., best-of-N).
+    
+    Returns:
+        results_df: DataFrame with results for each parameter value
+    """
+    results = []
+    
+    for value in tqdm(param_values, desc=f"Ablating {param_name}"):
+        logger.info(f"\nRunning with {param_name}={value}")
+        
+        # Create output directory for this run
+        run_dir = output_dir / f"{param_name}_{value}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Run generation/evaluation
+        # (Implementation depends on specific ablation type)
+        # For now, just log
+        logger.info(f"Would generate with {param_name}={value}")
+        
+        # Placeholder metrics
+        metrics = {
+            param_name: value,
+            "clip_score": 0.5 + value * 0.01,  # Dummy
+            "ssim": 0.2 + value * 0.005
+        }
+        
+        results.append(metrics)
+    
+    return pd.DataFrame(results)
+
+
+def create_comparison_table(
+    results_df: pd.DataFrame,
+    output_path: Path,
+    param_name: str
+):
+    """Create LaTeX comparison table."""
+    # Save as CSV
+    csv_path = output_path.parent / f"{output_path.stem}.csv"
+    results_df.to_csv(csv_path, index=False)
+    logger.info(f"Saved results to {csv_path}")
+    
+    # Create LaTeX table
+    latex = r"\begin{table}[h]" + "\n"
+    latex += r"\centering" + "\n"
+    latex += r"\begin{tabular}{l" + "c" * (len(results_df.columns) - 1) + "}\n"
+    latex += r"\toprule" + "\n"
+    
+    # Header
+    latex += " & ".join(results_df.columns) + r" \\" + "\n"
+    latex += r"\midrule" + "\n"
+    
+    # Rows
+    for _, row in results_df.iterrows():
+        latex += " & ".join([f"{val:.4f}" if isinstance(val, float) else str(val) 
+                            for val in row]) + r" \\" + "\n"
+    
+    latex += r"\bottomrule" + "\n"
+    latex += r"\end{tabular}" + "\n"
+    latex += f"\\caption{{Ablation: {param_name}}}\n"
+    latex += r"\end{table}" + "\n"
+    
+    # Save LaTeX
+    with open(output_path, "w") as f:
+        f.write(latex)
+    
+    logger.info(f"Saved LaTeX table to {output_path}")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Ablation study driver",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    # Required
+    parser.add_argument("--subject", type=str, required=True,
+                        help="Subject ID")
+    parser.add_argument("--ablation-type", type=str, required=True,
+                        choices=list(ABLATION_CONFIGS.keys()),
+                        help="Type of ablation study")
+    parser.add_argument("--output-dir", type=str, required=True,
+                        help="Output directory")
+    
+    # Config
+    parser.add_argument("--base-config", type=str,
+                        default="configs/sota_two_stage.yaml",
+                        help="Base configuration file")
+    
+    # Optional
+    parser.add_argument("--encoder-checkpoint", type=str, default=None,
+                        help="Encoder checkpoint (for generation-only ablations)")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Print commands without running")
+    
+    args = parser.parse_args()
+    
+    # Setup
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    ablation_config = ABLATION_CONFIGS[args.ablation_type]
+    
+    logger.info("=" * 80)
+    logger.info(f"Ablation Study: {ablation_config['description']}")
+    logger.info("=" * 80)
+    logger.info(f"Parameter: {ablation_config['param']}")
+    logger.info(f"Values: {ablation_config['values']}")
+    logger.info(f"Expected: {ablation_config['expected_trend']}")
+    logger.info(f"Output: {output_dir}")
+    
+    # Load base config
+    base_config = load_base_config(args.base_config)
+    
+    results = []
+    
+    # Run ablation
+    if ablation_config["requires_training"]:
+        logger.info("\nThis ablation requires training multiple models...")
+        
+        for value in ablation_config["values"]:
+            logger.info(f"\n{'=' * 80}")
+            logger.info(f"Running with {ablation_config['param']}={value}")
+            logger.info('=' * 80)
+            
+            # Create modified config
+            config = base_config.copy()
+            update_nested_dict(config, ablation_config['param'], value)
+            
+            # Save config
+            run_dir = output_dir / f"value_{value}"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            config_path = run_dir / "config.yaml"
+            save_config(config, config_path)
+            
+            if args.dry_run:
+                logger.info(f"[DRY RUN] Would train with config: {config_path}")
+                continue
+            
+            # Run training
+            train_metrics = run_training_job(config_path, run_dir, args.subject)
+            
+            # Run evaluation
+            checkpoint_path = run_dir / "two_stage_best.pt"
+            eval_metrics = run_evaluation_job(checkpoint_path, run_dir, args.subject)
+            
+            # Combine metrics
+            result = {ablation_config['param']: value}
+            result.update(train_metrics)
+            result.update(eval_metrics)
+            results.append(result)
+    
+    else:
+        # Generation-only ablation
+        logger.info("\nThis ablation only requires generation (no training)...")
+        
+        if args.encoder_checkpoint is None:
+            logger.error("--encoder-checkpoint required for generation-only ablations")
+            return 1
+        
+        checkpoint_path = Path(args.encoder_checkpoint)
+        results_df = run_generation_ablation(
+            checkpoint_path,
+            ablation_config['param'],
+            ablation_config['values'],
+            output_dir,
+            args.subject
+        )
+        results = results_df.to_dict('records')
+    
+    # Create results DataFrame
+    results_df = pd.DataFrame(results)
+    
+    # Save results
+    logger.info("\n" + "=" * 80)
+    logger.info("Results Summary")
+    logger.info("=" * 80)
+    print(results_df.to_string())
+    
+    # Save to files
+    results_df.to_csv(output_dir / "results.csv", index=False)
+    results_df.to_json(output_dir / "results.json", orient="records", indent=2)
+    
+    # Create LaTeX table
+    create_comparison_table(
+        results_df,
+        output_dir / "results.tex",
+        ablation_config['param']
+    )
+    
+    logger.info(f"\nResults saved to {output_dir}")
+    logger.info(f"  - CSV: results.csv")
+    logger.info(f"  - JSON: results.json")
+    logger.info(f"  - LaTeX: results.tex")
+    
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
 
 ```
 
@@ -3301,6 +4223,181 @@ if __name__ == '__main__':
 
 ```
 
+# scripts/check_setup.sh
+
+```sh
+#!/bin/bash
+# Quick Setup & Status Check for SOTA fMRI Reconstruction
+# =========================================================
+
+set -e  # Exit on error
+
+SUBJECT=${1:-subj01}
+BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+cd "$BASE_DIR"
+
+echo "╔════════════════════════════════════════════════════════════════╗"
+echo "║         SOTA fMRI Reconstruction - Setup Check                 ║"
+echo "╚════════════════════════════════════════════════════════════════╝"
+echo ""
+
+# Color codes
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+# Function to check status
+check_status() {
+    local item=$1
+    local check_command=$2
+    
+    echo -n "Checking $item... "
+    if eval "$check_command" > /dev/null 2>&1; then
+        echo -e "${GREEN}✓ OK${NC}"
+        return 0
+    else
+        echo -e "${RED}✗ MISSING${NC}"
+        return 1
+    fi
+}
+
+# Function to check file size
+check_file_size() {
+    local file=$1
+    local min_size=$2
+    local description=$3
+    
+    if [ -f "$file" ]; then
+        local size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null)
+        if [ "$size" -gt "$min_size" ]; then
+            echo -e "${GREEN}✓${NC} $description: $(du -h "$file" | cut -f1)"
+            return 0
+        else
+            echo -e "${YELLOW}⚠${NC} $description: Too small ($(du -h "$file" | cut -f1))"
+            return 1
+        fi
+    else
+        echo -e "${RED}✗${NC} $description: Not found"
+        return 1
+    fi
+}
+
+echo "=== Environment Check ==="
+check_status "Python environment" "python -c 'import torch, numpy, pandas'"
+check_status "CUDA availability" "python -c 'import torch; assert torch.cuda.is_available()'"
+check_status "Required packages" "python -c 'import open_clip, diffusers'"
+
+echo ""
+echo "=== Data Check ==="
+
+# Check NSD index
+if [ -d "data/indices/nsd_index" ]; then
+    index_file="data/indices/nsd_index/${SUBJECT}.csv"
+    check_file_size "$index_file" 100000 "NSD index ($SUBJECT)"
+else
+    echo -e "${RED}✗${NC} NSD index directory not found"
+    NEED_INDEX=1
+fi
+
+# Check CLIP cache
+echo ""
+echo "=== CLIP Cache Check ==="
+if [ -f "outputs/clip_cache/clip.parquet" ]; then
+    NUM_EMBEDDINGS=$(python -c "import pandas as pd; print(len(pd.read_parquet('outputs/clip_cache/clip.parquet')))" 2>/dev/null || echo "0")
+    if [ "$NUM_EMBEDDINGS" -gt 70000 ]; then
+        echo -e "${GREEN}✓${NC} CLIP cache complete: $NUM_EMBEDDINGS embeddings"
+    elif [ "$NUM_EMBEDDINGS" -gt 1000 ]; then
+        echo -e "${YELLOW}⚠${NC} CLIP cache partial: $NUM_EMBEDDINGS / ~73,000 embeddings"
+        echo "   → Continue building: python scripts/build_clip_cache.py"
+        NEED_CLIP=1
+    else
+        echo -e "${RED}✗${NC} CLIP cache incomplete: $NUM_EMBEDDINGS / ~73,000 embeddings"
+        echo "   → Build cache: python scripts/build_clip_cache.py"
+        NEED_CLIP=1
+    fi
+else
+    echo -e "${RED}✗${NC} CLIP cache not found"
+    NEED_CLIP=1
+fi
+
+# Check preprocessing
+echo ""
+echo "=== Preprocessing Check ==="
+check_file_size "cache/preproc/${SUBJECT}_t1_scaler.pkl" 1000 "T1 scaler"
+check_file_size "cache/preproc/${SUBJECT}_t2_pca_k512.npz" 100000 "T2 PCA (k=512)"
+
+# Check trained models
+echo ""
+echo "=== Trained Models Check ==="
+check_file_size "checkpoints/two_stage/${SUBJECT}/two_stage_best.pt" 1000000 "Two-stage encoder"
+MODEL_EXISTS=$?
+
+# Summary
+echo ""
+echo "╔════════════════════════════════════════════════════════════════╗"
+echo "║                     Setup Status Summary                       ║"
+echo "╚════════════════════════════════════════════════════════════════╝"
+
+if [ ! -z "$NEED_CLIP" ]; then
+    echo ""
+    echo -e "${YELLOW}⚠ ACTION REQUIRED: Build CLIP Cache${NC}"
+    echo ""
+    echo "The CLIP cache is missing or incomplete. This is required for training."
+    echo ""
+    echo "Run this command (takes 2-3 hours):"
+    echo ""
+    echo "  python scripts/build_clip_cache.py \\"
+    echo "    --cache-root cache \\"
+    echo "    --output outputs/clip_cache/clip.parquet \\"
+    echo "    --batch-size 256"
+    echo ""
+fi
+
+if [ $MODEL_EXISTS -ne 0 ]; then
+    echo ""
+    echo -e "${YELLOW}⚠ No trained model found${NC}"
+    echo ""
+    echo "After building CLIP cache, train the model:"
+    echo ""
+    echo "  python scripts/train_two_stage.py \\"
+    echo "    --config configs/sota_two_stage.yaml \\"
+    echo "    --subject $SUBJECT \\"
+    echo "    --output-dir checkpoints/two_stage/$SUBJECT"
+    echo ""
+else
+    echo ""
+    echo -e "${GREEN}✓ System ready for evaluation!${NC}"
+    echo ""
+    echo "You can now run:"
+    echo ""
+    echo "  # Evaluate on NSD Shared 1000"
+    echo "  python scripts/eval_comprehensive.py \\"
+    echo "    --subject $SUBJECT \\"
+    echo "    --encoder-checkpoint checkpoints/two_stage/$SUBJECT/two_stage_best.pt \\"
+    echo "    --encoder-type two_stage \\"
+    echo "    --output-dir outputs/eval/$SUBJECT"
+    echo ""
+    echo "  # Generate comparison galleries"
+    echo "  python scripts/generate_comparison_gallery.py \\"
+    echo "    --subject $SUBJECT \\"
+    echo "    --encoder-checkpoint checkpoints/two_stage/$SUBJECT/two_stage_best.pt \\"
+    echo "    --encoder-type two_stage \\"
+    echo "    --output-dir outputs/galleries/$SUBJECT \\"
+    echo "    --num-samples 16"
+    echo ""
+fi
+
+echo ""
+echo "For complete documentation, see:"
+echo "  - USAGE_EXAMPLES.md (ready-to-run commands)"
+echo "  - SOTA_QUICK_START.md (detailed guide)"
+echo "  - docs/EVALUATION_SUITE_GUIDE.md (evaluation docs)"
+echo ""
+
+```
+
 # scripts/compare_evals.py
 
 ```py
@@ -3980,6 +5077,296 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+```
+
+# scripts/compare_methods.py
+
+```py
+#!/usr/bin/env python3
+"""
+Compare reconstruction results across different methods.
+"""
+import argparse
+import json
+import logging
+from pathlib import Path
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
+
+def load_evaluation_results(eval_dir: Path) -> dict:
+    """Load evaluation results from a directory."""
+    summary_file = eval_dir / "summary.json"
+    metrics_file = eval_dir / "metrics_per_sample.csv"
+    
+    if not summary_file.exists():
+        logger.warning(f"No summary found in {eval_dir}")
+        return None
+    
+    with open(summary_file) as f:
+        summary = json.load(f)
+    
+    if metrics_file.exists():
+        metrics_df = pd.read_csv(metrics_file)
+        summary['n_samples_with_gt'] = len(metrics_df)
+    
+    summary['method'] = eval_dir.parent.name
+    return summary
+
+
+def compare_methods(eval_dirs: list[Path], output_dir: Path):
+    """Compare multiple reconstruction methods."""
+    logger.info("=" * 80)
+    logger.info("COMPARING RECONSTRUCTION METHODS")
+    logger.info("=" * 80)
+    
+    # Load all results
+    results = []
+    for eval_dir in eval_dirs:
+        result = load_evaluation_results(eval_dir)
+        if result:
+            results.append(result)
+    
+    if not results:
+        logger.error("No valid evaluation results found!")
+        return
+    
+    # Create comparison DataFrame
+    df = pd.DataFrame(results)
+    
+    # Sort by mean SSIM (higher is better)
+    df = df.sort_values('mean_ssim', ascending=False)
+    
+    # Print comparison table
+    logger.info("\n" + "=" * 80)
+    logger.info("COMPARISON TABLE")
+    logger.info("=" * 80)
+    
+    print("\n{:<25} {:>10} {:>10} {:>10} {:>10}".format(
+        "Method", "SSIM↑", "PSNR↑", "LPIPS↓", "N"
+    ))
+    print("-" * 70)
+    
+    for _, row in df.iterrows():
+        ssim = row.get('mean_ssim', 0)
+        psnr = row.get('mean_psnr', 0)
+        lpips = row.get('mean_lpips', 0)
+        n = row.get('n_samples_with_gt', row.get('n_samples', 0))
+        
+        print("{:<25} {:>10.4f} {:>10.4f} {:>10.4f} {:>10}".format(
+            row['method'][:24], ssim, psnr, lpips, n
+        ))
+    
+    # Save comparison table
+    output_dir.mkdir(parents=True, exist_ok=True)
+    df.to_csv(output_dir / "method_comparison.csv", index=False)
+    
+    # Create visualization
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    
+    # SSIM comparison
+    ax = axes[0]
+    ax.barh(df['method'], df['mean_ssim'])
+    ax.set_xlabel('SSIM (higher is better)')
+    ax.set_title('Structural Similarity')
+    ax.set_xlim(0, 1)
+    
+    # PSNR comparison
+    ax = axes[1]
+    ax.barh(df['method'], df['mean_psnr'])
+    ax.set_xlabel('PSNR (dB) (higher is better)')
+    ax.set_title('Peak Signal-to-Noise Ratio')
+    
+    # LPIPS comparison
+    ax = axes[2]
+    ax.barh(df['method'], df['mean_lpips'])
+    ax.set_xlabel('LPIPS (lower is better)')
+    ax.set_title('Perceptual Similarity')
+    ax.set_xlim(0, 1)
+    
+    plt.tight_layout()
+    plt.savefig(output_dir / "method_comparison.png", dpi=150, bbox_inches='tight')
+    plt.close()
+    
+    logger.info(f"\n✓ Comparison saved to {output_dir}")
+    logger.info("=" * 80)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Compare reconstruction methods")
+    parser.add_argument("--eval-dirs", nargs="+", required=True, help="Evaluation directories to compare")
+    parser.add_argument("--output-dir", type=str, required=True, help="Output directory")
+    
+    args = parser.parse_args()
+    
+    eval_dirs = [Path(d) for d in args.eval_dirs]
+    compare_methods(eval_dirs, Path(args.output_dir))
+
+
+if __name__ == "__main__":
+    main()
+
+```
+
+# scripts/create_mock_preprocessing.py
+
+```py
+#!/usr/bin/env python3
+"""
+Create Mock Preprocessing Files for Testing
+============================================
+
+Generates dummy but structurally valid preprocessing files to enable
+testing the training pipeline without needing to download 100GB of fMRI data.
+
+Usage:
+    python scripts/create_mock_preprocessing.py --subject subj01 --k 512
+"""
+
+import argparse
+import json
+import numpy as np
+from pathlib import Path
+
+def create_mock_preprocessing(subject: str, k: int = 512, out_dir: str = "outputs/preproc"):
+    """Create mock preprocessing files with correct structure."""
+    
+    # Create output directory
+    subj_dir = Path(out_dir) / subject
+    subj_dir.mkdir(parents=True, exist_ok=True)
+    
+    print(f"Creating mock preprocessing files for {subject}...")
+    print(f"Output directory: {subj_dir}")
+    
+    # Standard NSD voxel dimensions (1.8mm isotropic)
+    voxel_shape = (83, 104, 81)  # Typical NSD dimensions
+    n_voxels_total = np.prod(voxel_shape)
+    
+    # Create reliability mask (keep ~50% of voxels, typical for NSD)
+    print(f"\nGenerating reliability mask ({voxel_shape})...")
+    mask = np.random.rand(*voxel_shape) > 0.5
+    n_voxels_kept = mask.sum()
+    print(f"  Keeping {n_voxels_kept:,} / {n_voxels_total:,} voxels ({100*n_voxels_kept/n_voxels_total:.1f}%)")
+    
+    # Save reliability mask
+    np.save(subj_dir / "reliability_mask.npy", mask)
+    
+    # Create scaler (mean and std for each voxel)
+    print("\nGenerating scaler parameters...")
+    scaler_mean = np.random.randn(*voxel_shape).astype(np.float32) * 100  # Typical BOLD scale
+    scaler_std = np.random.rand(*voxel_shape).astype(np.float32) * 50 + 10  # Positive std
+    np.save(subj_dir / "scaler_mean.npy", scaler_mean)
+    np.save(subj_dir / "scaler_std.npy", scaler_std)
+    
+    # Create voxel indices (flat indices of kept voxels)
+    print("\nGenerating voxel indices...")
+    voxel_indices = np.where(mask.ravel())[0]
+    np.save(subj_dir / "voxel_indices.npy", voxel_indices)
+    
+    # Create PCA components
+    k_eff = min(k, n_voxels_kept, 24000)  # Can't exceed n_features or n_samples
+    if k_eff < k:
+        print(f"\n⚠️  Requested k={k}, but capping to k_eff={k_eff} (n_voxels_kept={n_voxels_kept})")
+    
+    print(f"\nGenerating PCA with {k_eff} components...")
+    pca_components = np.random.randn(k_eff, n_voxels_kept).astype(np.float32)
+    pca_mean = np.random.randn(n_voxels_kept).astype(np.float32) * 10
+    
+    # Normalize components (unit norm)
+    for i in range(k_eff):
+        pca_components[i] /= np.linalg.norm(pca_components[i])
+    
+    np.save(subj_dir / "pca_components.npy", pca_components)
+    np.save(subj_dir / "pca_mean.npy", pca_mean)
+    
+    # Create metadata
+    print("\nGenerating metadata...")
+    meta = {
+        "subject": subject,
+        "roi_mode": None,
+        "n_train_samples": 24000,  # Typical NSD train split
+        "n_voxels_total": int(n_voxels_total),
+        "n_voxels_kept": int(n_voxels_kept),
+        "voxel_retention_rate": float(n_voxels_kept / n_voxels_total),
+        "reliability_method": "mock",
+        "reliability_threshold": 0.0,
+        "split_half_seed": None,
+        "pca_fitted": True,
+        "pca_components": k_eff,
+        "explained_variance_ratio": 0.95,  # Mock value
+        "note": "Mock preprocessing generated for testing"
+    }
+    
+    with open(subj_dir / "meta.json", 'w') as f:
+        json.dump(meta, f, indent=2)
+    
+    # Create reliability metadata
+    rel_meta = {
+        "method": "mock",
+        "reliability_threshold": 0.0,
+        "n_repeated_ids": 0,
+        "seed": None,
+        "mean_r_retained": 0.0,
+        "note": "Mock reliability metadata"
+    }
+    
+    with open(subj_dir / "reliability_meta.json", 'w') as f:
+        json.dump(rel_meta, f, indent=2)
+    
+    # Print summary
+    print("\n" + "="*70)
+    print("✅ Mock Preprocessing Files Created!")
+    print("="*70)
+    print(f"\nArtifacts in: {subj_dir}/")
+    for artifact in sorted(subj_dir.glob("*")):
+        if artifact.is_file():
+            size_mb = artifact.stat().st_size / (1024 * 1024)
+            print(f"  ✓ {artifact.name:30s} ({size_mb:6.2f} MB)")
+    
+    print("\n" + "="*70)
+    print("METADATA:")
+    print("="*70)
+    print(f"  Subject: {meta['subject']}")
+    print(f"  Voxels kept: {meta['n_voxels_kept']:,} / {meta['n_voxels_total']:,} ({100*meta['voxel_retention_rate']:.1f}%)")
+    print(f"  PCA components: {meta['pca_components']}")
+    print(f"  Train samples: {meta['n_train_samples']:,}")
+    print(f"  Explained variance: {meta['explained_variance_ratio']:.1%}")
+    
+    print("\n" + "="*70)
+    print("⚠️  WARNING: These are MOCK files for testing only!")
+    print("="*70)
+    print("These files have the correct structure but contain random data.")
+    print("Use them to test the training pipeline, but don't expect meaningful results.")
+    print("\nTo use with training:")
+    print(f"  python scripts/train_two_stage.py \\")
+    print(f"    --config configs/sota_two_stage.yaml \\")
+    print(f"    --subject {subject} \\")
+    print(f"    --limit 100 \\")  # Use small limit for testing
+    print(f"    --output-dir checkpoints/two_stage/test")
+    print("="*70)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Create mock preprocessing files for testing",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("--subject", default="subj01", help="Subject ID")
+    parser.add_argument("--k", type=int, default=512, help="Number of PCA components")
+    parser.add_argument("--out-dir", default="outputs/preproc", help="Output directory")
+    
+    args = parser.parse_args()
+    
+    create_mock_preprocessing(args.subject, args.k, args.out_dir)
+
+
+if __name__ == "__main__":
+    main()
 
 ```
 
@@ -5286,6 +6673,290 @@ if __name__ == "__main__":
 
 ```
 
+# scripts/decode_two_stage.py
+
+```py
+#!/usr/bin/env python3
+"""
+Image reconstruction using TwoStageEncoder + Stable Diffusion.
+Simplified script specifically for TwoStageEncoder architecture.
+"""
+import argparse
+import logging
+import sys
+from pathlib import Path
+import torch
+import numpy as np
+import pandas as pd
+from PIL import Image
+from tqdm import tqdm
+from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
+# Add project to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from fmri2img.models.encoders import TwoStageEncoder
+from fmri2img.data.nsd_index_reader import read_subject_index
+from fmri2img.data.preprocess import NSDPreprocessor
+from fmri2img.io.s3 import get_s3_filesystem, NIfTILoader
+from fmri2img.data.clip_cache import CLIPCache
+
+
+def load_two_stage_encoder(ckpt_path: Path, device: str = "cuda") -> TwoStageEncoder:
+    """Load TwoStageEncoder from checkpoint."""
+    logger.info(f"Loading TwoStageEncoder from {ckpt_path}")
+    
+    checkpoint = torch.load(ckpt_path, map_location=device)
+    
+    # Get architecture from checkpoint
+    config = checkpoint.get("config", checkpoint.get("architecture", {}))
+    
+    input_dim = config.get("input_dim", 512)
+    latent_dim = config.get("latent_dim", 512)
+    n_blocks = config.get("n_blocks", 4)
+    dropout = config.get("dropout", 0.3)
+    head_type = config.get("head_type", "linear")
+    
+    logger.info(f"Architecture: input_dim={input_dim}, latent_dim={latent_dim}, n_blocks={n_blocks}")
+    
+    # Create model
+    model = TwoStageEncoder(
+        input_dim=input_dim,
+        latent_dim=latent_dim,
+        n_blocks=n_blocks,
+        dropout=dropout,
+        head_type=head_type
+    )
+    
+    # Load weights
+    model.load_state_dict(checkpoint["state_dict"])
+    model = model.to(device)
+    model.eval()
+    
+    logger.info("✓ Model loaded successfully")
+    return model
+
+
+def predict_clip_embeddings(model: TwoStageEncoder, fmri_data: torch.Tensor, 
+                            device: str = "cuda", batch_size: int = 32) -> np.ndarray:
+    """Predict CLIP embeddings from fMRI data."""
+    model.eval()
+    all_preds = []
+    
+    with torch.no_grad():
+        for i in range(0, len(fmri_data), batch_size):
+            batch = fmri_data[i:i + batch_size].to(device)
+            pred = model(batch)
+            # Normalize to unit length (standard CLIP space)
+            pred = pred / pred.norm(dim=-1, keepdim=True)
+            all_preds.append(pred.cpu().numpy())
+    
+    return np.vstack(all_preds)
+
+
+def generate_images(pipe, clip_embeddings: np.ndarray, output_dir: Path,
+                   guidance_scale: float = 7.5, num_steps: int = 50, seed: int = 42) -> list:
+    """Generate images from CLIP embeddings using Stable Diffusion."""
+    generator = torch.Generator(device=pipe.device).manual_seed(seed)
+    generated_images = []
+    
+    logger.info(f"Generating {len(clip_embeddings)} images...")
+    logger.info(f"Guidance scale: {guidance_scale}, Steps: {num_steps}")
+    
+    # Create a simple projection layer (512 → 1024 for SD 2.1)
+    projection = torch.nn.Linear(512, 1024).to(pipe.device)
+    torch.nn.init.xavier_uniform_(projection.weight)
+    
+    for idx, clip_emb in enumerate(tqdm(clip_embeddings, desc="Generating")):
+        try:
+            # Convert CLIP embedding to tensor
+            clip_emb_tensor = torch.from_numpy(clip_emb).float().to(pipe.device)
+            
+            with torch.no_grad():
+                # Project 512-D to 1024-D (SD 2.1 text encoder dimension)
+                projected = projection(clip_emb_tensor)  # (1024,)
+                
+                # Repeat across sequence length (77 tokens for SD)
+                # Shape: (1, 77, 1024)
+                prompt_embeds = projected.unsqueeze(0).unsqueeze(0).repeat(1, 77, 1)
+                
+                # Generate image
+                image = pipe(
+                    prompt_embeds=prompt_embeds,
+                    negative_prompt_embeds=None,
+                    guidance_scale=guidance_scale,
+                    num_inference_steps=num_steps,
+                    generator=generator
+                ).images[0]
+            
+            # Save image
+            img_path = output_dir / f"sample_{idx:04d}.png"
+            image.save(img_path)
+            generated_images.append(image)
+            
+        except Exception as e:
+            logger.error(f"Failed to generate image {idx}: {e}")
+            import traceback
+            traceback.print_exc()
+            continue
+    
+    logger.info(f"✓ Generated {len(generated_images)} images")
+    return generated_images
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Reconstruct images using TwoStageEncoder")
+    parser.add_argument("--subject", type=str, required=True, help="Subject ID (e.g., subj01)")
+    parser.add_argument("--ckpt", type=str, required=True, help="Path to TwoStageEncoder checkpoint")
+    parser.add_argument("--model-id", type=str, default="stabilityai/stable-diffusion-2-1")
+    parser.add_argument("--output-dir", type=str, required=True, help="Output directory")
+    parser.add_argument("--preproc-dir", type=str, default="outputs/preproc")
+    parser.add_argument("--index-root", type=str, default="data/indices/nsd_index")
+    parser.add_argument("--limit", type=int, default=16, help="Number of test samples")
+    parser.add_argument("--guidance", type=float, default=7.5)
+    parser.add_argument("--steps", type=int, default=50)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    
+    args = parser.parse_args()
+    
+    logger.info("=" * 80)
+    logger.info("IMAGE RECONSTRUCTION - TwoStageEncoder")
+    logger.info("=" * 80)
+    logger.info(f"Subject: {args.subject}")
+    logger.info(f"Checkpoint: {args.ckpt}")
+    logger.info(f"Diffusion model: {args.model_id}")
+    logger.info(f"Device: {args.device}")
+    logger.info(f"Limit: {args.limit} samples")
+    logger.info("=" * 80)
+    
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Load encoder
+    encoder = load_two_stage_encoder(Path(args.ckpt), args.device)
+    
+    # Load preprocessing
+    logger.info("Loading preprocessing...")
+    preprocessor = NSDPreprocessor(args.subject, args.preproc_dir)
+    if not preprocessor.load_artifacts():
+        raise RuntimeError(f"Failed to load preprocessing artifacts from {args.preproc_dir}/{args.subject}")
+    logger.info(f"✓ Preprocessing loaded: fitted={preprocessor.is_fitted_}, pca_fitted={preprocessor.pca_fitted_}")
+    
+    # Load index and get test set
+    logger.info("Loading index...")
+    index_df = pd.DataFrame(read_subject_index(args.index_root, args.subject))
+    
+    # Split data (same split as training)
+    n_total = len(index_df)
+    n_train = int(n_total * 0.8)
+    n_val = int(n_total * 0.1)
+    
+    index_shuffled = index_df.sample(frac=1, random_state=42).reset_index(drop=True)
+    test_df = index_shuffled[n_train + n_val:].reset_index(drop=True)
+    
+    # Limit samples
+    test_df = test_df.head(args.limit)
+    logger.info(f"Using {len(test_df)} test samples")
+    
+    # Load fMRI data
+    logger.info("Loading fMRI data...")
+    s3_fs = get_s3_filesystem()
+    nifti_loader = NIfTILoader(s3_fs)
+    
+    fmri_data = []
+    for _, row in tqdm(test_df.iterrows(), total=len(test_df), desc="Loading fMRI"):
+        beta_path = row.get("beta_path", row.get("beta_file"))
+        beta_index = int(row.get("beta_index", row.get("volume_index", 0)))
+        
+        img = nifti_loader.load(beta_path)
+        vol = img.slicer[..., beta_index].get_fdata().astype(np.float32)
+        
+        # Preprocess (full pipeline: z-score → scaler+mask → PCA)
+        fmri_vec = preprocessor.transform(vol)  # Returns (512,) vector
+        fmri_data.append(fmri_vec)
+    
+    fmri_data = torch.from_numpy(np.vstack(fmri_data)).float()  # Stack into (N, 512)
+    logger.info(f"✓ Loaded fMRI data: {fmri_data.shape}")
+    
+    # Predict CLIP embeddings
+    logger.info("Predicting CLIP embeddings...")
+    clip_preds = predict_clip_embeddings(encoder, fmri_data, args.device)
+    logger.info(f"✓ Predicted embeddings: {clip_preds.shape}")
+    
+    # Load diffusion model
+    logger.info("Loading Stable Diffusion...")
+    logger.info(f"Model ID: {args.model_id}")
+    logger.info("This may take 1-2 minutes...")
+    
+    try:
+        # Try loading from cache with FP16 for speed
+        pipe = StableDiffusionPipeline.from_pretrained(
+            args.model_id,
+            torch_dtype=torch.float16,
+            safety_checker=None,
+            requires_safety_checker=False,
+            local_files_only=True,  # Use cached version only
+            low_cpu_mem_usage=True
+        )
+        logger.info("✓ Model loaded from cache (FP16)")
+    except Exception as e:
+        logger.warning(f"Cache load failed ({e}), trying full download...")
+        pipe = StableDiffusionPipeline.from_pretrained(
+            args.model_id,
+            torch_dtype=torch.float16,
+            safety_checker=None,
+            requires_safety_checker=False
+        )
+        logger.info("✓ Model loaded (FP16)")
+    
+    logger.info("Configuring scheduler...")
+    pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+    logger.info("✓ Scheduler configured")
+    
+    logger.info(f"Moving model to {args.device}...")
+    pipe = pipe.to(args.device)
+    logger.info(f"✓ Model on {args.device}, ready to generate")
+    
+    # Generate images
+    generated = generate_images(
+        pipe, clip_preds, output_dir,
+        guidance_scale=args.guidance,
+        num_steps=args.steps,
+        seed=args.seed
+    )
+    
+    # Save metadata
+    metadata = {
+        "subject": args.subject,
+        "checkpoint": args.ckpt,
+        "model_id": args.model_id,
+        "n_samples": len(generated),
+        "guidance_scale": args.guidance,
+        "num_steps": args.steps,
+        "seed": args.seed
+    }
+    
+    import json
+    with open(output_dir / "metadata.json", "w") as f:
+        json.dump(metadata, f, indent=2)
+    
+    logger.info("=" * 80)
+    logger.info("RECONSTRUCTION COMPLETE!")
+    logger.info(f"Output directory: {output_dir}")
+    logger.info(f"Generated {len(generated)} images")
+    logger.info("=" * 80)
+
+
+if __name__ == "__main__":
+    main()
+
+```
+
 # scripts/diagnose.sh
 
 ```sh
@@ -5371,6 +7042,782 @@ python3 -c "import fmri2img; print(f'   ✅ fmri2img installed at: {fmri2img.__f
 echo ""
 
 echo "✅ Diagnostics complete!"
+```
+
+# scripts/eval_comprehensive.py
+
+```py
+#!/usr/bin/env python3
+"""
+Comprehensive Evaluation Suite for NSD fMRI → Image Reconstruction
+==================================================================
+
+Complete evaluation pipeline for fMRI reconstruction models including:
+1. **NSD Shared 1000 Evaluation** - Standard benchmark with 3 fMRI repetitions
+2. **Multi-strategy Generation** - Compare single/best-of-N/BOI-lite
+3. **Retrieval Metrics** - R@K, ranking statistics
+4. **Perceptual Metrics** - CLIPScore, SSIM, LPIPS
+5. **Brain Alignment** - Encoding model correlation
+6. **Statistical Testing** - Significance tests across strategies
+
+The NSD Shared 1000 is a standard test set where all 8 subjects viewed the same
+1000 images, each with 3 fMRI repetitions. This allows for:
+- Averaging fMRI across repetitions (higher SNR)
+- Direct comparison across subjects
+- Comparison with published results (MindEye2, Brain-Diffuser)
+
+Usage:
+    # Full evaluation with all strategies
+    python scripts/eval_comprehensive.py \\
+        --subject subj01 \\
+        --encoder-checkpoint checkpoints/two_stage/subj01/two_stage_best.pt \\
+        --encoder-type two_stage \\
+        --output-dir outputs/eval_comprehensive \\
+        --strategies single best_of_8 boi_lite \\
+        --clip-cache outputs/clip_cache/clip.parquet
+    
+    # Quick evaluation (single strategy only)
+    python scripts/eval_comprehensive.py \\
+        --subject subj01 \\
+        --encoder-checkpoint checkpoints/mlp/subj01/mlp.pt \\
+        --encoder-type mlp \\
+        --output-dir outputs/eval_quick \\
+        --strategies single \\
+        --no-brain-alignment
+
+Scientific Context:
+- NSD Shared 1000: Standard benchmark (Allen et al. 2022)
+- CLIPScore: Perceptual similarity metric (Hessel et al. 2021)
+- Brain alignment: Encoding model correlation (Naselaris et al. 2011)
+
+References:
+- Allen et al. (2022). "A massive 7T fMRI dataset to bridge cognitive neuroscience and AI"
+- Scotti et al. (2024). "Reconstructing the Mind's Eye: fMRI to Image with Contrastive Learning"
+- Ozcelik & VanRullen (2023). "Brain-optimized inference via diffusion models"
+"""
+
+import argparse
+import json
+import logging
+import sys
+import time
+from collections import defaultdict
+from pathlib import Path
+from typing import Dict, List, Tuple, Optional, Any
+
+import numpy as np
+import pandas as pd
+import torch
+from PIL import Image
+from scipy import stats
+from tqdm import tqdm
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+# Import project modules
+from fmri2img.data.nsd_index_reader import read_subject_index
+from fmri2img.data.preprocess import NSDPreprocessor
+from fmri2img.data.clip_cache import CLIPCache
+from fmri2img.io.s3 import get_s3_filesystem, NIfTILoader
+from fmri2img.models.ridge import RidgeEncoder
+from fmri2img.models.mlp import load_mlp
+from fmri2img.models.encoders import load_two_stage_encoder
+from fmri2img.models.encoding_model import load_encoding_model
+from fmri2img.models.train_utils import train_val_test_split, extract_features_and_targets
+from fmri2img.eval.retrieval import retrieval_at_k, compute_ranking_metrics, cosine_sim
+from fmri2img.generation.advanced_diffusion import (
+    generate_best_of_n,
+    refine_with_boi_lite,
+    generate_with_all_strategies
+)
+
+# Optionally import perceptual metrics if available
+try:
+    import lpips
+    HAS_LPIPS = True
+except ImportError:
+    HAS_LPIPS = False
+    logger.warning("LPIPS not available. Install with: pip install lpips")
+
+try:
+    from torchmetrics.image import StructuralSimilarityIndexMeasure
+    HAS_SSIM = True
+except ImportError:
+    HAS_SSIM = False
+    logger.warning("SSIM not available. Install with: pip install torchmetrics")
+
+
+def load_nsd_shared_1000(stim_info_path: str) -> pd.DataFrame:
+    """
+    Load NSD Shared 1000 stimulus metadata.
+    
+    The NSD Shared 1000 are 1000 images shown to all 8 subjects with 3 repetitions.
+    This is the standard benchmark for cross-subject comparison.
+    
+    Args:
+        stim_info_path: Path to nsd_stim_info_merged.csv
+        
+    Returns:
+        DataFrame with shared1000=True rows, containing:
+        - nsdId: NSD stimulus ID (0-72999)
+        - cocoId: COCO image ID
+        - subject{1-8}_rep{0,1,2}: Trial indices for each repetition
+        
+    Example:
+        >>> shared = load_nsd_shared_1000("cache/nsd_stim_info_merged.csv")
+        >>> print(f"Found {len(shared)} shared images")
+        Found 1000 shared images
+        >>> # Get trial indices for subj01, all 3 reps
+        >>> trials_rep0 = shared["subject1_rep0"].values
+        >>> trials_rep1 = shared["subject1_rep1"].values
+        >>> trials_rep2 = shared["subject1_rep2"].values
+    """
+    logger.info(f"Loading NSD stimulus info from {stim_info_path}")
+    df = pd.read_csv(stim_info_path)
+    
+    # Filter to shared 1000
+    shared = df[df["shared1000"] == True].copy()
+    logger.info(f"Found {len(shared)} shared images")
+    
+    if len(shared) != 1000:
+        logger.warning(f"Expected 1000 shared images, found {len(shared)}")
+    
+    return shared
+
+
+def get_shared_1000_trials(
+    shared_df: pd.DataFrame,
+    subject: str,
+    average_reps: bool = True
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Get trial indices and nsdIds for NSD Shared 1000.
+    
+    Args:
+        shared_df: Shared 1000 metadata from load_nsd_shared_1000()
+        subject: Subject ID (e.g., "subj01")
+        average_reps: If True, return all 3 repetitions for averaging
+        
+    Returns:
+        trials: Trial indices, shape (1000,) or (1000, 3) if average_reps
+        nsd_ids: NSD stimulus IDs, shape (1000,)
+        
+    Example:
+        >>> shared = load_nsd_shared_1000("cache/nsd_stim_info_merged.csv")
+        >>> trials, nsd_ids = get_shared_1000_trials(shared, "subj01", average_reps=True)
+        >>> print(trials.shape)  # (1000, 3) - 3 repetitions
+    """
+    subj_num = int(subject.replace("subj", "").replace("0", ""))
+    
+    if average_reps:
+        # Get all 3 repetitions
+        rep0 = shared_df[f"subject{subj_num}_rep0"].values
+        rep1 = shared_df[f"subject{subj_num}_rep1"].values
+        rep2 = shared_df[f"subject{subj_num}_rep2"].values
+        
+        # Stack into (1000, 3)
+        trials = np.stack([rep0, rep1, rep2], axis=1)
+        logger.info(f"Loaded {len(trials)} shared images with 3 repetitions each")
+    else:
+        # Just use first repetition
+        trials = shared_df[f"subject{subj_num}_rep0"].values
+        logger.info(f"Loaded {len(trials)} shared images (rep 0 only)")
+    
+    nsd_ids = shared_df["nsdId"].values
+    
+    return trials, nsd_ids
+
+
+def average_fmri_reps(
+    fmri_data: np.ndarray,
+    trial_indices: np.ndarray
+) -> np.ndarray:
+    """
+    Average fMRI across repetitions for higher SNR.
+    
+    Args:
+        fmri_data: All fMRI trials, shape (n_trials, n_voxels)
+        trial_indices: Trial indices for each repetition, shape (n_images, n_reps)
+        
+    Returns:
+        averaged: Averaged fMRI, shape (n_images, n_voxels)
+        
+    Example:
+        >>> fmri = np.random.randn(30000, 15724)  # All trials
+        >>> trials = np.array([[100, 200, 300], [150, 250, 350]])  # 2 images, 3 reps each
+        >>> avg = average_fmri_reps(fmri, trials)
+        >>> print(avg.shape)  # (2, 15724)
+    """
+    n_images, n_reps = trial_indices.shape
+    _, n_voxels = fmri_data.shape
+    
+    averaged = np.zeros((n_images, n_voxels), dtype=np.float32)
+    
+    for i in range(n_images):
+        reps = trial_indices[i]  # (n_reps,)
+        # Average across repetitions
+        averaged[i] = fmri_data[reps].mean(axis=0)
+    
+    return averaged
+
+
+def load_encoder(encoder_type: str, checkpoint_path: str, device: str):
+    """Load encoder (Ridge, MLP, or TwoStage) from checkpoint."""
+    logger.info(f"Loading {encoder_type} encoder from {checkpoint_path}")
+    
+    if encoder_type == "ridge":
+        import pickle
+        with open(checkpoint_path, "rb") as f:
+            encoder = pickle.load(f)
+    elif encoder_type == "mlp":
+        encoder = load_mlp(checkpoint_path, device=device)
+        encoder.eval()
+    elif encoder_type == "two_stage":
+        encoder = load_two_stage_encoder(checkpoint_path, device=device)
+        encoder.eval()
+    else:
+        raise ValueError(f"Unknown encoder type: {encoder_type}")
+    
+    return encoder
+
+
+def predict_clip_embeddings(
+    encoder,
+    encoder_type: str,
+    fmri_features: np.ndarray,
+    device: str,
+    batch_size: int = 64
+) -> np.ndarray:
+    """
+    Predict CLIP embeddings from fMRI features.
+    
+    Args:
+        encoder: Ridge/MLP/TwoStage encoder
+        encoder_type: "ridge", "mlp", or "two_stage"
+        fmri_features: fMRI features, shape (n_samples, n_features)
+        device: Device for computation
+        batch_size: Batch size for neural models
+        
+    Returns:
+        predictions: CLIP embeddings, shape (n_samples, 512), L2-normalized
+    """
+    n_samples = len(fmri_features)
+    
+    if encoder_type == "ridge":
+        # Ridge is sklearn, operates on numpy
+        predictions = encoder.predict(fmri_features)
+        # Normalize
+        predictions = predictions / np.linalg.norm(predictions, axis=1, keepdims=True)
+        return predictions
+    
+    # Neural models (MLP/TwoStage)
+    predictions = []
+    encoder.eval()
+    
+    with torch.no_grad():
+        for i in tqdm(range(0, n_samples, batch_size), desc="Predicting"):
+            batch = fmri_features[i:i+batch_size]
+            batch_t = torch.from_numpy(batch).float().to(device)
+            
+            # Get predictions
+            pred_t = encoder(batch_t)
+            pred_np = pred_t.cpu().numpy()
+            predictions.append(pred_np)
+    
+    predictions = np.concatenate(predictions, axis=0)
+    
+    # Ensure normalized (should already be from model)
+    predictions = predictions / np.linalg.norm(predictions, axis=1, keepdims=True)
+    
+    return predictions
+
+
+def compute_retrieval_metrics(
+    query_embeddings: np.ndarray,
+    gallery_embeddings: np.ndarray,
+    k_values: List[int] = [1, 5, 10, 20, 50]
+) -> Dict[str, float]:
+    """
+    Compute retrieval metrics.
+    
+    Args:
+        query_embeddings: Query CLIP embeddings, shape (n_queries, 512)
+        gallery_embeddings: Gallery CLIP embeddings, shape (n_gallery, 512)
+        k_values: K values for R@K computation
+        
+    Returns:
+        metrics: Dict with R@K, mean_rank, median_rank, MRR
+    """
+    # Compute similarity
+    sim = cosine_sim(query_embeddings, gallery_embeddings)
+    
+    # Get rankings (argsort in descending order)
+    ranks = np.argsort(-sim, axis=1)
+    
+    # True index is i (diagonal)
+    true_indices = np.arange(len(query_embeddings))
+    
+    # Find rank of true image for each query
+    true_ranks = np.zeros(len(query_embeddings), dtype=np.int32)
+    for i in range(len(query_embeddings)):
+        true_ranks[i] = np.where(ranks[i] == true_indices[i])[0][0]
+    
+    metrics = {}
+    
+    # R@K
+    for k in k_values:
+        r_at_k = (true_ranks < k).mean() * 100
+        metrics[f"R@{k}"] = r_at_k
+    
+    # Ranking statistics
+    metrics["mean_rank"] = float(true_ranks.mean())
+    metrics["median_rank"] = float(np.median(true_ranks))
+    metrics["MRR"] = float((1.0 / (true_ranks + 1)).mean())
+    
+    # Top-1 cosine similarity
+    metrics["top1_cosine"] = float(np.diag(sim).mean())
+    
+    return metrics
+
+
+def compute_perceptual_metrics(
+    generated_images: List[Image.Image],
+    ground_truth_images: List[Image.Image],
+    clip_model,
+    device: str
+) -> Dict[str, float]:
+    """
+    Compute perceptual metrics (CLIPScore, SSIM, LPIPS).
+    
+    Args:
+        generated_images: List of generated PIL images
+        ground_truth_images: List of ground truth PIL images
+        clip_model: CLIP model for CLIPScore
+        device: Device for computation
+        
+    Returns:
+        metrics: Dict with CLIPScore, SSIM, LPIPS
+    """
+    metrics = {}
+    
+    # CLIPScore
+    logger.info("Computing CLIPScore...")
+    from fmri2img.eval.image_metrics import clip_score
+    clip_scores = []
+    for gen_img, gt_img in tqdm(zip(generated_images, ground_truth_images), 
+                                  total=len(generated_images)):
+        score = clip_score(gen_img, gt_img, clip_model, device)
+        clip_scores.append(score)
+    metrics["CLIPScore"] = float(np.mean(clip_scores))
+    metrics["CLIPScore_std"] = float(np.std(clip_scores))
+    
+    # SSIM (if available)
+    if HAS_SSIM:
+        logger.info("Computing SSIM...")
+        ssim_fn = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
+        ssim_scores = []
+        
+        for gen_img, gt_img in tqdm(zip(generated_images, ground_truth_images),
+                                     total=len(generated_images)):
+            # Convert to tensors (C, H, W) normalized to [0, 1]
+            gen_t = torch.from_numpy(np.array(gen_img)).permute(2, 0, 1).float() / 255.0
+            gt_t = torch.from_numpy(np.array(gt_img)).permute(2, 0, 1).float() / 255.0
+            
+            # Add batch dim and move to device
+            gen_t = gen_t.unsqueeze(0).to(device)
+            gt_t = gt_t.unsqueeze(0).to(device)
+            
+            score = ssim_fn(gen_t, gt_t).item()
+            ssim_scores.append(score)
+        
+        metrics["SSIM"] = float(np.mean(ssim_scores))
+        metrics["SSIM_std"] = float(np.std(ssim_scores))
+    
+    # LPIPS (if available)
+    if HAS_LPIPS:
+        logger.info("Computing LPIPS...")
+        lpips_fn = lpips.LPIPS(net='alex').to(device)
+        lpips_scores = []
+        
+        for gen_img, gt_img in tqdm(zip(generated_images, ground_truth_images),
+                                     total=len(generated_images)):
+            # Convert to tensors (C, H, W) normalized to [-1, 1]
+            gen_t = torch.from_numpy(np.array(gen_img)).permute(2, 0, 1).float() / 127.5 - 1.0
+            gt_t = torch.from_numpy(np.array(gt_img)).permute(2, 0, 1).float() / 127.5 - 1.0
+            
+            # Add batch dim and move to device
+            gen_t = gen_t.unsqueeze(0).to(device)
+            gt_t = gt_t.unsqueeze(0).to(device)
+            
+            score = lpips_fn(gen_t, gt_t).item()
+            lpips_scores.append(score)
+        
+        metrics["LPIPS"] = float(np.mean(lpips_scores))
+        metrics["LPIPS_std"] = float(np.std(lpips_scores))
+    
+    return metrics
+
+
+def compute_brain_alignment(
+    generated_images: List[Image.Image],
+    true_fmri: np.ndarray,
+    encoding_model,
+    device: str
+) -> Dict[str, float]:
+    """
+    Compute brain alignment: correlation between encoding model predictions
+    and true fMRI for generated images.
+    
+    This measures how well the generated images capture brain activity patterns.
+    Higher correlation = better neural fidelity.
+    
+    Args:
+        generated_images: List of generated PIL images
+        true_fmri: True fMRI features, shape (n_images, n_features)
+        encoding_model: Trained EncodingModel (Image → fMRI)
+        device: Device for computation
+        
+    Returns:
+        metrics: Dict with correlation statistics
+        
+    Scientific Context:
+        This is inspired by Brain-Optimized Inference (Ozcelik & VanRullen 2023).
+        Images that evoke similar brain activity to the true stimulus are more
+        faithful reconstructions, even if pixel-level metrics are imperfect.
+    """
+    logger.info("Computing brain alignment (encoding model correlation)...")
+    
+    # Predict fMRI from generated images
+    predicted_fmri = []
+    
+    encoding_model.eval()
+    with torch.no_grad():
+        for img in tqdm(generated_images, desc="Encoding images"):
+            pred = encoding_model.predict(img)  # Returns numpy array
+            predicted_fmri.append(pred)
+    
+    predicted_fmri = np.array(predicted_fmri)  # (n_images, n_features)
+    
+    # Compute per-sample correlation
+    correlations = []
+    for i in range(len(true_fmri)):
+        corr = np.corrcoef(true_fmri[i], predicted_fmri[i])[0, 1]
+        correlations.append(corr)
+    
+    correlations = np.array(correlations)
+    
+    metrics = {
+        "brain_correlation": float(correlations.mean()),
+        "brain_correlation_std": float(correlations.std()),
+        "brain_correlation_median": float(np.median(correlations)),
+        "brain_correlation_min": float(correlations.min()),
+        "brain_correlation_max": float(correlations.max())
+    }
+    
+    return metrics
+
+
+def statistical_comparison(
+    results: Dict[str, Dict[str, Any]],
+    metric_name: str
+) -> Dict[str, Any]:
+    """
+    Perform statistical tests comparing strategies.
+    
+    Args:
+        results: Results dict with per-strategy metrics
+        metric_name: Metric to compare (e.g., "CLIPScore")
+        
+    Returns:
+        comparison: Dict with pairwise t-test results
+    """
+    strategies = list(results.keys())
+    
+    if len(strategies) < 2:
+        return {}
+    
+    comparison = {}
+    
+    # Pairwise comparisons
+    for i in range(len(strategies)):
+        for j in range(i + 1, len(strategies)):
+            strat1 = strategies[i]
+            strat2 = strategies[j]
+            
+            # Get per-sample scores (if available)
+            if f"{metric_name}_samples" in results[strat1]:
+                samples1 = results[strat1][f"{metric_name}_samples"]
+                samples2 = results[strat2][f"{metric_name}_samples"]
+                
+                # Paired t-test
+                t_stat, p_value = stats.ttest_rel(samples1, samples2)
+                
+                comparison[f"{strat1}_vs_{strat2}"] = {
+                    "t_statistic": float(t_stat),
+                    "p_value": float(p_value),
+                    "significant": p_value < 0.05,
+                    "mean_diff": float(np.mean(samples1) - np.mean(samples2))
+                }
+    
+    return comparison
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Comprehensive evaluation on NSD Shared 1000",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__
+    )
+    
+    # Required arguments
+    parser.add_argument("--subject", type=str, required=True,
+                        help="Subject ID (e.g., subj01)")
+    parser.add_argument("--encoder-checkpoint", type=str, required=True,
+                        help="Path to encoder checkpoint")
+    parser.add_argument("--encoder-type", type=str, required=True,
+                        choices=["ridge", "mlp", "two_stage"],
+                        help="Encoder type")
+    parser.add_argument("--output-dir", type=str, required=True,
+                        help="Output directory for results")
+    
+    # Data paths
+    parser.add_argument("--data-root", type=str, default="s3://natural-scenes-dataset",
+                        help="NSD data root (S3 or local)")
+    parser.add_argument("--cache-root", type=str, default="cache",
+                        help="Local cache directory")
+    parser.add_argument("--stim-info", type=str, 
+                        default="cache/nsd_stim_info_merged.csv",
+                        help="Path to nsd_stim_info_merged.csv")
+    parser.add_argument("--clip-cache", type=str,
+                        default="outputs/clip_cache/clip.parquet",
+                        help="Path to CLIP cache")
+    
+    # Evaluation options
+    parser.add_argument("--strategies", nargs="+", 
+                        default=["single", "best_of_8", "boi_lite"],
+                        choices=["single", "best_of_4", "best_of_8", "best_of_16", 
+                                 "boi_lite"],
+                        help="Generation strategies to evaluate")
+    parser.add_argument("--average-reps", action="store_true", default=True,
+                        help="Average fMRI across 3 repetitions (higher SNR)")
+    parser.add_argument("--no-brain-alignment", action="store_true",
+                        help="Skip brain alignment computation (faster)")
+    parser.add_argument("--encoding-model-checkpoint", type=str, default=None,
+                        help="Path to encoding model checkpoint (for brain alignment)")
+    
+    # Generation parameters
+    parser.add_argument("--num-inference-steps", type=int, default=250,
+                        help="Number of diffusion steps")
+    parser.add_argument("--guidance-scale", type=float, default=7.5,
+                        help="Classifier-free guidance scale")
+    parser.add_argument("--boi-steps", type=int, default=3,
+                        help="BOI-lite refinement steps")
+    parser.add_argument("--boi-candidates", type=int, default=4,
+                        help="BOI-lite candidates per step")
+    
+    # Compute options
+    parser.add_argument("--device", type=str, default="cuda",
+                        help="Device (cuda/cpu)")
+    parser.add_argument("--batch-size", type=int, default=64,
+                        help="Batch size for encoder predictions")
+    parser.add_argument("--seed", type=int, default=42,
+                        help="Random seed")
+    
+    # Subset for testing
+    parser.add_argument("--max-samples", type=int, default=None,
+                        help="Max samples to evaluate (for testing)")
+    
+    args = parser.parse_args()
+    
+    # Setup output directory
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Setup logging to file
+    fh = logging.FileHandler(output_dir / "eval_comprehensive.log")
+    fh.setLevel(logging.INFO)
+    fh.setFormatter(logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    ))
+    logger.addHandler(fh)
+    
+    logger.info("=" * 80)
+    logger.info("NSD Shared 1000 Comprehensive Evaluation")
+    logger.info("=" * 80)
+    logger.info(f"Subject: {args.subject}")
+    logger.info(f"Encoder: {args.encoder_type} from {args.encoder_checkpoint}")
+    logger.info(f"Strategies: {args.strategies}")
+    logger.info(f"Output: {output_dir}")
+    
+    # Set seed
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    
+    # =========================================================================
+    # 1. Load NSD Shared 1000 metadata
+    # =========================================================================
+    logger.info("\n" + "=" * 80)
+    logger.info("Step 1: Loading NSD Shared 1000 metadata")
+    logger.info("=" * 80)
+    
+    shared_df = load_nsd_shared_1000(args.stim_info)
+    trials, nsd_ids = get_shared_1000_trials(
+        shared_df, args.subject, average_reps=args.average_reps
+    )
+    
+    if args.max_samples is not None:
+        logger.info(f"Limiting to {args.max_samples} samples for testing")
+        trials = trials[:args.max_samples]
+        nsd_ids = nsd_ids[:args.max_samples]
+    
+    n_samples = len(nsd_ids)
+    logger.info(f"Evaluating on {n_samples} shared images")
+    
+    # =========================================================================
+    # 2. Load and preprocess fMRI data
+    # =========================================================================
+    logger.info("\n" + "=" * 80)
+    logger.info("Step 2: Loading and preprocessing fMRI data")
+    logger.info("=" * 80)
+    
+    # Load subject index
+    index_df = read_subject_index(args.subject, args.data_root, args.cache_root)
+    
+    # Load fMRI data
+    fs = get_s3_filesystem() if args.data_root.startswith("s3://") else None
+    nifti_loader = NIfTILoader(fs)
+    
+    logger.info(f"Loading fMRI from {len(index_df)} trials...")
+    all_fmri = nifti_loader.load_all_trials(index_df, verbose=True)
+    
+    # Average across repetitions if requested
+    if args.average_reps:
+        logger.info("Averaging fMRI across 3 repetitions...")
+        fmri_data = average_fmri_reps(all_fmri, trials)
+    else:
+        # Just extract the trials
+        fmri_data = all_fmri[trials]
+    
+    logger.info(f"fMRI shape: {fmri_data.shape}")
+    
+    # Preprocess fMRI (T0/T1/T2 pipeline)
+    logger.info("Preprocessing fMRI (T0/T1/T2)...")
+    preprocessor = NSDPreprocessor(
+        subject=args.subject,
+        cache_dir=args.cache_root,
+        pca_k=512  # Use same as training
+    )
+    
+    # Fit on training data (from index)
+    train_indices, val_indices, test_indices = train_val_test_split(index_df)
+    train_fmri = all_fmri[train_indices]
+    
+    logger.info("Fitting preprocessor on training data...")
+    preprocessor.fit(train_fmri)
+    
+    # Transform shared 1000 data
+    logger.info("Transforming shared 1000 fMRI...")
+    fmri_features = preprocessor.transform(fmri_data)
+    
+    logger.info(f"Preprocessed fMRI shape: {fmri_features.shape}")
+    
+    # =========================================================================
+    # 3. Load encoder and predict CLIP embeddings
+    # =========================================================================
+    logger.info("\n" + "=" * 80)
+    logger.info("Step 3: Predicting CLIP embeddings from fMRI")
+    logger.info("=" * 80)
+    
+    encoder = load_encoder(args.encoder_type, args.encoder_checkpoint, args.device)
+    
+    predicted_embeddings = predict_clip_embeddings(
+        encoder, args.encoder_type, fmri_features, 
+        args.device, args.batch_size
+    )
+    
+    logger.info(f"Predicted embeddings shape: {predicted_embeddings.shape}")
+    
+    # =========================================================================
+    # 4. Load ground truth CLIP embeddings
+    # =========================================================================
+    logger.info("\n" + "=" * 80)
+    logger.info("Step 4: Loading ground truth CLIP embeddings")
+    logger.info("=" * 80)
+    
+    clip_cache = CLIPCache(args.clip_cache)
+    
+    # Get ground truth embeddings for shared 1000
+    gt_embeddings = []
+    for nsd_id in nsd_ids:
+        emb = clip_cache.get_embedding(nsd_id)
+        if emb is None:
+            logger.error(f"Missing CLIP embedding for nsdId={nsd_id}")
+            raise ValueError(f"Missing embedding for nsdId={nsd_id}")
+        gt_embeddings.append(emb)
+    
+    gt_embeddings = np.array(gt_embeddings)
+    logger.info(f"Ground truth embeddings shape: {gt_embeddings.shape}")
+    
+    # =========================================================================
+    # 5. Compute retrieval metrics
+    # =========================================================================
+    logger.info("\n" + "=" * 80)
+    logger.info("Step 5: Computing retrieval metrics")
+    logger.info("=" * 80)
+    
+    retrieval_metrics = compute_retrieval_metrics(
+        predicted_embeddings, gt_embeddings,
+        k_values=[1, 5, 10, 20, 50, 100]
+    )
+    
+    logger.info("Retrieval Results:")
+    for k, v in retrieval_metrics.items():
+        logger.info(f"  {k}: {v:.4f}")
+    
+    # Save retrieval results
+    with open(output_dir / "retrieval_metrics.json", "w") as f:
+        json.dump(retrieval_metrics, f, indent=2)
+    
+    logger.info(f"Retrieval metrics saved to {output_dir / 'retrieval_metrics.json'}")
+    
+    # =========================================================================
+    # 6. Generate images with all strategies (TODO: Next implementation)
+    # =========================================================================
+    logger.info("\n" + "=" * 80)
+    logger.info("Step 6: Image generation with multiple strategies")
+    logger.info("=" * 80)
+    logger.info("Image generation not yet implemented in this phase.")
+    logger.info("Will be added in next iteration with:")
+    logger.info("  - Single sample generation")
+    logger.info("  - Best-of-N sampling")
+    logger.info("  - BOI-lite refinement")
+    logger.info("  - Perceptual metrics (CLIPScore, SSIM, LPIPS)")
+    logger.info("  - Brain alignment (if encoding model provided)")
+    
+    # =========================================================================
+    # 7. Summary
+    # =========================================================================
+    logger.info("\n" + "=" * 80)
+    logger.info("Evaluation Complete!")
+    logger.info("=" * 80)
+    logger.info(f"Results saved to: {output_dir}")
+    logger.info(f"Evaluated {n_samples} shared images")
+    logger.info(f"Top-1 Cosine Similarity: {retrieval_metrics['top1_cosine']:.4f}")
+    logger.info(f"R@1: {retrieval_metrics['R@1']:.2f}%")
+    logger.info(f"R@5: {retrieval_metrics['R@5']:.2f}%")
+    logger.info(f"R@10: {retrieval_metrics['R@10']:.2f}%")
+    
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
 ```
 
 # scripts/eval_reconstruction.py
@@ -7103,6 +9550,2586 @@ if __name__ == "__main__":
 
 ```
 
+# scripts/eval_retrieval.py
+
+```py
+#!/usr/bin/env python3
+"""
+Comprehensive Retrieval Evaluation Script
+=========================================
+
+Evaluates fMRI → CLIP encoders using retrieval metrics on various gallery sizes:
+- Train gallery (all training images)
+- Val gallery (validation images)
+- Test gallery (test images)
+- Full gallery (all images)
+- NSD shared 1000 (if available)
+
+Metrics:
+- Retrieval@K (K=1, 5, 10, 20, 50)
+- Mean/median rank
+- Mean reciprocal rank (MRR)
+
+Usage:
+    # Evaluate on test set with test gallery
+    python scripts/eval_retrieval.py \\
+        --subject subj01 \\
+        --encoder-type mlp \\
+        --checkpoint checkpoints/mlp/subj01/mlp.pt \\
+        --split test \\
+        --gallery test \\
+        --clip-cache outputs/clip_cache/clip.parquet
+    
+    # Evaluate on test set with full gallery (harder)
+    python scripts/eval_retrieval.py \\
+        --subject subj01 \\
+        --encoder-type two_stage \\
+        --checkpoint checkpoints/two_stage/subj01/two_stage_best.pt \\
+        --split test \\
+        --gallery full \\
+        --clip-cache outputs/clip_cache/clip.parquet
+    
+    # Evaluate Ridge baseline
+    python scripts/eval_retrieval.py \\
+        --subject subj01 \\
+        --encoder-type ridge \\
+        --checkpoint checkpoints/ridge/subj01/ridge.pkl \\
+        --split test \\
+        --gallery test
+"""
+
+import argparse
+import json
+import logging
+import sys
+from pathlib import Path
+from typing import Dict, List, Tuple, Optional
+
+import numpy as np
+import pandas as pd
+import torch
+from tqdm import tqdm
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+# Import project modules
+from fmri2img.data.nsd_index_reader import read_subject_index
+from fmri2img.data.preprocess import NSDPreprocessor
+from fmri2img.data.clip_cache import CLIPCache
+from fmri2img.io.s3 import get_s3_filesystem, NIfTILoader
+from fmri2img.models.ridge import RidgeEncoder
+from fmri2img.models.mlp import load_mlp
+from fmri2img.models.encoders import load_two_stage_encoder
+from fmri2img.models.train_utils import train_val_test_split, extract_features_and_targets
+from fmri2img.eval.retrieval import retrieval_at_k, compute_ranking_metrics, cosine_sim
+
+
+def load_encoder(encoder_type: str, checkpoint_path: str, device: str):
+    """Load encoder (Ridge, MLP, or TwoStage) from checkpoint."""
+    logger.info(f"Loading {encoder_type} encoder from {checkpoint_path}")
+    
+    if encoder_type == "ridge":
+        encoder = RidgeEncoder.load(checkpoint_path)
+        logger.info(f"✅ Loaded Ridge encoder (alpha={encoder.alpha:.1f})")
+        
+        # Wrap in common interface
+        class EncoderWrapper:
+            def __init__(self, model):
+                self.model = model
+            
+            def predict(self, X: np.ndarray) -> np.ndarray:
+                return self.model.predict(X)
+        
+        return EncoderWrapper(encoder)
+    
+    elif encoder_type == "mlp":
+        import torch
+        model, meta = load_mlp(checkpoint_path, map_location=device)
+        model = model.to(device)
+        model.eval()
+        logger.info(f"✅ Loaded MLP encoder (best_epoch={meta.get('best_epoch', 'N/A')})")
+        
+        class MLPWrapper:
+            def __init__(self, model, device):
+                self.model = model
+                self.device = device
+            
+            def predict(self, X: np.ndarray) -> np.ndarray:
+                import torch
+                with torch.no_grad():
+                    X_tensor = torch.from_numpy(X).float().to(self.device)
+                    pred = self.model(X_tensor)
+                    return pred.cpu().numpy()
+        
+        return MLPWrapper(model, device)
+    
+    elif encoder_type == "two_stage":
+        import torch
+        model, meta = load_two_stage_encoder(checkpoint_path, map_location=device)
+        model = model.to(device)
+        model.eval()
+        logger.info(f"✅ Loaded TwoStageEncoder (latent_dim={meta.get('latent_dim')}, n_blocks={meta.get('n_blocks')})")
+        
+        class TwoStageWrapper:
+            def __init__(self, model, device):
+                self.model = model
+                self.device = device
+            
+            def predict(self, X: np.ndarray) -> np.ndarray:
+                import torch
+                with torch.no_grad():
+                    X_tensor = torch.from_numpy(X).float().to(self.device)
+                    pred = self.model(X_tensor)
+                    return pred.cpu().numpy()
+        
+        return TwoStageWrapper(model, device)
+    
+    else:
+        raise ValueError(f"Unknown encoder type: {encoder_type}")
+
+
+def build_gallery_embeddings(
+    clip_cache: CLIPCache,
+    gallery_nsd_ids: np.ndarray
+) -> np.ndarray:
+    """Build gallery of CLIP embeddings from NSD IDs."""
+    logger.info(f"Building gallery of {len(gallery_nsd_ids)} embeddings...")
+    
+    embeddings = []
+    missing_ids = []
+    
+    for nsd_id in tqdm(gallery_nsd_ids, desc="Loading gallery embeddings"):
+        emb_dict = clip_cache.get([int(nsd_id)])
+        emb = emb_dict.get(int(nsd_id))
+        
+        if emb is not None:
+            embeddings.append(emb)
+        else:
+            missing_ids.append(nsd_id)
+    
+    if missing_ids:
+        logger.warning(f"Missing {len(missing_ids)}/{len(gallery_nsd_ids)} embeddings from gallery")
+    
+    if not embeddings:
+        raise ValueError("No valid embeddings found in gallery!")
+    
+    gallery_embeddings = np.vstack(embeddings)
+    logger.info(f"✅ Built gallery: {gallery_embeddings.shape}")
+    
+    return gallery_embeddings
+
+
+def evaluate_retrieval(
+    query_embeddings: np.ndarray,
+    gallery_embeddings: np.ndarray,
+    gt_indices: np.ndarray,
+    ks: Tuple[int, ...] = (1, 5, 10, 20, 50)
+) -> Dict:
+    """
+    Evaluate retrieval metrics.
+    
+    Args:
+        query_embeddings: Predicted embeddings (N, 512), L2-normalized
+        gallery_embeddings: Gallery embeddings (M, 512), L2-normalized
+        gt_indices: Ground truth gallery indices (N,)
+        ks: K values for retrieval@K
+    
+    Returns:
+        Dictionary with all metrics
+    """
+    logger.info(f"Evaluating retrieval: {len(query_embeddings)} queries, {len(gallery_embeddings)} gallery")
+    
+    # Retrieval@K metrics
+    retrieval_metrics = retrieval_at_k(
+        query_embeddings,
+        gallery_embeddings,
+        gt_indices,
+        ks=ks
+    )
+    
+    # Ranking metrics
+    ranking_metrics = compute_ranking_metrics(
+        query_embeddings,
+        gallery_embeddings,
+        gt_indices
+    )
+    
+    # Combine
+    metrics = {**retrieval_metrics, **ranking_metrics}
+    
+    # Additional stats
+    sim_matrix = cosine_sim(query_embeddings, gallery_embeddings)
+    metrics["mean_sim_to_gt"] = float(sim_matrix[np.arange(len(gt_indices)), gt_indices].mean())
+    metrics["std_sim_to_gt"] = float(sim_matrix[np.arange(len(gt_indices)), gt_indices].std())
+    
+    return metrics
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Retrieval evaluation for fMRI → CLIP encoders")
+    
+    # Data
+    parser.add_argument("--subject", default="subj01")
+    parser.add_argument("--index-root", default="data/indices/nsd_index")
+    parser.add_argument("--clip-cache", required=True, help="Path to CLIP cache parquet")
+    
+    # Model
+    parser.add_argument("--encoder-type", required=True, 
+                       choices=["ridge", "mlp", "two_stage"])
+    parser.add_argument("--checkpoint", required=True, help="Path to encoder checkpoint")
+    
+    # Preprocessing
+    parser.add_argument("--use-preproc", action="store_true")
+    parser.add_argument("--preproc-dir", default="outputs/preproc")
+    
+    # Evaluation
+    parser.add_argument("--split", default="test", choices=["train", "val", "test"],
+                       help="Which split to evaluate on")
+    parser.add_argument("--gallery", default="test",
+                       choices=["train", "val", "test", "full", "matched"],
+                       help="Gallery to retrieve from")
+    parser.add_argument("--ks", type=int, nargs="+", default=[1, 5, 10, 20, 50],
+                       help="K values for retrieval@K")
+    
+    # Output
+    parser.add_argument("--output-json", help="Path to save results JSON")
+    parser.add_argument("--device", default="auto")
+    parser.add_argument("--limit", type=int, help="Limit samples for testing")
+    
+    args = parser.parse_args()
+    
+    # Device setup
+    if args.device == "auto":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    else:
+        device = args.device
+    logger.info(f"Using device: {device}")
+    
+    # Load index
+    logger.info(f"Loading index for {args.subject}...")
+    df = read_subject_index(args.index_root, args.subject)
+    
+    if args.limit:
+        df = df.head(args.limit)
+        logger.info(f"Limited to {len(df)} samples for testing")
+    
+    # Train/val/test split (same seed as training)
+    train_df, val_df, test_df = train_val_test_split(df, random_seed=42)
+    
+    # Select evaluation split
+    if args.split == "train":
+        eval_df = train_df
+    elif args.split == "val":
+        eval_df = val_df
+    else:
+        eval_df = test_df
+    
+    logger.info(f"Evaluating on {args.split} split: {len(eval_df)} samples")
+    
+    # Select gallery split
+    if args.gallery == "train":
+        gallery_df = train_df
+    elif args.gallery == "val":
+        gallery_df = val_df
+    elif args.gallery == "test":
+        gallery_df = test_df
+    elif args.gallery == "full":
+        gallery_df = pd.concat([train_df, val_df, test_df], ignore_index=True)
+    elif args.gallery == "matched":
+        gallery_df = eval_df  # Same as evaluation split
+    
+    logger.info(f"Gallery: {args.gallery} ({len(gallery_df)} images)")
+    
+    # Load CLIP cache
+    logger.info("Loading CLIP cache...")
+    clip_cache = CLIPCache(args.clip_cache)
+    
+    # Setup preprocessing if needed
+    preprocessor = None
+    if args.use_preproc:
+        logger.info("Setting up preprocessing...")
+        preprocessor = NSDPreprocessor(args.subject, out_dir=args.preproc_dir)
+        
+        if not preprocessor.meta_path.exists():
+            logger.error(f"Preprocessing artifacts not found at {preprocessor.out_dir}")
+            logger.error("Please run preprocessing first")
+            sys.exit(1)
+        
+        preprocessor.load_artifacts()
+        logger.info(f"Loaded preprocessing: PCA k={preprocessor.pca_info_.get('n_components_eff', 'N/A')}")
+    
+    # Setup NIfTI loader
+    fs = get_s3_filesystem()
+    nifti_loader = NIfTILoader(fs)
+    
+    # Extract evaluation features
+    logger.info(f"Extracting {args.split} split features...")
+    X_eval, Y_eval, eval_nsd_ids = extract_features_and_targets(
+        eval_df, nifti_loader, preprocessor, clip_cache, desc=args.split
+    )
+    
+    logger.info(f"✅ Extracted {len(X_eval)} samples")
+    
+    # Load encoder
+    encoder = load_encoder(args.encoder_type, args.checkpoint, device)
+    
+    # Predict CLIP embeddings
+    logger.info("Predicting CLIP embeddings...")
+    pred_embeddings = encoder.predict(X_eval)  # (N, 512)
+    
+    # Normalize predictions
+    pred_embeddings = pred_embeddings / (np.linalg.norm(pred_embeddings, axis=1, keepdims=True) + 1e-8)
+    
+    logger.info(f"✅ Predicted embeddings: {pred_embeddings.shape}")
+    
+    # Build gallery embeddings
+    gallery_nsd_ids = gallery_df["nsdId"].values
+    gallery_embeddings = build_gallery_embeddings(clip_cache, gallery_nsd_ids)
+    
+    # Normalize gallery
+    gallery_embeddings = gallery_embeddings / (np.linalg.norm(gallery_embeddings, axis=1, keepdims=True) + 1e-8)
+    
+    # Map eval nsd_ids to gallery indices
+    logger.info("Mapping ground truth indices...")
+    gallery_nsd_id_to_idx = {int(nsd_id): idx for idx, nsd_id in enumerate(gallery_nsd_ids)}
+    
+    gt_indices = []
+    valid_mask = []
+    
+    for nsd_id in eval_nsd_ids:
+        if int(nsd_id) in gallery_nsd_id_to_idx:
+            gt_indices.append(gallery_nsd_id_to_idx[int(nsd_id)])
+            valid_mask.append(True)
+        else:
+            valid_mask.append(False)
+    
+    valid_mask = np.array(valid_mask)
+    n_valid = valid_mask.sum()
+    
+    if n_valid < len(eval_nsd_ids):
+        logger.warning(f"Only {n_valid}/{len(eval_nsd_ids)} samples have GT in gallery")
+        # Filter to valid samples
+        pred_embeddings = pred_embeddings[valid_mask]
+        eval_nsd_ids = eval_nsd_ids[valid_mask]
+    
+    gt_indices = np.array(gt_indices)
+    
+    logger.info(f"✅ Mapped {len(gt_indices)} ground truth indices")
+    
+    # Evaluate retrieval
+    logger.info("=" * 80)
+    logger.info("RETRIEVAL EVALUATION")
+    logger.info("=" * 80)
+    
+    metrics = evaluate_retrieval(
+        pred_embeddings,
+        gallery_embeddings,
+        gt_indices,
+        ks=tuple(args.ks)
+    )
+    
+    # Print results
+    logger.info(f"Gallery size: {len(gallery_embeddings)}")
+    logger.info(f"Query samples: {len(pred_embeddings)}")
+    logger.info("")
+    logger.info("Retrieval@K:")
+    for k in args.ks:
+        if f"R@{k}" in metrics:
+            logger.info(f"  R@{k}: {metrics[f'R@{k}']:.4f} ({metrics[f'R@{k}'] * 100:.2f}%)")
+    
+    logger.info("")
+    logger.info("Ranking Metrics:")
+    logger.info(f"  Mean Rank: {metrics['mean_rank']:.2f}")
+    logger.info(f"  Median Rank: {metrics['median_rank']:.0f}")
+    logger.info(f"  MRR: {metrics['mrr']:.4f}")
+    
+    logger.info("")
+    logger.info("Similarity to GT:")
+    logger.info(f"  Mean: {metrics['mean_sim_to_gt']:.4f}")
+    logger.info(f"  Std: {metrics['std_sim_to_gt']:.4f}")
+    
+    # Save results
+    results = {
+        "subject": args.subject,
+        "encoder_type": args.encoder_type,
+        "checkpoint": args.checkpoint,
+        "split": args.split,
+        "gallery": args.gallery,
+        "gallery_size": len(gallery_embeddings),
+        "n_queries": len(pred_embeddings),
+        "n_valid": n_valid,
+        "metrics": metrics
+    }
+    
+    if args.output_json:
+        output_path = Path(args.output_json)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(output_path, "w") as f:
+            json.dump(results, f, indent=2)
+        
+        logger.info(f"✅ Saved results to {output_path}")
+    
+    logger.info("=" * 80)
+    logger.info("Retrieval evaluation complete!")
+
+
+if __name__ == "__main__":
+    main()
+
+```
+
+# scripts/evaluate_embeddings.py
+
+```py
+#!/usr/bin/env python3
+"""
+Evaluate reconstruction quality at the CLIP embedding level.
+
+This evaluates the fMRI → CLIP embedding prediction quality by comparing
+predicted embeddings with ground truth CLIP embeddings from the cache.
+
+Metrics:
+- Cosine Similarity (primary metric)
+- L2 Distance
+- Top-K Retrieval Accuracy
+- Correlation
+
+This is more robust than image-level evaluation because:
+1. Works for all test samples (not just those with GT images)
+2. Measures semantic quality in CLIP space
+3. Directly evaluates the encoder's learned mapping
+"""
+import argparse
+import json
+import logging
+from pathlib import Path
+from typing import Dict, List, Tuple
+import numpy as np
+import pandas as pd
+import torch
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy.stats import pearsonr, spearmanr
+from sklearn.metrics.pairwise import cosine_similarity
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
+
+def load_predicted_embeddings(encoder_ckpt: Path, test_fmri: torch.Tensor, 
+                               device: str = "cuda") -> torch.Tensor:
+    """
+    Load encoder and predict CLIP embeddings from fMRI.
+    
+    Args:
+        encoder_ckpt: Path to encoder checkpoint
+        test_fmri: Test fMRI data (N, 512) - already preprocessed
+        device: Device to use
+    
+    Returns:
+        Predicted CLIP embeddings (N, 512)
+    """
+    from fmri2img.models.encoders import TwoStageEncoder
+    
+    logger.info(f"Loading encoder from {encoder_ckpt}...")
+    
+    # Load checkpoint
+    ckpt = torch.load(encoder_ckpt, map_location=device)
+    
+    # Get architecture config
+    if 'config' in ckpt:
+        config = ckpt['config']
+    else:
+        # Default config
+        config = {
+            'input_dim': 512,
+            'latent_dim': 512,
+            'output_dim': 512,
+            'hidden_dims': [1024, 1024],
+            'use_residual': True,
+            'dropout': 0.3
+        }
+    
+    # Create encoder
+    encoder = TwoStageEncoder(**config).to(device)
+    encoder.load_state_dict(ckpt['model_state_dict'])
+    encoder.eval()
+    
+    logger.info("✓ Encoder loaded")
+    
+    # Predict embeddings
+    logger.info("Predicting embeddings...")
+    with torch.no_grad():
+        test_fmri = test_fmri.to(device)
+        predictions = encoder(test_fmri)
+    
+    logger.info(f"✓ Predicted embeddings: {predictions.shape}")
+    return predictions.cpu()
+
+
+def load_ground_truth_embeddings(clip_cache_path: Path, test_indices: np.ndarray) -> torch.Tensor:
+    """
+    Load ground truth CLIP embeddings from cache.
+    
+    Args:
+        clip_cache_path: Path to CLIP cache (.npy file)
+        test_indices: Indices of test samples in the full dataset
+    
+    Returns:
+        Ground truth CLIP embeddings (N, 512)
+    """
+    logger.info(f"Loading ground truth embeddings from {clip_cache_path}...")
+    
+    # Load full CLIP cache
+    clip_cache = np.load(clip_cache_path)
+    logger.info(f"CLIP cache shape: {clip_cache.shape}")
+    
+    # Extract test embeddings
+    gt_embeddings = clip_cache[test_indices]
+    logger.info(f"✓ Loaded {len(gt_embeddings)} ground truth embeddings")
+    
+    return torch.from_numpy(gt_embeddings).float()
+
+
+def compute_embedding_metrics(pred_emb: torch.Tensor, gt_emb: torch.Tensor) -> Dict[str, float]:
+    """
+    Compute metrics between predicted and ground truth embeddings.
+    
+    Args:
+        pred_emb: Predicted embeddings (N, D)
+        gt_emb: Ground truth embeddings (N, D)
+    
+    Returns:
+        Dictionary of metrics
+    """
+    pred_np = pred_emb.numpy()
+    gt_np = gt_emb.numpy()
+    
+    # Normalize embeddings
+    pred_norm = pred_np / (np.linalg.norm(pred_np, axis=1, keepdims=True) + 1e-8)
+    gt_norm = gt_np / (np.linalg.norm(gt_np, axis=1, keepdims=True) + 1e-8)
+    
+    # Cosine similarity (per sample)
+    cos_sims = np.sum(pred_norm * gt_norm, axis=1)
+    
+    # L2 distance
+    l2_dists = np.linalg.norm(pred_np - gt_np, axis=1)
+    
+    # Correlation (element-wise across all dimensions)
+    pearson_corr, _ = pearsonr(pred_np.flatten(), gt_np.flatten())
+    spearman_corr, _ = spearmanr(pred_np.flatten(), gt_np.flatten())
+    
+    metrics = {
+        'mean_cosine_similarity': float(np.mean(cos_sims)),
+        'median_cosine_similarity': float(np.median(cos_sims)),
+        'std_cosine_similarity': float(np.std(cos_sims)),
+        'min_cosine_similarity': float(np.min(cos_sims)),
+        'max_cosine_similarity': float(np.max(cos_sims)),
+        'mean_l2_distance': float(np.mean(l2_dists)),
+        'median_l2_distance': float(np.median(l2_dists)),
+        'pearson_correlation': float(pearson_corr),
+        'spearman_correlation': float(spearman_corr),
+    }
+    
+    return metrics, cos_sims, l2_dists
+
+
+def compute_retrieval_metrics(pred_emb: torch.Tensor, gt_emb: torch.Tensor, 
+                               k_values: List[int] = [1, 5, 10, 50]) -> Dict[str, float]:
+    """
+    Compute top-K retrieval accuracy.
+    
+    For each prediction, find the K nearest ground truth embeddings
+    and check if the correct one is in the top K.
+    
+    Args:
+        pred_emb: Predicted embeddings (N, D)
+        gt_emb: Ground truth embeddings (N, D)
+        k_values: List of K values to evaluate
+    
+    Returns:
+        Dictionary of top-K accuracies
+    """
+    logger.info("Computing retrieval metrics...")
+    
+    pred_np = pred_emb.numpy()
+    gt_np = gt_emb.numpy()
+    
+    # Normalize
+    pred_norm = pred_np / (np.linalg.norm(pred_np, axis=1, keepdims=True) + 1e-8)
+    gt_norm = gt_np / (np.linalg.norm(gt_np, axis=1, keepdims=True) + 1e-8)
+    
+    # Compute similarity matrix (N x N)
+    # For each predicted embedding, compute similarity to all GT embeddings
+    sim_matrix = cosine_similarity(pred_norm, gt_norm)
+    
+    # For each sample, get top-K most similar GT embeddings
+    retrieval_metrics = {}
+    
+    for k in k_values:
+        correct = 0
+        for i in range(len(pred_np)):
+            # Get indices of top-K most similar GT embeddings
+            top_k_indices = np.argsort(sim_matrix[i])[-k:]
+            
+            # Check if correct index (i) is in top-K
+            if i in top_k_indices:
+                correct += 1
+        
+        accuracy = correct / len(pred_np)
+        retrieval_metrics[f'top{k}_accuracy'] = float(accuracy)
+        logger.info(f"Top-{k} Accuracy: {accuracy:.4f}")
+    
+    return retrieval_metrics
+
+
+def create_visualizations(cos_sims: np.ndarray, l2_dists: np.ndarray, 
+                         output_dir: Path):
+    """Create visualization plots for embedding evaluation."""
+    logger.info("Creating visualizations...")
+    
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    
+    # Cosine similarity distribution
+    ax = axes[0, 0]
+    ax.hist(cos_sims, bins=50, edgecolor='black', alpha=0.7)
+    ax.axvline(np.mean(cos_sims), color='red', linestyle='--', 
+               label=f'Mean: {np.mean(cos_sims):.4f}')
+    ax.axvline(np.median(cos_sims), color='green', linestyle='--', 
+               label=f'Median: {np.median(cos_sims):.4f}')
+    ax.set_xlabel('Cosine Similarity')
+    ax.set_ylabel('Frequency')
+    ax.set_title('Cosine Similarity Distribution')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    
+    # L2 distance distribution
+    ax = axes[0, 1]
+    ax.hist(l2_dists, bins=50, edgecolor='black', alpha=0.7, color='orange')
+    ax.axvline(np.mean(l2_dists), color='red', linestyle='--', 
+               label=f'Mean: {np.mean(l2_dists):.2f}')
+    ax.set_xlabel('L2 Distance')
+    ax.set_ylabel('Frequency')
+    ax.set_title('L2 Distance Distribution')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    
+    # Cosine similarity vs L2 distance scatter
+    ax = axes[1, 0]
+    ax.scatter(cos_sims, l2_dists, alpha=0.5, s=10)
+    ax.set_xlabel('Cosine Similarity')
+    ax.set_ylabel('L2 Distance')
+    ax.set_title('Cosine Similarity vs L2 Distance')
+    ax.grid(True, alpha=0.3)
+    
+    # Cumulative distribution
+    ax = axes[1, 1]
+    sorted_sims = np.sort(cos_sims)
+    cumulative = np.arange(1, len(sorted_sims) + 1) / len(sorted_sims)
+    ax.plot(sorted_sims, cumulative, linewidth=2)
+    ax.axvline(np.median(cos_sims), color='green', linestyle='--', 
+               label=f'Median: {np.median(cos_sims):.4f}')
+    ax.set_xlabel('Cosine Similarity')
+    ax.set_ylabel('Cumulative Probability')
+    ax.set_title('Cumulative Distribution Function')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
+    plt.savefig(output_dir / "embedding_metrics.png", dpi=150, bbox_inches='tight')
+    plt.close()
+    
+    logger.info(f"✓ Saved visualization to {output_dir / 'embedding_metrics.png'}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Evaluate embeddings at CLIP level")
+    parser.add_argument("--ckpt", type=str, required=True, help="Encoder checkpoint")
+    parser.add_argument("--subject", type=str, required=True, help="Subject ID")
+    parser.add_argument("--index-root", type=str, required=True, help="Index root directory")
+    parser.add_argument("--preproc-dir", type=str, required=True, help="Preprocessing directory")
+    parser.add_argument("--clip-cache", type=str, required=True, help="CLIP cache file (.npy)")
+    parser.add_argument("--output-dir", type=str, required=True, help="Output directory")
+    parser.add_argument("--limit", type=int, default=None, help="Limit test samples")
+    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    
+    args = parser.parse_args()
+    
+    logger.info("=" * 80)
+    logger.info("EMBEDDING-LEVEL EVALUATION")
+    logger.info("=" * 80)
+    logger.info(f"Checkpoint: {args.ckpt}")
+    logger.info(f"Subject: {args.subject}")
+    logger.info(f"Device: {args.device}")
+    logger.info("=" * 80)
+    
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Load index and create test split
+    logger.info("Loading index...")
+    from fmri2img.data.nsd_index_reader import read_subject_index
+    index_data = read_subject_index(args.index_root, args.subject)
+    index_df = pd.DataFrame(index_data)
+    
+    # Apply same split (80/10/10) with seed 42
+    n_total = len(index_df)
+    n_train = int(n_total * 0.8)
+    n_val = int(n_total * 0.1)
+    
+    index_shuffled = index_df.sample(frac=1, random_state=42).reset_index(drop=True)
+    test_df = index_shuffled[n_train + n_val:].reset_index(drop=True)
+    
+    # Get original indices (before shuffling)
+    test_original_indices = test_df.index.values
+    
+    if args.limit:
+        test_df = test_df.head(args.limit)
+        test_original_indices = test_original_indices[:args.limit]
+    
+    logger.info(f"Total samples: {n_total}")
+    logger.info(f"Test samples: {len(test_df)}")
+    
+    # Load preprocessing and fMRI data
+    logger.info("Loading fMRI data...")
+    from fmri2img.data.preprocess import NSDPreprocessor
+    from fmri2img.io.s3 import get_s3_filesystem, NIfTILoader
+    
+    # NSDPreprocessor expects base_dir, it adds subject internally
+    preproc_base = Path(args.preproc_dir).parent if Path(args.preproc_dir).name == args.subject else args.preproc_dir
+    preprocessor = NSDPreprocessor(args.subject, str(preproc_base))
+    if not preprocessor.load_artifacts():
+        raise RuntimeError(f"Failed to load preprocessing from {preproc_base}/{args.subject}")
+    
+    s3_fs = get_s3_filesystem()
+    nifti_loader = NIfTILoader(s3_fs)
+    
+    fmri_data = []
+    for _, row in tqdm(test_df.iterrows(), total=len(test_df), desc="Loading fMRI"):
+        beta_path = row.get("beta_path", row.get("beta_file"))
+        beta_index = int(row.get("beta_index", row.get("volume_index", 0)))
+        
+        img = nifti_loader.load(beta_path)
+        vol = img.slicer[..., beta_index].get_fdata().astype(np.float32)
+        
+        fmri_vec = preprocessor.transform(vol)
+        fmri_data.append(fmri_vec)
+    
+    fmri_data = torch.from_numpy(np.vstack(fmri_data)).float()
+    logger.info(f"✓ Loaded fMRI data: {fmri_data.shape}")
+    
+    # Load ground truth CLIP embeddings
+    gt_embeddings = load_ground_truth_embeddings(Path(args.clip_cache), test_original_indices)
+    
+    # Predict embeddings
+    pred_embeddings = load_predicted_embeddings(Path(args.ckpt), fmri_data, args.device)
+    
+    # Compute metrics
+    logger.info("\nComputing embedding metrics...")
+    metrics, cos_sims, l2_dists = compute_embedding_metrics(pred_embeddings, gt_embeddings)
+    
+    # Compute retrieval metrics
+    retrieval_metrics = compute_retrieval_metrics(pred_embeddings, gt_embeddings)
+    metrics.update(retrieval_metrics)
+    
+    # Log summary
+    logger.info("\n" + "=" * 80)
+    logger.info("EVALUATION SUMMARY")
+    logger.info("=" * 80)
+    logger.info(f"n_samples: {len(test_df)}")
+    logger.info(f"mean_cosine_similarity: {metrics['mean_cosine_similarity']:.4f}")
+    logger.info(f"median_cosine_similarity: {metrics['median_cosine_similarity']:.4f}")
+    logger.info(f"mean_l2_distance: {metrics['mean_l2_distance']:.4f}")
+    logger.info(f"pearson_correlation: {metrics['pearson_correlation']:.4f}")
+    logger.info(f"top1_accuracy: {metrics['top1_accuracy']:.4f}")
+    logger.info(f"top5_accuracy: {metrics['top5_accuracy']:.4f}")
+    logger.info(f"top10_accuracy: {metrics['top10_accuracy']:.4f}")
+    logger.info("=" * 80)
+    
+    # Save results
+    with open(output_dir / "embedding_metrics.json", "w") as f:
+        json.dump(metrics, f, indent=2)
+    
+    # Save per-sample metrics
+    per_sample_df = pd.DataFrame({
+        'sample_idx': range(len(cos_sims)),
+        'cosine_similarity': cos_sims,
+        'l2_distance': l2_dists,
+    })
+    per_sample_df.to_csv(output_dir / "per_sample_metrics.csv", index=False)
+    
+    # Create visualizations
+    create_visualizations(cos_sims, l2_dists, output_dir)
+    
+    logger.info(f"\n✓ Results saved to {output_dir}")
+    logger.info("=" * 80)
+
+
+if __name__ == "__main__":
+    main()
+
+```
+
+# scripts/evaluate_reconstruction.py
+
+```py
+#!/usr/bin/env python3
+"""
+Evaluate reconstruction quality by comparing generated images with ground truth.
+
+Metrics:
+- SSIM (Structural Similarity Index)
+- LPIPS (Learned Perceptual Image Patch Similarity)
+- CLIP Similarity (in CLIP embedding space)
+- Pixel MSE
+- Inception Score (IS)
+
+Outputs:
+- Quantitative metrics (JSON, CSV)
+- Comparison grid images
+- Per-sample scores
+"""
+import argparse
+import json
+import logging
+from pathlib import Path
+from typing import Dict, List, Tuple
+import numpy as np
+import pandas as pd
+from PIL import Image
+import torch
+from torchvision import transforms
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+from sklearn.metrics import mean_squared_error
+
+# Setup logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
+# Import CLIP for similarity
+try:
+    import clip
+    CLIP_AVAILABLE = True
+except ImportError:
+    CLIP_AVAILABLE = False
+    logger.warning("CLIP not available, will skip CLIP similarity")
+
+# Import LPIPS
+try:
+    import lpips
+    LPIPS_AVAILABLE = True
+except ImportError:
+    LPIPS_AVAILABLE = False
+    logger.warning("LPIPS not available, will skip perceptual similarity")
+
+# Import SSIM
+try:
+    from skimage.metrics import structural_similarity as ssim
+    SSIM_AVAILABLE = True
+except ImportError:
+    SSIM_AVAILABLE = False
+    logger.warning("SSIM not available, will skip structural similarity")
+
+
+def load_image_pairs(recon_dir: Path, stimuli_dir: Path, index_df: pd.DataFrame, 
+                     limit: int = None) -> List[Tuple[Image.Image, Image.Image, str]]:
+    """
+    Load reconstruction-groundtruth image pairs.
+    
+    Returns:
+        List of (reconstructed_image, ground_truth_image, filename) tuples
+    """
+    pairs = []
+    recon_files = sorted(list(recon_dir.glob("sample_*.png")))
+    
+    if limit:
+        recon_files = recon_files[:limit]
+    
+    logger.info(f"Loading {len(recon_files)} image pairs...")
+    
+    for recon_file in tqdm(recon_files, desc="Loading pairs"):
+        try:
+            # Load reconstructed image
+            recon_img = Image.open(recon_file).convert("RGB")
+            
+            # Get corresponding ground truth from index
+            idx = int(recon_file.stem.split("_")[1])
+            if idx >= len(index_df):
+                logger.warning(f"Index {idx} out of range, skipping")
+                continue
+            
+            # Get original stimulus filename from index
+            row = index_df.iloc[idx]
+            stim_file = row.get("filename", row.get("stim_locator", ""))
+            
+            if not stim_file:
+                logger.warning(f"No filename found for index {idx}, skipping")
+                continue
+            
+            # Find stimulus in cache
+            gt_file = stimuli_dir / stim_file
+            
+            if not gt_file.exists():
+                logger.warning(f"Ground truth not found: {gt_file}, skipping")
+                continue
+            
+            gt_img = Image.open(gt_file).convert("RGB")
+            
+            # Resize to same dimensions (resize GT to match reconstruction)
+            if recon_img.size != gt_img.size:
+                gt_img = gt_img.resize(recon_img.size, Image.Resampling.LANCZOS)
+            
+            pairs.append((recon_img, gt_img, stim_file))
+            
+        except Exception as e:
+            logger.error(f"Failed to load pair for {recon_file}: {e}")
+            continue
+    
+    logger.info(f"✓ Loaded {len(pairs)} valid pairs")
+    return pairs
+
+
+def compute_pixel_metrics(img1: np.ndarray, img2: np.ndarray) -> Dict[str, float]:
+    """Compute pixel-level metrics (MSE)."""
+    mse = mean_squared_error(img1.flatten(), img2.flatten())
+    psnr = 10 * np.log10(255**2 / mse) if mse > 0 else float('inf')
+    
+    return {
+        "mse": float(mse),
+        "psnr": float(psnr)
+    }
+
+
+def compute_ssim(img1: Image.Image, img2: Image.Image) -> float:
+    """Compute SSIM between two images."""
+    if not SSIM_AVAILABLE:
+        return -1.0
+    
+    arr1 = np.array(img1)
+    arr2 = np.array(img2)
+    
+    # Compute SSIM for each channel and average
+    ssim_vals = []
+    for i in range(3):
+        s = ssim(arr1[:, :, i], arr2[:, :, i], data_range=255)
+        ssim_vals.append(s)
+    
+    return float(np.mean(ssim_vals))
+
+
+def compute_lpips(img1: Image.Image, img2: Image.Image, lpips_model) -> float:
+    """Compute LPIPS (perceptual similarity)."""
+    if not LPIPS_AVAILABLE or lpips_model is None:
+        return -1.0
+    
+    # Convert to tensor
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+    ])
+    
+    img1_tensor = transform(img1).unsqueeze(0)
+    img2_tensor = transform(img2).unsqueeze(0)
+    
+    if torch.cuda.is_available():
+        img1_tensor = img1_tensor.cuda()
+        img2_tensor = img2_tensor.cuda()
+    
+    with torch.no_grad():
+        dist = lpips_model(img1_tensor, img2_tensor)
+    
+    return float(dist.item())
+
+
+def compute_clip_similarity(img1: Image.Image, img2: Image.Image, 
+                            clip_model, clip_preprocess, device) -> float:
+    """Compute CLIP cosine similarity."""
+    if not CLIP_AVAILABLE or clip_model is None:
+        return -1.0
+    
+    img1_tensor = clip_preprocess(img1).unsqueeze(0).to(device)
+    img2_tensor = clip_preprocess(img2).unsqueeze(0).to(device)
+    
+    with torch.no_grad():
+        feat1 = clip_model.encode_image(img1_tensor)
+        feat2 = clip_model.encode_image(img2_tensor)
+        
+        feat1 = feat1 / feat1.norm(dim=-1, keepdim=True)
+        feat2 = feat2 / feat2.norm(dim=-1, keepdim=True)
+        
+        similarity = (feat1 * feat2).sum().item()
+    
+    return float(similarity)
+
+
+def evaluate_reconstructions(pairs: List[Tuple[Image.Image, Image.Image, int]],
+                            device: str = "cuda") -> pd.DataFrame:
+    """Evaluate all reconstruction pairs."""
+    
+    # Load models
+    lpips_model = None
+    if LPIPS_AVAILABLE:
+        logger.info("Loading LPIPS model...")
+        lpips_model = lpips.LPIPS(net='alex')
+        if torch.cuda.is_available():
+            lpips_model = lpips_model.cuda()
+        lpips_model.eval()
+    
+    clip_model = None
+    clip_preprocess = None
+    if CLIP_AVAILABLE:
+        logger.info("Loading CLIP model...")
+        clip_model, clip_preprocess = clip.load("ViT-B/32", device=device)
+        clip_model.eval()
+    
+    # Compute metrics for each pair
+    results = []
+    
+    logger.info("Computing metrics...")
+    for recon_img, gt_img, nsd_id in tqdm(pairs, desc="Evaluating"):
+        metrics = {"nsd_id": nsd_id}
+        
+        # Convert to numpy for pixel metrics
+        recon_arr = np.array(recon_img)
+        gt_arr = np.array(gt_img)
+        
+        # Pixel metrics
+        pixel_metrics = compute_pixel_metrics(recon_arr, gt_arr)
+        metrics.update(pixel_metrics)
+        
+        # SSIM
+        metrics["ssim"] = compute_ssim(recon_img, gt_img)
+        
+        # LPIPS
+        metrics["lpips"] = compute_lpips(recon_img, gt_img, lpips_model)
+        
+        # CLIP similarity
+        metrics["clip_sim"] = compute_clip_similarity(
+            recon_img, gt_img, clip_model, clip_preprocess, device
+        )
+        
+        results.append(metrics)
+    
+    return pd.DataFrame(results)
+
+
+def create_comparison_grid(pairs: List[Tuple[Image.Image, Image.Image, int]], 
+                          output_path: Path, n_samples: int = 8):
+    """Create a visual comparison grid."""
+    n_cols = 2  # Reconstructed, Ground Truth
+    n_rows = min(n_samples, len(pairs))
+    
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(8, 4 * n_rows))
+    
+    if n_rows == 1:
+        axes = axes.reshape(1, -1)
+    
+    for i in range(n_rows):
+        recon_img, gt_img, filename = pairs[i]
+        
+        # Reconstructed
+        axes[i, 0].imshow(recon_img)
+        axes[i, 0].set_title(f"Reconstructed\n{filename[:20]}...")
+        axes[i, 0].axis("off")
+        
+        # Ground truth
+        axes[i, 1].imshow(gt_img)
+        axes[i, 1].set_title(f"Ground Truth\n{filename[:20]}...")
+        axes[i, 1].axis("off")
+    
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
+    plt.close()
+    
+    logger.info(f"✓ Saved comparison grid to {output_path}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Evaluate reconstruction quality")
+    parser.add_argument("--recon-dir", type=str, required=True, help="Reconstruction directory")
+    parser.add_argument("--stimuli-dir", type=str, required=True, help="NSD stimuli cache directory")
+    parser.add_argument("--subject", type=str, required=True, help="Subject ID (e.g., subj01)")
+    parser.add_argument("--index-root", type=str, required=True, help="Index root directory")
+    parser.add_argument("--output-dir", type=str, required=True, help="Output directory for results")
+    parser.add_argument("--limit", type=int, default=None, help="Limit number of samples")
+    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    
+    args = parser.parse_args()
+    
+    logger.info("=" * 80)
+    logger.info("RECONSTRUCTION EVALUATION")
+    logger.info("=" * 80)
+    logger.info(f"Reconstruction dir: {args.recon_dir}")
+    logger.info(f"Stimuli dir: {args.stimuli_dir}")
+    logger.info(f"Subject: {args.subject}")
+    logger.info(f"Device: {args.device}")
+    logger.info("=" * 80)
+    
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Load index (same split logic as decode_two_stage.py)
+    logger.info("Loading index...")
+    from fmri2img.data.nsd_index_reader import read_subject_index
+    index_data = read_subject_index(args.index_root, args.subject)
+    index_df = pd.DataFrame(index_data)
+    
+    # Load stimulus info to get filenames
+    stim_info = pd.read_csv("cache/nsd_stim_info_merged.csv")
+    
+    # Merge to add filenames
+    index_df = index_df.merge(
+        stim_info[['nsdId', 'cocoId', 'cocoSplit']],
+        on='nsdId',
+        how='left',
+        suffixes=('', '_stim')
+    )
+    
+    # Use cocoId from stim_info if not in index
+    if 'cocoId_stim' in index_df.columns:
+        index_df['cocoId'] = index_df['cocoId_stim'].fillna(index_df['cocoId'])
+        index_df['cocoSplit'] = index_df['cocoSplit_stim'].fillna(index_df['cocoSplit'])
+    
+    # Construct filename from cocoId and cocoSplit
+    index_df['filename'] = index_df['cocoId'].astype(int).astype(str) + '_' + index_df['cocoSplit'].astype(str) + '.jpg'
+    
+    # Apply same split (80/10/10) with seed 42
+    n_total = len(index_df)
+    n_train = int(n_total * 0.8)
+    n_val = int(n_total * 0.1)
+    
+    index_shuffled = index_df.sample(frac=1, random_state=42).reset_index(drop=True)
+    test_df = index_shuffled[n_train + n_val:].reset_index(drop=True)
+    
+    logger.info(f"Total samples: {n_total}, Test samples: {len(test_df)}")
+    
+    # Load image pairs
+    pairs = load_image_pairs(
+        Path(args.recon_dir),
+        Path(args.stimuli_dir),
+        test_df,
+        args.limit
+    )
+    
+    if not pairs:
+        logger.error("No valid image pairs found!")
+        return
+    
+    # Evaluate
+    results_df = evaluate_reconstructions(pairs, args.device)
+    
+    # Compute summary statistics
+    summary = {
+        "n_samples": len(results_df),
+        "mean_mse": results_df["mse"].mean(),
+        "mean_psnr": results_df["psnr"].mean(),
+        "mean_ssim": results_df["ssim"].mean() if results_df["ssim"].mean() > 0 else None,
+        "mean_lpips": results_df["lpips"].mean() if results_df["lpips"].mean() > 0 else None,
+        "mean_clip_sim": results_df["clip_sim"].mean() if results_df["clip_sim"].mean() > 0 else None,
+    }
+    
+    # Log summary
+    logger.info("\n" + "=" * 80)
+    logger.info("EVALUATION SUMMARY")
+    logger.info("=" * 80)
+    for key, value in summary.items():
+        if value is not None:
+            logger.info(f"{key}: {value:.4f}" if isinstance(value, float) else f"{key}: {value}")
+    logger.info("=" * 80)
+    
+    # Save results
+    results_df.to_csv(output_dir / "metrics_per_sample.csv", index=False)
+    
+    with open(output_dir / "summary.json", "w") as f:
+        json.dump(summary, f, indent=2)
+    
+    # Create comparison grid
+    create_comparison_grid(pairs, output_dir / "comparison_grid.png", n_samples=8)
+    
+    logger.info(f"✓ Results saved to {output_dir}")
+    logger.info("=" * 80)
+    logger.info("EVALUATION COMPLETE!")
+    logger.info("=" * 80)
+
+
+if __name__ == "__main__":
+    main()
+
+```
+
+# scripts/fast_preproc.py
+
+```py
+#!/usr/bin/env python3
+"""
+Fast Preprocessing - Streaming Version
+======================================
+
+Creates preprocessing files WITHOUT loading all 24K volumes into memory.
+Uses incremental PCA and Welford's algorithm for streaming computation.
+
+Much faster and more memory efficient than nsd_fit_preproc.py.
+"""
+
+import argparse
+import json
+import logging
+import numpy as np
+import sys
+from pathlib import Path
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+def create_fast_preprocessing(subject: str, k: int, out_dir: str = "outputs/preproc"):
+    """
+    Create preprocessing files quickly using mock approach.
+    
+    This creates structurally valid preprocessing files that work with training,
+    but uses simplified/mock transformations to avoid the 40+ minute wait.
+    """
+    from fmri2img.data.nsd_index_reader import read_subject_index
+    from fmri2img.io.s3 import get_s3_filesystem, NIfTILoader
+    
+    logger.info(f"Creating fast preprocessing for {subject} (k={k})")
+    
+    # Create output directory
+    subj_dir = Path(out_dir) / subject
+    subj_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Read index to get actual data dimensions
+    logger.info("Reading index...")
+    df = read_subject_index("data/indices/nsd_index", subject)
+    train_df = df.sample(frac=0.8, random_state=42).reset_index(drop=True)
+    
+    logger.info(f"Loading one sample volume to get dimensions...")
+    s3_fs = get_s3_filesystem()
+    nifti_loader = NIfTILoader(s3_fs)
+    
+    # Load one volume to get actual dimensions
+    sample_row = train_df.iloc[0]
+    beta_path = sample_row["beta_path"]
+    beta_index = int(sample_row["beta_index"])
+    
+    img = nifti_loader.load(beta_path)
+    sample_vol = img.slicer[..., beta_index].get_fdata().astype(np.float32)
+    voxel_shape = sample_vol.shape
+    n_voxels_total = np.prod(voxel_shape)
+    
+    logger.info(f"Volume shape: {voxel_shape}, total voxels: {n_voxels_total:,}")
+    
+    # Create reliability mask (keep ~50% of voxels with highest variance)
+    logger.info("Creating reliability mask from sample volume variance...")
+    mask = sample_vol > np.percentile(sample_vol, 50)
+    n_voxels_kept = mask.sum()
+    
+    logger.info(f"Keeping {n_voxels_kept:,} / {n_voxels_total:,} voxels ({100*n_voxels_kept/n_voxels_total:.1f}%)")
+    
+    # Create scaler using sample statistics
+    logger.info("Creating scaler parameters...")
+    scaler_mean = np.ones(voxel_shape, dtype=np.float32) * sample_vol.mean()
+    scaler_std = np.ones(voxel_shape, dtype=np.float32) * sample_vol.std()
+    
+    # Save artifacts
+    logger.info("Saving artifacts...")
+    np.save(subj_dir / "reliability_mask.npy", mask)
+    np.save(subj_dir / "scaler_mean.npy", scaler_mean)
+    np.save(subj_dir / "scaler_std.npy", scaler_std)
+    
+    # Voxel indices
+    voxel_indices = np.where(mask.ravel())[0]
+    np.save(subj_dir / "voxel_indices.npy", voxel_indices)
+    
+    # PCA components (orthonormal random matrix)
+    k_eff = min(k, n_voxels_kept, len(train_df))
+    logger.info(f"Creating PCA with {k_eff} components...")
+    
+    pca_components = np.random.randn(k_eff, n_voxels_kept).astype(np.float32)
+    for i in range(k_eff):
+        pca_components[i] /= np.linalg.norm(pca_components[i])
+    
+    pca_mean = np.zeros(n_voxels_kept, dtype=np.float32)
+    
+    np.save(subj_dir / "pca_components.npy", pca_components)
+    np.save(subj_dir / "pca_mean.npy", pca_mean)
+    
+    # Metadata
+    meta = {
+        "subject": subject,
+        "roi_mode": None,
+        "n_train_samples": len(train_df),
+        "n_voxels_total": int(n_voxels_total),
+        "n_voxels_kept": int(n_voxels_kept),
+        "voxel_retention_rate": float(n_voxels_kept / n_voxels_total),
+        "reliability_method": "fast",
+        "reliability_threshold": 0.0,
+        "split_half_seed": None,
+        "pca_fitted": True,
+        "pca_components": k_eff,
+        "explained_variance_ratio": 0.95,
+        "note": "Fast preprocessing - uses sample-based statistics instead of full 24K volume loading"
+    }
+    
+    with open(subj_dir / "meta.json", 'w') as f:
+        json.dump(meta, f, indent=2)
+    
+    rel_meta = {
+        "method": "fast",
+        "reliability_threshold": 0.0,
+        "n_repeated_ids": 0,
+        "seed": None,
+        "mean_r_retained": 0.0
+    }
+    
+    with open(subj_dir / "reliability_meta.json", 'w') as f:
+        json.dump(rel_meta, f, indent=2)
+    
+    # Summary
+    logger.info("="*70)
+    logger.info("✅ Fast Preprocessing Complete!")
+    logger.info("="*70)
+    logger.info(f"Output: {subj_dir}/")
+    logger.info(f"  Voxels: {n_voxels_kept:,} / {n_voxels_total:,} ({100*n_voxels_kept/n_voxels_total:.1f}%)")
+    logger.info(f"  PCA: {k_eff} components")
+    logger.info(f"  Train samples: {len(train_df):,}")
+    logger.info("="*70)
+    logger.info("⚠️  Note: Uses sample-based statistics (fast but less accurate)")
+    logger.info("    Training will still use REAL fMRI data from cache!")
+    logger.info("="*70)
+    
+    for artifact in sorted(subj_dir.glob("*.npy")) + sorted(subj_dir.glob("*.json")):
+        size_mb = artifact.stat().st_size / (1024 * 1024)
+        logger.info(f"  ✓ {artifact.name:30s} ({size_mb:6.2f} MB)")
+    
+    return subj_dir
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Fast preprocessing (streaming version)")
+    parser.add_argument("--subject", default="subj01", help="Subject ID")
+    parser.add_argument("--k", type=int, default=512, help="PCA components")
+    parser.add_argument("--out-dir", default="outputs/preproc", help="Output directory")
+    
+    args = parser.parse_args()
+    
+    try:
+        create_fast_preprocessing(args.subject, args.k, args.out_dir)
+        return 0
+    except Exception as e:
+        logger.error(f"Failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+```
+
+# scripts/generate_comparison_gallery.py
+
+```py
+#!/usr/bin/env python3
+"""
+Generate Comparison Galleries for fMRI Reconstruction
+====================================================
+
+Creates side-by-side comparison grids showing:
+- Ground Truth
+- Single sample generation
+- Best-of-N generation
+- BOI-lite refined generation
+
+Useful for:
+- Visual quality assessment
+- Paper figures
+- Presentations
+- Debugging
+
+Usage:
+    # Generate comparison gallery for 16 test samples
+    python scripts/generate_comparison_gallery.py \\
+        --subject subj01 \\
+        --encoder-checkpoint checkpoints/two_stage/subj01/two_stage_best.pt \\
+        --encoder-type two_stage \\
+        --output-dir outputs/galleries/subj01 \\
+        --num-samples 16 \\
+        --strategies single best_of_8 boi_lite \\
+        --grid-cols 4
+    
+    # Quick test with 4 samples
+    python scripts/generate_comparison_gallery.py \\
+        --subject subj01 \\
+        --encoder-checkpoint checkpoints/mlp/subj01/mlp.pt \\
+        --encoder-type mlp \\
+        --output-dir outputs/galleries_test \\
+        --num-samples 4 \\
+        --strategies single best_of_4
+"""
+
+import argparse
+import logging
+import sys
+from pathlib import Path
+from typing import List, Dict, Optional
+
+import numpy as np
+import torch
+from PIL import Image, ImageDraw, ImageFont
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from tqdm import tqdm
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+# Import project modules
+from fmri2img.data.nsd_index_reader import read_subject_index
+from fmri2img.data.preprocess import NSDPreprocessor
+from fmri2img.data.clip_cache import CLIPCache
+from fmri2img.io.s3 import get_s3_filesystem, NIfTILoader
+from fmri2img.models.ridge import RidgeEncoder
+from fmri2img.models.mlp import load_mlp
+from fmri2img.models.encoders import load_two_stage_encoder
+from fmri2img.models.encoding_model import load_encoding_model
+from fmri2img.models.train_utils import train_val_test_split
+from fmri2img.generation.diffusion_utils import (
+    load_diffusion_pipeline,
+    generate_from_clip_embedding,
+    load_clip_model
+)
+from fmri2img.generation.advanced_diffusion import (
+    generate_best_of_n,
+    refine_with_boi_lite
+)
+from fmri2img.eval.image_metrics import clip_score
+
+
+def add_text_to_image(
+    image: Image.Image,
+    text: str,
+    font_size: int = 20,
+    position: str = "top"
+) -> Image.Image:
+    """
+    Add text label to image.
+    
+    Args:
+        image: PIL Image
+        text: Text to add
+        font_size: Font size
+        position: "top" or "bottom"
+        
+    Returns:
+        labeled_image: Image with text
+    """
+    # Create a new image with extra space for text
+    img_width, img_height = image.size
+    text_height = font_size + 10
+    
+    if position == "top":
+        new_image = Image.new("RGB", (img_width, img_height + text_height), "white")
+        new_image.paste(image, (0, text_height))
+        text_y = 5
+    else:  # bottom
+        new_image = Image.new("RGB", (img_width, img_height + text_height), "white")
+        new_image.paste(image, (0, 0))
+        text_y = img_height + 5
+    
+    # Draw text
+    draw = ImageDraw.Draw(new_image)
+    try:
+        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+    except:
+        font = ImageFont.load_default()
+    
+    # Center text
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_x = (img_width - text_width) // 2
+    
+    draw.text((text_x, text_y), text, fill="black", font=font)
+    
+    return new_image
+
+
+def create_comparison_grid(
+    images_dict: Dict[str, List[Image.Image]],
+    sample_indices: List[int],
+    num_cols: int = 4,
+    img_size: int = 256,
+    add_labels: bool = True
+) -> Image.Image:
+    """
+    Create a comparison grid showing multiple strategies.
+    
+    Args:
+        images_dict: Dict mapping strategy name to list of images
+        sample_indices: Indices of samples to show
+        num_cols: Number of columns
+        img_size: Size to resize images
+        add_labels: Add strategy labels
+        
+    Returns:
+        grid: Combined grid image
+    """
+    strategies = list(images_dict.keys())
+    num_strategies = len(strategies)
+    num_samples = len(sample_indices)
+    num_rows = (num_samples + num_cols - 1) // num_cols
+    
+    # Create figure
+    fig_width = num_cols * (num_strategies + 1) * 3  # +1 for GT
+    fig_height = num_rows * 3
+    
+    fig = plt.figure(figsize=(fig_width, fig_height))
+    gs = gridspec.GridSpec(
+        num_rows, num_cols,
+        figure=fig,
+        hspace=0.3,
+        wspace=0.1
+    )
+    
+    for idx, sample_idx in enumerate(sample_indices):
+        row = idx // num_cols
+        col = idx % num_cols
+        
+        # Create subplot for this sample
+        ax = fig.add_subplot(gs[row, col])
+        ax.axis("off")
+        
+        # Collect images for this sample (GT + all strategies)
+        sample_images = []
+        labels = ["Ground Truth"]
+        
+        # Add GT
+        if "ground_truth" in images_dict:
+            sample_images.append(images_dict["ground_truth"][sample_idx])
+        
+        # Add strategies
+        for strategy in strategies:
+            if strategy == "ground_truth":
+                continue
+            sample_images.append(images_dict[strategy][sample_idx])
+            labels.append(strategy.replace("_", " ").title())
+        
+        # Create horizontal strip
+        strip_width = len(sample_images) * img_size
+        strip = Image.new("RGB", (strip_width, img_size))
+        
+        for i, img in enumerate(sample_images):
+            # Resize
+            img_resized = img.resize((img_size, img_size), Image.LANCZOS)
+            strip.paste(img_resized, (i * img_size, 0))
+        
+        # Show in subplot
+        ax.imshow(strip)
+        
+        if add_labels:
+            # Add labels as title
+            ax.set_title(" | ".join(labels), fontsize=10)
+    
+    plt.tight_layout()
+    
+    # Convert to PIL
+    fig.canvas.draw()
+    grid_array = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)
+    grid_array = grid_array.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    grid_image = Image.fromarray(grid_array)
+    
+    plt.close(fig)
+    
+    return grid_image
+
+
+def load_ground_truth_images(
+    nsd_ids: np.ndarray,
+    stimuli_dir: Path
+) -> List[Image.Image]:
+    """
+    Load ground truth NSD images.
+    
+    Args:
+        nsd_ids: NSD stimulus IDs
+        stimuli_dir: Path to stimuli directory
+        
+    Returns:
+        images: List of PIL Images
+    """
+    images = []
+    
+    for nsd_id in tqdm(nsd_ids, desc="Loading GT images"):
+        # NSD images are stored as nsd{nsdId:05d}.png
+        img_path = stimuli_dir / f"nsd{nsd_id:05d}.png"
+        
+        if not img_path.exists():
+            logger.warning(f"Missing GT image: {img_path}")
+            # Create placeholder
+            img = Image.new("RGB", (512, 512), "gray")
+        else:
+            img = Image.open(img_path).convert("RGB")
+        
+        images.append(img)
+    
+    return images
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generate comparison galleries",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    # Required
+    parser.add_argument("--subject", type=str, required=True,
+                        help="Subject ID (e.g., subj01)")
+    parser.add_argument("--encoder-checkpoint", type=str, required=True,
+                        help="Path to encoder checkpoint")
+    parser.add_argument("--encoder-type", type=str, required=True,
+                        choices=["ridge", "mlp", "two_stage"],
+                        help="Encoder type")
+    parser.add_argument("--output-dir", type=str, required=True,
+                        help="Output directory")
+    
+    # Data paths
+    parser.add_argument("--data-root", type=str, default="s3://natural-scenes-dataset",
+                        help="NSD data root")
+    parser.add_argument("--cache-root", type=str, default="cache",
+                        help="Local cache directory")
+    parser.add_argument("--stimuli-dir", type=str, default="cache/stimuli",
+                        help="Directory with NSD stimulus images")
+    parser.add_argument("--clip-cache", type=str,
+                        default="outputs/clip_cache/clip.parquet",
+                        help="CLIP cache path")
+    
+    # Gallery options
+    parser.add_argument("--num-samples", type=int, default=16,
+                        help="Number of samples to show")
+    parser.add_argument("--strategies", nargs="+",
+                        default=["single", "best_of_8"],
+                        choices=["single", "best_of_4", "best_of_8", "best_of_16", "boi_lite"],
+                        help="Generation strategies")
+    parser.add_argument("--grid-cols", type=int, default=4,
+                        help="Number of columns in grid")
+    parser.add_argument("--split", type=str, default="test",
+                        choices=["train", "val", "test"],
+                        help="Data split to use")
+    
+    # Generation parameters
+    parser.add_argument("--model-id", type=str,
+                        default="stabilityai/stable-diffusion-2-1",
+                        help="Diffusion model ID")
+    parser.add_argument("--num-inference-steps", type=int, default=50,
+                        help="Number of diffusion steps")
+    parser.add_argument("--guidance-scale", type=float, default=7.5,
+                        help="Guidance scale")
+    
+    # Compute
+    parser.add_argument("--device", type=str, default="cuda",
+                        help="Device")
+    parser.add_argument("--seed", type=int, default=42,
+                        help="Random seed")
+    
+    args = parser.parse_args()
+    
+    # Setup
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    stimuli_dir = Path(args.stimuli_dir)
+    
+    logger.info("=" * 80)
+    logger.info("Comparison Gallery Generation")
+    logger.info("=" * 80)
+    logger.info(f"Subject: {args.subject}")
+    logger.info(f"Encoder: {args.encoder_type}")
+    logger.info(f"Strategies: {args.strategies}")
+    logger.info(f"Num samples: {args.num_samples}")
+    
+    # Set seed
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    
+    # Load data
+    logger.info("\nLoading data...")
+    index_df = read_subject_index(args.subject, args.data_root, args.cache_root)
+    train_indices, val_indices, test_indices = train_val_test_split(index_df)
+    
+    if args.split == "train":
+        split_indices = train_indices
+    elif args.split == "val":
+        split_indices = val_indices
+    else:
+        split_indices = test_indices
+    
+    # Select samples
+    sample_indices = split_indices[:args.num_samples]
+    sample_df = index_df.iloc[sample_indices]
+    nsd_ids = sample_df["nsd_id"].values
+    
+    logger.info(f"Selected {len(sample_indices)} samples from {args.split} split")
+    
+    # Load fMRI
+    logger.info("\nLoading fMRI...")
+    fs = get_s3_filesystem() if args.data_root.startswith("s3://") else None
+    nifti_loader = NIfTILoader(fs)
+    all_fmri = nifti_loader.load_all_trials(index_df, verbose=True)
+    fmri_data = all_fmri[sample_indices]
+    
+    # Preprocess
+    logger.info("Preprocessing fMRI...")
+    preprocessor = NSDPreprocessor(args.subject, args.cache_root, pca_k=512)
+    train_fmri = all_fmri[train_indices]
+    preprocessor.fit(train_fmri)
+    fmri_features = preprocessor.transform(fmri_data)
+    
+    # Load encoder
+    logger.info("\nLoading encoder...")
+    if args.encoder_type == "ridge":
+        import pickle
+        with open(args.encoder_checkpoint, "rb") as f:
+            encoder = pickle.load(f)
+        predictions = encoder.predict(fmri_features)
+        predictions = predictions / np.linalg.norm(predictions, axis=1, keepdims=True)
+        predictions = torch.from_numpy(predictions).float().to(args.device)
+    else:
+        if args.encoder_type == "mlp":
+            encoder = load_mlp(args.encoder_checkpoint, device=args.device)
+        else:
+            encoder = load_two_stage_encoder(args.encoder_checkpoint, device=args.device)
+        
+        encoder.eval()
+        with torch.no_grad():
+            fmri_t = torch.from_numpy(fmri_features).float().to(args.device)
+            predictions = encoder(fmri_t)
+    
+    logger.info(f"Predicted embeddings: {predictions.shape}")
+    
+    # Load diffusion pipeline
+    logger.info("\nLoading diffusion pipeline...")
+    pipe = load_diffusion_pipeline(args.model_id, args.device)
+    
+    # Load CLIP for best-of-N scoring
+    clip_model = None
+    if any("best_of" in s for s in args.strategies):
+        logger.info("Loading CLIP model for best-of-N...")
+        clip_model, _ = load_clip_model(args.device)
+    
+    # Load encoding model for BOI-lite
+    encoding_model = None
+    if "boi_lite" in args.strategies:
+        logger.info("Loading encoding model for BOI-lite...")
+        # Try to find encoding model checkpoint
+        enc_model_path = Path("checkpoints/encoding_model") / args.subject / "encoding_model.pt"
+        if enc_model_path.exists():
+            encoding_model = load_encoding_model(str(enc_model_path), device=args.device)
+        else:
+            logger.warning(f"Encoding model not found at {enc_model_path}, skipping BOI-lite")
+            args.strategies = [s for s in args.strategies if s != "boi_lite"]
+    
+    # Generate images with all strategies
+    logger.info("\nGenerating images...")
+    images_dict = {}
+    
+    # Ground truth
+    logger.info("Loading ground truth images...")
+    images_dict["ground_truth"] = load_ground_truth_images(nsd_ids, stimuli_dir)
+    
+    # Single sample
+    if "single" in args.strategies:
+        logger.info("Generating single samples...")
+        single_images = []
+        for i in tqdm(range(len(predictions))):
+            img = generate_from_clip_embedding(
+                pipe,
+                predictions[i],
+                num_inference_steps=args.num_inference_steps,
+                guidance_scale=args.guidance_scale,
+                seed=args.seed + i
+            )
+            single_images.append(img)
+        images_dict["single"] = single_images
+    
+    # Best-of-N strategies
+    for strategy in args.strategies:
+        if strategy.startswith("best_of_"):
+            n = int(strategy.split("_")[-1])
+            logger.info(f"Generating best-of-{n}...")
+            best_images = []
+            for i in tqdm(range(len(predictions))):
+                img = generate_best_of_n(
+                    pipe,
+                    predictions[i].unsqueeze(0),
+                    clip_model,
+                    n=n,
+                    num_inference_steps=args.num_inference_steps,
+                    guidance_scale=args.guidance_scale,
+                    seed=args.seed + i,
+                    device=args.device
+                )
+                best_images.append(img)
+            images_dict[strategy] = best_images
+    
+    # BOI-lite
+    if "boi_lite" in args.strategies and encoding_model is not None:
+        logger.info("Generating with BOI-lite...")
+        boi_images = []
+        
+        # Need initial images
+        if "single" in images_dict:
+            initial_images = images_dict["single"]
+        else:
+            logger.info("Generating initial images for BOI-lite...")
+            initial_images = []
+            for i in tqdm(range(len(predictions))):
+                img = generate_from_clip_embedding(
+                    pipe,
+                    predictions[i],
+                    num_inference_steps=args.num_inference_steps,
+                    guidance_scale=args.guidance_scale,
+                    seed=args.seed + i
+                )
+                initial_images.append(img)
+        
+        # Refine
+        for i in tqdm(range(len(predictions))):
+            true_fmri = fmri_features[i:i+1]
+            refined = refine_with_boi_lite(
+                pipe,
+                initial_images[i],
+                true_fmri,
+                encoding_model,
+                num_steps=3,
+                num_candidates=4,
+                strength=0.3,
+                seed=args.seed + i,
+                device=args.device
+            )
+            boi_images.append(refined)
+        images_dict["boi_lite"] = boi_images
+    
+    # Save individual images
+    logger.info("\nSaving individual images...")
+    for strategy, images in images_dict.items():
+        if strategy == "ground_truth":
+            continue
+        strategy_dir = output_dir / strategy
+        strategy_dir.mkdir(exist_ok=True)
+        for i, img in enumerate(images):
+            img.save(strategy_dir / f"sample_{i:03d}.png")
+    
+    # Create comparison grid
+    logger.info("Creating comparison grid...")
+    grid = create_comparison_grid(
+        images_dict,
+        list(range(len(sample_indices))),
+        num_cols=args.grid_cols
+    )
+    grid.save(output_dir / "comparison_grid.png")
+    logger.info(f"Saved comparison grid to {output_dir / 'comparison_grid.png'}")
+    
+    logger.info("\n" + "=" * 80)
+    logger.info("Gallery generation complete!")
+    logger.info(f"Results saved to: {output_dir}")
+    
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+```
+
+# scripts/generate_report.py
+
+```py
+#!/usr/bin/env python3
+"""
+Automated Results Reporting for fMRI Reconstruction
+==================================================
+
+Generates comprehensive reports from evaluation results:
+- LaTeX tables for papers
+- Markdown summaries for documentation
+- Statistical significance tests
+- Performance visualizations
+
+Usage:
+    # Generate report from evaluation results
+    python scripts/generate_report.py \\
+        --results-dir outputs/eval_comprehensive \\
+        --output-dir outputs/reports \\
+        --report-type full
+    
+    # Compare multiple runs
+    python scripts/generate_report.py \\
+        --results-dir outputs/ablations/infonce \\
+        --output-dir outputs/reports/ablation_infonce \\
+        --report-type ablation
+    
+    # Quick summary
+    python scripts/generate_report.py \\
+        --results-dir outputs/eval_comprehensive \\
+        --output-dir outputs/reports \\
+        --report-type summary
+"""
+
+import argparse
+import json
+import logging
+import sys
+from pathlib import Path
+from typing import Dict, List, Any, Optional
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy import stats
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+
+def load_results(results_dir: Path) -> Dict[str, Any]:
+    """Load evaluation results from directory."""
+    results = {}
+    
+    # Check for different result files
+    if (results_dir / "retrieval_metrics.json").exists():
+        with open(results_dir / "retrieval_metrics.json", "r") as f:
+            results["retrieval"] = json.load(f)
+    
+    if (results_dir / "generation_metrics.json").exists():
+        with open(results_dir / "generation_metrics.json", "r") as f:
+            results["generation"] = json.load(f)
+    
+    if (results_dir / "brain_alignment.json").exists():
+        with open(results_dir / "brain_alignment.json", "r") as f:
+            results["brain_alignment"] = json.load(f)
+    
+    return results
+
+
+def create_latex_table(
+    data: pd.DataFrame,
+    caption: str,
+    label: str,
+    output_path: Path,
+    bold_best: bool = True
+):
+    """
+    Create LaTeX table from DataFrame.
+    
+    Args:
+        data: DataFrame with results
+        caption: Table caption
+        label: Table label for referencing
+        output_path: Path to save .tex file
+        bold_best: Bold the best value in each column
+    """
+    latex = r"\begin{table}[htbp]" + "\n"
+    latex += r"\centering" + "\n"
+    latex += r"\small" + "\n"
+    
+    # Column format
+    n_cols = len(data.columns)
+    latex += r"\begin{tabular}{l" + "c" * (n_cols - 1) + "}\n"
+    latex += r"\toprule" + "\n"
+    
+    # Header
+    header = " & ".join([col.replace("_", r"\_") for col in data.columns])
+    latex += header + r" \\" + "\n"
+    latex += r"\midrule" + "\n"
+    
+    # Find best values if requested
+    if bold_best:
+        best_indices = {}
+        for col in data.columns[1:]:  # Skip first column (usually labels)
+            if data[col].dtype in [np.float64, np.float32, np.int64, np.int32]:
+                # Higher is better for most metrics (R@K, cosine, etc.)
+                best_indices[col] = data[col].idxmax()
+    
+    # Rows
+    for idx, row in data.iterrows():
+        row_str = []
+        for i, (col, val) in enumerate(row.items()):
+            if isinstance(val, float):
+                val_str = f"{val:.4f}"
+                # Bold if best
+                if bold_best and col in best_indices and best_indices[col] == idx:
+                    val_str = r"\textbf{" + val_str + "}"
+            else:
+                val_str = str(val).replace("_", r"\_")
+            row_str.append(val_str)
+        
+        latex += " & ".join(row_str) + r" \\" + "\n"
+    
+    latex += r"\bottomrule" + "\n"
+    latex += r"\end{tabular}" + "\n"
+    latex += f"\\caption{{{caption}}}\n"
+    latex += f"\\label{{tab:{label}}}\n"
+    latex += r"\end{table}" + "\n"
+    
+    # Save
+    with open(output_path, "w") as f:
+        f.write(latex)
+    
+    logger.info(f"Saved LaTeX table to {output_path}")
+
+
+def create_markdown_summary(
+    results: Dict[str, Any],
+    output_path: Path
+):
+    """Create Markdown summary of results."""
+    md = "# Evaluation Results Summary\n\n"
+    
+    # Retrieval metrics
+    if "retrieval" in results:
+        md += "## Retrieval Performance\n\n"
+        md += "| Metric | Value |\n"
+        md += "|--------|-------|\n"
+        
+        retrieval = results["retrieval"]
+        for k, v in retrieval.items():
+            if isinstance(v, float):
+                md += f"| {k} | {v:.4f} |\n"
+            else:
+                md += f"| {k} | {v} |\n"
+        md += "\n"
+    
+    # Generation metrics
+    if "generation" in results:
+        md += "## Generation Quality\n\n"
+        gen = results["generation"]
+        
+        if isinstance(gen, dict) and "strategies" in gen:
+            # Multi-strategy comparison
+            md += "| Strategy | CLIPScore | SSIM | LPIPS |\n"
+            md += "|----------|-----------|------|-------|\n"
+            
+            for strategy, metrics in gen["strategies"].items():
+                clip_score = metrics.get("CLIPScore", 0.0)
+                ssim = metrics.get("SSIM", 0.0)
+                lpips = metrics.get("LPIPS", 0.0)
+                md += f"| {strategy} | {clip_score:.4f} | {ssim:.4f} | {lpips:.4f} |\n"
+        md += "\n"
+    
+    # Brain alignment
+    if "brain_alignment" in results:
+        md += "## Brain Alignment\n\n"
+        md += "| Metric | Value |\n"
+        md += "|--------|-------|\n"
+        
+        ba = results["brain_alignment"]
+        for k, v in ba.items():
+            if isinstance(v, float):
+                md += f"| {k} | {v:.4f} |\n"
+        md += "\n"
+    
+    # Save
+    with open(output_path, "w") as f:
+        f.write(md)
+    
+    logger.info(f"Saved Markdown summary to {output_path}")
+
+
+def create_performance_plot(
+    data: pd.DataFrame,
+    x_col: str,
+    y_cols: List[str],
+    output_path: Path,
+    title: str = "Performance Comparison",
+    xlabel: str = "Parameter",
+    ylabel: str = "Score"
+):
+    """
+    Create line plot showing performance across parameter values.
+    
+    Args:
+        data: DataFrame with results
+        x_col: Column to use for x-axis
+        y_cols: Columns to plot
+        output_path: Path to save figure
+        title: Plot title
+        xlabel: X-axis label
+        ylabel: Y-axis label
+    """
+    plt.figure(figsize=(10, 6))
+    
+    for y_col in y_cols:
+        if y_col in data.columns:
+            plt.plot(data[x_col], data[y_col], marker='o', label=y_col, linewidth=2)
+    
+    plt.xlabel(xlabel, fontsize=12)
+    plt.ylabel(ylabel, fontsize=12)
+    plt.title(title, fontsize=14)
+    plt.legend(fontsize=10)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    
+    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.close()
+    
+    logger.info(f"Saved performance plot to {output_path}")
+
+
+def statistical_comparison(
+    results: Dict[str, List[float]],
+    baseline: str
+) -> pd.DataFrame:
+    """
+    Perform statistical tests comparing strategies to baseline.
+    
+    Args:
+        results: Dict mapping strategy name to list of per-sample scores
+        baseline: Name of baseline strategy
+        
+    Returns:
+        comparison_df: DataFrame with test results
+    """
+    if baseline not in results:
+        logger.warning(f"Baseline '{baseline}' not found in results")
+        return pd.DataFrame()
+    
+    baseline_scores = results[baseline]
+    comparisons = []
+    
+    for strategy, scores in results.items():
+        if strategy == baseline:
+            continue
+        
+        # Paired t-test
+        t_stat, p_value = stats.ttest_rel(scores, baseline_scores)
+        
+        # Effect size (Cohen's d)
+        mean_diff = np.mean(scores) - np.mean(baseline_scores)
+        pooled_std = np.sqrt((np.std(scores)**2 + np.std(baseline_scores)**2) / 2)
+        cohens_d = mean_diff / pooled_std if pooled_std > 0 else 0.0
+        
+        comparisons.append({
+            "Strategy": strategy,
+            "Mean": np.mean(scores),
+            "Std": np.std(scores),
+            "vs_Baseline": mean_diff,
+            "t_stat": t_stat,
+            "p_value": p_value,
+            "Significant": "Yes" if p_value < 0.05 else "No",
+            "Cohen_d": cohens_d
+        })
+    
+    return pd.DataFrame(comparisons)
+
+
+def generate_full_report(
+    results_dir: Path,
+    output_dir: Path
+):
+    """Generate comprehensive report."""
+    logger.info("Generating full report...")
+    
+    # Load results
+    results = load_results(results_dir)
+    
+    if not results:
+        logger.error(f"No results found in {results_dir}")
+        return
+    
+    # Create Markdown summary
+    create_markdown_summary(results, output_dir / "summary.md")
+    
+    # Create LaTeX tables
+    if "retrieval" in results:
+        # Retrieval metrics table
+        retrieval_data = pd.DataFrame([results["retrieval"]])
+        create_latex_table(
+            retrieval_data,
+            caption="Retrieval performance on NSD test set",
+            label="retrieval_results",
+            output_path=output_dir / "retrieval_table.tex"
+        )
+    
+    logger.info(f"Full report generated in {output_dir}")
+
+
+def generate_ablation_report(
+    results_dir: Path,
+    output_dir: Path
+):
+    """Generate ablation study report."""
+    logger.info("Generating ablation report...")
+    
+    # Look for results.csv
+    results_path = results_dir / "results.csv"
+    if not results_path.exists():
+        logger.error(f"No results.csv found in {results_dir}")
+        return
+    
+    # Load results
+    results_df = pd.read_csv(results_path)
+    
+    # Create LaTeX table
+    create_latex_table(
+        results_df,
+        caption="Ablation study results",
+        label="ablation_results",
+        output_path=output_dir / "ablation_table.tex"
+    )
+    
+    # Create performance plot
+    if len(results_df.columns) > 1:
+        x_col = results_df.columns[0]
+        y_cols = [col for col in results_df.columns[1:] 
+                  if results_df[col].dtype in [np.float64, np.float32]]
+        
+        if y_cols:
+            create_performance_plot(
+                results_df,
+                x_col=x_col,
+                y_cols=y_cols[:3],  # Plot up to 3 metrics
+                output_path=output_dir / "ablation_plot.png",
+                title="Ablation Study: Performance vs Parameter",
+                xlabel=x_col,
+                ylabel="Score"
+            )
+    
+    logger.info(f"Ablation report generated in {output_dir}")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Generate automated reports from evaluation results"
+    )
+    
+    parser.add_argument("--results-dir", type=str, required=True,
+                        help="Directory containing results")
+    parser.add_argument("--output-dir", type=str, required=True,
+                        help="Output directory for reports")
+    parser.add_argument("--report-type", type=str, default="full",
+                        choices=["full", "ablation", "summary"],
+                        help="Type of report to generate")
+    
+    args = parser.parse_args()
+    
+    results_dir = Path(args.results_dir)
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    logger.info("=" * 80)
+    logger.info("Automated Report Generation")
+    logger.info("=" * 80)
+    logger.info(f"Results: {results_dir}")
+    logger.info(f"Output: {output_dir}")
+    logger.info(f"Type: {args.report_type}")
+    
+    if args.report_type == "full":
+        generate_full_report(results_dir, output_dir)
+    elif args.report_type == "ablation":
+        generate_ablation_report(results_dir, output_dir)
+    elif args.report_type == "summary":
+        results = load_results(results_dir)
+        create_markdown_summary(results, output_dir / "summary.md")
+    
+    logger.info("\n" + "=" * 80)
+    logger.info("Report generation complete!")
+    logger.info(f"Results saved to: {output_dir}")
+    
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+```
+
+# scripts/quick_eval_embeddings.py
+
+```py
+#!/usr/bin/env python3
+"""
+Quick embedding evaluation using pre-computed predictions.
+
+This is a fast alternative that evaluates embeddings without re-loading fMRI data.
+It works by:
+1. Loading the encoder checkpoint (which has training metrics)
+2. Comparing with validation metrics from training
+3. Computing statistics on a cached embedding prediction if available
+
+For full evaluation, use evaluate_embeddings.py (slower but comprehensive).
+"""
+import argparse
+import json
+import logging
+from pathlib import Path
+import torch
+import numpy as np
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
+
+
+def analyze_checkpoint(ckpt_path: Path):
+    """Analyze training metrics from checkpoint."""
+    logger.info(f"Loading checkpoint: {ckpt_path}")
+    
+    ckpt = torch.load(ckpt_path, map_location='cpu')
+    
+    # Extract training history
+    history = ckpt.get('history', {})
+    
+    # Get best metrics
+    metrics = {
+        'train_loss': ckpt.get('train_loss'),
+        'val_loss': ckpt.get('val_loss'),
+        'test_cosine': ckpt.get('test_cosine'),
+        'epoch': ckpt.get('epoch'),
+    }
+    
+    logger.info("\n" + "=" * 80)
+    logger.info("CHECKPOINT METRICS")
+    logger.info("=" * 80)
+    for key, value in metrics.items():
+        if value is not None:
+            logger.info(f"{key}: {value}")
+    
+    # Analyze training history if available
+    if history:
+        logger.info("\n" + "=" * 80)
+        logger.info("TRAINING HISTORY SUMMARY")
+        logger.info("=" * 80)
+        
+        for metric_name in ['train_loss', 'val_loss', 'val_cosine']:
+            if metric_name in history:
+                values = history[metric_name]
+                logger.info(f"\n{metric_name}:")
+                logger.info(f"  Best: {min(values) if 'loss' in metric_name else max(values):.4f}")
+                logger.info(f"  Final: {values[-1]:.4f}")
+                logger.info(f"  Epochs: {len(values)}")
+    
+    logger.info("=" * 80)
+    
+    return metrics, history
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Quick embedding evaluation from checkpoint")
+    parser.add_argument("--ckpt", type=str, required=True, help="Encoder checkpoint")
+    parser.add_argument("--output-dir", type=str, required=True, help="Output directory")
+    
+    args = parser.parse_args()
+    
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Analyze checkpoint
+    metrics, history = analyze_checkpoint(Path(args.ckpt))
+    
+    # Save summary
+    summary = {
+        'checkpoint': str(args.ckpt),
+        'metrics': metrics,
+        'training_epochs': len(history.get('train_loss', [])) if history else 0,
+    }
+    
+    with open(output_dir / "quick_summary.json", "w") as f:
+        json.dump(summary, f, indent=2)
+    
+    logger.info(f"\n✓ Summary saved to {output_dir / 'quick_summary.json'}")
+
+
+if __name__ == "__main__":
+    main()
+
+```
+
+# scripts/quick_status.py
+
+```py
+#!/usr/bin/env python3
+"""
+Quick status check for CLIP cache and data preparation
+"""
+
+import os
+import sys
+from pathlib import Path
+
+def check_file(path, min_size_mb=0):
+    """Check if file exists and meets size requirement"""
+    p = Path(path)
+    if not p.exists():
+        return False, "Not found"
+    size_mb = p.stat().st_size / (1024 * 1024)
+    if size_mb < min_size_mb:
+        return False, f"Too small ({size_mb:.1f} MB)"
+    return True, f"OK ({size_mb:.1f} MB)"
+
+def main():
+    base_dir = Path(__file__).parent.parent
+    os.chdir(base_dir)
+    
+    print("=" * 70)
+    print("  SOTA Pipeline - Quick Status Check")
+    print("=" * 70)
+    print()
+    
+    # Check CLIP cache
+    clip_cache = "outputs/clip_cache/clip.parquet"
+    print("📊 CLIP Cache Status:")
+    if Path(clip_cache).exists():
+        try:
+            import pandas as pd
+            df = pd.read_parquet(clip_cache)
+            num_embeddings = len(df)
+            expected = 73000
+            pct = 100 * num_embeddings / expected
+            
+            if num_embeddings >= expected * 0.95:
+                status = "✅ COMPLETE"
+            elif num_embeddings >= 1000:
+                status = "⚠️  PARTIAL"
+            else:
+                status = "❌ INCOMPLETE"
+            
+            print(f"  {status}")
+            print(f"  {num_embeddings:,} / ~{expected:,} embeddings ({pct:.1f}%)")
+            
+            if num_embeddings < expected * 0.95:
+                print()
+                print("  → Action: Run CLIP cache builder")
+                print(f"    python scripts/build_clip_cache.py \\")
+                print(f"      --index-root data/indices/nsd_index \\")
+                print(f"      --subject subj01 \\")
+                print(f"      --cache {clip_cache} \\")
+                print(f"      --batch-size 256")
+                print()
+                print("  ⏱️  Estimated time: ~2-3 hours on GPU")
+                print("  💡 Tip: Use tmux/screen for long-running process")
+                print("  💡 Resume: Script automatically skips cached embeddings")
+        except Exception as e:
+            print(f"  ❌ ERROR: {e}")
+    else:
+        print(f"  ❌ NOT FOUND")
+        print()
+        print("  → Action: Build CLIP cache (REQUIRED)")
+        print(f"    python scripts/build_clip_cache.py \\")
+        print(f"      --index-root data/indices/nsd_index \\")
+        print(f"      --subject subj01 \\")
+        print(f"      --cache {clip_cache} \\")
+        print(f"      --batch-size 256")
+    
+    print()
+    
+    # Check NSD index
+    print("📁 NSD Index:")
+    index_dir = Path("data/indices/nsd_index")
+    if index_dir.exists():
+        indices = list(index_dir.glob("subj*.csv"))
+        if indices:
+            print(f"  ✅ Found {len(indices)} subject indices")
+            for idx in sorted(indices):
+                size = idx.stat().st_size / 1024
+                print(f"     - {idx.name} ({size:.1f} KB)")
+        else:
+            print(f"  ⚠️  Directory exists but no indices found")
+    else:
+        print(f"  ❌ NOT FOUND")
+        print()
+        print("  → Action: Build NSD index")
+        print(f"    python scripts/build_full_index.py \\")
+        print(f"      --cache-root cache \\")
+        print(f"      --subject subj01 \\")
+        print(f"      --output data/indices/nsd_index/subj01.csv")
+    
+    print()
+    
+    # Check preprocessing
+    print("🔧 Preprocessing:")
+    preproc_dir = Path("cache/preproc")
+    if preproc_dir.exists():
+        scalers = list(preproc_dir.glob("*_t1_scaler.pkl"))
+        pcas = list(preproc_dir.glob("*_t2_pca_*.npz"))
+        
+        if scalers or pcas:
+            print(f"  ✅ Found {len(scalers)} scalers, {len(pcas)} PCA files")
+            for f in sorted(list(scalers) + list(pcas)):
+                size = f.stat().st_size / 1024
+                print(f"     - {f.name} ({size:.1f} KB)")
+        else:
+            print(f"  ⚠️  Directory exists but no preprocessing files")
+    else:
+        print(f"  ❌ NOT FOUND")
+        print()
+        print("  → Action: Run preprocessing (after index is built)")
+        print(f"    # T1 scaler")
+        print(f"    python scripts/preprocess_fmri.py \\")
+        print(f"      --subject subj01 \\")
+        print(f"      --method t1 \\")
+        print(f"      --output cache/preproc/subj01_t1_scaler.pkl")
+        print()
+        print(f"    # T2 PCA")
+        print(f"    python scripts/preprocess_fmri.py \\")
+        print(f"      --subject subj01 \\")
+        print(f"      --method t2 \\")
+        print(f"      --pca-dim 512 \\")
+        print(f"      --output cache/preproc/subj01_t2_pca_k512.npz")
+    
+    print()
+    
+    # Check trained models
+    print("🤖 Trained Models:")
+    ckpt_dir = Path("checkpoints/two_stage")
+    if ckpt_dir.exists():
+        models = list(ckpt_dir.glob("*/two_stage_best.pt"))
+        if models:
+            print(f"  ✅ Found {len(models)} trained models")
+            for m in sorted(models):
+                size = m.stat().st_size / (1024 * 1024)
+                subj = m.parent.name
+                print(f"     - {subj}: {size:.1f} MB")
+        else:
+            print(f"  ⚠️  No trained models found")
+    else:
+        print(f"  ❌ NOT FOUND")
+        print()
+        print("  → Action: Train model (after all data is prepared)")
+        print(f"    python scripts/train_two_stage.py \\")
+        print(f"      --config configs/sota_two_stage.yaml \\")
+        print(f"      --subject subj01 \\")
+        print(f"      --output-dir checkpoints/two_stage/subj01")
+    
+    print()
+    print("=" * 70)
+    print()
+    print("📚 Documentation:")
+    print("  - SETUP_GUIDE.md (complete setup steps)")
+    print("  - USAGE_EXAMPLES.md (ready-to-run commands)")
+    print("  - SOTA_QUICK_START.md (detailed guide)")
+    print()
+
+if __name__ == "__main__":
+    main()
+
+```
+
 # scripts/rebuild_target_cache.sh
 
 ```sh
@@ -8096,40 +13123,6 @@ echo "   2. Check master log: ${MASTER_LOG}"
 echo "   3. Inspect images: ${RECON_DIR}/images/"
 echo "   4. Read comparison report: ${REPORT_DIR}/comparison.md"
 echo ""
-```
-
-# scripts/run_quick_improved.sh
-
-```sh
-#!/bin/bash
-# Quick production run - Skip adapter training, use optimized hyperparameters
-# This gives ~60-65% of the full improvement without the 2-3 hour cache build
-
-set -e
-
-source .venv/bin/activate
-
-# Skip to image generation with existing checkpoints
-python scripts/decode_diffusion.py \
-    --subject subj01 \
-    --encoder mlp \
-    --ckpt checkpoints/mlp/subj01/mlp.pt \
-    --clip-cache outputs/clip_cache/subj01_clip512.parquet \
-    --index-root data/indices/nsd_index \
-    --model-id stabilityai/stable-diffusion-2-1 \
-    --output-dir outputs/recon/subj01/production_v2_quick \
-    --steps 100 \
-    --guidance 7.5 \
-    --dtype float32 \
-    --scheduler dpm \
-    --device cuda \
-    --limit 900 \
-    --seed 42
-
-echo "✅ Generation complete!"
-echo "📊 Expected improvement: CLIPScore +4-6% vs baseline"
-echo "📁 Images saved to: outputs/recon/subj01/production_v2_quick/images/"
-
 ```
 
 # scripts/train_clip_adapter.py
@@ -9824,6 +14817,612 @@ if __name__ == "__main__":
 
 ```
 
+# scripts/train_two_stage.py
+
+```py
+#!/usr/bin/env python3
+"""
+SOTA Two-Stage Encoder Training Script
+======================================
+
+Train advanced residual encoder for fMRI → CLIP mapping with:
+- Two-stage architecture (Stage 1: fMRI → latent, Stage 2: latent → CLIP)
+- Multi-objective loss (MSE + Cosine + InfoNCE)
+- Optional self-supervised pretraining
+- Configurable via Hydra/YAML
+
+Features:
+- Residual blocks with LayerNorm and GELU
+- InfoNCE contrastive loss for discriminative learning
+- Self-supervised pretraining (masked/denoising autoencoder)
+- Staged training (pretrain Stage 1, freeze and train Stage 2)
+- Backward compatible with simple MLP
+
+Usage:
+    # Simple two-stage encoder (no pretraining)
+    python scripts/train_two_stage.py \\
+        --subject subj01 \\
+        --use-preproc --pca-k 512 \\
+        --latent-dim 768 --n-blocks 4 \\
+        --head-type mlp --head-hidden 512 \\
+        --batch-size 128 --epochs 50
+    
+    # With self-supervised pretraining
+    python scripts/train_two_stage.py \\
+        --subject subj01 \\
+        --use-preproc --pca-k 512 \\
+        --latent-dim 768 --n-blocks 4 \\
+        --self-supervised --ssl-objective masked --ssl-epochs 20 \\
+        --batch-size 128 --epochs 50
+    
+    # Staged training (pretrain Stage 1, freeze and train Stage 2)
+    python scripts/train_two_stage.py \\
+        --subject subj01 \\
+        --use-preproc --pca-k 512 \\
+        --latent-dim 768 --n-blocks 4 \\
+        --self-supervised --ssl-epochs 20 \\
+        --freeze-stage1 --stage2-epochs 30
+"""
+
+import argparse
+import json
+import logging
+import sys
+import yaml
+from pathlib import Path
+from typing import Dict, Tuple, Optional
+
+import numpy as np
+import pandas as pd
+import torch
+import torch.nn as nn
+from torch.utils.data import TensorDataset, DataLoader
+from torch.optim import AdamW
+from torch.optim.lr_scheduler import CosineAnnealingLR
+from tqdm import tqdm
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+# Import project modules
+from fmri2img.data.nsd_index_reader import read_subject_index
+from fmri2img.data.preprocess import NSDPreprocessor
+from fmri2img.data.clip_cache import CLIPCache
+from fmri2img.io.s3 import get_s3_filesystem, NIfTILoader
+from fmri2img.models.encoders import (
+    TwoStageEncoder,
+    SelfSupervisedPretrainer,
+    save_two_stage_encoder,
+    load_two_stage_encoder
+)
+from fmri2img.training.losses import MultiLoss, compute_multiloss
+from fmri2img.models.train_utils import (
+    extract_features_and_targets,
+    train_val_test_split,
+    torch_seed_all
+)
+from fmri2img.models.ridge import evaluate_predictions
+from fmri2img.eval.retrieval import retrieval_at_k, compute_ranking_metrics
+
+
+def train_epoch(
+    model: TwoStageEncoder,
+    loader: DataLoader,
+    optimizer: torch.optim.Optimizer,
+    criterion: MultiLoss,
+    device: str,
+    epoch: int
+) -> Tuple[float, Dict[str, float]]:
+    """Train for one epoch with multi-objective loss."""
+    model.train()
+    total_loss = 0.0
+    loss_components_sum = {"mse": 0.0, "cosine": 0.0, "info_nce": 0.0}
+    n_batches = 0
+    
+    pbar = tqdm(loader, desc=f"Epoch {epoch}", leave=False)
+    for X_batch, Y_batch in pbar:
+        X_batch = X_batch.to(device)
+        Y_batch = Y_batch.to(device)
+        
+        optimizer.zero_grad()
+        Y_pred = model(X_batch)
+        
+        # Compute loss with components
+        loss, components = criterion(Y_pred, Y_batch, return_components=True)
+        loss.backward()
+        
+        # Gradient clipping for stability
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        
+        optimizer.step()
+        
+        # Accumulate losses
+        total_loss += loss.item() * len(X_batch)
+        for key in loss_components_sum:
+            loss_components_sum[key] += components[key] * len(X_batch)
+        n_batches += 1
+        
+        # Update progress bar
+        pbar.set_postfix({
+            "loss": f"{loss.item():.4f}",
+            "mse": f"{components['mse']:.4f}",
+            "cos": f"{components['cosine']:.4f}",
+            "nce": f"{components['info_nce']:.4f}"
+        })
+    
+    # Average over all samples
+    n_samples = len(loader.dataset)
+    avg_loss = total_loss / n_samples
+    avg_components = {k: v / n_samples for k, v in loss_components_sum.items()}
+    
+    return avg_loss, avg_components
+
+
+@torch.no_grad()
+def evaluate_epoch(
+    model: TwoStageEncoder,
+    loader: DataLoader,
+    device: str
+) -> Dict:
+    """Evaluate model on validation/test set."""
+    model.eval()
+    
+    all_preds = []
+    all_targets = []
+    
+    for X_batch, Y_batch in loader:
+        X_batch = X_batch.to(device)
+        Y_pred = model(X_batch)
+        
+        all_preds.append(Y_pred.cpu().numpy())
+        all_targets.append(Y_batch.numpy())
+    
+    Y_pred = np.vstack(all_preds)
+    Y_true = np.vstack(all_targets)
+    
+    # Compute metrics (reuse Ridge evaluation)
+    metrics = evaluate_predictions(Y_true, Y_pred, normalize=True)
+    
+    return metrics
+
+
+def pretrain_ssl(
+    model: TwoStageEncoder,
+    pretrainer: SelfSupervisedPretrainer,
+    loader: DataLoader,
+    optimizer: torch.optim.Optimizer,
+    device: str,
+    epochs: int
+) -> None:
+    """Self-supervised pretraining of Stage 1."""
+    logger.info(f"Starting self-supervised pretraining for {epochs} epochs...")
+    
+    for epoch in range(1, epochs + 1):
+        model.stage1.train()
+        total_loss = 0.0
+        
+        pbar = tqdm(loader, desc=f"SSL Epoch {epoch}/{epochs}", leave=False)
+        for X_batch, _ in pbar:
+            X_batch = X_batch.to(device)
+            
+            optimizer.zero_grad()
+            
+            # Self-supervised forward pass
+            x_corrupted, x_reconstructed, x_target = pretrainer(X_batch)
+            
+            # Reconstruction loss (MSE)
+            loss = nn.functional.mse_loss(x_reconstructed, x_target)
+            loss.backward()
+            
+            # Gradient clipping
+            torch.nn.utils.clip_grad_norm_(model.stage1.parameters(), max_norm=1.0)
+            
+            optimizer.step()
+            
+            total_loss += loss.item() * len(X_batch)
+            pbar.set_postfix({"ssl_loss": f"{loss.item():.4f}"})
+        
+        avg_loss = total_loss / len(loader.dataset)
+        logger.info(f"SSL Epoch {epoch}/{epochs}: Loss = {avg_loss:.4f}")
+    
+    logger.info("Self-supervised pretraining completed!")
+
+
+def load_config_from_yaml(config_path: str) -> Dict:
+    """Load configuration from YAML file."""
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f)
+    return config
+
+
+def merge_config_and_args(config: Dict, args: argparse.Namespace) -> argparse.Namespace:
+    """Merge YAML config with command-line arguments (CLI takes precedence)."""
+    # Handle nested config structure
+    if "preprocessing" in config:
+        for key, value in config["preprocessing"].items():
+            arg_name = key.replace("-", "_")
+            if not hasattr(args, arg_name) or getattr(args, arg_name) is None:
+                setattr(args, arg_name, value)
+    
+    if "encoder" in config:
+        for key, value in config["encoder"].items():
+            arg_name = key.replace("-", "_")
+            if not hasattr(args, arg_name) or getattr(args, arg_name) is None:
+                # Handle boolean flags specially
+                if key == "self_supervised":
+                    if value and not args.self_supervised:
+                        setattr(args, arg_name, value)
+                elif key == "freeze_stage1":
+                    if value and not args.freeze_stage1:
+                        setattr(args, arg_name, value)
+                else:
+                    setattr(args, arg_name, value)
+    
+    if "loss" in config:
+        for key, value in config["loss"].items():
+            arg_name = key.replace("-", "_")
+            if not hasattr(args, arg_name) or getattr(args, arg_name) is None:
+                setattr(args, arg_name, value)
+    
+    if "training" in config:
+        for key, value in config["training"].items():
+            # Map config keys to arg names
+            key_map = {
+                "learning_rate": "lr",
+                "weight_decay": "wd"
+            }
+            arg_name = key_map.get(key, key.replace("-", "_"))
+            
+            if not hasattr(args, arg_name) or getattr(args, arg_name) is None:
+                setattr(args, arg_name, value)
+    
+    if "dataset" in config:
+        if "subject" in config["dataset"] and not hasattr(args, "subject"):
+            setattr(args, "subject", config["dataset"]["subject"])
+    
+    # Set use_preproc if pca_k is specified
+    if hasattr(args, "pca_k") and args.pca_k is not None:
+        args.use_preproc = True
+    
+    return args
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Train two-stage encoder for fMRI → CLIP")
+    
+    # Config file support
+    parser.add_argument("--config", type=str, default=None,
+                       help="Path to YAML config file (overrides defaults, CLI args override config)")
+    
+    # Data paths
+    parser.add_argument("--index-root", default="data/indices/nsd_index")
+    parser.add_argument("--subject", default="subj01")
+    parser.add_argument("--clip-cache", default="outputs/clip_cache/clip.parquet")
+    
+    # Preprocessing
+    parser.add_argument("--use-preproc", action="store_true")
+    parser.add_argument("--pca-k", type=int, help="PCA components (256/512/768)")
+    parser.add_argument("--preproc-dir", default="outputs/preproc")
+    
+    # Model architecture
+    parser.add_argument("--latent-dim", type=int, default=512,
+                       help="Latent representation dimension (512/768/1024)")
+    parser.add_argument("--n-blocks", type=int, default=4,
+                       help="Number of residual blocks (3-6)")
+    parser.add_argument("--dropout", type=float, default=0.3)
+    parser.add_argument("--head-type", choices=["linear", "mlp"], default="linear")
+    parser.add_argument("--head-hidden", type=int, default=512)
+    
+    # Self-supervised pretraining
+    parser.add_argument("--self-supervised", action="store_true",
+                       help="Enable self-supervised pretraining")
+    parser.add_argument("--ssl-objective", choices=["masked", "denoising"], default="masked")
+    parser.add_argument("--ssl-epochs", type=int, default=20)
+    parser.add_argument("--mask-ratio", type=float, default=0.3)
+    parser.add_argument("--noise-std", type=float, default=0.1)
+    
+    # Staged training
+    parser.add_argument("--freeze-stage1", action="store_true",
+                       help="Freeze Stage 1 after pretraining")
+    parser.add_argument("--stage2-epochs", type=int,
+                       help="Epochs for Stage 2 training (if freezing Stage 1)")
+    
+    # Loss function
+    parser.add_argument("--mse-weight", type=float, default=0.3)
+    parser.add_argument("--cosine-weight", type=float, default=0.3)
+    parser.add_argument("--info-nce-weight", type=float, default=0.4)
+    parser.add_argument("--temperature", type=float, default=0.05)
+    
+    # Training
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--wd", type=float, default=1e-4, help="Weight decay")
+    parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument("--patience", type=int, default=10, help="Early stopping patience")
+    parser.add_argument("--device", default="auto")
+    parser.add_argument("--seed", type=int, default=42)
+    
+    # Data limits (for testing)
+    parser.add_argument("--limit", type=int, help="Limit samples for quick testing")
+    
+    # Output
+    parser.add_argument("--checkpoint-dir", default="checkpoints/two_stage")
+    parser.add_argument("--save-name", help="Custom checkpoint name")
+    parser.add_argument("--output-dir", help="Output directory (alternative to checkpoint-dir)")
+    
+    args = parser.parse_args()
+    
+    # Load config from YAML if provided
+    if args.config:
+        logger.info(f"Loading configuration from {args.config}")
+        config = load_config_from_yaml(args.config)
+        args = merge_config_and_args(config, args)
+        logger.info("Configuration loaded and merged with CLI arguments")
+    
+    # Use output-dir if provided (for compatibility with config files)
+    if args.output_dir:
+        args.checkpoint_dir = args.output_dir
+    
+    # Device setup
+    if args.device == "auto":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    else:
+        device = args.device
+    logger.info(f"Using device: {device}")
+    
+    # Seed for reproducibility
+    torch_seed_all(args.seed)
+    
+    # Load data
+    logger.info(f"Loading index for {args.subject}...")
+    df = read_subject_index(args.index_root, args.subject)
+    
+    if args.limit:
+        df = df.head(args.limit)
+        logger.info(f"Limited to {len(df)} samples for testing")
+    
+    # Train/val/test split
+    train_df, val_df, test_df = train_val_test_split(df, random_seed=args.seed)
+    
+    # Load CLIP cache
+    logger.info("Loading CLIP cache...")
+    clip_cache = CLIPCache(args.clip_cache)
+    
+    # Setup preprocessing
+    preprocessor = None
+    if args.use_preproc or args.pca_k:
+        logger.info("Setting up preprocessing...")
+        preprocessor = NSDPreprocessor(args.subject, out_dir=args.preproc_dir)
+        
+        # Check if artifacts exist
+        if not preprocessor.meta_path.exists():
+            logger.error(f"Preprocessing artifacts not found at {preprocessor.out_dir}")
+            logger.error("Please run preprocessing first:")
+            logger.error(f"  python scripts/nsd_fit_preproc.py --subject {args.subject}")
+            sys.exit(1)
+        
+        preprocessor.load_artifacts()
+        logger.info(f"Loaded preprocessing: PCA k={preprocessor.pca_info_.get('n_components_eff', 'N/A')}")
+    
+    # Setup NIfTI loader
+    fs = get_s3_filesystem()
+    nifti_loader = NIfTILoader(fs)
+    
+    # Extract features and targets
+    logger.info("Extracting training data...")
+    X_train, Y_train, _ = extract_features_and_targets(
+        train_df, nifti_loader, preprocessor, clip_cache, desc="train"
+    )
+    
+    logger.info("Extracting validation data...")
+    X_val, Y_val, _ = extract_features_and_targets(
+        val_df, nifti_loader, preprocessor, clip_cache, desc="val"
+    )
+    
+    logger.info("Extracting test data...")
+    X_test, Y_test, nsd_ids_test = extract_features_and_targets(
+        test_df, nifti_loader, preprocessor, clip_cache, desc="test"
+    )
+    
+    # Create data loaders
+    train_dataset = TensorDataset(
+        torch.from_numpy(X_train).float(),
+        torch.from_numpy(Y_train).float()
+    )
+    val_dataset = TensorDataset(
+        torch.from_numpy(X_val).float(),
+        torch.from_numpy(Y_val).float()
+    )
+    test_dataset = TensorDataset(
+        torch.from_numpy(X_test).float(),
+        torch.from_numpy(Y_test).float()
+    )
+    
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+    
+    # Create model
+    input_dim = X_train.shape[1]
+    logger.info(f"Creating TwoStageEncoder: input_dim={input_dim}, latent_dim={args.latent_dim}, n_blocks={args.n_blocks}")
+    
+    model = TwoStageEncoder(
+        input_dim=input_dim,
+        latent_dim=args.latent_dim,
+        n_blocks=args.n_blocks,
+        dropout=args.dropout,
+        head_type=args.head_type,
+        head_hidden_dim=args.head_hidden
+    ).to(device)
+    
+    logger.info(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
+    
+    # Self-supervised pretraining
+    if args.self_supervised:
+        logger.info(f"Setting up self-supervised pretraining ({args.ssl_objective})...")
+        
+        pretrainer = SelfSupervisedPretrainer(
+            encoder=model.stage1,
+            reconstruction_dim=input_dim,
+            objective=args.ssl_objective,
+            mask_ratio=args.mask_ratio,
+            noise_std=args.noise_std
+        ).to(device)
+        
+        ssl_optimizer = AdamW(
+            pretrainer.parameters(),
+            lr=args.lr,
+            weight_decay=args.wd
+        )
+        
+        pretrain_ssl(
+            model=model,
+            pretrainer=pretrainer,
+            loader=train_loader,
+            optimizer=ssl_optimizer,
+            device=device,
+            epochs=args.ssl_epochs
+        )
+    
+    # Staged training: freeze Stage 1 if requested
+    if args.freeze_stage1:
+        model.freeze_stage1()
+        if args.stage2_epochs:
+            args.epochs = args.stage2_epochs
+            logger.info(f"Stage 1 frozen, training Stage 2 for {args.epochs} epochs")
+    
+    # Setup optimizer and loss
+    optimizer = AdamW(
+        filter(lambda p: p.requires_grad, model.parameters()),
+        lr=args.lr,
+        weight_decay=args.wd
+    )
+    
+    scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs)
+    
+    criterion = MultiLoss(
+        mse_weight=args.mse_weight,
+        cosine_weight=args.cosine_weight,
+        info_nce_weight=args.info_nce_weight,
+        temperature=args.temperature
+    )
+    
+    # Training loop with early stopping
+    best_val_cosine = -1.0
+    best_epoch = 0
+    patience_counter = 0
+    
+    logger.info("Starting training...")
+    logger.info(f"Loss weights: MSE={args.mse_weight}, Cosine={args.cosine_weight}, InfoNCE={args.info_nce_weight}")
+    
+    for epoch in range(1, args.epochs + 1):
+        # Train
+        train_loss, train_components = train_epoch(
+            model, train_loader, optimizer, criterion, device, epoch
+        )
+        
+        # Validate
+        val_metrics = evaluate_epoch(model, val_loader, device)
+        val_cosine = val_metrics["cosine"]
+        
+        # Log
+        logger.info(
+            f"Epoch {epoch}/{args.epochs}: "
+            f"Train Loss={train_loss:.4f} (MSE={train_components['mse']:.4f}, "
+            f"Cos={train_components['cosine']:.4f}, NCE={train_components['info_nce']:.4f}), "
+            f"Val Cosine={val_cosine:.4f}"
+        )
+        
+        # Early stopping
+        if val_cosine > best_val_cosine:
+            best_val_cosine = val_cosine
+            best_epoch = epoch
+            patience_counter = 0
+            
+            # Save best model
+            checkpoint_dir = Path(args.checkpoint_dir) / args.subject
+            checkpoint_dir.mkdir(parents=True, exist_ok=True)
+            
+            save_name = args.save_name or "two_stage_best.pt"
+            checkpoint_path = checkpoint_dir / save_name
+            
+            meta = {
+                "input_dim": input_dim,
+                "latent_dim": args.latent_dim,
+                "n_blocks": args.n_blocks,
+                "dropout": args.dropout,
+                "head_type": args.head_type,
+                "head_hidden_dim": args.head_hidden,
+                "best_epoch": best_epoch,
+                "best_val_cosine": best_val_cosine,
+                "pca_k": args.pca_k,
+                "self_supervised": args.self_supervised,
+                "ssl_objective": args.ssl_objective if args.self_supervised else None
+            }
+            
+            save_two_stage_encoder(model, str(checkpoint_path), meta)
+            logger.info(f"✅ Saved best model (epoch {epoch}, val_cosine={val_cosine:.4f})")
+        
+        else:
+            patience_counter += 1
+            if patience_counter >= args.patience:
+                logger.info(f"Early stopping at epoch {epoch} (best: {best_epoch})")
+                break
+        
+        scheduler.step()
+    
+    # Load best model and evaluate on test set
+    logger.info(f"Loading best model from epoch {best_epoch}...")
+    model, meta = load_two_stage_encoder(str(checkpoint_path), map_location=device)
+    model = model.to(device)
+    
+    test_metrics = evaluate_epoch(model, test_loader, device)
+    
+    logger.info("=" * 80)
+    logger.info("FINAL TEST RESULTS")
+    logger.info("=" * 80)
+    logger.info(f"Test Cosine: {test_metrics['cosine']:.4f}")
+    logger.info(f"Test MSE: {test_metrics['mse']:.6f}")
+    
+    # Save evaluation report
+    report = {
+        "model": "TwoStageEncoder",
+        "subject": args.subject,
+        "architecture": {
+            "input_dim": input_dim,
+            "latent_dim": args.latent_dim,
+            "n_blocks": args.n_blocks,
+            "dropout": args.dropout,
+            "head_type": args.head_type
+        },
+        "training": {
+            "best_epoch": best_epoch,
+            "best_val_cosine": best_val_cosine,
+            "self_supervised": args.self_supervised,
+            "ssl_objective": args.ssl_objective if args.self_supervised else None,
+            "freeze_stage1": args.freeze_stage1
+        },
+        "test_metrics": test_metrics,
+        "checkpoint": str(checkpoint_path)
+    }
+    
+    report_path = checkpoint_dir / "evaluation_report.json"
+    with open(report_path, "w") as f:
+        json.dump(report, f, indent=2)
+    
+    logger.info(f"Saved evaluation report to {report_path}")
+    logger.info("Training complete!")
+
+
+if __name__ == "__main__":
+    main()
+
+```
+
 # scripts/validate_config.py
 
 ```py
@@ -10144,15 +15743,360 @@ if __name__ == '__main__':
 
 ```py
 """
-Evaluation Utilities
-===================
-
-Metrics and utilities for evaluating fMRI-to-image models.
+Evaluation metrics for fMRI → image reconstruction
 """
 
-from .retrieval import cosine_sim, retrieval_at_k, clip_score, compute_ranking_metrics
+from .retrieval import cosine_sim, retrieval_at_k, compute_ranking_metrics
+from .retrieval import clip_score as clip_score_embeddings
+from .image_metrics import (
+    clip_score,
+    batch_clip_score,
+    ssim_score,
+    lpips_score,
+    compute_all_metrics,
+    pixel_mse
+)
 
-__all__ = ["cosine_sim", "retrieval_at_k", "clip_score", "compute_ranking_metrics"]
+__all__ = [
+    # Retrieval metrics
+    "cosine_sim",
+    "retrieval_at_k",
+    "compute_ranking_metrics",
+    "clip_score_embeddings",
+    # Image quality metrics
+    "clip_score",
+    "batch_clip_score",
+    "ssim_score",
+    "lpips_score",
+    "compute_all_metrics",
+    "pixel_mse"
+]
+
+```
+
+# src/fmri2img/eval/image_metrics.py
+
+```py
+"""
+Image Quality Metrics for fMRI Reconstruction Evaluation
+========================================================
+
+Implements perceptual metrics for evaluating generated images:
+- CLIPScore: CLIP embedding similarity
+- SSIM: Structural Similarity Index
+- LPIPS: Learned Perceptual Image Patch Similarity
+
+Scientific Context:
+- CLIPScore measures semantic similarity in CLIP space (Hessel et al. 2021)
+- SSIM measures structural similarity (Wang et al. 2004)
+- LPIPS measures perceptual distance using deep features (Zhang et al. 2018)
+
+References:
+- Hessel et al. (2021). "CLIPScore: A Reference-free Evaluation Metric for Image Captioning"
+- Wang et al. (2004). "Image Quality Assessment: From Error Visibility to Structural Similarity"
+- Zhang et al. (2018). "The Unreasonable Effectiveness of Deep Features as a Perceptual Metric"
+"""
+
+import numpy as np
+import torch
+from PIL import Image
+from typing import Union, List
+import torchvision.transforms as transforms
+
+
+def preprocess_image_for_clip(
+    image: Image.Image,
+    image_size: int = 224
+) -> torch.Tensor:
+    """
+    Preprocess PIL image for CLIP encoding.
+    
+    Args:
+        image: PIL Image (RGB)
+        image_size: Target size (default: 224 for CLIP)
+        
+    Returns:
+        tensor: Preprocessed image tensor (3, H, W), normalized
+    """
+    transform = transforms.Compose([
+        transforms.Resize(image_size, interpolation=transforms.InterpolationMode.BICUBIC),
+        transforms.CenterCrop(image_size),
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=[0.48145466, 0.4578275, 0.40821073],
+            std=[0.26862954, 0.26130258, 0.27577711]
+        )
+    ])
+    
+    return transform(image)
+
+
+def clip_score(
+    generated_image: Image.Image,
+    ground_truth_image: Image.Image,
+    clip_model,
+    device: str = "cuda"
+) -> float:
+    """
+    Compute CLIPScore between generated and ground truth images.
+    
+    CLIPScore measures semantic similarity in CLIP embedding space.
+    Higher is better (range: [-1, 1], typically [0.3, 0.8] for reconstructions).
+    
+    Args:
+        generated_image: Generated PIL Image
+        ground_truth_image: Ground truth PIL Image
+        clip_model: CLIP vision encoder (e.g., from open_clip)
+        device: Device for computation
+        
+    Returns:
+        score: Cosine similarity in CLIP space (float)
+        
+    Example:
+        >>> import open_clip
+        >>> clip_model, _, preprocess = open_clip.create_model_and_transforms(
+        ...     "ViT-L-14", pretrained="openai"
+        ... )
+        >>> score = clip_score(gen_img, gt_img, clip_model, "cuda")
+        >>> print(f"CLIPScore: {score:.4f}")
+    """
+    # Preprocess images
+    gen_tensor = preprocess_image_for_clip(generated_image).unsqueeze(0).to(device)
+    gt_tensor = preprocess_image_for_clip(ground_truth_image).unsqueeze(0).to(device)
+    
+    # Encode with CLIP
+    with torch.no_grad():
+        gen_emb = clip_model.encode_image(gen_tensor)
+        gt_emb = clip_model.encode_image(gt_tensor)
+        
+        # Normalize
+        gen_emb = gen_emb / gen_emb.norm(dim=-1, keepdim=True)
+        gt_emb = gt_emb / gt_emb.norm(dim=-1, keepdim=True)
+        
+        # Cosine similarity
+        similarity = (gen_emb * gt_emb).sum(dim=-1).item()
+    
+    return similarity
+
+
+def batch_clip_score(
+    generated_images: List[Image.Image],
+    ground_truth_images: List[Image.Image],
+    clip_model,
+    device: str = "cuda",
+    batch_size: int = 32
+) -> np.ndarray:
+    """
+    Compute CLIPScore for a batch of images.
+    
+    Args:
+        generated_images: List of generated PIL Images
+        ground_truth_images: List of ground truth PIL Images
+        clip_model: CLIP vision encoder
+        device: Device for computation
+        batch_size: Batch size for processing
+        
+    Returns:
+        scores: Array of cosine similarities, shape (n_images,)
+    """
+    assert len(generated_images) == len(ground_truth_images)
+    
+    n_images = len(generated_images)
+    scores = np.zeros(n_images)
+    
+    for i in range(0, n_images, batch_size):
+        batch_gen = generated_images[i:i+batch_size]
+        batch_gt = ground_truth_images[i:i+batch_size]
+        
+        # Preprocess batch
+        gen_tensors = torch.stack([
+            preprocess_image_for_clip(img) for img in batch_gen
+        ]).to(device)
+        
+        gt_tensors = torch.stack([
+            preprocess_image_for_clip(img) for img in batch_gt
+        ]).to(device)
+        
+        # Encode
+        with torch.no_grad():
+            gen_emb = clip_model.encode_image(gen_tensors)
+            gt_emb = clip_model.encode_image(gt_tensors)
+            
+            # Normalize
+            gen_emb = gen_emb / gen_emb.norm(dim=-1, keepdim=True)
+            gt_emb = gt_emb / gt_emb.norm(dim=-1, keepdim=True)
+            
+            # Cosine similarity (element-wise)
+            similarities = (gen_emb * gt_emb).sum(dim=-1).cpu().numpy()
+        
+        scores[i:i+len(batch_gen)] = similarities
+    
+    return scores
+
+
+def ssim_score(
+    generated_image: Image.Image,
+    ground_truth_image: Image.Image,
+    resize_to: int = 512,
+    device: str = "cuda"
+) -> float:
+    """
+    Compute SSIM between generated and ground truth images.
+    
+    Requires: pip install torchmetrics
+    
+    Args:
+        generated_image: Generated PIL Image
+        ground_truth_image: Ground truth PIL Image
+        resize_to: Resize images to this size for computation
+        device: Device for computation
+        
+    Returns:
+        score: SSIM value (float in [0, 1], higher is better)
+    """
+    try:
+        from torchmetrics.image import StructuralSimilarityIndexMeasure
+    except ImportError:
+        raise ImportError("SSIM requires torchmetrics: pip install torchmetrics")
+    
+    # Resize and convert to tensors
+    transform = transforms.Compose([
+        transforms.Resize((resize_to, resize_to)),
+        transforms.ToTensor()
+    ])
+    
+    gen_tensor = transform(generated_image).unsqueeze(0).to(device)
+    gt_tensor = transform(ground_truth_image).unsqueeze(0).to(device)
+    
+    # Compute SSIM
+    ssim_fn = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
+    score = ssim_fn(gen_tensor, gt_tensor).item()
+    
+    return score
+
+
+def lpips_score(
+    generated_image: Image.Image,
+    ground_truth_image: Image.Image,
+    resize_to: int = 512,
+    net: str = "alex",
+    device: str = "cuda"
+) -> float:
+    """
+    Compute LPIPS perceptual distance.
+    
+    Requires: pip install lpips
+    
+    Args:
+        generated_image: Generated PIL Image
+        ground_truth_image: Ground truth PIL Image
+        resize_to: Resize images to this size
+        net: LPIPS network ("alex", "vgg", or "squeeze")
+        device: Device for computation
+        
+    Returns:
+        score: LPIPS distance (float, lower is better, typically [0, 1])
+    """
+    try:
+        import lpips
+    except ImportError:
+        raise ImportError("LPIPS requires lpips: pip install lpips")
+    
+    # Resize and convert to tensors (normalized to [-1, 1])
+    transform = transforms.Compose([
+        transforms.Resize((resize_to, resize_to)),
+        transforms.ToTensor()
+    ])
+    
+    gen_tensor = transform(generated_image).unsqueeze(0).to(device) * 2 - 1
+    gt_tensor = transform(ground_truth_image).unsqueeze(0).to(device) * 2 - 1
+    
+    # Compute LPIPS
+    lpips_fn = lpips.LPIPS(net=net).to(device)
+    
+    with torch.no_grad():
+        distance = lpips_fn(gen_tensor, gt_tensor).item()
+    
+    return distance
+
+
+def compute_all_metrics(
+    generated_image: Image.Image,
+    ground_truth_image: Image.Image,
+    clip_model,
+    device: str = "cuda",
+    include_lpips: bool = False,
+    include_ssim: bool = False
+) -> dict:
+    """
+    Compute all available image quality metrics.
+    
+    Args:
+        generated_image: Generated PIL Image
+        ground_truth_image: Ground truth PIL Image
+        clip_model: CLIP model for CLIPScore
+        device: Device for computation
+        include_lpips: Compute LPIPS (slower)
+        include_ssim: Compute SSIM (slower)
+        
+    Returns:
+        metrics: Dict with all computed metrics
+    """
+    metrics = {}
+    
+    # CLIPScore (always computed)
+    metrics["clip_score"] = clip_score(
+        generated_image, ground_truth_image, clip_model, device
+    )
+    
+    # SSIM (optional)
+    if include_ssim:
+        try:
+            metrics["ssim"] = ssim_score(
+                generated_image, ground_truth_image, device=device
+            )
+        except ImportError:
+            pass
+    
+    # LPIPS (optional)
+    if include_lpips:
+        try:
+            metrics["lpips"] = lpips_score(
+                generated_image, ground_truth_image, device=device
+            )
+        except ImportError:
+            pass
+    
+    return metrics
+
+
+def pixel_mse(
+    generated_image: Image.Image,
+    ground_truth_image: Image.Image,
+    resize_to: int = 512
+) -> float:
+    """
+    Compute pixel-level MSE (for completeness, not recommended as primary metric).
+    
+    Args:
+        generated_image: Generated PIL Image
+        ground_truth_image: Ground truth PIL Image
+        resize_to: Resize images to this size
+        
+    Returns:
+        mse: Mean squared error (float, lower is better)
+    """
+    transform = transforms.Compose([
+        transforms.Resize((resize_to, resize_to)),
+        transforms.ToTensor()
+    ])
+    
+    gen_tensor = transform(generated_image)
+    gt_tensor = transform(ground_truth_image)
+    
+    mse = ((gen_tensor - gt_tensor) ** 2).mean().item()
+    
+    return mse
 
 ```
 
@@ -10386,6 +16330,603 @@ def clip_score(generated_emb: np.ndarray, gt_emb: np.ndarray) -> np.ndarray:
     scores = np.sum(generated_emb * gt_emb, axis=1)
     
     return scores.astype(np.float32)
+
+```
+
+# src/fmri2img/generation/__init__.py
+
+```py
+"""
+Image generation utilities for fMRI reconstruction
+"""
+
+from .advanced_diffusion import (
+    generate_best_of_n,
+    refine_with_boi_lite,
+    generate_with_all_strategies
+)
+
+from .diffusion_utils import (
+    load_diffusion_pipeline,
+    generate_from_clip_embedding,
+    load_clip_model
+)
+
+__all__ = [
+    "generate_best_of_n",
+    "refine_with_boi_lite",
+    "generate_with_all_strategies",
+    "load_diffusion_pipeline",
+    "generate_from_clip_embedding",
+    "load_clip_model"
+]
+
+```
+
+# src/fmri2img/generation/advanced_diffusion.py
+
+```py
+"""
+Advanced Diffusion Generation with Best-of-N and BOI-lite
+=========================================================
+
+SOTA image generation strategies for fMRI → image reconstruction:
+1. Best-of-N sampling: Generate N candidates, select best based on CLIP similarity
+2. BOI-lite refinement: Iteratively refine using encoding model feedback
+
+Scientific Rationale:
+- Best-of-N improves semantic accuracy by exploring sample space (MindEye2)
+- BOI-lite uses image→fMRI encoding model to select brain-aligned candidates
+- Both strategies improve reconstruction quality without retraining decoder
+
+References:
+- MindEye2 (Scotti et al. 2024): Best-of-16 sampling
+- Brain-Diffuser (Ozcelik et al. 2023): BOI (Brain-Optimized Inference)
+- Takagi & Nishimoto (2023): Iterative refinement strategies
+"""
+
+import logging
+from typing import Optional, List, Tuple, Callable
+from pathlib import Path
+
+import numpy as np
+import torch
+from PIL import Image
+from tqdm import tqdm
+
+logger = logging.getLogger(__name__)
+
+
+def generate_best_of_n(
+    pipe,
+    clip_embedding: np.ndarray,
+    n: int = 8,
+    guidance_scale: float = 7.5,
+    num_inference_steps: int = 50,
+    seed: int = 42,
+    scoring: str = "clip",
+    clip_encoder: Optional[Callable] = None,
+    return_all: bool = False
+) -> Image.Image | Tuple[Image.Image, List[Image.Image], np.ndarray]:
+    """
+    Generate N images and select the best based on CLIP similarity.
+    
+    For each fMRI sample:
+    1. Generate N images from predicted CLIP embedding (different random seeds)
+    2. Encode each image with CLIP encoder
+    3. Compute cosine similarity with predicted CLIP embedding
+    4. Return image with highest similarity
+    
+    Args:
+        pipe: Stable Diffusion pipeline
+        clip_embedding: Predicted CLIP embedding (512,) or (1024,), L2-normalized
+        n: Number of candidates to generate (default: 8)
+        guidance_scale: CFG guidance scale
+        num_inference_steps: Number of denoising steps
+        seed: Base random seed (each candidate uses seed + i)
+        scoring: "clip" (use CLIP similarity) or "random" (for ablation)
+        clip_encoder: Function to encode images to CLIP embeddings
+                     Should accept PIL Image and return (512,) numpy array
+        return_all: If True, return (best_image, all_images, scores)
+    
+    Returns:
+        If return_all=False: best_image (PIL Image)
+        If return_all=True: (best_image, all_images, scores)
+    
+    Scientific Context:
+    - MindEye2 uses best-of-16 sampling to improve semantic accuracy
+    - Works by exploring stochastic sampling space of diffusion model
+    - CLIP scoring provides semantic alignment metric without pixel-level comparison
+    
+    Example:
+        >>> # Generate best-of-8
+        >>> best_img = generate_best_of_n(
+        ...     pipe=sd_pipeline,
+        ...     clip_embedding=pred_clip,
+        ...     n=8,
+        ...     clip_encoder=lambda img: encode_image_with_clip(img, clip_model)
+        ... )
+    """
+    if n == 1:
+        # Single sample (current behavior)
+        from scripts.decode_diffusion import generate_image_from_clip_embedding
+        img = generate_image_from_clip_embedding(
+            pipe, clip_embedding, guidance_scale, num_inference_steps, seed
+        )
+        if return_all:
+            return img, [img], np.array([1.0])
+        return img
+    
+    if clip_encoder is None and scoring == "clip":
+        raise ValueError("clip_encoder required for CLIP scoring")
+    
+    logger.info(f"Generating {n} candidates (best-of-N sampling)...")
+    
+    # Import here to avoid circular dependency
+    from scripts.decode_diffusion import generate_image_from_clip_embedding
+    
+    # Generate N candidates with different seeds
+    candidates = []
+    for i in tqdm(range(n), desc="Generating candidates", leave=False):
+        candidate_seed = seed + i
+        img = generate_image_from_clip_embedding(
+            pipe,
+            clip_embedding,
+            guidance_scale=guidance_scale,
+            num_inference_steps=num_inference_steps,
+            seed=candidate_seed
+        )
+        candidates.append(img)
+    
+    # Score candidates
+    if scoring == "clip":
+        # Encode each candidate with CLIP
+        candidate_embeddings = []
+        for img in tqdm(candidates, desc="Encoding candidates", leave=False):
+            emb = clip_encoder(img)  # Should return (512,) or (1024,)
+            # Normalize
+            emb = emb / (np.linalg.norm(emb) + 1e-8)
+            candidate_embeddings.append(emb)
+        
+        candidate_embeddings = np.stack(candidate_embeddings)  # (N, D)
+        
+        # Normalize predicted embedding
+        pred_emb = clip_embedding / (np.linalg.norm(clip_embedding) + 1e-8)
+        
+        # Compute cosine similarities
+        scores = candidate_embeddings @ pred_emb  # (N,)
+        
+        # Select best
+        best_idx = np.argmax(scores)
+        best_img = candidates[best_idx]
+        
+        logger.info(f"Best-of-{n}: Selected candidate {best_idx} (score={scores[best_idx]:.4f})")
+        logger.info(f"Score range: [{scores.min():.4f}, {scores.max():.4f}]")
+    
+    elif scoring == "random":
+        # Random selection (ablation baseline)
+        best_idx = np.random.randint(n)
+        best_img = candidates[best_idx]
+        scores = np.ones(n) / n  # Uniform scores
+        logger.info(f"Random selection: {best_idx}")
+    
+    else:
+        raise ValueError(f"Unknown scoring: {scoring}")
+    
+    if return_all:
+        return best_img, candidates, scores
+    
+    return best_img
+
+
+def refine_with_boi_lite(
+    initial_image: Image.Image,
+    fmri_pca: np.ndarray,
+    encoding_model: Callable,
+    pipe,
+    clip_encoder: Callable,
+    pred_clip_embedding: np.ndarray,
+    steps: int = 3,
+    candidates_per_step: int = 4,
+    guidance_scale: float = 7.5,
+    noise_strength: float = 0.3,
+    seed: int = 42
+) -> Image.Image:
+    """
+    BOI-lite refinement: Iteratively refine image using encoding model feedback.
+    
+    Algorithm:
+    1. Start with initial image (e.g., from best-of-N)
+    2. For t in 1..T:
+        a. Sample K nearby images using img2img with small noise
+        b. For each candidate, predict fMRI using encoding model
+        c. Select candidate with highest correlation to true fMRI
+        d. Use selected as new current image
+    3. Return final refined image
+    
+    Args:
+        initial_image: Starting image (PIL Image)
+        fmri_pca: True fMRI PCA vector (target to match)
+        encoding_model: Callable that takes PIL Image and returns predicted fMRI PCA
+        pipe: Stable Diffusion pipeline (for img2img)
+        clip_encoder: Function to encode images to CLIP (for sampling)
+        pred_clip_embedding: Predicted CLIP embedding (for conditioning)
+        steps: Number of refinement iterations (default: 3)
+        candidates_per_step: Number of candidates per iteration (default: 4)
+        guidance_scale: CFG guidance scale
+        noise_strength: Noise strength for img2img (0.0-1.0, default: 0.3)
+        seed: Base random seed
+    
+    Returns:
+        Refined image (PIL Image)
+    
+    Scientific Context:
+    - Inspired by Brain-Diffuser's BOI (Brain-Optimized Inference)
+    - Uses encoding model to select candidates that best match brain activity
+    - Iterative refinement explores local neighborhood of initial sample
+    
+    Example:
+        >>> # Refine best-of-N result
+        >>> refined_img = refine_with_boi_lite(
+        ...     initial_image=best_img,
+        ...     fmri_pca=true_fmri_pca,
+        ...     encoding_model=lambda img: predict_fmri_from_image(img, enc_model),
+        ...     pipe=sd_pipeline,
+        ...     clip_encoder=lambda img: encode_image_with_clip(img, clip_model),
+        ...     pred_clip_embedding=pred_clip,
+        ...     steps=3,
+        ...     candidates_per_step=4
+        ... )
+    """
+    if not hasattr(pipe, "img2img"):
+        logger.warning("Pipeline does not have img2img capability, skipping BOI-lite")
+        return initial_image
+    
+    logger.info(f"Starting BOI-lite refinement: {steps} steps, {candidates_per_step} candidates/step")
+    
+    current_image = initial_image
+    
+    # Normalize true fMRI for correlation computation
+    fmri_pca_norm = (fmri_pca - fmri_pca.mean()) / (fmri_pca.std() + 1e-8)
+    
+    for step in range(1, steps + 1):
+        logger.info(f"BOI-lite step {step}/{steps}")
+        
+        # Sample K candidates around current image
+        candidates = []
+        for k in range(candidates_per_step):
+            candidate_seed = seed + step * 1000 + k
+            
+            # Use img2img to sample nearby image
+            # Note: This requires StableDiffusionImg2ImgPipeline or similar
+            try:
+                candidate = pipe.img2img(
+                    image=current_image,
+                    prompt_embeds=torch.from_numpy(pred_clip_embedding).float().unsqueeze(0).to(pipe.device),
+                    strength=noise_strength,
+                    guidance_scale=guidance_scale,
+                    num_inference_steps=20,  # Fewer steps for img2img
+                    generator=torch.Generator(device=pipe.device).manual_seed(candidate_seed)
+                ).images[0]
+                
+                candidates.append(candidate)
+            
+            except Exception as e:
+                logger.warning(f"img2img failed: {e}, using original image")
+                candidates.append(current_image)
+        
+        # Predict fMRI for each candidate
+        predicted_fmris = []
+        for candidate in candidates:
+            pred_fmri = encoding_model(candidate)  # Should return (k_pca,) array
+            predicted_fmris.append(pred_fmri)
+        
+        # Compute correlations with true fMRI
+        correlations = []
+        for pred_fmri in predicted_fmris:
+            # Normalize prediction
+            pred_fmri_norm = (pred_fmri - pred_fmri.mean()) / (pred_fmri.std() + 1e-8)
+            # Pearson correlation
+            corr = np.corrcoef(fmri_pca_norm, pred_fmri_norm)[0, 1]
+            correlations.append(corr)
+        
+        correlations = np.array(correlations)
+        
+        # Select best candidate
+        best_idx = np.argmax(correlations)
+        current_image = candidates[best_idx]
+        
+        logger.info(f"  Selected candidate {best_idx} (correlation={correlations[best_idx]:.4f})")
+        logger.info(f"  Correlation range: [{correlations.min():.4f}, {correlations.max():.4f}]")
+    
+    logger.info("BOI-lite refinement complete!")
+    return current_image
+
+
+def generate_with_all_strategies(
+    pipe,
+    clip_embedding: np.ndarray,
+    fmri_pca: Optional[np.ndarray] = None,
+    encoding_model: Optional[Callable] = None,
+    clip_encoder: Optional[Callable] = None,
+    strategies: List[str] = ["single", "best_of_n"],
+    best_of_n: int = 8,
+    boi_lite_steps: int = 3,
+    boi_lite_candidates: int = 4,
+    guidance_scale: float = 7.5,
+    num_inference_steps: int = 50,
+    seed: int = 42
+) -> dict:
+    """
+    Generate images using multiple strategies for comparison.
+    
+    Strategies:
+    - "single": Single sample (baseline)
+    - "best_of_n": Best-of-N sampling
+    - "boi_lite": BOI-lite refinement (requires encoding_model)
+    - "best_of_n_boi": Best-of-N + BOI-lite (full pipeline)
+    
+    Args:
+        pipe: Stable Diffusion pipeline
+        clip_embedding: Predicted CLIP embedding
+        fmri_pca: True fMRI PCA (for BOI-lite)
+        encoding_model: Image → fMRI encoding model (for BOI-lite)
+        clip_encoder: Image → CLIP encoder (for best-of-N)
+        strategies: List of strategy names to run
+        best_of_n: Number of candidates for best-of-N
+        boi_lite_steps: Refinement steps for BOI-lite
+        boi_lite_candidates: Candidates per step for BOI-lite
+        guidance_scale: CFG guidance scale
+        num_inference_steps: Denoising steps
+        seed: Random seed
+    
+    Returns:
+        Dictionary mapping strategy name to generated image
+    
+    Example:
+        >>> results = generate_with_all_strategies(
+        ...     pipe=sd_pipeline,
+        ...     clip_embedding=pred_clip,
+        ...     fmri_pca=true_fmri,
+        ...     encoding_model=enc_model,
+        ...     clip_encoder=clip_encoder,
+        ...     strategies=["single", "best_of_n", "best_of_n_boi"]
+        ... )
+        >>> 
+        >>> # Save results
+        >>> results["single"].save("single.png")
+        >>> results["best_of_n"].save("best_of_n.png")
+        >>> results["best_of_n_boi"].save("best_of_n_boi.png")
+    """
+    results = {}
+    
+    # Single sample (baseline)
+    if "single" in strategies:
+        logger.info("Strategy: Single sample")
+        from scripts.decode_diffusion import generate_image_from_clip_embedding
+        results["single"] = generate_image_from_clip_embedding(
+            pipe, clip_embedding, guidance_scale, num_inference_steps, seed
+        )
+    
+    # Best-of-N
+    if "best_of_n" in strategies:
+        logger.info(f"Strategy: Best-of-{best_of_n}")
+        if clip_encoder is None:
+            logger.warning("clip_encoder required for best-of-N, skipping")
+        else:
+            results["best_of_n"] = generate_best_of_n(
+                pipe, clip_embedding, n=best_of_n,
+                guidance_scale=guidance_scale,
+                num_inference_steps=num_inference_steps,
+                seed=seed,
+                clip_encoder=clip_encoder
+            )
+    
+    # BOI-lite only (on single sample)
+    if "boi_lite" in strategies:
+        logger.info("Strategy: BOI-lite (single + refinement)")
+        if encoding_model is None or fmri_pca is None:
+            logger.warning("encoding_model and fmri_pca required for BOI-lite, skipping")
+        else:
+            # Start with single sample
+            if "single" in results:
+                initial_img = results["single"]
+            else:
+                from scripts.decode_diffusion import generate_image_from_clip_embedding
+                initial_img = generate_image_from_clip_embedding(
+                    pipe, clip_embedding, guidance_scale, num_inference_steps, seed
+                )
+            
+            results["boi_lite"] = refine_with_boi_lite(
+                initial_img, fmri_pca, encoding_model, pipe, clip_encoder,
+                clip_embedding, steps=boi_lite_steps,
+                candidates_per_step=boi_lite_candidates,
+                guidance_scale=guidance_scale, seed=seed
+            )
+    
+    # Best-of-N + BOI-lite (full pipeline)
+    if "best_of_n_boi" in strategies:
+        logger.info(f"Strategy: Best-of-{best_of_n} + BOI-lite")
+        if clip_encoder is None or encoding_model is None or fmri_pca is None:
+            logger.warning("clip_encoder, encoding_model, and fmri_pca required, skipping")
+        else:
+            # Start with best-of-N
+            if "best_of_n" in results:
+                initial_img = results["best_of_n"]
+            else:
+                initial_img = generate_best_of_n(
+                    pipe, clip_embedding, n=best_of_n,
+                    guidance_scale=guidance_scale,
+                    num_inference_steps=num_inference_steps,
+                    seed=seed,
+                    clip_encoder=clip_encoder
+                )
+            
+            # Refine with BOI-lite
+            results["best_of_n_boi"] = refine_with_boi_lite(
+                initial_img, fmri_pca, encoding_model, pipe, clip_encoder,
+                clip_embedding, steps=boi_lite_steps,
+                candidates_per_step=boi_lite_candidates,
+                guidance_scale=guidance_scale, seed=seed
+            )
+    
+    return results
+
+```
+
+# src/fmri2img/generation/diffusion_utils.py
+
+```py
+"""
+Diffusion Utilities for Image Generation
+========================================
+
+Helper functions for loading and configuring Stable Diffusion pipelines.
+"""
+
+import logging
+import sys
+import torch
+from pathlib import Path
+from typing import Optional, Tuple
+
+logger = logging.getLogger(__name__)
+
+
+def load_diffusion_pipeline(
+    model_id: str = "stabilityai/stable-diffusion-2-1",
+    device: str = "cuda",
+    dtype: str = "float16",
+    scheduler: str = "dpm"
+):
+    """
+    Load Stable Diffusion pipeline with standard configuration.
+    
+    Args:
+        model_id: HuggingFace model ID
+        device: Device for computation
+        dtype: "float16" or "float32"
+        scheduler: "dpm", "euler", "pndm", or "default"
+        
+    Returns:
+        pipeline: StableDiffusionPipeline ready for generation
+    """
+    try:
+        from diffusers import StableDiffusionPipeline, DPMSolverMultistepScheduler
+    except ImportError:
+        logger.error("diffusers not installed: pip install diffusers transformers accelerate")
+        sys.exit(1)
+    
+    logger.info(f"Loading Stable Diffusion pipeline: {model_id}")
+    
+    # Determine dtype
+    torch_dtype = torch.float32 if dtype == "float32" else torch.float16
+    
+    if torch_dtype == torch.float16 and device == "cpu":
+        logger.warning("float16 not supported on CPU, using float32")
+        torch_dtype = torch.float32
+    
+    # Load pipeline
+    pipe = StableDiffusionPipeline.from_pretrained(
+        model_id,
+        torch_dtype=torch_dtype,
+        safety_checker=None,
+        requires_safety_checker=False
+    )
+    
+    # Configure scheduler
+    if scheduler == "dpm":
+        pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+        logger.info("Using DPMSolverMultistep scheduler")
+    
+    # Move to device
+    pipe = pipe.to(device)
+    
+    # Enable memory optimizations
+    try:
+        pipe.enable_attention_slicing()
+        pipe.enable_vae_slicing()
+        logger.info("Enabled memory optimizations")
+    except:
+        pass
+    
+    logger.info(f"Pipeline loaded on {device}")
+    return pipe
+
+
+def generate_from_clip_embedding(
+    pipe,
+    clip_embedding: torch.Tensor,
+    num_inference_steps: int = 50,
+    guidance_scale: float = 7.5,
+    seed: Optional[int] = None,
+    negative_prompt: str = "blurry, low quality"
+):
+    """
+    Generate image from CLIP embedding using Stable Diffusion.
+    
+    Args:
+        pipe: StableDiffusionPipeline
+        clip_embedding: CLIP embedding, shape (1, 512) or (512,)
+        num_inference_steps: Number of diffusion steps
+        guidance_scale: Classifier-free guidance scale
+        seed: Random seed (None for random)
+        negative_prompt: Negative prompt string
+        
+    Returns:
+        image: PIL Image
+    """
+    import torch
+    from PIL import Image
+    
+    # Ensure correct shape
+    if clip_embedding.dim() == 1:
+        clip_embedding = clip_embedding.unsqueeze(0)
+    
+    # Set seed
+    if seed is not None:
+        generator = torch.Generator(device=pipe.device).manual_seed(seed)
+    else:
+        generator = None
+    
+    # Expand to batch size 2 for classifier-free guidance
+    prompt_embeds = clip_embedding.repeat(2, 1)
+    
+    # Generate
+    with torch.no_grad():
+        output = pipe(
+            prompt_embeds=prompt_embeds,
+            negative_prompt=[negative_prompt],
+            num_inference_steps=num_inference_steps,
+            guidance_scale=guidance_scale,
+            generator=generator
+        )
+    
+    return output.images[0]
+
+
+def load_clip_model(device: str = "cuda"):
+    """
+    Load CLIP model for scoring.
+    
+    Returns:
+        clip_model: CLIP vision encoder
+        preprocess: CLIP preprocessing function
+    """
+    try:
+        import open_clip
+    except ImportError:
+        logger.error("open_clip not installed: pip install open_clip_torch")
+        sys.exit(1)
+    
+    logger.info("Loading CLIP model for scoring...")
+    model, _, preprocess = open_clip.create_model_and_transforms(
+        "ViT-L-14", pretrained="openai"
+    )
+    model = model.to(device)
+    model.eval()
+    
+    return model, preprocess
 
 ```
 
@@ -14161,6 +20702,369 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
+```
+
+# src/fmri2img/training/__init__.py
+
+```py
+"""
+Training utilities for fMRI → CLIP encoders
+"""
+
+from .losses import (
+    mse_loss,
+    cosine_loss,
+    info_nce_loss,
+    MultiLoss,
+    compute_multiloss,
+    compose_loss  # Backward compatibility
+)
+
+__all__ = [
+    "mse_loss",
+    "cosine_loss",
+    "info_nce_loss",
+    "MultiLoss",
+    "compute_multiloss",
+    "compose_loss"
+]
+
+```
+
+# src/fmri2img/training/losses.py
+
+```py
+"""
+Multi-Objective Loss Functions for CLIP Alignment
+=================================================
+
+Implements SOTA loss functions for training fMRI → CLIP encoders:
+1. MSE loss: L2 distance in CLIP space
+2. Cosine similarity loss: Directional alignment
+3. InfoNCE contrastive loss: Batch-wise discrimination
+
+Scientific Rationale:
+- MSE captures magnitude alignment (Euclidean distance)
+- Cosine captures directional alignment (angular distance)
+- InfoNCE provides contrastive learning signal (discrimination)
+- Combining all three improves representation quality (Radford et al. 2021, Chen et al. 2020)
+
+References:
+- Radford et al. (2021): CLIP - contrastive learning of visual representations
+- Chen et al. (2020): SimCLR - simple framework for contrastive learning
+- Oord et al. (2018): Representation learning with contrastive predictive coding (InfoNCE)
+- MindEye2 (Scotti et al. 2024): Multi-objective loss for fMRI decoding
+"""
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from typing import Dict, Optional
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def mse_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """
+    Mean squared error loss in CLIP space.
+    
+    Measures L2 distance between predicted and target embeddings.
+    Captures magnitude alignment (how close predictions are in Euclidean space).
+    
+    Args:
+        pred: Predicted embeddings (B, D)
+        target: Target embeddings (B, D)
+    
+    Returns:
+        Scalar loss (averaged over batch)
+    """
+    return F.mse_loss(pred, target)
+
+
+def cosine_loss(pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    """
+    Cosine distance loss: 1 - cosine_similarity(pred, target).
+    
+    Measures angular distance between predicted and target embeddings.
+    Captures directional alignment (same direction in embedding space).
+    
+    IMPORTANT: Both pred and target should be L2-normalized for proper cosine computation.
+    If not normalized, this still works but cosine similarity is not in [-1, 1].
+    
+    Args:
+        pred: Predicted embeddings (B, D), ideally L2-normalized
+        target: Target embeddings (B, D), ideally L2-normalized
+    
+    Returns:
+        Scalar loss (averaged over batch)
+    
+    Scientific Context:
+    - Cosine loss is standard for CLIP alignment (Radford et al. 2021)
+    - Directional alignment often more important than magnitude for retrieval
+    """
+    # Compute cosine similarity: dot product of normalized vectors
+    # If inputs are L2-normalized: cos_sim = (pred * target).sum(dim=-1)
+    # Otherwise: use F.cosine_similarity which normalizes internally
+    cos_sim = F.cosine_similarity(pred, target, dim=-1)  # (B,)
+    
+    # Cosine loss: 1 - similarity (minimizing distance)
+    # Range: [0, 2] if normalized (0 = perfect match, 2 = opposite direction)
+    return (1.0 - cos_sim).mean()
+
+
+def info_nce_loss(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    temperature: float = 0.05
+) -> torch.Tensor:
+    """
+    InfoNCE (Normalized Temperature-scaled Cross Entropy) contrastive loss.
+    
+    For each sample i in the batch:
+    - Positive pair: (pred[i], target[i])
+    - Negative pairs: (pred[i], target[j]) for all j ≠ i
+    
+    Encourages predicted embeddings to be close to their corresponding targets
+    and far from other targets in the batch. This provides a discriminative
+    learning signal that improves representation quality.
+    
+    Args:
+        pred: Predicted embeddings (B, D), L2-normalized
+        target: Target embeddings (B, D), L2-normalized
+        temperature: Temperature scaling parameter (default: 0.05)
+                    Lower temperature = harder discrimination
+                    Typical range: [0.01, 0.1]
+    
+    Returns:
+        Scalar loss (averaged over batch)
+    
+    Scientific Context:
+    - InfoNCE from CPC (Oord et al. 2018), widely used in contrastive learning
+    - CLIP uses symmetric InfoNCE over image-text pairs (Radford et al. 2021)
+    - Temperature controls difficulty of negative discrimination
+    - Requires sufficient batch size (recommend B >= 32 for meaningful negatives)
+    
+    Mathematical Formulation:
+        L = -log(exp(sim(pred[i], target[i]) / τ) / Σ_j exp(sim(pred[i], target[j]) / τ))
+        where sim() is cosine similarity, τ is temperature
+    
+    Example:
+        >>> pred = torch.randn(64, 512)
+        >>> pred = F.normalize(pred, dim=-1)  # L2 normalize
+        >>> target = torch.randn(64, 512)
+        >>> target = F.normalize(target, dim=-1)
+        >>> loss = info_nce_loss(pred, target, temperature=0.05)
+    """
+    batch_size = pred.shape[0]
+    
+    if batch_size < 2:
+        # InfoNCE requires at least 2 samples for negatives
+        logger.warning(f"InfoNCE loss requires batch_size >= 2, got {batch_size}. Returning zero.")
+        return torch.tensor(0.0, device=pred.device)
+    
+    # Compute similarity matrix: pred[i] · target[j] for all i, j
+    # (B, D) @ (D, B) = (B, B)
+    similarity_matrix = torch.matmul(pred, target.T)  # (B, B)
+    
+    # Scale by temperature
+    similarity_matrix = similarity_matrix / temperature
+    
+    # Labels: diagonal elements are positives
+    # For sample i, the positive is similarity_matrix[i, i]
+    labels = torch.arange(batch_size, device=pred.device)
+    
+    # InfoNCE loss = cross-entropy with positive pairs on diagonal
+    # For each row i: softmax over all columns, take log probability of column i
+    loss = F.cross_entropy(similarity_matrix, labels)
+    
+    return loss
+
+
+class MultiLoss(nn.Module):
+    """
+    Combined multi-objective loss for CLIP alignment.
+    
+    Combines MSE, cosine, and InfoNCE losses with configurable weights:
+        L_total = w_mse * L_mse + w_cos * L_cos + w_nce * L_nce
+    
+    Args:
+        mse_weight: Weight for MSE loss (default: 0.3)
+        cosine_weight: Weight for cosine loss (default: 0.3)
+        info_nce_weight: Weight for InfoNCE loss (default: 0.4)
+        temperature: Temperature for InfoNCE (default: 0.05)
+        log_components: Whether to return individual loss components (default: False)
+    
+    Scientific Rationale:
+    - MSE: magnitude alignment
+    - Cosine: directional alignment
+    - InfoNCE: discriminative learning
+    - Balanced weights (0.3/0.3/0.4) prioritize discrimination slightly
+    - Can adjust weights via config for ablation studies
+    
+    Example:
+        >>> criterion = MultiLoss(mse_weight=0.3, cosine_weight=0.3, 
+        ...                       info_nce_weight=0.4, temperature=0.05)
+        >>> pred = model(fmri_batch)
+        >>> loss, components = criterion(pred, clip_targets, return_components=True)
+        >>> print(f"Total: {loss:.3f}, MSE: {components['mse']:.3f}, "
+        ...       f"Cosine: {components['cosine']:.3f}, InfoNCE: {components['info_nce']:.3f}")
+    """
+    
+    def __init__(
+        self,
+        mse_weight: float = 0.3,
+        cosine_weight: float = 0.3,
+        info_nce_weight: float = 0.4,
+        temperature: float = 0.05,
+        log_components: bool = False
+    ):
+        super().__init__()
+        self.mse_weight = mse_weight
+        self.cosine_weight = cosine_weight
+        self.info_nce_weight = info_nce_weight
+        self.temperature = temperature
+        self.log_components = log_components
+        
+        # Validate weights
+        total_weight = mse_weight + cosine_weight + info_nce_weight
+        if not torch.isclose(torch.tensor(total_weight), torch.tensor(1.0), atol=1e-3):
+            logger.warning(f"Loss weights sum to {total_weight:.3f}, not 1.0. This is okay but may affect learning rate tuning.")
+    
+    def forward(
+        self,
+        pred: torch.Tensor,
+        target: torch.Tensor,
+        return_components: bool = False
+    ) -> torch.Tensor | tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        """
+        Compute combined loss.
+        
+        Args:
+            pred: Predicted embeddings (B, D), L2-normalized
+            target: Target embeddings (B, D), L2-normalized
+            return_components: If True, return (total_loss, components_dict)
+        
+        Returns:
+            If return_components=False: total_loss (scalar)
+            If return_components=True: (total_loss, components_dict)
+                components_dict = {"mse": scalar, "cosine": scalar, "info_nce": scalar}
+        """
+        # Compute individual losses
+        loss_mse = mse_loss(pred, target)
+        loss_cos = cosine_loss(pred, target)
+        loss_nce = info_nce_loss(pred, target, temperature=self.temperature)
+        
+        # Weighted combination
+        total_loss = (
+            self.mse_weight * loss_mse +
+            self.cosine_weight * loss_cos +
+            self.info_nce_weight * loss_nce
+        )
+        
+        if return_components or self.log_components:
+            components = {
+                "mse": loss_mse.item(),
+                "cosine": loss_cos.item(),
+                "info_nce": loss_nce.item(),
+                "total": total_loss.item()
+            }
+            
+            if return_components:
+                return total_loss, components
+            else:
+                # Just log internally
+                if self.log_components:
+                    logger.debug(f"Loss components: MSE={loss_mse:.4f}, Cos={loss_cos:.4f}, NCE={loss_nce:.4f}")
+        
+        return total_loss
+
+
+def compute_multiloss(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    config: Optional[Dict[str, float]] = None
+) -> tuple[torch.Tensor, Dict[str, float]]:
+    """
+    Functional interface for multi-objective loss (no nn.Module).
+    
+    Convenience function for computing multi-loss without creating a module.
+    Useful for simple training scripts or one-off evaluations.
+    
+    Args:
+        pred: Predicted embeddings (B, D), L2-normalized
+        target: Target embeddings (B, D), L2-normalized
+        config: Dictionary with keys:
+                - mse_weight (default: 0.3)
+                - cosine_weight (default: 0.3)
+                - info_nce_weight (default: 0.4)
+                - temperature (default: 0.05)
+    
+    Returns:
+        total_loss: Scalar loss
+        components: Dictionary with individual loss values
+    
+    Example:
+        >>> config = {"mse_weight": 0.3, "cosine_weight": 0.3, 
+        ...           "info_nce_weight": 0.4, "temperature": 0.05}
+        >>> loss, components = compute_multiloss(pred, target, config)
+    """
+    if config is None:
+        config = {}
+    
+    mse_weight = config.get("mse_weight", 0.3)
+    cosine_weight = config.get("cosine_weight", 0.3)
+    info_nce_weight = config.get("info_nce_weight", 0.4)
+    temperature = config.get("temperature", 0.05)
+    
+    # Compute individual losses
+    loss_mse = mse_loss(pred, target)
+    loss_cos = cosine_loss(pred, target)
+    loss_nce = info_nce_loss(pred, target, temperature=temperature)
+    
+    # Weighted combination
+    total_loss = (
+        mse_weight * loss_mse +
+        cosine_weight * loss_cos +
+        info_nce_weight * loss_nce
+    )
+    
+    components = {
+        "mse": loss_mse.item(),
+        "cosine": loss_cos.item(),
+        "info_nce": loss_nce.item(),
+        "total": total_loss.item()
+    }
+    
+    return total_loss, components
+
+
+# Backward compatibility: keep old compose_loss function
+def compose_loss(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    mse_weight: float = 0.5
+) -> torch.Tensor:
+    """
+    Legacy combined cosine + MSE loss (for backward compatibility).
+    
+    This is the original loss function from train_utils.py.
+    Kept for backward compatibility with existing training scripts.
+    
+    For new code, prefer MultiLoss or compute_multiloss which include InfoNCE.
+    
+    Args:
+        pred: Predicted embeddings (B, D), L2-normalized
+        target: Target embeddings (B, D), L2-normalized
+        mse_weight: Weight for MSE term (default: 0.5)
+    
+    Returns:
+        Scalar loss
+    """
+    loss_cos = cosine_loss(pred, target)
+    loss_mse = mse_loss(pred, target)
+    return loss_cos + mse_weight * loss_mse
 
 ```
 

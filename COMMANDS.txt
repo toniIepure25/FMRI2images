@@ -1,0 +1,154 @@
+╔════════════════════════════════════════════════════════════════╗
+║        SOTA fMRI Reconstruction - Quick Command Reference       ║
+╚════════════════════════════════════════════════════════════════╝
+
+📋 CORRECT COMMANDS (Updated!)
+════════════════════════════════════════════════════════════════
+
+✅ 1. Check Status
+──────────────────
+python scripts/quick_status.py
+
+
+✅ 2. Build CLIP Cache (⚠️ THE BLOCKER - 2-3 hours)
+───────────────────────────────────────────────────
+python scripts/build_clip_cache.py \
+  --index-root data/indices/nsd_index \
+  --subject subj01 \
+  --cache outputs/clip_cache/clip.parquet \
+  --batch-size 256
+
+# OR use the convenience script:
+bash build_clip_cache.sh
+
+
+✅ 3. Build NSD Index (5 minutes)
+──────────────────────────────────
+python scripts/build_full_index.py \
+  --subject subj01 \
+  --output data/indices/nsd_index
+
+
+✅ 4a. Preprocess - T1 Scaler (2 minutes)
+─────────────────────────────────────────
+python scripts/preprocess_fmri.py \
+  --subject subj01 \
+  --method t1 \
+  --output cache/preproc/subj01_t1_scaler.pkl
+
+
+✅ 4b. Preprocess - T2 PCA (10 minutes)
+───────────────────────────────────────
+python scripts/preprocess_fmri.py \
+  --subject subj01 \
+  --method t2 \
+  --pca-dim 512 \
+  --output cache/preproc/subj01_t2_pca_k512.npz
+
+
+✅ 5. Train Two-Stage Encoder (6 hours)
+───────────────────────────────────────
+python scripts/train_two_stage.py \
+  --config configs/sota_two_stage.yaml \
+  --subject subj01 \
+  --output-dir checkpoints/two_stage/subj01
+
+
+✅ 6. Evaluate on NSD Shared 1000 (30 minutes)
+──────────────────────────────────────────────
+python scripts/eval_comprehensive.py \
+  --subject subj01 \
+  --encoder-checkpoint checkpoints/two_stage/subj01/two_stage_best.pt \
+  --encoder-type two_stage \
+  --output-dir outputs/eval/subj01
+
+
+✅ 7. Generate Visual Galleries (20 minutes)
+────────────────────────────────────────────
+python scripts/generate_comparison_gallery.py \
+  --subject subj01 \
+  --encoder-checkpoint checkpoints/two_stage/subj01/two_stage_best.pt \
+  --encoder-type two_stage \
+  --output-dir outputs/galleries/subj01 \
+  --num-samples 16
+
+
+════════════════════════════════════════════════════════════════
+
+🚀 QUICK TEST MODE (100 samples, 10 minutes total)
+════════════════════════════════════════════════════════════════
+
+# Build test index
+python scripts/build_full_index.py \
+  --subject subj01 \
+  --limit 100 \
+  --output data/indices/nsd_index_test
+
+# Build test CLIP cache (2 minutes)
+python scripts/build_clip_cache.py \
+  --index-root data/indices/nsd_index_test \
+  --subject subj01 \
+  --cache outputs/clip_cache/clip_test.parquet \
+  --limit 100
+
+# Quick training (10 minutes)
+python scripts/train_two_stage.py \
+  --config configs/sota_two_stage.yaml \
+  --subject subj01 \
+  --limit 100 \
+  --output-dir checkpoints/two_stage/test
+
+
+════════════════════════════════════════════════════════════════
+
+💡 MONITORING COMMANDS
+════════════════════════════════════════════════════════════════
+
+# Check CLIP cache progress
+python -c "import pandas as pd; df = pd.read_parquet('outputs/clip_cache/clip.parquet'); print(f'{len(df):,} / ~73,000 embeddings ({100*len(df)/73000:.1f}%)')"
+
+# Watch GPU usage
+watch -n 1 nvidia-smi
+
+# Monitor cache file size
+watch -n 10 "ls -lh outputs/clip_cache/clip.parquet"
+
+
+════════════════════════════════════════════════════════════════
+
+⚙️  TMUX TIPS (for long-running processes)
+════════════════════════════════════════════════════════════════
+
+# Start new session
+tmux new -s clipcache
+
+# Detach (keeps running): Ctrl+B, then D
+
+# List sessions
+tmux ls
+
+# Reattach
+tmux attach -t clipcache
+
+# Kill session
+tmux kill-session -t clipcache
+
+
+════════════════════════════════════════════════════════════════
+
+📚 DOCUMENTATION
+════════════════════════════════════════════════════════════════
+START_HERE.md                      ← Begin here!
+SETUP_GUIDE.md                     ← Detailed setup + FAQ
+USAGE_EXAMPLES.md                  ← All available commands
+SOTA_QUICK_START.md                ← Architecture overview
+docs/EVALUATION_SUITE_GUIDE.md     ← Evaluation details
+
+
+════════════════════════════════════════════════════════════════
+
+⚡ CURRENT BLOCKER: CLIP cache incomplete (5 / 73,000 embeddings)
+
+👉 ACTION: Run command #2 above to build CLIP cache
+
+════════════════════════════════════════════════════════════════

@@ -1,0 +1,464 @@
+"""
+Advanced fMRI Encoders for SOTA Neural Decoding
+===============================================
+
+Two-stage encoder architecture inspired by MindEye, Brain-Diffuser, etc.:
+- Stage 1: fMRI representation learning (residual MLP or Transformer)
+- Stage 2: CLIP mapping head (modular, configurable)
+
+Scientific Design:
+- Residual connections for deep networks (He et al. 2016)
+- LayerNorm for training stability (Ba et al. 2016)
+- GELU activations (Hendrycks & Gimpel 2016) - smoother than ReLU
+- Dropout for regularization (prevents overfitting on fMRI)
+- Optional self-supervised pretraining (masked/denoising autoencoder)
+
+References:
+- MindEye2 (Scotti et al. 2024): Multi-stage fMRI encoder with residual blocks
+- Brain-Diffuser (Ozcelik et al. 2023): Deep encoder with skip connections
+- He et al. (2016): "Deep Residual Learning for Image Recognition"
+"""
+
+import torch
+import torch.nn as nn
+from typing import Optional, Literal, Dict, Any, Tuple
+from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class ResidualBlock(nn.Module):
+    """
+    Residual block with pre-normalization and GELU activation.
+    
+    Architecture:
+        x → LayerNorm → Linear → GELU → Dropout → Linear → Dropout → (+x) → out
+    
+    Pre-normalization (LayerNorm before residual) improves training stability
+    compared to post-norm (used in original ResNet).
+    
+    Args:
+        hidden_dim: Dimension of hidden layers
+        dropout: Dropout probability
+    """
+    
+    def __init__(self, hidden_dim: int, dropout: float = 0.3):
+        super().__init__()
+        self.norm = nn.LayerNorm(hidden_dim)
+        self.fc1 = nn.Linear(hidden_dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.dropout = nn.Dropout(dropout)
+        self.gelu = nn.GELU()
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass with residual connection.
+        
+        Args:
+            x: Input tensor (B, hidden_dim)
+        
+        Returns:
+            Output tensor (B, hidden_dim)
+        """
+        residual = x
+        x = self.norm(x)
+        x = self.fc1(x)
+        x = self.gelu(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
+        x = self.dropout(x)
+        return x + residual
+
+
+class ResidualMLPEncoder(nn.Module):
+    """
+    Stage 1: Deep residual MLP for fMRI representation learning.
+    
+    Maps PCA-reduced fMRI vectors to a latent brain representation via
+    multiple residual blocks. This latent representation captures hierarchical
+    features of brain activity patterns.
+    
+    Architecture:
+        Input projection: Linear(input_dim, latent_dim) → GELU → Dropout
+        Residual blocks: N x ResidualBlock(latent_dim, dropout)
+        Output: latent representation h ∈ R^latent_dim
+    
+    Args:
+        input_dim: Input dimensionality (PCA components, e.g., 256/512/768)
+        latent_dim: Latent representation dimensionality (e.g., 512/768/1024)
+        n_blocks: Number of residual blocks (default: 4)
+        dropout: Dropout probability (default: 0.3)
+    
+    Scientific Rationale:
+    - Multiple residual blocks allow learning of hierarchical features
+    - Pre-normalization improves gradient flow in deep networks
+    - GELU provides smooth, non-monotonic activations (better than ReLU for brain signals)
+    - Dropout prevents overfitting on high-dimensional fMRI data
+    """
+    
+    def __init__(
+        self,
+        input_dim: int,
+        latent_dim: int = 512,
+        n_blocks: int = 4,
+        dropout: float = 0.3
+    ):
+        super().__init__()
+        self.input_dim = input_dim
+        self.latent_dim = latent_dim
+        self.n_blocks = n_blocks
+        self.dropout = dropout
+        
+        # Input projection
+        self.input_proj = nn.Sequential(
+            nn.Linear(input_dim, latent_dim),
+            nn.GELU(),
+            nn.Dropout(dropout)
+        )
+        
+        # Residual blocks
+        self.blocks = nn.ModuleList([
+            ResidualBlock(latent_dim, dropout)
+            for _ in range(n_blocks)
+        ])
+        
+        # Final normalization
+        self.out_norm = nn.LayerNorm(latent_dim)
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass through residual encoder.
+        
+        Args:
+            x: Input fMRI features (B, input_dim)
+        
+        Returns:
+            h: Latent brain representation (B, latent_dim)
+        """
+        # Input projection
+        h = self.input_proj(x)  # (B, latent_dim)
+        
+        # Residual blocks
+        for block in self.blocks:
+            h = block(h)
+        
+        # Final normalization
+        h = self.out_norm(h)
+        
+        return h
+
+
+class CLIPMappingHead(nn.Module):
+    """
+    Stage 2: Mapping head from latent brain representation to CLIP space.
+    
+    Maps the latent representation h from Stage 1 to a 512-D CLIP embedding.
+    Supports both linear and MLP variants.
+    
+    Architecture:
+        Linear: Linear(latent_dim, 512) → L2-normalize
+        MLP: Linear(latent_dim, hidden) → GELU → Dropout → Linear(hidden, 512) → L2-normalize
+    
+    Args:
+        latent_dim: Input latent dimensionality (from Stage 1)
+        head_type: "linear" or "mlp"
+        hidden_dim: Hidden dimension for MLP head (ignored for linear)
+        dropout: Dropout for MLP head (default: 0.2)
+    
+    Scientific Rationale:
+    - L2 normalization ensures outputs lie on unit hypersphere (CLIP space convention)
+    - Linear head is parameter-efficient; MLP head adds expressiveness
+    - Separate head allows freezing Stage 1 during fine-tuning
+    """
+    
+    def __init__(
+        self,
+        latent_dim: int,
+        head_type: Literal["linear", "mlp"] = "linear",
+        hidden_dim: int = 512,
+        dropout: float = 0.2
+    ):
+        super().__init__()
+        self.latent_dim = latent_dim
+        self.head_type = head_type
+        self.hidden_dim = hidden_dim
+        self.dropout = dropout
+        
+        if head_type == "linear":
+            # Simple linear projection
+            self.head = nn.Linear(latent_dim, 512)
+        
+        elif head_type == "mlp":
+            # Two-layer MLP
+            self.head = nn.Sequential(
+                nn.Linear(latent_dim, hidden_dim),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(hidden_dim, 512)
+            )
+        
+        else:
+            raise ValueError(f"Unknown head_type: {head_type}. Must be 'linear' or 'mlp'.")
+    
+    def forward(self, h: torch.Tensor) -> torch.Tensor:
+        """
+        Map latent representation to CLIP embedding space.
+        
+        Args:
+            h: Latent brain representation (B, latent_dim)
+        
+        Returns:
+            z: L2-normalized CLIP embedding (B, 512)
+        """
+        z = self.head(h)  # (B, 512)
+        z = torch.nn.functional.normalize(z, dim=-1)  # Unit sphere for cosine similarity
+        return z
+
+
+class TwoStageEncoder(nn.Module):
+    """
+    Complete two-stage encoder: fMRI → latent h → CLIP embedding.
+    
+    Combines ResidualMLPEncoder (Stage 1) and CLIPMappingHead (Stage 2)
+    into a single end-to-end model. Supports flexible training strategies:
+    - Joint training (both stages trainable)
+    - Staged training (pretrain Stage 1, freeze and train Stage 2)
+    
+    Args:
+        input_dim: Input dimensionality (PCA components)
+        latent_dim: Latent representation dimensionality
+        n_blocks: Number of residual blocks in Stage 1
+        dropout: Dropout probability
+        head_type: "linear" or "mlp" for Stage 2
+        head_hidden_dim: Hidden dimension for MLP head
+    
+    Example:
+        >>> # Create encoder
+        >>> encoder = TwoStageEncoder(input_dim=512, latent_dim=768, n_blocks=4)
+        >>> 
+        >>> # Forward pass
+        >>> x = torch.randn(32, 512)  # Batch of fMRI features
+        >>> z = encoder(x)  # (32, 512) CLIP embeddings
+        >>> 
+        >>> # Access stages separately
+        >>> h = encoder.stage1(x)  # (32, 768) latent representation
+        >>> z = encoder.stage2(h)  # (32, 512) CLIP embedding
+    """
+    
+    def __init__(
+        self,
+        input_dim: int,
+        latent_dim: int = 512,
+        n_blocks: int = 4,
+        dropout: float = 0.3,
+        head_type: Literal["linear", "mlp"] = "linear",
+        head_hidden_dim: int = 512
+    ):
+        super().__init__()
+        self.input_dim = input_dim
+        self.latent_dim = latent_dim
+        
+        # Stage 1: fMRI → latent representation
+        self.stage1 = ResidualMLPEncoder(
+            input_dim=input_dim,
+            latent_dim=latent_dim,
+            n_blocks=n_blocks,
+            dropout=dropout
+        )
+        
+        # Stage 2: latent → CLIP embedding
+        self.stage2 = CLIPMappingHead(
+            latent_dim=latent_dim,
+            head_type=head_type,
+            hidden_dim=head_hidden_dim,
+            dropout=dropout * 0.7  # Lower dropout for head
+        )
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        End-to-end forward pass.
+        
+        Args:
+            x: Input fMRI features (B, input_dim)
+        
+        Returns:
+            z: L2-normalized CLIP embeddings (B, 512)
+        """
+        h = self.stage1(x)  # (B, latent_dim)
+        z = self.stage2(h)  # (B, 512)
+        return z
+    
+    def freeze_stage1(self):
+        """Freeze Stage 1 parameters (for staged training)."""
+        for param in self.stage1.parameters():
+            param.requires_grad = False
+        logger.info("Stage 1 (encoder) frozen")
+    
+    def unfreeze_stage1(self):
+        """Unfreeze Stage 1 parameters."""
+        for param in self.stage1.parameters():
+            param.requires_grad = True
+        logger.info("Stage 1 (encoder) unfrozen")
+
+
+class SelfSupervisedPretrainer(nn.Module):
+    """
+    Self-supervised pretraining module for Stage 1 encoder.
+    
+    Implements two pretraining objectives:
+    1. Masked Autoencoder: Mask random PCA dimensions, reconstruct them
+    2. Denoising Autoencoder: Add noise to input, reconstruct clean version
+    
+    This allows learning useful fMRI representations without CLIP labels,
+    potentially improving sample efficiency and generalization.
+    
+    Args:
+        encoder: ResidualMLPEncoder (Stage 1)
+        reconstruction_dim: Dimensionality to reconstruct (same as input_dim)
+        objective: "masked" or "denoising"
+        mask_ratio: Fraction of dimensions to mask (for masked autoencoder)
+        noise_std: Noise standard deviation (for denoising autoencoder)
+    
+    Scientific Rationale:
+    - Self-supervised pretraining shown effective for fMRI (Thomas et al. 2022)
+    - Masked reconstruction forces learning of feature dependencies
+    - Denoising improves robustness to measurement noise
+    """
+    
+    def __init__(
+        self,
+        encoder: ResidualMLPEncoder,
+        reconstruction_dim: int,
+        objective: Literal["masked", "denoising"] = "masked",
+        mask_ratio: float = 0.3,
+        noise_std: float = 0.1
+    ):
+        super().__init__()
+        self.encoder = encoder
+        self.reconstruction_dim = reconstruction_dim
+        self.objective = objective
+        self.mask_ratio = mask_ratio
+        self.noise_std = noise_std
+        
+        # Reconstruction head
+        self.recon_head = nn.Sequential(
+            nn.Linear(encoder.latent_dim, encoder.latent_dim),
+            nn.GELU(),
+            nn.Linear(encoder.latent_dim, reconstruction_dim)
+        )
+    
+    def forward(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Forward pass for self-supervised pretraining.
+        
+        Args:
+            x: Clean input fMRI features (B, input_dim)
+        
+        Returns:
+            x_corrupted: Corrupted input (masked or noisy)
+            x_reconstructed: Reconstructed output
+            x_target: Target for reconstruction (clean input or masked portions)
+        """
+        if self.objective == "masked":
+            # Masked autoencoder
+            x_corrupted, mask = self._apply_mask(x)
+            h = self.encoder(x_corrupted)
+            x_reconstructed = self.recon_head(h)
+            # Target is the original input (masked portions will have higher loss)
+            x_target = x
+            return x_corrupted, x_reconstructed, x_target
+        
+        elif self.objective == "denoising":
+            # Denoising autoencoder
+            noise = torch.randn_like(x) * self.noise_std
+            x_corrupted = x + noise
+            h = self.encoder(x_corrupted)
+            x_reconstructed = self.recon_head(h)
+            # Target is the clean input
+            x_target = x
+            return x_corrupted, x_reconstructed, x_target
+        
+        else:
+            raise ValueError(f"Unknown objective: {self.objective}")
+    
+    def _apply_mask(self, x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Apply random masking to input features.
+        
+        Args:
+            x: Input tensor (B, D)
+        
+        Returns:
+            x_masked: Masked input (B, D) with masked positions set to 0
+            mask: Boolean mask (B, D), True = masked
+        """
+        B, D = x.shape
+        # Random mask
+        mask = torch.rand(B, D, device=x.device) < self.mask_ratio
+        x_masked = x.clone()
+        x_masked[mask] = 0.0
+        return x_masked, mask
+
+
+def save_two_stage_encoder(
+    model: TwoStageEncoder,
+    path: str,
+    meta: Dict[str, Any]
+) -> None:
+    """
+    Save TwoStageEncoder with metadata.
+    
+    Args:
+        model: Trained TwoStageEncoder
+        path: Output checkpoint path
+        meta: Metadata dictionary (architecture config, training info)
+    """
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    
+    checkpoint = {
+        "state_dict": model.state_dict(),
+        "meta": meta,
+        "model_type": "two_stage_encoder"
+    }
+    
+    torch.save(checkpoint, path)
+    logger.info(f"Saved TwoStageEncoder to {path}")
+
+
+def load_two_stage_encoder(
+    path: str,
+    map_location: str = "cpu"
+) -> Tuple[TwoStageEncoder, Dict[str, Any]]:
+    """
+    Load TwoStageEncoder from checkpoint.
+    
+    Args:
+        path: Checkpoint path
+        map_location: Device to load to ("cpu", "cuda", or "auto")
+    
+    Returns:
+        model: Loaded TwoStageEncoder
+        meta: Metadata dictionary
+    """
+    # Resolve 'auto' to actual device
+    if map_location == "auto":
+        map_location = "cuda" if torch.cuda.is_available() else "cpu"
+    
+    checkpoint = torch.load(path, map_location=map_location)
+    meta = checkpoint.get("meta", {})
+    
+    # Reconstruct model from metadata
+    model = TwoStageEncoder(
+        input_dim=meta["input_dim"],
+        latent_dim=meta.get("latent_dim", 512),
+        n_blocks=meta.get("n_blocks", 4),
+        dropout=meta.get("dropout", 0.3),
+        head_type=meta.get("head_type", "linear"),
+        head_hidden_dim=meta.get("head_hidden_dim", 512)
+    )
+    
+    model.load_state_dict(checkpoint["state_dict"], strict=True)
+    logger.info(f"Loaded TwoStageEncoder from {path}")
+    
+    return model, meta

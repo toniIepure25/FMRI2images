@@ -147,32 +147,46 @@ def info_nce_loss(
 
 class MultiLoss(nn.Module):
     """
-    Combined multi-objective loss for CLIP alignment.
+    Combined multi-objective loss for CLIP alignment with optional brain-consistency.
     
     Combines MSE, cosine, and InfoNCE losses with configurable weights:
-        L_total = w_mse * L_mse + w_cos * L_cos + w_nce * L_nce
+        L_total = w_mse * L_mse + w_cos * L_cos + w_nce * L_nce + w_brain * L_brain
     
     Args:
         mse_weight: Weight for MSE loss (default: 0.3)
         cosine_weight: Weight for cosine loss (default: 0.3)
         info_nce_weight: Weight for InfoNCE loss (default: 0.4)
+        brain_consistency_weight: Weight for brain cycle loss (default: 0.0)
         temperature: Temperature for InfoNCE (default: 0.05)
         log_components: Whether to return individual loss components (default: False)
+        clip_to_fmri_encoder: Optional frozen CLIP→fMRI encoder for cycle loss
     
     Scientific Rationale:
     - MSE: magnitude alignment
     - Cosine: directional alignment
     - InfoNCE: discriminative learning
+    - Brain consistency: cycle-consistency regularization
     - Balanced weights (0.3/0.3/0.4) prioritize discrimination slightly
     - Can adjust weights via config for ablation studies
     
     Example:
+        >>> # Without brain consistency
         >>> criterion = MultiLoss(mse_weight=0.3, cosine_weight=0.3, 
-        ...                       info_nce_weight=0.4, temperature=0.05)
-        >>> pred = model(fmri_batch)
-        >>> loss, components = criterion(pred, clip_targets, return_components=True)
-        >>> print(f"Total: {loss:.3f}, MSE: {components['mse']:.3f}, "
-        ...       f"Cosine: {components['cosine']:.3f}, InfoNCE: {components['info_nce']:.3f}")
+        ...                       info_nce_weight=0.4)
+        >>> 
+        >>> # With brain consistency
+        >>> criterion = MultiLoss(
+        ...     mse_weight=0.3, cosine_weight=0.3, info_nce_weight=0.4,
+        ...     brain_consistency_weight=0.1,
+        ...     clip_to_fmri_encoder=encoder
+        ... )
+        >>> 
+        >>> # In training loop
+        >>> loss, components = criterion(
+        ...     pred_clip, true_clip, 
+        ...     fmri_input=fmri_pca,  # Required for brain loss
+        ...     return_components=True
+        ... )
     """
     
     def __init__(
@@ -180,58 +194,89 @@ class MultiLoss(nn.Module):
         mse_weight: float = 0.3,
         cosine_weight: float = 0.3,
         info_nce_weight: float = 0.4,
+        brain_consistency_weight: float = 0.0,
         temperature: float = 0.05,
-        log_components: bool = False
+        log_components: bool = False,
+        clip_to_fmri_encoder: Optional[nn.Module] = None
     ):
         super().__init__()
         self.mse_weight = mse_weight
         self.cosine_weight = cosine_weight
         self.info_nce_weight = info_nce_weight
+        self.brain_consistency_weight = brain_consistency_weight
         self.temperature = temperature
         self.log_components = log_components
+        self.clip_to_fmri_encoder = clip_to_fmri_encoder
+        
+        # Validate brain consistency setup
+        if brain_consistency_weight > 0 and clip_to_fmri_encoder is None:
+            raise ValueError(
+                "brain_consistency_weight > 0 requires clip_to_fmri_encoder. "
+                "Either set weight to 0 or provide the encoder."
+            )
+        
+        # Freeze encoder if provided
+        if clip_to_fmri_encoder is not None:
+            for param in clip_to_fmri_encoder.parameters():
+                param.requires_grad = False
+            clip_to_fmri_encoder.eval()
         
         # Validate weights
         total_weight = mse_weight + cosine_weight + info_nce_weight
         if not torch.isclose(torch.tensor(total_weight), torch.tensor(1.0), atol=1e-3):
-            logger.warning(f"Loss weights sum to {total_weight:.3f}, not 1.0. This is okay but may affect learning rate tuning.")
+            logger.warning(f"CLIP loss weights sum to {total_weight:.3f}, not 1.0. This is okay but may affect learning rate tuning.")
     
     def forward(
         self,
         pred: torch.Tensor,
         target: torch.Tensor,
+        fmri_input: Optional[torch.Tensor] = None,
         return_components: bool = False
     ) -> torch.Tensor | tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         """
         Compute combined loss.
         
         Args:
-            pred: Predicted embeddings (B, D), L2-normalized
-            target: Target embeddings (B, D), L2-normalized
+            pred: Predicted CLIP embeddings (B, D), L2-normalized
+            target: Target CLIP embeddings (B, D), L2-normalized
+            fmri_input: Original fMRI PCA features (B, fmri_dim), required if brain_weight > 0
             return_components: If True, return (total_loss, components_dict)
         
         Returns:
             If return_components=False: total_loss (scalar)
             If return_components=True: (total_loss, components_dict)
-                components_dict = {"mse": scalar, "cosine": scalar, "info_nce": scalar}
+                components_dict = {"mse": scalar, "cosine": scalar, "info_nce": scalar, "brain": scalar}
         """
-        # Compute individual losses
+        # Compute CLIP alignment losses
         loss_mse = mse_loss(pred, target)
         loss_cos = cosine_loss(pred, target)
         loss_nce = info_nce_loss(pred, target, temperature=self.temperature)
         
-        # Weighted combination
+        # Weighted combination for CLIP losses
         total_loss = (
             self.mse_weight * loss_mse +
             self.cosine_weight * loss_cos +
             self.info_nce_weight * loss_nce
         )
         
+        # Add brain-consistency loss if enabled
+        loss_brain = torch.tensor(0.0, device=pred.device)
+        if self.brain_consistency_weight > 0:
+            if fmri_input is None:
+                raise ValueError(
+                    "fmri_input required for brain-consistency loss. "
+                    "Pass the original fMRI PCA features."
+                )
+            loss_brain = brain_consistency_loss(pred, fmri_input, self.clip_to_fmri_encoder)
+            total_loss = total_loss + self.brain_consistency_weight * loss_brain
+        
         if return_components or self.log_components:
             components = {
-                "mse": loss_mse.item(),
-                "cosine": loss_cos.item(),
-                "info_nce": loss_nce.item(),
-                "total": total_loss.item()
+                "mse": loss_mse.item() if isinstance(loss_mse, torch.Tensor) else loss_mse,
+                "cosine": loss_cos.item() if isinstance(loss_cos, torch.Tensor) else loss_cos,
+                "info_nce": loss_nce.item() if isinstance(loss_nce, torch.Tensor) else loss_nce,
+                "brain": loss_brain.item() if isinstance(loss_brain, torch.Tensor) else loss_brain,
+                "total": total_loss.item() if isinstance(total_loss, torch.Tensor) else total_loss
             }
             
             if return_components:
@@ -239,7 +284,7 @@ class MultiLoss(nn.Module):
             else:
                 # Just log internally
                 if self.log_components:
-                    logger.debug(f"Loss components: MSE={loss_mse:.4f}, Cos={loss_cos:.4f}, NCE={loss_nce:.4f}")
+                    logger.debug(f"Loss components: MSE={loss_mse:.4f}, Cos={loss_cos:.4f}, NCE={loss_nce:.4f}, Brain={loss_brain:.4f}")
         
         return total_loss
 
@@ -328,3 +373,303 @@ def compose_loss(
     loss_cos = cosine_loss(pred, target)
     loss_mse = mse_loss(pred, target)
     return loss_cos + mse_weight * loss_mse
+
+
+def brain_consistency_loss(
+    clip_pred: torch.Tensor,
+    fmri_true: torch.Tensor,
+    clip_to_fmri_encoder: torch.nn.Module
+) -> torch.Tensor:
+    """
+    Brain-consistency (cycle) loss using CLIP→fMRI encoder.
+    
+    Measures how well predicted CLIP embeddings can reconstruct the original fMRI:
+    
+        fMRI_true → Decoder → CLIP_pred → Encoder → fMRI_reconstructed
+        Loss = MSE(fMRI_reconstructed, fMRI_true)
+    
+    This acts as a regularizer: predicted CLIP embeddings must be brain-plausible,
+    i.e., they should map back to valid fMRI patterns consistent with the input.
+    
+    Scientific Rationale:
+    - Inspired by cycle-consistency in CycleGAN (Zhu et al. 2017)
+    - Ensures predictions lie in a brain-realistic subspace of CLIP space
+    - Acts as implicit regularization without explicit constraints
+    - Novel application: most fMRI→image papers don't use cycle loss
+    
+    Args:
+        clip_pred: Predicted CLIP embeddings from decoder (B, 512)
+        fmri_true: Original fMRI PCA features (B, fmri_dim)
+        clip_to_fmri_encoder: Frozen CLIP→fMRI encoder
+    
+    Returns:
+        Scalar MSE loss between reconstructed and true fMRI
+    
+    Example:
+        >>> # In decoder training loop
+        >>> z_pred = decoder(fmri_pca)  # Predict CLIP
+        >>> 
+        >>> # Standard losses
+        >>> loss_clip = compute_multiloss(z_pred, z_true, config)
+        >>> 
+        >>> # Add brain-consistency loss
+        >>> loss_brain = brain_consistency_loss(
+        >>>     z_pred, fmri_pca, clip_to_fmri_encoder
+        >>> )
+        >>> 
+        >>> # Combined loss
+        >>> total_loss = loss_clip + brain_weight * loss_brain
+    """
+    # Reconstruct fMRI from predicted CLIP
+    with torch.no_grad():
+        # Encoder is frozen, no gradients needed for its parameters
+        clip_to_fmri_encoder.eval()
+    
+    fmri_reconstructed = clip_to_fmri_encoder(clip_pred)
+    
+    # MSE between reconstructed and true fMRI
+    loss = torch.nn.functional.mse_loss(fmri_reconstructed, fmri_true)
+    
+    return loss
+
+
+class MultiLayerLoss(nn.Module):
+    """
+    Multi-layer CLIP supervision loss for hierarchical feature learning.
+    
+    Computes weighted cosine similarity loss across multiple ViT layers:
+        L_total = Σ w_i * (1 - cos_sim(pred_i, target_i))
+    
+    Where i ∈ {layer_4, layer_8, layer_12, final} and w_i are layer weights.
+    
+    **Phase 1 Enhancement**: Supports both fixed and learnable layer weights.
+    - Fixed weights: Manually specified via config (backward-compatible)
+    - Learnable weights: Optimized via softmax-normalized parameters during training
+    
+    **Phase 3 Enhancement**: Optional multi-layer InfoNCE for contrastive learning.
+    - Standard: InfoNCE only on final layer (if enabled)
+    - Multi-layer: InfoNCE on combined representation from all layers
+    - Provides richer contrastive signal (+2-3% expected improvement)
+    
+    Architecture Rationale:
+    - Early layers (4, 8): Low-level visual features, high spatial resolution
+    - Late layers (12): Semantic features, more abstract
+    - Final: Global image representation, CLIP embedding space
+    - Multi-level supervision improves gradient flow and feature learning
+    
+    Args:
+        layer_weights: Dict mapping layer names to weights (default: uniform)
+        use_mse: If True, also include MSE term (default: False)
+        mse_weight: Weight for MSE component if enabled (default: 0.1)
+        use_learnable_weights: If True, learn layer weights via gradient descent (default: False)
+        use_multilayer_infonce: If True, add InfoNCE on combined multi-layer representation (default: False)
+        infonce_weight: Weight for InfoNCE loss if enabled (default: 0.2)
+        infonce_temperature: Temperature for InfoNCE (default: 0.05)
+        infonce_combination: Strategy for combining layers ("weighted_pool", "concat_project", "average")
+    
+    Example:
+        >>> # Fixed weights (backward-compatible)
+        >>> criterion = MultiLayerLoss(layer_weights={
+        ...     'layer_4': 0.15,
+        ...     'layer_8': 0.2,
+        ...     'layer_12': 0.25,
+        ...     'final': 0.4
+        ... })
+        >>> 
+        >>> # Learnable weights
+        >>> criterion = MultiLayerLoss(use_learnable_weights=True)
+        >>> # Weights are learned during training, logged periodically
+        >>> 
+        >>> # Multi-layer InfoNCE (Phase 3)
+        >>> criterion = MultiLayerLoss(
+        ...     use_learnable_weights=True,
+        ...     use_multilayer_infonce=True,
+        ...     infonce_weight=0.2,
+        ...     infonce_combination="weighted_pool"
+        ... )
+        >>> 
+        >>> # In training loop
+        >>> pred_dict = model(fmri)
+        >>> target_dict = load_multilayer_targets(batch)
+        >>> # Pass model for InfoNCE (needs get_infonce_representation method)
+        >>> loss, components = criterion(
+        ...     pred_dict, target_dict,
+        ...     model=model,  # Required if use_multilayer_infonce=True
+        ...     return_components=True
+        ... )
+        >>> 
+        >>> # Get current effective weights (fixed or learned)
+        >>> current_weights = criterion.get_effective_weights()
+    
+    Scientific Background:
+    - Feature Pyramid Networks (Lin et al. 2017): Multi-scale supervision
+    - U-Net (Ronneberger et al. 2015): Skip connections with multi-level loss
+    - ViT Analysis (Raghu et al. 2021): Different layers capture different semantics
+    - Task-dependent weighting (Kendall et al. 2018): Learning optimal task balance
+    - Expected improvement: +5-10% embedding similarity (Li et al. 2023)
+    """
+    
+    def __init__(
+        self,
+        layer_weights: Optional[Dict[str, float]] = None,
+        use_mse: bool = False,
+        mse_weight: float = 0.1,
+        use_learnable_weights: bool = False,
+        use_multilayer_infonce: bool = False,
+        infonce_weight: float = 0.2,
+        infonce_temperature: float = 0.05,
+        infonce_combination: str = "weighted_pool"
+    ):
+        super().__init__()
+        
+        self.use_mse = use_mse
+        self.mse_weight = mse_weight
+        self.use_learnable_weights = use_learnable_weights
+        
+        # Phase 3: Multi-layer InfoNCE
+        self.use_multilayer_infonce = use_multilayer_infonce
+        self.infonce_weight = infonce_weight
+        self.infonce_temperature = infonce_temperature
+        self.infonce_combination = infonce_combination
+        
+        # Determine layer order (consistent ordering for learnable weights)
+        self.layer_names = ['layer_4', 'layer_8', 'layer_12', 'final']
+        
+        if use_learnable_weights:
+            # Initialize learnable weight parameters (raw logits)
+            # Will be softmax-normalized to sum to 1.0
+            init_logits = torch.zeros(len(self.layer_names))
+            
+            # If fixed weights provided, use them as initialization
+            if layer_weights is not None:
+                for i, name in enumerate(self.layer_names):
+                    if name in layer_weights:
+                        # Convert weight to logit: w = exp(logit) / sum(exp(logits))
+                        # For init, use log(w) as rough approximation
+                        init_logits[i] = torch.log(torch.tensor(layer_weights[name]) + 1e-8)
+            
+            self.weight_logits = nn.Parameter(init_logits)
+            self.layer_weights = None  # Will be computed dynamically
+            logger.info(f"MultiLayerLoss initialized with LEARNABLE weights (init logits: {init_logits.tolist()})")
+        else:
+            # Fixed weights (backward-compatible)
+            if layer_weights is None:
+                self.layer_weights = {
+                    'layer_4': 0.2,
+                    'layer_8': 0.2,
+                    'layer_12': 0.3,
+                    'final': 0.3
+                }
+            else:
+                self.layer_weights = layer_weights
+            
+            # Validate and normalize fixed weights
+            total = sum(self.layer_weights.values())
+            if not torch.isclose(torch.tensor(total), torch.tensor(1.0), atol=1e-3):
+                logger.warning(f"Layer weights sum to {total:.3f}, not 1.0. Normalizing.")
+                self.layer_weights = {k: v/total for k, v in self.layer_weights.items()}
+            
+            self.weight_logits = None
+            logger.info(f"MultiLayerLoss initialized with FIXED weights: {self.layer_weights}")
+    
+    def get_effective_weights(self) -> Dict[str, float]:
+        """
+        Get current effective layer weights (fixed or learned).
+        
+        Returns:
+            Dict mapping layer names to current weights (sum to 1.0)
+        """
+        if self.use_learnable_weights:
+            # Compute softmax-normalized weights
+            weights_tensor = torch.softmax(self.weight_logits, dim=0)
+            return {name: weights_tensor[i].item() for i, name in enumerate(self.layer_names)}
+        else:
+            return self.layer_weights.copy()
+    
+    def forward(
+        self,
+        pred_dict: Dict[str, torch.Tensor],
+        target_dict: Dict[str, torch.Tensor],
+        model: Optional[nn.Module] = None,
+        return_components: bool = False
+    ) -> torch.Tensor | tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        """
+        Compute multi-layer loss.
+        
+        Args:
+            pred_dict: Predicted features {layer_name: (B, D)}
+            target_dict: Target features {layer_name: (B, D)}
+            model: Model instance (required if use_multilayer_infonce=True)
+            return_components: If True, return (total_loss, components_dict)
+        
+        Returns:
+            If return_components=False: total_loss (scalar)
+            If return_components=True: (total_loss, components_dict)
+                components_dict = {layer_name: scalar_loss, "infonce": scalar_loss, ...}
+        """
+        # Get current effective weights
+        if self.use_learnable_weights:
+            # Compute softmax-normalized weights dynamically
+            weights_tensor = torch.softmax(self.weight_logits, dim=0)
+            effective_weights = {name: weights_tensor[i] for i, name in enumerate(self.layer_names)}
+        else:
+            effective_weights = self.layer_weights
+        
+        total_loss = 0.0
+        components = {}
+        
+        for layer_name in self.layer_names:
+            if layer_name not in pred_dict or layer_name not in target_dict:
+                continue
+            
+            weight = effective_weights[layer_name]
+            pred = pred_dict[layer_name]  # (B, D)
+            target = target_dict[layer_name]  # (B, D)
+            
+            # Cosine similarity loss: 1 - cos_sim
+            cos_sim = torch.nn.functional.cosine_similarity(pred, target, dim=-1)  # (B,)
+            cos_loss = (1.0 - cos_sim).mean()
+            
+            # Optional MSE component
+            if self.use_mse:
+                mse_loss = torch.nn.functional.mse_loss(pred, target)
+                layer_loss = cos_loss + self.mse_weight * mse_loss
+            else:
+                layer_loss = cos_loss
+            
+            # Weighted sum (use tensor weight for learnable, float for fixed)
+            if self.use_learnable_weights:
+                total_loss = total_loss + weight * layer_loss
+            else:
+                total_loss = total_loss + weight * layer_loss
+            
+            components[layer_name] = layer_loss.item()
+        
+        # Phase 3: Multi-layer InfoNCE
+        if self.use_multilayer_infonce:
+            if model is None:
+                raise ValueError(
+                    "use_multilayer_infonce=True requires passing model to forward(). "
+                    "Model must have get_infonce_representation() method."
+                )
+            
+            # Get combined representation from model
+            z_pred = model.get_infonce_representation(
+                pred_dict,
+                strategy=self.infonce_combination
+            )
+            z_target = model.get_infonce_representation(
+                target_dict,
+                strategy=self.infonce_combination
+            )
+            
+            # Compute InfoNCE loss
+            loss_infonce = info_nce_loss(z_pred, z_target, temperature=self.infonce_temperature)
+            total_loss = total_loss + self.infonce_weight * loss_infonce
+            components['infonce'] = loss_infonce.item()
+        
+        if return_components:
+            return total_loss, components
+        return total_loss
+
+

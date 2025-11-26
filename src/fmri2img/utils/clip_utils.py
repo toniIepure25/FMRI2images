@@ -160,6 +160,107 @@ def encode_images(
     return features.cpu().numpy().astype(np.float32)
 
 
+def encode_images_multilayer(
+    model: Any,
+    preprocess: Any,
+    images: list,
+    layers: list[int] = [4, 8, 12],
+    device: str = "cuda",
+    normalize: bool = True
+) -> dict[str, np.ndarray]:
+    """
+    Encode images to multi-layer CLIP features.
+    
+    Extracts intermediate features from Vision Transformer (ViT) layers
+    for multi-level supervision. Returns features from specified layers
+    plus the final output.
+    
+    Args:
+        model: CLIP model (must be ViT-based)
+        preprocess: CLIP preprocessing function
+        images: List of PIL Images
+        layers: Layer indices to extract (e.g., [4, 8, 12] for ViT-B/32)
+        device: Device for computation
+        normalize: If True, L2-normalize all embeddings
+        
+    Returns:
+        Dictionary mapping layer names to (N, D) float32 arrays:
+        - 'layer_4': Features from 4th transformer block
+        - 'layer_8': Features from 8th transformer block  
+        - 'layer_12': Features from 12th transformer block
+        - 'final': Final CLIP embeddings (after projection head)
+        
+    Note:
+        ViT-B/32 has 12 transformer blocks. Common choices:
+        - Early: layer 4 (low-level features)
+        - Middle: layer 8 (mid-level features)
+        - Late: layer 12 (high-level features)
+        - Final: projection head output (semantic features)
+    """
+    if not CLIP_AVAILABLE:
+        raise ImportError("CLIP libraries not available")
+    
+    import torch
+    from contextlib import nullcontext
+    
+    # Preprocess images
+    imgs_tensor = torch.stack([preprocess(img) for img in images]).to(device)
+    
+    # Autocast context
+    if device == "cuda" and torch.cuda.is_available():
+        autocast_ctx = torch.amp.autocast("cuda")
+    else:
+        autocast_ctx = nullcontext()
+    
+    # Extract multi-layer features
+    features_dict = {}
+    
+    with torch.no_grad(), autocast_ctx:
+        # Access visual encoder (ViT)
+        visual = model.visual
+        
+        # Patch embedding + position embedding
+        x = visual.conv1(imgs_tensor)  # (B, D, H, W)
+        x = x.reshape(x.shape[0], x.shape[1], -1)  # (B, D, N)
+        x = x.permute(0, 2, 1)  # (B, N, D)
+        
+        # Add class token
+        class_token = visual.class_embedding.unsqueeze(0).unsqueeze(0).expand(x.shape[0], -1, -1)  # (B, 1, D)
+        x = torch.cat([class_token, x], dim=1)  # (B, N+1, D)
+        x = x + visual.positional_embedding
+        
+        # Pre-LayerNorm
+        x = visual.ln_pre(x)
+        
+        # Transformer blocks with intermediate extraction
+        for i, block in enumerate(visual.transformer.resblocks):
+            x = block(x)
+            
+            # Extract features from specified layers
+            if i + 1 in layers:  # +1 because i is 0-indexed
+                # Take CLS token (first token)
+                layer_feat = x[:, 0, :]  # (B, D)
+                
+                # Normalize if requested
+                if normalize:
+                    layer_feat = layer_feat / layer_feat.norm(dim=-1, keepdim=True)
+                
+                features_dict[f'layer_{i+1}'] = layer_feat.cpu().numpy().astype(np.float32)
+        
+        # Final projection head
+        x = visual.ln_post(x[:, 0, :])
+        if visual.proj is not None:
+            x = x @ visual.proj
+        
+        # Normalize final output if requested
+        if normalize:
+            x = x / x.norm(dim=-1, keepdim=True)
+        
+        features_dict['final'] = x.cpu().numpy().astype(np.float32)
+    
+    return features_dict
+
+
 def verify_embedding_dimension(
     embeddings: np.ndarray,
     config_path: str = "configs/clip.yaml"

@@ -25,7 +25,7 @@ echo ""
 echo "Running CLIP cache builder..."
 echo ""
 
-python scripts/build_clip_cache.py \
+.venv/bin/python scripts/build_clip_cache.py \
     --index-root data/indices/nsd_index \
     --subject subj01 \
     --cache outputs/clip_cache/clip.parquet \

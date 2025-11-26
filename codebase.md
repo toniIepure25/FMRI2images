@@ -28,7 +28,7 @@ echo ""
 echo "Running CLIP cache builder..."
 echo ""
 
-python scripts/build_clip_cache.py \
+.venv/bin/python scripts/build_clip_cache.py \
     --index-root data/indices/nsd_index \
     --subject subj01 \
     --cache outputs/clip_cache/clip.parquet \
@@ -462,8 +462,12 @@ encoder:
   dropout: 0.3     # Dropout for regularization
   
   # Stage 2: latent → CLIP embedding
-  head_type: "mlp"      # Options: "linear", "mlp"
-  head_hidden_dim: 512  # Hidden dimension for MLP head
+  head_type: "mlp"      # Options: "linear", "mlp" (ignored if shared_head_backbone=true)
+  head_hidden_dim: 512  # Hidden dimension for MLP head or shared backbone
+  
+  # Phase 2 Enhancement: Shared head backbone for parameter efficiency
+  shared_head_backbone: true  # If true, use shared backbone + lightweight projections
+  # Recommended: true for multi-layer mode (reduces params by ~60%)
   
   # Self-supervised pretraining (optional)
   self_supervised: false  # Enable/disable pretraining
@@ -482,6 +486,39 @@ loss:
   cosine_weight: 0.3       # Weight for cosine similarity loss
   info_nce_weight: 0.4     # Weight for InfoNCE contrastive loss
   temperature: 0.05        # Temperature for InfoNCE (0.01-0.1)
+  
+  # Phase 3 Enhancement: Multi-layer InfoNCE
+  use_multilayer_infonce: true  # If true, use combined multi-layer representation for InfoNCE
+  infonce_combination: "weighted_pool"  # Options: "weighted_pool", "concat_project", "average"
+  # Recommended: "weighted_pool" (balances all layers with minimal params)
+  
+  # Brain-consistency (cycle) loss (Phase 2 - optional)
+  brain_consistency_weight: 0.0  # Weight for cycle loss (0.0 = disabled, try 0.05-0.2)
+  clip_to_fmri_encoder: null     # Path to CLIP→fMRI encoder checkpoint (required if weight > 0)
+  # Example: "checkpoints/clip_to_fmri/subj01/encoder.pt"
+
+# Multi-layer CLIP supervision (Phase 3)
+multi_layer:
+  enabled: true  # Enable multi-layer supervision from ViT intermediate layers
+  cache_path: "cache/clip_embeddings/nsd_clipcache_multilayer.parquet"
+  
+  # Layer weights for supervision (should sum to ~1.0)
+  # Phase 1 Enhancement: Can use fixed or learnable weights
+  use_learnable_weights: true  # If true, learn optimal weights during training
+  layer_weights:
+    layer_4: 0.15   # Early visual features (edges, textures)
+    layer_8: 0.20   # Mid-level features (parts, patterns)
+    layer_12: 0.25  # Late semantic features (objects, concepts)
+    final: 0.40     # Final CLIP embedding (global representation)
+  
+  # Loss configuration
+  use_mse: false     # Add MSE component to cosine loss
+  mse_weight: 0.1    # Weight for MSE if enabled
+  
+  # Scientific Rationale:
+  # - Multi-level supervision improves gradient flow (Lin et al. 2017)
+  # - Different layers capture different semantic levels (Raghu et al. 2021)
+  # - Expected +5-10% embedding similarity improvement (Li et al. 2023)
 
 # Training configuration
 training:
@@ -2991,6 +3028,389 @@ def main():
 
 
 if __name__ == '__main__':
+    main()
+
+```
+
+# scripts/build_multilayer_clip_cache.py
+
+```py
+#!/usr/bin/env python3
+"""
+Multi-Layer CLIP Embedding Cache Builder
+=========================================
+
+Builds a cache of CLIP features from multiple ViT layers for multi-level
+supervision training. Extracts features from layers 4, 8, 12 plus final output.
+
+Usage:
+    # Build multi-layer cache for subj01
+    python scripts/build_multilayer_clip_cache.py \\
+        --index-root data/indices/nsd_index \\
+        --subject subj01 \\
+        --cache outputs/clip_cache/clip_multilayer.parquet \\
+        --layers 4 8 12 \\
+        --batch-size 128 \\
+        --device cuda
+        
+    # Resume from existing cache
+    python scripts/build_multilayer_clip_cache.py \\
+        --index-root data/indices/nsd_index \\
+        --subject subj01 \\
+        --cache outputs/clip_cache/clip_multilayer.parquet \\
+        --resume
+
+Output Schema:
+    The cache will have columns:
+    - nsdId (int): NSD stimulus ID
+    - layer_4 (list[float]): 768-D features from layer 4
+    - layer_8 (list[float]): 768-D features from layer 8
+    - layer_12 (list[float]): 768-D features from layer 12
+    - final (list[float]): 512-D features from final projection
+"""
+
+import argparse
+import logging
+import sys
+from pathlib import Path
+from typing import List, Dict, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import numpy as np
+import pandas as pd
+import torch
+from PIL import Image
+from tqdm import tqdm
+
+# Add project to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from fmri2img.utils.clip_utils import load_clip_model, encode_images_multilayer
+from fmri2img.data.nsd_index_reader import read_subject_index
+from fmri2img.io.nsd_layout import NSDLayout
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Try to import h5py
+try:
+    import h5py
+    H5PY_AVAILABLE = True
+except ImportError:
+    H5PY_AVAILABLE = False
+    logger.warning("h5py not available - will skip HDF5 loading")
+
+# Try to import requests
+try:
+    import requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
+    logger.warning("requests not available - will skip COCO HTTP fallback")
+
+
+def load_image_from_hdf5(
+    hdf5_file,  # Open h5py.File object
+    nsd_id: int
+) -> Optional[Image.Image]:
+    """Load image from open NSD HDF5 file."""
+    if hdf5_file is None:
+        return None
+    
+    try:
+        if "imgBrick" not in hdf5_file:
+            return None
+        
+        img_arr = hdf5_file["imgBrick"][nsd_id]
+        
+        if img_arr.ndim == 2:
+            img = Image.fromarray(img_arr.astype(np.uint8), mode='L').convert('RGB')
+        elif img_arr.ndim == 3:
+            img = Image.fromarray(img_arr.astype(np.uint8), mode='RGB')
+        else:
+            return None
+        
+        return img
+    except Exception:
+        return None
+
+
+def load_image_from_coco(
+    coco_id: int,
+    coco_split: str = "train2017"
+) -> Optional[Image.Image]:
+    """Load image from COCO HTTP as fallback."""
+    if not REQUESTS_AVAILABLE:
+        return None
+    
+    try:
+        url = f"http://images.cocodataset.org/{coco_split}/{coco_id:012d}.jpg"
+        response = requests.get(url, timeout=5)
+        
+        if response.status_code == 200:
+            from io import BytesIO
+            img = Image.open(BytesIO(response.content)).convert('RGB')
+            return img
+    except Exception:
+        pass
+    
+    return None
+
+
+def load_nsd_image(
+    nsd_id: int,
+    coco_id: int,
+    coco_split: str,
+    hdf5_file  # Open h5py.File object
+) -> Optional[Image.Image]:
+    """
+    Load NSD stimulus image with HDF5 + COCO HTTP fallback.
+    
+    Args:
+        nsd_id: NSD stimulus ID (0-72999)
+        coco_id: COCO image ID  
+        coco_split: COCO split (train2017/val2017)
+        hdf5_file: Open h5py.File object
+        
+    Returns:
+        PIL Image or None if failed
+    """
+    # Try HDF5 first
+    img = load_image_from_hdf5(hdf5_file, nsd_id)
+    if img is not None:
+        return img
+    
+    # Fallback to COCO HTTP
+    if coco_id > 0 and coco_split:
+        img = load_image_from_coco(coco_id, coco_split)
+        if img is not None:
+            return img
+    
+    return None
+
+
+def build_multilayer_cache(
+    index_df: pd.DataFrame,
+    model,
+    preprocess,
+    hdf5_path: str,
+    layers: List[int],
+    batch_size: int = 128,
+    device: str = "cuda",
+    existing_cache: Optional[pd.DataFrame] = None,
+    num_workers: int = 8
+) -> pd.DataFrame:
+    """
+    Build multi-layer CLIP cache with parallel image loading.
+    
+    Args:
+        index_df: NSD index DataFrame
+        model: CLIP model
+        preprocess: CLIP preprocessing function
+        hdf5_path: Path to nsd_stimuli.hdf5
+        layers: List of layer indices to extract (e.g., [4, 8, 12])
+        batch_size: Batch size for encoding
+        device: Device for computation
+        existing_cache: Existing cache to skip already processed
+        num_workers: Number of parallel image loading threads
+        
+    Returns:
+        DataFrame with columns: nsdId, layer_4, layer_8, layer_12, final
+    """
+    # Get unique nsdIds
+    unique_nsdids = index_df['nsdId'].unique()
+    logger.info(f"Total unique nsdIds: {len(unique_nsdids)}")
+    
+    # Skip already processed if resuming
+    if existing_cache is not None:
+        already_processed = set(existing_cache['nsdId'].values)
+        unique_nsdids = [nid for nid in unique_nsdids if nid not in already_processed]
+        logger.info(f"Resuming: {len(already_processed)} already cached, {len(unique_nsdids)} remaining")
+    
+    # Open HDF5 file once for entire process
+    hdf5_file = None
+    if H5PY_AVAILABLE and hdf5_path and Path(hdf5_path).exists():
+        try:
+            hdf5_file = h5py.File(hdf5_path, 'r')
+            logger.info(f"✓ Opened HDF5 file: {hdf5_path}")
+        except Exception as e:
+            logger.warning(f"Failed to open HDF5: {e}")
+    
+    try:
+        # Prepare metadata lookup
+        metadata_dict = {}
+        for nsd_id in unique_nsdids:
+            row = index_df[index_df['nsdId'] == nsd_id].iloc[0]
+            metadata_dict[nsd_id] = {
+                'coco_id': int(row.get('cocoId', 0)),
+                'coco_split': row.get('cocoSplit', '')
+            }
+        
+        # Process in chunks
+        results = []
+        total_batches = (len(unique_nsdids) + batch_size - 1) // batch_size
+        
+        with tqdm(total=len(unique_nsdids), desc="Encoding images") as pbar:
+            for batch_idx in range(total_batches):
+                start_idx = batch_idx * batch_size
+                end_idx = min(start_idx + batch_size, len(unique_nsdids))
+                batch_nsdids = unique_nsdids[start_idx:end_idx]
+                
+                # Load images in parallel
+                batch_images = []
+                batch_valid_nsdids = []
+                
+                def load_image_task(nsd_id):
+                    """Load single image for parallel execution."""
+                    meta = metadata_dict[nsd_id]
+                    img = load_nsd_image(nsd_id, meta['coco_id'], meta['coco_split'], hdf5_file)
+                    return nsd_id, img
+                
+                with ThreadPoolExecutor(max_workers=num_workers) as executor:
+                    futures = {executor.submit(load_image_task, nid): nid for nid in batch_nsdids}
+                    
+                    for future in as_completed(futures):
+                        nsd_id, img = future.result()
+                        if img is not None:
+                            batch_images.append(img)
+                            batch_valid_nsdids.append(nsd_id)
+                
+                # Encode batch with CLIP
+                if batch_images:
+                    features_dict = encode_images_multilayer(
+                        model, preprocess, batch_images,
+                        layers=layers, device=device, normalize=True
+                    )
+                    
+                    # Store results
+                    for i, nid in enumerate(batch_valid_nsdids):
+                        row_data = {'nsdId': int(nid)}
+                        for layer_name, features in features_dict.items():
+                            # Features are already numpy arrays from encode_images_multilayer
+                            feat = features[i]
+                            if torch.is_tensor(feat):
+                                feat = feat.cpu().numpy()
+                            row_data[layer_name] = feat.tolist()
+                        results.append(row_data)
+                
+                pbar.update(len(batch_nsdids))
+                pbar.set_postfix({'cached': len(results), 'failed': len(batch_nsdids) - len(batch_images)})
+        
+        # Create DataFrame
+        cache_df = pd.DataFrame(results)
+        
+        # Combine with existing if resuming
+        if existing_cache is not None:
+            cache_df = pd.concat([existing_cache, cache_df], ignore_index=True)
+        
+        return cache_df
+    
+    finally:
+        # Close HDF5 file
+        if hdf5_file is not None:
+            hdf5_file.close()
+            logger.info("✓ Closed HDF5 file")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Build multi-layer CLIP embedding cache",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    
+    # Data arguments
+    parser.add_argument("--index-root", default="data/indices/nsd_index",
+                       help="Root directory containing subject indices")
+    parser.add_argument("--subject", default="subj01",
+                       help="Subject ID (e.g., subj01)")
+    parser.add_argument("--hdf5-path", default="cache/nsd_hdf5/nsd_stimuli.hdf5",
+                       help="Path to NSD HDF5 stimulus file")
+    
+    # Output arguments
+    parser.add_argument("--cache", default="outputs/clip_cache/clip_multilayer.parquet",
+                       help="Output cache file (Parquet format)")
+    parser.add_argument("--resume", action="store_true",
+                       help="Resume from existing cache")
+    
+    # Model arguments
+    parser.add_argument("--layers", type=int, nargs="+", default=[4, 8, 12],
+                       help="ViT layer indices to extract (e.g., 4 8 12)")
+    parser.add_argument("--batch-size", type=int, default=128,
+                       help="Batch size for encoding")
+    parser.add_argument("--num-workers", type=int, default=8,
+                       help="Number of parallel image loading threads")
+    parser.add_argument("--device", default="cuda",
+                       help="Device for computation (cuda/cpu)")
+    
+    args = parser.parse_args()
+    
+    logger.info("=" * 70)
+    logger.info("Multi-Layer CLIP Cache Builder")
+    logger.info("=" * 70)
+    logger.info(f"Subject: {args.subject}")
+    logger.info(f"Layers: {args.layers}")
+    logger.info(f"Output: {args.cache}")
+    logger.info(f"Device: {args.device}")
+    
+    # Create output directory
+    cache_path = Path(args.cache)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Load existing cache if resuming
+    existing_cache = None
+    if args.resume and cache_path.exists():
+        logger.info(f"\nResuming from existing cache: {cache_path}")
+        existing_cache = pd.read_parquet(cache_path)
+        logger.info(f"  Existing entries: {len(existing_cache)}")
+    
+    # Load CLIP model
+    logger.info("\n1. Loading CLIP model...")
+    model, preprocess, config = load_clip_model(device=args.device)
+    logger.info(f"   Model: {config['model_name']}")
+    
+    # Load subject index
+    logger.info("\n2. Loading subject index...")
+    index_df = read_subject_index(args.index_root, args.subject)
+    logger.info(f"   Trials: {len(index_df)}")
+    logger.info(f"   Unique stimuli: {index_df['nsdId'].nunique()}")
+    
+    # Build cache
+    logger.info("\n3. Building multi-layer cache...")
+    cache_df = build_multilayer_cache(
+        index_df=index_df,
+        model=model,
+        preprocess=preprocess,
+        hdf5_path=args.hdf5_path,
+        layers=args.layers,
+        batch_size=args.batch_size,
+        device=args.device,
+        existing_cache=existing_cache,
+        num_workers=args.num_workers
+    )
+    
+    # Save cache
+    logger.info(f"\n4. Saving cache to {cache_path}...")
+    cache_df.to_parquet(cache_path, index=False)
+    
+    # Summary
+    logger.info("\n" + "=" * 70)
+    logger.info("✅ Multi-Layer CLIP Cache Complete!")
+    logger.info("=" * 70)
+    logger.info(f"Total entries: {len(cache_df)}")
+    logger.info(f"Columns: {list(cache_df.columns)}")
+    logger.info(f"File size: {cache_path.stat().st_size / 1024**2:.1f} MB")
+    logger.info(f"\nLayer dimensions:")
+    for col in cache_df.columns:
+        if col != 'nsdId':
+            dim = len(cache_df[col].iloc[0])
+            logger.info(f"  {col}: {dim}-D")
+    logger.info("=" * 70)
+
+
+if __name__ == "__main__":
     main()
 
 ```
@@ -10936,6 +11356,115 @@ if __name__ == "__main__":
 
 ```
 
+# scripts/fix_missing_clip_embedding.py
+
+```py
+#!/usr/bin/env python3
+"""
+Fix Missing CLIP Embedding for nsdId=73000
+==========================================
+
+nsdId=73000 is not in the stimulus catalog (which has 73,000 images indexed 0-72999).
+This appears to be a data artifact/edge case. Only 3 trials (0.01%) use this nsdId.
+
+This script generates a CLIP embedding for a blank/neutral image and adds it to the cache,
+allowing those 3 trials to proceed without errors.
+
+Usage:
+    python scripts/fix_missing_clip_embedding.py
+"""
+
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+import numpy as np
+import pandas as pd
+import torch
+from PIL import Image
+from fmri2img.utils.clip_utils import load_clip_model
+
+def main():
+    print("=" * 70)
+    print("Fix Missing CLIP Embedding for nsdId=73000")
+    print("=" * 70)
+    
+    cache_path = Path("outputs/clip_cache/clip.parquet")
+    
+    # Load existing cache
+    print(f"\n1. Loading cache from {cache_path}")
+    cache_df = pd.read_parquet(cache_path)
+    print(f"   Current cache size: {len(cache_df)} embeddings")
+    
+    # Check if nsdId=73000 already exists
+    if 73000 in cache_df['nsdId'].values:
+        print(f"   ✓ nsdId=73000 already in cache, nothing to do!")
+        return
+    
+    print(f"   → nsdId=73000 is missing")
+    
+    # Load CLIP model
+    print(f"\n2. Loading CLIP model...")
+    model, preprocess, config = load_clip_model(device="cuda" if torch.cuda.is_available() else "cpu")
+    device = next(model.parameters()).device
+    print(f"   ✓ Loaded {config['model_name']}")
+    
+    # Create a neutral gray image (128, 128, 128) - neutral middle value
+    print(f"\n3. Creating neutral gray image...")
+    neutral_img = Image.new('RGB', (425, 425), color=(128, 128, 128))
+    print(f"   ✓ Created 425x425 gray image")
+    
+    # Encode with CLIP
+    print(f"\n4. Encoding with CLIP...")
+    with torch.no_grad():
+        img_tensor = preprocess(neutral_img).unsqueeze(0).to(device)
+        embedding = model.encode_image(img_tensor)
+        embedding = embedding / embedding.norm(dim=-1, keepdim=True)  # L2 normalize
+        embedding = embedding.cpu().numpy()[0].astype(np.float32)
+    
+    print(f"   ✓ Generated embedding: shape={embedding.shape}, norm={np.linalg.norm(embedding):.6f}")
+    
+    # Add to cache
+    print(f"\n5. Adding nsdId=73000 to cache...")
+    
+    # Create new row matching cache schema
+    new_row = pd.DataFrame({
+        'nsdId': [73000],
+        'clip512': [embedding.tolist()],
+        'nsd_id': [73000],
+        'embedding': [embedding.tolist()]
+    })
+    
+    # Append and save
+    updated_cache = pd.concat([cache_df, new_row], ignore_index=True)
+    updated_cache.to_parquet(cache_path, index=False)
+    
+    print(f"   ✓ Cache updated: {len(cache_df)} → {len(updated_cache)} embeddings")
+    
+    # Verify
+    print(f"\n6. Verifying...")
+    verify_df = pd.read_parquet(cache_path)
+    if 73000 in verify_df['nsdId'].values:
+        print(f"   ✅ SUCCESS! nsdId=73000 now in cache")
+    else:
+        print(f"   ❌ ERROR: nsdId=73000 still missing after save")
+        return 1
+    
+    print("\n" + "=" * 70)
+    print("✅ Fix complete!")
+    print("=" * 70)
+    print(f"\nNote: nsdId=73000 uses a neutral gray image (no actual stimulus data)")
+    print(f"      This affects only 3 trials (0.01% of dataset)")
+    print(f"      Training will proceed normally")
+    print()
+    
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+```
+
 # scripts/generate_comparison_gallery.py
 
 ```py
@@ -13916,6 +14445,347 @@ if __name__ == "__main__":
 
 ```
 
+# scripts/train_clip_to_fmri.py
+
+```py
+#!/usr/bin/env python3
+"""
+Train CLIP → fMRI Encoder for Cycle-Consistency Loss
+====================================================
+
+Trains an inverse mapping from CLIP image embeddings to fMRI PCA representations.
+This encoder is then used during decoder training to add brain-consistency loss.
+
+Usage:
+    # Train with default MLP architecture
+    python scripts/train_clip_to_fmri.py \\
+        --subject subj01 \\
+        --clip-cache outputs/clip_cache/clip.parquet \\
+        --preproc-dir outputs/preproc/subj01 \\
+        --output checkpoints/clip_to_fmri/subj01/encoder.pt
+    
+    # Train with linear architecture (fast, interpretable)
+    python scripts/train_clip_to_fmri.py \\
+        --subject subj01 \\
+        --architecture linear \\
+        --epochs 20
+    
+    # Train with residual architecture (most expressive)
+    python scripts/train_clip_to_fmri.py \\
+        --subject subj01 \\
+        --architecture residual \\
+        --hidden-dim 1024 \\
+        --n-layers 3
+"""
+
+import argparse
+import json
+import logging
+import sys
+from pathlib import Path
+from typing import Tuple
+
+import numpy as np
+import torch
+from torch.utils.data import TensorDataset, DataLoader
+from tqdm import tqdm
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+# Add project to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from fmri2img.data.nsd_index_reader import read_subject_index
+from fmri2img.data.preprocess import NSDPreprocessor
+from fmri2img.data.clip_cache import CLIPCache
+from fmri2img.io.s3 import get_s3_filesystem, NIfTILoader
+from fmri2img.models.clip_to_fmri_encoder import (
+    CLIPToFMRIEncoder,
+    save_clip_to_fmri_encoder
+)
+from fmri2img.models.train_utils import (
+    extract_features_and_targets,
+    train_val_test_split
+)
+
+
+def train_epoch(
+    model: CLIPToFMRIEncoder,
+    loader: DataLoader,
+    optimizer: torch.optim.Optimizer,
+    device: str
+) -> float:
+    """Train for one epoch."""
+    model.train()
+    total_loss = 0.0
+    
+    for clip_batch, fmri_batch in loader:
+        clip_batch = clip_batch.to(device)
+        fmri_batch = fmri_batch.to(device)
+        
+        optimizer.zero_grad()
+        fmri_pred = model(clip_batch)
+        loss = torch.nn.functional.mse_loss(fmri_pred, fmri_batch)
+        loss.backward()
+        
+        # Gradient clipping for stability
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        
+        optimizer.step()
+        
+        total_loss += loss.item() * len(clip_batch)
+    
+    return total_loss / len(loader.dataset)
+
+
+def validate(
+    model: CLIPToFMRIEncoder,
+    loader: DataLoader,
+    device: str
+) -> Tuple[float, float]:
+    """Validate model. Returns (mse_loss, correlation)."""
+    model.eval()
+    total_loss = 0.0
+    all_pred = []
+    all_true = []
+    
+    with torch.no_grad():
+        for clip_batch, fmri_batch in loader:
+            clip_batch = clip_batch.to(device)
+            fmri_batch = fmri_batch.to(device)
+            
+            fmri_pred = model(clip_batch)
+            loss = torch.nn.functional.mse_loss(fmri_pred, fmri_batch)
+            
+            total_loss += loss.item() * len(clip_batch)
+            all_pred.append(fmri_pred.cpu().numpy())
+            all_true.append(fmri_batch.cpu().numpy())
+    
+    mse_loss = total_loss / len(loader.dataset)
+    
+    # Compute average correlation across features
+    all_pred = np.vstack(all_pred)
+    all_true = np.vstack(all_true)
+    
+    # Pearson correlation per feature, then average
+    corrs = []
+    for i in range(all_pred.shape[1]):
+        corr = np.corrcoef(all_pred[:, i], all_true[:, i])[0, 1]
+        if not np.isnan(corr):
+            corrs.append(corr)
+    
+    mean_corr = np.mean(corrs) if corrs else 0.0
+    
+    return mse_loss, mean_corr
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Train CLIP → fMRI encoder for cycle-consistency loss"
+    )
+    
+    # Data arguments
+    parser.add_argument("--subject", default="subj01")
+    parser.add_argument("--index-root", default="data/indices/nsd_index")
+    parser.add_argument("--clip-cache", default="outputs/clip_cache/clip.parquet")
+    parser.add_argument("--preproc-dir", default="outputs/preproc/subj01")
+    
+    # Model arguments
+    parser.add_argument("--architecture", choices=["linear", "mlp", "residual"],
+                       default="mlp", help="Encoder architecture")
+    parser.add_argument("--hidden-dim", type=int, default=1024)
+    parser.add_argument("--n-layers", type=int, default=2,
+                       help="Number of residual blocks (for residual arch)")
+    parser.add_argument("--dropout", type=float, default=0.2)
+    
+    # Training arguments
+    parser.add_argument("--learning-rate", type=float, default=1e-3)
+    parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--batch-size", type=int, default=256)
+    parser.add_argument("--epochs", type=int, default=50)
+    parser.add_argument("--early-stop-patience", type=int, default=10)
+    
+    # Output arguments
+    parser.add_argument("--output", default="checkpoints/clip_to_fmri/subj01/encoder.pt")
+    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--seed", type=int, default=42)
+    
+    # Dataset arguments
+    parser.add_argument("--train-ratio", type=float, default=0.8)
+    parser.add_argument("--val-ratio", type=float, default=0.1)
+    
+    args = parser.parse_args()
+    
+    # Set seed
+    torch.manual_seed(args.seed)
+    np.random.seed(args.seed)
+    
+    logger.info("=" * 70)
+    logger.info("Training CLIP → fMRI Encoder")
+    logger.info("=" * 70)
+    logger.info(f"Subject: {args.subject}")
+    logger.info(f"Architecture: {args.architecture}")
+    logger.info(f"Device: {args.device}")
+    
+    # Load data
+    logger.info("\n1. Loading data...")
+    
+    # Load index
+    df = read_subject_index(args.index_root, args.subject)
+    logger.info(f"   Loaded index: {len(df)} trials")
+    
+    # Split
+    train_df, val_df, test_df = train_val_test_split(
+        df,
+        train_ratio=args.train_ratio,
+        val_ratio=args.val_ratio,
+        random_seed=args.seed
+    )
+    
+    # Load preprocessing
+    logger.info(f"   Loading preprocessing from {args.preproc_dir}")
+    preprocessor = NSDPreprocessor(args.subject, out_dir=Path(args.preproc_dir).parent)
+    if not preprocessor.load_artifacts():
+        raise ValueError(f"Failed to load preprocessing artifacts from {args.preproc_dir}")
+    
+    pca_k = preprocessor.pca_.n_components_ if preprocessor.pca_fitted_ else 0
+    logger.info(f"   PCA k: {pca_k}")
+    
+    # Load CLIP cache
+    logger.info(f"   Loading CLIP cache from {args.clip_cache}")
+    clip_cache = CLIPCache(args.clip_cache).load()
+    
+    # Extract features
+    logger.info("\n2. Extracting features...")
+    s3_fs = get_s3_filesystem()
+    nifti_loader = NIfTILoader(s3_fs)
+    
+    # Note: X is fMRI PCA, Y is CLIP (opposite of decoder!)
+    X_train_fmri, Y_train_clip, _ = extract_features_and_targets(
+        train_df, nifti_loader, preprocessor, clip_cache, desc="train"
+    )
+    
+    X_val_fmri, Y_val_clip, _ = extract_features_and_targets(
+        val_df, nifti_loader, preprocessor, clip_cache, desc="val"
+    )
+    
+    logger.info(f"   Train: fMRI {X_train_fmri.shape}, CLIP {Y_train_clip.shape}")
+    logger.info(f"   Val:   fMRI {X_val_fmri.shape}, CLIP {Y_val_clip.shape}")
+    
+    # Create model (CLIP → fMRI, so inputs and outputs are swapped)
+    logger.info("\n3. Creating model...")
+    clip_dim = Y_train_clip.shape[1]
+    fmri_dim = X_train_fmri.shape[1]
+    
+    model = CLIPToFMRIEncoder(
+        clip_dim=clip_dim,
+        fmri_dim=fmri_dim,
+        architecture=args.architecture,
+        hidden_dim=args.hidden_dim,
+        n_layers=args.n_layers,
+        dropout=args.dropout
+    ).to(args.device)
+    
+    n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logger.info(f"   Architecture: {args.architecture}")
+    logger.info(f"   Parameters: {n_params:,}")
+    logger.info(f"   CLIP dim: {clip_dim}, fMRI dim: {fmri_dim}")
+    
+    # Create DataLoaders (X=CLIP, Y=fMRI for this encoder)
+    train_dataset = TensorDataset(
+        torch.from_numpy(Y_train_clip).float(),  # CLIP as input
+        torch.from_numpy(X_train_fmri).float()   # fMRI as target
+    )
+    val_dataset = TensorDataset(
+        torch.from_numpy(Y_val_clip).float(),
+        torch.from_numpy(X_val_fmri).float()
+    )
+    
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=4,
+        pin_memory=True
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=4,
+        pin_memory=True
+    )
+    
+    # Optimizer and scheduler
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=args.learning_rate,
+        weight_decay=args.weight_decay
+    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer,
+        T_max=args.epochs
+    )
+    
+    # Training loop
+    logger.info("\n4. Training...")
+    best_val_loss = float('inf')
+    patience_counter = 0
+    
+    for epoch in range(args.epochs):
+        train_loss = train_epoch(model, train_loader, optimizer, args.device)
+        val_loss, val_corr = validate(model, val_loader, args.device)
+        scheduler.step()
+        
+        logger.info(
+            f"Epoch {epoch+1}/{args.epochs}: "
+            f"train_loss={train_loss:.4f}, "
+            f"val_loss={val_loss:.4f}, "
+            f"val_corr={val_corr:.4f}"
+        )
+        
+        # Early stopping
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            patience_counter = 0
+            
+            # Save best model
+            output_path = Path(args.output)
+            metrics = {
+                "best_epoch": epoch + 1,
+                "best_val_loss": best_val_loss,
+                "best_val_corr": val_corr,
+                "train_loss": train_loss
+            }
+            save_clip_to_fmri_encoder(model, output_path, metrics, args.subject)
+        else:
+            patience_counter += 1
+            if patience_counter >= args.early_stop_patience:
+                logger.info(f"Early stopping after {epoch+1} epochs")
+                break
+    
+    logger.info("\n" + "=" * 70)
+    logger.info("✅ Training complete!")
+    logger.info("=" * 70)
+    logger.info(f"Best val loss: {best_val_loss:.4f}")
+    logger.info(f"Model saved to: {args.output}")
+    logger.info("")
+    logger.info("Next step: Use this encoder in decoder training with brain-consistency loss")
+    logger.info(f"  --clip-to-fmri-encoder {args.output}")
+    logger.info(f"  --brain-consistency-weight 0.1")
+    logger.info("=" * 70)
+
+
+if __name__ == "__main__":
+    main()
+
+```
+
 # scripts/train_mlp.py
 
 ```py
@@ -14895,11 +15765,13 @@ from fmri2img.data.clip_cache import CLIPCache
 from fmri2img.io.s3 import get_s3_filesystem, NIfTILoader
 from fmri2img.models.encoders import (
     TwoStageEncoder,
+    MultiLayerTwoStageEncoder,
     SelfSupervisedPretrainer,
     save_two_stage_encoder,
-    load_two_stage_encoder
+    load_two_stage_encoder,
+    load_multilayer_two_stage_encoder
 )
-from fmri2img.training.losses import MultiLoss, compute_multiloss
+from fmri2img.training.losses import MultiLoss, MultiLayerLoss, compute_multiloss
 from fmri2img.models.train_utils import (
     extract_features_and_targets,
     train_val_test_split,
@@ -14988,6 +15860,213 @@ def evaluate_epoch(
     metrics = evaluate_predictions(Y_true, Y_pred, normalize=True)
     
     return metrics
+
+
+def train_epoch_multilayer(
+    model: MultiLayerTwoStageEncoder,
+    loader: DataLoader,
+    optimizer: torch.optim.Optimizer,
+    criterion: MultiLayerLoss,
+    device: str,
+    epoch: int
+) -> Tuple[float, Dict[str, float]]:
+    """Train for one epoch with multi-layer supervision."""
+    model.train()
+    total_loss = 0.0
+    loss_components_sum = {"layer_4": 0.0, "layer_8": 0.0, "layer_12": 0.0, "final": 0.0}
+    n_batches = 0
+    
+    pbar = tqdm(loader, desc=f"Epoch {epoch}", leave=False)
+    for X_batch, Y_batch_dict in pbar:
+        X_batch = X_batch.to(device)
+        # Move all target layers to device
+        Y_batch_dict = {k: v.to(device) for k, v in Y_batch_dict.items()}
+        
+        optimizer.zero_grad()
+        Y_pred_dict = model(X_batch)
+        
+        # Compute multi-layer loss with components
+        # Pass model for Phase 3 multi-layer InfoNCE
+        loss, components = criterion(Y_pred_dict, Y_batch_dict, model=model, return_components=True)
+        loss.backward()
+        
+        # Gradient clipping for stability
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        
+        optimizer.step()
+        
+        # Accumulate losses
+        total_loss += loss.item() * len(X_batch)
+        for key in loss_components_sum:
+            if key in components:
+                loss_components_sum[key] += components[key] * len(X_batch)
+        n_batches += 1
+        
+        # Update progress bar
+        pbar.set_postfix({
+            "loss": f"{loss.item():.4f}",
+            "l4": f"{components.get('layer_4', 0):.3f}",
+            "l8": f"{components.get('layer_8', 0):.3f}",
+            "l12": f"{components.get('layer_12', 0):.3f}",
+            "fin": f"{components.get('final', 0):.3f}"
+        })
+    
+    # Average over all samples
+    n_samples = len(loader.dataset)
+    avg_loss = total_loss / n_samples
+    avg_components = {k: v / n_samples for k, v in loss_components_sum.items()}
+    
+    return avg_loss, avg_components
+
+
+@torch.no_grad()
+def evaluate_epoch_multilayer(
+    model: MultiLayerTwoStageEncoder,
+    loader: DataLoader,
+    device: str
+) -> Dict:
+    """Evaluate multi-layer model on validation/test set (using final layer only)."""
+    model.eval()
+    
+    all_preds = []
+    all_targets = []
+    
+    for X_batch, Y_batch_dict in loader:
+        X_batch = X_batch.to(device)
+        Y_pred_dict = model(X_batch)
+        
+        # Use final layer for evaluation
+        all_preds.append(Y_pred_dict['final'].cpu().numpy())
+        all_targets.append(Y_batch_dict['final'].numpy())
+    
+    Y_pred = np.vstack(all_preds)
+    Y_true = np.vstack(all_targets)
+    
+    # Compute metrics
+    metrics = evaluate_predictions(Y_true, Y_pred, normalize=True)
+    
+    return metrics
+
+
+def load_multilayer_clip_cache(cache_path: str) -> Dict[int, Dict[str, np.ndarray]]:
+    """
+    Load multi-layer CLIP cache from parquet file.
+    
+    Returns:
+        Dict mapping nsdId to layer features:
+        {nsdId: {'layer_4': array(768,), 'layer_8': ..., 'layer_12': ..., 'final': array(512,)}}
+    """
+    logger.info(f"Loading multi-layer CLIP cache from {cache_path}...")
+    df = pd.read_parquet(cache_path)
+    
+    cache_dict = {}
+    for _, row in df.iterrows():
+        nsd_id = int(row['nsdId'])
+        cache_dict[nsd_id] = {
+            'layer_4': np.array(row['layer_4'], dtype=np.float32),
+            'layer_8': np.array(row['layer_8'], dtype=np.float32),
+            'layer_12': np.array(row['layer_12'], dtype=np.float32),
+            'final': np.array(row['final'], dtype=np.float32)
+        }
+    
+    logger.info(f"  Loaded {len(cache_dict)} multi-layer embeddings")
+    return cache_dict
+
+
+def extract_features_and_multilayer_targets(
+    df: pd.DataFrame,
+    nifti_loader: NIfTILoader,
+    preprocessor: NSDPreprocessor,
+    multilayer_cache: Dict[int, Dict[str, np.ndarray]],
+    desc: str = "data"
+) -> Tuple[np.ndarray, Dict[str, np.ndarray], np.ndarray]:
+    """
+    Extract fMRI features and multi-layer CLIP targets.
+    Uses same optimization as extract_features_and_targets: group by file to load each once.
+    
+    Returns:
+        X: fMRI features (N, fmri_dim)
+        Y_dict: Dict of CLIP targets {'layer_4': (N, 768), ..., 'final': (N, 512)}
+        nsd_ids: NSD stimulus IDs (N,)
+    """
+    from collections import defaultdict
+    
+    X_list = []
+    Y_dict_lists = {'layer_4': [], 'layer_8': [], 'layer_12': [], 'final': []}
+    nsd_ids_list = []
+    
+    # Group samples by beta_path to load each file only once (OPTIMIZATION)
+    samples_by_file = defaultdict(list)
+    for idx, row in df.iterrows():
+        nsd_id = int(row["nsdId"])
+        
+        # Skip if no multi-layer embedding
+        if nsd_id not in multilayer_cache:
+            continue
+        
+        beta_path = row["beta_path"]
+        samples_by_file[beta_path].append({
+            'beta_index': int(row["beta_index"]),
+            'nsdId': nsd_id,
+            'row_idx': idx
+        })
+    
+    logger.info(f"Extracting {desc}: {len(df)} samples from {len(samples_by_file)} unique files")
+    
+    # Process each beta file once
+    pbar = tqdm(samples_by_file.items(), desc=f"Loading {desc}")
+    for beta_path, samples in pbar:
+        try:
+            # Load the 4D beta file ONCE
+            img = nifti_loader.load(beta_path)
+            data_4d = img.get_fdata()
+            
+            # Extract all volumes needed from this file
+            for sample in samples:
+                try:
+                    beta_index = sample['beta_index']
+                    nsd_id = sample['nsdId']
+                    
+                    # Extract single volume
+                    vol = data_4d[..., beta_index].astype(np.float32)
+                    
+                    # Apply preprocessing (same as extract_features_and_targets)
+                    if preprocessor and preprocessor.is_fitted_:
+                        # T0: z-score (online)
+                        vol_z = preprocessor.transform_T0(vol)
+                        # T1 + T2: scaler + reliability mask + PCA
+                        features = preprocessor.transform(vol_z)
+                    else:
+                        # No preprocessing: flatten
+                        features = vol.flatten()
+                    
+                    # Get multi-layer targets
+                    y_dict = multilayer_cache[nsd_id]
+                    
+                    X_list.append(features)
+                    for layer_name in Y_dict_lists:
+                        Y_dict_lists[layer_name].append(y_dict[layer_name])
+                    nsd_ids_list.append(nsd_id)
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to extract sample {nsd_id} from {beta_path}[{beta_index}]: {e}")
+                    continue
+                    
+        except Exception as e:
+            logger.warning(f"Failed to load {beta_path}: {e}")
+            continue
+    
+    X = np.array(X_list, dtype=np.float32)
+    Y_dict = {k: np.array(v, dtype=np.float32) for k, v in Y_dict_lists.items()}
+    nsd_ids = np.array(nsd_ids_list, dtype=np.int64)
+    
+    logger.info(f"  {desc}: {len(X)} samples successfully extracted")
+    if len(X) > 0:
+        logger.info(f"    fMRI shape: {X.shape}")
+        for layer_name, layer_data in Y_dict.items():
+            logger.info(f"    {layer_name} shape: {layer_data.shape}")
+    
+    return X, Y_dict, nsd_ids
 
 
 def pretrain_ssl(
@@ -15084,6 +16163,14 @@ def merge_config_and_args(config: Dict, args: argparse.Namespace) -> argparse.Na
         if "subject" in config["dataset"] and not hasattr(args, "subject"):
             setattr(args, "subject", config["dataset"]["subject"])
     
+    # Multi-layer supervision config
+    if "multi_layer" in config:
+        ml_config = config["multi_layer"]
+        if ml_config.get("enabled", False) and not args.multi_layer:
+            args.multi_layer = True
+        if "cache_path" in ml_config and not hasattr(args, "multilayer_cache"):
+            args.multilayer_cache = ml_config["cache_path"]
+    
     # Set use_preproc if pca_k is specified
     if hasattr(args, "pca_k") and args.pca_k is not None:
         args.use_preproc = True
@@ -15136,6 +16223,13 @@ def main():
     parser.add_argument("--cosine-weight", type=float, default=0.3)
     parser.add_argument("--info-nce-weight", type=float, default=0.4)
     parser.add_argument("--temperature", type=float, default=0.05)
+    
+    # Multi-layer supervision (Phase 3)
+    parser.add_argument("--multi-layer", action="store_true",
+                       help="Enable multi-layer CLIP supervision")
+    parser.add_argument("--multilayer-cache", type=str,
+                       default="cache/clip_embeddings/nsd_clipcache_multilayer.parquet",
+                       help="Path to multi-layer CLIP cache")
     
     # Training
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -15212,52 +16306,119 @@ def main():
     fs = get_s3_filesystem()
     nifti_loader = NIfTILoader(fs)
     
-    # Extract features and targets
-    logger.info("Extracting training data...")
-    X_train, Y_train, _ = extract_features_and_targets(
-        train_df, nifti_loader, preprocessor, clip_cache, desc="train"
-    )
+    # Check if multi-layer mode is enabled
+    if args.multi_layer:
+        logger.info("=" * 70)
+        logger.info("MULTI-LAYER SUPERVISION MODE ENABLED")
+        logger.info("=" * 70)
+        
+        # Load multi-layer CLIP cache
+        multilayer_cache = load_multilayer_clip_cache(args.multilayer_cache)
+        
+        # Extract features and multi-layer targets
+        logger.info("Extracting training data...")
+        X_train, Y_train_dict, _ = extract_features_and_multilayer_targets(
+            train_df, nifti_loader, preprocessor, multilayer_cache, desc="train"
+        )
+        
+        logger.info("Extracting validation data...")
+        X_val, Y_val_dict, _ = extract_features_and_multilayer_targets(
+            val_df, nifti_loader, preprocessor, multilayer_cache, desc="val"
+        )
+        
+        logger.info("Extracting test data...")
+        X_test, Y_test_dict, nsd_ids_test = extract_features_and_multilayer_targets(
+            test_df, nifti_loader, preprocessor, multilayer_cache, desc="test"
+        )
+        
+        # Create datasets with dict targets
+        class MultiLayerDataset(torch.utils.data.Dataset):
+            def __init__(self, X, Y_dict):
+                self.X = torch.from_numpy(X).float()
+                self.Y_dict = {k: torch.from_numpy(v).float() for k, v in Y_dict.items()}
+            
+            def __len__(self):
+                return len(self.X)
+            
+            def __getitem__(self, idx):
+                return self.X[idx], {k: v[idx] for k, v in self.Y_dict.items()}
+        
+        train_dataset = MultiLayerDataset(X_train, Y_train_dict)
+        val_dataset = MultiLayerDataset(X_val, Y_val_dict)
+        test_dataset = MultiLayerDataset(X_test, Y_test_dict)
+        
+    else:
+        # Standard single-layer mode
+        logger.info("Standard single-layer CLIP supervision")
+        
+        # Load regular CLIP cache
+        clip_cache = CLIPCache(args.clip_cache)
+        
+        # Extract features and targets
+        logger.info("Extracting training data...")
+        X_train, Y_train, _ = extract_features_and_targets(
+            train_df, nifti_loader, preprocessor, clip_cache, desc="train"
+        )
+        
+        logger.info("Extracting validation data...")
+        X_val, Y_val, _ = extract_features_and_targets(
+            val_df, nifti_loader, preprocessor, clip_cache, desc="val"
+        )
+        
+        logger.info("Extracting test data...")
+        X_test, Y_test, nsd_ids_test = extract_features_and_targets(
+            test_df, nifti_loader, preprocessor, clip_cache, desc="test"
+        )
+        
+        # Create data loaders
+        train_dataset = TensorDataset(
+            torch.from_numpy(X_train).float(),
+            torch.from_numpy(Y_train).float()
+        )
+        val_dataset = TensorDataset(
+            torch.from_numpy(X_val).float(),
+            torch.from_numpy(Y_val).float()
+        )
+        test_dataset = TensorDataset(
+            torch.from_numpy(X_test).float(),
+            torch.from_numpy(Y_test).float()
+        )
     
-    logger.info("Extracting validation data...")
-    X_val, Y_val, _ = extract_features_and_targets(
-        val_df, nifti_loader, preprocessor, clip_cache, desc="val"
-    )
-    
-    logger.info("Extracting test data...")
-    X_test, Y_test, nsd_ids_test = extract_features_and_targets(
-        test_df, nifti_loader, preprocessor, clip_cache, desc="test"
-    )
-    
-    # Create data loaders
-    train_dataset = TensorDataset(
-        torch.from_numpy(X_train).float(),
-        torch.from_numpy(Y_train).float()
-    )
-    val_dataset = TensorDataset(
-        torch.from_numpy(X_val).float(),
-        torch.from_numpy(Y_val).float()
-    )
-    test_dataset = TensorDataset(
-        torch.from_numpy(X_test).float(),
-        torch.from_numpy(Y_test).float()
-    )
-    
+    # Create data loaders (same for both modes)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
     
     # Create model
     input_dim = X_train.shape[1]
-    logger.info(f"Creating TwoStageEncoder: input_dim={input_dim}, latent_dim={args.latent_dim}, n_blocks={args.n_blocks}")
     
-    model = TwoStageEncoder(
-        input_dim=input_dim,
-        latent_dim=args.latent_dim,
-        n_blocks=args.n_blocks,
-        dropout=args.dropout,
-        head_type=args.head_type,
-        head_hidden_dim=args.head_hidden
-    ).to(device)
+    if args.multi_layer:
+        # Get shared_head_backbone from config (Phase 2)
+        shared_head_backbone = config.get('encoder', {}).get('shared_head_backbone', False)
+        
+        logger.info(f"Creating MultiLayerTwoStageEncoder: input_dim={input_dim}, latent_dim={args.latent_dim}, n_blocks={args.n_blocks}")
+        logger.info(f"  Shared head backbone: {shared_head_backbone}")
+        
+        model = MultiLayerTwoStageEncoder(
+            input_dim=input_dim,
+            latent_dim=args.latent_dim,
+            n_blocks=args.n_blocks,
+            dropout=args.dropout,
+            head_type=args.head_type,
+            head_hidden_dim=args.head_hidden,
+            shared_head_backbone=shared_head_backbone
+        ).to(device)
+    else:
+        logger.info(f"Creating TwoStageEncoder: input_dim={input_dim}, latent_dim={args.latent_dim}, n_blocks={args.n_blocks}")
+        
+        model = TwoStageEncoder(
+            input_dim=input_dim,
+            latent_dim=args.latent_dim,
+            n_blocks=args.n_blocks,
+            dropout=args.dropout,
+            head_type=args.head_type,
+            head_hidden_dim=args.head_hidden
+        ).to(device)
     
     logger.info(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
     
@@ -15304,12 +16465,52 @@ def main():
     
     scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs)
     
-    criterion = MultiLoss(
-        mse_weight=args.mse_weight,
-        cosine_weight=args.cosine_weight,
-        info_nce_weight=args.info_nce_weight,
-        temperature=args.temperature
-    )
+    if args.multi_layer:
+        # Multi-layer loss from config
+        ml_config = config.get('multi_layer', {})
+        layer_weights = ml_config.get('layer_weights', {
+            'layer_4': 0.15,
+            'layer_8': 0.20,
+            'layer_12': 0.25,
+            'final': 0.40
+        })
+        use_learnable_weights = ml_config.get('use_learnable_weights', False)
+        use_mse = ml_config.get('use_mse', False)
+        mse_weight = ml_config.get('mse_weight', 0.1)
+        
+        # Phase 3: Multi-layer InfoNCE parameters
+        loss_config = config.get('loss', {})
+        use_multilayer_infonce = loss_config.get('use_multilayer_infonce', False)
+        infonce_weight = loss_config.get('info_nce_weight', 0.4) * 0.5  # Use half of standard InfoNCE weight
+        infonce_temperature = loss_config.get('temperature', 0.05)
+        infonce_combination = loss_config.get('infonce_combination', 'weighted_pool')
+        
+        criterion = MultiLayerLoss(
+            layer_weights=layer_weights,
+            use_mse=use_mse,
+            mse_weight=mse_weight,
+            use_learnable_weights=use_learnable_weights,
+            use_multilayer_infonce=use_multilayer_infonce,
+            infonce_weight=infonce_weight,
+            infonce_temperature=infonce_temperature,
+            infonce_combination=infonce_combination
+        )
+        
+        if use_learnable_weights:
+            logger.info(f"Using MultiLayerLoss with LEARNABLE weights (initialized from: {layer_weights})")
+        else:
+            logger.info(f"Using MultiLayerLoss with FIXED weights: {layer_weights}")
+        
+        if use_multilayer_infonce:
+            logger.info(f"Phase 3: Multi-layer InfoNCE ENABLED (weight={infonce_weight:.3f}, strategy={infonce_combination})")
+    else:
+        criterion = MultiLoss(
+            mse_weight=args.mse_weight,
+            cosine_weight=args.cosine_weight,
+            info_nce_weight=args.info_nce_weight,
+            temperature=args.temperature
+        )
+        logger.info(f"Loss weights: MSE={args.mse_weight}, Cosine={args.cosine_weight}, InfoNCE={args.info_nce_weight}")
     
     # Training loop with early stopping
     best_val_cosine = -1.0
@@ -15317,25 +16518,58 @@ def main():
     patience_counter = 0
     
     logger.info("Starting training...")
-    logger.info(f"Loss weights: MSE={args.mse_weight}, Cosine={args.cosine_weight}, InfoNCE={args.info_nce_weight}")
     
     for epoch in range(1, args.epochs + 1):
         # Train
-        train_loss, train_components = train_epoch(
-            model, train_loader, optimizer, criterion, device, epoch
-        )
+        if args.multi_layer:
+            train_loss, train_components = train_epoch_multilayer(
+                model, train_loader, optimizer, criterion, device, epoch
+            )
+            # Validate
+            val_metrics = evaluate_epoch_multilayer(model, val_loader, device)
+        else:
+            train_loss, train_components = train_epoch(
+                model, train_loader, optimizer, criterion, device, epoch
+            )
+            # Validate
+            val_metrics = evaluate_epoch(model, val_loader, device)
         
-        # Validate
-        val_metrics = evaluate_epoch(model, val_loader, device)
         val_cosine = val_metrics["cosine"]
         
-        # Log
-        logger.info(
-            f"Epoch {epoch}/{args.epochs}: "
-            f"Train Loss={train_loss:.4f} (MSE={train_components['mse']:.4f}, "
-            f"Cos={train_components['cosine']:.4f}, NCE={train_components['info_nce']:.4f}), "
-            f"Val Cosine={val_cosine:.4f}"
-        )
+        # Log (handle both single-layer and multi-layer modes)
+        if args.multi_layer:
+            # Multi-layer components: layer_4, layer_8, layer_12, final
+            logger.info(
+                f"Epoch {epoch}/{args.epochs}: "
+                f"Train Loss={train_loss:.4f} "
+                f"(L4={train_components.get('layer_4', 0):.3f}, "
+                f"L8={train_components.get('layer_8', 0):.3f}, "
+                f"L12={train_components.get('layer_12', 0):.3f}, "
+                f"Fin={train_components.get('final', 0):.3f}), "
+                f"Val Cosine={val_cosine:.4f}"
+            )
+            
+            # Log effective weights periodically (every 5 epochs) if learnable
+            if hasattr(criterion, 'use_learnable_weights') and criterion.use_learnable_weights:
+                if epoch % 5 == 0 or epoch == 1:
+                    eff_weights = criterion.get_effective_weights()
+                    logger.info(
+                        f"  → Learned weights: "
+                        f"L4={eff_weights['layer_4']:.3f}, "
+                        f"L8={eff_weights['layer_8']:.3f}, "
+                        f"L12={eff_weights['layer_12']:.3f}, "
+                        f"Fin={eff_weights['final']:.3f}"
+                    )
+        else:
+            # Single-layer components: mse, cosine, info_nce
+            logger.info(
+                f"Epoch {epoch}/{args.epochs}: "
+                f"Train Loss={train_loss:.4f} "
+                f"(MSE={train_components.get('mse', 0):.4f}, "
+                f"Cos={train_components.get('cosine', 0):.4f}, "
+                f"NCE={train_components.get('info_nce', 0):.4f}), "
+                f"Val Cosine={val_cosine:.4f}"
+            )
         
         # Early stopping
         if val_cosine > best_val_cosine:
@@ -15357,6 +16591,7 @@ def main():
                 "dropout": args.dropout,
                 "head_type": args.head_type,
                 "head_hidden_dim": args.head_hidden,
+                "shared_head_backbone": shared_head_backbone if args.multi_layer else False,
                 "best_epoch": best_epoch,
                 "best_val_cosine": best_val_cosine,
                 "pca_k": args.pca_k,
@@ -15377,38 +16612,75 @@ def main():
     
     # Load best model and evaluate on test set
     logger.info(f"Loading best model from epoch {best_epoch}...")
-    model, meta = load_two_stage_encoder(str(checkpoint_path), map_location=device)
-    model = model.to(device)
     
-    test_metrics = evaluate_epoch(model, test_loader, device)
-    
-    logger.info("=" * 80)
-    logger.info("FINAL TEST RESULTS")
-    logger.info("=" * 80)
-    logger.info(f"Test Cosine: {test_metrics['cosine']:.4f}")
-    logger.info(f"Test MSE: {test_metrics['mse']:.6f}")
-    
-    # Save evaluation report
-    report = {
-        "model": "TwoStageEncoder",
-        "subject": args.subject,
-        "architecture": {
-            "input_dim": input_dim,
-            "latent_dim": args.latent_dim,
-            "n_blocks": args.n_blocks,
-            "dropout": args.dropout,
-            "head_type": args.head_type
-        },
-        "training": {
-            "best_epoch": best_epoch,
-            "best_val_cosine": best_val_cosine,
-            "self_supervised": args.self_supervised,
-            "ssl_objective": args.ssl_objective if args.self_supervised else None,
-            "freeze_stage1": args.freeze_stage1
-        },
-        "test_metrics": test_metrics,
-        "checkpoint": str(checkpoint_path)
-    }
+    if args.multi_layer:
+        model, meta = load_multilayer_two_stage_encoder(str(checkpoint_path), map_location=device)
+        model = model.to(device)
+        test_metrics = evaluate_epoch_multilayer(model, test_loader, device)
+        
+        logger.info("=" * 80)
+        logger.info("FINAL TEST RESULTS (Multi-Layer)")
+        logger.info("=" * 80)
+        logger.info(f"Test Cosine (final layer): {test_metrics['cosine']:.4f}")
+        
+        # Save evaluation report
+        report = {
+            "model": "MultiLayerTwoStageEncoder",
+            "subject": args.subject,
+            "architecture": {
+                "input_dim": input_dim,
+                "latent_dim": args.latent_dim,
+                "n_blocks": args.n_blocks,
+                "dropout": args.dropout,
+                "layer_dims": {
+                    "layer_4": 768,
+                    "layer_8": 768,
+                    "layer_12": 768,
+                    "final": 512
+                }
+            },
+            "training": {
+                "best_epoch": best_epoch,
+                "best_val_cosine": best_val_cosine,
+                "multi_layer": True,
+                "layer_weights": config["multi_layer"]["layer_weights"]
+            },
+            "test_metrics": test_metrics,
+            "checkpoint": str(checkpoint_path)
+        }
+    else:
+        model, meta = load_two_stage_encoder(str(checkpoint_path), map_location=device)
+        model = model.to(device)
+        test_metrics = evaluate_epoch(model, test_loader, device)
+        
+        logger.info("=" * 80)
+        logger.info("FINAL TEST RESULTS")
+        logger.info("=" * 80)
+        logger.info(f"Test Cosine: {test_metrics['cosine']:.4f}")
+        logger.info(f"Test MSE: {test_metrics['mse']:.6f}")
+        
+        # Save evaluation report
+        report = {
+            "model": "TwoStageEncoder",
+            "subject": args.subject,
+            "architecture": {
+                "input_dim": input_dim,
+                "latent_dim": args.latent_dim,
+                "n_blocks": args.n_blocks,
+                "dropout": args.dropout,
+                "head_type": args.head_type
+            },
+            "training": {
+                "best_epoch": best_epoch,
+                "best_val_cosine": best_val_cosine,
+                "self_supervised": args.self_supervised,
+                "ssl_objective": args.ssl_objective if args.self_supervised else None,
+                "freeze_stage1": args.freeze_stage1
+            },
+            "test_metrics": test_metrics,
+            "checkpoint": str(checkpoint_path)
+        }
+
     
     report_path = checkpoint_dir / "evaluation_report.json"
     with open(report_path, "w") as f:
@@ -20884,32 +22156,46 @@ def info_nce_loss(
 
 class MultiLoss(nn.Module):
     """
-    Combined multi-objective loss for CLIP alignment.
+    Combined multi-objective loss for CLIP alignment with optional brain-consistency.
     
     Combines MSE, cosine, and InfoNCE losses with configurable weights:
-        L_total = w_mse * L_mse + w_cos * L_cos + w_nce * L_nce
+        L_total = w_mse * L_mse + w_cos * L_cos + w_nce * L_nce + w_brain * L_brain
     
     Args:
         mse_weight: Weight for MSE loss (default: 0.3)
         cosine_weight: Weight for cosine loss (default: 0.3)
         info_nce_weight: Weight for InfoNCE loss (default: 0.4)
+        brain_consistency_weight: Weight for brain cycle loss (default: 0.0)
         temperature: Temperature for InfoNCE (default: 0.05)
         log_components: Whether to return individual loss components (default: False)
+        clip_to_fmri_encoder: Optional frozen CLIP→fMRI encoder for cycle loss
     
     Scientific Rationale:
     - MSE: magnitude alignment
     - Cosine: directional alignment
     - InfoNCE: discriminative learning
+    - Brain consistency: cycle-consistency regularization
     - Balanced weights (0.3/0.3/0.4) prioritize discrimination slightly
     - Can adjust weights via config for ablation studies
     
     Example:
+        >>> # Without brain consistency
         >>> criterion = MultiLoss(mse_weight=0.3, cosine_weight=0.3, 
-        ...                       info_nce_weight=0.4, temperature=0.05)
-        >>> pred = model(fmri_batch)
-        >>> loss, components = criterion(pred, clip_targets, return_components=True)
-        >>> print(f"Total: {loss:.3f}, MSE: {components['mse']:.3f}, "
-        ...       f"Cosine: {components['cosine']:.3f}, InfoNCE: {components['info_nce']:.3f}")
+        ...                       info_nce_weight=0.4)
+        >>> 
+        >>> # With brain consistency
+        >>> criterion = MultiLoss(
+        ...     mse_weight=0.3, cosine_weight=0.3, info_nce_weight=0.4,
+        ...     brain_consistency_weight=0.1,
+        ...     clip_to_fmri_encoder=encoder
+        ... )
+        >>> 
+        >>> # In training loop
+        >>> loss, components = criterion(
+        ...     pred_clip, true_clip, 
+        ...     fmri_input=fmri_pca,  # Required for brain loss
+        ...     return_components=True
+        ... )
     """
     
     def __init__(
@@ -20917,58 +22203,89 @@ class MultiLoss(nn.Module):
         mse_weight: float = 0.3,
         cosine_weight: float = 0.3,
         info_nce_weight: float = 0.4,
+        brain_consistency_weight: float = 0.0,
         temperature: float = 0.05,
-        log_components: bool = False
+        log_components: bool = False,
+        clip_to_fmri_encoder: Optional[nn.Module] = None
     ):
         super().__init__()
         self.mse_weight = mse_weight
         self.cosine_weight = cosine_weight
         self.info_nce_weight = info_nce_weight
+        self.brain_consistency_weight = brain_consistency_weight
         self.temperature = temperature
         self.log_components = log_components
+        self.clip_to_fmri_encoder = clip_to_fmri_encoder
+        
+        # Validate brain consistency setup
+        if brain_consistency_weight > 0 and clip_to_fmri_encoder is None:
+            raise ValueError(
+                "brain_consistency_weight > 0 requires clip_to_fmri_encoder. "
+                "Either set weight to 0 or provide the encoder."
+            )
+        
+        # Freeze encoder if provided
+        if clip_to_fmri_encoder is not None:
+            for param in clip_to_fmri_encoder.parameters():
+                param.requires_grad = False
+            clip_to_fmri_encoder.eval()
         
         # Validate weights
         total_weight = mse_weight + cosine_weight + info_nce_weight
         if not torch.isclose(torch.tensor(total_weight), torch.tensor(1.0), atol=1e-3):
-            logger.warning(f"Loss weights sum to {total_weight:.3f}, not 1.0. This is okay but may affect learning rate tuning.")
+            logger.warning(f"CLIP loss weights sum to {total_weight:.3f}, not 1.0. This is okay but may affect learning rate tuning.")
     
     def forward(
         self,
         pred: torch.Tensor,
         target: torch.Tensor,
+        fmri_input: Optional[torch.Tensor] = None,
         return_components: bool = False
     ) -> torch.Tensor | tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         """
         Compute combined loss.
         
         Args:
-            pred: Predicted embeddings (B, D), L2-normalized
-            target: Target embeddings (B, D), L2-normalized
+            pred: Predicted CLIP embeddings (B, D), L2-normalized
+            target: Target CLIP embeddings (B, D), L2-normalized
+            fmri_input: Original fMRI PCA features (B, fmri_dim), required if brain_weight > 0
             return_components: If True, return (total_loss, components_dict)
         
         Returns:
             If return_components=False: total_loss (scalar)
             If return_components=True: (total_loss, components_dict)
-                components_dict = {"mse": scalar, "cosine": scalar, "info_nce": scalar}
+                components_dict = {"mse": scalar, "cosine": scalar, "info_nce": scalar, "brain": scalar}
         """
-        # Compute individual losses
+        # Compute CLIP alignment losses
         loss_mse = mse_loss(pred, target)
         loss_cos = cosine_loss(pred, target)
         loss_nce = info_nce_loss(pred, target, temperature=self.temperature)
         
-        # Weighted combination
+        # Weighted combination for CLIP losses
         total_loss = (
             self.mse_weight * loss_mse +
             self.cosine_weight * loss_cos +
             self.info_nce_weight * loss_nce
         )
         
+        # Add brain-consistency loss if enabled
+        loss_brain = torch.tensor(0.0, device=pred.device)
+        if self.brain_consistency_weight > 0:
+            if fmri_input is None:
+                raise ValueError(
+                    "fmri_input required for brain-consistency loss. "
+                    "Pass the original fMRI PCA features."
+                )
+            loss_brain = brain_consistency_loss(pred, fmri_input, self.clip_to_fmri_encoder)
+            total_loss = total_loss + self.brain_consistency_weight * loss_brain
+        
         if return_components or self.log_components:
             components = {
-                "mse": loss_mse.item(),
-                "cosine": loss_cos.item(),
-                "info_nce": loss_nce.item(),
-                "total": total_loss.item()
+                "mse": loss_mse.item() if isinstance(loss_mse, torch.Tensor) else loss_mse,
+                "cosine": loss_cos.item() if isinstance(loss_cos, torch.Tensor) else loss_cos,
+                "info_nce": loss_nce.item() if isinstance(loss_nce, torch.Tensor) else loss_nce,
+                "brain": loss_brain.item() if isinstance(loss_brain, torch.Tensor) else loss_brain,
+                "total": total_loss.item() if isinstance(total_loss, torch.Tensor) else total_loss
             }
             
             if return_components:
@@ -20976,7 +22293,7 @@ class MultiLoss(nn.Module):
             else:
                 # Just log internally
                 if self.log_components:
-                    logger.debug(f"Loss components: MSE={loss_mse:.4f}, Cos={loss_cos:.4f}, NCE={loss_nce:.4f}")
+                    logger.debug(f"Loss components: MSE={loss_mse:.4f}, Cos={loss_cos:.4f}, NCE={loss_nce:.4f}, Brain={loss_brain:.4f}")
         
         return total_loss
 
@@ -21065,6 +22382,306 @@ def compose_loss(
     loss_cos = cosine_loss(pred, target)
     loss_mse = mse_loss(pred, target)
     return loss_cos + mse_weight * loss_mse
+
+
+def brain_consistency_loss(
+    clip_pred: torch.Tensor,
+    fmri_true: torch.Tensor,
+    clip_to_fmri_encoder: torch.nn.Module
+) -> torch.Tensor:
+    """
+    Brain-consistency (cycle) loss using CLIP→fMRI encoder.
+    
+    Measures how well predicted CLIP embeddings can reconstruct the original fMRI:
+    
+        fMRI_true → Decoder → CLIP_pred → Encoder → fMRI_reconstructed
+        Loss = MSE(fMRI_reconstructed, fMRI_true)
+    
+    This acts as a regularizer: predicted CLIP embeddings must be brain-plausible,
+    i.e., they should map back to valid fMRI patterns consistent with the input.
+    
+    Scientific Rationale:
+    - Inspired by cycle-consistency in CycleGAN (Zhu et al. 2017)
+    - Ensures predictions lie in a brain-realistic subspace of CLIP space
+    - Acts as implicit regularization without explicit constraints
+    - Novel application: most fMRI→image papers don't use cycle loss
+    
+    Args:
+        clip_pred: Predicted CLIP embeddings from decoder (B, 512)
+        fmri_true: Original fMRI PCA features (B, fmri_dim)
+        clip_to_fmri_encoder: Frozen CLIP→fMRI encoder
+    
+    Returns:
+        Scalar MSE loss between reconstructed and true fMRI
+    
+    Example:
+        >>> # In decoder training loop
+        >>> z_pred = decoder(fmri_pca)  # Predict CLIP
+        >>> 
+        >>> # Standard losses
+        >>> loss_clip = compute_multiloss(z_pred, z_true, config)
+        >>> 
+        >>> # Add brain-consistency loss
+        >>> loss_brain = brain_consistency_loss(
+        >>>     z_pred, fmri_pca, clip_to_fmri_encoder
+        >>> )
+        >>> 
+        >>> # Combined loss
+        >>> total_loss = loss_clip + brain_weight * loss_brain
+    """
+    # Reconstruct fMRI from predicted CLIP
+    with torch.no_grad():
+        # Encoder is frozen, no gradients needed for its parameters
+        clip_to_fmri_encoder.eval()
+    
+    fmri_reconstructed = clip_to_fmri_encoder(clip_pred)
+    
+    # MSE between reconstructed and true fMRI
+    loss = torch.nn.functional.mse_loss(fmri_reconstructed, fmri_true)
+    
+    return loss
+
+
+class MultiLayerLoss(nn.Module):
+    """
+    Multi-layer CLIP supervision loss for hierarchical feature learning.
+    
+    Computes weighted cosine similarity loss across multiple ViT layers:
+        L_total = Σ w_i * (1 - cos_sim(pred_i, target_i))
+    
+    Where i ∈ {layer_4, layer_8, layer_12, final} and w_i are layer weights.
+    
+    **Phase 1 Enhancement**: Supports both fixed and learnable layer weights.
+    - Fixed weights: Manually specified via config (backward-compatible)
+    - Learnable weights: Optimized via softmax-normalized parameters during training
+    
+    **Phase 3 Enhancement**: Optional multi-layer InfoNCE for contrastive learning.
+    - Standard: InfoNCE only on final layer (if enabled)
+    - Multi-layer: InfoNCE on combined representation from all layers
+    - Provides richer contrastive signal (+2-3% expected improvement)
+    
+    Architecture Rationale:
+    - Early layers (4, 8): Low-level visual features, high spatial resolution
+    - Late layers (12): Semantic features, more abstract
+    - Final: Global image representation, CLIP embedding space
+    - Multi-level supervision improves gradient flow and feature learning
+    
+    Args:
+        layer_weights: Dict mapping layer names to weights (default: uniform)
+        use_mse: If True, also include MSE term (default: False)
+        mse_weight: Weight for MSE component if enabled (default: 0.1)
+        use_learnable_weights: If True, learn layer weights via gradient descent (default: False)
+        use_multilayer_infonce: If True, add InfoNCE on combined multi-layer representation (default: False)
+        infonce_weight: Weight for InfoNCE loss if enabled (default: 0.2)
+        infonce_temperature: Temperature for InfoNCE (default: 0.05)
+        infonce_combination: Strategy for combining layers ("weighted_pool", "concat_project", "average")
+    
+    Example:
+        >>> # Fixed weights (backward-compatible)
+        >>> criterion = MultiLayerLoss(layer_weights={
+        ...     'layer_4': 0.15,
+        ...     'layer_8': 0.2,
+        ...     'layer_12': 0.25,
+        ...     'final': 0.4
+        ... })
+        >>> 
+        >>> # Learnable weights
+        >>> criterion = MultiLayerLoss(use_learnable_weights=True)
+        >>> # Weights are learned during training, logged periodically
+        >>> 
+        >>> # Multi-layer InfoNCE (Phase 3)
+        >>> criterion = MultiLayerLoss(
+        ...     use_learnable_weights=True,
+        ...     use_multilayer_infonce=True,
+        ...     infonce_weight=0.2,
+        ...     infonce_combination="weighted_pool"
+        ... )
+        >>> 
+        >>> # In training loop
+        >>> pred_dict = model(fmri)
+        >>> target_dict = load_multilayer_targets(batch)
+        >>> # Pass model for InfoNCE (needs get_infonce_representation method)
+        >>> loss, components = criterion(
+        ...     pred_dict, target_dict,
+        ...     model=model,  # Required if use_multilayer_infonce=True
+        ...     return_components=True
+        ... )
+        >>> 
+        >>> # Get current effective weights (fixed or learned)
+        >>> current_weights = criterion.get_effective_weights()
+    
+    Scientific Background:
+    - Feature Pyramid Networks (Lin et al. 2017): Multi-scale supervision
+    - U-Net (Ronneberger et al. 2015): Skip connections with multi-level loss
+    - ViT Analysis (Raghu et al. 2021): Different layers capture different semantics
+    - Task-dependent weighting (Kendall et al. 2018): Learning optimal task balance
+    - Expected improvement: +5-10% embedding similarity (Li et al. 2023)
+    """
+    
+    def __init__(
+        self,
+        layer_weights: Optional[Dict[str, float]] = None,
+        use_mse: bool = False,
+        mse_weight: float = 0.1,
+        use_learnable_weights: bool = False,
+        use_multilayer_infonce: bool = False,
+        infonce_weight: float = 0.2,
+        infonce_temperature: float = 0.05,
+        infonce_combination: str = "weighted_pool"
+    ):
+        super().__init__()
+        
+        self.use_mse = use_mse
+        self.mse_weight = mse_weight
+        self.use_learnable_weights = use_learnable_weights
+        
+        # Phase 3: Multi-layer InfoNCE
+        self.use_multilayer_infonce = use_multilayer_infonce
+        self.infonce_weight = infonce_weight
+        self.infonce_temperature = infonce_temperature
+        self.infonce_combination = infonce_combination
+        
+        # Determine layer order (consistent ordering for learnable weights)
+        self.layer_names = ['layer_4', 'layer_8', 'layer_12', 'final']
+        
+        if use_learnable_weights:
+            # Initialize learnable weight parameters (raw logits)
+            # Will be softmax-normalized to sum to 1.0
+            init_logits = torch.zeros(len(self.layer_names))
+            
+            # If fixed weights provided, use them as initialization
+            if layer_weights is not None:
+                for i, name in enumerate(self.layer_names):
+                    if name in layer_weights:
+                        # Convert weight to logit: w = exp(logit) / sum(exp(logits))
+                        # For init, use log(w) as rough approximation
+                        init_logits[i] = torch.log(torch.tensor(layer_weights[name]) + 1e-8)
+            
+            self.weight_logits = nn.Parameter(init_logits)
+            self.layer_weights = None  # Will be computed dynamically
+            logger.info(f"MultiLayerLoss initialized with LEARNABLE weights (init logits: {init_logits.tolist()})")
+        else:
+            # Fixed weights (backward-compatible)
+            if layer_weights is None:
+                self.layer_weights = {
+                    'layer_4': 0.2,
+                    'layer_8': 0.2,
+                    'layer_12': 0.3,
+                    'final': 0.3
+                }
+            else:
+                self.layer_weights = layer_weights
+            
+            # Validate and normalize fixed weights
+            total = sum(self.layer_weights.values())
+            if not torch.isclose(torch.tensor(total), torch.tensor(1.0), atol=1e-3):
+                logger.warning(f"Layer weights sum to {total:.3f}, not 1.0. Normalizing.")
+                self.layer_weights = {k: v/total for k, v in self.layer_weights.items()}
+            
+            self.weight_logits = None
+            logger.info(f"MultiLayerLoss initialized with FIXED weights: {self.layer_weights}")
+    
+    def get_effective_weights(self) -> Dict[str, float]:
+        """
+        Get current effective layer weights (fixed or learned).
+        
+        Returns:
+            Dict mapping layer names to current weights (sum to 1.0)
+        """
+        if self.use_learnable_weights:
+            # Compute softmax-normalized weights
+            weights_tensor = torch.softmax(self.weight_logits, dim=0)
+            return {name: weights_tensor[i].item() for i, name in enumerate(self.layer_names)}
+        else:
+            return self.layer_weights.copy()
+    
+    def forward(
+        self,
+        pred_dict: Dict[str, torch.Tensor],
+        target_dict: Dict[str, torch.Tensor],
+        model: Optional[nn.Module] = None,
+        return_components: bool = False
+    ) -> torch.Tensor | tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        """
+        Compute multi-layer loss.
+        
+        Args:
+            pred_dict: Predicted features {layer_name: (B, D)}
+            target_dict: Target features {layer_name: (B, D)}
+            model: Model instance (required if use_multilayer_infonce=True)
+            return_components: If True, return (total_loss, components_dict)
+        
+        Returns:
+            If return_components=False: total_loss (scalar)
+            If return_components=True: (total_loss, components_dict)
+                components_dict = {layer_name: scalar_loss, "infonce": scalar_loss, ...}
+        """
+        # Get current effective weights
+        if self.use_learnable_weights:
+            # Compute softmax-normalized weights dynamically
+            weights_tensor = torch.softmax(self.weight_logits, dim=0)
+            effective_weights = {name: weights_tensor[i] for i, name in enumerate(self.layer_names)}
+        else:
+            effective_weights = self.layer_weights
+        
+        total_loss = 0.0
+        components = {}
+        
+        for layer_name in self.layer_names:
+            if layer_name not in pred_dict or layer_name not in target_dict:
+                continue
+            
+            weight = effective_weights[layer_name]
+            pred = pred_dict[layer_name]  # (B, D)
+            target = target_dict[layer_name]  # (B, D)
+            
+            # Cosine similarity loss: 1 - cos_sim
+            cos_sim = torch.nn.functional.cosine_similarity(pred, target, dim=-1)  # (B,)
+            cos_loss = (1.0 - cos_sim).mean()
+            
+            # Optional MSE component
+            if self.use_mse:
+                mse_loss = torch.nn.functional.mse_loss(pred, target)
+                layer_loss = cos_loss + self.mse_weight * mse_loss
+            else:
+                layer_loss = cos_loss
+            
+            # Weighted sum (use tensor weight for learnable, float for fixed)
+            if self.use_learnable_weights:
+                total_loss = total_loss + weight * layer_loss
+            else:
+                total_loss = total_loss + weight * layer_loss
+            
+            components[layer_name] = layer_loss.item()
+        
+        # Phase 3: Multi-layer InfoNCE
+        if self.use_multilayer_infonce:
+            if model is None:
+                raise ValueError(
+                    "use_multilayer_infonce=True requires passing model to forward(). "
+                    "Model must have get_infonce_representation() method."
+                )
+            
+            # Get combined representation from model
+            z_pred = model.get_infonce_representation(
+                pred_dict,
+                strategy=self.infonce_combination
+            )
+            z_target = model.get_infonce_representation(
+                target_dict,
+                strategy=self.infonce_combination
+            )
+            
+            # Compute InfoNCE loss
+            loss_infonce = info_nce_loss(z_pred, z_target, temperature=self.infonce_temperature)
+            total_loss = total_loss + self.infonce_weight * loss_infonce
+            components['infonce'] = loss_infonce.item()
+        
+        if return_components:
+            return total_loss, components
+        return total_loss
+
+
 
 ```
 
@@ -21253,6 +22870,107 @@ def encode_images(
             features = features / features.norm(dim=-1, keepdim=True)
     
     return features.cpu().numpy().astype(np.float32)
+
+
+def encode_images_multilayer(
+    model: Any,
+    preprocess: Any,
+    images: list,
+    layers: list[int] = [4, 8, 12],
+    device: str = "cuda",
+    normalize: bool = True
+) -> dict[str, np.ndarray]:
+    """
+    Encode images to multi-layer CLIP features.
+    
+    Extracts intermediate features from Vision Transformer (ViT) layers
+    for multi-level supervision. Returns features from specified layers
+    plus the final output.
+    
+    Args:
+        model: CLIP model (must be ViT-based)
+        preprocess: CLIP preprocessing function
+        images: List of PIL Images
+        layers: Layer indices to extract (e.g., [4, 8, 12] for ViT-B/32)
+        device: Device for computation
+        normalize: If True, L2-normalize all embeddings
+        
+    Returns:
+        Dictionary mapping layer names to (N, D) float32 arrays:
+        - 'layer_4': Features from 4th transformer block
+        - 'layer_8': Features from 8th transformer block  
+        - 'layer_12': Features from 12th transformer block
+        - 'final': Final CLIP embeddings (after projection head)
+        
+    Note:
+        ViT-B/32 has 12 transformer blocks. Common choices:
+        - Early: layer 4 (low-level features)
+        - Middle: layer 8 (mid-level features)
+        - Late: layer 12 (high-level features)
+        - Final: projection head output (semantic features)
+    """
+    if not CLIP_AVAILABLE:
+        raise ImportError("CLIP libraries not available")
+    
+    import torch
+    from contextlib import nullcontext
+    
+    # Preprocess images
+    imgs_tensor = torch.stack([preprocess(img) for img in images]).to(device)
+    
+    # Autocast context
+    if device == "cuda" and torch.cuda.is_available():
+        autocast_ctx = torch.amp.autocast("cuda")
+    else:
+        autocast_ctx = nullcontext()
+    
+    # Extract multi-layer features
+    features_dict = {}
+    
+    with torch.no_grad(), autocast_ctx:
+        # Access visual encoder (ViT)
+        visual = model.visual
+        
+        # Patch embedding + position embedding
+        x = visual.conv1(imgs_tensor)  # (B, D, H, W)
+        x = x.reshape(x.shape[0], x.shape[1], -1)  # (B, D, N)
+        x = x.permute(0, 2, 1)  # (B, N, D)
+        
+        # Add class token
+        class_token = visual.class_embedding.unsqueeze(0).unsqueeze(0).expand(x.shape[0], -1, -1)  # (B, 1, D)
+        x = torch.cat([class_token, x], dim=1)  # (B, N+1, D)
+        x = x + visual.positional_embedding
+        
+        # Pre-LayerNorm
+        x = visual.ln_pre(x)
+        
+        # Transformer blocks with intermediate extraction
+        for i, block in enumerate(visual.transformer.resblocks):
+            x = block(x)
+            
+            # Extract features from specified layers
+            if i + 1 in layers:  # +1 because i is 0-indexed
+                # Take CLS token (first token)
+                layer_feat = x[:, 0, :]  # (B, D)
+                
+                # Normalize if requested
+                if normalize:
+                    layer_feat = layer_feat / layer_feat.norm(dim=-1, keepdim=True)
+                
+                features_dict[f'layer_{i+1}'] = layer_feat.cpu().numpy().astype(np.float32)
+        
+        # Final projection head
+        x = visual.ln_post(x[:, 0, :])
+        if visual.proj is not None:
+            x = x @ visual.proj
+        
+        # Normalize final output if requested
+        if normalize:
+            x = x / x.norm(dim=-1, keepdim=True)
+        
+        features_dict['final'] = x.cpu().numpy().astype(np.float32)
+    
+    return features_dict
 
 
 def verify_embedding_dimension(

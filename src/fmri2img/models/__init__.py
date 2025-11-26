@@ -12,6 +12,7 @@ from .encoders import (
     ResidualMLPEncoder,
     CLIPMappingHead,
     TwoStageEncoder,
+    MultiLayerTwoStageEncoder,
     SelfSupervisedPretrainer,
     save_two_stage_encoder,
     load_two_stage_encoder
@@ -42,6 +43,7 @@ __all__ = [
     "ResidualMLPEncoder",
     "CLIPMappingHead",
     "TwoStageEncoder",
+    "MultiLayerTwoStageEncoder",
     "SelfSupervisedPretrainer",
     "save_two_stage_encoder",
     "load_two_stage_encoder",

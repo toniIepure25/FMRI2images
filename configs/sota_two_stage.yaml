@@ -37,8 +37,12 @@ encoder:
   dropout: 0.3     # Dropout for regularization
   
   # Stage 2: latent → CLIP embedding
-  head_type: "mlp"      # Options: "linear", "mlp"
-  head_hidden_dim: 512  # Hidden dimension for MLP head
+  head_type: "mlp"      # Options: "linear", "mlp" (ignored if shared_head_backbone=true)
+  head_hidden_dim: 512  # Hidden dimension for MLP head or shared backbone
+  
+  # Phase 2 Enhancement: Shared head backbone for parameter efficiency
+  shared_head_backbone: true  # If true, use shared backbone + lightweight projections
+  # Recommended: true for multi-layer mode (reduces params by ~60%)
   
   # Self-supervised pretraining (optional)
   self_supervised: false  # Enable/disable pretraining
@@ -57,6 +61,39 @@ loss:
   cosine_weight: 0.3       # Weight for cosine similarity loss
   info_nce_weight: 0.4     # Weight for InfoNCE contrastive loss
   temperature: 0.05        # Temperature for InfoNCE (0.01-0.1)
+  
+  # Phase 3 Enhancement: Multi-layer InfoNCE
+  use_multilayer_infonce: true  # If true, use combined multi-layer representation for InfoNCE
+  infonce_combination: "weighted_pool"  # Options: "weighted_pool", "concat_project", "average"
+  # Recommended: "weighted_pool" (balances all layers with minimal params)
+  
+  # Brain-consistency (cycle) loss (Phase 2 - optional)
+  brain_consistency_weight: 0.0  # Weight for cycle loss (0.0 = disabled, try 0.05-0.2)
+  clip_to_fmri_encoder: null     # Path to CLIP→fMRI encoder checkpoint (required if weight > 0)
+  # Example: "checkpoints/clip_to_fmri/subj01/encoder.pt"
+
+# Multi-layer CLIP supervision (Phase 3)
+multi_layer:
+  enabled: true  # Enable multi-layer supervision from ViT intermediate layers
+  cache_path: "cache/clip_embeddings/nsd_clipcache_multilayer.parquet"
+  
+  # Layer weights for supervision (should sum to ~1.0)
+  # Phase 1 Enhancement: Can use fixed or learnable weights
+  use_learnable_weights: true  # If true, learn optimal weights during training
+  layer_weights:
+    layer_4: 0.15   # Early visual features (edges, textures)
+    layer_8: 0.20   # Mid-level features (parts, patterns)
+    layer_12: 0.25  # Late semantic features (objects, concepts)
+    final: 0.40     # Final CLIP embedding (global representation)
+  
+  # Loss configuration
+  use_mse: false     # Add MSE component to cosine loss
+  mse_weight: 0.1    # Weight for MSE if enabled
+  
+  # Scientific Rationale:
+  # - Multi-level supervision improves gradient flow (Lin et al. 2017)
+  # - Different layers capture different semantic levels (Raghu et al. 2021)
+  # - Expected +5-10% embedding similarity improvement (Li et al. 2023)
 
 # Training configuration
 training:

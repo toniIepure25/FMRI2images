@@ -518,13 +518,17 @@ class MultiLayerLoss(nn.Module):
         use_multilayer_infonce: bool = False,
         infonce_weight: float = 0.2,
         infonce_temperature: float = 0.05,
-        infonce_combination: str = "weighted_pool"
+        infonce_combination: str = "weighted_pool",
+        text_clip_weight: float = 0.3  # Phase 2: Weight for text-CLIP loss
     ):
         super().__init__()
         
         self.use_mse = use_mse
         self.mse_weight = mse_weight
         self.use_learnable_weights = use_learnable_weights
+        
+        # Phase 2: Text-CLIP weighting
+        self.text_clip_weight = text_clip_weight
         
         # Phase 3: Multi-layer InfoNCE
         self.use_multilayer_infonce = use_multilayer_infonce
@@ -618,6 +622,24 @@ class MultiLayerLoss(nn.Module):
         total_loss = 0.0
         components = {}
         
+        # Phase 2: Separate text-CLIP loss if present
+        text_loss = None
+        if 'text' in pred_dict and 'text' in target_dict:
+            pred_text = pred_dict['text']
+            target_text = target_dict['text']
+            
+            # Cosine similarity loss
+            cos_sim = torch.nn.functional.cosine_similarity(pred_text, target_text, dim=-1)
+            text_loss = (1.0 - cos_sim).mean()
+            
+            # Optional MSE
+            if self.use_mse:
+                mse_loss = torch.nn.functional.mse_loss(pred_text, target_text)
+                text_loss = text_loss + self.mse_weight * mse_loss
+            
+            components['text'] = text_loss.item()
+        
+        # Image-CLIP layers (layer_4, layer_8, layer_12, final)
         for layer_name in self.layer_names:
             if layer_name not in pred_dict or layer_name not in target_dict:
                 continue
@@ -668,8 +690,198 @@ class MultiLayerLoss(nn.Module):
             total_loss = total_loss + self.infonce_weight * loss_infonce
             components['infonce'] = loss_infonce.item()
         
+        # Phase 2: Combine image-CLIP and text-CLIP losses
+        # If text loss exists, use weighted combination: (1-w)*image + w*text
+        if text_loss is not None:
+            image_loss = total_loss  # Store image loss
+            components['image_total'] = image_loss.item()
+            total_loss = (1.0 - self.text_clip_weight) * image_loss + self.text_clip_weight * text_loss
+        
         if return_components:
             return total_loss, components
         return total_loss
 
 
+class ProbabilisticMultiLayerLoss(nn.Module):
+    """
+    Phase 3: Probabilistic loss with KL divergence regularization.
+    
+    Extends MultiLayerLoss to support probabilistic predictions:
+        L_total = L_reconstruction + β * L_KL
+    
+    Where:
+    - L_reconstruction: Multi-layer cosine + MSE loss (like MultiLayerLoss)
+    - L_KL: KL divergence KL(q(z|x) || N(0,I)) to regularize distributions
+    - β: KL weight (annealed during training, e.g., 0 → 0.01 over 20 epochs)
+    
+    **Annealing Schedule:**
+    - Epochs 1-10: β = 0 (learn good μ first, ignore variance)
+    - Epochs 11-30: β linearly increases 0 → β_max (gradually add regularization)
+    - Epochs 30+: β = β_max (full VAE training)
+    
+    **Scientific Motivation:**
+    - Uncertainty quantification: Model can express confidence in predictions
+    - Better generalization: KL regularization prevents overfitting
+    - Principled Bayesian inference: Variational lower bound on log p(target|fmri)
+    - Enables confidence-aware decoding: Weight predictions by certainty
+    
+    **Usage:**
+        # Create loss with annealing
+        criterion = ProbabilisticMultiLayerLoss(
+            kl_weight_max=0.01,
+            kl_anneal_epochs=20,
+            layer_weights={'layer_4': 0.15, ..., 'final': 0.4}
+        )
+        
+        # In training loop
+        pred_dict, kl_loss = model(fmri, sample=True, return_kl=True)
+        target_dict = load_targets(batch)
+        
+        # Pass current epoch for annealing
+        loss, components = criterion(
+            pred_dict, target_dict, kl_loss,
+            current_epoch=epoch,
+            return_components=True
+        )
+        
+        # components = {
+        #     'layer_4': 0.12, 'layer_8': 0.15, ...,
+        #     'kl': 0.05, 'kl_weight': 0.005  # Annealed weight
+        # }
+    
+    Args:
+        layer_weights: Dict mapping layer names to weights (like MultiLayerLoss)
+        use_mse: If True, also include MSE term
+        mse_weight: Weight for MSE component
+        kl_weight_max: Maximum KL weight after annealing (default: 0.01)
+        kl_anneal_epochs: Number of epochs to anneal from 0 to kl_weight_max (default: 20)
+        kl_anneal_start: Epoch to start annealing (default: 10, learn μ first)
+        text_clip_weight: Weight for text-CLIP loss (Phase 2)
+    
+    Example:
+        >>> # Standard probabilistic training
+        >>> criterion = ProbabilisticMultiLayerLoss(
+        ...     kl_weight_max=0.01,
+        ...     kl_anneal_epochs=20
+        ... )
+        >>> 
+        >>> # With text-CLIP (Phase 2 + Phase 3)
+        >>> criterion = ProbabilisticMultiLayerLoss(
+        ...     kl_weight_max=0.01,
+        ...     kl_anneal_epochs=20,
+        ...     text_clip_weight=0.3
+        ... )
+        >>> 
+        >>> # Training loop
+        >>> for epoch in range(50):
+        ...     pred_dict, kl_loss = model(fmri, sample=True, return_kl=True)
+        ...     loss, comp = criterion(pred_dict, target, kl_loss, current_epoch=epoch, return_components=True)
+        ...     print(f"Epoch {epoch}: KL weight = {comp['kl_weight']:.4f}, KL loss = {comp['kl']:.4f}")
+    
+    References:
+        - Kingma & Welling (2014): VAE with β-annealing
+        - Bowman et al. (2016): Generating Sentences from a Continuous Space (KL annealing)
+        - Higgins et al. (2017): β-VAE for disentangled representations
+        - Sønderby et al. (2016): Ladder VAE with annealing schedules
+    """
+    
+    def __init__(
+        self,
+        layer_weights: Optional[Dict[str, float]] = None,
+        use_mse: bool = False,
+        mse_weight: float = 0.1,
+        kl_weight_max: float = 0.01,
+        kl_anneal_epochs: int = 20,
+        kl_anneal_start: int = 10,
+        text_clip_weight: float = 0.3
+    ):
+        super().__init__()
+        
+        # Use MultiLayerLoss for reconstruction term
+        self.reconstruction_loss = MultiLayerLoss(
+            layer_weights=layer_weights,
+            use_mse=use_mse,
+            mse_weight=mse_weight,
+            use_learnable_weights=False,  # Keep weights fixed for simplicity
+            text_clip_weight=text_clip_weight
+        )
+        
+        # KL annealing parameters
+        self.kl_weight_max = kl_weight_max
+        self.kl_anneal_epochs = kl_anneal_epochs
+        self.kl_anneal_start = kl_anneal_start
+        
+        logger.info(
+            f"ProbabilisticMultiLayerLoss initialized: "
+            f"KL weight {0:.3f} → {kl_weight_max:.3f} over epochs {kl_anneal_start}-{kl_anneal_start + kl_anneal_epochs}"
+        )
+    
+    def get_kl_weight(self, current_epoch: int) -> float:
+        """
+        Compute current KL weight based on annealing schedule.
+        
+        Annealing schedule:
+        - epoch < kl_anneal_start: β = 0 (no KL loss, learn good μ)
+        - kl_anneal_start ≤ epoch < kl_anneal_start + kl_anneal_epochs:
+            β = kl_weight_max * (epoch - kl_anneal_start) / kl_anneal_epochs
+        - epoch ≥ kl_anneal_start + kl_anneal_epochs: β = kl_weight_max
+        
+        Args:
+            current_epoch: Current training epoch (0-indexed)
+        
+        Returns:
+            kl_weight: Current KL weight β ∈ [0, kl_weight_max]
+        """
+        if current_epoch < self.kl_anneal_start:
+            return 0.0
+        elif current_epoch >= self.kl_anneal_start + self.kl_anneal_epochs:
+            return self.kl_weight_max
+        else:
+            # Linear annealing
+            progress = (current_epoch - self.kl_anneal_start) / self.kl_anneal_epochs
+            return self.kl_weight_max * progress
+    
+    def forward(
+        self,
+        pred_dict: Dict[str, torch.Tensor],
+        target_dict: Dict[str, torch.Tensor],
+        kl_loss: torch.Tensor,
+        current_epoch: int = 0,
+        return_components: bool = False
+    ) -> torch.Tensor | tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        """
+        Compute probabilistic multi-layer loss.
+        
+        Args:
+            pred_dict: Predicted features {layer_name: (B, D)}
+            target_dict: Target features {layer_name: (B, D)}
+            kl_loss: KL divergence from model forward pass (scalar)
+            current_epoch: Current training epoch for KL annealing
+            return_components: If True, return (total_loss, components_dict)
+        
+        Returns:
+            If return_components=False: total_loss (scalar)
+            If return_components=True: (total_loss, components_dict)
+                components_dict includes all layer losses + 'kl', 'kl_weight'
+        """
+        # Reconstruction loss (multi-layer cosine/MSE)
+        recon_loss, recon_components = self.reconstruction_loss(
+            pred_dict, target_dict, return_components=True
+        )
+        
+        # KL loss with annealing
+        kl_weight = self.get_kl_weight(current_epoch)
+        weighted_kl_loss = kl_weight * kl_loss
+        
+        # Total loss
+        total_loss = recon_loss + weighted_kl_loss
+        
+        if return_components:
+            components = recon_components.copy()
+            components['kl'] = kl_loss.item()
+            components['kl_weight'] = kl_weight
+            components['weighted_kl'] = weighted_kl_loss.item()
+            components['reconstruction'] = recon_loss.item()
+            return total_loss, components
+        
+        return total_loss

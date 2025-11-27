@@ -294,8 +294,8 @@ def main():
         
         logger.info(
             f"Epoch {epoch+1}/{args.epochs}: "
-            f"train_loss={train_loss:.4f}, "
-            f"val_loss={val_loss:.4f}, "
+            f"train_loss={train_loss:.6f}, "
+            f"val_loss={val_loss:.6f}, "
             f"val_corr={val_corr:.4f}"
         )
         
@@ -322,7 +322,7 @@ def main():
     logger.info("\n" + "=" * 70)
     logger.info("✅ Training complete!")
     logger.info("=" * 70)
-    logger.info(f"Best val loss: {best_val_loss:.4f}")
+    logger.info(f"Best val loss: {best_val_loss:.6f}")
     logger.info(f"Model saved to: {args.output}")
     logger.info("")
     logger.info("Next step: Use this encoder in decoder training with brain-consistency loss")

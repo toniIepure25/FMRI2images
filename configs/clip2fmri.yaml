@@ -1,0 +1,67 @@
+# CLIP → fMRI Encoder Training Configuration
+# ==========================================
+# 
+# Train the inverse mapping (CLIP → fMRI) for brain-consistency loss.
+# This encoder is frozen and used during fMRI→CLIP training to add
+# cycle-consistency regularization.
+#
+# Scientific Rationale:
+# - Cycle-consistency ensures predictions lie in valid brain space
+# - Novel for fMRI decoding (inspired by CycleGAN)
+# - Acts as implicit regularization without explicit constraints
+
+dataset:
+  subject: subj01
+  subject_num: 1
+  max_trials: 30000
+  train_ratio: 0.85  # More training data since this is "easier" task
+  val_ratio: 0.10
+  test_ratio: 0.05
+  index_dir: data/indices/nsd_index
+
+preprocessing:
+  reliability_threshold: 0.1
+  pca_k: 512  # Must match fMRI→CLIP encoder
+  use_roi: false
+
+# CLIP→fMRI Encoder Architecture
+encoder:
+  type: "clip_to_fmri"
+  clip_dim: 512        # CLIP ViT-B/32 final embedding
+  fmri_dim: 512        # Must match PCA dimension
+  architecture: "mlp"  # Options: "linear", "mlp", "residual"
+  hidden_dim: 1024     # For mlp/residual
+  n_layers: 2          # For residual architecture
+  dropout: 0.2         # Lower than decoder (easier task)
+
+# Training Configuration
+training:
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  batch_size: 256      # Can use larger batches (simpler task)
+  epochs: 50
+  early_stop_patience: 10
+  device: "cuda"
+  seed: 42
+  num_workers: 4
+  
+  # Gradient clipping for stability
+  grad_clip_norm: 1.0
+
+# Loss function (simple MSE + optional correlation)
+loss:
+  type: "mse"  # Options: "mse", "mse+corr"
+  correlation_weight: 0.0  # If >0, add correlation loss
+
+# Output paths
+paths:
+  output_dir: "checkpoints/clip_to_fmri"
+  log_dir: "logs/clip_to_fmri"
+  clip_cache: "cache/clip_embeddings/nsd_clipcache.parquet"
+  preproc_dir: "outputs/preproc"
+
+# Metadata
+config_version: "1.0-phase1"
+description: "CLIP→fMRI encoder for brain-consistency (cycle) loss"
+created: "2025-11-26"
+phase: "Phase 1: Brain-Consistency"

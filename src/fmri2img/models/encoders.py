@@ -383,7 +383,8 @@ class MultiLayerTwoStageEncoder(nn.Module):
         head_type: Literal["linear", "mlp"] = "linear",
         head_hidden_dim: int = 512,
         enabled_layers: Optional[list] = None,
-        shared_head_backbone: bool = False
+        shared_head_backbone: bool = False,
+        predict_text_clip: bool = False  # Phase 2: Text-CLIP prediction
     ):
         super().__init__()
         self.input_dim = input_dim
@@ -391,6 +392,7 @@ class MultiLayerTwoStageEncoder(nn.Module):
         self.enabled_layers = enabled_layers or ['layer_4', 'layer_8', 'layer_12', 'final']
         self.shared_head_backbone = shared_head_backbone
         self.head_hidden_dim = head_hidden_dim
+        self.predict_text_clip = predict_text_clip  # Phase 2
         
         # Stage 1: Shared fMRI encoder
         self.stage1 = ResidualMLPEncoder(
@@ -421,6 +423,11 @@ class MultiLayerTwoStageEncoder(nn.Module):
             
             if 'final' in self.enabled_layers:
                 self.heads['final'] = nn.Linear(head_hidden_dim, 512)
+            
+            # Phase 2: Text-CLIP head (shares backbone)
+            if predict_text_clip:
+                self.heads['text'] = nn.Linear(head_hidden_dim, 512)
+                logger.info("Phase 2: Text-CLIP head enabled (shared backbone)")
                 
         else:
             # Backward-compatible: Fully independent heads
@@ -449,6 +456,16 @@ class MultiLayerTwoStageEncoder(nn.Module):
                     hidden_dim=head_hidden_dim,
                     dropout=dropout * 0.7
                 )
+            
+            # Phase 2: Text-CLIP head (independent)
+            if predict_text_clip:
+                self.heads['text'] = CLIPMappingHead(
+                    latent_dim=latent_dim,
+                    head_type=head_type,
+                    hidden_dim=head_hidden_dim,
+                    dropout=dropout * 0.7
+                )
+                logger.info("Phase 2: Text-CLIP head enabled (independent)")
     
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
@@ -833,5 +850,275 @@ def load_multilayer_two_stage_encoder(
             logger.warning(f"Unexpected keys in checkpoint: {other_keys}")
     
     logger.info(f"Loaded MultiLayerTwoStageEncoder from {path}")
+    
+    return model, meta
+
+
+class ProbabilisticMultiLayerTwoStageEncoder(nn.Module):
+    """
+    Phase 3: Probabilistic encoder with uncertainty estimation.
+    
+    Extends MultiLayerTwoStageEncoder to predict distributions instead of point estimates:
+    - For each output (layer_4, layer_8, layer_12, final, text), predict μ and logσ²
+    - Use reparameterization trick for differentiable sampling: z = μ + ε·σ, ε ~ N(0,1)
+    - Add KL divergence loss: KL(q(z|x) || N(0,I)) to regularize distributions
+    
+    **Scientific Motivation:**
+    - fMRI measurements are noisy → predictions should reflect uncertainty
+    - Variational inference provides principled uncertainty quantification
+    - Enables confidence-aware decoding (weight predictions by certainty)
+    - Theoretical foundation: Variational Autoencoder (Kingma & Welling 2014)
+    
+    **Architecture:**
+        Stage 1: fMRI → latent h (shared, ResidualMLPEncoder)
+        Stage 2: h → {μ, logσ²} for each target (parallel probabilistic heads)
+    
+    **Usage:**
+        # Training: Sample from distribution
+        outputs = model(x, sample=True)  # Returns sampled z ~ N(μ, σ²)
+        
+        # Inference: Multiple samples for uncertainty estimation
+        samples = [model(x, sample=True) for _ in range(N)]
+        mean_pred = torch.stack(samples).mean(dim=0)
+        std_pred = torch.stack(samples).std(dim=0)
+        
+        # Deterministic: Use mean
+        outputs = model(x, sample=False)  # Returns μ
+    
+    Args:
+        input_dim: Input dimensionality (PCA components)
+        latent_dim: Latent representation dimensionality
+        n_blocks: Number of residual blocks in Stage 1
+        dropout: Dropout probability
+        head_hidden_dim: Hidden dimension for MLP heads
+        enabled_layers: Which layers to predict
+        predict_text_clip: Enable text-CLIP prediction (Phase 2)
+        kl_weight: Weight for KL divergence loss (default: 0.01, annealed during training)
+    
+    Example:
+        >>> encoder = ProbabilisticMultiLayerTwoStageEncoder(
+        ...     input_dim=512, latent_dim=512,
+        ...     predict_text_clip=True
+        ... )
+        >>> x = torch.randn(32, 512)
+        >>> 
+        >>> # Training: Sample from distribution
+        >>> outputs, kl_loss = encoder(x, sample=True, return_kl=True)
+        >>> # outputs = {'final': (32, 512), ...}
+        >>> # kl_loss = scalar
+        >>> 
+        >>> # Inference: Uncertainty estimation
+        >>> samples = [encoder(x, sample=True, return_kl=False) for _ in range(10)]
+        >>> uncertainty = torch.stack([s['final'] for s in samples]).std(dim=0)
+    
+    References:
+        - Kingma & Welling (2014): "Auto-Encoding Variational Bayes"
+        - Gal & Ghahramani (2016): "Dropout as a Bayesian Approximation"
+        - Kendall & Gal (2017): "What Uncertainties Do We Need in Bayesian Deep Learning?"
+        - MindEye approach: Deterministic embeddings (our Phase 1-2)
+        - This Phase 3: Probabilistic embeddings with uncertainty
+    """
+    
+    def __init__(
+        self,
+        input_dim: int,
+        latent_dim: int = 512,
+        n_blocks: int = 4,
+        dropout: float = 0.3,
+        head_hidden_dim: int = 512,
+        enabled_layers: Optional[list] = None,
+        predict_text_clip: bool = False,
+        kl_weight: float = 0.01
+    ):
+        super().__init__()
+        self.input_dim = input_dim
+        self.latent_dim = latent_dim
+        self.enabled_layers = enabled_layers or ['layer_4', 'layer_8', 'layer_12', 'final']
+        self.predict_text_clip = predict_text_clip
+        self.kl_weight = kl_weight
+        
+        # Stage 1: Shared fMRI encoder (deterministic)
+        self.stage1 = ResidualMLPEncoder(
+            input_dim=input_dim,
+            latent_dim=latent_dim,
+            n_blocks=n_blocks,
+            dropout=dropout
+        )
+        
+        # Stage 2: Probabilistic heads (predict μ and logσ² for each target)
+        # Use shared backbone for efficiency
+        logger.info(f"Phase 3: Probabilistic encoder with shared backbone")
+        
+        self.head_backbone = nn.Sequential(
+            nn.Linear(latent_dim, head_hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout * 0.5)
+        )
+        
+        # For each layer, predict both μ and logσ²
+        self.mu_heads = nn.ModuleDict()
+        self.logvar_heads = nn.ModuleDict()
+        
+        # ViT intermediate layers (768-D)
+        for layer_name in ['layer_4', 'layer_8', 'layer_12']:
+            if layer_name in self.enabled_layers:
+                self.mu_heads[layer_name] = nn.Linear(head_hidden_dim, 768)
+                self.logvar_heads[layer_name] = nn.Linear(head_hidden_dim, 768)
+        
+        # Final CLIP embedding (512-D)
+        if 'final' in self.enabled_layers:
+            self.mu_heads['final'] = nn.Linear(head_hidden_dim, 512)
+            self.logvar_heads['final'] = nn.Linear(head_hidden_dim, 512)
+        
+        # Text-CLIP head (512-D)
+        if predict_text_clip:
+            self.mu_heads['text'] = nn.Linear(head_hidden_dim, 512)
+            self.logvar_heads['text'] = nn.Linear(head_hidden_dim, 512)
+            logger.info("Phase 3: Probabilistic text-CLIP head enabled")
+    
+    def reparameterize(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
+        """
+        Reparameterization trick: z = μ + ε·σ where ε ~ N(0,1)
+        
+        Args:
+            mu: Mean (B, D)
+            logvar: Log variance (B, D)
+        
+        Returns:
+            z: Sampled embedding (B, D)
+        """
+        std = torch.exp(0.5 * logvar)  # σ = exp(0.5 * logσ²)
+        eps = torch.randn_like(std)  # ε ~ N(0,1)
+        return mu + eps * std
+    
+    def compute_kl_loss(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
+        """
+        Compute KL divergence: KL(q(z|x) || N(0,I))
+        
+        Closed-form solution for Gaussian distributions:
+        KL = -0.5 * Σ(1 + logσ² - μ² - σ²)
+        
+        Args:
+            mu: Mean (B, D)
+            logvar: Log variance (B, D)
+        
+        Returns:
+            kl_loss: Scalar KL divergence (averaged over batch and dimensions)
+        """
+        # KL divergence per dimension: -0.5 * (1 + logvar - mu^2 - exp(logvar))
+        kl_div = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=-1)
+        # Average over batch
+        return kl_div.mean()
+    
+    def forward(
+        self,
+        x: torch.Tensor,
+        sample: bool = True,
+        return_kl: bool = True
+    ) -> Tuple[Dict[str, torch.Tensor], Optional[torch.Tensor]]:
+        """
+        Forward pass with probabilistic outputs.
+        
+        Args:
+            x: Input fMRI features (B, input_dim)
+            sample: If True, sample from distribution; if False, return mean
+            return_kl: If True, return KL divergence loss
+        
+        Returns:
+            outputs: Dict of L2-normalized predictions (B, D) for each layer
+            kl_loss: KL divergence loss (scalar) if return_kl=True, else None
+        """
+        # Stage 1: Shared encoding
+        h = self.stage1(x)  # (B, latent_dim)
+        h_shared = self.head_backbone(h)  # (B, head_hidden_dim)
+        
+        # Stage 2: Probabilistic predictions
+        outputs = {}
+        total_kl = 0.0
+        
+        for layer_name in self.mu_heads.keys():
+            # Predict μ and logσ²
+            mu = self.mu_heads[layer_name](h_shared)  # (B, D)
+            logvar = self.logvar_heads[layer_name](h_shared)  # (B, D)
+            
+            # Sample or use mean
+            if sample:
+                z = self.reparameterize(mu, logvar)
+            else:
+                z = mu
+            
+            # L2 normalize (CLIP embeddings are normalized)
+            z = torch.nn.functional.normalize(z, dim=-1)
+            outputs[layer_name] = z
+            
+            # Accumulate KL loss
+            if return_kl:
+                total_kl += self.compute_kl_loss(mu, logvar)
+        
+        # Average KL loss across all heads
+        if return_kl:
+            kl_loss = total_kl / len(self.mu_heads) * self.kl_weight
+            return outputs, kl_loss
+        else:
+            return outputs, None
+
+
+def save_probabilistic_encoder(
+    model: ProbabilisticMultiLayerTwoStageEncoder,
+    path: str,
+    meta: Dict[str, Any]
+):
+    """
+    Save ProbabilisticMultiLayerTwoStageEncoder to checkpoint.
+    
+    Args:
+        model: Model to save
+        path: Output checkpoint path
+        meta: Metadata dictionary (training config, metrics, etc.)
+    """
+    checkpoint = {
+        "state_dict": model.state_dict(),
+        "meta": meta
+    }
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    torch.save(checkpoint, path)
+    logger.info(f"Saved ProbabilisticMultiLayerTwoStageEncoder to {path}")
+
+
+def load_probabilistic_encoder(
+    path: str,
+    map_location: str = "cpu"
+) -> Tuple[ProbabilisticMultiLayerTwoStageEncoder, Dict[str, Any]]:
+    """
+    Load ProbabilisticMultiLayerTwoStageEncoder from checkpoint.
+    
+    Args:
+        path: Checkpoint path
+        map_location: Device to load to ("cpu", "cuda", or "auto")
+    
+    Returns:
+        model: Loaded ProbabilisticMultiLayerTwoStageEncoder
+        meta: Metadata dictionary
+    """
+    if map_location == "auto":
+        map_location = "cuda" if torch.cuda.is_available() else "cpu"
+    
+    checkpoint = torch.load(path, map_location=map_location)
+    meta = checkpoint.get("meta", {})
+    
+    # Reconstruct model from metadata
+    model = ProbabilisticMultiLayerTwoStageEncoder(
+        input_dim=meta["input_dim"],
+        latent_dim=meta.get("latent_dim", 512),
+        n_blocks=meta.get("n_blocks", 4),
+        dropout=meta.get("dropout", 0.3),
+        head_hidden_dim=meta.get("head_hidden_dim", 512),
+        enabled_layers=meta.get("enabled_layers", ['layer_4', 'layer_8', 'layer_12', 'final']),
+        predict_text_clip=meta.get("predict_text_clip", False),
+        kl_weight=meta.get("kl_weight", 0.01)
+    )
+    
+    model.load_state_dict(checkpoint["state_dict"], strict=True)
+    logger.info(f"Loaded ProbabilisticMultiLayerTwoStageEncoder from {path}")
     
     return model, meta

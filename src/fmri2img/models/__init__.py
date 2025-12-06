@@ -6,6 +6,7 @@ Neural and linear models for mapping fMRI activity to image representations.
 """
 
 from .ridge import RidgeEncoder
+from .mlp import MLPEncoder, save_mlp, load_mlp
 from .clip_adapter import CLIPAdapter, save_adapter, load_adapter
 from .encoders import (
     ResidualBlock,
@@ -35,6 +36,9 @@ from .encoding_model import (
 __all__ = [
     # Baseline models
     "RidgeEncoder",
+    "MLPEncoder",
+    "save_mlp",
+    "load_mlp",
     "CLIPAdapter",
     "save_adapter",
     "load_adapter",

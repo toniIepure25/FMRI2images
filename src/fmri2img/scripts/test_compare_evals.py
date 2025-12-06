@@ -18,11 +18,8 @@ def test_report_utils():
     """Test helper functions from _report_utils.py."""
     print("[Test] Report utilities")
     
-    # Import utilities - add parent scripts dir to path
-    scripts_dir = Path(__file__).parent.parent.parent.parent / "scripts"
-    sys.path.insert(0, str(scripts_dir))
-    
-    from _report_utils import (
+    # Import utilities from eval module
+    from fmri2img.eval._report_utils import (
         load_eval_json,
         guess_run_name,
         bootstrap_ci,

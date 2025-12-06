@@ -1,0 +1,84 @@
+# =============================================================================
+# Ridge Regression Baseline Configuration
+# =============================================================================
+#
+# Simple linear ridge regression baseline for fMRI → CLIP mapping.
+# This serves as a baseline to compare against more complex methods.
+#
+# Expected Performance:
+# - Fast training (< 5 minutes)
+# - Cosine similarity: ~0.25-0.35
+# - Good for quick experiments and sanity checks
+#
+# Usage:
+#   python -m fmri2img.training.train_ridge --config configs/ridge_baseline.yaml
+# =============================================================================
+
+# Inherit from base configuration
+_base_: base.yaml
+
+# Experiment Metadata
+# -----------------------------------------------------------------------------
+experiment:
+  name: ridge_baseline
+  description: "Ridge regression baseline for fMRI to CLIP mapping"
+  tags: [baseline, linear, fast]
+
+# Dataset Configuration (Override base if needed)
+# -----------------------------------------------------------------------------
+dataset:
+  subject: subj01
+  max_trials: 30000                  # Use all available data
+
+# Preprocessing
+# -----------------------------------------------------------------------------
+preprocessing:
+  reliability_threshold: 0.1
+  pca_k: 512                        # Dimensionality after PCA
+  use_roi: false
+
+# Ridge Regression Configuration
+# -----------------------------------------------------------------------------
+ridge:
+  alpha: 1000.0                     # Regularization strength
+  alpha_search: true                # Search for optimal alpha
+  alpha_range: [0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0]
+  
+  # Cross-validation
+  cv_folds: 5                       # Number of CV folds for alpha search
+  cv_metric: neg_mean_squared_error # Metric to optimize
+  
+  # Solver
+  solver: auto                      # Options: auto, svd, cholesky, lsqr
+  max_iter: null                    # Maximum iterations (null = auto)
+  tol: 0.001                        # Convergence tolerance
+  
+  # Regularization variants
+  fit_intercept: true               # Fit intercept term
+  normalize: false                  # Deprecated, use scaler instead
+
+# Training Configuration
+# -----------------------------------------------------------------------------
+training:
+  device: cuda                      # Can use CPU for ridge
+  batch_size: null                  # Ridge uses full batch
+  
+# Output Configuration
+# -----------------------------------------------------------------------------
+output:
+  save_predictions: true            # Save predictions for analysis
+  save_model: true                  # Save trained model
+  checkpoint_path: checkpoints/ridge/${dataset.subject}/ridge_alpha${ridge.alpha}.pkl
+
+# Evaluation
+# -----------------------------------------------------------------------------
+evaluation:
+  compute_retrieval: true           # Compute retrieval metrics
+  retrieval_dataset_size: 1000      # Size of retrieval dataset
+  
+# Expected Results
+# -----------------------------------------------------------------------------
+# Validation Cosine Similarity: 0.25-0.35
+# Test Cosine Similarity: 0.23-0.33
+# Training Time: 3-5 minutes
+# Model Size: ~20MB

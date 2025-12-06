@@ -1,0 +1,238 @@
+# =============================================================================
+# Ablation Study Configuration
+# =============================================================================
+#
+# Configuration template for systematic ablation studies.
+# Use this to understand contribution of different components.
+#
+# Ablation Dimensions:
+# 1. Architecture: MLP vs Two-Stage vs Ridge
+# 2. Loss functions: MSE, Cosine, InfoNCE, combinations
+# 3. Preprocessing: PCA dimensions, reliability threshold
+# 4. Multi-layer supervision: enabled/disabled, layer weights
+# 5. Regularization: dropout, weight decay, batch norm
+#
+# Usage:
+#   python -m fmri2img.eval.ablation_driver \
+#       --base-config configs/ablation.yaml \
+#       --ablation-params configs/ablation_params.json
+# =============================================================================
+
+# Inherit from base configuration
+_base_: two_stage_sota.yaml
+
+# Experiment Metadata
+# -----------------------------------------------------------------------------
+experiment:
+  name: ablation_study
+  description: "Systematic ablation study of model components"
+  tags: [ablation, analysis, scientific]
+  
+  # Ablation tracking
+  ablation_id: null                 # Will be set by ablation driver
+  baseline_config: two_stage_sota.yaml
+
+# Ablation Parameters (Override these for each run)
+# -----------------------------------------------------------------------------
+ablation:
+  # Component to ablate
+  component: null                   # Options: see below
+  # Components:
+  # - infonce_loss: Remove InfoNCE loss
+  # - multi_layer: Disable multi-layer supervision
+  # - residual_blocks: Use MLP instead of residual
+  # - brain_consistency: Remove cycle loss
+  # - dropout: Set dropout to 0
+  # - batch_norm: Disable batch normalization
+  # - pca_dimensionality: Vary PCA components
+  # - layer_weights: Test different layer weight combinations
+  
+  # Ablation-specific overrides
+  overrides: {}                     # Will be set by driver
+
+# Standard Ablation Configurations
+# -----------------------------------------------------------------------------
+
+# 1. Loss Function Ablations
+loss_ablations:
+  # MSE only
+  mse_only:
+    loss:
+      mse_weight: 1.0
+      cosine_weight: 0.0
+      info_nce_weight: 0.0
+  
+  # Cosine only
+  cosine_only:
+    loss:
+      mse_weight: 0.0
+      cosine_weight: 1.0
+      info_nce_weight: 0.0
+  
+  # InfoNCE only
+  infonce_only:
+    loss:
+      mse_weight: 0.0
+      cosine_weight: 0.0
+      info_nce_weight: 1.0
+  
+  # MSE + Cosine (no InfoNCE)
+  no_infonce:
+    loss:
+      mse_weight: 0.5
+      cosine_weight: 0.5
+      info_nce_weight: 0.0
+
+# 2. Architecture Ablations
+architecture_ablations:
+  # No residual blocks (plain MLP)
+  no_residual:
+    encoder:
+      type: mlp
+      hidden_dims: [2048, 1024, 768]
+  
+  # Fewer residual blocks
+  fewer_blocks:
+    encoder:
+      stage1:
+        n_blocks: 2
+  
+  # Smaller latent dimension
+  smaller_latent:
+    encoder:
+      stage1:
+        latent_dim: 384
+
+# 3. Multi-Layer Ablations
+multi_layer_ablations:
+  # Disabled
+  no_multilayer:
+    multi_layer:
+      enabled: false
+  
+  # Only final layer
+  final_only:
+    multi_layer:
+      layer_weights:
+        layer_4: 0.0
+        layer_8: 0.0
+        layer_12: 0.0
+        final: 1.0
+  
+  # Equal weights
+  equal_weights:
+    multi_layer:
+      use_learnable_weights: false
+      layer_weights:
+        layer_4: 0.25
+        layer_8: 0.25
+        layer_12: 0.25
+        final: 0.25
+
+# 4. Preprocessing Ablations
+preprocessing_ablations:
+  # Low PCA components
+  pca_low:
+    preprocessing:
+      pca_k: 128
+  
+  # High PCA components  
+  pca_high:
+    preprocessing:
+      pca_k: 1024
+  
+  # No reliability filtering
+  no_reliability:
+    preprocessing:
+      reliability_threshold: 0.0
+
+# 5. Regularization Ablations
+regularization_ablations:
+  # No dropout
+  no_dropout:
+    encoder:
+      stage1:
+        dropout: 0.0
+      stage2:
+        dropout: 0.0
+  
+  # High dropout
+  high_dropout:
+    encoder:
+      stage1:
+        dropout: 0.5
+      stage2:
+        dropout: 0.4
+  
+  # No batch norm
+  no_batch_norm:
+    encoder:
+      stage1:
+        use_batch_norm: false
+
+# Ablation Execution Configuration
+# -----------------------------------------------------------------------------
+execution:
+  # Run configuration
+  run_baseline: true                # Run baseline first
+  run_ablations: true               # Run all ablations
+  parallel: false                   # Run in parallel (experimental)
+  
+  # Resource allocation
+  gpu_per_run: 1
+  max_concurrent: 1
+  
+  # Early stopping for ablations
+  early_stop_if_worse: true         # Stop if much worse than baseline
+  worse_threshold: 0.1              # Stop if >10% worse
+
+# Evaluation Configuration
+# -----------------------------------------------------------------------------
+evaluation:
+  # Comprehensive evaluation for ablation
+  compute_all_metrics: true
+  compute_retrieval: true
+  retrieval_dataset_size: 1000
+  save_predictions: true            # For error analysis
+  
+# Output Configuration
+# -----------------------------------------------------------------------------
+output:
+  # Ablation results directory
+  ablation_dir: outputs/ablations/${experiment.name}
+  
+  # Save comprehensive results
+  save_comparison_table: true       # CSV with all results
+  save_plots: true                  # Visualization of results
+  save_statistical_tests: true      # Significance tests
+  
+  # Report generation
+  generate_report: true             # Auto-generate ablation report
+  report_format: markdown           # Options: markdown, latex, html
+
+# Statistical Analysis
+# -----------------------------------------------------------------------------
+statistics:
+  # Significance testing
+  run_significance_tests: true
+  test_type: paired_t_test          # Options: paired_t_test, wilcoxon
+  confidence_level: 0.95
+  
+  # Multiple comparison correction
+  correction_method: bonferroni     # Options: bonferroni, holm, fdr
+  
+  # Bootstrap confidence intervals
+  use_bootstrap: true
+  bootstrap_samples: 1000
+
+# Expected Ablation Results (from literature)
+# -----------------------------------------------------------------------------
+# Component                  | Expected Δ Cosine Sim | Reference
+# ---------------------------|----------------------|------------------
+# Remove InfoNCE             | -3 to -5%            | Chen et al. 2020
+# Remove multi-layer         | -2 to -4%            | Lin et al. 2017
+# Remove residual blocks     | -2 to -3%            | He et al. 2016
+# Remove batch norm          | -1 to -2%            | Ioffe et al. 2015
+# PCA: 128 → 512            | +2 to +4%            | Empirical
+# No dropout                 | -1 to +1%            | Context-dependent
+# Remove brain-consistency   | -1 to -2%            | Novel (ours)

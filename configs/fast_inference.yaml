@@ -1,0 +1,101 @@
+# =============================================================================
+# Fast Inference Configuration
+# =============================================================================
+#
+# Optimized for speed with acceptable quality trade-off.
+# Useful for rapid prototyping, batch processing, or real-time demos.
+#
+# Speed Optimizations:
+# - Minimal diffusion steps (25-30)
+# - Fast scheduler (Euler)
+# - Aggressive memory optimizations
+# - Smaller output resolution
+#
+# Trade-offs:
+# - Lower quality than production config
+# - Less fine details
+# - Faster generation (~3-5s per image)
+#
+# Usage:
+#   python -m fmri2img.generation.decode_diffusion \
+#       --config configs/fast_inference.yaml
+# =============================================================================
+
+# Inherit from production base
+_base_: production.yaml
+
+# Experiment Metadata
+# -----------------------------------------------------------------------------
+experiment:
+  name: fast_inference
+  description: "Fast inference with quality trade-off"
+  tags: [fast, speed, demo]
+
+# Model Configuration
+# -----------------------------------------------------------------------------
+model:
+  # Skip adapter for speed
+  use_adapter: false
+  
+  # Use FP16 for speed
+  dtype: float16
+
+# Diffusion Configuration (Speed-focused)
+# -----------------------------------------------------------------------------
+diffusion:
+  # Use same model but optimized settings
+  model_id: "stabilityai/stable-diffusion-2-1"
+  variant: fp16                     # FP16 variant for speed
+  
+  # Minimal steps
+  num_inference_steps: 25           # Minimum for acceptable quality
+  
+  # Lower guidance for speed
+  guidance_scale: 7.0               # Lower = faster
+  
+  # Fastest scheduler
+  scheduler: euler                  # Euler is fastest
+  
+  # Smaller output
+  output_size: 512                  # 512x512 for speed
+  
+  # Quality settings
+  output_format: jpg                # JPEG for smaller files
+  output_quality: 85                # Good quality, smaller size
+  
+  # Aggressive memory optimizations
+  enable_attention_slicing: true
+  enable_vae_slicing: true
+  enable_cpu_offload: false         # Keep on GPU for speed
+  
+  # Performance optimizations
+  use_tf32: true
+  channels_last: true
+
+# Batch Processing (Can use larger batches)
+# -----------------------------------------------------------------------------
+batch_processing:
+  batch_size: 4                     # Process multiple at once
+  max_batch_size: 8
+  auto_batch_size: true
+
+# Output Configuration
+# -----------------------------------------------------------------------------
+output:
+  output_dir: outputs/generations/fast/${dataset.subject}
+  save_embeddings: false            # Skip for speed
+  save_metadata: false              # Skip for speed
+
+# Evaluation (Minimal)
+# -----------------------------------------------------------------------------
+evaluation:
+  compute_metrics: false            # Skip for speed
+
+# Expected Performance
+# -----------------------------------------------------------------------------
+# Generation Time: 3-5 seconds per image
+# Batch Throughput: 500-1000 images/hour
+# Memory Usage: 6-8GB VRAM
+# Output Quality: Good (not excellent)
+# Resolution: 512x512
+# Best Use: Demos, rapid iterations, batch processing

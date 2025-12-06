@@ -1,0 +1,90 @@
+# =============================================================================
+# High-Resolution Generation Configuration
+# =============================================================================
+#
+# Optimized for generating high-quality, high-resolution images.
+# Uses larger models, more diffusion steps, and careful parameter tuning.
+#
+# Quality Focus:
+# - Use ViT-L/14 CLIP (768D) with adapter
+# - 200+ diffusion steps for refinement
+# - Optimal guidance scale for photorealism
+# - High-resolution output (1024px)
+#
+# Trade-offs:
+# - Slower generation (~30-60s per image)
+# - Higher memory usage (~12GB VRAM)
+# - Better visual quality and details
+#
+# Usage:
+#   python -m fmri2img.generation.decode_diffusion \
+#       --config configs/highres_quality.yaml
+# =============================================================================
+
+# Inherit from production base
+_base_: production.yaml
+
+# Experiment Metadata
+# -----------------------------------------------------------------------------
+experiment:
+  name: highres_quality
+  description: "High-resolution, high-quality image generation"
+  tags: [highres, quality, slow]
+
+# Model Configuration
+# -----------------------------------------------------------------------------
+model:
+  # Use adapter for larger CLIP space
+  use_adapter: true
+  adapter_checkpoint: checkpoints/adapter/subj01/adapter_vitb32_to_vitl14.pt
+  adapter_target_dim: 768
+
+# Diffusion Configuration (Quality-focused)
+# -----------------------------------------------------------------------------
+diffusion:
+  # Larger model for better quality
+  model_id: "stabilityai/stable-diffusion-2-1"
+  
+  # More steps for better refinement
+  num_inference_steps: 200          # More steps = better quality
+  
+  # Optimal guidance for photorealism
+  guidance_scale: 8.5               # Higher for more adherence to prompt
+  
+  # Best quality scheduler
+  scheduler: dpm                    # DPM++ for best quality
+  
+  # High resolution output
+  output_size: 1024                 # 1024x1024 output
+  
+  # Quality settings
+  output_format: png                # Lossless PNG
+  
+  # Memory optimizations (needed for 1024px)
+  enable_attention_slicing: true
+  enable_vae_slicing: true
+  enable_vae_tiling: true           # For high-res generation
+
+# Batch Processing (Reduced for memory)
+# -----------------------------------------------------------------------------
+batch_processing:
+  batch_size: 1                     # One at a time for high-res
+  max_batch_size: 1
+  
+# Output Configuration
+# -----------------------------------------------------------------------------
+output:
+  output_dir: outputs/generations/highres/${dataset.subject}
+  save_metadata: true
+  
+  # Additional processing
+  upscale_method: null              # Options: null, esrgan, realesrgan
+  apply_post_processing: false      # Color correction, sharpening
+
+# Expected Performance
+# -----------------------------------------------------------------------------
+# Generation Time: 30-60 seconds per image
+# Memory Usage: 10-14GB VRAM
+# Output Quality: Excellent
+# Resolution: 1024x1024
+# Best Use: Final results, publications, demonstrations

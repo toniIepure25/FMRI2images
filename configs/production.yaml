@@ -1,0 +1,168 @@
+# =============================================================================
+# Production Inference Configuration
+# =============================================================================
+#
+# Optimized configuration for production inference and image generation.
+# This config balances quality, speed, and resource usage for deployment.
+#
+# Optimizations:
+# - Reduced batch sizes for memory efficiency
+# - Optimal diffusion steps for quality/speed tradeoff
+# - Efficient scheduler (Euler/DPM++)
+# - Attention and VAE slicing enabled
+#
+# Usage:
+#   python -m fmri2img.generation.decode_diffusion \
+#       --config configs/production.yaml \
+#       --checkpoint path/to/encoder.pt
+# =============================================================================
+
+# Inherit from base configuration
+_base_: base.yaml
+
+# Experiment Metadata
+# -----------------------------------------------------------------------------
+experiment:
+  name: production_inference
+  description: "Production-ready inference configuration"
+  tags: [production, inference, optimized]
+
+# Model Configuration
+# -----------------------------------------------------------------------------
+model:
+  # Encoder
+  encoder_type: two_stage           # Options: ridge, mlp, two_stage
+  encoder_checkpoint: checkpoints/two_stage/subj01/two_stage_sota_best.pt
+  use_preprocessing: true           # Use preprocessing from checkpoint
+  
+  # Adapter (optional)
+  use_adapter: true                 # Use adapter for better generation
+  adapter_checkpoint: checkpoints/adapter/subj01/adapter_vitb32_to_vitl14.pt
+  adapter_target_dim: 768           # Target dimension
+  
+  # Device configuration
+  device: cuda
+  dtype: float32                    # Options: float32, float16
+  use_compile: false                # PyTorch 2.0+ compile (experimental)
+
+# Diffusion Configuration
+# -----------------------------------------------------------------------------
+diffusion:
+  # Model selection
+  model_id: "stabilityai/stable-diffusion-2-1"
+  variant: null                     # Options: null, fp16
+  
+  # Generation parameters
+  num_inference_steps: 50           # Reduced for speed (30-150)
+  guidance_scale: 7.5               # Classifier-free guidance (7.0-9.0)
+  eta: 0.0                          # Noise level (0=deterministic)
+  
+  # Scheduler
+  scheduler: euler                  # Options: euler, dpm, pndm, ddim
+  # euler: Fast and good quality
+  # dpm: Better quality, slightly slower
+  # pndm: Stable, balanced
+  # ddim: Fastest, lower quality
+  
+  # Image configuration
+  output_size: 768                  # Output resolution (512/768/1024)
+  output_format: png                # Options: png, jpg
+  output_quality: 95                # For JPEG (1-100)
+  
+  # Memory optimization
+  enable_attention_slicing: true    # Reduce memory usage
+  enable_vae_slicing: true          # Reduce VAE memory
+  enable_cpu_offload: false         # Sequential CPU offload
+  enable_model_offload: false       # Aggressive CPU offload
+  
+  # Performance optimization
+  use_tf32: true                    # TF32 for faster computation (A100/H100)
+  channels_last: true               # Memory layout optimization
+
+# Batch Processing Configuration
+# -----------------------------------------------------------------------------
+batch_processing:
+  batch_size: 1                     # Process one at a time for stability
+  max_batch_size: 4                 # Maximum for GPU memory
+  auto_batch_size: true             # Automatically adjust based on memory
+  
+  # Progress tracking
+  show_progress: true
+  progress_bar: true
+
+# Output Configuration
+# -----------------------------------------------------------------------------
+output:
+  # Paths
+  output_dir: outputs/generations/${model.encoder_type}/${dataset.subject}
+  save_embeddings: true             # Save predicted embeddings
+  save_images: true                 # Save generated images
+  save_metadata: true               # Save generation metadata
+  
+  # Naming
+  filename_pattern: "{index:05d}_{nsd_id}"
+  include_timestamp: false
+  
+  # Image processing
+  apply_safety_checker: false       # NSFW detection (slower)
+  apply_watermark: false            # Invisible watermark
+
+# Evaluation Configuration
+# -----------------------------------------------------------------------------
+evaluation:
+  # Metrics to compute
+  compute_metrics: true
+  metrics: [clip_score, inception_score, fid]
+  
+  # Reference images
+  reference_dir: cache/stimuli/nsd
+  
+  # Save comparisons
+  save_comparisons: true            # Save side-by-side comparisons
+  comparison_format: grid           # Options: grid, sidebyside
+
+# Caching Configuration
+# -----------------------------------------------------------------------------
+cache:
+  # Preprocessor cache
+  preprocessor_dir: cache/preproc
+  load_preprocessor: true
+  
+  # CLIP cache
+  clip_cache_dir: cache/clip_embeddings
+  preload_clip_cache: false         # Load entire cache in memory
+  
+  # Diffusion model cache
+  diffusion_cache_dir: cache/diffusion
+  low_cpu_mem_usage: true           # Load models efficiently
+
+# Error Handling
+# -----------------------------------------------------------------------------
+error_handling:
+  skip_on_error: true               # Skip failed samples
+  max_retries: 3                    # Retry failed generations
+  save_error_log: true              # Log errors
+  fallback_to_default: true         # Use default params on error
+
+# Logging Configuration
+# -----------------------------------------------------------------------------
+logging:
+  level: INFO
+  log_every_n: 10                   # Log every N samples
+  save_log: true
+  log_file: logs/production_inference_{timestamp}.log
+
+# Resource Monitoring
+# -----------------------------------------------------------------------------
+monitoring:
+  track_memory: true                # Monitor GPU memory
+  track_time: true                  # Track generation time
+  save_metrics: true                # Save performance metrics
+  metrics_file: outputs/performance_metrics.json
+
+# Performance Targets
+# -----------------------------------------------------------------------------
+# Generation Speed: 5-15 seconds per image (GPU-dependent)
+# Memory Usage: <8GB VRAM (with optimizations)
+# Quality: High (similar to training)
+# Batch Throughput: ~100-200 images/hour

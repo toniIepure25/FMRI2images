@@ -1,0 +1,211 @@
+# =============================================================================
+# Two-Stage SOTA Configuration (State-of-the-Art)
+# =============================================================================
+#
+# State-of-the-art two-stage encoder with:
+# - Residual blocks for better gradient flow
+# - Multi-objective loss (MSE + Cosine + InfoNCE)
+# - Multi-layer CLIP supervision
+# - Brain-consistency cycle loss (optional)
+#
+# Expected Performance:
+# - Cosine similarity: ~0.45-0.55
+# - Best quality reconstructions
+# - Training time: ~3-6 hours
+#
+# Scientific Rationale:
+# - Two-stage architecture separates brain representation learning from 
+#   CLIP space mapping, allowing each stage to specialize
+# - InfoNCE loss provides discriminative learning signal
+# - Multi-layer supervision captures hierarchical visual features
+#
+# Usage:
+#   python -m fmri2img.training.train_two_stage --config configs/two_stage_sota.yaml
+# =============================================================================
+
+# Inherit from base configuration
+_base_: base.yaml
+
+# Experiment Metadata
+# -----------------------------------------------------------------------------
+experiment:
+  name: two_stage_sota
+  description: "State-of-the-art two-stage encoder with multi-objective loss"
+  tags: [two-stage, sota, multi-layer, contrastive]
+  paper_section: "4.2 - Advanced Architecture"
+
+# Dataset Configuration
+# -----------------------------------------------------------------------------
+dataset:
+  subject: subj01
+  max_trials: 30000                  # Use all available data
+  train_ratio: 0.80
+  val_ratio: 0.10
+  test_ratio: 0.10
+
+# Preprocessing
+# -----------------------------------------------------------------------------
+preprocessing:
+  reliability_threshold: 0.1
+  pca_k: 512                        # Higher dimensionality for better signal
+  use_roi: false
+  scaler_type: standard
+
+# Two-Stage Encoder Architecture
+# -----------------------------------------------------------------------------
+encoder:
+  type: two_stage
+  
+  # Stage 1: fMRI → Latent Brain Representation
+  stage1:
+    input_dim: 512                  # Will match pca_k
+    latent_dim: 768                 # Latent brain representation size
+    n_blocks: 4                     # Number of residual blocks
+    block_hidden_dim: 1024          # Hidden dimension within blocks
+    dropout: 0.3                    # Dropout for regularization
+    use_batch_norm: true            # Batch normalization in residual blocks
+    activation: gelu                # GELU activation (better than ReLU)
+    residual_scale: 0.1             # Scale residual connections
+  
+  # Stage 2: Latent → CLIP Embedding
+  stage2:
+    input_dim: 768                  # Must match stage1.latent_dim
+    output_dim: 512                 # CLIP embedding dimension
+    head_type: mlp                  # Options: linear, mlp
+    hidden_dim: 512                 # Hidden dimension for MLP head
+    dropout: 0.2                    # Lower dropout for head
+    use_batch_norm: false           # No batch norm in head
+    
+  # Shared backbone for multi-layer (Phase 2 enhancement)
+  shared_head_backbone: true        # Use shared backbone + lightweight projections
+  backbone_hidden_dim: 512          # Hidden dimension for shared backbone
+  
+  # Optional self-supervised pretraining
+  self_supervised:
+    enabled: false                  # Enable/disable pretraining
+    method: masked                  # Options: masked, denoising, contrastive
+    epochs: 20                      # Pretraining epochs
+    mask_ratio: 0.3                 # For masked autoencoder
+    noise_std: 0.1                  # For denoising autoencoder
+    
+  # Optional staged training
+  staged_training:
+    enabled: false                  # Enable staged training
+    freeze_stage1_after: 50         # Freeze stage 1 after N epochs
+    stage2_epochs: 30               # Additional epochs for stage 2
+
+# Loss Configuration
+# -----------------------------------------------------------------------------
+loss:
+  # Primary losses
+  mse_weight: 0.3                   # MSE loss weight
+  cosine_weight: 0.3                # Cosine similarity loss weight
+  info_nce_weight: 0.4              # InfoNCE contrastive loss weight
+  
+  # InfoNCE configuration
+  temperature: 0.05                 # Temperature parameter (0.01-0.1)
+  use_multilayer_infonce: true      # Use multi-layer features for InfoNCE
+  infonce_combination: weighted_pool # Options: weighted_pool, concat_project, average
+  
+  # Brain-consistency cycle loss (Phase 2)
+  brain_consistency:
+    enabled: false                  # Enable cycle-consistency loss
+    weight: 0.1                     # Loss weight (0.05-0.2 recommended)
+    encoder_path: null              # Path to CLIP→fMRI encoder
+    # Example: checkpoints/clip_to_fmri/subj01/encoder.pt
+    freeze_inverse_encoder: true    # Freeze CLIP→fMRI during training
+
+# Multi-Layer CLIP Supervision (Phase 3)
+# -----------------------------------------------------------------------------
+multi_layer:
+  enabled: true                     # Enable multi-layer supervision
+  cache_path: cache/clip_embeddings/nsd_clipcache_multilayer.parquet
+  
+  # Layer selection
+  layers: [4, 8, 12, final]         # Layers to supervise
+  layer_dims:
+    layer_4: 768                    # Early features
+    layer_8: 768                    # Mid-level features
+    layer_12: 768                   # Late semantic features
+    final: 512                      # Final embedding
+  
+  # Layer weights for loss (should sum to ~1.0)
+  use_learnable_weights: true       # Learn optimal weights during training
+  layer_weights:
+    layer_4: 0.15                   # Early visual features
+    layer_8: 0.20                   # Mid-level features
+    layer_12: 0.25                  # Late semantic features
+    final: 0.40                     # Final CLIP embedding
+  
+  # Loss configuration
+  loss_type: cosine                 # Options: cosine, mse, combined
+  mse_weight: 0.1                   # MSE weight if combined
+  
+  # Scientific rationale:
+  # Different layers capture different semantic levels (Raghu et al. 2021)
+  # Multi-level supervision improves gradient flow (Lin et al. 2017)
+  # Expected +5-10% embedding similarity improvement (Li et al. 2023)
+
+# Multi-Task Learning (Phase 2 - optional)
+# -----------------------------------------------------------------------------
+multi_task:
+  enabled: false                    # Enable text-CLIP prediction
+  text_clip_weight: 0.2             # Weight for text-CLIP task
+  text_clip_cache: cache/clip_embeddings/nsd_textclip.parquet
+
+# Training Configuration
+# -----------------------------------------------------------------------------
+training:
+  # Optimization
+  learning_rate: 5.0e-5             # Initial learning rate (lower for stability)
+  optimizer: adamw                  # AdamW optimizer
+  betas: [0.9, 0.999]
+  weight_decay: 1.0e-4
+  
+  # Batch configuration
+  batch_size: 48                    # Smaller batch for memory efficiency
+  val_batch_size: 96
+  accumulation_steps: 2             # Effective batch size = 96
+  
+  # Epochs and early stopping
+  epochs: 150                       # More epochs for complex model
+  early_stop_patience: 20           # Longer patience
+  
+  # Learning rate scheduling
+  lr_scheduler: cosine              # Cosine annealing
+  warmup_epochs: 10                 # Longer warmup
+  min_lr: 5.0e-7
+  
+  # Gradient handling
+  gradient_clip: 1.0
+  mixed_precision: true             # Use AMP for faster training
+
+# Evaluation Configuration
+# -----------------------------------------------------------------------------
+evaluation:
+  eval_interval: 1                  # Evaluate every epoch
+  compute_retrieval: true
+  retrieval_dataset_size: 5000      # Larger retrieval set
+  save_embeddings: true
+  save_attention_maps: false        # Save attention visualizations
+
+# Output Configuration
+# -----------------------------------------------------------------------------
+output:
+  checkpoint_path: checkpoints/two_stage/${dataset.subject}/two_stage_sota_best.pt
+  save_every_n_epochs: 5
+  save_optimizer_state: true        # Save optimizer for resuming
+  
+# Expected Results
+# -----------------------------------------------------------------------------
+# Validation Cosine Similarity: 0.47-0.53
+# Test Cosine Similarity: 0.45-0.52
+# Training Time: 3-6 hours (GPU)
+# Model Size: ~25MB
+# Parameters: ~10M
+#
+# Ablation Results (expected improvements):
+# - Without InfoNCE: -3-5% cosine similarity
+# - Without multi-layer: -2-4% cosine similarity
+# - Without residual blocks: -2-3% cosine similarity
+# - Without brain-consistency: -1-2% cosine similarity (if enabled)

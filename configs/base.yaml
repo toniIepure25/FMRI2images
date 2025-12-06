@@ -1,0 +1,143 @@
+# =============================================================================
+# Base Configuration - Default Settings for All Experiments
+# =============================================================================
+#
+# This file contains shared defaults across all configurations.
+# Specific experiment configs can override these values.
+#
+# Author: Bachelor Thesis - fMRI to Image Reconstruction
+# Date: December 2025
+# Version: 3.0
+# =============================================================================
+
+# Dataset Configuration
+# -----------------------------------------------------------------------------
+dataset:
+  subject: subj01                    # Subject ID (subj01-subj08)
+  subject_num: 1                     # Subject number (1-8)
+  max_trials: 30000                  # Maximum number of trials to use
+  train_ratio: 0.80                  # Training set ratio (80%)
+  val_ratio: 0.10                    # Validation set ratio (10%)
+  test_ratio: 0.10                   # Test set ratio (10%)
+  index_dir: data/indices/nsd_index  # Path to index files
+  
+  # Data loading
+  num_workers: 4                     # Number of data loader workers
+  pin_memory: true                   # Pin memory for faster GPU transfer
+  prefetch_factor: 2                 # Prefetch batches per worker
+
+# Preprocessing Configuration
+# -----------------------------------------------------------------------------
+preprocessing:
+  reliability_threshold: 0.1         # Minimum voxel reliability score
+  pca_k: 512                        # PCA components for dimensionality reduction
+  use_roi: false                    # Use ROI-based selection
+  scaler_type: standard             # Options: standard, robust, minmax
+  
+  # Brain masking
+  mask_threshold: 0.0               # Voxel activation threshold
+  remove_mean: true                 # Remove trial mean before PCA
+
+# CLIP Model Configuration
+# -----------------------------------------------------------------------------
+clip:
+  model_name: "ViT-B/32"            # CLIP architecture
+  pretrained: openai                # Pretrained weights source
+  embedding_dim: 512                # Output embedding dimension
+  device: cuda                      # Device for CLIP model
+  batch_size: 64                    # Batch size for CLIP encoding
+  
+  # Multi-layer features (for advanced methods)
+  extract_layers: [4, 8, 12]        # Intermediate layers to extract
+  layer_dims:
+    layer_4: 768                    # Dimension of layer 4
+    layer_8: 768                    # Dimension of layer 8
+    layer_12: 768                   # Dimension of layer 12
+    final: 512                      # Final embedding dimension
+
+# Training Configuration
+# -----------------------------------------------------------------------------
+training:
+  device: cuda                      # Training device
+  seed: 42                          # Random seed for reproducibility
+  gradient_clip: 1.0                # Gradient clipping norm
+  mixed_precision: false            # Use automatic mixed precision (AMP)
+  
+  # Learning rate scheduling
+  lr_scheduler: cosine              # Options: cosine, step, plateau, none
+  warmup_epochs: 5                  # Epochs for warmup
+  min_lr: 1.0e-6                    # Minimum learning rate
+  
+  # Regularization
+  weight_decay: 1.0e-4              # L2 regularization
+  label_smoothing: 0.0              # Label smoothing (0-0.2)
+  
+  # Checkpointing
+  save_best_only: true              # Save only best model
+  save_frequency: 5                 # Save every N epochs
+  early_stop_patience: 15           # Early stopping patience
+
+# Evaluation Configuration
+# -----------------------------------------------------------------------------
+evaluation:
+  metrics:
+    - mse                           # Mean Squared Error
+    - cosine_similarity            # Cosine Similarity
+    - pearson_correlation          # Pearson Correlation
+    - l1_distance                  # L1 Distance
+  
+  # Retrieval evaluation
+  retrieval_top_k: [1, 5, 10, 50]   # Top-K accuracy to compute
+  
+  # Logging
+  log_interval: 10                  # Log every N batches
+  eval_interval: 1                  # Evaluate every N epochs
+
+# Diffusion Model Configuration (for generation)
+# -----------------------------------------------------------------------------
+diffusion:
+  model_id: "stabilityai/stable-diffusion-2-1"  # Model identifier
+  num_inference_steps: 150          # Number of denoising steps
+  guidance_scale: 7.5               # Classifier-free guidance scale
+  scheduler: euler                  # Scheduler type
+  eta: 0.0                          # Noise level (0=deterministic)
+  output_size: 768                  # Output image size
+  dtype: float32                    # Data type for inference
+  
+  # Advanced options
+  enable_attention_slicing: true    # Reduce memory usage
+  enable_vae_slicing: true          # Reduce VAE memory usage
+  enable_cpu_offload: false         # Offload to CPU when needed
+
+# Paths Configuration
+# -----------------------------------------------------------------------------
+paths:
+  output_dir: outputs               # Root output directory
+  cache_dir: cache                  # Cache directory
+  checkpoint_dir: checkpoints       # Model checkpoints
+  log_dir: logs                     # Training logs
+  report_dir: outputs/reports       # Evaluation reports
+  
+  # S3 data paths
+  s3_bucket: natural-scenes-dataset
+  s3_region: us-east-2
+  s3_anon: true
+
+# Logging Configuration
+# -----------------------------------------------------------------------------
+logging:
+  level: INFO                       # Logging level
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+  
+  # Experiment tracking
+  use_wandb: false                  # Use Weights & Biases
+  use_tensorboard: false            # Use TensorBoard
+  
+# Metadata
+# -----------------------------------------------------------------------------
+metadata:
+  config_version: "3.0"
+  description: "Base configuration with sensible defaults"
+  paper_reference: "Bachelor Thesis 2025"
+  dataset_reference: "Allen et al., 2022, Nature Neuroscience"

@@ -1,17 +1,17 @@
-# SOTA Two-Stage Encoder Configuration
-# =====================================
+# =============================================================================
+# DEPRECATED - Please use two_stage_sota.yaml instead
+# =============================================================================
 #
-# State-of-the-art configuration for fMRI → CLIP mapping using:
-# - Two-stage residual encoder with deep architecture
-# - Multi-objective loss (MSE + Cosine + InfoNCE)
-# - Self-supervised pretraining option
-# - Higher PCA dimensionality for better signal retention
+# This file is kept for backward compatibility.
+# New experiments should use: configs/two_stage_sota.yaml
 #
-# Expected improvements over baseline:
-# - Better representation learning via residual blocks
-# - Discriminative learning via InfoNCE contrastive loss
-# - Optional self-supervised pretraining for sample efficiency
-# - Configurable architecture for ablation studies
+# Redirect configuration
+# =============================================================================
+
+_base_: two_stage_sota.yaml
+
+# Note: This configuration is functionally equivalent to two_stage_sota.yaml
+# but we recommend migrating to the new naming convention for clarity.
 
 dataset:
   subject: subj01

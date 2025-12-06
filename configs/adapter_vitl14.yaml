@@ -1,0 +1,149 @@
+# =============================================================================
+# CLIP Adapter Training Configuration
+# =============================================================================
+#
+# Train adapter network to map from 512D CLIP to 768D/1024D target space.
+# This enables using larger CLIP models while keeping the encoder compact.
+#
+# Use Cases:
+# - Map ViT-B/32 (512D) predictions to ViT-L/14 (768D) space
+# - Map to OpenCLIP ViT-H/14 (1024D) for better generation quality
+#
+# Expected Performance:
+# - Quick training: ~30 minutes
+# - Preserves ~95% of similarity scores
+# - Improves diffusion generation quality significantly
+#
+# Usage:
+#   python -m fmri2img.training.train_clip_adapter \
+#       --config configs/adapter_vitl14.yaml
+# =============================================================================
+
+# Inherit from base configuration
+_base_: base.yaml
+
+# Experiment Metadata
+# -----------------------------------------------------------------------------
+experiment:
+  name: adapter_vitl14
+  description: "CLIP adapter from ViT-B/32 (512D) to ViT-L/14 (768D)"
+  tags: [adapter, upscaling, vitl14]
+
+# Dataset Configuration
+# -----------------------------------------------------------------------------
+dataset:
+  subject: subj01
+  max_trials: 30000
+  train_ratio: 0.85                  # More training data for adapter
+  val_ratio: 0.10
+  test_ratio: 0.05
+
+# Source and Target CLIP Models
+# -----------------------------------------------------------------------------
+source_clip:
+  model_name: "ViT-B/32"            # Source model (what encoder predicts)
+  embedding_dim: 512
+  
+target_clip:
+  model_name: "ViT-L/14"            # Target model (for generation)
+  embedding_dim: 768
+  source: openai                    # Options: openai, laion
+
+# Adapter Architecture
+# -----------------------------------------------------------------------------
+adapter:
+  # Architecture
+  input_dim: 512                    # Source embedding dimension
+  output_dim: 768                   # Target embedding dimension
+  hidden_dims: [1536]               # Hidden layer dimensions
+  
+  # Regularization
+  dropout: 0.0                      # Usually no dropout for adapters
+  use_batch_norm: false
+  use_layer_norm: true              # Layer norm recommended for adapters
+  
+  # Activation
+  activation: gelu
+  
+  # Residual connection (when possible)
+  use_residual: false               # Only if input_dim == output_dim
+  
+  # Initialization
+  init_method: xavier_uniform       # Xavier initialization for adapters
+  output_init_scale: 0.01           # Small init for output layer
+
+# Training Configuration
+# -----------------------------------------------------------------------------
+training:
+  # Optimization
+  learning_rate: 3.0e-4             # Higher LR for small network
+  optimizer: adamw
+  betas: [0.9, 0.999]
+  weight_decay: 0.0                 # Usually no weight decay for adapters
+  
+  # Batch configuration
+  batch_size: 256                   # Large batches for stability
+  val_batch_size: 512
+  
+  # Epochs
+  epochs: 50                        # Quick training
+  early_stop_patience: 10
+  
+  # Learning rate scheduling
+  lr_scheduler: cosine
+  warmup_epochs: 3
+  min_lr: 1.0e-6
+  
+  # Gradient handling
+  gradient_clip: 1.0
+
+# Loss Configuration
+# -----------------------------------------------------------------------------
+loss:
+  type: combined
+  mse_weight: 0.3                   # MSE for magnitude preservation
+  cosine_weight: 0.7                # Cosine for direction preservation
+  
+  # Optional losses
+  l1_weight: 0.0                    # L1 loss for sparsity
+  contrastive_weight: 0.0           # Contrastive loss
+
+# Data Configuration
+# -----------------------------------------------------------------------------
+data:
+  # Paths to pre-computed CLIP embeddings
+  source_cache: cache/clip_embeddings/nsd_clipcache_vitb32.parquet
+  target_cache: cache/clip_embeddings/nsd_clipcache_vitl14.parquet
+  
+  # Or build caches on-the-fly
+  build_cache_if_missing: true
+  cache_batch_size: 128
+
+# Output Configuration
+# -----------------------------------------------------------------------------
+output:
+  checkpoint_path: checkpoints/adapter/${dataset.subject}/adapter_vitb32_to_vitl14.pt
+  save_metadata: true               # Save source/target model info
+  
+# Evaluation
+# -----------------------------------------------------------------------------
+evaluation:
+  # Compute similarity preservation
+  compute_similarity_preservation: true
+  
+  # Test on retrieval task
+  compute_retrieval: true
+  retrieval_dataset_size: 1000
+
+# Expected Results
+# -----------------------------------------------------------------------------
+# Source→Target Cosine Similarity: 0.95-0.98
+# Similarity Preservation: 95-98%
+# Training Time: 20-30 minutes
+# Model Size: ~5MB
+# Parameters: ~1.5M
+#
+# Generation Quality Improvement (subjective):
+# - Better semantic accuracy: +10-15%
+# - More natural images
+# - Better fine-grained details

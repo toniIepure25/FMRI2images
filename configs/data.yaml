@@ -1,32 +1,83 @@
+# =============================================================================
+# NSD Dataset Configuration
+# =============================================================================
+#
+# Configuration for Natural Scenes Dataset (NSD) access and processing.
+# 
+# Dataset Reference:
+#   Allen et al. (2022). A massive 7T fMRI dataset to bridge cognitive 
+#   neuroscience and artificial intelligence. Nature Neuroscience.
+#
+# Data Structure:
+#   - S3 bucket: natural-scenes-dataset (AWS us-east-2)
+#   - 8 subjects, ~30,000 trials each
+#   - 73,000 unique images from COCO
+#   - Multiple preprocessing pipelines available
+#
+# =============================================================================
+
+# S3 Configuration
+# -----------------------------------------------------------------------------
 s3:
-  bucket: natural-scenes-dataset
-  region: us-east-2
-  anon: true
+  bucket: natural-scenes-dataset    # AWS S3 bucket name
+  region: us-east-2                 # AWS region
+  anon: true                        # Anonymous access (no credentials needed)
   base_url: "s3://natural-scenes-dataset"
+  endpoint_url: null                # Custom endpoint (null for AWS)
+  
+  # Connection settings
+  max_retries: 3                    # Retry failed requests
+  timeout: 60                       # Request timeout (seconds)
 
+# Cache Configuration
+# -----------------------------------------------------------------------------
 cache:
-  cache_dir: "cache"
-  # Note: You can customize S3 cache directory via get_s3_filesystem(cache_storage="cache/s3_cache") if needed
+  cache_dir: cache                  # Local cache directory
+  s3_cache: cache/s3_cache          # S3 file cache
+  enable_caching: true              # Enable local caching
+  cache_size_limit: 100GB           # Maximum cache size (null = unlimited)
+  auto_cleanup: false               # Auto-cleanup old files
 
+# NSD File Structure
+# -----------------------------------------------------------------------------
 nsd:
+  # Metadata files
   metadata_files:
     stim_info: "nsddata/experiments/nsd/nsd_stim_info_merged.csv"
     experiment_design: "nsddata/experiments/nsd/nsd_expdesign.mat"
+    
+  # Stimuli
   stimuli:
     hdf5_file: "nsddata_stimuli/stimuli/nsd/nsd_stimuli.hdf5"
+    format: RGB                     # Image format
+    resolution: [425, 425]          # Image resolution [H, W]
+    
+  # fMRI Data
   fmri:
-    # Session-level beta files pattern
-    session_pattern: "nsddata_betas/ppdata/subj{subject:02d}/{resolution}/{preprocessing}/betas_session{session:02d}.nii.gz"
-    resolution: "func1pt8mm" # or "func1mm"
-    preprocessing: "betas_fithrf_GLMdenoise_RR" # Recommended preprocessing
-
-    # Alternative file patterns for different preprocessing pipelines
-    betas_assumehrf: "nsddata_betas/ppdata/subj{subject:02d}/func1pt8mm/betas_assumehrf/betas_session{session:02d}.nii.gz"
-    betas_fithrf: "nsddata_betas/ppdata/subj{subject:02d}/func1pt8mm/betas_fithrf/betas_session{session:02d}.nii.gz"
-    betas_fithrf_GLMdenoise_RR: "nsddata_betas/ppdata/subj{subject:02d}/func1pt8mm/betas_fithrf_GLMdenoise_RR/betas_session{session:02d}.nii.gz"
-
-    # HDF5 consolidated files (if they exist)
-    single_trial_design: "nsddata/ppdata/subj{subject:02d}/func/design_matrices_single_trial.hdf5"
+    # Preprocessing pipelines (in order of recommendation)
+    pipelines:
+      betas_fithrf_GLMdenoise_RR:   # Best quality (recommended)
+        pattern: "nsddata_betas/ppdata/subj{subject:02d}/func1pt8mm/betas_fithrf_GLMdenoise_RR/betas_session{session:02d}.nii.gz"
+        description: "Fitted HRF + GLMdenoise + Ridge regression"
+        
+      betas_fithrf:                 # Good quality
+        pattern: "nsddata_betas/ppdata/subj{subject:02d}/func1pt8mm/betas_fithrf/betas_session{session:02d}.nii.gz"
+        description: "Fitted HRF only"
+        
+      betas_assumehrf:              # Baseline
+        pattern: "nsddata_betas/ppdata/subj{subject:02d}/func1pt8mm/betas_assumehrf/betas_session{session:02d}.nii.gz"
+        description: "Assumed canonical HRF"
+    
+    # Default pipeline
+    default_pipeline: betas_fithrf_GLMdenoise_RR
+    
+    # Resolution options
+    resolutions:
+      func1pt8mm: "1.8mm isotropic"  # Recommended
+      func1mm: "1.0mm isotropic"     # Higher res, larger files
+    default_resolution: func1pt8mm
+    
+    # ROI masks (optional)
     roi_masks: "nsddata/ppdata/subj{subject:02d}/anat/*roi*.nii.gz"
 
 subjects:

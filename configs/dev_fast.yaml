@@ -1,0 +1,123 @@
+# =============================================================================
+# Fast Development Configuration
+# =============================================================================
+#
+# Quick configuration for rapid experimentation and debugging.
+# Uses reduced data, fewer epochs, and faster settings.
+#
+# Use this for:
+# - Testing new features
+# - Debugging code
+# - Quick architecture experiments
+# - Sanity checks
+#
+# NOT for:
+# - Final results
+# - Paper experiments
+# - Production deployment
+#
+# Usage:
+#   python -m fmri2img.training.train_mlp --config configs/dev_fast.yaml
+# =============================================================================
+
+# Inherit from base configuration
+_base_: base.yaml
+
+# Experiment Metadata
+# -----------------------------------------------------------------------------
+experiment:
+  name: dev_fast
+  description: "Fast development configuration for quick experiments"
+  tags: [development, fast, debugging]
+
+# Dataset Configuration (REDUCED)
+# -----------------------------------------------------------------------------
+dataset:
+  subject: subj01
+  max_trials: 1000                  # Only 1K samples for speed
+  train_ratio: 0.70                 # 700 train
+  val_ratio: 0.20                   # 200 val  
+  test_ratio: 0.10                  # 100 test
+
+# Preprocessing (SIMPLIFIED)
+# -----------------------------------------------------------------------------
+preprocessing:
+  reliability_threshold: 0.0        # No filtering for speed
+  pca_k: 256                        # Reduced dimensionality
+  use_roi: false
+
+# MLP Architecture (SMALLER)
+# -----------------------------------------------------------------------------
+mlp:
+  input_dim: 256
+  hidden_dims: [512, 256]           # Smaller network
+  output_dim: 512
+  dropout: 0.1
+  use_batch_norm: true
+  activation: relu
+
+# Training Configuration (FAST)
+# -----------------------------------------------------------------------------
+training:
+  # Optimization
+  learning_rate: 1.0e-3             # Higher LR for faster convergence
+  optimizer: adam                   # Adam is faster than AdamW
+  weight_decay: 0.0                 # Skip regularization
+  
+  # Batch configuration
+  batch_size: 32                    # Small batches
+  val_batch_size: 64
+  num_workers: 2                    # Fewer workers
+  
+  # Epochs (REDUCED)
+  epochs: 10                        # Only 10 epochs
+  early_stop_patience: 3            # Stop quickly
+  
+  # Learning rate scheduling (SIMPLE)
+  lr_scheduler: none                # No scheduling
+  
+  # Gradient handling
+  gradient_clip: null               # No clipping
+  mixed_precision: false            # Stable float32
+
+# Loss Configuration (SIMPLE)
+# -----------------------------------------------------------------------------
+loss:
+  type: mse                         # Simple MSE only
+  mse_weight: 1.0
+
+# Evaluation (MINIMAL)
+# -----------------------------------------------------------------------------
+evaluation:
+  eval_interval: 2                  # Evaluate every 2 epochs
+  compute_retrieval: false          # Skip retrieval
+  metrics: [mse, cosine_similarity] # Only basic metrics
+
+# Output Configuration
+# -----------------------------------------------------------------------------
+output:
+  checkpoint_path: checkpoints/dev/dev_fast.pt
+  save_every_n_epochs: 5            # Save less frequently
+  save_optimizer_state: false       # Don't save optimizer
+
+# Logging (MINIMAL)
+# -----------------------------------------------------------------------------
+logging:
+  level: WARNING                    # Less verbose
+  log_interval: 50                  # Log less frequently
+  use_wandb: false
+  use_tensorboard: false
+
+# Development Hints
+# -----------------------------------------------------------------------------
+# For even faster debugging:
+# 1. Reduce max_trials to 100
+# 2. Set epochs to 3
+# 3. Use smaller hidden_dims: [128]
+# 4. Skip validation: eval_interval: 999
+# 5. Use CPU if debugging CUDA issues: device: cpu
+#
+# Expected results:
+# - Training time: 2-5 minutes
+# - Cosine similarity: 0.15-0.25 (low due to limited data)
+# - Purpose: Verify code works, not for quality results

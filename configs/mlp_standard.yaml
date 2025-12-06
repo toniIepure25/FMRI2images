@@ -1,0 +1,116 @@
+# =============================================================================
+# Standard MLP Encoder Configuration
+# =============================================================================
+#
+# Multi-layer perceptron encoder for fMRI → CLIP mapping.
+# Moderate complexity with good performance/speed tradeoff.
+#
+# Expected Performance:
+# - Cosine similarity: ~0.35-0.45
+# - Training time: ~1-2 hours
+# - Better than ridge baseline, simpler than two-stage
+#
+# Usage:
+#   python -m fmri2img.training.train_mlp --config configs/mlp_standard.yaml
+# =============================================================================
+
+# Inherit from base configuration
+_base_: base.yaml
+
+# Experiment Metadata
+# -----------------------------------------------------------------------------
+experiment:
+  name: mlp_standard
+  description: "Standard MLP encoder with dropout and batch normalization"
+  tags: [mlp, standard, balanced]
+
+# Dataset Configuration
+# -----------------------------------------------------------------------------
+dataset:
+  subject: subj01
+  max_trials: 30000
+
+# Preprocessing
+# -----------------------------------------------------------------------------
+preprocessing:
+  reliability_threshold: 0.1
+  pca_k: 512                        # Input dimensionality
+
+# MLP Architecture
+# -----------------------------------------------------------------------------
+mlp:
+  # Architecture
+  input_dim: 512                    # Will match pca_k
+  hidden_dims: [2048, 1024]         # Hidden layer dimensions
+  output_dim: 512                   # CLIP embedding dimension
+  
+  # Regularization
+  dropout: 0.2                      # Dropout rate
+  use_batch_norm: true              # Use batch normalization
+  use_layer_norm: false             # Use layer normalization instead
+  
+  # Activation
+  activation: relu                  # Options: relu, gelu, silu
+  final_activation: null            # No activation on output
+  
+  # Initialization
+  init_method: kaiming_normal       # Weight initialization
+  init_gain: 1.0                    # Gain for initialization
+
+# Training Configuration
+# -----------------------------------------------------------------------------
+training:
+  # Optimization
+  learning_rate: 1.0e-4             # Initial learning rate
+  optimizer: adamw                  # Options: adam, adamw, sgd
+  betas: [0.9, 0.999]               # Adam beta parameters
+  weight_decay: 1.0e-4              # L2 regularization
+  
+  # Batch configuration
+  batch_size: 64                    # Training batch size
+  val_batch_size: 128               # Validation batch size
+  
+  # Epochs and early stopping
+  epochs: 100                       # Maximum epochs
+  early_stop_patience: 15           # Early stopping patience
+  
+  # Learning rate scheduling
+  lr_scheduler: cosine              # Cosine annealing with warmup
+  warmup_epochs: 5                  # Warmup period
+  min_lr: 1.0e-6                    # Minimum learning rate
+  
+  # Gradient handling
+  gradient_clip: 1.0                # Gradient clipping norm
+  accumulation_steps: 1             # Gradient accumulation steps
+
+# Loss Configuration
+# -----------------------------------------------------------------------------
+loss:
+  type: combined                    # Loss function type
+  mse_weight: 0.5                   # MSE loss weight
+  cosine_weight: 0.5                # Cosine similarity loss weight
+  
+  # Optional additional losses
+  contrastive_weight: 0.0           # InfoNCE contrastive loss
+  temperature: 0.05                 # Temperature for contrastive loss
+
+# Output Configuration
+# -----------------------------------------------------------------------------
+output:
+  checkpoint_path: checkpoints/mlp/${dataset.subject}/mlp_standard_best.pt
+  save_every_n_epochs: 10           # Save checkpoint frequency
+  
+# Evaluation
+# -----------------------------------------------------------------------------
+evaluation:
+  eval_on_test: true                # Evaluate on test set
+  compute_retrieval: true           # Compute retrieval metrics
+  save_embeddings: true             # Save predicted embeddings
+
+# Expected Results
+# -----------------------------------------------------------------------------
+# Validation Cosine Similarity: 0.37-0.43
+# Test Cosine Similarity: 0.35-0.42
+# Training Time: 1-2 hours (GPU)
+# Model Size: ~15MB
+# Parameters: ~5M

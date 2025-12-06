@@ -172,3 +172,8 @@ Thumbs.db
 
 # Keep directory structure markers
 !**/.gitkeep
+
+
+*codebase.md*
+
+*.png

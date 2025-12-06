@@ -1,0 +1,24 @@
+{
+  "model": "TwoStageEncoder",
+  "subject": "subj01",
+  "architecture": {
+    "input_dim": 2,
+    "latent_dim": 512,
+    "n_blocks": 4,
+    "dropout": 0.3,
+    "head_type": "linear"
+  },
+  "training": {
+    "best_epoch": 35,
+    "best_val_cosine": 0.5871502161026001,
+    "self_supervised": false,
+    "ssl_objective": null,
+    "freeze_stage1": false
+  },
+  "test_metrics": {
+    "cosine": 0.6125513315200806,
+    "cosine_std": 0.04399179667234421,
+    "mse": 0.001513471594080329
+  },
+  "checkpoint": "checkpoints/two_stage/test/subj01/two_stage_best.pt"
+}

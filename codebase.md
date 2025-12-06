@@ -219,6 +219,79 @@ embedding_dim: 512 # Expected embedding dimension
 
 ```
 
+# configs/clip2fmri.yaml
+
+```yaml
+# CLIP → fMRI Encoder Training Configuration
+# ==========================================
+# 
+# Train the inverse mapping (CLIP → fMRI) for brain-consistency loss.
+# This encoder is frozen and used during fMRI→CLIP training to add
+# cycle-consistency regularization.
+#
+# Scientific Rationale:
+# - Cycle-consistency ensures predictions lie in valid brain space
+# - Novel for fMRI decoding (inspired by CycleGAN)
+# - Acts as implicit regularization without explicit constraints
+
+dataset:
+  subject: subj01
+  subject_num: 1
+  max_trials: 30000
+  train_ratio: 0.85  # More training data since this is "easier" task
+  val_ratio: 0.10
+  test_ratio: 0.05
+  index_dir: data/indices/nsd_index
+
+preprocessing:
+  reliability_threshold: 0.1
+  pca_k: 512  # Must match fMRI→CLIP encoder
+  use_roi: false
+
+# CLIP→fMRI Encoder Architecture
+encoder:
+  type: "clip_to_fmri"
+  clip_dim: 512        # CLIP ViT-B/32 final embedding
+  fmri_dim: 512        # Must match PCA dimension
+  architecture: "mlp"  # Options: "linear", "mlp", "residual"
+  hidden_dim: 1024     # For mlp/residual
+  n_layers: 2          # For residual architecture
+  dropout: 0.2         # Lower than decoder (easier task)
+
+# Training Configuration
+training:
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  batch_size: 256      # Can use larger batches (simpler task)
+  epochs: 50
+  early_stop_patience: 10
+  device: "cuda"
+  seed: 42
+  num_workers: 4
+  
+  # Gradient clipping for stability
+  grad_clip_norm: 1.0
+
+# Loss function (simple MSE + optional correlation)
+loss:
+  type: "mse"  # Options: "mse", "mse+corr"
+  correlation_weight: 0.0  # If >0, add correlation loss
+
+# Output paths
+paths:
+  output_dir: "checkpoints/clip_to_fmri"
+  log_dir: "logs/clip_to_fmri"
+  clip_cache: "cache/clip_embeddings/nsd_clipcache.parquet"
+  preproc_dir: "outputs/preproc"
+
+# Metadata
+config_version: "1.0-phase1"
+description: "CLIP→fMRI encoder for brain-consistency (cycle) loss"
+created: "2025-11-26"
+phase: "Phase 1: Brain-Consistency"
+
+```
+
 # configs/data.yaml
 
 ```yaml
@@ -425,7 +498,7 @@ created: "2025-11-14"
 ```yaml
 # SOTA Two-Stage Encoder Configuration
 # =====================================
-# 
+#
 # State-of-the-art configuration for fMRI → CLIP mapping using:
 # - Two-stage residual encoder with deep architecture
 # - Multi-objective loss (MSE + Cosine + InfoNCE)
@@ -442,89 +515,100 @@ dataset:
   subject: subj01
   subject_num: 1
   max_trials: 30000
-  train_ratio: 0.80  # 24,000 train
-  val_ratio: 0.10    # 3,000 val
-  test_ratio: 0.10   # 3,000 test
+  train_ratio: 0.80 # 24,000 train
+  val_ratio: 0.10 # 3,000 val
+  test_ratio: 0.10 # 3,000 test
   index_dir: data/indices/nsd_index
 
 preprocessing:
   reliability_threshold: 0.1
-  pca_k: 512  # Higher than baseline (100) for more signal retention
+  pca_k: 512 # Higher than baseline (100) for more signal retention
   use_roi: false
 
 # Two-Stage Encoder Configuration
 encoder:
-  type: "two_stage"  # Options: "mlp", "two_stage"
-  
+  type: "two_stage" # Options: "mlp", "two_stage"
+
   # Stage 1: fMRI → latent representation
-  latent_dim: 768  # Latent brain representation dimensionality
-  n_blocks: 4      # Number of residual blocks (3-6)
-  dropout: 0.3     # Dropout for regularization
-  
+  latent_dim: 768 # Latent brain representation dimensionality
+  n_blocks: 4 # Number of residual blocks (3-6)
+  dropout: 0.3 # Dropout for regularization
+
   # Stage 2: latent → CLIP embedding
-  head_type: "mlp"      # Options: "linear", "mlp" (ignored if shared_head_backbone=true)
-  head_hidden_dim: 512  # Hidden dimension for MLP head or shared backbone
-  
+  head_type: "mlp" # Options: "linear", "mlp" (ignored if shared_head_backbone=true)
+  head_hidden_dim: 512 # Hidden dimension for MLP head or shared backbone
+
   # Phase 2 Enhancement: Shared head backbone for parameter efficiency
-  shared_head_backbone: true  # If true, use shared backbone + lightweight projections
+  shared_head_backbone: true # If true, use shared backbone + lightweight projections
   # Recommended: true for multi-layer mode (reduces params by ~60%)
-  
+
   # Self-supervised pretraining (optional)
-  self_supervised: false  # Enable/disable pretraining
-  ssl_objective: "masked"  # Options: "masked", "denoising"
-  ssl_epochs: 20           # Pretraining epochs
-  mask_ratio: 0.3          # For masked autoencoder
-  noise_std: 0.1           # For denoising autoencoder
-  
+  self_supervised: false # Enable/disable pretraining
+  ssl_objective: "masked" # Options: "masked", "denoising"
+  ssl_epochs: 20 # Pretraining epochs
+  mask_ratio: 0.3 # For masked autoencoder
+  noise_std: 0.1 # For denoising autoencoder
+
   # Staged training (optional)
-  freeze_stage1: false  # Freeze Stage 1 after pretraining
-  stage2_epochs: 30     # Epochs for Stage 2 if freezing Stage 1
+  freeze_stage1: false # Freeze Stage 1 after pretraining
+  stage2_epochs: 30 # Epochs for Stage 2 if freezing Stage 1
 
 # Loss function configuration
 loss:
-  mse_weight: 0.3          # Weight for MSE loss
-  cosine_weight: 0.3       # Weight for cosine similarity loss
-  info_nce_weight: 0.4     # Weight for InfoNCE contrastive loss
-  temperature: 0.05        # Temperature for InfoNCE (0.01-0.1)
-  
+  mse_weight: 0.3 # Weight for MSE loss
+  cosine_weight: 0.3 # Weight for cosine similarity loss
+  info_nce_weight: 0.4 # Weight for InfoNCE contrastive loss
+  temperature: 0.05 # Temperature for InfoNCE (0.01-0.1)
+
   # Phase 3 Enhancement: Multi-layer InfoNCE
-  use_multilayer_infonce: true  # If true, use combined multi-layer representation for InfoNCE
-  infonce_combination: "weighted_pool"  # Options: "weighted_pool", "concat_project", "average"
+  use_multilayer_infonce: true # If true, use combined multi-layer representation for InfoNCE
+  infonce_combination: "weighted_pool" # Options: "weighted_pool", "concat_project", "average"
   # Recommended: "weighted_pool" (balances all layers with minimal params)
-  
+
   # Brain-consistency (cycle) loss (Phase 2 - optional)
-  brain_consistency_weight: 0.0  # Weight for cycle loss (0.0 = disabled, try 0.05-0.2)
-  clip_to_fmri_encoder: null     # Path to CLIP→fMRI encoder checkpoint (required if weight > 0)
+  brain_consistency_weight: 0.1 # Weight for cycle loss (0.0 = disabled, try 0.05-0.2)
+  clip_to_fmri_encoder: null # Path to CLIP→fMRI encoder checkpoint (required if weight > 0)
   # Example: "checkpoints/clip_to_fmri/subj01/encoder.pt"
 
 # Multi-layer CLIP supervision (Phase 3)
 multi_layer:
-  enabled: true  # Enable multi-layer supervision from ViT intermediate layers
+  enabled: true # Enable multi-layer supervision from ViT intermediate layers
   cache_path: "cache/clip_embeddings/nsd_clipcache_multilayer.parquet"
-  
+
   # Layer weights for supervision (should sum to ~1.0)
   # Phase 1 Enhancement: Can use fixed or learnable weights
-  use_learnable_weights: true  # If true, learn optimal weights during training
+  use_learnable_weights: true # If true, learn optimal weights during training
   layer_weights:
-    layer_4: 0.15   # Early visual features (edges, textures)
-    layer_8: 0.20   # Mid-level features (parts, patterns)
-    layer_12: 0.25  # Late semantic features (objects, concepts)
-    final: 0.40     # Final CLIP embedding (global representation)
-  
+    layer_4: 0.15 # Early visual features (edges, textures)
+    layer_8: 0.20 # Mid-level features (parts, patterns)
+    layer_12: 0.25 # Late semantic features (objects, concepts)
+    final: 0.40 # Final CLIP embedding (global representation)
+
   # Loss configuration
-  use_mse: false     # Add MSE component to cosine loss
-  mse_weight: 0.1    # Weight for MSE if enabled
-  
+  use_mse: false # Add MSE component to cosine loss
+  mse_weight: 0.1 # Weight for MSE if enabled
+
   # Scientific Rationale:
   # - Multi-level supervision improves gradient flow (Lin et al. 2017)
   # - Different layers capture different semantic levels (Raghu et al. 2021)
   # - Expected +5-10% embedding similarity improvement (Li et al. 2023)
 
+# Multi-task semantics (Phase 2 - text-CLIP)
+multi_task:
+  predict_text_clip: false # Enable text-CLIP prediction alongside image-CLIP
+  text_clip_cache: "cache/clip_embeddings/text_clip.parquet" # BLIP-2 captions + CLIP text embeddings
+  text_clip_weight: 0.3 # Weight for text-CLIP loss (0.0 = disabled, try 0.2-0.5)
+  # If enabled: loss = (1-w)*image_loss + w*text_loss
+  # Scientific Rationale:
+  # - Multi-task learning improves semantic alignment (Ruder 2017)
+  # - Text supervision adds linguistic grounding (Radford et al. 2021)
+  # - Expected improvement in semantic retrieval and caption alignment
+
 # Training configuration
 training:
   learning_rate: 0.001
   weight_decay: 0.0001
-  batch_size: 128      # Increased from baseline (64) for better InfoNCE
+  batch_size: 128 # Increased from baseline (64) for better InfoNCE
   epochs: 50
   early_stop_patience: 10
   device: "cuda"
@@ -533,7 +617,7 @@ training:
 
 # CLIP Adapter (optional second stage)
 adapter:
-  enabled: false  # Set to true to train adapter after encoder
+  enabled: false # Set to true to train adapter after encoder
   hidden_dim: 1536
   dropout: 0.0
   learning_rate: 0.0003
@@ -550,10 +634,10 @@ diffusion:
   eta: 0.0
   output_size: 768
   dtype: "float32"
-  
+
   # Best-of-N sampling (to be implemented)
-  best_of_n: 1  # Set >1 to enable (e.g., 8, 16)
-  
+  best_of_n: 1 # Set >1 to enable (e.g., 8, 16)
+
   # BOI-lite refinement (to be implemented)
   boi_lite:
     enabled: false
@@ -570,10 +654,10 @@ paths:
 ablations:
   # PCA dimensionality sweep
   pca_dims: [256, 512, 768]
-  
+
   # InfoNCE ablation
   test_without_infonce: false
-  
+
   # Architecture ablation
   n_blocks_sweep: [2, 3, 4, 6]
   latent_dim_sweep: [512, 768, 1024]
@@ -1189,6 +1273,89 @@ scikit-learn
 # diffusers
 # transformers
 # accelerate
+```
+
+# run_phase3_probabilistic.sh
+
+```sh
+#!/bin/bash
+#
+# Phase 3: Train Probabilistic Multi-Layer Encoder with Uncertainty Modeling
+# ==========================================================================
+#
+# Features:
+# - ProbabilisticMultiLayerTwoStageEncoder (mu/logvar outputs)
+# - KL divergence loss with annealing schedule
+# - Multi-layer CLIP supervision (layer_4, layer_8, layer_12, final)
+# - PCA-512 preprocessing for memory efficiency
+# - 4,323 samples (filtered for multi-layer + text-CLIP)
+#
+# Expected:
+# - Training time: ~30 minutes (50 epochs)
+# - Memory usage: ~5.5 GB
+# - Model size: ~4.5M parameters (slightly larger than Phase 2 due to mu/logvar heads)
+#
+
+set -e  # Exit on error
+
+SUBJECT="subj01"
+SAVE_NAME="phase3_probabilistic"
+LOG_FILE="logs/clip_adapter/phase3_probabilistic_training.log"
+
+# Create log directory
+mkdir -p logs/clip_adapter
+
+echo "================================================================================"
+echo "Phase 3: Probabilistic Multi-Layer Encoder Training"
+echo "================================================================================"
+echo ""
+echo "Subject: ${SUBJECT}"
+echo "Save name: ${SAVE_NAME}"
+echo "Log file: ${LOG_FILE}"
+echo ""
+echo "Starting training..."
+echo ""
+
+# Run training with probabilistic mode enabled
+"/home/tonystark/Desktop/Bachelor V2/.venv/bin/python" scripts/train_two_stage.py \
+  --subject "${SUBJECT}" \
+  --use-preproc \
+  --preproc-dir outputs/preproc \
+  --pca-k 512 \
+  --multi-layer \
+  --multilayer-cache cache/clip_embeddings/nsd_clipcache_multilayer.parquet \
+  --predict-text-clip \
+  --text-clip-cache cache/clip_embeddings/text_clip.parquet \
+  --text-clip-weight 0.3 \
+  --probabilistic \
+  --kl-weight 1e-4 \
+  --kl-anneal-epochs 10 \
+  --latent-dim 512 \
+  --n-blocks 4 \
+  --dropout 0.1 \
+  --head-type linear \
+  --batch-size 128 \
+  --epochs 50 \
+  --lr 1e-3 \
+  --patience 10 \
+  --checkpoint-dir checkpoints/clip_adapter \
+  --save-name "${SAVE_NAME}" \
+  2>&1 | tee "${LOG_FILE}"
+
+echo ""
+echo "================================================================================"
+echo "Training complete!"
+echo "================================================================================"
+echo ""
+echo "Checkpoint: checkpoints/clip_adapter/${SUBJECT}/${SAVE_NAME}"
+echo "Log: ${LOG_FILE}"
+echo ""
+echo "Next steps:"
+echo "  1. Evaluate probabilistic model with uncertainty metrics"
+echo "  2. Compare Phase 2 (deterministic) vs Phase 3 (probabilistic)"
+echo "  3. Analyze prediction uncertainty calibration"
+echo ""
+
 ```
 
 # run_training.sh
@@ -4640,6 +4807,462 @@ Examples:
 
 if __name__ == '__main__':
     sys.exit(main())
+
+```
+
+# scripts/build_text_clip_cache.py
+
+```py
+#!/usr/bin/env python3
+"""
+Build Text-CLIP Cache for Multi-Task Semantics
+==============================================
+
+Generate captions for NSD images and encode them with CLIP text encoder.
+This enables multi-task learning: fMRI → image-CLIP + text-CLIP.
+
+Scientific Rationale:
+- Text-CLIP captures semantic/linguistic concepts
+- Image-CLIP captures visual features
+- Joint supervision improves semantic understanding
+- Novel for fMRI decoding (not in MindEye2, Brain-Diffuser)
+
+Workflow:
+1. Load NSD images from cache/stimuli
+2. Generate 1-3 captions per image using BLIP-2 or similar
+3. Encode captions with CLIP text encoder (same model as image encoder)
+4. Average multiple captions per image (or keep best)
+5. Save to cache/clip_embeddings/text_clip.parquet
+
+Usage:
+    # Basic usage with BLIP-2
+    python scripts/build_text_clip_cache.py \\
+        --image-dir cache/stimuli \\
+        --output cache/clip_embeddings/text_clip.parquet
+    
+    # With specific CLIP model
+    python scripts/build_text_clip_cache.py \\
+        --image-dir cache/stimuli \\
+        --clip-model ViT-B-32 \\
+        --clip-pretrained openai \\
+        --num-captions 3 \\
+        --output cache/clip_embeddings/text_clip.parquet
+"""
+
+import argparse
+import logging
+import sys
+from pathlib import Path
+from typing import List, Dict, Optional
+from tqdm import tqdm
+import numpy as np
+import pandas as pd
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+# Add project to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+
+def load_captioning_model(model_name: str = "blip2", device: str = "cuda", local_path: str = None):
+    """
+    Load image captioning model.
+    
+    Args:
+        model_name: "blip2", "blip", or "git"
+        device: Device for model
+        local_path: Optional local path to model (e.g., ~/models/blip2-opt-2.7b)
+    
+    Returns:
+        (model, processor) tuple
+    """
+    import torch
+    from pathlib import Path
+    
+    logger.info(f"Loading captioning model: {model_name}")
+    
+    # Expand local path if provided
+    if local_path:
+        local_path = Path(local_path).expanduser()
+        if not local_path.exists():
+            logger.warning(f"Local path {local_path} not found, falling back to HuggingFace download")
+            local_path = None
+        else:
+            logger.info(f"Using local model from {local_path}")
+    
+    try:
+        if model_name == "blip2":
+            from transformers import Blip2Processor, Blip2ForConditionalGeneration
+            
+            # BLIP-2 OPT-2.7B (LARGE: ~15GB download, best quality but VERY slow to download)
+            # Consider using "blip" instead for faster setup
+            model_id = local_path if local_path else "Salesforce/blip2-opt-2.7b"
+            
+            if not local_path:
+                logger.warning("⚠️  BLIP-2 is a LARGE model (~15GB). Download may take 30+ minutes.")
+                logger.warning("⚠️  Consider using --model blip for faster setup (~1GB, good quality)")
+                logger.warning("⚠️  Or download manually and use --caption-model-path ~/models/blip2-opt-2.7b")
+            
+            processor = Blip2Processor.from_pretrained(model_id, local_files_only=bool(local_path))
+            model = Blip2ForConditionalGeneration.from_pretrained(
+                model_id,
+                device_map=device,
+                torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+                low_cpu_mem_usage=True,
+                resume_download=not bool(local_path),
+                local_files_only=bool(local_path)
+            )
+            logger.info(f"Loaded BLIP-2 model from {model_id}")
+            
+        elif model_name == "blip":
+            from transformers import BlipProcessor, BlipForConditionalGeneration
+            # Original BLIP (faster but lower quality)
+            model_id = "Salesforce/blip-image-captioning-large"
+            processor = BlipProcessor.from_pretrained(model_id)
+            model = BlipForConditionalGeneration.from_pretrained(model_id).to(device)
+            logger.info(f"Loaded BLIP model from {model_id}")
+            
+        elif model_name == "git":
+            from transformers import AutoProcessor, AutoModelForCausalLM
+            # GIT (Microsoft, good quality)
+            model_id = "microsoft/git-large-coco"
+            processor = AutoProcessor.from_pretrained(model_id)
+            model = AutoModelForCausalLM.from_pretrained(model_id).to(device)
+            logger.info(f"Loaded GIT model from {model_id}")
+            
+        else:
+            raise ValueError(f"Unknown captioning model: {model_name}")
+        
+        model.eval()
+        return model, processor
+        
+    except ImportError as e:
+        logger.error("transformers not installed: pip install transformers")
+        raise e
+
+
+def load_clip_text_encoder(
+    model_name: str = "ViT-B-32",
+    pretrained: str = "openai",
+    device: str = "cuda"
+):
+    """
+    Load CLIP text encoder (must match image encoder used for image-CLIP cache).
+    
+    Args:
+        model_name: CLIP architecture (e.g., "ViT-B-32", "ViT-L-14")
+        pretrained: Pretrained weights (e.g., "openai", "laion2b_s34b_b79k")
+        device: Device for model
+    
+    Returns:
+        (model, tokenizer) tuple
+    """
+    logger.info(f"Loading CLIP text encoder: {model_name} ({pretrained})")
+    
+    try:
+        import open_clip
+        import torch
+        
+        model, _, preprocess = open_clip.create_model_and_transforms(
+            model_name,
+            pretrained=pretrained,
+            device=device
+        )
+        tokenizer = open_clip.get_tokenizer(model_name)
+        
+        model.eval()
+        logger.info(f"Loaded CLIP text encoder: {model_name}")
+        
+        return model, tokenizer
+        
+    except ImportError as e:
+        logger.error("open_clip_torch not installed: pip install open-clip-torch")
+        raise e
+
+
+def generate_captions(
+    image_path: Path,
+    caption_model,
+    caption_processor,
+    num_captions: int = 3,
+    device: str = "cuda"
+) -> List[str]:
+    """
+    Generate multiple captions for an image.
+    
+    Args:
+        image_path: Path to image
+        caption_model: Captioning model
+        caption_processor: Captioning processor
+        num_captions: Number of captions to generate
+        device: Device
+    
+    Returns:
+        List of caption strings
+    """
+    from PIL import Image
+    import torch
+    
+    try:
+        image = Image.open(image_path).convert("RGB")
+    except Exception as e:
+        logger.warning(f"Failed to load {image_path}: {e}")
+        return []
+    
+    captions = []
+    
+    with torch.no_grad():
+        for _ in range(num_captions):
+            # Process image
+            inputs = caption_processor(images=image, return_tensors="pt").to(device)
+            
+            # Generate caption with sampling (different each time)
+            generated_ids = caption_model.generate(
+                **inputs,
+                max_length=50,
+                num_beams=3,
+                do_sample=True,
+                temperature=0.7,
+                top_p=0.9
+            )
+            
+            # Decode
+            caption = caption_processor.batch_decode(
+                generated_ids,
+                skip_special_tokens=True
+            )[0].strip()
+            
+            captions.append(caption)
+    
+    return captions
+
+
+def encode_text_with_clip(
+    texts: List[str],
+    clip_model,
+    clip_tokenizer,
+    device: str = "cuda"
+) -> np.ndarray:
+    """
+    Encode text with CLIP text encoder.
+    
+    Args:
+        texts: List of text strings
+        clip_model: CLIP model
+        clip_tokenizer: CLIP tokenizer
+        device: Device
+    
+    Returns:
+        Text embeddings (N, D), L2-normalized
+    """
+    import torch
+    
+    # Tokenize
+    text_tokens = clip_tokenizer(texts).to(device)
+    
+    # Encode
+    with torch.no_grad():
+        text_features = clip_model.encode_text(text_tokens)
+        # L2 normalize
+        text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+    
+    return text_features.cpu().numpy()
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Build text-CLIP cache for multi-task learning"
+    )
+    
+    # Input/output
+    parser.add_argument("--image-dir", default="cache/stimuli",
+                       help="Directory with NSD images")
+    parser.add_argument("--index-dir", default="data/indices/nsd_index",
+                       help="NSD index directory")
+    parser.add_argument("--output", default="cache/clip_embeddings/text_clip.parquet",
+                       help="Output parquet file")
+    
+    # Captioning model
+    parser.add_argument("--caption-model", choices=["blip2", "blip", "git"],
+                       default="blip", help="Image captioning model (default: blip for speed)")
+    parser.add_argument("--caption-model-path", type=str, default=None,
+                       help="Local path to caption model (e.g., ~/models/blip2-opt-2.7b)")
+    parser.add_argument("--num-captions", type=int, default=1,
+                       help="Number of captions per image (default: 1 for speed)")
+    
+    # CLIP model (must match image-CLIP cache)
+    parser.add_argument("--clip-model", default="ViT-B-32",
+                       help="CLIP model architecture")
+    parser.add_argument("--clip-pretrained", default="openai",
+                       help="CLIP pretrained weights")
+    
+    # Processing
+    parser.add_argument("--batch-size", type=int, default=8,
+                       help="Batch size for CLIP encoding")
+    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--num-workers", type=int, default=4)
+    
+    # Options
+    parser.add_argument("--aggregation", choices=["mean", "max", "first"],
+                       default="mean",
+                       help="How to aggregate multiple captions")
+    parser.add_argument("--limit", type=int, help="Limit number of images (for testing)")
+    
+    args = parser.parse_args()
+    
+    logger.info("=" * 70)
+    logger.info("Building Text-CLIP Cache")
+    logger.info("=" * 70)
+    
+    # Load models
+    logger.info("\n1. Loading models...")
+    caption_model, caption_processor = load_captioning_model(
+        args.caption_model, args.device, args.caption_model_path
+    )
+    clip_model, clip_tokenizer = load_clip_text_encoder(
+        args.clip_model, args.clip_pretrained, args.device
+    )
+    
+    # Find all images
+    logger.info("\n2. Finding images...")
+    image_dir = Path(args.image_dir)
+    if not image_dir.exists():
+        logger.error(f"Image directory not found: {image_dir}")
+        sys.exit(1)
+    
+    # Load NSD stimulus info to map nsdId to COCO filenames
+    stim_info_path = Path("cache/nsd_stim_info_merged.csv")
+    nsd_to_filename = {}
+    filename_to_nsd = {}
+    
+    if stim_info_path.exists():
+        logger.info(f"Loading stimulus info from {stim_info_path}")
+        stim_info = pd.read_csv(stim_info_path)
+        for _, row in stim_info.iterrows():
+            nsd_id = int(row['nsdId'])
+            coco_id = int(row['cocoId'])
+            coco_split = row['cocoSplit']
+            filename = f"{coco_id}_{coco_split}.jpg"
+            nsd_to_filename[nsd_id] = filename
+            filename_to_nsd[filename] = nsd_id
+        logger.info(f"Loaded {len(nsd_to_filename)} NSD→filename mappings")
+    else:
+        logger.warning(f"Stimulus info file not found at {stim_info_path}")
+        logger.warning("Will attempt to parse nsdId from filenames directly")
+    
+    # Get list of image files
+    image_files = list(image_dir.glob("*.png")) + list(image_dir.glob("*.jpg"))
+    logger.info(f"Found {len(image_files)} images in {image_dir}")
+    
+    if args.limit:
+        if filename_to_nsd:
+            # Get first N valid NSD images
+            valid_files = [f for f in image_files if f.name in filename_to_nsd]
+            image_files = valid_files[:args.limit]
+        else:
+            image_files = image_files[:args.limit]
+        logger.info(f"Limited to {len(image_files)} images for testing")
+    
+    # Process images
+    logger.info(f"\n3. Generating captions and encoding with CLIP...")
+    logger.info(f"   Captions per image: {args.num_captions}")
+    logger.info(f"   Aggregation: {args.aggregation}")
+    
+    results = []
+    
+    for image_path in tqdm(image_files, desc="Processing images"):
+        # Extract nsd_id from filename mapping or direct parsing
+        nsd_id = None
+        
+        if filename_to_nsd and image_path.name in filename_to_nsd:
+            nsd_id = filename_to_nsd[image_path.name]
+        else:
+            # Try to parse from filename (e.g., "nsd73000.png" -> 73000)
+            try:
+                nsd_id = int(image_path.stem.replace("nsd", ""))
+            except:
+                logger.warning(f"Could not parse nsd_id from {image_path.name}, skipping")
+                continue
+        
+        if nsd_id is None:
+            continue
+        
+        # Generate captions
+        captions = generate_captions(
+            image_path,
+            caption_model,
+            caption_processor,
+            num_captions=args.num_captions,
+            device=args.device
+        )
+        
+        if not captions:
+            logger.warning(f"No captions generated for {image_path.name}, skipping")
+            continue
+        
+        # Encode captions with CLIP
+        text_embeddings = encode_text_with_clip(
+            captions,
+            clip_model,
+            clip_tokenizer,
+            device=args.device
+        )  # (N, D)
+        
+        # Aggregate multiple captions
+        if args.aggregation == "mean":
+            text_embedding = text_embeddings.mean(axis=0)
+        elif args.aggregation == "max":
+            # Max pooling across captions
+            text_embedding = text_embeddings.max(axis=0)
+        elif args.aggregation == "first":
+            text_embedding = text_embeddings[0]
+        
+        # L2 normalize final embedding
+        text_embedding = text_embedding / (np.linalg.norm(text_embedding) + 1e-8)
+        
+        results.append({
+            "nsd_id": nsd_id,
+            "text_clip_embedding": text_embedding,
+            "captions": captions  # Store for inspection
+        })
+    
+    # Create DataFrame
+    logger.info(f"\n4. Saving to {args.output}...")
+    df = pd.DataFrame(results)
+    
+    # Save to parquet
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(output_path, index=False)
+    
+    logger.info(f"✅ Saved text-CLIP cache: {len(df)} images")
+    logger.info(f"   Output: {output_path}")
+    logger.info(f"   Embedding dim: {df['text_clip_embedding'].iloc[0].shape[0]}")
+    
+    # Show example
+    logger.info("\n5. Example captions:")
+    for i in range(min(3, len(df))):
+        row = df.iloc[i]
+        logger.info(f"\n   nsd_id={row['nsd_id']}:")
+        for j, caption in enumerate(row['captions'], 1):
+            logger.info(f"     {j}. {caption}")
+    
+    logger.info("\n" + "=" * 70)
+    logger.info("✅ Text-CLIP cache built successfully!")
+    logger.info("=" * 70)
+    logger.info("\nNext step: Use in multi-task training")
+    logger.info(f"  --text-clip-cache {args.output}")
+    logger.info(f"  --multi-task-enabled")
+    logger.info("=" * 70)
+
+
+if __name__ == "__main__":
+    main()
 
 ```
 
@@ -10798,6 +11421,351 @@ if __name__ == "__main__":
 
 ```
 
+# scripts/evaluate_phase2.py
+
+```py
+#!/usr/bin/env python3
+"""
+Comprehensive evaluation of Phase 2 multi-task model.
+
+Evaluates:
+1. CLIP embedding prediction quality (cosine similarity)
+2. Layer-wise performance (layer_4, layer_8, layer_12, final)
+3. Text-CLIP prediction quality
+4. Comparison with baseline models
+5. Per-sample analysis
+"""
+
+import sys
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from tqdm import tqdm
+import torch
+from torch.utils.data import DataLoader, TensorDataset
+import logging
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from fmri2img.models.encoders import MultiLayerTwoStageEncoder, load_multilayer_two_stage_encoder
+from fmri2img.data.nsd_index_reader import read_subject_index
+from fmri2img.data.preprocess import NSDPreprocessor
+from fmri2img.models.train_utils import train_val_test_split
+from fmri2img.models.ridge import evaluate_predictions
+from fmri2img.io.s3 import get_s3_filesystem, NIfTILoader
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+def load_multilayer_clip_cache(cache_path: str):
+    """Load multi-layer CLIP cache."""
+    logger.info(f"Loading multi-layer CLIP cache from {cache_path}...")
+    df = pd.read_parquet(cache_path)
+    
+    cache_dict = {}
+    for _, row in df.iterrows():
+        nsd_id = int(row['nsdId'])
+        cache_dict[nsd_id] = {
+            'layer_4': np.array(row['layer_4'], dtype=np.float32),
+            'layer_8': np.array(row['layer_8'], dtype=np.float32),
+            'layer_12': np.array(row['layer_12'], dtype=np.float32),
+            'final': np.array(row['final'], dtype=np.float32)
+        }
+    
+    logger.info(f"  Loaded {len(cache_dict)} multi-layer embeddings")
+    return cache_dict
+
+
+def load_text_clip_cache(cache_path: str):
+    """Load text-CLIP cache."""
+    logger.info(f"Loading text-CLIP cache from {cache_path}...")
+    df = pd.read_parquet(cache_path)
+    
+    cache_dict = {}
+    for _, row in df.iterrows():
+        # Handle both column name formats
+        nsd_col = 'nsd_id' if 'nsd_id' in df.columns else 'nsdId'
+        nsd_id = int(row[nsd_col])
+        text_emb = np.array(row['text_clip_embedding'], dtype=np.float32)
+        cache_dict[nsd_id] = text_emb
+    
+    logger.info(f"  Loaded {len(cache_dict)} text-CLIP embeddings")
+    return cache_dict
+
+
+def extract_features_and_targets(
+    df, nifti_loader, preprocessor, multilayer_cache, text_clip_cache, desc="data"
+):
+    """Extract fMRI features and all targets (multi-layer + text-CLIP)."""
+    from collections import defaultdict
+    
+    X_list = []
+    Y_dict_lists = {'layer_4': [], 'layer_8': [], 'layer_12': [], 'final': []}
+    if text_clip_cache is not None:
+        Y_dict_lists['text'] = []
+    nsd_ids_list = []
+    
+    # Group by file
+    samples_by_file = defaultdict(list)
+    for idx, row in df.iterrows():
+        nsd_id = int(row["nsdId"])
+        
+        # Skip if no multi-layer embedding
+        if nsd_id not in multilayer_cache:
+            continue
+        
+        # Skip if text-CLIP required but not available
+        if text_clip_cache is not None and nsd_id not in text_clip_cache:
+            continue
+        
+        samples_by_file[row["beta_path"]].append({
+            'beta_index': int(row["beta_index"]),
+            'nsdId': nsd_id
+        })
+    
+    logger.info(f"Extracting {desc}: {len(df)} samples from {len(samples_by_file)} files")
+    
+    # Process files
+    for beta_path, samples in tqdm(samples_by_file.items(), desc=f"Loading {desc}"):
+        try:
+            img = nifti_loader.load(beta_path)
+            data_4d = img.get_fdata()
+            
+            for sample in samples:
+                beta_index = sample['beta_index']
+                nsd_id = sample['nsdId']
+                
+                # Extract volume
+                vol = data_4d[..., beta_index].astype(np.float32)
+                
+                # Preprocess
+                if preprocessor and preprocessor.is_fitted_:
+                    vol_z = preprocessor.transform_T0(vol)
+                    features = preprocessor.transform(vol_z)
+                else:
+                    features = vol.flatten()
+                
+                # Get targets
+                y_dict = multilayer_cache[nsd_id].copy()
+                if text_clip_cache is not None:
+                    y_dict['text'] = text_clip_cache[nsd_id]
+                
+                X_list.append(features)
+                for layer_name in Y_dict_lists:
+                    Y_dict_lists[layer_name].append(y_dict[layer_name])
+                nsd_ids_list.append(nsd_id)
+                
+        except Exception as e:
+            logger.warning(f"Failed to load {beta_path}: {e}")
+            continue
+    
+    X = np.vstack(X_list)
+    Y_dict = {k: np.vstack(v) for k, v in Y_dict_lists.items()}
+    nsd_ids = np.array(nsd_ids_list)
+    
+    logger.info(f"  Extracted {len(X)} valid samples")
+    for layer, emb in Y_dict.items():
+        logger.info(f"    {layer}: {emb.shape}")
+    
+    return X, Y_dict, nsd_ids
+
+
+def evaluate_layer(Y_true, Y_pred, layer_name):
+    """Evaluate predictions for a single layer."""
+    metrics = evaluate_predictions(Y_true, Y_pred, normalize=True)
+    
+    return {
+        'layer': layer_name,
+        'cosine': metrics['cosine'],
+        'cosine_std': metrics['cosine_std'],
+        'mse': metrics['mse'],
+        'r2': metrics.get('r2', 0.0),
+        'dim': Y_true.shape[1]
+    }
+
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model-path", required=True, help="Path to trained model")
+    parser.add_argument("--subject", default="subj01")
+    parser.add_argument("--index-root", default="data/indices/nsd_index")
+    parser.add_argument("--multilayer-cache", default="cache/clip_embeddings/nsd_clipcache_multilayer.parquet")
+    parser.add_argument("--text-clip-cache", default="cache/clip_embeddings/text_clip.parquet")
+    parser.add_argument("--preproc-dir", default="outputs/preproc")
+    parser.add_argument("--pca-k", type=int, default=512)
+    parser.add_argument("--output-dir", default="outputs/eval")
+    parser.add_argument("--batch-size", type=int, default=128)
+    parser.add_argument("--device", default="cuda")
+    args = parser.parse_args()
+    
+    device = args.device if torch.cuda.is_available() else "cpu"
+    logger.info(f"Using device: {device}")
+    
+    # Create output directory
+    output_dir = Path(args.output_dir) / args.subject / "phase2_multitask"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Output directory: {output_dir}")
+    
+    # Load model
+    logger.info(f"Loading model from {args.model_path}...")
+    model, meta = load_multilayer_two_stage_encoder(args.model_path, map_location=device)
+    model = model.to(device)
+    model.eval()
+    logger.info(f"Model loaded: {model.__class__.__name__}")
+    
+    # Load preprocessing
+    logger.info("Setting up preprocessing...")
+    preprocessor = NSDPreprocessor(args.subject, out_dir=args.preproc_dir)
+    preprocessor.load_artifacts()
+    pca_k = preprocessor.pca_info_.get('k_eff', preprocessor.pca_.n_components_ if preprocessor.pca_ else None)
+    logger.info(f"Preprocessing ready: PCA k={pca_k if pca_k else 'disabled'}")
+    
+    # Load data
+    logger.info(f"Loading index for {args.subject}...")
+    df = read_subject_index(args.index_root, args.subject)
+    train_df, val_df, test_df = train_val_test_split(df, random_seed=42)
+    
+    # Load caches
+    multilayer_cache = load_multilayer_clip_cache(args.multilayer_cache)
+    text_clip_cache = load_text_clip_cache(args.text_clip_cache)
+    
+    # Load NIfTI loader
+    fs = get_s3_filesystem()
+    nifti_loader = NIfTILoader(fs)
+    
+    # Extract test data
+    logger.info("=" * 80)
+    logger.info("EXTRACTING TEST DATA")
+    logger.info("=" * 80)
+    X_test, Y_test_dict, nsd_ids_test = extract_features_and_targets(
+        test_df, nifti_loader, preprocessor, multilayer_cache, text_clip_cache, desc="test"
+    )
+    
+    # Create dataset
+    test_dataset_dict = {
+        'X': torch.from_numpy(X_test).float(),
+        'Y': {k: torch.from_numpy(v).float() for k, v in Y_test_dict.items()},
+        'nsd_ids': nsd_ids_test
+    }
+    
+    # Run inference
+    logger.info("=" * 80)
+    logger.info("RUNNING INFERENCE")
+    logger.info("=" * 80)
+    
+    all_preds = {k: [] for k in Y_test_dict.keys()}
+    
+    with torch.no_grad():
+        for i in tqdm(range(0, len(X_test), args.batch_size), desc="Inference"):
+            X_batch = test_dataset_dict['X'][i:i+args.batch_size].to(device)
+            Y_pred_dict = model(X_batch)
+            
+            for layer_name in all_preds.keys():
+                if layer_name in Y_pred_dict:
+                    all_preds[layer_name].append(Y_pred_dict[layer_name].cpu().numpy())
+    
+    # Stack predictions (only for layers that have predictions)
+    Y_pred_dict = {k: np.vstack(v) for k, v in all_preds.items() if len(v) > 0}
+    
+    # Evaluate each layer
+    logger.info("=" * 80)
+    logger.info("EVALUATION RESULTS")
+    logger.info("=" * 80)
+    
+    results = []
+    for layer_name in ['layer_4', 'layer_8', 'layer_12', 'final', 'text']:
+        if layer_name in Y_test_dict and layer_name in Y_pred_dict:
+            result = evaluate_layer(
+                Y_test_dict[layer_name],
+                Y_pred_dict[layer_name],
+                layer_name
+            )
+            results.append(result)
+            
+            logger.info(f"\n{layer_name.upper()}:")
+            logger.info(f"  Cosine Similarity: {result['cosine']:.4f}")
+            logger.info(f"  MSE: {result['mse']:.6f}")
+            logger.info(f"  R²: {result['r2']:.4f}")
+            logger.info(f"  Dimensions: {result['dim']}")
+    
+    # Save results
+    results_df = pd.DataFrame(results)
+    results_path = output_dir / "layer_performance.csv"
+    results_df.to_csv(results_path, index=False)
+    logger.info(f"\n✅ Results saved to {results_path}")
+    
+    # Create visualization
+    logger.info("\nCreating visualization...")
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    
+    # Plot 1: Cosine similarity by layer
+    ax = axes[0]
+    sns.barplot(data=results_df, x='layer', y='cosine', ax=ax, palette='viridis')
+    ax.set_title('Cosine Similarity by Layer', fontsize=14, fontweight='bold')
+    ax.set_xlabel('Layer', fontsize=12)
+    ax.set_ylabel('Cosine Similarity', fontsize=12)
+    ax.set_ylim(0, 1)
+    ax.grid(axis='y', alpha=0.3)
+    
+    # Add value labels
+    for i, row in results_df.iterrows():
+        ax.text(i, row['cosine'] + 0.02, f"{row['cosine']:.3f}", 
+                ha='center', va='bottom', fontweight='bold')
+    
+    # Plot 2: MSE by layer
+    ax = axes[1]
+    sns.barplot(data=results_df, x='layer', y='mse', ax=ax, palette='rocket')
+    ax.set_title('MSE by Layer', fontsize=14, fontweight='bold')
+    ax.set_xlabel('Layer', fontsize=12)
+    ax.set_ylabel('MSE', fontsize=12)
+    ax.grid(axis='y', alpha=0.3)
+    
+    plt.tight_layout()
+    plot_path = output_dir / "layer_performance.png"
+    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+    logger.info(f"✅ Visualization saved to {plot_path}")
+    
+    # Summary
+    logger.info("\n" + "=" * 80)
+    logger.info("SUMMARY")
+    logger.info("=" * 80)
+    logger.info(f"Test samples: {len(X_test)}")
+    logger.info(f"Best layer (cosine): {results_df.loc[results_df['cosine'].idxmax(), 'layer']} "
+                f"({results_df['cosine'].max():.4f})")
+    logger.info(f"Model path: {args.model_path}")
+    logger.info(f"Results: {output_dir}")
+    
+    # Save summary
+    summary = {
+        'model_path': str(args.model_path),
+        'subject': args.subject,
+        'n_test_samples': len(X_test),
+        'pca_k': args.pca_k,
+        'results': results_df.to_dict('records')
+    }
+    
+    import json
+    summary_path = output_dir / "evaluation_summary.json"
+    with open(summary_path, 'w') as f:
+        json.dump(summary, f, indent=2)
+    logger.info(f"✅ Summary saved to {summary_path}")
+    
+    logger.info("\n🎉 Evaluation complete!")
+
+
+if __name__ == "__main__":
+    main()
+
+```
+
 # scripts/evaluate_reconstruction.py
 
 ```py
@@ -14744,8 +15712,8 @@ def main():
         
         logger.info(
             f"Epoch {epoch+1}/{args.epochs}: "
-            f"train_loss={train_loss:.4f}, "
-            f"val_loss={val_loss:.4f}, "
+            f"train_loss={train_loss:.6f}, "
+            f"val_loss={val_loss:.6f}, "
             f"val_corr={val_corr:.4f}"
         )
         
@@ -14772,7 +15740,7 @@ def main():
     logger.info("\n" + "=" * 70)
     logger.info("✅ Training complete!")
     logger.info("=" * 70)
-    logger.info(f"Best val loss: {best_val_loss:.4f}")
+    logger.info(f"Best val loss: {best_val_loss:.6f}")
     logger.info(f"Model saved to: {args.output}")
     logger.info("")
     logger.info("Next step: Use this encoder in decoder training with brain-consistency loss")
@@ -15766,12 +16734,16 @@ from fmri2img.io.s3 import get_s3_filesystem, NIfTILoader
 from fmri2img.models.encoders import (
     TwoStageEncoder,
     MultiLayerTwoStageEncoder,
+    ProbabilisticMultiLayerTwoStageEncoder,
     SelfSupervisedPretrainer,
     save_two_stage_encoder,
     load_two_stage_encoder,
-    load_multilayer_two_stage_encoder
+    load_multilayer_two_stage_encoder,
+    load_probabilistic_encoder
 )
-from fmri2img.training.losses import MultiLoss, MultiLayerLoss, compute_multiloss
+from fmri2img.training.losses import MultiLoss, MultiLayerLoss, ProbabilisticMultiLayerLoss, compute_multiloss
+from fmri2img.training.phase4_losses import BranchWeightedMultiLayerLoss
+from fmri2img.data.streaming_dataset import StreamingMultiLayerDataset
 from fmri2img.models.train_utils import (
     extract_features_and_targets,
     train_val_test_split,
@@ -15779,6 +16751,106 @@ from fmri2img.models.train_utils import (
 )
 from fmri2img.models.ridge import evaluate_predictions
 from fmri2img.eval.retrieval import retrieval_at_k, compute_ranking_metrics
+
+
+class LazyMultiLayerDataset(torch.utils.data.Dataset):
+    """
+    Memory-efficient dataset that loads fMRI data on-the-fly instead of preloading.
+    
+    This prevents OOM errors when working with large datasets by:
+    - Loading beta files only when needed
+    - Caching recently used files (LRU cache)
+    - Processing one sample at a time
+    
+    Args:
+        df: DataFrame with beta_path, beta_index, nsdId
+        nifti_loader: NIfTI file loader
+        preprocessor: NSD preprocessor (fitted)
+        multilayer_cache: Multi-layer CLIP embeddings
+        text_clip_cache: Optional text-CLIP embeddings
+        cache_size: Number of beta files to keep in memory (default: 5)
+    """
+    
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        nifti_loader,
+        preprocessor,
+        multilayer_cache: Dict[int, Dict[str, np.ndarray]],
+        text_clip_cache: Optional[Dict[int, np.ndarray]] = None,
+        cache_size: int = 5
+    ):
+        self.df = df.reset_index(drop=True)
+        self.nifti_loader = nifti_loader
+        self.preprocessor = preprocessor
+        self.multilayer_cache = multilayer_cache
+        self.text_clip_cache = text_clip_cache
+        
+        # Filter samples that have multi-layer embeddings
+        valid_indices = []
+        for idx, row in self.df.iterrows():
+            nsd_id = int(row["nsdId"])
+            if nsd_id in multilayer_cache:
+                valid_indices.append(idx)
+        
+        self.df = self.df.iloc[valid_indices].reset_index(drop=True)
+        logger.info(f"LazyDataset: {len(self.df)} valid samples (have multi-layer embeddings)")
+        
+        # LRU cache for beta files (keep last N files in memory)
+        from collections import OrderedDict
+        self.beta_cache = OrderedDict()
+        self.cache_size = cache_size
+    
+    def __len__(self):
+        return len(self.df)
+    
+    def __getitem__(self, idx):
+        row = self.df.iloc[idx]
+        beta_path = row["beta_path"]
+        beta_index = int(row["beta_index"])
+        nsd_id = int(row["nsdId"])
+        
+        # Load beta file (with LRU caching)
+        if beta_path not in self.beta_cache:
+            # Load new file
+            img = self.nifti_loader.load(beta_path)
+            data_4d = img.get_fdata().astype(np.float32)
+            
+            # Add to cache
+            self.beta_cache[beta_path] = data_4d
+            
+            # Remove oldest if cache full
+            if len(self.beta_cache) > self.cache_size:
+                self.beta_cache.popitem(last=False)
+        else:
+            # Move to end (mark as recently used)
+            self.beta_cache.move_to_end(beta_path)
+            data_4d = self.beta_cache[beta_path]
+        
+        # Extract volume
+        vol = data_4d[..., beta_index]
+        
+        # Preprocess
+        if self.preprocessor and self.preprocessor.is_fitted_:
+            vol_z = self.preprocessor.transform_T0(vol)
+            features = self.preprocessor.transform(vol_z)
+        else:
+            features = vol.flatten()
+        
+        # Get multi-layer targets
+        targets = self.multilayer_cache[nsd_id]
+        Y_dict = {
+            k: torch.from_numpy(v).float() 
+            for k, v in targets.items()
+        }
+        
+        # Add text-CLIP if available
+        if self.text_clip_cache is not None and nsd_id in self.text_clip_cache:
+            Y_dict['text'] = torch.from_numpy(self.text_clip_cache[nsd_id]).float()
+        
+        X = torch.from_numpy(features).float()
+        
+        return X, Y_dict
 
 
 def train_epoch(
@@ -15792,8 +16864,11 @@ def train_epoch(
     """Train for one epoch with multi-objective loss."""
     model.train()
     total_loss = 0.0
-    loss_components_sum = {"mse": 0.0, "cosine": 0.0, "info_nce": 0.0}
+    loss_components_sum = {"mse": 0.0, "cosine": 0.0, "info_nce": 0.0, "brain": 0.0}
     n_batches = 0
+    
+    # Check if brain-consistency is enabled
+    use_brain_loss = criterion.brain_consistency_weight > 0
     
     pbar = tqdm(loader, desc=f"Epoch {epoch}", leave=False)
     for X_batch, Y_batch in pbar:
@@ -15804,7 +16879,16 @@ def train_epoch(
         Y_pred = model(X_batch)
         
         # Compute loss with components
-        loss, components = criterion(Y_pred, Y_batch, return_components=True)
+        # Pass fmri_input if brain-consistency is enabled
+        if use_brain_loss:
+            loss, components = criterion(
+                Y_pred, Y_batch, 
+                fmri_input=X_batch,  # Original fMRI PCA for cycle loss
+                return_components=True
+            )
+        else:
+            loss, components = criterion(Y_pred, Y_batch, return_components=True)
+        
         loss.backward()
         
         # Gradient clipping for stability
@@ -15815,16 +16899,20 @@ def train_epoch(
         # Accumulate losses
         total_loss += loss.item() * len(X_batch)
         for key in loss_components_sum:
-            loss_components_sum[key] += components[key] * len(X_batch)
+            if key in components:
+                loss_components_sum[key] += components[key] * len(X_batch)
         n_batches += 1
         
         # Update progress bar
-        pbar.set_postfix({
+        pbar_dict = {
             "loss": f"{loss.item():.4f}",
             "mse": f"{components['mse']:.4f}",
             "cos": f"{components['cosine']:.4f}",
             "nce": f"{components['info_nce']:.4f}"
-        })
+        }
+        if use_brain_loss:
+            pbar_dict["brain"] = f"{components['brain']:.4f}"
+        pbar.set_postfix(pbar_dict)
     
     # Average over all samples
     n_samples = len(loader.dataset)
@@ -15868,7 +16956,8 @@ def train_epoch_multilayer(
     optimizer: torch.optim.Optimizer,
     criterion: MultiLayerLoss,
     device: str,
-    epoch: int
+    epoch: int,
+    probabilistic: bool = False
 ) -> Tuple[float, Dict[str, float]]:
     """Train for one epoch with multi-layer supervision."""
     model.train()
@@ -15883,11 +16972,20 @@ def train_epoch_multilayer(
         Y_batch_dict = {k: v.to(device) for k, v in Y_batch_dict.items()}
         
         optimizer.zero_grad()
-        Y_pred_dict = model(X_batch)
         
-        # Compute multi-layer loss with components
-        # Pass model for Phase 3 multi-layer InfoNCE
-        loss, components = criterion(Y_pred_dict, Y_batch_dict, model=model, return_components=True)
+        # Phase 3: Probabilistic model returns (outputs, kl_loss)
+        if probabilistic:
+            Y_pred_dict, kl_loss = model(X_batch, sample=True, return_kl=True)
+            # Pass kl_loss to criterion (not model)
+            loss, components = criterion(Y_pred_dict, Y_batch_dict, kl_loss, 
+                                         current_epoch=epoch, return_components=True)
+        else:
+            # Phase 2: Deterministic model returns outputs only
+            Y_pred_dict = model(X_batch)
+            # Pass model for Phase 2 multi-layer InfoNCE
+            loss, components = criterion(Y_pred_dict, Y_batch_dict, model=model, 
+                                         current_epoch=epoch, return_components=True)
+        
         loss.backward()
         
         # Gradient clipping for stability
@@ -15903,13 +17001,18 @@ def train_epoch_multilayer(
         n_batches += 1
         
         # Update progress bar
-        pbar.set_postfix({
+        postfix_dict = {
             "loss": f"{loss.item():.4f}",
             "l4": f"{components.get('layer_4', 0):.3f}",
             "l8": f"{components.get('layer_8', 0):.3f}",
             "l12": f"{components.get('layer_12', 0):.3f}",
             "fin": f"{components.get('final', 0):.3f}"
-        })
+        }
+        # Add KL loss for Phase 3
+        if probabilistic and 'kl' in components:
+            postfix_dict["kl"] = f"{components['kl']:.4f}"
+            postfix_dict["β"] = f"{components.get('kl_weight', 0):.4f}"
+        pbar.set_postfix(postfix_dict)
     
     # Average over all samples
     n_samples = len(loader.dataset)
@@ -15923,7 +17026,8 @@ def train_epoch_multilayer(
 def evaluate_epoch_multilayer(
     model: MultiLayerTwoStageEncoder,
     loader: DataLoader,
-    device: str
+    device: str,
+    probabilistic: bool = False
 ) -> Dict:
     """Evaluate multi-layer model on validation/test set (using final layer only)."""
     model.eval()
@@ -15931,13 +17035,20 @@ def evaluate_epoch_multilayer(
     all_preds = []
     all_targets = []
     
-    for X_batch, Y_batch_dict in loader:
-        X_batch = X_batch.to(device)
-        Y_pred_dict = model(X_batch)
-        
-        # Use final layer for evaluation
-        all_preds.append(Y_pred_dict['final'].cpu().numpy())
-        all_targets.append(Y_batch_dict['final'].numpy())
+    with torch.no_grad():
+        for X_batch, Y_batch_dict in loader:
+            X_batch = X_batch.to(device)
+            
+            # Phase 3: Probabilistic model returns (outputs, kl_loss)
+            if probabilistic:
+                Y_pred_dict, _ = model(X_batch, sample=False, return_kl=False)  # Use mean for eval
+            else:
+                # Phase 2: Deterministic model
+                Y_pred_dict = model(X_batch)
+            
+            # Use final layer for evaluation
+            all_preds.append(Y_pred_dict['final'].cpu().numpy())
+            all_targets.append(Y_batch_dict['final'].numpy())
     
     Y_pred = np.vstack(all_preds)
     Y_true = np.vstack(all_targets)
@@ -15978,21 +17089,35 @@ def extract_features_and_multilayer_targets(
     nifti_loader: NIfTILoader,
     preprocessor: NSDPreprocessor,
     multilayer_cache: Dict[int, Dict[str, np.ndarray]],
-    desc: str = "data"
+    desc: str = "data",
+    text_clip_cache: Optional[Dict[int, np.ndarray]] = None
 ) -> Tuple[np.ndarray, Dict[str, np.ndarray], np.ndarray]:
     """
     Extract fMRI features and multi-layer CLIP targets.
     Uses same optimization as extract_features_and_targets: group by file to load each once.
     
+    Args:
+        df: DataFrame with beta_path, beta_index, nsdId
+        nifti_loader: NIfTI file loader
+        preprocessor: NSD preprocessor
+        multilayer_cache: Multi-layer CLIP embeddings {nsd_id: {'layer_4': ..., 'final': ...}}
+        desc: Description for logging
+        text_clip_cache: Optional text-CLIP embeddings {nsd_id: (512,)} for Phase 2
+    
     Returns:
         X: fMRI features (N, fmri_dim)
-        Y_dict: Dict of CLIP targets {'layer_4': (N, 768), ..., 'final': (N, 512)}
+        Y_dict: Dict of CLIP targets {'layer_4': (N, 768), ..., 'final': (N, 512), 'text': (N, 512)}
         nsd_ids: NSD stimulus IDs (N,)
     """
     from collections import defaultdict
     
     X_list = []
     Y_dict_lists = {'layer_4': [], 'layer_8': [], 'layer_12': [], 'final': []}
+    
+    # Phase 2: Add text-CLIP support
+    if text_clip_cache is not None:
+        Y_dict_lists['text'] = []
+    
     nsd_ids_list = []
     
     # Group samples by beta_path to load each file only once (OPTIMIZATION)
@@ -16002,6 +17127,10 @@ def extract_features_and_multilayer_targets(
         
         # Skip if no multi-layer embedding
         if nsd_id not in multilayer_cache:
+            continue
+        
+        # Phase 2: Skip if text-CLIP is required but not available
+        if text_clip_cache is not None and nsd_id not in text_clip_cache:
             continue
         
         beta_path = row["beta_path"]
@@ -16041,7 +17170,11 @@ def extract_features_and_multilayer_targets(
                         features = vol.flatten()
                     
                     # Get multi-layer targets
-                    y_dict = multilayer_cache[nsd_id]
+                    y_dict = multilayer_cache[nsd_id].copy()  # Always copy to avoid modifying cache
+                    
+                    # Phase 2: Add text-CLIP target (guaranteed to exist due to pre-filtering)
+                    if text_clip_cache is not None:
+                        y_dict['text'] = text_clip_cache[nsd_id]
                     
                     X_list.append(features)
                     for layer_name in Y_dict_lists:
@@ -16230,6 +17363,37 @@ def main():
     parser.add_argument("--multilayer-cache", type=str,
                        default="cache/clip_embeddings/nsd_clipcache_multilayer.parquet",
                        help="Path to multi-layer CLIP cache")
+    parser.add_argument("--streaming", action="store_true",
+                       help="Use streaming dataset (memory-efficient for full 30K dataset)")
+    
+    # Phase 2: Multi-task semantics (text-CLIP)
+    parser.add_argument("--predict-text-clip", action="store_true",
+                       help="Enable text-CLIP prediction alongside image-CLIP (Phase 2)")
+    parser.add_argument("--text-clip-cache", type=str,
+                       default="cache/clip_embeddings/text_clip.parquet",
+                       help="Path to text-CLIP embeddings (BLIP-2 captions + CLIP text)")
+    parser.add_argument("--text-clip-weight", type=float, default=0.3,
+                       help="Weight for text-CLIP loss (0.0-1.0)")
+    
+    # Phase 3: Probabilistic predictions with uncertainty
+    parser.add_argument("--probabilistic", action="store_true",
+                       help="Enable probabilistic encoder with uncertainty modeling (Phase 3)")
+    parser.add_argument("--kl-weight", type=float, default=1e-4,
+                       help="Initial weight for KL divergence loss")
+    parser.add_argument("--kl-anneal-epochs", type=int, default=10,
+                       help="Number of epochs for KL weight annealing")
+    
+    # Phase 4: Structural vs Semantic Branches
+    parser.add_argument("--use-phase4", action="store_true",
+                       help="Enable Phase 4 structural/semantic branch architecture")
+    parser.add_argument("--structural-dim", type=int, default=256,
+                       help="Structural branch latent dimension (for early layers L4/L8)")
+    parser.add_argument("--semantic-dim", type=int, default=512,
+                       help="Semantic branch latent dimension (for late layers L12/final/text)")
+    parser.add_argument("--structural-weight", type=float, default=1.0,
+                       help="Weight for structural branch loss (early layers)")
+    parser.add_argument("--semantic-weight", type=float, default=1.0,
+                       help="Weight for semantic branch loss (late layers + text)")
     
     # Training
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -16249,6 +17413,9 @@ def main():
     parser.add_argument("--output-dir", help="Output directory (alternative to checkpoint-dir)")
     
     args = parser.parse_args()
+    
+    # Initialize config as empty dict
+    config = {}
     
     # Load config from YAML if provided
     if args.config:
@@ -16300,7 +17467,8 @@ def main():
             sys.exit(1)
         
         preprocessor.load_artifacts()
-        logger.info(f"Loaded preprocessing: PCA k={preprocessor.pca_info_.get('n_components_eff', 'N/A')}")
+        pca_k = preprocessor.pca_info_.get('k_eff', preprocessor.pca_.n_components_ if preprocessor.pca_ else None)
+        logger.info(f"Loaded preprocessing: PCA k={pca_k if pca_k else 'disabled'}")
     
     # Setup NIfTI loader
     fs = get_s3_filesystem()
@@ -16312,40 +17480,105 @@ def main():
         logger.info("MULTI-LAYER SUPERVISION MODE ENABLED")
         logger.info("=" * 70)
         
-        # Load multi-layer CLIP cache
-        multilayer_cache = load_multilayer_clip_cache(args.multilayer_cache)
-        
-        # Extract features and multi-layer targets
-        logger.info("Extracting training data...")
-        X_train, Y_train_dict, _ = extract_features_and_multilayer_targets(
-            train_df, nifti_loader, preprocessor, multilayer_cache, desc="train"
-        )
-        
-        logger.info("Extracting validation data...")
-        X_val, Y_val_dict, _ = extract_features_and_multilayer_targets(
-            val_df, nifti_loader, preprocessor, multilayer_cache, desc="val"
-        )
-        
-        logger.info("Extracting test data...")
-        X_test, Y_test_dict, nsd_ids_test = extract_features_and_multilayer_targets(
-            test_df, nifti_loader, preprocessor, multilayer_cache, desc="test"
-        )
-        
-        # Create datasets with dict targets
-        class MultiLayerDataset(torch.utils.data.Dataset):
-            def __init__(self, X, Y_dict):
-                self.X = torch.from_numpy(X).float()
-                self.Y_dict = {k: torch.from_numpy(v).float() for k, v in Y_dict.items()}
+        # Check if streaming mode is enabled
+        if args.streaming:
+            logger.info("=" * 80)
+            logger.info("STREAMING MODE (Memory-Efficient for Full Dataset)")
+            logger.info("=" * 80)
+            logger.info("  Data will be loaded on-demand during training")
+            logger.info("  Memory usage: ~2-4 GB (vs ~15-20 GB eager loading)")
+            logger.info("  Trade-off: Slightly slower per epoch due to disk I/O")
+            logger.info("  Caches NIfTI files (LRU, 5 files max)")
             
-            def __len__(self):
-                return len(self.X)
+            # Create streaming datasets
+            train_dataset = StreamingMultiLayerDataset(
+                train_df, nifti_loader, preprocessor,
+                multilayer_cache_path=args.multilayer_cache,
+                text_clip_cache_path=args.text_clip_cache if args.predict_text_clip else None,
+                desc="train"
+            )
+            val_dataset = StreamingMultiLayerDataset(
+                val_df, nifti_loader, preprocessor,
+                multilayer_cache_path=args.multilayer_cache,
+                text_clip_cache_path=args.text_clip_cache if args.predict_text_clip else None,
+                desc="val"
+            )
+            test_dataset = StreamingMultiLayerDataset(
+                test_df, nifti_loader, preprocessor,
+                multilayer_cache_path=args.multilayer_cache,
+                text_clip_cache_path=args.text_clip_cache if args.predict_text_clip else None,
+                desc="test"
+            )
             
-            def __getitem__(self, idx):
-                return self.X[idx], {k: v[idx] for k, v in self.Y_dict.items()}
-        
-        train_dataset = MultiLayerDataset(X_train, Y_train_dict)
-        val_dataset = MultiLayerDataset(X_val, Y_val_dict)
-        test_dataset = MultiLayerDataset(X_test, Y_test_dict)
+            logger.info(f"  Train: {len(train_dataset)} samples")
+            logger.info(f"  Val: {len(val_dataset)} samples")
+            logger.info(f"  Test: {len(test_dataset)} samples")
+            
+        else:
+            # Original eager loading (fast but memory-intensive)
+            logger.info("=" * 80)
+            logger.info("EAGER LOADING MODE (High Memory)")
+            logger.info("=" * 80)
+            logger.info("  All data will be loaded into RAM upfront")
+            logger.info("  Memory usage: ~15-20 GB for full dataset")
+            logger.info("  For low-memory systems, use --streaming flag")
+            
+            # Load multi-layer CLIP cache
+            multilayer_cache = load_multilayer_clip_cache(args.multilayer_cache)
+            
+            # Phase 2: Load text-CLIP cache if enabled
+            text_clip_cache = None
+            if args.predict_text_clip and args.text_clip_cache:
+                logger.info("=" * 70)
+                logger.info("PHASE 2: TEXT-CLIP MULTI-TASK MODE ENABLED")
+                logger.info("=" * 70)
+                logger.info(f"Loading text-CLIP cache from {args.text_clip_cache}...")
+                
+                text_clip_df = pd.read_parquet(args.text_clip_cache)
+                text_clip_cache = {}
+                
+                # Handle both nsdId and nsd_id column names (backward compatibility)
+                nsd_col = 'nsd_id' if 'nsd_id' in text_clip_df.columns else 'nsdId'
+                
+                for _, row in text_clip_df.iterrows():
+                    nsd_id = int(row[nsd_col])
+                    text_emb = np.array(row['text_clip_embedding'], dtype=np.float32)
+                    text_clip_cache[nsd_id] = text_emb
+                
+                logger.info(f"  Loaded {len(text_clip_cache)} text-CLIP embeddings (dim={text_clip_cache[list(text_clip_cache.keys())[0]].shape[0]})")
+                logger.info(f"  Text-CLIP weight: {args.text_clip_weight}")
+            
+            # Extract features and multi-layer targets (eager loading - faster but uses ~13 GB RAM)
+            logger.info("Extracting training data...")
+            X_train, Y_train_dict, _ = extract_features_and_multilayer_targets(
+                train_df, nifti_loader, preprocessor, multilayer_cache, desc="train", text_clip_cache=text_clip_cache
+            )
+            
+            logger.info("Extracting validation data...")
+            X_val, Y_val_dict, _ = extract_features_and_multilayer_targets(
+                val_df, nifti_loader, preprocessor, multilayer_cache, desc="val", text_clip_cache=text_clip_cache
+            )
+            
+            logger.info("Extracting test data...")
+            X_test, Y_test_dict, nsd_ids_test = extract_features_and_multilayer_targets(
+                test_df, nifti_loader, preprocessor, multilayer_cache, desc="test", text_clip_cache=text_clip_cache
+            )
+            
+            # Create datasets with dict targets
+            class MultiLayerDataset(torch.utils.data.Dataset):
+                def __init__(self, X, Y_dict):
+                    self.X = torch.from_numpy(X).float()
+                    self.Y_dict = {k: torch.from_numpy(v).float() for k, v in Y_dict.items()}
+                
+                def __len__(self):
+                    return len(self.X)
+                
+                def __getitem__(self, idx):
+                    return self.X[idx], {k: v[idx] for k, v in self.Y_dict.items()}
+            
+            train_dataset = MultiLayerDataset(X_train, Y_train_dict)
+            val_dataset = MultiLayerDataset(X_val, Y_val_dict)
+            test_dataset = MultiLayerDataset(X_test, Y_test_dict)
         
     else:
         # Standard single-layer mode
@@ -16384,30 +17617,89 @@ def main():
             torch.from_numpy(Y_test).float()
         )
     
-    # Create data loaders (same for both modes)
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+    # Create data loaders (single worker for streaming to avoid system overload)
+    num_workers = 0  # Single worker - multi-worker can overload memory on limited systems
+    train_loader = DataLoader(
+        train_dataset, 
+        batch_size=args.batch_size, 
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=True if device == "cuda" else False
+    )
+    val_loader = DataLoader(
+        val_dataset, 
+        batch_size=args.batch_size, 
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=True if device == "cuda" else False
+    )
+    test_loader = DataLoader(
+        test_dataset, 
+        batch_size=args.batch_size, 
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=True if device == "cuda" else False
+    )
     
-    # Create model
-    input_dim = X_train.shape[1]
+    # Create model - get input_dim from first sample
+    logger.info("Getting input dimension from first training sample...")
+    first_sample_x, _ = train_dataset[0]
+    input_dim = first_sample_x.shape[0]
+    logger.info(f"Input dimension: {input_dim}")
     
     if args.multi_layer:
         # Get shared_head_backbone from config (Phase 2)
         shared_head_backbone = config.get('encoder', {}).get('shared_head_backbone', False)
         
-        logger.info(f"Creating MultiLayerTwoStageEncoder: input_dim={input_dim}, latent_dim={args.latent_dim}, n_blocks={args.n_blocks}")
-        logger.info(f"  Shared head backbone: {shared_head_backbone}")
-        
-        model = MultiLayerTwoStageEncoder(
-            input_dim=input_dim,
-            latent_dim=args.latent_dim,
-            n_blocks=args.n_blocks,
-            dropout=args.dropout,
-            head_type=args.head_type,
-            head_hidden_dim=args.head_hidden,
-            shared_head_backbone=shared_head_backbone
-        ).to(device)
+        # Phase 4: Structural/Semantic Branch Architecture
+        if args.use_phase4:
+            from fmri2img.models.phase4_encoder import StructuralSemanticEncoder
+            
+            logger.info("Creating StructuralSemanticEncoder (Phase 4): input_dim={}, latent_dim={}".format(input_dim, args.latent_dim))
+            logger.info(f"  Structural branch: {args.structural_dim}-D → layer_4, layer_8")
+            logger.info(f"  Semantic branch: {args.semantic_dim}-D → layer_12, final, text")
+            logger.info(f"  Probabilistic mode: {args.probabilistic}")
+            
+            model = StructuralSemanticEncoder(
+                input_dim=input_dim,
+                latent_dim=args.latent_dim,
+                structural_dim=args.structural_dim,
+                semantic_dim=args.semantic_dim,
+                n_blocks=args.n_blocks,
+                dropout=args.dropout,
+                predict_text_clip=args.predict_text_clip,
+                probabilistic=args.probabilistic,
+                kl_weight=args.kl_weight if args.probabilistic else 0.0
+            ).to(device)
+            
+        elif args.probabilistic:
+            logger.info(f"Creating ProbabilisticMultiLayerTwoStageEncoder: input_dim={input_dim}, latent_dim={args.latent_dim}, n_blocks={args.n_blocks}")
+            logger.info(f"  Shared head backbone: {shared_head_backbone}")
+            logger.info(f"  Probabilistic mode: enabled (mu/logvar outputs)")
+            
+            model = ProbabilisticMultiLayerTwoStageEncoder(
+                input_dim=input_dim,
+                latent_dim=args.latent_dim,
+                n_blocks=args.n_blocks,
+                dropout=args.dropout,
+                head_hidden_dim=args.head_hidden,
+                predict_text_clip=args.predict_text_clip,  # Phase 3: Can still include text-CLIP
+                kl_weight=args.kl_weight
+            ).to(device)
+        else:
+            logger.info(f"Creating MultiLayerTwoStageEncoder: input_dim={input_dim}, latent_dim={args.latent_dim}, n_blocks={args.n_blocks}")
+            logger.info(f"  Shared head backbone: {shared_head_backbone}")
+            
+            model = MultiLayerTwoStageEncoder(
+                input_dim=input_dim,
+                latent_dim=args.latent_dim,
+                n_blocks=args.n_blocks,
+                dropout=args.dropout,
+                head_type=args.head_type,
+                head_hidden_dim=args.head_hidden,
+                shared_head_backbone=shared_head_backbone,
+                predict_text_clip=args.predict_text_clip  # Phase 2: Enable text-CLIP head
+            ).to(device)
     else:
         logger.info(f"Creating TwoStageEncoder: input_dim={input_dim}, latent_dim={args.latent_dim}, n_blocks={args.n_blocks}")
         
@@ -16465,6 +17757,42 @@ def main():
     
     scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs)
     
+    # Phase 1: Load CLIP→fMRI encoder for brain-consistency loss
+    clip_to_fmri_encoder = None
+    loss_config = config.get('loss', {})
+    brain_consistency_weight = loss_config.get('brain_consistency_weight', 0.0)
+    clip_to_fmri_path = loss_config.get('clip_to_fmri_encoder', None)
+    
+    if brain_consistency_weight > 0:
+        if clip_to_fmri_path is None:
+            logger.warning(
+                f"brain_consistency_weight={brain_consistency_weight} but no clip_to_fmri_encoder path provided. "
+                "Disabling brain-consistency loss."
+            )
+            brain_consistency_weight = 0.0
+        else:
+            from fmri2img.models.clip_to_fmri_encoder import load_clip_to_fmri_encoder
+            
+            clip_to_fmri_path = Path(clip_to_fmri_path)
+            if not clip_to_fmri_path.exists():
+                logger.warning(
+                    f"CLIP→fMRI encoder not found at {clip_to_fmri_path}. "
+                    f"Train it first with: python scripts/train_clip_to_fmri.py --subject {args.subject}"
+                )
+                logger.warning("Disabling brain-consistency loss.")
+                brain_consistency_weight = 0.0
+            else:
+                logger.info("=" * 70)
+                logger.info("PHASE 1: BRAIN-CONSISTENCY (CYCLE) LOSS ENABLED")
+                logger.info("=" * 70)
+                logger.info(f"Loading CLIP→fMRI encoder from {clip_to_fmri_path}")
+                clip_to_fmri_encoder = load_clip_to_fmri_encoder(str(clip_to_fmri_path), device=device)
+                clip_to_fmri_encoder.eval()
+                for param in clip_to_fmri_encoder.parameters():
+                    param.requires_grad = False
+                logger.info(f"Brain-consistency weight: {brain_consistency_weight}")
+                logger.info("This will regularize CLIP predictions to be brain-plausible.")
+    
     if args.multi_layer:
         # Multi-layer loss from config
         ml_config = config.get('multi_layer', {})
@@ -16479,27 +17807,68 @@ def main():
         mse_weight = ml_config.get('mse_weight', 0.1)
         
         # Phase 3: Multi-layer InfoNCE parameters
-        loss_config = config.get('loss', {})
         use_multilayer_infonce = loss_config.get('use_multilayer_infonce', False)
         infonce_weight = loss_config.get('info_nce_weight', 0.4) * 0.5  # Use half of standard InfoNCE weight
         infonce_temperature = loss_config.get('temperature', 0.05)
         infonce_combination = loss_config.get('infonce_combination', 'weighted_pool')
         
-        criterion = MultiLayerLoss(
-            layer_weights=layer_weights,
-            use_mse=use_mse,
-            mse_weight=mse_weight,
-            use_learnable_weights=use_learnable_weights,
-            use_multilayer_infonce=use_multilayer_infonce,
-            infonce_weight=infonce_weight,
-            infonce_temperature=infonce_temperature,
-            infonce_combination=infonce_combination
-        )
+        # Phase 2: Text-CLIP weight
+        text_clip_weight = args.text_clip_weight if args.predict_text_clip else 0.0
+        
+        # Phase 4: Branch-weighted loss for structural/semantic branches
+        if args.use_phase4:
+            criterion = BranchWeightedMultiLayerLoss(
+                layer_weights=layer_weights,
+                structural_weight=args.structural_weight,
+                semantic_weight=args.semantic_weight,
+                use_mse=use_mse,
+                mse_weight=mse_weight,
+                probabilistic=args.probabilistic,
+                kl_weight_max=args.kl_weight if args.probabilistic else 0.0,
+                kl_anneal_epochs=args.kl_anneal_epochs if args.probabilistic else 0,
+                text_clip_weight=text_clip_weight
+            )
+            logger.info(f"Using BranchWeightedMultiLayerLoss (Phase 4)")
+            logger.info(f"  Structural weight: {args.structural_weight} (L4, L8)")
+            logger.info(f"  Semantic weight: {args.semantic_weight} (L12, final, text)")
+            if args.probabilistic:
+                logger.info(f"  KL weight: {args.kl_weight} (annealing over {args.kl_anneal_epochs} epochs)")
+        
+        elif args.probabilistic:
+            # Phase 3: Probabilistic loss with KL divergence
+            # NOTE: ProbabilisticMultiLayerLoss does NOT support:
+            #   - use_learnable_weights
+            #   - use_multilayer_infonce, infonce_weight, infonce_temperature, infonce_combination
+            # These are only for deterministic Phase 2 training
+            criterion = ProbabilisticMultiLayerLoss(
+                layer_weights=layer_weights,
+                use_mse=use_mse,
+                mse_weight=mse_weight,
+                kl_weight_max=args.kl_weight,
+                kl_anneal_epochs=args.kl_anneal_epochs,
+                text_clip_weight=text_clip_weight
+            )
+            logger.info(f"Using ProbabilisticMultiLayerLoss (Phase 3)")
+            logger.info(f"  KL weight: {args.kl_weight} (annealing over {args.kl_anneal_epochs} epochs)")
+            logger.info(f"  Text-CLIP weight: {text_clip_weight}")
+        else:
+            # Phase 2: Deterministic multi-layer loss
+            criterion = MultiLayerLoss(
+                layer_weights=layer_weights,
+                use_mse=use_mse,
+                mse_weight=mse_weight,
+                use_learnable_weights=use_learnable_weights,
+                use_multilayer_infonce=use_multilayer_infonce,
+                infonce_weight=infonce_weight,
+                infonce_temperature=infonce_temperature,
+                infonce_combination=infonce_combination,
+                text_clip_weight=text_clip_weight  # Phase 2
+            )
         
         if use_learnable_weights:
-            logger.info(f"Using MultiLayerLoss with LEARNABLE weights (initialized from: {layer_weights})")
+            logger.info(f"Using learnable weights (initialized from: {layer_weights})")
         else:
-            logger.info(f"Using MultiLayerLoss with FIXED weights: {layer_weights}")
+            logger.info(f"Using fixed weights: {layer_weights}")
         
         if use_multilayer_infonce:
             logger.info(f"Phase 3: Multi-layer InfoNCE ENABLED (weight={infonce_weight:.3f}, strategy={infonce_combination})")
@@ -16508,9 +17877,13 @@ def main():
             mse_weight=args.mse_weight,
             cosine_weight=args.cosine_weight,
             info_nce_weight=args.info_nce_weight,
-            temperature=args.temperature
+            temperature=args.temperature,
+            brain_consistency_weight=brain_consistency_weight,
+            clip_to_fmri_encoder=clip_to_fmri_encoder
         )
         logger.info(f"Loss weights: MSE={args.mse_weight}, Cosine={args.cosine_weight}, InfoNCE={args.info_nce_weight}")
+        if brain_consistency_weight > 0:
+            logger.info(f"Brain-consistency weight: {brain_consistency_weight}")
     
     # Training loop with early stopping
     best_val_cosine = -1.0
@@ -16523,10 +17896,14 @@ def main():
         # Train
         if args.multi_layer:
             train_loss, train_components = train_epoch_multilayer(
-                model, train_loader, optimizer, criterion, device, epoch
+                model, train_loader, optimizer, criterion, device, epoch,
+                probabilistic=args.probabilistic
             )
             # Validate
-            val_metrics = evaluate_epoch_multilayer(model, val_loader, device)
+            val_metrics = evaluate_epoch_multilayer(
+                model, val_loader, device,
+                probabilistic=args.probabilistic
+            )
         else:
             train_loss, train_components = train_epoch(
                 model, train_loader, optimizer, criterion, device, epoch
@@ -16561,15 +17938,19 @@ def main():
                         f"Fin={eff_weights['final']:.3f}"
                     )
         else:
-            # Single-layer components: mse, cosine, info_nce
-            logger.info(
+            # Single-layer components: mse, cosine, info_nce, brain
+            log_msg = (
                 f"Epoch {epoch}/{args.epochs}: "
                 f"Train Loss={train_loss:.4f} "
                 f"(MSE={train_components.get('mse', 0):.4f}, "
                 f"Cos={train_components.get('cosine', 0):.4f}, "
-                f"NCE={train_components.get('info_nce', 0):.4f}), "
-                f"Val Cosine={val_cosine:.4f}"
+                f"NCE={train_components.get('info_nce', 0):.4f}"
             )
+            # Add brain loss if enabled
+            if brain_consistency_weight > 0:
+                log_msg += f", Brain={train_components.get('brain', 0):.4f}"
+            log_msg += f"), Val Cosine={val_cosine:.4f}"
+            logger.info(log_msg)
         
         # Early stopping
         if val_cosine > best_val_cosine:
@@ -16592,6 +17973,8 @@ def main():
                 "head_type": args.head_type,
                 "head_hidden_dim": args.head_hidden,
                 "shared_head_backbone": shared_head_backbone if args.multi_layer else False,
+                "probabilistic": args.probabilistic if args.multi_layer else False,
+                "predict_text_clip": args.predict_text_clip if args.multi_layer else False,
                 "best_epoch": best_epoch,
                 "best_val_cosine": best_val_cosine,
                 "pca_k": args.pca_k,
@@ -16614,9 +17997,15 @@ def main():
     logger.info(f"Loading best model from epoch {best_epoch}...")
     
     if args.multi_layer:
-        model, meta = load_multilayer_two_stage_encoder(str(checkpoint_path), map_location=device)
+        if args.probabilistic:
+            model, meta = load_probabilistic_encoder(str(checkpoint_path), map_location=device)
+        else:
+            model, meta = load_multilayer_two_stage_encoder(str(checkpoint_path), map_location=device)
         model = model.to(device)
-        test_metrics = evaluate_epoch_multilayer(model, test_loader, device)
+        test_metrics = evaluate_epoch_multilayer(
+            model, test_loader, device,
+            probabilistic=args.probabilistic
+        )
         
         logger.info("=" * 80)
         logger.info("FINAL TEST RESULTS (Multi-Layer)")
@@ -16643,7 +18032,12 @@ def main():
                 "best_epoch": best_epoch,
                 "best_val_cosine": best_val_cosine,
                 "multi_layer": True,
-                "layer_weights": config["multi_layer"]["layer_weights"]
+                "layer_weights": config.get("multi_layer", {}).get("layer_weights", {
+                    "layer_4": 0.15,
+                    "layer_8": 0.2,
+                    "layer_12": 0.25,
+                    "final": 0.4
+                })
             },
             "test_metrics": test_metrics,
             "checkpoint": str(checkpoint_path)
@@ -22527,13 +23921,17 @@ class MultiLayerLoss(nn.Module):
         use_multilayer_infonce: bool = False,
         infonce_weight: float = 0.2,
         infonce_temperature: float = 0.05,
-        infonce_combination: str = "weighted_pool"
+        infonce_combination: str = "weighted_pool",
+        text_clip_weight: float = 0.3  # Phase 2: Weight for text-CLIP loss
     ):
         super().__init__()
         
         self.use_mse = use_mse
         self.mse_weight = mse_weight
         self.use_learnable_weights = use_learnable_weights
+        
+        # Phase 2: Text-CLIP weighting
+        self.text_clip_weight = text_clip_weight
         
         # Phase 3: Multi-layer InfoNCE
         self.use_multilayer_infonce = use_multilayer_infonce
@@ -22627,6 +24025,24 @@ class MultiLayerLoss(nn.Module):
         total_loss = 0.0
         components = {}
         
+        # Phase 2: Separate text-CLIP loss if present
+        text_loss = None
+        if 'text' in pred_dict and 'text' in target_dict:
+            pred_text = pred_dict['text']
+            target_text = target_dict['text']
+            
+            # Cosine similarity loss
+            cos_sim = torch.nn.functional.cosine_similarity(pred_text, target_text, dim=-1)
+            text_loss = (1.0 - cos_sim).mean()
+            
+            # Optional MSE
+            if self.use_mse:
+                mse_loss = torch.nn.functional.mse_loss(pred_text, target_text)
+                text_loss = text_loss + self.mse_weight * mse_loss
+            
+            components['text'] = text_loss.item()
+        
+        # Image-CLIP layers (layer_4, layer_8, layer_12, final)
         for layer_name in self.layer_names:
             if layer_name not in pred_dict or layer_name not in target_dict:
                 continue
@@ -22677,11 +24093,351 @@ class MultiLayerLoss(nn.Module):
             total_loss = total_loss + self.infonce_weight * loss_infonce
             components['infonce'] = loss_infonce.item()
         
+        # Phase 2: Combine image-CLIP and text-CLIP losses
+        # If text loss exists, use weighted combination: (1-w)*image + w*text
+        if text_loss is not None:
+            image_loss = total_loss  # Store image loss
+            components['image_total'] = image_loss.item()
+            total_loss = (1.0 - self.text_clip_weight) * image_loss + self.text_clip_weight * text_loss
+        
         if return_components:
             return total_loss, components
         return total_loss
 
 
+class ProbabilisticMultiLayerLoss(nn.Module):
+    """
+    Phase 3: Probabilistic loss with KL divergence regularization.
+    
+    Extends MultiLayerLoss to support probabilistic predictions:
+        L_total = L_reconstruction + β * L_KL
+    
+    Where:
+    - L_reconstruction: Multi-layer cosine + MSE loss (like MultiLayerLoss)
+    - L_KL: KL divergence KL(q(z|x) || N(0,I)) to regularize distributions
+    - β: KL weight (annealed during training, e.g., 0 → 0.01 over 20 epochs)
+    
+    **Annealing Schedule:**
+    - Epochs 1-10: β = 0 (learn good μ first, ignore variance)
+    - Epochs 11-30: β linearly increases 0 → β_max (gradually add regularization)
+    - Epochs 30+: β = β_max (full VAE training)
+    
+    **Scientific Motivation:**
+    - Uncertainty quantification: Model can express confidence in predictions
+    - Better generalization: KL regularization prevents overfitting
+    - Principled Bayesian inference: Variational lower bound on log p(target|fmri)
+    - Enables confidence-aware decoding: Weight predictions by certainty
+    
+    **Usage:**
+        # Create loss with annealing
+        criterion = ProbabilisticMultiLayerLoss(
+            kl_weight_max=0.01,
+            kl_anneal_epochs=20,
+            layer_weights={'layer_4': 0.15, ..., 'final': 0.4}
+        )
+        
+        # In training loop
+        pred_dict, kl_loss = model(fmri, sample=True, return_kl=True)
+        target_dict = load_targets(batch)
+        
+        # Pass current epoch for annealing
+        loss, components = criterion(
+            pred_dict, target_dict, kl_loss,
+            current_epoch=epoch,
+            return_components=True
+        )
+        
+        # components = {
+        #     'layer_4': 0.12, 'layer_8': 0.15, ...,
+        #     'kl': 0.05, 'kl_weight': 0.005  # Annealed weight
+        # }
+    
+    Args:
+        layer_weights: Dict mapping layer names to weights (like MultiLayerLoss)
+        use_mse: If True, also include MSE term
+        mse_weight: Weight for MSE component
+        kl_weight_max: Maximum KL weight after annealing (default: 0.01)
+        kl_anneal_epochs: Number of epochs to anneal from 0 to kl_weight_max (default: 20)
+        kl_anneal_start: Epoch to start annealing (default: 10, learn μ first)
+        text_clip_weight: Weight for text-CLIP loss (Phase 2)
+    
+    Example:
+        >>> # Standard probabilistic training
+        >>> criterion = ProbabilisticMultiLayerLoss(
+        ...     kl_weight_max=0.01,
+        ...     kl_anneal_epochs=20
+        ... )
+        >>> 
+        >>> # With text-CLIP (Phase 2 + Phase 3)
+        >>> criterion = ProbabilisticMultiLayerLoss(
+        ...     kl_weight_max=0.01,
+        ...     kl_anneal_epochs=20,
+        ...     text_clip_weight=0.3
+        ... )
+        >>> 
+        >>> # Training loop
+        >>> for epoch in range(50):
+        ...     pred_dict, kl_loss = model(fmri, sample=True, return_kl=True)
+        ...     loss, comp = criterion(pred_dict, target, kl_loss, current_epoch=epoch, return_components=True)
+        ...     print(f"Epoch {epoch}: KL weight = {comp['kl_weight']:.4f}, KL loss = {comp['kl']:.4f}")
+    
+    References:
+        - Kingma & Welling (2014): VAE with β-annealing
+        - Bowman et al. (2016): Generating Sentences from a Continuous Space (KL annealing)
+        - Higgins et al. (2017): β-VAE for disentangled representations
+        - Sønderby et al. (2016): Ladder VAE with annealing schedules
+    """
+    
+    def __init__(
+        self,
+        layer_weights: Optional[Dict[str, float]] = None,
+        use_mse: bool = False,
+        mse_weight: float = 0.1,
+        kl_weight_max: float = 0.01,
+        kl_anneal_epochs: int = 20,
+        kl_anneal_start: int = 10,
+        text_clip_weight: float = 0.3
+    ):
+        super().__init__()
+        
+        # Use MultiLayerLoss for reconstruction term
+        self.reconstruction_loss = MultiLayerLoss(
+            layer_weights=layer_weights,
+            use_mse=use_mse,
+            mse_weight=mse_weight,
+            use_learnable_weights=False,  # Keep weights fixed for simplicity
+            text_clip_weight=text_clip_weight
+        )
+        
+        # KL annealing parameters
+        self.kl_weight_max = kl_weight_max
+        self.kl_anneal_epochs = kl_anneal_epochs
+        self.kl_anneal_start = kl_anneal_start
+        
+        logger.info(
+            f"ProbabilisticMultiLayerLoss initialized: "
+            f"KL weight {0:.3f} → {kl_weight_max:.3f} over epochs {kl_anneal_start}-{kl_anneal_start + kl_anneal_epochs}"
+        )
+    
+    def get_kl_weight(self, current_epoch: int) -> float:
+        """
+        Compute current KL weight based on annealing schedule.
+        
+        Annealing schedule:
+        - epoch < kl_anneal_start: β = 0 (no KL loss, learn good μ)
+        - kl_anneal_start ≤ epoch < kl_anneal_start + kl_anneal_epochs:
+            β = kl_weight_max * (epoch - kl_anneal_start) / kl_anneal_epochs
+        - epoch ≥ kl_anneal_start + kl_anneal_epochs: β = kl_weight_max
+        
+        Args:
+            current_epoch: Current training epoch (0-indexed)
+        
+        Returns:
+            kl_weight: Current KL weight β ∈ [0, kl_weight_max]
+        """
+        if current_epoch < self.kl_anneal_start:
+            return 0.0
+        elif current_epoch >= self.kl_anneal_start + self.kl_anneal_epochs:
+            return self.kl_weight_max
+        else:
+            # Linear annealing
+            progress = (current_epoch - self.kl_anneal_start) / self.kl_anneal_epochs
+            return self.kl_weight_max * progress
+    
+    def forward(
+        self,
+        pred_dict: Dict[str, torch.Tensor],
+        target_dict: Dict[str, torch.Tensor],
+        kl_loss: torch.Tensor,
+        current_epoch: int = 0,
+        return_components: bool = False
+    ) -> torch.Tensor | tuple[torch.Tensor, Dict[str, torch.Tensor]]:
+        """
+        Compute probabilistic multi-layer loss.
+        
+        Args:
+            pred_dict: Predicted features {layer_name: (B, D)}
+            target_dict: Target features {layer_name: (B, D)}
+            kl_loss: KL divergence from model forward pass (scalar)
+            current_epoch: Current training epoch for KL annealing
+            return_components: If True, return (total_loss, components_dict)
+        
+        Returns:
+            If return_components=False: total_loss (scalar)
+            If return_components=True: (total_loss, components_dict)
+                components_dict includes all layer losses + 'kl', 'kl_weight'
+        """
+        # Reconstruction loss (multi-layer cosine/MSE)
+        recon_loss, recon_components = self.reconstruction_loss(
+            pred_dict, target_dict, return_components=True
+        )
+        
+        # KL loss with annealing
+        kl_weight = self.get_kl_weight(current_epoch)
+        weighted_kl_loss = kl_weight * kl_loss
+        
+        # Total loss
+        total_loss = recon_loss + weighted_kl_loss
+        
+        if return_components:
+            components = recon_components.copy()
+            components['kl'] = kl_loss.item()
+            components['kl_weight'] = kl_weight
+            components['weighted_kl'] = weighted_kl_loss.item()
+            components['reconstruction'] = recon_loss.item()
+            return total_loss, components
+        
+        return total_loss
+```
+
+# src/fmri2img/training/phase4_losses.py
+
+```py
+"""
+Phase 4.2: Branch-Weighted Multi-Layer Loss
+"""
+
+import torch
+import torch.nn as nn
+from typing import Dict, Optional, Tuple
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class BranchWeightedMultiLayerLoss(nn.Module):
+    """
+    Phase 4: Branch-weighted multi-layer loss.
+    
+    Structural Branch: ['layer_4', 'layer_8']
+    Semantic Branch: ['layer_12', 'final', 'text']
+    """
+    
+    def __init__(
+        self,
+        layer_weights: Dict[str, float],
+        structural_weight: float = 1.0,
+        semantic_weight: float = 1.0,
+        use_mse: bool = False,
+        mse_weight: float = 0.1,
+        probabilistic: bool = False,
+        kl_weight_max: float = 0.0001,
+        kl_anneal_epochs: int = 10,
+        kl_anneal_start: int = 10,
+        text_clip_weight: float = 0.3
+    ):
+        super().__init__()
+        
+        logger.info("=" * 80)
+        logger.info("Phase 4: Branch-Weighted Multi-Layer Loss")
+        logger.info("=" * 80)
+        logger.info(f"  Branch weights:")
+        logger.info(f"    Structural: {structural_weight:.2f}")
+        logger.info(f"    Semantic: {semantic_weight:.2f}")
+        
+        self.structural_layers = ['layer_4', 'layer_8']
+        self.semantic_layers = ['layer_12', 'final', 'text']
+        
+        logger.info(f"  Structural layers: {self.structural_layers}")
+        logger.info(f"  Semantic layers: {self.semantic_layers}")
+        
+        self.layer_weights = layer_weights
+        self.structural_weight = structural_weight
+        self.semantic_weight = semantic_weight
+        self.use_mse = use_mse
+        self.mse_weight = mse_weight
+        self.probabilistic = probabilistic
+        self.kl_weight_max = kl_weight_max
+        self.kl_anneal_epochs = kl_anneal_epochs
+        self.kl_anneal_start = kl_anneal_start
+        self.text_clip_weight = text_clip_weight
+        
+        logger.info(f"  Probabilistic: {probabilistic}")
+        if probabilistic:
+            logger.info(f"  KL weight: 0.0 -> {kl_weight_max}")
+        logger.info("=" * 80)
+    
+    def _get_kl_weight(self, current_epoch: int) -> float:
+        """Compute KL weight with linear annealing."""
+        if not self.probabilistic or current_epoch < self.kl_anneal_start:
+            return 0.0
+        
+        progress = min(1.0, (current_epoch - self.kl_anneal_start) / self.kl_anneal_epochs)
+        return progress * self.kl_weight_max
+    
+    def forward(
+        self,
+        predictions: Dict[str, torch.Tensor],
+        targets: Dict[str, torch.Tensor],
+        kl_loss: Optional[torch.Tensor] = None,
+        current_epoch: int = 0,
+        return_components: bool = False
+    ):
+        """Compute branch-weighted multi-layer loss."""
+        device = next(iter(predictions.values())).device
+        components = {}
+        
+        structural_loss = torch.tensor(0.0, device=device)
+        semantic_loss = torch.tensor(0.0, device=device)
+        
+        # Compute layer-wise losses
+        for layer_name, pred in predictions.items():
+            if layer_name in ['structural_branch', 'semantic_branch', 'mu', 'logvar']:
+                continue
+            
+            if layer_name not in targets:
+                continue
+            
+            target = targets[layer_name]
+            layer_weight = self.layer_weights.get(layer_name, 0.0)
+            
+            # Cosine similarity loss
+            cos_sim = torch.nn.functional.cosine_similarity(pred, target, dim=-1)
+            cos_loss = 1 - cos_sim.mean()
+            
+            # Optional: MSE loss
+            if self.use_mse:
+                mse_loss = torch.nn.functional.mse_loss(pred, target)
+                layer_loss = (1 - self.mse_weight) * cos_loss + self.mse_weight * mse_loss
+            else:
+                layer_loss = cos_loss
+            
+            # Weight by layer importance
+            weighted_layer_loss = layer_weight * layer_loss
+            
+            # Assign to branch
+            if layer_name in self.structural_layers:
+                structural_loss += weighted_layer_loss
+            elif layer_name in self.semantic_layers:
+                if layer_name == 'text':
+                    weighted_layer_loss *= self.text_clip_weight
+                semantic_loss += weighted_layer_loss
+            
+            components[layer_name] = layer_loss.item()
+        
+        # Apply branch weights
+        components['structural_loss'] = structural_loss.item()
+        components['semantic_loss'] = semantic_loss.item()
+        
+        total_loss = (
+            self.structural_weight * structural_loss +
+            self.semantic_weight * semantic_loss
+        )
+        
+        # Add KL divergence (if probabilistic)
+        if self.probabilistic and kl_loss is not None:
+            kl_weight = self._get_kl_weight(current_epoch)
+            weighted_kl = kl_weight * kl_loss
+            total_loss += weighted_kl
+            
+            components['kl'] = kl_loss.item()
+            components['kl_weight'] = kl_weight
+            components['weighted_kl'] = weighted_kl.item()
+        
+        if return_components:
+            return total_loss, components
+        else:
+            return total_loss
 
 ```
 

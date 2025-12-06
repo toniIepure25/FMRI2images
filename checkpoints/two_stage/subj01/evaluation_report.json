@@ -1,0 +1,33 @@
+{
+  "model": "MultiLayerTwoStageEncoder",
+  "subject": "subj01",
+  "architecture": {
+    "input_dim": 699192,
+    "latent_dim": 512,
+    "n_blocks": 4,
+    "dropout": 0.3,
+    "layer_dims": {
+      "layer_4": 768,
+      "layer_8": 768,
+      "layer_12": 768,
+      "final": 512
+    }
+  },
+  "training": {
+    "best_epoch": 1,
+    "best_val_cosine": 0.2883959412574768,
+    "multi_layer": true,
+    "layer_weights": {
+      "layer_4": 0.15,
+      "layer_8": 0.2,
+      "layer_12": 0.25,
+      "final": 0.4
+    }
+  },
+  "test_metrics": {
+    "cosine": 0.2156006395816803,
+    "cosine_std": 0.09460363537073135,
+    "mse": 0.003064060118049383
+  },
+  "checkpoint": "checkpoints/two_stage/subj01/two_stage_best.pt"
+}

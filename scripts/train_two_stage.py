@@ -82,6 +82,8 @@ from fmri2img.models.encoders import (
     load_probabilistic_encoder
 )
 from fmri2img.training.losses import MultiLoss, MultiLayerLoss, ProbabilisticMultiLayerLoss, compute_multiloss
+from fmri2img.training.phase4_losses import BranchWeightedMultiLayerLoss
+from fmri2img.data.streaming_dataset import StreamingMultiLayerDataset
 from fmri2img.models.train_utils import (
     extract_features_and_targets,
     train_val_test_split,
@@ -701,6 +703,8 @@ def main():
     parser.add_argument("--multilayer-cache", type=str,
                        default="cache/clip_embeddings/nsd_clipcache_multilayer.parquet",
                        help="Path to multi-layer CLIP cache")
+    parser.add_argument("--streaming", action="store_true",
+                       help="Use streaming dataset (memory-efficient for full 30K dataset)")
     
     # Phase 2: Multi-task semantics (text-CLIP)
     parser.add_argument("--predict-text-clip", action="store_true",
@@ -718,6 +722,18 @@ def main():
                        help="Initial weight for KL divergence loss")
     parser.add_argument("--kl-anneal-epochs", type=int, default=10,
                        help="Number of epochs for KL weight annealing")
+    
+    # Phase 4: Structural vs Semantic Branches
+    parser.add_argument("--use-phase4", action="store_true",
+                       help="Enable Phase 4 structural/semantic branch architecture")
+    parser.add_argument("--structural-dim", type=int, default=256,
+                       help="Structural branch latent dimension (for early layers L4/L8)")
+    parser.add_argument("--semantic-dim", type=int, default=512,
+                       help="Semantic branch latent dimension (for late layers L12/final/text)")
+    parser.add_argument("--structural-weight", type=float, default=1.0,
+                       help="Weight for structural branch loss (early layers)")
+    parser.add_argument("--semantic-weight", type=float, default=1.0,
+                       help="Weight for semantic branch loss (late layers + text)")
     
     # Training
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -804,62 +820,105 @@ def main():
         logger.info("MULTI-LAYER SUPERVISION MODE ENABLED")
         logger.info("=" * 70)
         
-        # Load multi-layer CLIP cache
-        multilayer_cache = load_multilayer_clip_cache(args.multilayer_cache)
-        
-        # Phase 2: Load text-CLIP cache if enabled
-        text_clip_cache = None
-        if args.predict_text_clip and args.text_clip_cache:
-            logger.info("=" * 70)
-            logger.info("PHASE 2: TEXT-CLIP MULTI-TASK MODE ENABLED")
-            logger.info("=" * 70)
-            logger.info(f"Loading text-CLIP cache from {args.text_clip_cache}...")
+        # Check if streaming mode is enabled
+        if args.streaming:
+            logger.info("=" * 80)
+            logger.info("STREAMING MODE (Memory-Efficient for Full Dataset)")
+            logger.info("=" * 80)
+            logger.info("  Data will be loaded on-demand during training")
+            logger.info("  Memory usage: ~2-4 GB (vs ~15-20 GB eager loading)")
+            logger.info("  Trade-off: Slightly slower per epoch due to disk I/O")
+            logger.info("  Caches NIfTI files (LRU, 5 files max)")
             
-            text_clip_df = pd.read_parquet(args.text_clip_cache)
-            text_clip_cache = {}
+            # Create streaming datasets
+            train_dataset = StreamingMultiLayerDataset(
+                train_df, nifti_loader, preprocessor,
+                multilayer_cache_path=args.multilayer_cache,
+                text_clip_cache_path=args.text_clip_cache if args.predict_text_clip else None,
+                desc="train"
+            )
+            val_dataset = StreamingMultiLayerDataset(
+                val_df, nifti_loader, preprocessor,
+                multilayer_cache_path=args.multilayer_cache,
+                text_clip_cache_path=args.text_clip_cache if args.predict_text_clip else None,
+                desc="val"
+            )
+            test_dataset = StreamingMultiLayerDataset(
+                test_df, nifti_loader, preprocessor,
+                multilayer_cache_path=args.multilayer_cache,
+                text_clip_cache_path=args.text_clip_cache if args.predict_text_clip else None,
+                desc="test"
+            )
             
-            # Handle both nsdId and nsd_id column names (backward compatibility)
-            nsd_col = 'nsd_id' if 'nsd_id' in text_clip_df.columns else 'nsdId'
+            logger.info(f"  Train: {len(train_dataset)} samples")
+            logger.info(f"  Val: {len(val_dataset)} samples")
+            logger.info(f"  Test: {len(test_dataset)} samples")
             
-            for _, row in text_clip_df.iterrows():
-                nsd_id = int(row[nsd_col])
-                text_emb = np.array(row['text_clip_embedding'], dtype=np.float32)
-                text_clip_cache[nsd_id] = text_emb
+        else:
+            # Original eager loading (fast but memory-intensive)
+            logger.info("=" * 80)
+            logger.info("EAGER LOADING MODE (High Memory)")
+            logger.info("=" * 80)
+            logger.info("  All data will be loaded into RAM upfront")
+            logger.info("  Memory usage: ~15-20 GB for full dataset")
+            logger.info("  For low-memory systems, use --streaming flag")
             
-            logger.info(f"  Loaded {len(text_clip_cache)} text-CLIP embeddings (dim={text_clip_cache[list(text_clip_cache.keys())[0]].shape[0]})")
-            logger.info(f"  Text-CLIP weight: {args.text_clip_weight}")
-        
-        # Extract features and multi-layer targets (eager loading - faster but uses ~13 GB RAM)
-        logger.info("Extracting training data...")
-        X_train, Y_train_dict, _ = extract_features_and_multilayer_targets(
-            train_df, nifti_loader, preprocessor, multilayer_cache, desc="train", text_clip_cache=text_clip_cache
-        )
-        
-        logger.info("Extracting validation data...")
-        X_val, Y_val_dict, _ = extract_features_and_multilayer_targets(
-            val_df, nifti_loader, preprocessor, multilayer_cache, desc="val", text_clip_cache=text_clip_cache
-        )
-        
-        logger.info("Extracting test data...")
-        X_test, Y_test_dict, nsd_ids_test = extract_features_and_multilayer_targets(
-            test_df, nifti_loader, preprocessor, multilayer_cache, desc="test", text_clip_cache=text_clip_cache
-        )
-        
-        # Create datasets with dict targets
-        class MultiLayerDataset(torch.utils.data.Dataset):
-            def __init__(self, X, Y_dict):
-                self.X = torch.from_numpy(X).float()
-                self.Y_dict = {k: torch.from_numpy(v).float() for k, v in Y_dict.items()}
+            # Load multi-layer CLIP cache
+            multilayer_cache = load_multilayer_clip_cache(args.multilayer_cache)
             
-            def __len__(self):
-                return len(self.X)
+            # Phase 2: Load text-CLIP cache if enabled
+            text_clip_cache = None
+            if args.predict_text_clip and args.text_clip_cache:
+                logger.info("=" * 70)
+                logger.info("PHASE 2: TEXT-CLIP MULTI-TASK MODE ENABLED")
+                logger.info("=" * 70)
+                logger.info(f"Loading text-CLIP cache from {args.text_clip_cache}...")
+                
+                text_clip_df = pd.read_parquet(args.text_clip_cache)
+                text_clip_cache = {}
+                
+                # Handle both nsdId and nsd_id column names (backward compatibility)
+                nsd_col = 'nsd_id' if 'nsd_id' in text_clip_df.columns else 'nsdId'
+                
+                for _, row in text_clip_df.iterrows():
+                    nsd_id = int(row[nsd_col])
+                    text_emb = np.array(row['text_clip_embedding'], dtype=np.float32)
+                    text_clip_cache[nsd_id] = text_emb
+                
+                logger.info(f"  Loaded {len(text_clip_cache)} text-CLIP embeddings (dim={text_clip_cache[list(text_clip_cache.keys())[0]].shape[0]})")
+                logger.info(f"  Text-CLIP weight: {args.text_clip_weight}")
             
-            def __getitem__(self, idx):
-                return self.X[idx], {k: v[idx] for k, v in self.Y_dict.items()}
-        
-        train_dataset = MultiLayerDataset(X_train, Y_train_dict)
-        val_dataset = MultiLayerDataset(X_val, Y_val_dict)
-        test_dataset = MultiLayerDataset(X_test, Y_test_dict)
+            # Extract features and multi-layer targets (eager loading - faster but uses ~13 GB RAM)
+            logger.info("Extracting training data...")
+            X_train, Y_train_dict, _ = extract_features_and_multilayer_targets(
+                train_df, nifti_loader, preprocessor, multilayer_cache, desc="train", text_clip_cache=text_clip_cache
+            )
+            
+            logger.info("Extracting validation data...")
+            X_val, Y_val_dict, _ = extract_features_and_multilayer_targets(
+                val_df, nifti_loader, preprocessor, multilayer_cache, desc="val", text_clip_cache=text_clip_cache
+            )
+            
+            logger.info("Extracting test data...")
+            X_test, Y_test_dict, nsd_ids_test = extract_features_and_multilayer_targets(
+                test_df, nifti_loader, preprocessor, multilayer_cache, desc="test", text_clip_cache=text_clip_cache
+            )
+            
+            # Create datasets with dict targets
+            class MultiLayerDataset(torch.utils.data.Dataset):
+                def __init__(self, X, Y_dict):
+                    self.X = torch.from_numpy(X).float()
+                    self.Y_dict = {k: torch.from_numpy(v).float() for k, v in Y_dict.items()}
+                
+                def __len__(self):
+                    return len(self.X)
+                
+                def __getitem__(self, idx):
+                    return self.X[idx], {k: v[idx] for k, v in self.Y_dict.items()}
+            
+            train_dataset = MultiLayerDataset(X_train, Y_train_dict)
+            val_dataset = MultiLayerDataset(X_val, Y_val_dict)
+            test_dataset = MultiLayerDataset(X_test, Y_test_dict)
         
     else:
         # Standard single-layer mode
@@ -898,10 +957,29 @@ def main():
             torch.from_numpy(Y_test).float()
         )
     
-    # Create data loaders (same for both modes)
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False)
+    # Create data loaders (single worker for streaming to avoid system overload)
+    num_workers = 0  # Single worker - multi-worker can overload memory on limited systems
+    train_loader = DataLoader(
+        train_dataset, 
+        batch_size=args.batch_size, 
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=True if device == "cuda" else False
+    )
+    val_loader = DataLoader(
+        val_dataset, 
+        batch_size=args.batch_size, 
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=True if device == "cuda" else False
+    )
+    test_loader = DataLoader(
+        test_dataset, 
+        batch_size=args.batch_size, 
+        shuffle=False,
+        num_workers=num_workers,
+        pin_memory=True if device == "cuda" else False
+    )
     
     # Create model - get input_dim from first sample
     logger.info("Getting input dimension from first training sample...")
@@ -913,7 +991,28 @@ def main():
         # Get shared_head_backbone from config (Phase 2)
         shared_head_backbone = config.get('encoder', {}).get('shared_head_backbone', False)
         
-        if args.probabilistic:
+        # Phase 4: Structural/Semantic Branch Architecture
+        if args.use_phase4:
+            from fmri2img.models.phase4_encoder import StructuralSemanticEncoder
+            
+            logger.info("Creating StructuralSemanticEncoder (Phase 4): input_dim={}, latent_dim={}".format(input_dim, args.latent_dim))
+            logger.info(f"  Structural branch: {args.structural_dim}-D → layer_4, layer_8")
+            logger.info(f"  Semantic branch: {args.semantic_dim}-D → layer_12, final, text")
+            logger.info(f"  Probabilistic mode: {args.probabilistic}")
+            
+            model = StructuralSemanticEncoder(
+                input_dim=input_dim,
+                latent_dim=args.latent_dim,
+                structural_dim=args.structural_dim,
+                semantic_dim=args.semantic_dim,
+                n_blocks=args.n_blocks,
+                dropout=args.dropout,
+                predict_text_clip=args.predict_text_clip,
+                probabilistic=args.probabilistic,
+                kl_weight=args.kl_weight if args.probabilistic else 0.0
+            ).to(device)
+            
+        elif args.probabilistic:
             logger.info(f"Creating ProbabilisticMultiLayerTwoStageEncoder: input_dim={input_dim}, latent_dim={args.latent_dim}, n_blocks={args.n_blocks}")
             logger.info(f"  Shared head backbone: {shared_head_backbone}")
             logger.info(f"  Probabilistic mode: enabled (mu/logvar outputs)")
@@ -1056,7 +1155,26 @@ def main():
         # Phase 2: Text-CLIP weight
         text_clip_weight = args.text_clip_weight if args.predict_text_clip else 0.0
         
-        if args.probabilistic:
+        # Phase 4: Branch-weighted loss for structural/semantic branches
+        if args.use_phase4:
+            criterion = BranchWeightedMultiLayerLoss(
+                layer_weights=layer_weights,
+                structural_weight=args.structural_weight,
+                semantic_weight=args.semantic_weight,
+                use_mse=use_mse,
+                mse_weight=mse_weight,
+                probabilistic=args.probabilistic,
+                kl_weight_max=args.kl_weight if args.probabilistic else 0.0,
+                kl_anneal_epochs=args.kl_anneal_epochs if args.probabilistic else 0,
+                text_clip_weight=text_clip_weight
+            )
+            logger.info(f"Using BranchWeightedMultiLayerLoss (Phase 4)")
+            logger.info(f"  Structural weight: {args.structural_weight} (L4, L8)")
+            logger.info(f"  Semantic weight: {args.semantic_weight} (L12, final, text)")
+            if args.probabilistic:
+                logger.info(f"  KL weight: {args.kl_weight} (annealing over {args.kl_anneal_epochs} epochs)")
+        
+        elif args.probabilistic:
             # Phase 3: Probabilistic loss with KL divergence
             # NOTE: ProbabilisticMultiLayerLoss does NOT support:
             #   - use_learnable_weights

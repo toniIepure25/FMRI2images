@@ -1,30 +1,174 @@
-# Python virtual environment
-.venv
-
-# Environment variables
-.env
-
-# Cache
-.cache
-cache
-# Python cache files
-__pycache__
+# ============================================================================
+# Python
+# ============================================================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
 *.py[cod]
 *$py.class
 *.pyc
+*.pyo
+*.pyd
 
-fmri2img.egg-info
-test_redirect_index
-data/
-outputs/
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+fmri2img.egg-info/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.hypothesis/
 .pytest_cache/
-codebase.md
-/preproc/
 
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# ============================================================================
+# Project-Specific: NSD fMRI-to-Image
+# ============================================================================
+
+# Large dataset directories (should be managed separately)
+data/
+cache/
+outputs/
+
+# Specific large file types
 *.npy
-*.pt
+*.npz
 *.pkl
-*.bak
+*.pickle
+*.h5
+*.hdf5
+*.nii
+*.nii.gz
+
+# Model checkpoints and weights (too large for git)
 *.pt
-*.json
+*.pth
+*.ckpt
+*.safetensors
+checkpoints/*.pt
+checkpoints/*.pth
+!checkpoints/.gitkeep
+
+# Training logs
+logs/
+*.log
+wandb/
+tensorboard/
+preproc_log.txt
+
+# Cache directories
+.cache/
+s3_cache/
+cache/clip_embeddings/
+cache/nsd_hdf5/
+cache/s3_cache/
+cache/stimuli/
+
+# Output directories
+outputs/ablations/
+outputs/clip_cache/
+outputs/eval/
+outputs/galleries/
+outputs/logs/
+outputs/preproc/
+outputs/recon/
+outputs/reports/
+
+# Temporary and backup files
+*.bak
+*.tmp
+*.temp
+*~
+.#*
+
+# Data files (CSV/Parquet may contain large datasets)
+# Keep config CSVs but ignore large data files
 *.parquet
+# Uncomment if you want to keep small CSV files:
+# !configs/*.csv
+# !*_config.csv
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Generated documentation
+codebase.md
+.aidigestignore
+
+# Test artifacts
+test_redirect_index/
+pq
+
+# OS-specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ============================================================================
+# Keep These Files
+# ============================================================================
+# Ensure critical config files are tracked
+!.env.example
+!configs/*.yaml
+!configs/*.yml
+!requirements.txt
+!environment.yml
+!pyproject.toml
+
+# Keep directory structure markers
+!**/.gitkeep

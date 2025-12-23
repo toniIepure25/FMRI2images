@@ -116,27 +116,69 @@ def cosine_loss(pred: "torch.Tensor", target: "torch.Tensor") -> "torch.Tensor":
 def compose_loss(
     pred: "torch.Tensor",
     target: "torch.Tensor",
-    mse_weight: float = 0.5
-) -> "torch.Tensor":
+    cosine_weight: float = 1.0,
+    mse_weight: float = 0.0,
+    infonce_weight: float = 0.0,
+    temperature: float = 0.07,
+    return_components: bool = False
+) -> "torch.Tensor | tuple[torch.Tensor, dict]":
     """
-    Combined cosine + MSE loss for CLIP alignment.
+    Multi-objective loss composition for CLIP alignment.
     
-    Combined cosine+MSE loss is standard when aligning to CLIP:
-    - Cosine captures directional alignment
-    - MSE captures magnitude alignment
+    NOVEL CONTRIBUTION: Supports InfoNCE contrastive loss for direct
+    retrieval optimization in addition to cosine and MSE losses.
+    
+    Loss components:
+    - Cosine: Directional alignment (1 - cosine_similarity)
+    - MSE: Magnitude alignment
+    - InfoNCE: Contrastive learning for retrieval (NOVEL)
+    
+    Backward compatible: Default weights (cosine=1.0, others=0.0) 
+    reproduce legacy cosine-only behavior.
     
     Args:
         pred: Predicted embeddings (B, D), L2-normalized
         target: Target embeddings (B, D), L2-normalized
-        mse_weight: Weight for MSE term (default: 0.5)
+        cosine_weight: Weight for cosine loss (default: 1.0)
+        mse_weight: Weight for MSE loss (default: 0.0)
+        infonce_weight: Weight for InfoNCE contrastive loss (default: 0.0)
+        temperature: Temperature for InfoNCE softmax (default: 0.07)
+        return_components: If True, return (loss, components_dict)
     
     Returns:
-        Scalar loss
+        If return_components=False: Scalar loss tensor
+        If return_components=True: (loss, dict with component losses)
+    
+    Example:
+        >>> # Legacy behavior (cosine only)
+        >>> loss = compose_loss(pred, target)
+        >>> 
+        >>> # Add InfoNCE for retrieval optimization
+        >>> loss, components = compose_loss(
+        ...     pred, target, 
+        ...     cosine_weight=1.0,
+        ...     infonce_weight=0.3,
+        ...     return_components=True
+        ... )
+        >>> logger.info(f"Cosine: {components['cosine']:.4f}, InfoNCE: {components['infonce']:.4f}")
     """
-    import torch
-    cos_loss = cosine_loss(pred, target)
-    mse_loss = torch.nn.functional.mse_loss(pred, target)
-    return cos_loss + mse_weight * mse_loss
+    # Import the new comprehensive loss module
+    from fmri2img.models.losses import compose_loss as new_compose_loss
+
+    # New compose_loss returns (loss, components) by default. To remain
+    # backward-compatible with callers that request only the scalar loss,
+    # we unwrap or forward the components depending on `return_components`.
+    total_loss, components = new_compose_loss(
+        pred, target,
+        cosine_weight=cosine_weight,
+        mse_weight=mse_weight,
+        infonce_weight=infonce_weight,
+        temperature=temperature
+    )
+
+    if return_components:
+        return total_loss, components
+    return total_loss
 
 
 def extract_features_and_targets(

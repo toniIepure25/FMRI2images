@@ -32,6 +32,11 @@ help:
 	@echo "  make recon-eval-adapter - Generate + evaluate (768/1024-D, one-click)"
 	@echo "  make compare-evals      - Aggregate multiple evaluations with bootstrap CIs"
 	@echo ""
+	@echo "Paper-Grade Shared1000 Evaluation:"
+	@echo "  make eval-shared1000    - Run comprehensive Shared1000 evaluation"
+	@echo "  make summarize-shared1000 - Aggregate results across subjects/strategies"
+	@echo "  make test-pipeline      - Run evaluation pipeline smoke test"
+	@echo ""
 	@echo "Environment Variables:"
 	@echo "  USE_PREPROC=1                     - Enable preprocessing (auto-detected from checkpoint if not set)"
 	@echo "  PREPROC_DIR=<path>                - Override preprocessing directory (auto-discovered if not set)"
@@ -53,7 +58,7 @@ setup:
 
 # Build canonical index with unified API
 index:
-	$(PY) -m fmri2img.data.nsd_index_builder --subjects $${SUBJECTS:-subj01} --max-trials $${MAX_TRIALS:-} --output-format parquet --use-s3
+	$(PY) -m fmri2img.data.nsd_index_builder --subjects $${SUBJECTS:-subj01} $${MAX_TRIALS:+--max-trials $$MAX_TRIALS} --output-format parquet
 
 # Build CLIP embeddings cache with resume support
 build-clip-cache:
@@ -429,3 +434,66 @@ generate_figures:
 		--reports-dir $(REPORTS_DIR) \
 		--output-dir $(FIGURES_DIR) \
 		--subjects $(SUBJECTS)
+
+# ════════════════════════════════════════════════════════════════════════════
+# PAPER-GRADE SHARED1000 EVALUATION
+# ════════════════════════════════════════════════════════════════════════════
+
+SHARED1000_OUT := outputs/eval_shared1000
+STRATEGIES := single best_of_8 boi_lite
+REP_MODE := avg
+SEEDS := 0 1 2
+
+.PHONY: eval-shared1000 summarize-shared1000 test-pipeline
+
+# Run comprehensive Shared1000 evaluation for one subject
+eval-shared1000:
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "Running Paper-Grade Shared1000 Evaluation"
+	@echo "Subject:    $${SUBJECT:-subj01}"
+	@echo "Strategies: $(STRATEGIES)"
+	@echo "Rep Mode:   $(REP_MODE)"
+	@echo "Seeds:      $(SEEDS)"
+	@echo "════════════════════════════════════════════════════════════════"
+	@mkdir -p $(SHARED1000_OUT)/$${SUBJECT:-subj01}
+	$(PY) scripts/eval_shared1000_full.py \
+		--subject $${SUBJECT:-subj01} \
+		--encoder-checkpoint $${ENCODER_CKPT:-checkpoints/mlp/$${SUBJECT:-subj01}/mlp.pt} \
+		--encoder-type $${ENCODER_TYPE:-mlp} \
+		--output-dir $(SHARED1000_OUT)/$${SUBJECT:-subj01} \
+		--rep-mode $(REP_MODE) \
+		--strategies $(STRATEGIES) \
+		--seeds $(SEEDS) \
+		--clip-cache $${CLIP_CACHE:-outputs/clip_cache/clip.parquet} \
+		$${USE_CEILING:+--use-noise-ceiling} \
+		$${ENCODING_CKPT:+--encoding-model-checkpoint $$ENCODING_CKPT} \
+		--device $${DEVICE:-cuda}
+
+# Aggregate results across subjects and strategies
+summarize-shared1000:
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "Summarizing Shared1000 Results"
+	@echo "Subjects:   $${SUBJECTS:-subj01 subj02 subj03}"
+	@echo "Strategies: $(STRATEGIES)"
+	@echo "════════════════════════════════════════════════════════════════"
+	$(PY) scripts/summarize_shared1000.py \
+		--eval-dir $(SHARED1000_OUT) \
+		--output-dir $(SHARED1000_OUT) \
+		--subjects $${SUBJECTS:-subj01 subj02 subj03} \
+		--strategies $(STRATEGIES) \
+		--rep-mode $(REP_MODE)
+	@echo "✅ Summary complete: $(SHARED1000_OUT)/SUMMARY.*"
+
+# Quick smoke test of evaluation pipeline
+test-pipeline:
+	@echo "════════════════════════════════════════════════════════════════"
+	@echo "Running Evaluation Pipeline Smoke Test"
+	@echo "════════════════════════════════════════════════════════════════"
+	@mkdir -p outputs/eval_test
+	$(PY) scripts/eval_shared1000_full.py \
+		--subject subj01 \
+		--encoder-checkpoint checkpoints/mlp/subj01/mlp.pt \
+		--encoder-type mlp \
+		--output-dir outputs/eval_test \
+		--smoke
+	@echo "✅ Smoke test passed"

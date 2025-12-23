@@ -1,0 +1,10 @@
+preprocessing:
+  splits:
+    train_ratio: 0.8
+    val_ratio: 0.1
+    test_ratio: 0.1
+    random_seed: 42
+
+# Minimal data config used for quick tests. The project also contains
+# `configs/base.yaml` with full defaults; this file overrides only the
+# split parameters needed by training scripts.

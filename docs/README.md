@@ -35,6 +35,7 @@ This directory contains comprehensive documentation for the fMRI-to-Image recons
   
 - **Evaluation & Analysis**
   - `EVALUATION_SUITE_GUIDE.md` - Comprehensive evaluation tools
+  - **[`PAPER_GRADE_EVALUATION.md`](PAPER_GRADE_EVALUATION.md)** - ⭐ **NEW**: Publication-quality evaluation suite
   - `REPORTING_RECONSTRUCTION.md` - Generating reports and visualizations
   - `GALLERY_SUPPORT.md` - Creating image galleries
 

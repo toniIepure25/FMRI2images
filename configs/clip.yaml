@@ -1,0 +1,22 @@
+# CLIP Model Configuration
+# Used for embedding extraction and similarity computation
+
+# Model specification
+model_name: "ViT-L/14"  # OpenAI CLIP ViT-L/14 (standard for NSD)
+pretrained: "openai"    # Pretrained weights source
+
+# Model parameters
+embedding_dim: 768      # CLIP ViT-L/14 embedding dimension
+context_length: 77      # Maximum text token length
+
+# Device configuration
+device: "cuda"          # Device to use (cuda/cpu)
+batch_size: 256         # Batch size for embedding extraction
+
+# Processing options
+normalize_embeddings: true   # L2-normalize embeddings
+precision: "fp32"            # Computation precision (fp32/fp16)
+
+# Cache settings
+cache_embeddings: true       # Whether to cache extracted embeddings
+cache_dir: "outputs/clip_cache"  # Directory for cached embeddings

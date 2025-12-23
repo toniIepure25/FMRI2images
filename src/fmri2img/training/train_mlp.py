@@ -81,11 +81,21 @@ def train_epoch(
     loader: DataLoader,
     optimizer: torch.optim.Optimizer,
     device: str,
-    mse_weight: float = 0.5
-) -> float:
-    """Train for one epoch."""
+    cosine_weight: float = 1.0,
+    mse_weight: float = 0.0,
+    infonce_weight: float = 0.0,
+    temperature: float = 0.07
+) -> tuple[float, dict]:
+    """
+    Train for one epoch.
+    
+    Returns:
+        total_loss: Average loss over epoch
+        components: Dict with average loss components
+    """
     model.train()
     total_loss = 0.0
+    component_sums = {}
     
     for X_batch, Y_batch in loader:
         X_batch = X_batch.to(device)
@@ -94,16 +104,36 @@ def train_epoch(
         optimizer.zero_grad()
         Y_pred = model(X_batch)
         
-        loss = compose_loss(Y_pred, Y_batch, mse_weight=mse_weight)
+        # Compute loss with components
+        loss, components = compose_loss(
+            Y_pred, Y_batch,
+            cosine_weight=cosine_weight,
+            mse_weight=mse_weight,
+            infonce_weight=infonce_weight,
+            temperature=temperature,
+            return_components=True
+        )
         loss.backward()
         
         # Gradient clipping for stability
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         
         optimizer.step()
-        total_loss += loss.item() * len(X_batch)
+        
+        # Accumulate loss and components
+        batch_size = len(X_batch)
+        total_loss += loss.item() * batch_size
+        for key, val in components.items():
+            if key not in component_sums:
+                component_sums[key] = 0.0
+            component_sums[key] += val * batch_size
     
-    return total_loss / len(loader.dataset)
+    # Average over epoch
+    n_samples = len(loader.dataset)
+    avg_loss = total_loss / n_samples
+    avg_components = {k: v / n_samples for k, v in component_sums.items()}
+    
+    return avg_loss, avg_components
 
 
 @torch.no_grad()
@@ -169,8 +199,16 @@ def main():
                        help="Early stopping patience")
     parser.add_argument("--batch-size", type=int, default=256,
                        help="Batch size")
-    parser.add_argument("--mse-weight", type=float, default=0.5,
-                       help="Weight for MSE term in loss")
+    
+    # Loss configuration (NOVEL CONTRIBUTIONS)
+    parser.add_argument("--cosine-weight", type=float, default=1.0,
+                       help="Weight for cosine loss (default: 1.0)")
+    parser.add_argument("--mse-weight", type=float, default=0.0,
+                       help="Weight for MSE loss (default: 0.0)")
+    parser.add_argument("--infonce-weight", type=float, default=0.0,
+                       help="Weight for InfoNCE contrastive loss (default: 0.0, NOVEL)")
+    parser.add_argument("--temperature", type=float, default=0.07,
+                       help="Temperature for InfoNCE softmax (default: 0.07)")
     
     # System
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu",
@@ -308,15 +346,24 @@ def main():
         patience_counter = 0
         
         for epoch in range(args.epochs):
-            train_loss = train_epoch(model, train_loader, optimizer, args.device, args.mse_weight)
+            train_loss, train_components = train_epoch(
+                model, train_loader, optimizer, args.device,
+                cosine_weight=args.cosine_weight,
+                mse_weight=args.mse_weight,
+                infonce_weight=args.infonce_weight,
+                temperature=args.temperature
+            )
             val_metrics = evaluate_epoch(model, val_loader, args.device)
             scheduler.step()
             
             val_cosine = val_metrics["cosine"]
             
+            # Log training components
+            components_str = ", ".join([f"{k}={v:.4f}" for k, v in train_components.items()])
+            
             logger.info(
                 f"Epoch {epoch+1:3d}/{args.epochs}: "
-                f"train_loss={train_loss:.4f}, "
+                f"train_loss={train_loss:.4f} ({components_str}), "
                 f"val_cosine={val_cosine:.4f} ± {val_metrics['cosine_std']:.4f}, "
                 f"val_mse={val_metrics['mse']:.4f}"
             )
@@ -357,11 +404,16 @@ def main():
         final_scheduler = CosineAnnealingLR(final_optimizer, T_max=best_epoch)
         
         for epoch in range(best_epoch):
-            train_loss = train_epoch(
-                final_model, trainval_loader, final_optimizer, args.device, args.mse_weight
+            train_loss, train_components = train_epoch(
+                final_model, trainval_loader, final_optimizer, args.device,
+                cosine_weight=args.cosine_weight,
+                mse_weight=args.mse_weight,
+                infonce_weight=args.infonce_weight,
+                temperature=args.temperature
             )
             final_scheduler.step()
-            logger.info(f"Epoch {epoch+1:3d}/{best_epoch}: train_loss={train_loss:.4f}")
+            components_str = ", ".join([f"{k}={v:.4f}" for k, v in train_components.items()])
+            logger.info(f"Epoch {epoch+1:3d}/{best_epoch}: train_loss={train_loss:.4f} ({components_str})")
         
         # Evaluate on test set
         logger.info("=" * 80)

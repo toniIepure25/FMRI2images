@@ -1,48 +1,62 @@
 # ============================================================================
-# AI Digest Ignore File - PRODUCTION PIPELINE FOCUSED
+# AI Digest Ignore File - fMRI-to-Image Reconstruction Project
 # ============================================================================
-# This file is optimized to include ONLY code relevant to run_production.sh
-# Perfect for generating codebase.md for ChatGPT to understand the pipeline
+# This file is optimized for the Brain-to-Image neural decoding project using
+# Natural Scenes Dataset (NSD), CLIP embeddings, and Stable Diffusion.
+# Perfect for generating codebase.md for AI assistants to understand the system.
 # 
-# INCLUDED (Essential Pipeline Code):
-# - scripts/run_production.sh and its 9 dependent scripts
-# - configs/production_optimal.yaml and production_improved.yaml
-# - src/fmri2img/ package (models, data loaders, utils)
-# - Core documentation (README, setup files, key docs)
+# INCLUDED (Essential Code for Understanding):
+# - Production pipeline: scripts/run_production.sh and its dependencies
+# - Core scripts: MLP training, CLIP adapters, diffusion decoding, evaluation
+# - Source package: src/fmri2img/ (models, data loaders, preprocessing, utils)
+# - Key configurations: base.yaml and config directories
+# - Essential documentation: architecture, guides, technical docs
+# - Setup files: pyproject.toml, requirements.txt, Makefile
 #
-# EXCLUDED (Not Relevant):
-# - All data files, outputs, checkpoints, caches
-# - Test scripts, experimental code, old/deprecated scripts
-# - IDE configs, logs, temp files
+# EXCLUDED (Data & Artifacts):
+# - All datasets, outputs, checkpoints, caches (large binary files)
+# - Generated images, preprocessed data, model weights
+# - Experimental/test scripts not part of main pipeline
+# - IDE configs, logs, temporary files
 # ============================================================================
 
 # ============================================================================
-# 1. DATA & OUTPUTS (Exclude All - No Data in Codebase Context)
+# 1. DATA & OUTPUTS (Exclude All - Contains Large Binary Files)
 # ============================================================================
-# Raw data directories
+# Raw fMRI and NSD data
 cache/
 data/
 datasets/
 raw_data/
 processed_data/
-test_redirect_index/
+nsd_data/
+fmri_data/
+stimuli_data/
 
-# Generated outputs
+# Generated outputs and results
 outputs/
 output/
 results/
 reports/
 recon/
+reconstructions/
 preproc/
 figures/
 plots/
+visualizations/
+galleries/
+
+# Model artifacts
 checkpoints/
 saved_models/
 models/
 weights/
 pretrained/
+model_cache/
+clip_cache/
+diffusion_cache/
 
-# Subject-specific data
+# Subject-specific data (NSD has 8 subjects)
 */subj01/*
 */subj02/*
 */subj03/*
@@ -51,26 +65,31 @@ pretrained/
 */subj06/*
 */subj07/*
 */subj08/*
+**/subj[0-9][0-9]/**
 
 # ============================================================================
 # 2. BINARY & DATA FILES (Exclude All Large/Binary Formats)
 # ============================================================================
-# Neuroimaging
+# Neuroimaging formats (fMRI, structural)
 *.hdf5
 *.h5
+*.mat
 *.nii
 *.nii.gz
 *.mgz
 *.mgh
+*.dcm
+*.dicom
 
-# NumPy/Pandas
+# Scientific data formats
 *.npy
 *.npz
 *.parquet
 *.feather
 *.hdf
+*.zarr
 
-# Images
+# Images and visualizations
 *.png
 *.jpg
 *.jpeg
@@ -79,8 +98,10 @@ pretrained/
 *.gif
 *.bmp
 *.webp
+*.svg
+*.pdf
 
-# Model weights
+# Model weights and checkpoints
 *.pth
 *.pt
 *.ckpt
@@ -90,15 +111,20 @@ pretrained/
 *.bin
 *.pb
 *.onnx
+*.h5
+*.weights
 
-# Large text data
+# Large text/CSV data
 *.csv
 *.tsv
 *.json.gz
 *.jsonl
 *.jsonl.gz
+*_embeddings.json
+*_features.json
+*_cache.json
 
-# Archives
+# Archives and compressed files
 *.zip
 *.tar
 *.tar.gz
@@ -137,6 +163,7 @@ htmlcov/
 venv/
 env/
 ENV/
+.conda/
 node_modules/
 .env
 .env.*
@@ -145,6 +172,10 @@ node_modules/
 *.pem
 credentials.json
 secrets.json
+config.json
+wandb/
+.wandb/
+**/wandb/**
 
 # ============================================================================
 # 5. IDE & OS FILES
@@ -165,6 +196,12 @@ logs/
 log/
 *.log
 *.log.*
+*.out
+*.err
+slurm-*.out
+slurm-*.err
+job_*.out
+job_*.err
 tmp/
 temp/
 *.tmp
@@ -172,66 +209,90 @@ temp/
 *.bak
 *.backup
 *.old
+*.orig
+*~
 
 # ============================================================================
 # 7. EXCLUDE SPECIFIC SCRIPT CATEGORIES
 # ============================================================================
-# These scripts are NOT used by run_production.sh
+# These scripts are NOT part of the main production pipeline
 
-# Test scripts (not part of production pipeline)
+# Experimental/development scripts
+scripts/ablate_*.py
 scripts/test_*.py
 scripts/*_test.py
 scripts/verify_*.py
 scripts/check_*.py
 scripts/repair_*.py
+scripts/smoke_*.py
+scripts/quick_*.py
+scripts/diagnose.*
 
-# Experimental/development scripts
-scripts/ablate_*.py
+# Analysis and reporting (not core pipeline)
 scripts/report_*.py
 scripts/plot_*.py
 scripts/summarize_*.py
+scripts/analyze_*.py
 
-# Old/deprecated NSD-specific scripts (not used in production)
-scripts/nsd_*.py
+# Utility scripts (helpful but not core)
 scripts/download_*.py
+scripts/rebuild_*.py
+scripts/cleanup_*.py
+
+# Legacy/deprecated scripts
+scripts/nsd_*.py
+scripts/old_*.py
+scripts/legacy_*.py
+scripts/deprecated_*.py
 scripts/reconstruct_nn.py
-scripts/run_reconstruct_and_eval.py
 
-# Development/debugging scripts
-scripts/smoke_*.py
-scripts/train_smoke.py
-scripts/test_roi.py
-scripts/test_clip_refactoring.py
+# Testing scripts in src/
+src/**/test_*.py
+src/**/*_test.py
+src/**/tests/
 
 # ============================================================================
-# 8. EXCLUDE SPECIFIC CONFIGS (Keep Only Production Configs)
+# 8. CONFIG FILES - INCLUDE CORE CONFIGS, EXCLUDE EXPERIMENTAL
 # ============================================================================
-# Keep: configs/production_optimal.yaml
-# Keep: configs/production_improved.yaml
+# Include the main configs directory structure but exclude experimental configs
+# Keep: configs/base.yaml, configs/training/, configs/inference/, etc.
+# Exclude specific experimental or old configs:
+
+configs/*_test.yaml
+configs/*_experiment.yaml
+configs/*_old.yaml
+configs/*_backup.yaml
+configs/deprecated/
+configs/experimental/
+configs/archive/
 
 # ============================================================================
-# 9. EXCLUDE NON-ESSENTIAL DOCUMENTATION
+# 9. DOCUMENTATION - INCLUDE ESSENTIAL DOCS, EXCLUDE VERBOSE/HISTORICAL
 # ============================================================================
-# Keep only the most important docs, exclude verbose/historical ones
-docs/ABLATION_SUMMARY.md
-docs/DIFFUSION_SUMMARY.md
-docs/SKLEARN_DEPENDENCY_FIX.md
-docs/PREVENTING_MODEL_DOWNLOAD_BLOCKING.md
-docs/REPORTING_RECONSTRUCTION.md
-docs/NSD_Dataset_Guide.md
-docs/SURGICAL_CHANGES_GUIDE.md
-CLEANUP_SUMMARY.md
-*.md
-# Keep these essential docs:
-# !README.md
-# !docs/ARCHITECTURE_IMPROVEMENTS.md
-# !docs/IMPROVEMENTS_READY.md
-# !docs/OPTIMAL_CONFIGURATION_GUIDE.md
-# !docs/MLP_IMPLEMENTATION.md
-# !docs/RIDGE_BASELINE.md
-# !docs/DIFFUSION_DECODER.md
-# !docs/PREPROCESSING_IMPLEMENTATION.md
-# !docs/GETTING_STARTED_DIFFUSION.md
+# Include key documentation but exclude overly verbose or historical docs
+
+# Exclude verbose/redundant docs
+docs/archive/
+docs/old/
+docs/deprecated/
+docs/experiments/
+**/README_old.md
+**/CHANGELOG.md
+**/HISTORY.md
+
+# Exclude specific technical docs that are too detailed for overview
+docs/technical/DATA_VALIDATION_REAL_VS_FALLBACK.md
+docs/technical/PREVENTING_MODEL_DOWNLOAD_BLOCKING.md
+docs/technical/UPGRADE_TO_30K_SAMPLES.md
+docs/technical/MANUAL_MODEL_DOWNLOAD.md
+
+# Keep these essential docs by NOT excluding them:
+# ✅ README.md (project overview)
+# ✅ docs/README.md (documentation index)
+# ✅ docs/architecture/ (system architecture)
+# ✅ docs/guides/ (user guides)
+# ✅ docs/technical/OPTIMAL_CONFIGURATION_GUIDE.md
+# ✅ docs/technical/NSD_Dataset_Guide.md
 
 # ============================================================================
 # 10. GIT & VERSION CONTROL
@@ -248,82 +309,100 @@ CLEANUP_SUMMARY.md
 *-checkpoint.ipynb
 
 # ============================================================================
-# 12. CACHE DIRECTORIES
+# 12. CACHE DIRECTORIES & MODEL DOWNLOADS
 # ============================================================================
 .cache/
 *_cache/
 clip_cache/
 embeddings/
+embeddings_cache/
 transformers_cache/
 diffusers_cache/
+huggingface_cache/
 .cache/huggingface/
 .cache/torch/
+.cache/clip/
+.torch/
+torch_cache/
+pytorch_cache/
+
+# Specific to this project
+s3_cache/
+clip_embeddings/
+target_cache/
+model_downloads/
 
 # ============================================================================
-# SUMMARY OF WHAT'S INCLUDED
+# SUMMARY OF WHAT'S INCLUDED IN AI DIGEST
 # ============================================================================
-# ✅ INCLUDED (Perfect for ChatGPT Context):
+# ✅ INCLUDED (Perfect for AI Assistant Understanding):
 #
-# 1. CORE PIPELINE SCRIPT:
-#    - scripts/run_production.sh (main orchestrator)
+# 1. CORE PRODUCTION PIPELINE:
+#    - scripts/run_production.sh (main orchestration script)
 #
-# 2. PRODUCTION SCRIPTS (9 scripts called by run_production.sh):
-#    - scripts/build_full_index.py
-#    - scripts/build_clip_cache.py
-#    - scripts/train_mlp.py
-#    - scripts/build_target_clip_cache_robust.py
-#    - scripts/build_target_clip_cache.py (fallback)
-#    - scripts/train_clip_adapter.py
-#    - scripts/decode_diffusion.py
-#    - scripts/eval_reconstruction.py
-#    - scripts/compare_evals.py
+# 2. ESSENTIAL SCRIPTS (Called by production pipeline):
+#    - scripts/build_full_index.py (data indexing)
+#    - scripts/build_clip_cache.py (CLIP embeddings)
+#    - scripts/train_mlp.py (MLP encoder training)
+#    - scripts/build_target_clip_cache_robust.py (target embeddings)
+#    - scripts/train_clip_adapter.py (CLIP adapter training)
+#    - scripts/decode_diffusion.py (image generation with Stable Diffusion)
+#    - scripts/eval_reconstruction.py (evaluation metrics)
+#    - scripts/compare_evals.py (performance comparison)
 #
-# 3. CONFIGURATION FILES:
-#    - configs/production_optimal.yaml (main config - k=100 PCA)
-#    - configs/production_improved.yaml (alternative config)
+# 3. SOURCE CODE PACKAGE (src/fmri2img/):
+#    - src/fmri2img/__init__.py (package init)
+#    - src/fmri2img/data/ (NSD dataset loaders, preprocessing)
+#    - src/fmri2img/models/ (Ridge, MLP, Two-Stage, CLIP adapters)
+#    - src/fmri2img/eval/ (evaluation metrics: retrieval, CLIP-I, LPIPS)
+#    - src/fmri2img/io/ (I/O utilities, checkpointing)
+#    - src/fmri2img/utils/ (helper functions, logging)
+#    - src/fmri2img/generation/ (Stable Diffusion integration)
+#    - src/fmri2img/training/ (training loops, optimizers)
 #
-# 4. SOURCE CODE (src/fmri2img/):
-#    - src/fmri2img/__init__.py
-#    - src/fmri2img/data/ (dataset loaders, preprocessing)
-#    - src/fmri2img/models/ (MLP, adapter, encoders)
-#    - src/fmri2img/eval/ (evaluation metrics)
-#    - src/fmri2img/io/ (I/O utilities)
-#    - src/fmri2img/utils/ (helper functions)
+# 4. CONFIGURATION FILES:
+#    - configs/base.yaml (main configuration)
+#    - configs/training/ (training configurations)
+#    - configs/inference/ (inference configurations)
+#    - configs/system/ (system settings)
 #
 # 5. ESSENTIAL DOCUMENTATION:
-#    - README.md (project overview)
-#    - docs/ARCHITECTURE_IMPROVEMENTS.md (NEW - improvement ideas)
-#    - docs/IMPROVEMENTS_READY.md (NEW - ready to run guide)
-#    - docs/OPTIMAL_CONFIGURATION_GUIDE.md (configuration docs)
-#    - docs/MLP_IMPLEMENTATION.md (architecture details)
-#    - docs/DIFFUSION_DECODER.md (diffusion pipeline)
-#    - docs/PREPROCESSING_IMPLEMENTATION.md (preprocessing details)
-#    - docs/RIDGE_BASELINE.md (baseline comparison)
-#    - docs/GETTING_STARTED_DIFFUSION.md (setup guide)
+#    - README.md (project overview and setup)
+#    - docs/README.md (documentation index)
+#    - docs/architecture/ (system architecture docs)
+#    - docs/guides/ (user guides: MLP, Ridge, Diffusion, etc.)
+#    - docs/technical/OPTIMAL_CONFIGURATION_GUIDE.md
+#    - docs/technical/NSD_Dataset_Guide.md
 #
-# 6. SETUP FILES:
-#    - pyproject.toml (package config)
-#    - requirements.txt (dependencies)
-#    - Makefile (build commands)
-#    - setup.py/setup.cfg (if exists)
+# 6. SETUP & BUILD FILES:
+#    - pyproject.toml (Python package configuration)
+#    - requirements.txt (Python dependencies)
+#    - Makefile (build and setup commands)
+#    - environment.yml (Conda environment)
 #
-# ❌ EXCLUDED (Not Relevant for Understanding Pipeline):
-# - All data files (*.npy, *.parquet, *.hdf5, etc.)
-# - All output files (generated images, reports, checkpoints)
-# - All test/experimental/deprecated scripts
-# - IDE configs, logs, cache directories
-# - Binary files, archives, temporary files
-# - Old/unused configuration files
+# ❌ EXCLUDED (Not Needed for Code Understanding):
+# - All data files (fMRI, images, embeddings, caches)
+# - All output files (reconstructions, reports, checkpoints)
+# - All binary/large files (*.npy, *.hdf5, *.pth, etc.)
+# - Test/experimental scripts not in main pipeline
+# - IDE configs, logs, temporary files
+# - Model weights and downloaded artifacts
+# - Subject-specific data directories
+# - Cache directories and downloaded models
 #
 # ============================================================================
-# USAGE: Generate perfect codebase.md for ChatGPT
+# USAGE: Generate optimized codebase.md for AI assistants
 # ============================================================================
-# Run: npx ai-digest
-# Output: codebase.md with ~50-100KB of essential pipeline code
-# Perfect for ChatGPT to understand:
-#   - Complete pipeline architecture
-#   - All production scripts and their dependencies
-#   - Configuration settings (k=100 PCA, MLP architecture, diffusion)
-#   - Source code for models, data loaders, utilities
-#   - Essential documentation and setup instructions
+# Command: npx ai-digest
+# Output: codebase.md containing ~50-150KB of essential code
+# 
+# Perfect for AI assistants to understand:
+# ✨ Complete fMRI-to-image reconstruction pipeline
+# ✨ Neural encoding architectures (Ridge, MLP, CLIP adapters)
+# ✨ Natural Scenes Dataset (NSD) integration
+# ✨ CLIP embeddings and Stable Diffusion generation
+# ✨ Preprocessing (z-score, PCA, reliability filtering)
+# ✨ Evaluation metrics (retrieval, perceptual similarity)
+# ✨ Configuration management and production workflow
+# ✨ Modular architecture with clear separation of concerns
 # ============================================================================

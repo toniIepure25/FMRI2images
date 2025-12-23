@@ -65,6 +65,9 @@ from typing import Optional, Dict, Any, Tuple
 
 import torch
 
+# Import manifest utilities for reproducibility tracking
+from fmri2img.utils.manifest import gather_env_info, write_manifest, hash_file
+
 
 def print_banner(text: str) -> None:
     """Print a clear section banner."""
@@ -763,6 +766,64 @@ def main():
     # Create output directories
     args.output_dir.mkdir(parents=True, exist_ok=True)
     args.report_dir.mkdir(parents=True, exist_ok=True)
+    
+    # ============================================================================
+    # REPRODUCIBILITY: Gather environment info and write manifest
+    # ============================================================================
+    print_banner("Gathering Environment Info for Reproducibility")
+    
+    # Gather environment information
+    env_info = gather_env_info()
+    print(f"✓ Environment: Python {env_info['python_version']}, "
+          f"PyTorch {env_info['torch_version']}, "
+          f"CUDA {env_info['cuda_version']}")
+    print(f"✓ Git: {env_info['git_commit'][:8]} on {env_info['git_branch']}")
+    if env_info['git_dirty']:
+        print("  ⚠️  Warning: Git working directory has uncommitted changes")
+    
+    # Create manifest with input file hashes
+    manifest_data = {
+        "script": "run_reconstruct_and_eval.py",
+        "timestamp": datetime.now().isoformat(),
+        "environment": env_info,
+        "config": {
+            "subject": args.subject,
+            "encoder": args.encoder,
+            "encoder_ckpt": str(args.ckpt),
+            "use_adapter": args.use_adapter,
+            "adapter": str(args.adapter) if args.adapter else None,
+            "model_id": args.model_id,
+            "clip_target_dim": clip_target_dim,
+            "limit": args.limit,
+            "steps": args.steps,
+            "galleries": galleries,
+            "image_source": args.image_source,
+            "preprocessing_enabled": preproc_enabled,
+            "preprocessing_path": str(preproc_path) if preproc_path else None,
+        },
+        "input_hashes": {}
+    }
+    
+    # Hash input files for reproducibility
+    try:
+        manifest_data["input_hashes"]["encoder_ckpt"] = hash_file(str(args.ckpt))
+        print(f"✓ Hashed encoder checkpoint: {manifest_data['input_hashes']['encoder_ckpt'][:16]}...")
+        
+        if args.adapter and args.adapter.exists():
+            manifest_data["input_hashes"]["adapter"] = hash_file(str(args.adapter))
+            print(f"✓ Hashed adapter: {manifest_data['input_hashes']['adapter'][:16]}...")
+        
+        if args.clip_cache.exists():
+            manifest_data["input_hashes"]["clip_cache"] = hash_file(str(args.clip_cache))
+            print(f"✓ Hashed CLIP cache: {manifest_data['input_hashes']['clip_cache'][:16]}...")
+    except Exception as e:
+        print(f"  ⚠️  Warning: Failed to hash some input files: {e}")
+    
+    # Write manifest to output directory
+    manifest_path = args.output_dir / "manifest.json"
+    write_manifest(manifest_data, str(manifest_path))
+    print(f"✓ Manifest written: {manifest_path}")
+    print()
     
     # Print configuration banner
     print_banner("Reconstruct & Evaluate Workflow")

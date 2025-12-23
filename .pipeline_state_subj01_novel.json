@@ -1,0 +1,17 @@
+{
+  "completed_steps": [
+    "build_index",
+    "build_clip_cache"
+  ],
+  "last_run": "2025-12-14 00:23:40",
+  "artifacts": {
+    "build_index": {
+      "index_file": "data/indices/nsd_index/subject=subj01/index.parquet",
+      "n_trials": 73000
+    },
+    "build_clip_cache": {
+      "clip_cache": "outputs/clip_cache/clip.parquet",
+      "n_images": 10005
+    }
+  }
+}

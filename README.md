@@ -17,9 +17,12 @@ This repository implements state-of-the-art approaches for decoding visual infor
 - **🧠 Multiple Encoder Architectures**: Ridge regression, MLP, Two-Stage encoders, and CLIP adapters
 - **🔬 Robust Preprocessing**: Z-score normalization, PCA dimensionality reduction, voxel reliability filtering
 - **🎨 High-Quality Reconstruction**: Integration with Stable Diffusion (v1.5, v2.1) for photorealistic outputs
-- **📊 Comprehensive Evaluation**: Retrieval metrics (R@K), CLIP-I scores, perceptual metrics (LPIPS, SSIM)
+- **📊 Paper-Grade Evaluation Suite**: ⭐ **NEW** - Statistical rigor, noise ceiling normalization, brain alignment metrics
+- **🔄 Full Reproducibility**: Manifests track git commits, package versions, and input file hashes
 - **⚡ Production-Ready**: Professional logging, configuration management, checkpoint handling
-- **✅ Extensively Tested**: 20+ automated tests with 85% code coverage
+- **✅ Extensively Tested**: 30+ automated tests with comprehensive coverage
+
+> **🆕 NEW**: [**Paper-Grade Evaluation Suite**](docs/PAPER_GRADE_EVALUATION.md) - Publication-quality evaluation with bootstrap CIs, permutation tests, noise ceiling normalization, brain alignment metrics, and full reproducibility tracking. Ready for top-tier conference/journal submission!
 
 ### Research Context
 

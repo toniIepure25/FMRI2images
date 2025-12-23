@@ -37,6 +37,14 @@ preprocessing:
   # Brain masking
   mask_threshold: 0.0               # Voxel activation threshold
   remove_mean: true                 # Remove trial mean before PCA
+  
+  # Reliability-based voxel weighting (novel contribution)
+  # Mode: "hard_threshold" (default, binary mask), "soft_weight" (continuous weights), "none" (all voxels equal)
+  reliability_mode: "hard_threshold"
+  
+  # Soft weighting parameters (only used when reliability_mode="soft_weight")
+  reliability_curve: "sigmoid"      # Weighting curve: "sigmoid" or "linear"
+  reliability_temperature: 0.1      # Sigmoid temperature (smaller = sharper transition)
 
 # CLIP Model Configuration
 # -----------------------------------------------------------------------------
@@ -76,6 +84,20 @@ training:
   save_best_only: true              # Save only best model
   save_frequency: 5                 # Save every N epochs
   early_stop_patience: 15           # Early stopping patience
+
+# Loss Function Configuration (novel contribution)
+# -----------------------------------------------------------------------------
+loss:
+  # Multi-objective loss composition
+  # Default: cosine-only for backward compatibility
+  # Set infonce_weight > 0 to enable contrastive learning
+  cosine_weight: 1.0                # Weight for cosine similarity loss
+  mse_weight: 0.0                   # Weight for MSE loss
+  infonce_weight: 0.0               # Weight for InfoNCE contrastive loss (novel)
+  
+  # InfoNCE parameters (only used when infonce_weight > 0)
+  infonce_temperature: 0.07         # Temperature for InfoNCE (lower = harder negatives)
+  infonce_normalize: true           # Normalize embeddings before InfoNCE
 
 # Evaluation Configuration
 # -----------------------------------------------------------------------------

@@ -10,6 +10,7 @@ pyyaml
 matplotlib
 seaborn
 scikit-learn
+scipy
 # Deep learning (optional, for MLP encoder and diffusion)
 # torch
 # torchvision

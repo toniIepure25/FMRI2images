@@ -32,6 +32,13 @@ from .encoding_model import (
     save_encoding_model,
     load_encoding_model
 )
+from .losses import (
+    cosine_loss,
+    mse_loss,
+    infonce_loss,
+    compose_loss,
+    ComposedLoss
+)
 
 __all__ = [
     # Baseline models
@@ -62,6 +69,12 @@ __all__ = [
     "ImageEncoder",
     "EncodingModel",
     "save_encoding_model",
-    "load_encoding_model"
+    "load_encoding_model",
+    # Loss functions (novel)
+    "cosine_loss",
+    "mse_loss",
+    "infonce_loss",
+    "compose_loss",
+    "ComposedLoss"
 ]
 

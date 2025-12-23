@@ -35,9 +35,13 @@ class NSDIndexBuilder:
     using true trial order from session design files.
     """
     
-    def __init__(self, config_path: str = "configs/data.yaml"):
+    def __init__(self, config_path: Optional[str] = None):
         """Initialize with NSDLayout for centralized path management"""
-        self.layout = NSDLayout(config_path)
+        # Use config if exists, otherwise use defaults
+        if config_path and Path(config_path).exists():
+            self.layout = NSDLayout(config_path)
+        else:
+            self.layout = NSDLayout(None)  # Use default paths
         self.s3_fs = get_s3_filesystem()
         self.csv_loader = CSVLoader(self.s3_fs)
         self.nifti_loader = NIfTILoader(self.s3_fs)
@@ -391,7 +395,7 @@ def main():
             
         else:
             # Default: Save partitioned by subject locally
-            output_root = Path("data/indices/nsd_canonical_index")
+            output_root = Path("data/indices/nsd_index")
             output_root.mkdir(parents=True, exist_ok=True)
             
             # Save unified index

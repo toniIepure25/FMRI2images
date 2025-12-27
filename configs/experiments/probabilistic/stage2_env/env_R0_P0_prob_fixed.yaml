@@ -1,0 +1,12 @@
+# Stage 2 env grid: reliability=off, pca=off (probabilistic fixed-K)
+_base_: ../stage1/prob_fixed.yaml
+
+experiment:
+  name: prob_fixed_env_R0_P0
+  tags: [stage2, env, reliability_off, pca_off, probabilistic, fixed_k]
+
+preprocessing:
+  enable_reliability_filter: false
+  reliability_threshold: 0.0
+  enable_pca: false
+  pca_k: null

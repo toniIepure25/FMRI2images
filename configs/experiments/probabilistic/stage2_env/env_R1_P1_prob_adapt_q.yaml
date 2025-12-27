@@ -1,0 +1,12 @@
+# Stage 2 env grid: reliability=on, pca=on (probabilistic adaptive quantile)
+_base_: ../stage1/prob_adapt_q.yaml
+
+experiment:
+  name: prob_adapt_q_env_R1_P1
+  tags: [stage2, env, reliability_on, pca_on, probabilistic, adaptive_quantile]
+
+preprocessing:
+  enable_reliability_filter: true
+  reliability_threshold: 0.1
+  enable_pca: true
+  pca_k: 512

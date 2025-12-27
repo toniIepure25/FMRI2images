@@ -1,0 +1,9 @@
+# Stage 3 compute curve: K_base=16
+_base_: ../stage1/prob_adapt_q.yaml
+
+experiment:
+  name: prob_adapt_q_k16
+  tags: [stage3, compute_curve, K16]
+
+inference:
+  K_base: 16

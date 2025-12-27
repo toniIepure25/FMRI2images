@@ -30,7 +30,9 @@ dataset:
 # -----------------------------------------------------------------------------
 preprocessing:
   reliability_threshold: 0.1         # Minimum voxel reliability score
+  enable_reliability_filter: true   # Enable/disable reliability filtering
   pca_k: 512                        # PCA components for dimensionality reduction
+  enable_pca: true                  # Enable/disable PCA (set false to bypass)
   use_roi: false                    # Use ROI-based selection
   scaler_type: standard             # Options: standard, robust, minmax
   
@@ -62,6 +64,18 @@ clip:
     layer_8: 768                    # Dimension of layer 8
     layer_12: 768                   # Dimension of layer 12
     final: 512                      # Final embedding dimension
+
+
+# CLIP Embedding Space Configuration
+# -----------------------------------------------------------------------------
+# Controls which embedding space is modeled and evaluated.
+# "normalized" (default) matches existing behavior: embeddings are L2-normalized
+# before losses/metrics/selection. "raw" allows experimenting with unnormalized
+# embeddings (use with caution; make sure targets and predictions align).
+clip_embedding:
+  space: normalized                # Options: normalized, raw
+  normalize_targets: true          # Keep true to preserve current behavior
+  normalize_predictions: true      # Keep true to preserve current behavior
 
 # Training Configuration
 # -----------------------------------------------------------------------------
@@ -99,6 +113,15 @@ loss:
   infonce_temperature: 0.07         # Temperature for InfoNCE (lower = harder negatives)
   infonce_normalize: true           # Normalize embeddings before InfoNCE
 
+  # Probabilistic loss components (default off for backward compatibility)
+  nll_weight: 0.0                   # Gaussian NLL weight (diag/scalar)
+  cosine_aux_weight: 0.0            # Auxiliary cosine on mu vs z_true
+  variance_penalty_weight: 0.0      # Weight on mean(exp(logvar)) to prevent variance inflation
+  nll_reduction: mean               # Reduction over dims: mean | sum
+  logvar_min: -8.0                  # Clamp lower bound for log-variance
+  logvar_max: 2.0                   # Clamp upper bound for log-variance
+  variance_floor: 1.0e-6            # Additive floor to variance for stability
+
 # Evaluation Configuration
 # -----------------------------------------------------------------------------
 evaluation:
@@ -114,6 +137,38 @@ evaluation:
   # Logging
   log_interval: 10                  # Log every N batches
   eval_interval: 1                  # Evaluate every N epochs
+
+  # Calibration / uncertainty evaluation
+  calibration_bins: 10              # Number of bins for reliability curves
+  calibration_error_metric: cosine  # Options: cosine, mse
+
+# Probabilistic Decoder & Inference Configuration
+# -----------------------------------------------------------------------------
+decoder:
+  type: deterministic               # Options: deterministic, probabilistic
+  uncertainty: diag                 # Options: diag, scalar
+  predict_logvar: true              # Enable log-variance head for probabilistic decoding
+  logvar_min: -8.0                  # Clamp lower bound for log-variance
+  logvar_max: 2.0                   # Clamp upper bound for log-variance
+  variance_floor: 1.0e-6            # Additive variance floor for stability
+
+inference:
+  sampling_policy: fixed_k          # Options: fixed_k, adaptive_quantile, adaptive_mapping
+  K_base: 1                         # Base compute budget per trial (kept minimal by default)
+  K_set: [1, 2, 4, 8, 16]           # Allowed K values for adaptive policies
+  enforce_budget: true              # Enforce sum_i K_i == N_trials * K_base
+  selection_rule: cosine            # Options: cosine, likelihood, oracle (oracle = upper bound only)
+
+  adaptive_quantile:
+    # Quantile bins for uncertainty u (sorted descending). Bins map to K_set in order.
+    # Default follows: top 10%→16, next 20%→8, next 30%→4, next 25%→2, rest→1
+    quantiles: [0.0, 0.10, 0.30, 0.60, 0.85, 1.0]
+    K_bins: [16, 8, 4, 2, 1]
+    budget_correction: deterministic # Placeholder for deterministic correction strategy
+
+  adaptive_mapping:
+    thresholds: [0.2, 0.4, 0.6, 0.8] # u thresholds to bucketize
+    K_values: [1, 2, 4, 8, 16]        # Must align with thresholds+1 buckets
 
 # Diffusion Model Configuration (for generation)
 # -----------------------------------------------------------------------------

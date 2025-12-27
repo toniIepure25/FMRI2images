@@ -1,0 +1,9 @@
+# Stage 3 compute curve: K_base=4
+_base_: ../stage1/prob_adapt_q.yaml
+
+experiment:
+  name: prob_adapt_q_k4
+  tags: [stage3, compute_curve, K4]
+
+inference:
+  K_base: 4

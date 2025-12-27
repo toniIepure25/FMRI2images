@@ -48,7 +48,9 @@ import logging
 import sys
 import yaml
 from pathlib import Path
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, Any
+from datetime import datetime
+import hashlib
 
 import numpy as np
 import pandas as pd
@@ -58,6 +60,12 @@ from torch.utils.data import TensorDataset, DataLoader
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from tqdm import tqdm
+try:
+    import psutil  # type: ignore
+except ImportError:  # pragma: no cover
+    psutil = None
+
+MEM_LOG_INTERVAL = 200
 
 # Setup logging
 logging.basicConfig(
@@ -68,6 +76,7 @@ logger = logging.getLogger(__name__)
 
 # Import project modules
 from fmri2img.data.nsd_index_reader import read_subject_index
+from fmri2img.data.nsd_index_builder import NSDIndexBuilder
 from fmri2img.data.preprocess import NSDPreprocessor
 from fmri2img.data.clip_cache import CLIPCache
 from fmri2img.io.s3 import get_s3_filesystem, NIfTILoader
@@ -81,7 +90,15 @@ from fmri2img.models.encoders import (
     load_multilayer_two_stage_encoder,
     load_probabilistic_encoder
 )
-from fmri2img.training.losses import MultiLoss, MultiLayerLoss, ProbabilisticMultiLayerLoss, compute_multiloss
+from fmri2img.training.losses import (
+    MultiLoss,
+    MultiLayerLoss,
+    ProbabilisticMultiLayerLoss,
+    compute_multiloss,
+    gaussian_nll,
+    variance_penalty,
+    cosine_loss,
+)
 from fmri2img.training.phase4_losses import BranchWeightedMultiLayerLoss
 from fmri2img.data.streaming_dataset import StreamingMultiLayerDataset
 from fmri2img.models.train_utils import (
@@ -168,6 +185,12 @@ class LazyMultiLayerDataset(torch.utils.data.Dataset):
             data_4d = self.beta_cache[beta_path]
         
         # Extract volume
+        if beta_index < 0 or beta_index >= data_4d.shape[-1]:
+            raise IndexError(
+                f"beta_index {beta_index} out of bounds for {beta_path} (n_vols={data_4d.shape[-1]}); "
+                "check index construction."
+            )
+
         vol = data_4d[..., beta_index]
         
         # Preprocess
@@ -193,6 +216,82 @@ class LazyMultiLayerDataset(torch.utils.data.Dataset):
         return X, Y_dict
 
 
+class LazyDataset(torch.utils.data.Dataset):
+    """
+    Streaming single-layer dataset that loads one beta volume on demand.
+    Avoids materializing full X matrices in RAM.
+    """
+
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        nifti_loader,
+        preprocessor,
+        clip_cache: CLIPCache,
+        cache_size: int = 5,
+        allow_skips: bool = False,
+    ):
+        self.df = df.reset_index(drop=True)
+        self.nifti_loader = nifti_loader
+        self.preprocessor = preprocessor
+        self.clip_cache = clip_cache.load()
+        self.allow_skips = allow_skips
+
+        # Validate CLIP coverage
+        available_ids = set(self.clip_cache.list_cached_ids())
+        missing = [nid for nid in self.df["nsdId"].unique() if nid not in available_ids]
+        if missing and not self.allow_skips:
+            raise ValueError(f"Missing CLIP embeddings for {len(missing)} nsdIds (e.g., {missing[:5]})")
+        if missing and self.allow_skips:
+            self.df = self.df[self.df["nsdId"].isin(available_ids)].reset_index(drop=True)
+            logger.warning(f"Filtered {len(missing)} nsdIds without CLIP embeddings; remaining {len(self.df)} samples")
+
+        from collections import OrderedDict
+        self.beta_cache = OrderedDict()
+        self.cache_size = cache_size
+
+    def __len__(self):
+        return len(self.df)
+
+    def _get_beta_file(self, beta_path: str) -> np.ndarray:
+        if beta_path not in self.beta_cache:
+            img = self.nifti_loader.load(beta_path)
+            data_4d = img.get_fdata().astype(np.float32)
+            self.beta_cache[beta_path] = data_4d
+            if len(self.beta_cache) > self.cache_size:
+                self.beta_cache.popitem(last=False)
+        else:
+            self.beta_cache.move_to_end(beta_path)
+            data_4d = self.beta_cache[beta_path]
+        return data_4d
+
+    def __getitem__(self, idx):
+        row = self.df.iloc[idx]
+        beta_path = row["beta_path"]
+        beta_index = int(row["beta_index"])
+        nsd_id = int(row["nsdId"])
+
+        data_4d = self._get_beta_file(beta_path)
+        if beta_index < 0 or beta_index >= data_4d.shape[-1]:
+            raise IndexError(f"beta_index {beta_index} out of bounds for {beta_path} (n_vols={data_4d.shape[-1]})")
+
+        vol = data_4d[..., beta_index]
+        if self.preprocessor and getattr(self.preprocessor, "is_fitted_", False):
+            vol_z = self.preprocessor.transform_T0(vol)
+            features = self.preprocessor.transform(vol_z).astype(np.float32)
+        else:
+            features = vol.astype(np.float32).flatten()
+
+        clip_dict = self.clip_cache.get([nsd_id])
+        if nsd_id not in clip_dict:
+            raise ValueError(f"CLIP embedding missing for nsdId={nsd_id}")
+        clip_emb = clip_dict[nsd_id]
+
+        X = torch.from_numpy(features).float()
+        Y = torch.from_numpy(clip_emb).float()
+        return X, Y
+
+
 def train_epoch(
     model: TwoStageEncoder,
     loader: DataLoader,
@@ -211,7 +310,7 @@ def train_epoch(
     use_brain_loss = criterion.brain_consistency_weight > 0
     
     pbar = tqdm(loader, desc=f"Epoch {epoch}", leave=False)
-    for X_batch, Y_batch in pbar:
+    for step, (X_batch, Y_batch) in enumerate(pbar):
         X_batch = X_batch.to(device)
         Y_batch = Y_batch.to(device)
         
@@ -253,6 +352,10 @@ def train_epoch(
         if use_brain_loss:
             pbar_dict["brain"] = f"{components['brain']:.4f}"
         pbar.set_postfix(pbar_dict)
+
+        if psutil is not None and step % MEM_LOG_INTERVAL == 0:
+            rss_gb = psutil.Process().memory_info().rss / (1024 ** 3)
+            logger.info(f"[mem] epoch {epoch} step {step}: RSS={rss_gb:.2f} GB")
     
     # Average over all samples
     n_samples = len(loader.dataset)
@@ -297,34 +400,93 @@ def train_epoch_multilayer(
     criterion: MultiLayerLoss,
     device: str,
     epoch: int,
-    probabilistic: bool = False
+    probabilistic: bool = False,
+    prob_cfg: Optional[Dict[str, Any]] = None,
 ) -> Tuple[float, Dict[str, float]]:
-    """Train for one epoch with multi-layer supervision."""
     model.train()
     total_loss = 0.0
-    loss_components_sum = {"layer_4": 0.0, "layer_8": 0.0, "layer_12": 0.0, "final": 0.0}
+    loss_components_sum = {
+        "layer_4": 0.0,
+        "layer_8": 0.0,
+        "layer_12": 0.0,
+        "final": 0.0,
+        "nll": 0.0,
+        "cosine_aux": 0.0,
+        "variance_penalty": 0.0,
+        "prob_total": 0.0,
+        "logvar_clamp_frac": 0.0,
+        "uncertainty_mean": 0.0,
+        "uncertainty_std": 0.0,
+    }
     n_batches = 0
     
     pbar = tqdm(loader, desc=f"Epoch {epoch}", leave=False)
-    for X_batch, Y_batch_dict in pbar:
+    for step, (X_batch, Y_batch_dict) in enumerate(pbar):
         X_batch = X_batch.to(device)
         # Move all target layers to device
         Y_batch_dict = {k: v.to(device) for k, v in Y_batch_dict.items()}
         
         optimizer.zero_grad()
         
-        # Phase 3: Probabilistic model returns (outputs, kl_loss)
+        # Phase 3: Probabilistic model returns structured outputs
         if probabilistic:
-            Y_pred_dict, kl_loss = model(X_batch, sample=True, return_kl=True)
-            # Pass kl_loss to criterion (not model)
-            loss, components = criterion(Y_pred_dict, Y_batch_dict, kl_loss, 
-                                         current_epoch=epoch, return_components=True)
+            outputs, kl_loss = model(X_batch, sample=True, return_kl=True)
+            Y_pred_dict = {k: v.z for k, v in outputs.items()}
+            loss, components = criterion(
+                Y_pred_dict, Y_batch_dict, kl_loss,
+                current_epoch=epoch, return_components=True,
+            )
+
+            # Optional Gaussian NLL + regularizers on final layer
+            if prob_cfg is not None and 'final' in outputs:
+                final_out = outputs['final']
+                target_final = Y_batch_dict['final']
+                nll_w = prob_cfg.get('nll_weight', 0.0)
+                cos_aux_w = prob_cfg.get('cosine_aux_weight', 0.0)
+                var_pen_w = prob_cfg.get('variance_penalty_weight', 0.0)
+                reduction = prob_cfg.get('nll_reduction', 'mean')
+                space = prob_cfg.get('clip_space', 'normalized')
+                prob_total = 0.0
+                if nll_w > 0:
+                    nll_val = gaussian_nll(
+                        final_out.mu,
+                        final_out.logvar,
+                        target_final,
+                        clamp_min=prob_cfg.get('logvar_min', -8.0),
+                        clamp_max=prob_cfg.get('logvar_max', 2.0),
+                        variance_floor=prob_cfg.get('variance_floor', 1e-6),
+                        reduction=reduction,
+                        space=space,
+                    )
+                    loss = loss + nll_w * nll_val
+                    prob_total += nll_w * nll_val
+                    components['nll'] = nll_val.item()
+                if cos_aux_w > 0:
+                    cos_aux = cosine_loss(final_out.mu, target_final)
+                    loss = loss + cos_aux_w * cos_aux
+                    prob_total += cos_aux_w * cos_aux
+                    components['cosine_aux'] = cos_aux.item()
+                if var_pen_w > 0:
+                    var_pen = variance_penalty(
+                        final_out.logvar,
+                        clamp_min=prob_cfg.get('logvar_min', -8.0),
+                        clamp_max=prob_cfg.get('logvar_max', 2.0),
+                    )
+                    loss = loss + var_pen_w * var_pen
+                    prob_total += var_pen_w * var_pen
+                    components['variance_penalty'] = var_pen.item()
+                if prob_total != 0:
+                    components['prob_total'] = prob_total.item()
+                components['logvar_clamp_frac'] = final_out.logvar_clamp_fraction
+                components['uncertainty_mean'] = final_out.uncertainty.mean().item()
+                components['uncertainty_std'] = final_out.uncertainty.std().item()
         else:
             # Phase 2: Deterministic model returns outputs only
             Y_pred_dict = model(X_batch)
-            # Pass model for Phase 2 multi-layer InfoNCE
-            loss, components = criterion(Y_pred_dict, Y_batch_dict, model=model, 
-                                         current_epoch=epoch, return_components=True)
+            loss, components = criterion(
+                Y_pred_dict, Y_batch_dict, model=model,
+                current_epoch=epoch, return_components=True,
+            )
         
         loss.backward()
         
@@ -353,6 +515,10 @@ def train_epoch_multilayer(
             postfix_dict["kl"] = f"{components['kl']:.4f}"
             postfix_dict["β"] = f"{components.get('kl_weight', 0):.4f}"
         pbar.set_postfix(postfix_dict)
+
+        if psutil is not None and step % MEM_LOG_INTERVAL == 0:
+            rss_gb = psutil.Process().memory_info().rss / (1024 ** 3)
+            logger.info(f"[mem] epoch {epoch} step {step}: RSS={rss_gb:.2f} GB")
     
     # Average over all samples
     n_samples = len(loader.dataset)
@@ -367,34 +533,125 @@ def evaluate_epoch_multilayer(
     model: MultiLayerTwoStageEncoder,
     loader: DataLoader,
     device: str,
-    probabilistic: bool = False
+    probabilistic: bool = False,
+    prob_cfg: Optional[Dict[str, Any]] = None,
 ) -> Dict:
     """Evaluate multi-layer model on validation/test set (using final layer only)."""
     model.eval()
     
     all_preds = []
     all_targets = []
+    all_mu = []
+    all_uncertainty = []
+    all_logvar = []
+    all_clamp_frac = []
+    all_errors = []
+    all_nll = []
+    all_cosine = []
+    all_mse = []
     
     with torch.no_grad():
         for X_batch, Y_batch_dict in loader:
             X_batch = X_batch.to(device)
+            Y_batch_dict = {k: v.to(device) for k, v in Y_batch_dict.items()}
+            target_final = Y_batch_dict['final']
             
-            # Phase 3: Probabilistic model returns (outputs, kl_loss)
             if probabilistic:
-                Y_pred_dict, _ = model(X_batch, sample=False, return_kl=False)  # Use mean for eval
+                outputs, _ = model(X_batch, sample=False, return_kl=False)
+                final_out = outputs['final']
+                z_eval = final_out.z
+                mu = final_out.mu
+                logvar = final_out.logvar
+                uncertainty = final_out.uncertainty
+
+                # Metrics on mu vs ground truth
+                cosine_mu = torch.nn.functional.cosine_similarity(mu, target_final, dim=-1)
+                mse_mu = torch.mean((mu - target_final) ** 2, dim=-1)
+                all_cosine.append(cosine_mu.cpu())
+                all_mse.append(mse_mu.cpu())
+                all_errors.append((1.0 - cosine_mu).cpu())
+                all_uncertainty.append(uncertainty.cpu())
+                all_logvar.append(logvar.cpu())
+                all_clamp_frac.append(torch.tensor(final_out.logvar_clamp_fraction))
+
+                if prob_cfg is not None:
+                    nll_val = gaussian_nll(
+                        mu,
+                        logvar,
+                        target_final,
+                        clamp_min=prob_cfg.get('logvar_min', -8.0) if prob_cfg else -8.0,
+                        clamp_max=prob_cfg.get('logvar_max', 2.0) if prob_cfg else 2.0,
+                        variance_floor=prob_cfg.get('variance_floor', 1e-6) if prob_cfg else 1e-6,
+                        reduction=prob_cfg.get('nll_reduction', 'mean') if prob_cfg else 'mean',
+                        space=prob_cfg.get('clip_space', 'normalized') if prob_cfg else 'normalized',
+                    )
+                    all_nll.append(nll_val.detach().cpu())
+
             else:
-                # Phase 2: Deterministic model
                 Y_pred_dict = model(X_batch)
-            
-            # Use final layer for evaluation
-            all_preds.append(Y_pred_dict['final'].cpu().numpy())
-            all_targets.append(Y_batch_dict['final'].numpy())
+                z_eval = Y_pred_dict['final']
+                # still compute cosine/mse for consistency
+                cosine_mu = torch.nn.functional.cosine_similarity(z_eval, target_final, dim=-1)
+                mse_mu = torch.mean((z_eval - target_final) ** 2, dim=-1)
+                all_cosine.append(cosine_mu.cpu())
+                all_mse.append(mse_mu.cpu())
+                all_errors.append((1.0 - cosine_mu).cpu())
+                all_uncertainty.append(torch.zeros_like(cosine_mu))
+                all_logvar.append(torch.zeros_like(z_eval))
+                all_clamp_frac.append(torch.tensor(0.0))
+                all_nll.append(torch.tensor(0.0))
+
+            all_preds.append(z_eval.cpu().numpy())
+            all_targets.append(target_final.cpu().numpy())
     
     Y_pred = np.vstack(all_preds)
     Y_true = np.vstack(all_targets)
-    
-    # Compute metrics
+
     metrics = evaluate_predictions(Y_true, Y_pred, normalize=True)
+
+    # Additional probabilistic summaries
+    if probabilistic:
+        cosine_all = torch.cat(all_cosine) if all_cosine else torch.tensor([])
+        mse_all = torch.cat(all_mse) if all_mse else torch.tensor([])
+        error_all = torch.cat(all_errors) if all_errors else torch.tensor([])
+        unc_all = torch.cat(all_uncertainty) if all_uncertainty else torch.tensor([])
+        logvar_all = torch.cat(all_logvar) if all_logvar else torch.tensor([])
+        clamp_frac = torch.stack(all_clamp_frac).mean().item() if all_clamp_frac else 0.0
+        nll_val = torch.stack(all_nll).mean().item() if all_nll else 0.0
+
+        def _safe_mean(t: torch.Tensor) -> float:
+            return t.mean().item() if t.numel() > 0 else 0.0
+
+        def _safe_std(t: torch.Tensor) -> float:
+            if t.numel() <= 1:
+                return 0.0
+            return t.std(unbiased=False).item()
+
+        metrics.update({
+            "cosine": _safe_mean(cosine_all),
+            "mse": _safe_mean(mse_all),
+            "nll": nll_val,
+            "uncertainty_mean": _safe_mean(unc_all),
+            "uncertainty_std": _safe_std(unc_all),
+            "logvar_mean": _safe_mean(logvar_all),
+            "logvar_std": _safe_std(logvar_all),
+            "logvar_clamp_fraction": clamp_frac,
+            "embedding_error_mean": _safe_mean(error_all),
+        })
+
+        # Spearman is undefined for tiny splits; guard accordingly
+        try:
+            from scipy.stats import spearmanr
+            if unc_all.numel() >= 3 and error_all.numel() >= 3:
+                rho, _ = spearmanr(unc_all.numpy(), error_all.numpy())
+                metrics["spearman_u_e"] = float(rho) if rho == rho else 0.0
+            else:
+                metrics["spearman_u_e"] = 0.0
+                logger.debug("Spearman skipped: insufficient samples (<3)")
+        except Exception:
+            metrics["spearman_u_e"] = 0.0
+    else:
+        metrics["embedding_error_mean"] = float(torch.cat(all_errors).mean().item())
     
     return metrics
 
@@ -430,8 +687,10 @@ def extract_features_and_multilayer_targets(
     preprocessor: NSDPreprocessor,
     multilayer_cache: Dict[int, Dict[str, np.ndarray]],
     desc: str = "data",
-    text_clip_cache: Optional[Dict[int, np.ndarray]] = None
-) -> Tuple[np.ndarray, Dict[str, np.ndarray], np.ndarray]:
+    text_clip_cache: Optional[Dict[int, np.ndarray]] = None,
+    return_stats: bool = False,
+    allow_skips: bool = False
+) -> Tuple[np.ndarray, Dict[str, np.ndarray], np.ndarray] | Tuple[np.ndarray, Dict[str, np.ndarray], np.ndarray, Dict[str, int]]:
     """
     Extract fMRI features and multi-layer CLIP targets.
     Uses same optimization as extract_features_and_targets: group by file to load each once.
@@ -459,6 +718,17 @@ def extract_features_and_multilayer_targets(
         Y_dict_lists['text'] = []
     
     nsd_ids_list = []
+
+    stats = {
+        "total_rows": len(df),
+        "total_files": 0,
+        "used": 0,
+        "skipped_invalid_beta": 0,
+        "skipped_missing_multilayer": 0,
+        "skipped_missing_text": 0,
+        "skipped_sample_error": 0,
+        "skipped_file_error": 0,
+    }
     
     # Group samples by beta_path to load each file only once (OPTIMIZATION)
     samples_by_file = defaultdict(list)
@@ -467,10 +737,12 @@ def extract_features_and_multilayer_targets(
         
         # Skip if no multi-layer embedding
         if nsd_id not in multilayer_cache:
+            stats["skipped_missing_multilayer"] += 1
             continue
         
         # Phase 2: Skip if text-CLIP is required but not available
         if text_clip_cache is not None and nsd_id not in text_clip_cache:
+            stats["skipped_missing_text"] += 1
             continue
         
         beta_path = row["beta_path"]
@@ -480,7 +752,8 @@ def extract_features_and_multilayer_targets(
             'row_idx': idx
         })
     
-    logger.info(f"Extracting {desc}: {len(df)} samples from {len(samples_by_file)} unique files")
+    stats["total_files"] = len(samples_by_file)
+    logger.info(f"Extracting {desc}: {len(df)} samples from {stats['total_files']} unique files")
     
     # Process each beta file once
     pbar = tqdm(samples_by_file.items(), desc=f"Loading {desc}")
@@ -489,9 +762,26 @@ def extract_features_and_multilayer_targets(
             # Load the 4D beta file ONCE
             img = nifti_loader.load(beta_path)
             data_4d = img.get_fdata()
+
+            n_vols = data_4d.shape[-1]
+            valid_samples = []
+            for sample in samples:
+                beta_index = sample['beta_index']
+                if beta_index < 0 or beta_index >= n_vols:
+                    stats["skipped_invalid_beta"] += 1
+                    if stats["skipped_invalid_beta"] <= 3:
+                        logger.warning(
+                            f"Skipping sample nsdId={sample['nsdId']} from {beta_path}: "
+                            f"beta_index={beta_index} out of bounds for volume count={n_vols}"
+                        )
+                    continue
+                valid_samples.append(sample)
+
+            if not valid_samples:
+                continue
             
             # Extract all volumes needed from this file
-            for sample in samples:
+            for sample in valid_samples:
                 try:
                     beta_index = sample['beta_index']
                     nsd_id = sample['nsdId']
@@ -520,12 +810,16 @@ def extract_features_and_multilayer_targets(
                     for layer_name in Y_dict_lists:
                         Y_dict_lists[layer_name].append(y_dict[layer_name])
                     nsd_ids_list.append(nsd_id)
+                    stats["used"] += 1
                     
                 except Exception as e:
-                    logger.warning(f"Failed to extract sample {nsd_id} from {beta_path}[{beta_index}]: {e}")
+                    stats["skipped_sample_error"] += 1
+                    if stats["skipped_sample_error"] <= 3:
+                        logger.warning(f"Failed to extract sample {nsd_id} from {beta_path}[{beta_index}]: {e}")
                     continue
                     
         except Exception as e:
+            stats["skipped_file_error"] += len(samples)
             logger.warning(f"Failed to load {beta_path}: {e}")
             continue
     
@@ -533,12 +827,33 @@ def extract_features_and_multilayer_targets(
     Y_dict = {k: np.array(v, dtype=np.float32) for k, v in Y_dict_lists.items()}
     nsd_ids = np.array(nsd_ids_list, dtype=np.int64)
     
-    logger.info(f"  {desc}: {len(X)} samples successfully extracted")
+    logger.info(
+        f"  {desc}: {len(X)} samples successfully extracted; used={stats['used']} / total={stats['total_rows']} "
+        f"(invalid_beta={stats['skipped_invalid_beta']}, missing_multilayer={stats['skipped_missing_multilayer']}, "
+        f"missing_text={stats['skipped_missing_text']}, sample_error={stats['skipped_sample_error']}, "
+        f"file_error_rows={stats['skipped_file_error']})"
+    )
     if len(X) > 0:
         logger.info(f"    fMRI shape: {X.shape}")
         for layer_name, layer_data in Y_dict.items():
             logger.info(f"    {layer_name} shape: {layer_data.shape}")
     
+    if (not allow_skips) and (
+        stats["skipped_invalid_beta"]
+        or stats["skipped_missing_multilayer"]
+        or stats["skipped_missing_text"]
+        or stats["skipped_sample_error"]
+        or stats["skipped_file_error"]
+    ):
+        raise ValueError(
+            f"Extraction for {desc} skipped samples (invalid_beta={stats['skipped_invalid_beta']}, "
+            f"missing_multilayer={stats['skipped_missing_multilayer']}, missing_text={stats['skipped_missing_text']}, "
+            f"sample_error={stats['skipped_sample_error']}, file_error_rows={stats['skipped_file_error']}). "
+            f"Set allow_skips=True to proceed."
+        )
+
+    if return_stats:
+        return X, Y_dict, nsd_ids, stats
     return X, Y_dict, nsd_ids
 
 
@@ -584,11 +899,55 @@ def pretrain_ssl(
     logger.info("Self-supervised pretraining completed!")
 
 
+def _deep_update(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursively update nested dictionaries without mutating inputs."""
+    result = dict(base)
+    for k, v in override.items():
+        if isinstance(v, dict) and isinstance(result.get(k), dict):
+            result[k] = _deep_update(result[k], v)
+        else:
+            result[k] = v
+    return result
+
+
 def load_config_from_yaml(config_path: str) -> Dict:
-    """Load configuration from YAML file."""
+    """
+    Load configuration from YAML file with optional `_base_` inheritance.
+    Mirrors Hydra-style base composition for minimal reproducibility.
+    """
     with open(config_path, "r") as f:
-        config = yaml.safe_load(f)
+        config = yaml.safe_load(f) or {}
+
+    if "_base_" in config and config["_base_"]:
+        base_path = Path(config_path).parent / config["_base_"]
+        with open(base_path, "r") as bf:
+            base_cfg = yaml.safe_load(bf) or {}
+        # Remove directive and deep-merge
+        config = {k: v for k, v in config.items() if k != "_base_"}
+        config = _deep_update(base_cfg, config)
+
     return config
+
+
+def resolve_prob_config(config: Dict[str, Any], args: argparse.Namespace) -> Dict[str, Any]:
+    """Collect probabilistic-related settings from config+CLI into one dict."""
+    decoder_cfg = config.get("decoder", {})
+    loss_cfg = config.get("loss", {})
+    clip_cfg = config.get("clip_embedding", {})
+
+    return {
+        "decoder_type": decoder_cfg.get("type", "deterministic"),
+        "uncertainty": decoder_cfg.get("uncertainty", "diag"),
+        "predict_logvar": decoder_cfg.get("predict_logvar", True),
+        "logvar_min": decoder_cfg.get("logvar_min", -8.0),
+        "logvar_max": decoder_cfg.get("logvar_max", 2.0),
+        "variance_floor": decoder_cfg.get("variance_floor", 1e-6),
+        "clip_space": clip_cfg.get("space", "normalized"),
+        "nll_weight": loss_cfg.get("nll_weight", 0.0),
+        "cosine_aux_weight": loss_cfg.get("cosine_aux_weight", 0.0),
+        "variance_penalty_weight": loss_cfg.get("variance_penalty_weight", 0.0),
+        "nll_reduction": loss_cfg.get("nll_reduction", "mean"),
+    }
 
 
 def merge_config_and_args(config: Dict, args: argparse.Namespace) -> argparse.Namespace:
@@ -647,8 +1006,60 @@ def merge_config_and_args(config: Dict, args: argparse.Namespace) -> argparse.Na
     # Set use_preproc if pca_k is specified
     if hasattr(args, "pca_k") and args.pca_k is not None:
         args.use_preproc = True
+
+    # Probabilistic routing (decoder + loss)
+    prob_cfg = resolve_prob_config(config, args)
+
+    # Attach weights for downstream guards/metrics
+    for weight_key in ["nll_weight", "cosine_aux_weight", "variance_penalty_weight"]:
+        if not hasattr(args, weight_key):
+            setattr(args, weight_key, prob_cfg[weight_key])
+
+    # Enable probabilistic mode when config demands it
+    if prob_cfg["decoder_type"] == "probabilistic" or prob_cfg["nll_weight"] > 0:
+        args.probabilistic = True
+        args.multi_layer = True  # probabilistic pipeline requires multi-layer machinery for μ/logvar
+
+    # Expose decoder/logvar settings
+    for k in ["uncertainty", "logvar_min", "logvar_max", "variance_floor", "predict_logvar"]:
+        if not hasattr(args, k):
+            setattr(args, k, prob_cfg[k])
+
+    # Clip embedding space for probabilistic normalization
+    if not hasattr(args, "clip_space"):
+        setattr(args, "clip_space", prob_cfg["clip_space"])
+
+    # Paper mode from config
+    if config.get("paper_mode", False):
+        args.paper_mode = True
     
     return args
+
+
+def validate_probabilistic_setup(
+    model: nn.Module,
+    prob_cfg: Dict[str, Any],
+    probabilistic_enabled: bool
+):
+    """Fail fast if probabilistic was requested but model lacks μ/logvar outputs."""
+    if not probabilistic_enabled:
+        return
+
+    requires_nll = prob_cfg.get("nll_weight", 0.0) > 0
+
+    if not hasattr(model, "logvar_heads"):
+        raise ValueError(
+            "Probabilistic training requested but model is deterministic (no logvar heads). "
+            "Set decoder.type=probabilistic and instantiate the probabilistic encoder."
+        )
+
+    if requires_nll and not prob_cfg.get("predict_logvar", True):
+        raise ValueError(
+            "nll_weight > 0 requires predict_logvar=True. Set decoder.predict_logvar accordingly."
+        )
+
+    if prob_cfg.get("nll_weight", 0.0) == 0:
+        logger.warning("Probabilistic decoder enabled but nll_weight=0; uncertainty will not be trained.")
 
 
 def main():
@@ -657,11 +1068,17 @@ def main():
     # Config file support
     parser.add_argument("--config", type=str, default=None,
                        help="Path to YAML config file (overrides defaults, CLI args override config)")
+    parser.add_argument("--paper-mode", action="store_true",
+                        help="Enable paper-mode strictness (no fallbacks/skips, validated index, unique outputs)")
     
     # Data paths
     parser.add_argument("--index-root", default="data/indices/nsd_index")
     parser.add_argument("--subject", default="subj01")
     parser.add_argument("--clip-cache", default="outputs/clip_cache/clip.parquet")
+    parser.add_argument("--allow-fallback-index", action="store_true", help="Permit collapsed/synthetic indices (not for paper runs)")
+    parser.add_argument("--skip-index-validation", action="store_true", help="Skip index header/contiguity validation (not recommended)")
+    parser.add_argument("--allow-skips", action="store_true", help="Allow skipping samples during extraction instead of failing")
+    parser.add_argument("--num-workers", type=int, default=0, help="DataLoader workers (default 0 for streaming safety)")
     
     # Preprocessing
     parser.add_argument("--use-preproc", action="store_true")
@@ -755,7 +1172,7 @@ def main():
     args = parser.parse_args()
     
     # Initialize config as empty dict
-    config = {}
+    config: Dict[str, Any] = {}
     
     # Load config from YAML if provided
     if args.config:
@@ -763,6 +1180,9 @@ def main():
         config = load_config_from_yaml(args.config)
         args = merge_config_and_args(config, args)
         logger.info("Configuration loaded and merged with CLI arguments")
+
+    # Resolve probabilistic config (works even if config is empty)
+    prob_cfg = resolve_prob_config(config, args)
     
     # Use output-dir if provided (for compatibility with config files)
     if args.output_dir:
@@ -778,16 +1198,44 @@ def main():
     # Seed for reproducibility
     torch_seed_all(args.seed)
     
+    # Paper-mode gating
+    if getattr(args, "paper_mode", False):
+        if args.allow_fallback_index or args.allow_skips or args.skip_index_validation:
+            raise ValueError(
+                "Paper mode requires strict dataset usage: allow_fallback_index=False, allow_skips=False, "
+                "skip_index_validation=False. Adjust flags or disable paper-mode."
+            )
+        logger.info("Paper mode enabled: strict index validation, no fallbacks/skips.")
+
     # Load data
     logger.info(f"Loading index for {args.subject}...")
-    df = read_subject_index(args.index_root, args.subject)
+    df = read_subject_index(args.index_root, args.subject, allow_fallback_index=args.allow_fallback_index)
+
+    if not args.skip_index_validation:
+        logger.info("Validating index (header + contiguity)...")
+        NSDIndexBuilder().validate_index(df)
     
+    # Honor config max_trials when limit not provided
+    dataset_cfg = config.get("dataset", {})
+    if not args.limit and dataset_cfg.get("max_trials"):
+        df = df.head(dataset_cfg["max_trials"])
+        logger.info(f"Limited to {len(df)} samples (config max_trials)")
+
     if args.limit:
         df = df.head(args.limit)
         logger.info(f"Limited to {len(df)} samples for testing")
     
     # Train/val/test split
-    train_df, val_df, test_df = train_val_test_split(df, random_seed=args.seed)
+    train_ratio = dataset_cfg.get("train_ratio", 0.8)
+    val_ratio = dataset_cfg.get("val_ratio", 0.1)
+    test_ratio = dataset_cfg.get("test_ratio", 0.1)
+    train_df, val_df, test_df = train_val_test_split(
+        df,
+        train_ratio=train_ratio,
+        val_ratio=val_ratio,
+        test_ratio=test_ratio,
+        random_seed=args.seed
+    )
     
     # Load CLIP cache
     logger.info("Loading CLIP cache...")
@@ -817,168 +1265,74 @@ def main():
     # Check if multi-layer mode is enabled
     if args.multi_layer:
         logger.info("=" * 70)
-        logger.info("MULTI-LAYER SUPERVISION MODE ENABLED")
+        logger.info("MULTI-LAYER SUPERVISION MODE ENABLED (STREAMING)")
         logger.info("=" * 70)
-        
-        # Check if streaming mode is enabled
-        if args.streaming:
-            logger.info("=" * 80)
-            logger.info("STREAMING MODE (Memory-Efficient for Full Dataset)")
-            logger.info("=" * 80)
-            logger.info("  Data will be loaded on-demand during training")
-            logger.info("  Memory usage: ~2-4 GB (vs ~15-20 GB eager loading)")
-            logger.info("  Trade-off: Slightly slower per epoch due to disk I/O")
-            logger.info("  Caches NIfTI files (LRU, 5 files max)")
-            
-            # Create streaming datasets
-            train_dataset = StreamingMultiLayerDataset(
-                train_df, nifti_loader, preprocessor,
-                multilayer_cache_path=args.multilayer_cache,
-                text_clip_cache_path=args.text_clip_cache if args.predict_text_clip else None,
-                desc="train"
+
+        if args.probabilistic:
+            logger.info("Probabilistic decoding requested → forcing multi-layer probabilistic path")
+
+        if args.probabilistic and not Path(args.multilayer_cache).exists():
+            raise FileNotFoundError(
+                f"Probabilistic/multi-layer mode requires multi-layer cache at {args.multilayer_cache}"
             )
-            val_dataset = StreamingMultiLayerDataset(
-                val_df, nifti_loader, preprocessor,
-                multilayer_cache_path=args.multilayer_cache,
-                text_clip_cache_path=args.text_clip_cache if args.predict_text_clip else None,
-                desc="val"
-            )
-            test_dataset = StreamingMultiLayerDataset(
-                test_df, nifti_loader, preprocessor,
-                multilayer_cache_path=args.multilayer_cache,
-                text_clip_cache_path=args.text_clip_cache if args.predict_text_clip else None,
-                desc="test"
-            )
-            
-            logger.info(f"  Train: {len(train_dataset)} samples")
-            logger.info(f"  Val: {len(val_dataset)} samples")
-            logger.info(f"  Test: {len(test_dataset)} samples")
-            
-        else:
-            # Original eager loading (fast but memory-intensive)
-            logger.info("=" * 80)
-            logger.info("EAGER LOADING MODE (High Memory)")
-            logger.info("=" * 80)
-            logger.info("  All data will be loaded into RAM upfront")
-            logger.info("  Memory usage: ~15-20 GB for full dataset")
-            logger.info("  For low-memory systems, use --streaming flag")
-            
-            # Load multi-layer CLIP cache
-            multilayer_cache = load_multilayer_clip_cache(args.multilayer_cache)
-            
-            # Phase 2: Load text-CLIP cache if enabled
-            text_clip_cache = None
-            if args.predict_text_clip and args.text_clip_cache:
-                logger.info("=" * 70)
-                logger.info("PHASE 2: TEXT-CLIP MULTI-TASK MODE ENABLED")
-                logger.info("=" * 70)
-                logger.info(f"Loading text-CLIP cache from {args.text_clip_cache}...")
-                
-                text_clip_df = pd.read_parquet(args.text_clip_cache)
-                text_clip_cache = {}
-                
-                # Handle both nsdId and nsd_id column names (backward compatibility)
-                nsd_col = 'nsd_id' if 'nsd_id' in text_clip_df.columns else 'nsdId'
-                
-                for _, row in text_clip_df.iterrows():
-                    nsd_id = int(row[nsd_col])
-                    text_emb = np.array(row['text_clip_embedding'], dtype=np.float32)
-                    text_clip_cache[nsd_id] = text_emb
-                
-                logger.info(f"  Loaded {len(text_clip_cache)} text-CLIP embeddings (dim={text_clip_cache[list(text_clip_cache.keys())[0]].shape[0]})")
-                logger.info(f"  Text-CLIP weight: {args.text_clip_weight}")
-            
-            # Extract features and multi-layer targets (eager loading - faster but uses ~13 GB RAM)
-            logger.info("Extracting training data...")
-            X_train, Y_train_dict, _ = extract_features_and_multilayer_targets(
-                train_df, nifti_loader, preprocessor, multilayer_cache, desc="train", text_clip_cache=text_clip_cache
-            )
-            
-            logger.info("Extracting validation data...")
-            X_val, Y_val_dict, _ = extract_features_and_multilayer_targets(
-                val_df, nifti_loader, preprocessor, multilayer_cache, desc="val", text_clip_cache=text_clip_cache
-            )
-            
-            logger.info("Extracting test data...")
-            X_test, Y_test_dict, nsd_ids_test = extract_features_and_multilayer_targets(
-                test_df, nifti_loader, preprocessor, multilayer_cache, desc="test", text_clip_cache=text_clip_cache
-            )
-            
-            # Create datasets with dict targets
-            class MultiLayerDataset(torch.utils.data.Dataset):
-                def __init__(self, X, Y_dict):
-                    self.X = torch.from_numpy(X).float()
-                    self.Y_dict = {k: torch.from_numpy(v).float() for k, v in Y_dict.items()}
-                
-                def __len__(self):
-                    return len(self.X)
-                
-                def __getitem__(self, idx):
-                    return self.X[idx], {k: v[idx] for k, v in self.Y_dict.items()}
-            
-            train_dataset = MultiLayerDataset(X_train, Y_train_dict)
-            val_dataset = MultiLayerDataset(X_val, Y_val_dict)
-            test_dataset = MultiLayerDataset(X_test, Y_test_dict)
+
+        train_dataset = StreamingMultiLayerDataset(
+            train_df, nifti_loader, preprocessor,
+            multilayer_cache_path=args.multilayer_cache,
+            text_clip_cache_path=args.text_clip_cache if args.predict_text_clip else None,
+            desc="train"
+        )
+        val_dataset = StreamingMultiLayerDataset(
+            val_df, nifti_loader, preprocessor,
+            multilayer_cache_path=args.multilayer_cache,
+            text_clip_cache_path=args.text_clip_cache if args.predict_text_clip else None,
+            desc="val"
+        )
+        test_dataset = StreamingMultiLayerDataset(
+            test_df, nifti_loader, preprocessor,
+            multilayer_cache_path=args.multilayer_cache,
+            text_clip_cache_path=args.text_clip_cache if args.predict_text_clip else None,
+            desc="test"
+        )
+
+        logger.info(f"  Train: {len(train_dataset)} samples")
+        logger.info(f"  Val: {len(val_dataset)} samples")
+        logger.info(f"  Test: {len(test_dataset)} samples")
         
     else:
-        # Standard single-layer mode
-        logger.info("Standard single-layer CLIP supervision")
-        
-        # Load regular CLIP cache
+        # Standard single-layer mode (streaming only)
+        logger.info("Standard single-layer CLIP supervision (STREAMING)")
+
         clip_cache = CLIPCache(args.clip_cache)
-        
-        # Extract features and targets
-        logger.info("Extracting training data...")
-        X_train, Y_train, _ = extract_features_and_targets(
-            train_df, nifti_loader, preprocessor, clip_cache, desc="train"
-        )
-        
-        logger.info("Extracting validation data...")
-        X_val, Y_val, _ = extract_features_and_targets(
-            val_df, nifti_loader, preprocessor, clip_cache, desc="val"
-        )
-        
-        logger.info("Extracting test data...")
-        X_test, Y_test, nsd_ids_test = extract_features_and_targets(
-            test_df, nifti_loader, preprocessor, clip_cache, desc="test"
-        )
-        
-        # Create data loaders
-        train_dataset = TensorDataset(
-            torch.from_numpy(X_train).float(),
-            torch.from_numpy(Y_train).float()
-        )
-        val_dataset = TensorDataset(
-            torch.from_numpy(X_val).float(),
-            torch.from_numpy(Y_val).float()
-        )
-        test_dataset = TensorDataset(
-            torch.from_numpy(X_test).float(),
-            torch.from_numpy(Y_test).float()
-        )
+        train_dataset = LazyDataset(train_df, nifti_loader, preprocessor, clip_cache, allow_skips=args.allow_skips)
+        val_dataset = LazyDataset(val_df, nifti_loader, preprocessor, clip_cache, allow_skips=args.allow_skips)
+        test_dataset = LazyDataset(test_df, nifti_loader, preprocessor, clip_cache, allow_skips=args.allow_skips)
     
     # Create data loaders (single worker for streaming to avoid system overload)
-    num_workers = 0  # Single worker - multi-worker can overload memory on limited systems
+    num_workers = args.num_workers  # Default 0 for streaming safety
     train_loader = DataLoader(
         train_dataset, 
         batch_size=args.batch_size, 
         shuffle=True,
         num_workers=num_workers,
-        pin_memory=True if device == "cuda" else False
+        pin_memory=False,
+        persistent_workers=False
     )
     val_loader = DataLoader(
         val_dataset, 
         batch_size=args.batch_size, 
         shuffle=False,
         num_workers=num_workers,
-        pin_memory=True if device == "cuda" else False
+        pin_memory=False,
+        persistent_workers=False
     )
     test_loader = DataLoader(
         test_dataset, 
         batch_size=args.batch_size, 
         shuffle=False,
         num_workers=num_workers,
-        pin_memory=True if device == "cuda" else False
+        pin_memory=False,
+        persistent_workers=False
     )
     
     # Create model - get input_dim from first sample
@@ -1016,6 +1370,7 @@ def main():
             logger.info(f"Creating ProbabilisticMultiLayerTwoStageEncoder: input_dim={input_dim}, latent_dim={args.latent_dim}, n_blocks={args.n_blocks}")
             logger.info(f"  Shared head backbone: {shared_head_backbone}")
             logger.info(f"  Probabilistic mode: enabled (mu/logvar outputs)")
+            logger.info(f"  Uncertainty: {args.uncertainty}, clip_space={args.clip_space}")
             
             model = ProbabilisticMultiLayerTwoStageEncoder(
                 input_dim=input_dim,
@@ -1024,7 +1379,12 @@ def main():
                 dropout=args.dropout,
                 head_hidden_dim=args.head_hidden,
                 predict_text_clip=args.predict_text_clip,  # Phase 3: Can still include text-CLIP
-                kl_weight=args.kl_weight
+                kl_weight=args.kl_weight,
+                uncertainty=getattr(args, "uncertainty", "diag"),
+                logvar_min=getattr(args, "logvar_min", -8.0),
+                logvar_max=getattr(args, "logvar_max", 2.0),
+                variance_floor=getattr(args, "variance_floor", 1e-6),
+                clip_space=getattr(args, "clip_space", "normalized"),
             ).to(device)
         else:
             logger.info(f"Creating MultiLayerTwoStageEncoder: input_dim={input_dim}, latent_dim={args.latent_dim}, n_blocks={args.n_blocks}")
@@ -1053,6 +1413,9 @@ def main():
         ).to(device)
     
     logger.info(f"Model parameters: {sum(p.numel() for p in model.parameters()):,}")
+
+    # Fail fast if probabilistic requested but deterministic model was built
+    validate_probabilistic_setup(model, prob_cfg, args.probabilistic)
     
     # Self-supervised pretraining
     if args.self_supervised:
@@ -1205,6 +1568,18 @@ def main():
                 text_clip_weight=text_clip_weight  # Phase 2
             )
         
+        # Log probabilistic NLL configs if present (no behavior change yet)
+        if args.probabilistic:
+            logger.info(
+                "Probabilistic loss config: nll_weight=%.3f, cosine_aux_weight=%.3f, variance_penalty_weight=%.3f, reduction=%s"
+                % (
+                    getattr(args, "nll_weight", 0.0),
+                    getattr(args, "cosine_aux_weight", 0.0),
+                    getattr(args, "variance_penalty_weight", 0.0),
+                    getattr(args, "nll_reduction", "mean"),
+                )
+            )
+
         if use_learnable_weights:
             logger.info(f"Using learnable weights (initialized from: {layer_weights})")
         else:
@@ -1212,6 +1587,20 @@ def main():
         
         if use_multilayer_infonce:
             logger.info(f"Phase 3: Multi-layer InfoNCE ENABLED (weight={infonce_weight:.3f}, strategy={infonce_combination})")
+
+        if args.probabilistic:
+            # Enrich prob_cfg with loss-specific settings for Gaussian NLL
+            prob_cfg = {
+                **prob_cfg,
+                "nll_weight": loss_config.get("nll_weight", prob_cfg.get("nll_weight", 0.0)),
+                "cosine_aux_weight": loss_config.get("cosine_aux_weight", prob_cfg.get("cosine_aux_weight", 0.0)),
+                "variance_penalty_weight": loss_config.get("variance_penalty_weight", prob_cfg.get("variance_penalty_weight", 0.0)),
+                "nll_reduction": loss_config.get("nll_reduction", prob_cfg.get("nll_reduction", "mean")),
+                "logvar_min": loss_config.get("logvar_min", prob_cfg.get("logvar_min", -8.0)),
+                "logvar_max": loss_config.get("logvar_max", prob_cfg.get("logvar_max", 2.0)),
+                "variance_floor": loss_config.get("variance_floor", prob_cfg.get("variance_floor", 1e-6)),
+                "clip_space": config.get("clip_embedding", {}).get("space", prob_cfg.get("clip_space", "normalized")),
+            }
     else:
         criterion = MultiLoss(
             mse_weight=args.mse_weight,
@@ -1224,6 +1613,38 @@ def main():
         logger.info(f"Loss weights: MSE={args.mse_weight}, Cosine={args.cosine_weight}, InfoNCE={args.info_nce_weight}")
         if brain_consistency_weight > 0:
             logger.info(f"Brain-consistency weight: {brain_consistency_weight}")
+
+    # Resolve unique run directory (no overwrite)
+    exp_name = config.get("experiment", {}).get("name", "run")
+    if args.output_dir:
+        run_dir = Path(args.output_dir)
+        run_name = run_dir.name
+    else:
+        base_dir = Path(args.checkpoint_dir) / args.subject
+        if args.save_name:
+            run_name = args.save_name
+        else:
+            cfg_blob = json.dumps(config, sort_keys=True) if config else ""
+            cfg_hash = hashlib.sha1(cfg_blob.encode()).hexdigest()[:8] if cfg_blob else "nohash"
+            ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+            run_name = f"{exp_name}-{ts}-{cfg_hash}"
+        run_dir = base_dir / run_name
+    if run_dir.exists():
+        raise ValueError(
+            f"Run directory {run_dir} already exists; choose --save-name/--output-dir to avoid overwrite."
+        )
+    run_dir.mkdir(parents=True, exist_ok=False)
+    logger.info(f"Output directory: {run_dir}")
+
+    manifest = {
+        "args": vars(args),
+        "config": config,
+        "prob_cfg": prob_cfg,
+        "paper_mode": getattr(args, "paper_mode", False),
+        "run_dir": str(run_dir),
+    }
+    with open(run_dir / "manifest.json", "w") as f:
+        json.dump(manifest, f, indent=2)
     
     # Training loop with early stopping
     best_val_cosine = -1.0
@@ -1231,18 +1652,20 @@ def main():
     patience_counter = 0
     
     logger.info("Starting training...")
-    
+    metrics_records = []
+    metrics_path = run_dir / "metrics.csv"
+
     for epoch in range(1, args.epochs + 1):
         # Train
         if args.multi_layer:
             train_loss, train_components = train_epoch_multilayer(
                 model, train_loader, optimizer, criterion, device, epoch,
-                probabilistic=args.probabilistic
+                probabilistic=args.probabilistic, prob_cfg=prob_cfg
             )
             # Validate
             val_metrics = evaluate_epoch_multilayer(
                 model, val_loader, device,
-                probabilistic=args.probabilistic
+                probabilistic=args.probabilistic, prob_cfg=prob_cfg
             )
         else:
             train_loss, train_components = train_epoch(
@@ -1256,15 +1679,25 @@ def main():
         # Log (handle both single-layer and multi-layer modes)
         if args.multi_layer:
             # Multi-layer components: layer_4, layer_8, layer_12, final
-            logger.info(
+            base_log = (
                 f"Epoch {epoch}/{args.epochs}: "
                 f"Train Loss={train_loss:.4f} "
                 f"(L4={train_components.get('layer_4', 0):.3f}, "
                 f"L8={train_components.get('layer_8', 0):.3f}, "
                 f"L12={train_components.get('layer_12', 0):.3f}, "
-                f"Fin={train_components.get('final', 0):.3f}), "
-                f"Val Cosine={val_cosine:.4f}"
+                f"Fin={train_components.get('final', 0):.3f})"
             )
+            if args.probabilistic:
+                base_log += (
+                    f", NLL={train_components.get('nll', 0):.4f}, "
+                    f"CosAux={train_components.get('cosine_aux', 0):.4f}, "
+                    f"VarPen={train_components.get('variance_penalty', 0):.4f}, "
+                    f"Uμ={val_metrics.get('uncertainty_mean', 0):.4f}, "
+                    f"Uσ={val_metrics.get('uncertainty_std', 0):.4f}, "
+                    f"ρ(u,e)={val_metrics.get('spearman_u_e', 0):.3f}"
+                )
+            base_log += f", Val Cosine={val_cosine:.4f}"
+            logger.info(base_log)
             
             # Log effective weights periodically (every 5 epochs) if learnable
             if hasattr(criterion, 'use_learnable_weights') and criterion.use_learnable_weights:
@@ -1291,6 +1724,24 @@ def main():
                 log_msg += f", Brain={train_components.get('brain', 0):.4f}"
             log_msg += f"), Val Cosine={val_cosine:.4f}"
             logger.info(log_msg)
+
+        # Persist per-epoch metrics for reproducibility/paper assets
+        epoch_record = {
+            "epoch": epoch,
+            "train_loss": train_loss,
+            "val_cosine": val_cosine,
+            "val_mse": val_metrics.get("mse"),
+            "val_nll": val_metrics.get("nll"),
+            "val_uncertainty_mean": val_metrics.get("uncertainty_mean"),
+            "val_uncertainty_std": val_metrics.get("uncertainty_std"),
+            "val_logvar_mean": val_metrics.get("logvar_mean"),
+            "val_logvar_std": val_metrics.get("logvar_std"),
+            "val_logvar_clamp_fraction": val_metrics.get("logvar_clamp_fraction"),
+            "val_spearman_u_e": val_metrics.get("spearman_u_e"),
+            "embedding_error_mean": val_metrics.get("embedding_error_mean"),
+        }
+        metrics_records.append(epoch_record)
+        pd.DataFrame(metrics_records).to_csv(metrics_path, index=False)
         
         # Early stopping
         if val_cosine > best_val_cosine:
@@ -1299,11 +1750,7 @@ def main():
             patience_counter = 0
             
             # Save best model
-            checkpoint_dir = Path(args.checkpoint_dir) / args.subject
-            checkpoint_dir.mkdir(parents=True, exist_ok=True)
-            
-            save_name = args.save_name or "two_stage_best.pt"
-            checkpoint_path = checkpoint_dir / save_name
+            checkpoint_path = run_dir / "two_stage_best.pt"
             
             meta = {
                 "input_dim": input_dim,
@@ -1344,7 +1791,8 @@ def main():
         model = model.to(device)
         test_metrics = evaluate_epoch_multilayer(
             model, test_loader, device,
-            probabilistic=args.probabilistic
+            probabilistic=args.probabilistic,
+            prob_cfg=prob_cfg if args.multi_layer and args.probabilistic else None
         )
         
         logger.info("=" * 80)
@@ -1416,7 +1864,7 @@ def main():
         }
 
     
-    report_path = checkpoint_dir / "evaluation_report.json"
+    report_path = run_dir / "evaluation_report.json"
     with open(report_path, "w") as f:
         json.dump(report, f, indent=2)
     

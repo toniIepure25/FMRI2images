@@ -23,6 +23,7 @@ import torch
 import torch.nn as nn
 from typing import Optional, Literal, Dict, Any, Tuple
 from pathlib import Path
+from dataclasses import dataclass
 import logging
 
 logger = logging.getLogger(__name__)
@@ -928,7 +929,12 @@ class ProbabilisticMultiLayerTwoStageEncoder(nn.Module):
         head_hidden_dim: int = 512,
         enabled_layers: Optional[list] = None,
         predict_text_clip: bool = False,
-        kl_weight: float = 0.01
+        kl_weight: float = 0.01,
+        uncertainty: Literal["diag", "scalar"] = "diag",
+        logvar_min: float = -8.0,
+        logvar_max: float = 2.0,
+        variance_floor: float = 1.0e-6,
+        clip_space: Literal["normalized", "raw"] = "normalized",
     ):
         super().__init__()
         self.input_dim = input_dim
@@ -936,6 +942,11 @@ class ProbabilisticMultiLayerTwoStageEncoder(nn.Module):
         self.enabled_layers = enabled_layers or ['layer_4', 'layer_8', 'layer_12', 'final']
         self.predict_text_clip = predict_text_clip
         self.kl_weight = kl_weight
+        self.uncertainty = uncertainty
+        self.logvar_min = logvar_min
+        self.logvar_max = logvar_max
+        self.variance_floor = variance_floor
+        self.clip_space = clip_space
         
         # Stage 1: Shared fMRI encoder (deterministic)
         self.stage1 = ResidualMLPEncoder(
@@ -963,104 +974,109 @@ class ProbabilisticMultiLayerTwoStageEncoder(nn.Module):
         for layer_name in ['layer_4', 'layer_8', 'layer_12']:
             if layer_name in self.enabled_layers:
                 self.mu_heads[layer_name] = nn.Linear(head_hidden_dim, 768)
-                self.logvar_heads[layer_name] = nn.Linear(head_hidden_dim, 768)
+                logvar_dim = 1 if self.uncertainty == "scalar" else 768
+                self.logvar_heads[layer_name] = nn.Linear(head_hidden_dim, logvar_dim)
         
         # Final CLIP embedding (512-D)
         if 'final' in self.enabled_layers:
             self.mu_heads['final'] = nn.Linear(head_hidden_dim, 512)
-            self.logvar_heads['final'] = nn.Linear(head_hidden_dim, 512)
+            logvar_dim = 1 if self.uncertainty == "scalar" else 512
+            self.logvar_heads['final'] = nn.Linear(head_hidden_dim, logvar_dim)
         
         # Text-CLIP head (512-D)
         if predict_text_clip:
             self.mu_heads['text'] = nn.Linear(head_hidden_dim, 512)
-            self.logvar_heads['text'] = nn.Linear(head_hidden_dim, 512)
+            logvar_dim = 1 if self.uncertainty == "scalar" else 512
+            self.logvar_heads['text'] = nn.Linear(head_hidden_dim, logvar_dim)
             logger.info("Phase 3: Probabilistic text-CLIP head enabled")
-    
+
+    @staticmethod
+    def _normalize_if_needed(x: torch.Tensor, space: Literal["normalized", "raw"]) -> torch.Tensor:
+        return torch.nn.functional.normalize(x, dim=-1) if space == "normalized" else x
+
+    def _expand_logvar(self, logvar: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        """Broadcast scalar logvar to match target dimensionality when needed."""
+        if logvar.shape[-1] == 1 and target.shape[-1] != 1:
+            return logvar.expand_as(target)
+        return logvar
+
     def reparameterize(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
-        """
-        Reparameterization trick: z = μ + ε·σ where ε ~ N(0,1)
-        
-        Args:
-            mu: Mean (B, D)
-            logvar: Log variance (B, D)
-        
-        Returns:
-            z: Sampled embedding (B, D)
-        """
-        std = torch.exp(0.5 * logvar)  # σ = exp(0.5 * logσ²)
-        eps = torch.randn_like(std)  # ε ~ N(0,1)
+        logvar_clamped = logvar.clamp(self.logvar_min, self.logvar_max)
+        var = torch.exp(logvar_clamped).clamp_min(self.variance_floor)
+        std = torch.sqrt(var)
+        eps = torch.randn_like(std)
         return mu + eps * std
-    
+
     def compute_kl_loss(self, mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
-        """
-        Compute KL divergence: KL(q(z|x) || N(0,I))
-        
-        Closed-form solution for Gaussian distributions:
-        KL = -0.5 * Σ(1 + logσ² - μ² - σ²)
-        
-        Args:
-            mu: Mean (B, D)
-            logvar: Log variance (B, D)
-        
-        Returns:
-            kl_loss: Scalar KL divergence (averaged over batch and dimensions)
-        """
-        # KL divergence per dimension: -0.5 * (1 + logvar - mu^2 - exp(logvar))
-        kl_div = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=-1)
-        # Average over batch
+        logvar_clamped = logvar.clamp(self.logvar_min, self.logvar_max)
+        var = torch.exp(logvar_clamped).clamp_min(self.variance_floor)
+        kl_div = -0.5 * torch.sum(1 + logvar_clamped - mu.pow(2) - var, dim=-1)
         return kl_div.mean()
-    
+
     def forward(
         self,
         x: torch.Tensor,
         sample: bool = True,
         return_kl: bool = True
-    ) -> Tuple[Dict[str, torch.Tensor], Optional[torch.Tensor]]:
+    ) -> Tuple[Dict[str, "ProbabilisticLayerOutput"], Optional[torch.Tensor]]:
         """
-        Forward pass with probabilistic outputs.
-        
-        Args:
-            x: Input fMRI features (B, input_dim)
-            sample: If True, sample from distribution; if False, return mean
-            return_kl: If True, return KL divergence loss
-        
-        Returns:
-            outputs: Dict of L2-normalized predictions (B, D) for each layer
-            kl_loss: KL divergence loss (scalar) if return_kl=True, else None
+        Forward pass with probabilistic outputs and structured metadata.
         """
         # Stage 1: Shared encoding
         h = self.stage1(x)  # (B, latent_dim)
         h_shared = self.head_backbone(h)  # (B, head_hidden_dim)
-        
-        # Stage 2: Probabilistic predictions
-        outputs = {}
-        total_kl = 0.0
-        
+
+        outputs: Dict[str, ProbabilisticLayerOutput] = {}
+        kl_terms = []
+
         for layer_name in self.mu_heads.keys():
-            # Predict μ and logσ²
-            mu = self.mu_heads[layer_name](h_shared)  # (B, D)
-            logvar = self.logvar_heads[layer_name](h_shared)  # (B, D)
-            
-            # Sample or use mean
+            mu = self.mu_heads[layer_name](h_shared)
+            logvar_raw = self.logvar_heads[layer_name](h_shared)
+            logvar_expanded = self._expand_logvar(logvar_raw, mu)
+
+            logvar_clamped = logvar_expanded.clamp(self.logvar_min, self.logvar_max)
+            clamp_mask = (logvar_expanded < self.logvar_min) | (logvar_expanded > self.logvar_max)
+            logvar_clamp_fraction = clamp_mask.float().mean().item()
+
+            var = torch.exp(logvar_clamped).clamp_min(self.variance_floor)
+
             if sample:
-                z = self.reparameterize(mu, logvar)
+                z = self.reparameterize(mu, logvar_clamped)
             else:
                 z = mu
-            
-            # L2 normalize (CLIP embeddings are normalized)
-            z = torch.nn.functional.normalize(z, dim=-1)
-            outputs[layer_name] = z
-            
-            # Accumulate KL loss
+
+            z_out = self._normalize_if_needed(z, self.clip_space)
+
+            outputs[layer_name] = ProbabilisticLayerOutput(
+                z=z_out,
+                mu=self._normalize_if_needed(mu, self.clip_space),
+                logvar=logvar_raw,
+                logvar_clamped=logvar_clamped,
+                var=var,
+                uncertainty=var.mean(dim=-1),
+                logvar_clamp_fraction=logvar_clamp_fraction,
+            )
+
             if return_kl:
-                total_kl += self.compute_kl_loss(mu, logvar)
-        
-        # Average KL loss across all heads
-        if return_kl:
-            kl_loss = total_kl / len(self.mu_heads) * self.kl_weight
-            return outputs, kl_loss
-        else:
-            return outputs, None
+                kl_terms.append(self.compute_kl_loss(mu, logvar_clamped))
+
+        kl_loss = None
+        if return_kl and kl_terms:
+            kl_loss = sum(kl_terms) / len(kl_terms)
+            kl_loss = kl_loss * self.kl_weight
+
+        return outputs, kl_loss
+
+
+@dataclass
+class ProbabilisticLayerOutput:
+    z: torch.Tensor
+    mu: torch.Tensor
+    logvar: torch.Tensor
+    logvar_clamped: torch.Tensor
+    var: torch.Tensor
+    uncertainty: torch.Tensor
+    logvar_clamp_fraction: float
 
 
 def save_probabilistic_encoder(
@@ -1115,7 +1131,12 @@ def load_probabilistic_encoder(
         head_hidden_dim=meta.get("head_hidden_dim", 512),
         enabled_layers=meta.get("enabled_layers", ['layer_4', 'layer_8', 'layer_12', 'final']),
         predict_text_clip=meta.get("predict_text_clip", False),
-        kl_weight=meta.get("kl_weight", 0.01)
+        kl_weight=meta.get("kl_weight", 0.01),
+        uncertainty=meta.get("uncertainty", "diag"),
+        logvar_min=meta.get("logvar_min", -8.0),
+        logvar_max=meta.get("logvar_max", 2.0),
+        variance_floor=meta.get("variance_floor", 1.0e-6),
+        clip_space=meta.get("clip_space", "normalized"),
     )
     
     model.load_state_dict(checkpoint["state_dict"], strict=True)

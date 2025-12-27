@@ -1,0 +1,9 @@
+# Stage 2 selection ablation: cosine-to-mean
+_base_: ../stage1/prob_adapt_q.yaml
+
+experiment:
+  name: prob_adapt_q_select_cosine
+  tags: [stage2, selection, cosine]
+
+inference:
+  selection_rule: cosine

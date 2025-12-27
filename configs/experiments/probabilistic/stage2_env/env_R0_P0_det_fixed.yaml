@@ -1,0 +1,12 @@
+# Stage 2 env grid: reliability=off, pca=off (deterministic baseline)
+_base_: ../stage1/det_fixed.yaml
+
+experiment:
+  name: det_fixed_env_R0_P0
+  tags: [stage2, env, reliability_off, pca_off, deterministic]
+
+preprocessing:
+  enable_reliability_filter: false
+  reliability_threshold: 0.0
+  enable_pca: false
+  pca_k: null

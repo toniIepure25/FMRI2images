@@ -348,6 +348,70 @@ def compute_multiloss(
     return total_loss, components
 
 
+# -----------------------------------------------------------------------------
+# Probabilistic losses (Gaussian NLL + regularizers)
+# -----------------------------------------------------------------------------
+
+def gaussian_nll(
+    mu: torch.Tensor,
+    logvar: torch.Tensor,
+    target: torch.Tensor,
+    *,
+    clamp_min: float = -8.0,
+    clamp_max: float = 2.0,
+    variance_floor: float = 1.0e-6,
+    reduction: str = "mean",
+    space: str = "normalized",
+) -> torch.Tensor:
+    """
+    Diagonal (or scalar) Gaussian negative log-likelihood for embeddings.
+
+    Args:
+        mu: Mean predictions (B, D) or (B, 1) for scalar variance case
+        logvar: Log-variance (B, D) or (B, 1) for scalar variance
+        target: Ground-truth embeddings (B, D)
+        clamp_min/max: Bounds for logvar clamping
+        variance_floor: Added to variance for numerical stability
+        reduction: "mean" (default; mean over dims then batch),
+                   "sum" (sum over dims, mean over batch),
+                   "none" (return per-element nll)
+        space: "normalized" (L2-normalize mu/target before NLL) or "raw"
+
+    Returns:
+        Scalar loss (for mean/sum) or per-element tensor (for none)
+    """
+    if space == "normalized":
+        mu = torch.nn.functional.normalize(mu, dim=-1)
+        target = torch.nn.functional.normalize(target, dim=-1)
+
+    # Broadcast scalar logvar if needed
+    if logvar.shape[-1] == 1 and mu.shape[-1] != 1:
+        logvar = logvar.expand_as(mu)
+
+    logvar = torch.clamp(logvar, clamp_min, clamp_max)
+    var = torch.exp(logvar) + variance_floor
+
+    nll_elements = 0.5 * (((target - mu) ** 2) / var + torch.log(var))
+
+    if reduction == "none":
+        return nll_elements
+
+    if reduction == "mean":
+        nll_per_sample = nll_elements.mean(dim=-1)
+    elif reduction == "sum":
+        nll_per_sample = nll_elements.sum(dim=-1)
+    else:
+        raise ValueError(f"Unknown reduction: {reduction}. Use 'mean', 'sum', or 'none'.")
+
+    return nll_per_sample.mean()
+
+
+def variance_penalty(logvar: torch.Tensor, clamp_min: float = -8.0, clamp_max: float = 2.0) -> torch.Tensor:
+    """Small regularizer to discourage variance inflation: mean(exp(clamped logvar))."""
+    logvar = torch.clamp(logvar, clamp_min, clamp_max)
+    return torch.exp(logvar).mean()
+
+
 # Backward compatibility: keep old compose_loss function
 def compose_loss(
     pred: torch.Tensor,

@@ -1,0 +1,46 @@
+# Stage 1: Probabilistic decoder with adaptive quantile K under fixed budget
+_base_: ../../../base.yaml
+
+experiment:
+  name: prob_adapt_q
+  description: "Probabilistic decoder + adaptive quantile allocator, fixed compute budget"
+  tags: [stage1, probabilistic, adaptive_quantile]
+
+clip_embedding:
+  space: normalized
+  normalize_targets: true
+  normalize_predictions: true
+
+decoder:
+  type: probabilistic
+  uncertainty: diag
+  predict_logvar: true
+  logvar_min: -8.0
+  logvar_max: 2.0
+  variance_floor: 1.0e-6
+
+loss:
+  cosine_weight: 0.0
+  mse_weight: 0.0
+  infonce_weight: 0.0
+  nll_weight: 1.0
+  cosine_aux_weight: 0.1
+  variance_penalty_weight: 0.01
+  nll_reduction: mean
+  logvar_min: -8.0
+  logvar_max: 2.0
+  variance_floor: 1.0e-6
+
+inference:
+  sampling_policy: adaptive_quantile
+  K_base: 8
+  K_set: [1, 2, 4, 8, 16]
+  enforce_budget: true
+  selection_rule: likelihood
+  adaptive_quantile:
+    quantiles: [0.0, 0.10, 0.30, 0.60, 0.85, 1.0]
+    K_bins: [16, 8, 4, 2, 1]
+    budget_correction: deterministic
+
+logging:
+  level: INFO

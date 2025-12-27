@@ -1,0 +1,10 @@
+# Stage 2 additional: diagonal logvar (default)
+_base_: ../stage1/prob_adapt_q.yaml
+
+experiment:
+  name: prob_adapt_q_diag
+  tags: [stage2, uncertainty, diag, probabilistic]
+
+decoder:
+  uncertainty: diag
+  predict_logvar: true

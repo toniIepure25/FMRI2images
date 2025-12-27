@@ -15,7 +15,7 @@ import logging
 import pandas as pd
 import numpy as np
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union, Iterable
 from tqdm import tqdm
 
 # Import Phase 2 IO layer
@@ -25,6 +25,22 @@ from ..io.s3 import CSVLoader, NIfTILoader, get_s3_filesystem
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+DEFAULT_MAX_SESSIONS = 40
+
+
+def normalize_subject(subject: Union[str, int]) -> str:
+    if isinstance(subject, str) and subject.startswith("subj"):
+        return subject
+    return f"subj{int(subject):02d}"
+
+
+def find_nsdid_col(df: pd.DataFrame) -> str:
+    for col in df.columns:
+        if col.lower() in {"nsdid", "nsd_id", "nsdid".lower(), "73kid"}:
+            return col
+    raise ValueError("No nsdId column found in session design")
 
 
 class NSDIndexBuilder:
@@ -57,6 +73,12 @@ class NSDIndexBuilder:
         logger.info("Loading stimulus catalog from S3...")
         stim_info_path = self.layout.stim_info_path()
         stim_df = self.csv_loader.load(stim_info_path)
+
+        # Drop index-like columns (e.g., "Unnamed: 0") that sometimes appear in CSV exports
+        unnamed_cols = [c for c in stim_df.columns if c.lower().startswith("unnamed")]
+        if unnamed_cols:
+            stim_df = stim_df.drop(columns=unnamed_cols)
+            logger.debug(f"Dropped unnamed columns from stimulus catalog: {unnamed_cols}")
         logger.info(f"Loaded stimulus catalog: {len(stim_df)} stimuli")
         return stim_df
         
@@ -87,23 +109,44 @@ class NSDIndexBuilder:
                     design_df = self.csv_loader.load(design_path)
                     
                     # Filter rows with nsdId (case-insensitive)
-                    nsd_cols = [col for col in design_df.columns if col.lower() == 'nsdid']
-                    if not nsd_cols:
+                    try:
+                        nsd_col = find_nsdid_col(design_df)
+                    except ValueError:
                         continue
-                        
-                    nsd_col = nsd_cols[0]
+
                     valid_trials = design_df[design_df[nsd_col].notna()].copy()
-                    
-                    # Add trial_in_session if missing
-                    if 'trial_in_session' not in valid_trials.columns:
-                        valid_trials['trial_in_session'] = range(len(valid_trials))
-                        
+
+                    # Preserve order; ensure 0..N-1
+                    valid_trials['trial_in_session'] = np.arange(len(valid_trials))
+
                     logger.info(f"Loaded session design: {len(valid_trials)} trials")
                     return valid_trials
                     
             except Exception as e:
                 logger.debug(f"Failed to load {pattern}: {e}")
                 continue
+
+        # Fallback to responses.tsv (publicly available) when per-session design is unavailable
+        try:
+            responses_path = self.layout.format_s3_path(
+                f"nsddata/ppdata/subj{subj_num:02d}/behav/responses.tsv"
+            )
+            if self.s3_fs.exists(responses_path):
+                responses_df = self.csv_loader.load(responses_path, sep="\t")
+                session_df = responses_df[responses_df["SESSION"] == session].copy()
+                if not session_df.empty:
+                    # Ensure canonical ordering within session
+                    session_df = session_df.sort_values(["RUN", "TRIAL"]).reset_index(drop=True)
+                    session_df["trial_in_session"] = np.arange(len(session_df))
+                    # Normalize column names used downstream
+                    session_df["run"] = session_df["RUN"]
+                    session_df["trial_in_run"] = session_df["TRIAL"] - 1  # zero-based
+                    logger.info(
+                        f"Loaded session design from responses.tsv: {len(session_df)} trials"
+                    )
+                    return session_df
+        except Exception as e:
+            logger.debug(f"Failed to load responses.tsv fallback: {e}")
                 
         logger.warning(f"No session design found for subj{subj_num:02d} session {session}")
         return None
@@ -160,74 +203,71 @@ class NSDIndexBuilder:
             
         return mapping
         
-    def build_subject_index(self, subject: str, max_trials: int = None) -> pd.DataFrame:
-        """
-        Build canonical index for a single subject with standardized columns
-        
-        Args:
-            subject: Subject identifier (e.g., 'subj01' or 1)
-            max_trials: Limit for testing (None for all trials)
-            
-        Returns:
-            DataFrame with standardized column names and unified API
-        """
-        logger.info(f"Building index for {subject}")
-        
-        # Parse subject number and standardize format
-        if isinstance(subject, str) and subject.startswith('subj'):
-            subj_num = int(subject[4:])
-        else:
-            subj_num = int(subject)
-        subject_id = f"subj{subj_num:02d}"
-        
-        # Load stimulus catalog with unified column names
+    def build_subject_index(
+        self,
+        subject: str,
+        max_trials: int = None,
+        session_start: int = 1,
+        session_end: Optional[int] = None,
+        num_sessions: Optional[int] = None,
+    ) -> pd.DataFrame:
+        subject_id = normalize_subject(subject)
         stim_catalog = self.load_stimulus_catalog()
-        
-        # For testing, limit trials
-        if max_trials:
-            test_stimuli = stim_catalog.head(max_trials)
-        else:
-            test_stimuli = stim_catalog
-        
-        index_entries = []
-        for i, (_, stim_row) in enumerate(test_stimuli.iterrows()):
-            entry = {
-                # Core identifiers (canonical names)
-                'subject': subject_id,
-                'session': 1,
-                'trial_in_session': i,
-                'global_trial_index': i,
-                
-                # Stimulus information (canonical NSD names)
-                'nsdId': int(stim_row['nsdId']),
-                'cocoId': int(stim_row['cocoId']),
-                'cocoSplit': stim_row['cocoSplit'],
-                'shared1000': stim_row.get('shared1000', False),
-                'filename': stim_row.get('filename', ''),
-                
-                # Session design info (canonical)
-                'run': 1,
-                'trial_in_run': i,
-                'onset': i * 2.0,  # 2s TR
-                'duration': 2.0,
-                
-                # File locations (canonical paths with full S3 URLs)
-                'beta_path': self.layout.format_s3_path(f"nsddata_betas/ppdata/{subject_id}/func1pt8mm/betas_fithrf_GLMdenoise_RR/betas_session01.nii.gz"),
-                'beta_index': i,
-                'stim_locator': f"hdf5:nsd/imgBrick[{int(stim_row['nsdId'])}]",
-            }
-            
-            index_entries.append(entry)
-        
-        # Create DataFrame with proper types
-        df = pd.DataFrame(index_entries)
-        
-        # Add computed columns using unified API
-        if not df.empty:
-            df = self._add_computed_columns(df)
-            
-        logger.info(f"Built index for {subject_id}: {len(df)} trials")
+
+        if num_sessions is not None:
+            session_end = session_start + num_sessions - 1
+        session_end = session_end or DEFAULT_MAX_SESSIONS
+
+        all_rows = []
+        global_idx = 0
+
+        for session in range(session_start, session_end + 1):
+            design = self.load_session_design(subject_id, session)
+            if design is None:
+                raise ValueError(f"Missing session design for {subject_id} session{session:02d}")
+
+            nsd_col = find_nsdid_col(design)
+            design = design[design[nsd_col].notna()].copy()
+            design["nsdId"] = design[nsd_col].astype(int)
+            design["trial_in_session"] = np.arange(len(design))
+
+            beta_path = self.layout.beta_path(subject_id, session, full_url=True)
+
+            # Validate session beta file length matches design (header-only)
+            img = self.nifti_loader.load(beta_path, mmap=False, validate=True)
+            n_betas = img.shape[3] if len(img.shape) > 3 else 1
+            if n_betas != len(design):
+                raise ValueError(f"{subject_id} session{session:02d}: design {len(design)} != betas {n_betas} ({beta_path})")
+
+            out = pd.DataFrame({
+                "subject": subject_id,
+                "session": session,
+                "trial_in_session": design["trial_in_session"].values,
+                "global_trial_index": np.arange(global_idx, global_idx + len(design)),
+                "nsdId": design["nsdId"].values,
+                "beta_path": beta_path,
+                "beta_index": design["trial_in_session"].values,
+            })
+
+            # carry run/trial_in_run/onset/duration if present
+            for col in ["run", "trial_in_run", "onset", "duration"]:
+                if col in design.columns:
+                    out[col] = design[col].values
+
+            # Join COCO metadata
+            out = out.merge(stim_catalog, on="nsdId", how="left", suffixes=("", "_stim"))
+
+            all_rows.append(out)
+            global_idx += len(out)
+
+            if max_trials and global_idx >= max_trials:
+                break
+
+        df = pd.concat(all_rows, ignore_index=True)
+        df = self._add_computed_columns(df)
+        self.validate_index(df)
         return df
+
     
     def _add_computed_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add computed columns with canonical names"""
@@ -255,13 +295,26 @@ class NSDIndexBuilder:
         if missing_cols:
             raise ValueError(f"Missing required columns: {missing_cols}")
         
-        # Check global_trial_index is contiguous within each subject
+        # Check trial_in_session contiguous per subject/session and global per subject
         for subject in df['subject'].unique():
-            subject_df = df[df['subject'] == subject]
-            expected_indices = set(range(len(subject_df)))
-            actual_indices = set(subject_df['trial_in_session'])
-            if expected_indices != actual_indices:
-                raise ValueError(f"trial_in_session not contiguous for {subject}")
+            subj_df = df[df['subject'] == subject].sort_values(['session', 'trial_in_session'])
+            # global
+            if list(subj_df['global_trial_index']) != list(range(len(subj_df))):
+                raise ValueError(f"global_trial_index not contiguous for {subject}")
+            # per session
+            for session, sess_df in subj_df.groupby('session'):
+                expected = list(range(len(sess_df)))
+                if list(sess_df['trial_in_session']) != expected:
+                    raise ValueError(f"trial_in_session not contiguous for {subject} session {session}")
+
+        # Validate beta files: shape matches row count per session and indices in-bounds
+        for beta_path, beta_df in df.groupby('beta_path'):
+            img = self.nifti_loader.load(beta_path, validate=True)
+            n_vols = img.shape[3] if len(img.shape) > 3 else 1
+            if len(beta_df) != n_vols:
+                raise ValueError(f"Beta file {beta_path} rows {len(beta_df)} != volumes {n_vols}")
+            if beta_df['beta_index'].min() < 0 or beta_df['beta_index'].max() >= n_vols:
+                raise ValueError(f"beta_index out of bounds for {beta_path} (n_vols={n_vols})")
         
         # Check no duplicate trials within subject
         duplicate_trials = df.groupby(['subject', 'session', 'trial_in_session']).size()
@@ -275,7 +328,7 @@ class NSDIndexBuilder:
         # Ensure beta_path contains full S3 URLs
         assert df["beta_path"].str.startswith("s3://").all(), "beta_path must be full S3 URL"
             
-        logger.info("Comprehensive integrity checks passed!")
+    logger.info("Comprehensive integrity checks passed!")
     
     def get_trial_count(self, df: pd.DataFrame, subject: str = None) -> int:
         """Get trial count with canonical API"""
@@ -295,7 +348,14 @@ class NSDIndexBuilder:
         """Get trials for specific session with canonical API"""
         return df[(df['subject'] == subject) & (df['session'] == session)]
         
-    def build_index(self, subjects: List[str], max_trials_per_subject: int = None) -> pd.DataFrame:
+    def build_index(
+        self,
+        subjects: List[str],
+        max_trials_per_subject: int = None,
+        session_start: int = 1,
+        session_end: Optional[int] = None,
+        num_sessions: Optional[int] = None,
+    ) -> pd.DataFrame:
         """
         Build unified index for multiple subjects with standardized API
         
@@ -310,7 +370,13 @@ class NSDIndexBuilder:
         
         all_indices = []
         for subject in subjects:
-            subject_df = self.build_subject_index(subject, max_trials_per_subject)
+            subject_df = self.build_subject_index(
+                subject,
+                max_trials=max_trials_per_subject,
+                session_start=session_start,
+                session_end=session_end,
+                num_sessions=num_sessions,
+            )
             if not subject_df.empty:
                 all_indices.append(subject_df)
                 
@@ -344,6 +410,12 @@ def main():
                        help="Output format (default: parquet)")
     parser.add_argument("--max-trials", type=int, default=None,
                        help="Limit trials per subject for testing (default: all)")
+    parser.add_argument("--num-sessions", type=int, default=None,
+                       help="Number of sessions to include starting at sessions-start")
+    parser.add_argument("--sessions-start", type=int, default=1,
+                       help="First session to include (1-indexed)")
+    parser.add_argument("--sessions-end", type=int, default=None,
+                       help="Last session to include (inclusive). If not provided, uses num-sessions or defaults to full (40).")
     parser.add_argument("--use-s3", action="store_true",
                        help="Write to S3 using layout's default index path")
     
@@ -362,7 +434,13 @@ def main():
         builder = NSDIndexBuilder()
         
         # Build unified index with standardized API
-        index_df = builder.build_index(subjects, max_trials_per_subject=args.max_trials)
+        index_df = builder.build_index(
+            subjects,
+            max_trials_per_subject=args.max_trials,
+            session_start=args.sessions_start,
+            session_end=args.sessions_end,
+            num_sessions=args.num_sessions,
+        )
         
         # Determine output path
         if args.use_s3:

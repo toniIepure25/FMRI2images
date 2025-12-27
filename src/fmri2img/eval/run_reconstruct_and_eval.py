@@ -56,14 +56,30 @@ Makefile Integration:
 """
 
 import argparse
+import csv
 import json
 import subprocess
 import sys
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any, Tuple
+from typing import Optional, Dict, Any, Tuple, List
 
+import numpy as np
 import torch
+from fmri2img.data.clip_cache import CLIPCache
+from fmri2img.data.preprocess import NSDPreprocessor
+from fmri2img.data.nsd_index_reader import read_subject_index
+from fmri2img.data.nsd_index_builder import NSDIndexBuilder
+from fmri2img.data.torch_dataset import NSDIterableDataset
+from fmri2img.generation.decode_diffusion import (
+    setup_diffusion_pipeline,
+    generate_image_from_clip_embedding,
+)
+from fmri2img.inference.pipeline import SamplingConfig, run_probabilistic_trials, TrialResult
+from fmri2img.models.encoders import load_probabilistic_encoder
+from fmri2img.utils.clip_utils import load_clip_model, encode_images
+from fmri2img.eval.stimulus import parse_stimulus_id_from_filename, resolve_from_index
 
 # Import manifest utilities for reproducibility tracking
 from fmri2img.utils.manifest import gather_env_info, write_manifest, hash_file
@@ -166,8 +182,13 @@ def run_decode(
     
     script_path = Path(__file__).parent / "decode_diffusion.py"
     if not script_path.exists():
-        print(f"ERROR: decode_diffusion.py not found at {script_path}")
-        return 1, None
+        # Fallback to top-level scripts/ for backwards compatibility
+        alt_path = Path(__file__).resolve().parents[3] / "scripts" / "decode_diffusion.py"
+        if alt_path.exists():
+            script_path = alt_path
+        else:
+            print(f"ERROR: decode_diffusion.py not found at {script_path} or {alt_path}")
+            return 1, None
     
     # Auto-detect target_dim from adapter if using adapter
     detected_target_dim = None
@@ -332,6 +353,67 @@ def run_eval(
     
     print(f"\n✓ Evaluation complete ({gallery}): {report_dir}")
     return 0
+
+
+def build_sample_entries(
+    recon_dir: Path,
+    subject: str,
+    limit: int,
+    index_root: Optional[Path],
+    index_file: Optional[Path],
+    steps: int,
+    guidance: float,
+    sampling_policy: str,
+    seed_base: Optional[int],
+) -> list[dict]:
+    """Create per-sample manifest entries mapping recon filenames to stimulus IDs."""
+    img_root = recon_dir if recon_dir.name != "images" else recon_dir
+    images = sorted(img_root.glob("*.png"))
+    if (recon_dir / "images").exists():
+        images = sorted((recon_dir / "images").glob("*.png"))
+    if limit:
+        images = images[:limit]
+
+    index_df = None
+    if index_file:
+        index_df = read_subject_index(str(index_file), subject, allow_fallback_index=True)
+    elif index_root:
+        index_df = read_subject_index(str(index_root), subject, allow_fallback_index=True)
+
+    entries = []
+    for i, path in enumerate(images):
+        parsed_id = parse_stimulus_id_from_filename(path)
+        nsd_id = None
+        nsdId = None
+        if parsed_id is not None and index_df is not None:
+            stim = resolve_from_index(parsed_id, index_df)
+            if stim:
+                nsd_id = stim.nsd_id
+                nsdId = stim.nsdId
+        entries.append({
+            "recon_filename": path.name,
+            "recon_path": str(path),
+            "parsed_id_from_filename": parsed_id,
+            "nsd_id": nsd_id,
+            "nsdId": nsdId,
+            "seed": seed_base + i if seed_base is not None else None,
+            "steps": steps,
+            "guidance_scale": guidance,
+            "sampling_policy": sampling_policy,
+            "trial_index": i,
+        })
+    return entries
+
+
+def append_samples_to_manifest(manifest_path: Path, samples: list[dict]) -> None:
+    if not manifest_path.exists():
+        return
+    try:
+        data = json.loads(manifest_path.read_text())
+    except Exception:
+        return
+    data["samples"] = samples
+    manifest_path.write_text(json.dumps(data, indent=2))
 
 
 def create_markdown_summary(
@@ -508,6 +590,266 @@ def create_markdown_summary(
     return 0
 
 
+def write_trial_results(
+    trial_results: List[TrialResult],
+    output_dir: Path,
+    csv_name: str = "trial_results.csv",
+    parquet_name: Optional[str] = "trial_results.parquet",
+) -> Tuple[Path, Optional[Path]]:
+    """Persist TrialResult rows to CSV (and optional parquet)."""
+    output_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = output_dir / csv_name
+    parquet_path = output_dir / parquet_name if parquet_name else None
+
+    rows = [asdict(tr) for tr in trial_results]
+    fieldnames = list(rows[0].keys()) if rows else []
+
+    with open(csv_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+
+    if parquet_path is not None:
+        try:
+            import pandas as pd
+
+            pd.DataFrame(rows).to_parquet(parquet_path, index=False)
+        except Exception:
+            parquet_path = None
+
+    return csv_path, parquet_path
+
+
+def run_calibration_assets(trial_csv: Path, run_dir: Path) -> None:
+    """Run calibration post-processing to produce paper assets."""
+    try:
+        from fmri2img.eval.calibration import generate_calibration_assets
+
+        generate_calibration_assets(trial_csv, run_dir)
+    except Exception as e:
+        print(f"⚠️  Calibration assets skipped: {e}")
+
+
+def probabilistic_reconstruct(
+    args: argparse.Namespace,
+    galleries: list[str],
+    preproc_enabled: bool,
+    preproc_path: Optional[Path],
+    clip_dim: int,
+) -> Tuple[Path, Path]:
+    """End-to-end probabilistic reconstruction with adaptive K and logging."""
+    if args.selection_rule == "oracle" and not args.allow_oracle:
+        print("ERROR: --selection-rule=oracle requires --allow-oracle")
+        sys.exit(1)
+
+    index_path = args.index_file or args.index_root
+    if index_path is None:
+        raise ValueError("index_root or index_file is required for probabilistic mode")
+
+    # Load preprocessing (optional)
+    preprocessor = None
+    if preproc_enabled:
+        preproc_dir = Path(preproc_path) if preproc_path else Path("outputs/preproc") / args.subject
+        preprocessor = NSDPreprocessor(args.subject, out_dir=preproc_dir.parent)
+        preprocessor.out_dir = preproc_dir  # ensure correct dir
+        if not preprocessor.meta_path.exists():
+            raise FileNotFoundError(f"Preprocessing artifacts not found at {preproc_dir}")
+        preprocessor.load_artifacts()
+
+    # Load CLIP cache (target embeddings)
+    clip_cache = CLIPCache(str(args.clip_cache)).load()
+
+    # Stream NSD samples
+    dataset = NSDIterableDataset(
+        index_path_or_root=str(index_path),
+        subject=args.subject,
+        shuffle=False,
+        limit=args.limit,
+        preprocessor=preprocessor,
+        clip_cache=clip_cache,
+    )
+
+    X_list: List[torch.Tensor] = []
+    targets: List[torch.Tensor] = []
+    stimulus_ids: List[int] = []
+
+    for sample in dataset:
+        if "clip" not in sample:
+            continue
+        x = sample["fmri"]
+        if isinstance(x, np.ndarray):
+            x_t = torch.from_numpy(x).float()
+        else:
+            x_t = torch.tensor(x).float()
+        if x_t.dim() > 1:
+            x_t = x_t.reshape(-1)
+        X_list.append(x_t)
+        targets.append(torch.from_numpy(sample["clip"]).float())
+        stimulus_ids.append(int(sample["nsdId"]))
+
+    if not X_list:
+        raise RuntimeError("No samples loaded for probabilistic reconstruction")
+
+    X = torch.stack(X_list).to(args.device)
+    target_tensor = torch.stack(targets).to(args.device)
+
+    # Load probabilistic encoder
+    model, prob_meta = load_probabilistic_encoder(str(args.ckpt), map_location=args.device)
+    model = model.to(args.device)
+    model.eval()
+
+    with torch.no_grad():
+        outputs, _ = model(X, sample=False, return_kl=False)
+    final_out = outputs["final"]
+    mu = final_out.mu
+    logvar = final_out.logvar
+    uncertainties = final_out.uncertainty
+
+    # Resolve adaptive quantile parameters with validation
+    adaptive_quantiles = tuple(args.adaptive_quantile) if args.adaptive_quantile else ()
+    adaptive_k_bins = tuple(args.adaptive_k_bins) if args.adaptive_k_bins else ()
+
+    if args.sampling_policy == "adaptive_quantile":
+        if not adaptive_quantiles:
+            print("=" * 80)
+            print("ERROR: --sampling-policy adaptive_quantile requires --adaptive-quantile values")
+            print("=" * 80)
+            print()
+            print("Example: --adaptive-quantile 0.0 0.1 0.3 0.6 0.85 1.0")
+            return 1
+        if len(adaptive_quantiles) < 2:
+            print("=" * 80)
+            print("ERROR: --adaptive-quantile must have at least two quantile boundaries")
+            print("=" * 80)
+            print()
+            print(f"Provided: {adaptive_quantiles}")
+            print("Need: >=2 values (len(K_bins) must be len(quantiles)-1)")
+            return 1
+        if adaptive_k_bins and len(adaptive_k_bins) != len(adaptive_quantiles) - 1:
+            print("=" * 80)
+            print("ERROR: --adaptive-k-bins length must be len(adaptive-quantile)-1")
+            print("=" * 80)
+            print()
+            print(f"Quantiles: {adaptive_quantiles}")
+            print(f"K bins:   {adaptive_k_bins}")
+            print()
+            print("Example: --adaptive-quantile 0.0 0.1 0.3 0.6 0.85 1.0 --adaptive-k-bins 16 8 4 2 1")
+            return 1
+        if not adaptive_k_bins:
+            needed = len(adaptive_quantiles) - 1
+            if len(args.k_set) >= needed:
+                adaptive_k_bins = tuple(args.k_set[:needed])
+            else:
+                print("=" * 80)
+                print("ERROR: Not enough K values for adaptive quantile bins")
+                print("=" * 80)
+                print()
+                print(f"Quantiles: {adaptive_quantiles} (needs {needed} K bins)")
+                print(f"Provided k_set: {args.k_set}")
+                print()
+                print("Solution: pass --adaptive-k-bins explicitly with length len(quantiles)-1")
+                return 1
+    else:
+        adaptive_quantiles = ()
+        adaptive_k_bins = ()
+
+    # Sampling configuration
+    sampling_cfg = SamplingConfig(
+        sampling_policy=args.sampling_policy,
+        k_base=args.k_base,
+        k_set=tuple(args.k_set),
+        adaptive_quantile=(adaptive_quantiles, adaptive_k_bins, args.adaptive_budget_correction),
+        adaptive_mapping=(tuple(args.adaptive_mapping), tuple(args.k_set)) if args.adaptive_mapping else ((), ()),
+        logvar_min=args.logvar_min,
+        logvar_max=args.logvar_max,
+        variance_floor=args.variance_floor,
+        clip_space=prob_meta.get("clip_space", "normalized"),
+        enforce_budget=not getattr(args, "no_enforce_budget", False),
+    )
+
+    # Diffusion + CLIP image encoder
+    model_id = args.model_id or "stabilityai/stable-diffusion-2-1"
+    pipe = setup_diffusion_pipeline(
+        model_id=model_id,
+        device=args.device,
+        dtype_str="float16" if args.device == "cuda" else "float32",
+        scheduler_name="dpm",
+        fail_if_missing=False,
+    )
+
+    clip_model, preprocess, _ = load_clip_model(device=args.device)
+
+    def generate_fn(z: torch.Tensor, seed: int):
+        z_np = z.detach().cpu().numpy()
+        return generate_image_from_clip_embedding(
+            pipe,
+            z_np,
+            guidance_scale=args.guidance_scale,
+            num_inference_steps=args.steps,
+            seed=seed,
+        )
+
+    def embed_image_fn(img) -> torch.Tensor:
+        emb = encode_images(
+            clip_model,
+            preprocess,
+            [img],
+            device=args.device,
+            normalize=sampling_cfg.clip_space == "normalized",
+        )
+        emb_t = torch.from_numpy(emb[0]).to(mu.device)
+
+        # Align embedding dimension with model output (mu/logvar)
+        mu_dim = mu.shape[-1]
+        if emb_t.shape[-1] != mu_dim:
+            if emb_t.shape[-1] > mu_dim:
+                emb_t = emb_t[..., :mu_dim]
+            else:
+                pad = torch.zeros(*emb_t.shape[:-1], mu_dim - emb_t.shape[-1], device=emb_t.device, dtype=emb_t.dtype)
+                emb_t = torch.cat([emb_t, pad], dim=-1)
+            # Re-normalize if working in normalized clip space
+            if sampling_cfg.clip_space == "normalized":
+                emb_t = torch.nn.functional.normalize(emb_t, dim=-1)
+        return emb_t
+
+    trial_results, chosen_images, budget_stats = run_probabilistic_trials(
+        mus=mu,
+        logvars=logvar,
+        targets=target_tensor,
+        uncertainties=uncertainties,
+        sampling_cfg=sampling_cfg,
+        selection_rule=args.selection_rule,
+        allow_oracle=args.allow_oracle,
+        generate_fn=generate_fn,
+        embed_image_fn=embed_image_fn,
+        seed_base=args.seed_base,
+        guidance_scale=args.guidance_scale,
+        diffusion_steps=args.steps,
+        stimulus_ids=stimulus_ids,
+        subject=args.subject,
+        split="test",
+    )
+
+    # Persist images
+    recon_dir = args.output_dir / "images"
+    recon_dir.mkdir(parents=True, exist_ok=True)
+    for img, stim_id in zip(chosen_images, stimulus_ids):
+        if hasattr(img, "save"):
+            img.save(recon_dir / f"{stim_id}.png")
+
+    trial_csv, trial_parquet = write_trial_results(trial_results, args.output_dir, csv_name=args.trial_csv)
+    run_calibration_assets(trial_csv, args.output_dir)
+
+    # Persist budget stats
+    budget_path = args.output_dir / "budget_stats.json"
+    with open(budget_path, "w") as f:
+        json.dump(budget_stats, f, indent=2)
+    print(f"✓ Budget stats written: {budget_path}")
+
+    return recon_dir, trial_csv
+
+
 def main():
     parser = argparse.ArgumentParser(
         description=__doc__,
@@ -518,8 +860,8 @@ def main():
     parser.add_argument("--subject", type=str, default="subj01",
                         help="NSD subject ID (default: subj01)")
     parser.add_argument("--encoder", type=str, required=True,
-                        choices=["ridge", "mlp"],
-                        help="Encoder type: ridge or mlp")
+                        choices=["ridge", "mlp", "two_stage", "prob"],
+                        help="Encoder type (ridge/mlp/two_stage/prob)")
     parser.add_argument("--ckpt", type=Path, required=True,
                         help="Path to encoder checkpoint")
     parser.add_argument("--clip-cache", type=Path, required=True,
@@ -535,6 +877,8 @@ def main():
                              help="Root directory containing subject-specific indices")
     index_group.add_argument("--index-file", type=Path,
                              help="Direct path to index parquet file")
+    parser.add_argument("--allow-fallback-index", action="store_true", help="Permit collapsed/synthetic indices (not for paper runs)")
+    parser.add_argument("--skip-index-validation", action="store_true", help="Skip header/contiguity validation of index (not recommended)")
     
     # Optional
     parser.add_argument("--limit", type=int, default=64,
@@ -544,6 +888,48 @@ def main():
                         help="Device for inference (default: auto)")
     parser.add_argument("--steps", type=int, default=50,
                         help="Diffusion steps (default: 50)")
+    parser.add_argument("--guidance-scale", type=float, default=7.5,
+                        help="Classifier-free guidance scale for diffusion")
+
+    # Probabilistic inference
+    parser.add_argument("--probabilistic", action="store_true",
+                        help="Enable probabilistic sampling + adaptive K")
+    parser.add_argument("--selection-rule", type=str, default="cosine",
+                        choices=["cosine", "likelihood", "oracle"],
+                        help="Selection rule for candidate images")
+    parser.add_argument("--allow-oracle", action="store_true",
+                        help="Permit oracle selection (uses ground truth)")
+    parser.add_argument("--sampling-policy", type=str, default="fixed_k",
+                        choices=["fixed_k", "adaptive_quantile", "adaptive_mapping"],
+                        help="K allocation policy")
+    parser.add_argument("--k-base", type=int, default=1,
+                        help="Base K for fixed_k or average budget")
+    parser.add_argument("--k-set", type=int, nargs="+", default=[1, 2, 4],
+                        help="Candidate Ks for adaptive policies")
+    parser.add_argument("--no-enforce-budget", action="store_true",
+                        help="Disable budget enforcement for adaptive K policies (default: enforce)")
+    parser.add_argument("--adaptive-quantile", type=float, nargs="+",
+                        metavar=("Q0", "Q1"),
+                        help="Quantile thresholds for adaptive_quantile policy (>=2 values; K bins must have length len(quantiles)-1)")
+    parser.add_argument("--adaptive-k-bins", type=int, nargs="+",
+                        metavar=("K0", "K1"),
+                        help="K values per quantile bucket for adaptive_quantile policy (length must be len(quantiles)-1)")
+    parser.add_argument("--adaptive-budget-correction", type=str, default="deterministic",
+                        choices=["deterministic", "none"],
+                        help="Budget correction strategy for adaptive quantile allocator")
+    parser.add_argument("--adaptive-mapping", type=float, nargs=3,
+                        metavar=("U_LOW", "U_MED", "U_HIGH"),
+                        help="Uncertainty thresholds for adaptive_mapping policy")
+    parser.add_argument("--logvar-min", type=float, default=-8.0,
+                        help="Clamp minimum for log-variance")
+    parser.add_argument("--logvar-max", type=float, default=2.0,
+                        help="Clamp maximum for log-variance")
+    parser.add_argument("--variance-floor", type=float, default=1e-6,
+                        help="Variance floor for sampling stability")
+    parser.add_argument("--trial-csv", type=str, default="trial_results.csv",
+                        help="Filename for per-trial CSV (under output-dir)")
+    parser.add_argument("--seed-base", type=int, default=123,
+                        help="Base seed for probabilistic sampling")
     
     # Retrieval gallery configuration
     parser.add_argument("--gallery", type=str, default="matched",
@@ -656,6 +1042,22 @@ def main():
         print("    make build-clip-cache")
         print()
         return 1
+
+    index_path = args.index_file or args.index_root
+    if index_path and not args.skip_index_validation:
+        try:
+            df = read_subject_index(str(index_path), args.subject, allow_fallback_index=args.allow_fallback_index)
+            NSDIndexBuilder().validate_index(df)
+        except Exception as e:
+            print("=" * 80)
+            print("ERROR: Index validation failed")
+            print("=" * 80)
+            print()
+            print(f"Path: {index_path}")
+            print(f"Reason: {e}")
+            print()
+            print("Rebuild the canonical index or pass --allow-fallback-index/--skip-index-validation (not for paper runs).")
+            return 1
     
     # Load encoder metadata to determine preprocessing requirements
     encoder_ckpt = torch.load(args.ckpt, map_location="cpu")
@@ -664,6 +1066,7 @@ def main():
     # Determine if preprocessing should be enabled
     preproc_meta = encoder_meta.get("preproc", {})
     preproc_trained_with = preproc_meta.get("used_preproc", False)
+    expected_dim = encoder_meta.get("input_dim")
     
     # Resolve preprocessing flag
     if args.use_preproc and args.no_preproc:
@@ -677,6 +1080,10 @@ def main():
     else:
         # Auto-detect from metadata
         preproc_enabled = preproc_trained_with
+        # Heuristic: if model expects a small feature dim (<=1024) and no metadata flag,
+        # assume preprocessing was used.
+        if not preproc_enabled and expected_dim and expected_dim <= 1024:
+            preproc_enabled = True
     
     # Determine preprocessing path
     preproc_path = None
@@ -691,8 +1098,19 @@ def main():
             preproc_base = Path("outputs/preproc") / args.subject
             if preproc_base.exists():
                 candidates = []
-                expected_dim = encoder_meta.get("input_dim")
-                
+                # Consider base meta.json
+                base_meta = preproc_base / "meta.json"
+                if base_meta.exists():
+                    try:
+                        import json
+                        with open(base_meta) as f:
+                            base_meta_json = json.load(f)
+                        pca_k = base_meta_json.get("pca_components")
+                        if expected_dim and pca_k == expected_dim:
+                            candidates.append((preproc_base, preproc_base.stat().st_mtime))
+                    except Exception:
+                        pass
+
                 for subdir in preproc_base.iterdir():
                     if not subdir.is_dir():
                         continue
@@ -755,6 +1173,8 @@ def main():
     # Determine CLIP dimension for evaluation
     clip_dim = clip_target_dim if args.use_adapter else 512
     
+    detected_target_dim = clip_target_dim
+
     # Determine galleries to evaluate
     if args.all_galleries:
         galleries = ["matched", "test", "all"]
@@ -800,6 +1220,13 @@ def main():
             "image_source": args.image_source,
             "preprocessing_enabled": preproc_enabled,
             "preprocessing_path": str(preproc_path) if preproc_path else None,
+            "probabilistic": bool(args.probabilistic),
+            "sampling_policy": args.sampling_policy,
+            "k_base": args.k_base,
+            "k_set": args.k_set,
+            "selection_rule": args.selection_rule,
+            "allow_oracle": args.allow_oracle,
+            "enforce_budget": not getattr(args, "no_enforce_budget", False),
         },
         "input_hashes": {}
     }
@@ -819,9 +1246,15 @@ def main():
     except Exception as e:
         print(f"  ⚠️  Warning: Failed to hash some input files: {e}")
     
-    # Write manifest to output directory
+    # Write manifest to output directory (config goes in second param)
     manifest_path = args.output_dir / "manifest.json"
-    write_manifest(manifest_data, str(manifest_path))
+    write_manifest(
+        str(manifest_path),
+        manifest_data,
+        cli_args=sys.argv,
+        env_info=env_info,
+        input_hashes=manifest_data.get("input_hashes", {}),
+    )
     print(f"✓ Manifest written: {manifest_path}")
     print()
     
@@ -901,33 +1334,61 @@ def main():
             print(f"✓ Stable Diffusion appears cached (local_files_only=True succeeded)")
         print()
     
-    # Step 1: Decode
-    exit_code, detected_target_dim = run_decode(
-        encoder=args.encoder,
-        ckpt_path=args.ckpt,
-        output_dir=args.output_dir,
-        limit=args.limit,
-        steps=args.steps,
-        device=args.device,
-        use_adapter=args.use_adapter,
-        adapter_path=args.adapter,
-        model_id=args.model_id,
-        clip_target_dim=clip_target_dim,
+    # Probabilistic branch (adaptive sampling + trial logging)
+    # Resolve device 'auto' for downstream torch ops in both branches
+    if args.device == "auto":
+        args.device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    if args.probabilistic:
+        recon_dir, trial_csv = probabilistic_reconstruct(
+            args=args,
+            galleries=galleries,
+            preproc_enabled=preproc_enabled,
+            preproc_path=preproc_path,
+            clip_dim=clip_dim,
+        )
+    else:
+        # Step 1: Decode
+        exit_code, detected_target_dim = run_decode(
+            encoder=args.encoder,
+            ckpt_path=args.ckpt,
+            output_dir=args.output_dir,
+            limit=args.limit,
+            steps=args.steps,
+            device=args.device,
+            use_adapter=args.use_adapter,
+            adapter_path=args.adapter,
+            model_id=args.model_id,
+            clip_target_dim=clip_target_dim,
+            subject=args.subject,
+            index_root=args.index_root,
+            index_file=args.index_file,
+            preproc_enabled=preproc_enabled,
+            preproc_path=str(preproc_path) if preproc_path else None,
+        )
+        
+        if exit_code != 0:
+            return exit_code
+        
+        # Determine recon_dir (where images are actually stored)
+        recon_dir = args.output_dir / "images"
+        if not recon_dir.exists():
+            # Fallback: decode_diffusion.py might have written directly to output_dir
+            recon_dir = args.output_dir
+
+    # Update manifest with per-sample mapping (deterministic based on images on disk)
+    samples = build_sample_entries(
+        recon_dir=recon_dir,
         subject=args.subject,
+        limit=args.limit,
         index_root=args.index_root,
         index_file=args.index_file,
-        preproc_enabled=preproc_enabled,
-        preproc_path=str(preproc_path) if preproc_path else None,
+        steps=args.steps,
+        guidance=args.guidance_scale,
+        sampling_policy=args.sampling_policy if args.probabilistic else "deterministic",
+        seed_base=args.seed_base if args.probabilistic else None,
     )
-    
-    if exit_code != 0:
-        return exit_code
-    
-    # Determine recon_dir (where images are actually stored)
-    recon_dir = args.output_dir / "images"
-    if not recon_dir.exists():
-        # Fallback: decode_diffusion.py might have written directly to output_dir
-        recon_dir = args.output_dir
+    append_samples_to_manifest(args.output_dir / "manifest.json", samples)
     
     # Step 2: Evaluate (loop over galleries)
     for gallery in galleries:

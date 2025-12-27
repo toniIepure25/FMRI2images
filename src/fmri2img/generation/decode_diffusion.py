@@ -74,6 +74,10 @@ from fmri2img.data.clip_cache import CLIPCache
 from fmri2img.io.s3 import get_s3_filesystem, NIfTILoader
 from fmri2img.models.ridge import RidgeEncoder
 from fmri2img.models.mlp import load_mlp
+from fmri2img.models.encoders import (
+    load_two_stage_encoder,
+    load_multilayer_two_stage_encoder,
+)
 from fmri2img.models.clip_adapter import load_adapter
 from fmri2img.models.train_utils import train_val_test_split
 from fmri2img.eval.retrieval import cosine_sim
@@ -168,6 +172,40 @@ def load_encoder(encoder_type: str, ckpt_path: Path, device: str = "cpu"):
         logger.info(f"✅ Loaded MLP encoder (best_epoch={meta.get('best_epoch', 'N/A')})")
         return MLPWrapper(model, device)
     
+    elif encoder_type in {"two_stage", "prob", "probabilistic"}:
+        import torch
+
+        # Try multi-layer first (Phase 2/3 checkpoints), then fallback to classic two-stage
+        try:
+            model, meta = load_multilayer_two_stage_encoder(str(ckpt_path), map_location=device)
+            is_multilayer = True
+        except Exception:
+            model, meta = load_two_stage_encoder(str(ckpt_path), map_location=device)
+            is_multilayer = False
+
+        model = model.to(device)
+        model.eval()
+
+        class TwoStageWrapper:
+            def __init__(self, model, device, is_multilayer):
+                self.model = model
+                self.device = device
+                self.is_multilayer = is_multilayer
+
+            def predict(self, X: np.ndarray) -> np.ndarray:
+                with torch.no_grad():
+                    x_t = torch.from_numpy(X).float().to(self.device)
+                    outputs = self.model(x_t)
+                    if self.is_multilayer:
+                        z = outputs.get("final", list(outputs.values())[-1])
+                    else:
+                        z = outputs
+                    z = torch.nn.functional.normalize(z, dim=-1)
+                    return z.cpu().numpy()
+
+        logger.info(f"✅ Loaded Two-Stage encoder (multilayer={is_multilayer})")
+        return TwoStageWrapper(model, device, is_multilayer)
+
     else:
         raise ValueError(f"Unknown encoder type: {encoder_type}")
 
@@ -417,12 +455,14 @@ def generate_image_from_clip_embedding(
         Generated PIL Image
     """
     import torch
+    unet_dtype = pipe.unet.dtype
+    vae_dtype = next(pipe.vae.parameters()).dtype
     
     # Set seed for reproducibility
     generator = torch.Generator(device=pipe.device).manual_seed(seed)
     
-    # Convert to torch tensor and move to device (keep float32 throughout)
-    pred_clip = torch.from_numpy(clip_embedding).float().to(pipe.device)
+    # Convert to torch tensor and move to device, matching UNet dtype
+    pred_clip = torch.from_numpy(clip_embedding).to(device=pipe.device, dtype=unet_dtype)
     
     # Ensure it's 1-D for a single sample
     if pred_clip.dim() == 1:
@@ -500,15 +540,17 @@ def generate_image_from_clip_embedding(
             pooled_embeds = None
         
         # Clean conditional embeddings
-        cond_embeds = torch.nan_to_num(cond_embeds, nan=0.0, posinf=1.0, neginf=-1.0)
+        cond_embeds = torch.nan_to_num(cond_embeds, nan=0.0, posinf=1.0, neginf=-1.0).to(dtype=unet_dtype)
+        if uncond_embeds is not None:
+            uncond_embeds = torch.nan_to_num(uncond_embeds, nan=0.0, posinf=1.0, neginf=-1.0).to(dtype=unet_dtype)
         
         logger.info(f"✅ Got conditioning embeddings: shape={cond_embeds.shape}, dtype={cond_embeds.dtype}")
         
         # If we have pooled embeddings, blend our prediction into them
         if pooled_embeds is not None and pred_clip.shape[1] == 1024:
             cond_pooled, uncond_pooled = pooled_embeds
-            cond_pooled = torch.nan_to_num(cond_pooled, nan=0.0, posinf=1.0, neginf=-1.0)
-            uncond_pooled = torch.nan_to_num(uncond_pooled, nan=0.0, posinf=1.0, neginf=-1.0)
+            cond_pooled = torch.nan_to_num(cond_pooled, nan=0.0, posinf=1.0, neginf=-1.0).to(dtype=unet_dtype)
+            uncond_pooled = torch.nan_to_num(uncond_pooled, nan=0.0, posinf=1.0, neginf=-1.0).to(dtype=unet_dtype)
             
             # Normalize pooled embeddings
             cond_pooled = cond_pooled / (cond_pooled.norm(dim=-1, keepdim=True).clamp_min(1e-6))
@@ -516,7 +558,7 @@ def generate_image_from_clip_embedding(
             
             # Blend predicted embedding into conditional pooled
             new_pooled = torch.nn.functional.normalize(
-                blend_alpha * pred_clip + (1 - blend_alpha) * cond_pooled,
+                blend_alpha * pred_clip.to(dtype=cond_pooled.dtype) + (1 - blend_alpha) * cond_pooled,
                 dim=-1
             )
             pooled_embeds = (new_pooled, uncond_pooled)
@@ -539,12 +581,12 @@ def generate_image_from_clip_embedding(
                 # Fallback: use zeros (less ideal)
                 uncond_embeds = torch.zeros_like(cond_embeds)
             
-            uncond_embeds = torch.nan_to_num(uncond_embeds, nan=0.0, posinf=1.0, neginf=-1.0)
+            uncond_embeds = torch.nan_to_num(uncond_embeds, nan=0.0, posinf=1.0, neginf=-1.0).to(dtype=unet_dtype)
     
     # Prepare latents
     latents_shape = (batch_size, pipe.unet.config.in_channels, 
                     pipe.unet.config.sample_size, pipe.unet.config.sample_size)
-    latents = torch.randn(latents_shape, generator=generator, device=pipe.device, dtype=torch.float32)
+    latents = torch.randn(latents_shape, generator=generator, device=pipe.device, dtype=unet_dtype)
     
     # Safety check on initial latents
     if not torch.isfinite(latents).all():
@@ -587,8 +629,8 @@ def generate_image_from_clip_embedding(
                 encoder_hidden_states = cond_embeds
             
             # CFG guards: clean embeddings before UNet call
-            encoder_hidden_states = torch.nan_to_num(encoder_hidden_states, nan=0.0)
-            latent_model_input = torch.nan_to_num(latent_model_input, nan=0.0)
+            encoder_hidden_states = torch.nan_to_num(encoder_hidden_states, nan=0.0).to(dtype=unet_dtype)
+            latent_model_input = torch.nan_to_num(latent_model_input, nan=0.0).to(dtype=unet_dtype)
             
             noise_pred = pipe.unet(
                 latent_model_input,
@@ -626,8 +668,11 @@ def generate_image_from_clip_embedding(
     latents = 1 / pipe.vae.config.scaling_factor * latents
     
     with torch.no_grad():
-        # Ensure VAE decode uses float32
-        image = pipe.vae.decode(latents.to(torch.float32)).sample
+        # Decode with VAE using its native dtype to avoid float/half mismatch
+        image = pipe.vae.decode(latents.to(dtype=vae_dtype)).sample
+
+        # Convert to float32 for downstream stability
+        image = image.to(dtype=torch.float32)
         
         # Safety: clean decoded image
         image = torch.nan_to_num(image, nan=0.0, posinf=1.0, neginf=-1.0)
@@ -730,7 +775,7 @@ def main():
                        help="Path to CLIP cache")
     
     # Encoder
-    parser.add_argument("--encoder", choices=["ridge", "mlp"], required=True,
+    parser.add_argument("--encoder", choices=["ridge", "mlp", "two_stage", "prob"], required=True,
                        help="Encoder type")
     parser.add_argument("--ckpt", required=True, help="Path to encoder checkpoint")
     
@@ -902,6 +947,9 @@ def main():
         else:
             # Auto-detect from metadata
             preproc_enabled = preproc_trained_with
+            # Heuristic: if model expects small feature dim (<=1024), assume preprocessing
+            if not preproc_enabled and expected_input_dim and expected_input_dim <= 1024:
+                preproc_enabled = True
         
         # Determine preprocessing directory
         preproc_dir = None
@@ -911,9 +959,39 @@ def main():
             elif preproc_meta.get("path"):
                 preproc_dir = Path(preproc_meta["path"])
             else:
-                logger.error("ERROR: Preprocessing enabled but no preprocessing directory specified")
-                logger.error("Either provide --preproc-dir or ensure checkpoint metadata contains preprocessing path")
-                sys.exit(1)
+                # Auto-discover: prefer base outputs/preproc/<subject> meta.json, else subdirs
+                preproc_base = Path("outputs/preproc") / args.subject
+                candidates = []
+                if (preproc_base / "meta.json").exists():
+                    try:
+                        with open(preproc_base / "meta.json") as f:
+                            base_meta = json.load(f)
+                        if base_meta.get("pca_components") == expected_input_dim:
+                            candidates.append((preproc_base, preproc_base.stat().st_mtime))
+                    except Exception:
+                        pass
+                if preproc_base.exists():
+                    for subdir in preproc_base.iterdir():
+                        if not subdir.is_dir():
+                            continue
+                        meta_json = subdir / "meta.json"
+                        if not meta_json.exists():
+                            continue
+                        try:
+                            with open(meta_json) as f:
+                                meta_sub = json.load(f)
+                            if meta_sub.get("pca_components") == expected_input_dim or expected_input_dim is None:
+                                candidates.append((subdir, subdir.stat().st_mtime))
+                        except Exception:
+                            continue
+                if candidates:
+                    candidates.sort(key=lambda x: x[1], reverse=True)
+                    preproc_dir = candidates[0][0]
+                    logger.info(f"✓ Auto-discovered preprocessing directory: {preproc_dir}")
+                else:
+                    logger.error("ERROR: Preprocessing enabled but no preprocessing directory specified or found")
+                    logger.error("Either provide --preproc-dir or ensure checkpoint metadata contains preprocessing path")
+                    sys.exit(1)
             
             if not preproc_dir.exists():
                 logger.error(f"ERROR: Preprocessing directory not found: {preproc_dir}")

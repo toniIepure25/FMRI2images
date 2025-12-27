@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 """
-Backward-compatible wrapper for run_reconstruct_and_eval.py
-Calls: python -m fmri2img.eval.run_reconstruct_and_eval
-"""
-import sys
-from pathlib import Path
-import runpy
+Backward-compatible wrapper for `fmri2img.eval.run_reconstruct_and_eval`.
 
-# Add src directory to path
-repo_root = Path(__file__).parent.parent
-sys.path.insert(0, str(repo_root / "src"))
+This script simply forwards all command-line arguments to the library entrypoint
+located at `src/fmri2img/eval/run_reconstruct_and_eval.py`. Keeping this wrapper
+in `scripts/` preserves existing Makefile and README invocations.
+"""
+
+from fmri2img.eval.run_reconstruct_and_eval import main
+
 
 if __name__ == "__main__":
-    sys.argv[0] = "python -m fmri2img.eval.run_reconstruct_and_eval"
-    runpy.run_module("fmri2img.eval.run_reconstruct_and_eval", run_name="__main__")
+    raise SystemExit(main())

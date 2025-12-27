@@ -186,8 +186,10 @@ def extract_features_and_targets(
     nifti_loader: NIfTILoader,
     preprocessor: NSDPreprocessor,
     clip_cache: CLIPCache,
-    desc: str = "data"
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    desc: str = "data",
+    return_stats: bool = False,
+    allow_skips: bool = False
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray] | Tuple[np.ndarray, np.ndarray, np.ndarray, Dict[str, int]]:
     """
     Extract fMRI features and CLIP targets from DataFrame.
     
@@ -208,6 +210,16 @@ def extract_features_and_targets(
     X_list = []
     Y_list = []
     nsd_ids = []
+
+    stats = {
+        "total_rows": len(df),
+        "total_files": 0,
+        "used": 0,
+        "skipped_invalid_beta": 0,
+        "skipped_missing_clip": 0,
+        "skipped_sample_error": 0,
+        "skipped_file_error": 0,
+    }
     
     # OPTIMIZATION: Group samples by beta_path to load each file only once
     from collections import defaultdict
@@ -222,7 +234,8 @@ def extract_features_and_targets(
             'row_idx': idx
         })
     
-    logger.info(f"Loading from {len(samples_by_file)} unique beta files")
+    stats["total_files"] = len(samples_by_file)
+    logger.info(f"Loading from {stats['total_files']} unique beta files")
     
     # Process each beta file once
     for beta_path, samples in tqdm(samples_by_file.items(), desc=f"Loading {desc}"):
@@ -231,9 +244,26 @@ def extract_features_and_targets(
             logger.debug(f"Loading {beta_path} for {len(samples)} samples")
             img = nifti_loader.load(beta_path)
             data_4d = img.get_fdata()
+
+            n_vols = data_4d.shape[-1]
+            valid_samples = []
+            for sample in samples:
+                beta_index = sample['beta_index']
+                if beta_index < 0 or beta_index >= n_vols:
+                    stats["skipped_invalid_beta"] += 1
+                    if stats["skipped_invalid_beta"] <= 3:
+                        logger.warning(
+                            f"Skipping sample nsdId={sample['nsdId']} from {beta_path}: "
+                            f"beta_index={beta_index} out of bounds for volume count={n_vols}"
+                        )
+                    continue
+                valid_samples.append(sample)
+
+            if not valid_samples:
+                continue
             
             # Extract all volumes needed from this file
-            for sample in samples:
+            for sample in valid_samples:
                 try:
                     beta_index = sample['beta_index']
                     nsd_id = sample['nsdId']
@@ -254,7 +284,9 @@ def extract_features_and_targets(
                     # Get CLIP embedding
                     clip_dict = clip_cache.get([nsd_id])
                     if nsd_id not in clip_dict:
-                        logger.warning(f"CLIP embedding missing for nsdId={nsd_id}, skipping")
+                        stats["skipped_missing_clip"] += 1
+                        if stats["skipped_missing_clip"] <= 3:
+                            logger.warning(f"CLIP embedding missing for nsdId={nsd_id}, skipping")
                         continue
                     
                     clip_emb = clip_dict[nsd_id]  # Already L2-normalized
@@ -262,12 +294,16 @@ def extract_features_and_targets(
                     X_list.append(features)
                     Y_list.append(clip_emb)
                     nsd_ids.append(nsd_id)
+                    stats["used"] += 1
                     
                 except Exception as e:
-                    logger.warning(f"Failed to process sample nsdId={nsd_id}, beta_index={beta_index}: {e}")
+                    stats["skipped_sample_error"] += 1
+                    if stats["skipped_sample_error"] <= 3:
+                        logger.warning(f"Failed to process sample nsdId={nsd_id}, beta_index={beta_index}: {e}")
                     continue
             
         except Exception as e:
+            stats["skipped_file_error"] += len(samples)
             logger.warning(f"Failed to load beta file {beta_path}: {e}")
             continue
     
@@ -277,9 +313,28 @@ def extract_features_and_targets(
     X = np.stack(X_list).astype(np.float32)
     Y = np.stack(Y_list).astype(np.float32)
     nsd_ids = np.array(nsd_ids)
-    
-    logger.info(f"✅ Extracted {desc}: X {X.shape}, Y {Y.shape}")
-    
+
+    logger.info(
+        f"✅ Extracted {desc}: X {X.shape}, Y {Y.shape}; "
+        f"used={stats['used']} / total={stats['total_rows']} "
+        f"(invalid_beta={stats['skipped_invalid_beta']}, missing_clip={stats['skipped_missing_clip']}, "
+        f"sample_error={stats['skipped_sample_error']}, file_error_rows={stats['skipped_file_error']})"
+    )
+
+    if (not allow_skips) and (not return_stats) and (
+        stats["skipped_invalid_beta"]
+        or stats["skipped_missing_clip"]
+        or stats["skipped_sample_error"]
+        or stats["skipped_file_error"]
+    ):
+        raise ValueError(
+            f"Extraction for {desc} skipped samples (invalid_beta={stats['skipped_invalid_beta']}, "
+            f"missing_clip={stats['skipped_missing_clip']}, sample_error={stats['skipped_sample_error']}, "
+            f"file_error_rows={stats['skipped_file_error']}). Set allow_skips=True to proceed."
+        )
+
+    if return_stats:
+        return X, Y, nsd_ids, stats
     return X, Y, nsd_ids
 
 

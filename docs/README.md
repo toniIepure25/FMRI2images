@@ -1,11 +1,12 @@
-# Documentation Structure
+# Engineering documentation
 
-**fMRI-to-Image Reconstruction Project**  
-*Research-Level Neural Decoding Documentation*
+This `docs/` directory is the **engineering / implementation** documentation for the repository: how to run the pipeline, how modules are structured, and how to troubleshoot.
+
+If you're looking for the **paper/thesis-facing write-up**, see **`docs/paper/README.md`**.
 
 ---
 
-## 📚 Documentation Organization
+## 📚 Documentation organization
 
 This directory contains comprehensive documentation for the fMRI-to-Image reconstruction pipeline, organized by purpose and audience.
 
@@ -16,6 +17,7 @@ This directory contains comprehensive documentation for the fMRI-to-Image recons
 | **[Quick Start Guide](../START_HERE.md)** | Get started in <5 minutes | New users, researchers |
 | **[Usage Examples](../USAGE_EXAMPLES.md)** | Comprehensive command reference | All users |
 | **[README](../README.md)** | Project overview & setup | GitHub visitors |
+| **[Paper track](paper/README.md)** | Thesis/paper docs, claims, reproducibility | Writing / artifact prep |
 
 ---
 

@@ -1,8 +1,10 @@
-PY=python
+PY?=python3
 PREPROC_FLAG := $(if $(USE_PREPROC),--use-preproc,)
 PREPROC_DIR_FLAG := $(if $(PREPROC_DIR),--preproc-dir $(PREPROC_DIR),)
 
 .PHONY: setup index test demo sanity read-index check-index clean build-clip-cache check-headers clip-cache-small smoke-tests clean-logs help ridge repair-adapter
+.
+.PHONY: paper manifest-check repro-check
 
 help:
 	@echo "Bachelor V2 - fMRI to Image Pipeline"
@@ -52,9 +54,34 @@ help:
 	@echo "  make clean-logs         - Remove log files"
 	@echo "  make repair-adapter     - Backfill missing metadata in adapter checkpoint"
 	@echo ""
+	@echo "Paper / Reproducibility:"
+	@echo "  make paper              - Build paper-facing summary artifacts from outputs/reports"
+	@echo "  make manifest-check     - Backfill/check a manifest for a chosen OUTPUT_DIR"
+	@echo "  make repro-check        - Smoke tests for reproducibility helpers"
+	@echo ""
 
 setup:
 	pip install -e .
+
+# Build paper-facing artifacts (tables) from existing evaluation outputs
+paper:
+	@echo "=== Building Paper Artifacts ==="
+	@$(PY) scripts/build_paper_artifacts.py
+	@echo "✅ Wrote outputs/paper/eval_summary.csv (if evaluation summaries exist)"
+
+# Backfill/check a manifest for an output directory
+# Usage: make manifest-check OUTPUT_DIR=outputs/recon/subj01/<run>
+manifest-check:
+	@echo "=== Writing/Checking Run Manifest ==="
+	@test -n "$${OUTPUT_DIR}" || (echo "ERROR: set OUTPUT_DIR=..." && exit 2)
+	@$(PY) scripts/write_run_manifest.py --output-dir $${OUTPUT_DIR}
+	@echo "✅ Manifest present at $${OUTPUT_DIR}/manifest.json"
+
+# Quick reproducibility helper smoke checks
+repro-check:
+	@echo "=== Reproducibility Smoke Check ==="
+	@$(PY) -c "from fmri2img.utils.manifest import gather_env_info; print('git_commit' in gather_env_info())"
+	@echo "✅ Reproducibility helpers import and run"
 
 # Build canonical index with unified API
 index:

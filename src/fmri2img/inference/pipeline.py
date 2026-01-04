@@ -167,7 +167,7 @@ def run_probabilistic_trials(
     stimulus_ids: Sequence[int],
     subject: str,
     split: str,
-) -> Tuple[List[TrialResult], List[Any], Dict[str, float]]:
+) -> Tuple[List[TrialResult], List[Any]]:
     Ks = allocate_k(
         uncertainties,
         policy=sampling_cfg.sampling_policy,
@@ -236,12 +236,4 @@ def run_probabilistic_trials(
         )
         chosen_images.append(out["chosen_image"])
 
-    budget_stats = {
-        "budget_target": float(budget_target),
-        "budget_actual": float(budget_actual),
-        "mean_K": float(Ks.float().mean().item()),
-        "max_K": int(Ks.max().item()) if len(Ks) > 0 else 0,
-        "min_K": int(Ks.min().item()) if len(Ks) > 0 else 0,
-    }
-
-    return trial_results, chosen_images, budget_stats
+    return trial_results, chosen_images

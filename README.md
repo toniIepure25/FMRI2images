@@ -10,6 +10,11 @@ This repository implements state-of-the-art approaches for decoding visual infor
 
 ---
 
+## 📚 Where to read next
+
+- **Engineering docs (how to run + troubleshoot)**: `docs/README.md`
+- **Paper/thesis track (claims, protocol, reproducibility)**: `docs/paper/README.md`
+
 ## 🎯 Overview
 
 ### Key Features

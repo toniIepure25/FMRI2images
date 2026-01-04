@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite it."
+title: "FMRI2images"
+type: software
+authors:
+  - family-names: "Iepure"
+    given-names: "Toni"
+repository-code: "https://github.com/toniIepure25/FMRI2images"
+license: "MIT"

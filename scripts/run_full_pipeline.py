@@ -481,11 +481,16 @@ class PipelineOrchestrator:
             cmd.extend(["--reliability-temperature", str(config["preproc"]["reliability_temperature"])])
         
         success, output = self.run_command(cmd, f"Preprocessing ({config_name})")
-        
+
+        # In dry-run mode we intentionally don't require artifacts; validation would fail.
+        if self.dry_run:
+            self._mark_step_complete(step_name, {"preproc_dir": str(preproc_dir), "dry_run": True})
+            return True
+
         if success and self._validate_preprocessing(preproc_dir, config):
             self._mark_step_complete(step_name, {"preproc_dir": str(preproc_dir)})
             return True
-        
+
         return False
     
     def _validate_preprocessing(self, preproc_dir: Path, config: Dict) -> bool:
@@ -578,6 +583,11 @@ class PipelineOrchestrator:
         
         self.print_warning(f"Training will take ~2 hours...")
         success, output = self.run_command(cmd, f"Training ({config_name})")
+
+        # In dry-run mode we intentionally don't require artifacts; checkpoint checks would fail.
+        if self.dry_run:
+            self._mark_step_complete(step_name, {"checkpoint_dir": str(checkpoint_dir), "dry_run": True})
+            return True
         
         if success:
             checkpoint = self._get_checkpoint_path(config_name)

@@ -1,0 +1,11 @@
+# Canonical paper-mode run for subject 01 using novel contributions.
+experiment:
+  name: novel_subj01
+  subject: subj01
+  mode: novel
+  # Optional controls
+  resume_from: null     # index|clip|preproc|train|eval|uncertainty
+  force_rebuild: false
+  dry_run: false
+  skip_eval: false
+  root_dir: .

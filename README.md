@@ -15,6 +15,23 @@ This repository implements state-of-the-art approaches for decoding visual infor
 - **Engineering docs (how to run + troubleshoot)**: `docs/README.md`
 - **Paper/thesis track (claims, protocol, reproducibility)**: `docs/paper/README.md`
 
+## 🚀 Canonical workflow (remote GPU pods)
+
+The repo supports a fresh-clone flow designed for remote GPU machines:
+
+```bash
+cp .env.example .env   # edit paths once (NSD_DATA_ROOT/CACHE_ROOT/OUTPUT_ROOT/CHECKPOINT_ROOT)
+make setup
+make doctor
+make prepare
+make exp EXP=experiments/novel_subj01.yaml
+```
+
+See:
+
+- `docs/REMOTE_QUICKSTART.md`
+- `docs/DATA_MODELS.md`
+
 ## 🎯 Overview
 
 ### Key Features

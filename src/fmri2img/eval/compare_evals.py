@@ -25,7 +25,13 @@ import json
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+
+# Matplotlib is optional: the core compare logic can run headless and tests
+# should still be able to import/--help without installing plotting deps.
+try:
+    import matplotlib.pyplot as plt  # type: ignore
+except Exception:  # pragma: no cover
+    plt = None
 
 # Import utilities
 from fmri2img.eval._report_utils import (
@@ -528,6 +534,10 @@ def create_comparison_plots(df: pd.DataFrame, out_path: Path) -> None:
     - Panel A: CLIPScore with error bars
     - Panel B: R@1 with error bars
     """
+    if plt is None:
+        raise RuntimeError(
+            "Plotting requires matplotlib. Install it (pip install matplotlib) or omit --out-fig."
+        )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     
     # Create figure with 2 subplots (vertical stack)

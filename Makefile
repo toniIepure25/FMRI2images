@@ -2,8 +2,12 @@ PY?=python3
 PREPROC_FLAG := $(if $(USE_PREPROC),--use-preproc,)
 PREPROC_DIR_FLAG := $(if $(PREPROC_DIR),--preproc-dir $(PREPROC_DIR),)
 
+# Optional .env loading (best-effort). In pods/CI you can also export vars directly.
+-include .env
+export
+
+.PHONY: setup preflight doctor smoke smoke-pipeline prepare data models preprocess index clip-cache exp
 .PHONY: setup index test demo sanity read-index check-index clean build-clip-cache check-headers clip-cache-small smoke-tests clean-logs help ridge repair-adapter
-.
 .PHONY: paper manifest-check repro-check
 
 help:
@@ -16,6 +20,8 @@ help:
 	@echo ""
 	@echo "Main Targets:"
 	@echo "  make setup              - Install package in development mode"
+	@echo "  make doctor             - Comprehensive readiness check (preflight + data + models)"
+	@echo "  make prepare            - Stage prerequisites (data + models + index + preprocess + clip-cache)"
 	@echo "  make index              - Build canonical NSD index"
 	@echo "  make build-clip-cache   - Build CLIP embeddings cache"
 	@echo "  make fit-preproc        - Fit preprocessing pipeline (scaler + reliability + PCA)"
@@ -61,7 +67,71 @@ help:
 	@echo ""
 
 setup:
-	pip install -e .
+	@echo "=== Installing fmri2img (editable) ==="
+	@pip install -e .
+	@echo "✅ Installed. Next: make preflight"
+
+# Canonical preflight for remote GPU pods
+preflight:
+	@$(PY) scripts/preflight.py
+
+# Canonical readiness check (preflight + dataset + models)
+doctor:
+	@$(PY) scripts/doctor.py
+
+# Fast smoke test (imports only)
+smoke:
+	@$(PY) scripts/smoke.py
+
+# Prepare stage: ensure dataset + models + caches exist before training
+# Order matters: index -> preprocess -> clip-cache
+prepare: data models index preprocess clip-cache
+	@echo "✅ Prepare complete"
+
+# Optional tiny end-to-end prep (fast sanity): index + small clip cache
+smoke-pipeline: data index
+	@$(MAKE) clip-cache-small
+	@echo "✅ smoke-pipeline complete"
+
+# Dataset fetch/verify (implemented in scripts/verify_dataset.py by default)
+data:
+	@$(PY) scripts/verify_dataset.py --subject $${SUBJECT:-subj01}
+
+# Fetch diffusion/CLIP models into HF cache
+models:
+	@mkdir -p $${CACHE_ROOT:-cache}/.markers
+	@if [ -f "$${CACHE_ROOT:-cache}/.markers/models.ok" ]; then \
+		echo "models: already prepared ($${CACHE_ROOT:-cache}/.markers/models.ok)"; \
+	else \
+		$(PY) scripts/fetch_models.py && date -Iseconds > "$${CACHE_ROOT:-cache}/.markers/models.ok"; \
+	fi
+
+# Preprocessing fit stage (idempotent in script)
+preprocess:
+	@mkdir -p $${CACHE_ROOT:-cache}/.markers
+	@if [ -f "$${CACHE_ROOT:-cache}/.markers/preprocess_$${SUBJECT:-subj01}.ok" ]; then \
+		echo "preprocess: already prepared ($${CACHE_ROOT:-cache}/.markers/preprocess_$${SUBJECT:-subj01}.ok)"; \
+	else \
+		mkdir -p $${CACHE_ROOT:-cache}/preproc && \
+		$(PY) scripts/fit_preprocessing.py \
+			--subject $${SUBJECT:-subj01} \
+			--index-file $${INDEX_FILE:-data/indices/nsd_index/subject=$${SUBJECT:-subj01}/index.parquet} \
+			--output-dir $${PREPROC_DIR:-$${CACHE_ROOT:-cache}/preproc/subject=$${SUBJECT:-subj01}} && \
+		date -Iseconds > "$${CACHE_ROOT:-cache}/.markers/preprocess_$${SUBJECT:-subj01}.ok"; \
+	fi
+
+# Canonical index (existing target retained)
+
+# CLIP cache (alias for existing build-clip-cache)
+clip-cache: build-clip-cache
+	@mkdir -p $${CACHE_ROOT:-cache}/.markers
+	@date -Iseconds > "$${CACHE_ROOT:-cache}/.markers/clip_cache_$${SUBJECT:-subj01}.ok"
+
+# Run a declarative experiment YAML recipe
+# Usage: make exp EXP=experiments/novel_subj01.yaml OVERRIDES="training.lr=1e-4 training.epochs=50"
+exp:
+	@test -n "$${EXP}" || (echo "ERROR: set EXP=experiments/<file>.yaml" && exit 2)
+	@$(PY) scripts/run_experiment.py --exp $${EXP} $(foreach o,$(OVERRIDES),--override $(o))
 
 # Build paper-facing artifacts (tables) from existing evaluation outputs
 paper:
@@ -85,18 +155,28 @@ repro-check:
 
 # Build canonical index with unified API
 index:
-	$(PY) -m fmri2img.data.nsd_index_builder --subjects $${SUBJECTS:-subj01} $${MAX_TRIALS:+--max-trials $$MAX_TRIALS} --output-format parquet
+	@mkdir -p data/indices/nsd_index
+	@if [ -f "data/indices/nsd_index/subject=$${SUBJECT:-subj01}/index.parquet" ]; then \
+		echo "index: already present (data/indices/nsd_index/subject=$${SUBJECT:-subj01}/index.parquet)"; \
+	else \
+		$(PY) -m fmri2img.data.nsd_index_builder --subjects $${SUBJECTS:-$${SUBJECT:-subj01}} $${MAX_TRIALS:+--max-trials $$MAX_TRIALS} --output-format parquet; \
+	fi
 
 # Build CLIP embeddings cache with resume support
 build-clip-cache:
-	$(PY) scripts/build_clip_cache.py \
-		$${INDEX_FILE:+--index-file $$INDEX_FILE} \
-		$${INDEX_ROOT:+--index-root $$INDEX_ROOT} \
-		$${SUBJECT:+--subject $$SUBJECT} \
-		--cache $${CACHE:-outputs/clip_cache/clip.parquet} \
-		--batch $${BATCH:-128} \
-		--device $${DEVICE:-cuda} \
-		$${LIMIT:+--limit $$LIMIT}
+	@mkdir -p outputs/clip_cache
+	@if [ -f "$${CACHE:-outputs/clip_cache/clip.parquet}" ]; then \
+		echo "clip-cache: already present ($${CACHE:-outputs/clip_cache/clip.parquet})"; \
+	else \
+		$(PY) scripts/build_clip_cache.py \
+			$${INDEX_FILE:+--index-file $$INDEX_FILE} \
+			$${INDEX_ROOT:+--index-root $$INDEX_ROOT} \
+			$${SUBJECT:+--subject $$SUBJECT} \
+			--cache $${CACHE:-outputs/clip_cache/clip.parquet} \
+			--batch $${BATCH:-128} \
+			--device $${DEVICE:-cuda} \
+			$${LIMIT:+--limit $$LIMIT}; \
+	fi
 
 # Run comprehensive tests
 test:
@@ -287,16 +367,9 @@ train-smoke:
 # Fit preprocessing pipeline with split-half reliability
 fit-preproc:
 	@echo "=== Fitting Preprocessing Pipeline ==="
-	@mkdir -p outputs/preproc/$${SUBJECT:-subj01}
-	$(PY) scripts/nsd_fit_preproc.py \
-		--subject $${SUBJECT:-subj01} \
-		--k $${K:-4096} \
-		--reliability-thr $${THR:-0.1} \
-		--min-variance $${MINVAR:-1e-6} \
-		--min-repeat-ids $${MINREP:-20} \
-		--seed $${SEED:-42} \
-		$${NOPCA:+--no-pca} \
-		$${ROI:+--roi-mode $$ROI}
+	@$(MAKE) preprocess SUBJECT=$${SUBJECT:-subj01} \
+		PREPROC_DIR=$${PREPROC_DIR:-$${CACHE_ROOT:-cache}/preproc/subject=$${SUBJECT:-subj01}} \
+		INDEX_FILE=$${INDEX_FILE:-data/indices/nsd_index/subject=$${SUBJECT:-subj01}/index.parquet}
 	@echo "✅ Preprocessing fitted successfully"
 
 test-preproc:

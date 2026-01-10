@@ -49,10 +49,11 @@ def main(argv: List[str] | None = None) -> int:
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     if not summaries:
-        raise SystemExit(
+        print(
             f"No recon_eval_summary.json files found under {args.reports_root}. "
             "Run an evaluation first (see scripts/eval_reconstruction.py or run_reconstruct_and_eval)."
         )
+        return 2
 
     rows: List[Dict[str, Any]] = []
     for sp in summaries:

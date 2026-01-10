@@ -1,0 +1,27 @@
+{
+  "completed_steps": [
+    "build_index",
+    "build_clip_cache",
+    "preproc_baseline",
+    "train_baseline"
+  ],
+  "last_run": "2026-01-05 01:29:53",
+  "artifacts": {
+    "build_index": {
+      "index_file": "data/indices/nsd_index/subject=subj01/index.parquet",
+      "n_trials": 750
+    },
+    "build_clip_cache": {
+      "clip_cache": "outputs/clip_cache/clip.parquet",
+      "n_images": 10005
+    },
+    "preproc_baseline": {
+      "preproc_dir": "outputs/preproc/baseline",
+      "dry_run": true
+    },
+    "train_baseline": {
+      "checkpoint_dir": "checkpoints/mlp/baseline/subj01",
+      "dry_run": true
+    }
+  }
+}

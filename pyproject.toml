@@ -44,6 +44,7 @@ diffusion = [
     "torchvision",
     "diffusers",
     "transformers",
+    "huggingface_hub",
     "accelerate",
     "pillow"
 ]

@@ -73,13 +73,13 @@ def create_dataloader(config: Dict[str, Any]) -> DataLoader:
     
     dataset = NSDIterableDataset(
         index_path_or_root=str(index_path),
-        nifti_loader=None,
-        batch_size=config['training']['batch_size'],
+        subject=config['data']['subject'],
+        session=config['data']['session'],
         shuffle=True,
         limit=config['data'].get('limit', None)
     )
     
-    dataloader = DataLoader(dataset, batch_size=1, num_workers=0, collate_fn=lambda x: x[0])
+    dataloader = DataLoader(dataset, batch_size=config['training']['batch_size'], num_workers=0)
     
     log.info(f"✓ DataLoader created successfully")
     return dataloader

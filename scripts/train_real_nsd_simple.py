@@ -95,8 +95,15 @@ def train_epoch(model, dataloader, criterion, optimizer, device, epoch):
     
     for batch in pbar:
         fmri = batch['fmri'].to(device)
+        # Add channel dimension: [batch, H, W, D] -> [batch, 1, H, W, D]
+        if fmri.ndim == 4:
+            fmri = fmri.unsqueeze(1)
         batch_size = fmri.shape[0]
+        
+        # TODO: Load actual CLIP embeddings from cache instead of random targets
+        # For now using random targets for smoke testing the training loop
         target = torch.randn(batch_size, 512, device=device)
+        target = target / target.norm(dim=1, keepdim=True)  # L2 normalize targets too
         
         optimizer.zero_grad()
         output = model(fmri)

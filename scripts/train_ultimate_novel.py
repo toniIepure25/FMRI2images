@@ -311,6 +311,8 @@ def main():
         latent_dim=config['model'].get('latent_dim', 512),
         n_blocks=config['model'].get('n_blocks', 4),
         dropout=config['model'].get('dropout', 0.3),
+        head_hidden_dim=config['model'].get('head_hidden_dim', 512),
+        output_dim=config['model'].get('output_dim', 768),  # CLIP embedding dimension
         enabled_layers=config['model'].get('enabled_layers', ['final']),
         predict_text_clip=config['model'].get('predict_text_clip', False),
         kl_weight=config['training'].get('kl_weight', 0.01),

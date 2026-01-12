@@ -927,6 +927,7 @@ class ProbabilisticMultiLayerTwoStageEncoder(nn.Module):
         n_blocks: int = 4,
         dropout: float = 0.3,
         head_hidden_dim: int = 512,
+        output_dim: int = 768,  # CLIP embedding dimension (768 for ViT-L/14)
         enabled_layers: Optional[list] = None,
         predict_text_clip: bool = False,
         kl_weight: float = 0.01,
@@ -939,6 +940,7 @@ class ProbabilisticMultiLayerTwoStageEncoder(nn.Module):
         super().__init__()
         self.input_dim = input_dim
         self.latent_dim = latent_dim
+        self.output_dim = output_dim  # Final CLIP embedding dimension
         self.enabled_layers = enabled_layers or ['layer_4', 'layer_8', 'layer_12', 'final']
         self.predict_text_clip = predict_text_clip
         self.kl_weight = kl_weight
@@ -977,16 +979,16 @@ class ProbabilisticMultiLayerTwoStageEncoder(nn.Module):
                 logvar_dim = 1 if self.uncertainty == "scalar" else 768
                 self.logvar_heads[layer_name] = nn.Linear(head_hidden_dim, logvar_dim)
         
-        # Final CLIP embedding (512-D)
+        # Final CLIP embedding (configurable dimension)
         if 'final' in self.enabled_layers:
-            self.mu_heads['final'] = nn.Linear(head_hidden_dim, 512)
-            logvar_dim = 1 if self.uncertainty == "scalar" else 512
+            self.mu_heads['final'] = nn.Linear(head_hidden_dim, output_dim)
+            logvar_dim = 1 if self.uncertainty == "scalar" else output_dim
             self.logvar_heads['final'] = nn.Linear(head_hidden_dim, logvar_dim)
         
-        # Text-CLIP head (512-D)
+        # Text-CLIP head (same dimension as final CLIP)
         if predict_text_clip:
-            self.mu_heads['text'] = nn.Linear(head_hidden_dim, 512)
-            logvar_dim = 1 if self.uncertainty == "scalar" else 512
+            self.mu_heads['text'] = nn.Linear(head_hidden_dim, output_dim)
+            logvar_dim = 1 if self.uncertainty == "scalar" else output_dim
             self.logvar_heads['text'] = nn.Linear(head_hidden_dim, logvar_dim)
             logger.info("Phase 3: Probabilistic text-CLIP head enabled")
 

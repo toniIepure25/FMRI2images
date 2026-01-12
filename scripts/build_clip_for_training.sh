@@ -11,17 +11,18 @@ echo "==========================================================================
 echo ""
 echo "This will extract CLIP ViT-L/14 embeddings for NSD images."
 echo "Expected time: ~15-30 minutes for 750 session 1 images"
-echo "Output: cache/clip_embeddings/nsd_clipvitl14.pkl"
+echo "Output: cache/clip_embeddings/nsd_clipvitl14.parquet"
 echo ""
 echo "===================================================================================================="
 
-# Run the build script
+# Run the build script (uses SD 1.x which has ViT-L/14 CLIP)
 python scripts/build_target_clip_cache_robust.py \
     --subject subj01 \
-    --sessions 1 \
-    --model ViT-L/14 \
-    --batch-size 64 \
-    --output cache/clip_embeddings/nsd_clipvitl14.pkl
+    --index-root data/indices/nsd_index \
+    --model-id runwayml/stable-diffusion-v1-5 \
+    --batch-size 100 \
+    --inference-batch-size 64 \
+    --output cache/clip_embeddings/nsd_clipvitl14.parquet
 
 echo ""
 echo "===================================================================================================="

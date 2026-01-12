@@ -32,8 +32,8 @@ data:
   index_path: "data/indices/nsd_index/subject=subj01/index.parquet"
   
   # CLIP cache for real targets (IMPORTANT!)
-  clip_cache_path: "cache/clip_embeddings/nsd_clipvitl14.pkl"
-  # If not available, build with: python scripts/build_target_clip_cache_robust.py
+  clip_cache_path: "cache/clip_embeddings/nsd_clipvitl14.parquet"
+  # If not available, build with: bash scripts/build_clip_for_training.sh
   
   limit: null  # null = use all 750 trials for session 1
   

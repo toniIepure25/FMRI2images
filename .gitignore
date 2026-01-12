@@ -101,9 +101,11 @@ checkpoints/*.pth
 # Training logs
 logs/
 *.log
+*.pid
 wandb/
 tensorboard/
 preproc_log.txt
+nohup.out
 
 # Cache directories
 .cache/
@@ -122,6 +124,11 @@ outputs/logs/
 outputs/preproc/
 outputs/recon/
 outputs/reports/
+outputs/runs/
+
+# Experiment runs
+runs/
+!runs/.gitkeep
 
 # Temporary and backup files
 *.bak
@@ -141,6 +148,7 @@ outputs/reports/
 .env
 .env.local
 .env.*.local
+activate_env.sh
 
 # Generated documentation
 codebase.md

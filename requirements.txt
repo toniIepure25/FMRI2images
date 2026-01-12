@@ -1,22 +1,64 @@
+# =============================================================================
+# Core Dependencies - fMRI to Image Pipeline
+# =============================================================================
+# Data handling
 fsspec
 s3fs
-pandas
-numpy
+pandas>=1.5.0
+numpy>=1.23.0,<2.0.0
 nibabel
 pyarrow
-tqdm
 h5py
-pyyaml
-matplotlib
-seaborn
-scikit-learn
-scipy
-# Deep learning (optional, for MLP encoder and diffusion)
-# torch
-# torchvision
-# open_clip_torch
-# pillow
-# requests
-# diffusers
-# transformers
-# accelerate
+
+# Configuration and utilities
+pyyaml>=6.0
+tqdm>=4.64.0
+
+# Visualization
+matplotlib>=3.5.0
+seaborn>=0.12.0
+
+# Scientific computing
+scikit-learn>=1.1.0
+scipy>=1.9.0
+joblib
+
+# Logging and formatting
+rich>=12.0.0
+loguru>=0.6.0
+
+# =============================================================================
+# Deep Learning Stack
+# =============================================================================
+# PyTorch and vision (install with CUDA support via setup_env.sh)
+# Note: setup_env.sh handles PyTorch installation with correct CUDA version
+# Uncomment below if you want to install manually:
+# torch>=2.0.0
+# torchvision>=0.15.0
+
+# CLIP and embeddings
+open_clip_torch>=2.20.0
+
+# Image processing
+pillow>=9.0.0
+
+# HTTP requests
+requests>=2.28.0
+
+# =============================================================================
+# Diffusion Models (Optional - for image generation)
+# =============================================================================
+diffusers>=0.21.0
+transformers>=4.30.0
+accelerate>=0.20.0
+huggingface_hub>=0.16.0
+
+# =============================================================================
+# Development and Testing (Optional)
+# =============================================================================
+# Uncomment for development:
+# pytest>=7.0.0
+# black>=23.0.0
+# isort>=5.12.0
+# ruff>=0.0.260
+# pre-commit>=3.0.0

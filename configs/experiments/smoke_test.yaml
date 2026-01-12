@@ -1,0 +1,46 @@
+# =============================================================================
+# Smoke Test Configuration
+# =============================================================================
+# Fast smoke test to verify the pipeline works end-to-end.
+# Uses minimal resources and runs quickly.
+#
+# Usage:
+#   bash scripts/run_experiment_simple.sh configs/experiments/smoke_test.yaml
+# =============================================================================
+
+experiment_name: smoke_test
+description: Fast smoke test to verify pipeline functionality
+
+# Random seed
+seed: 42
+
+# Minimal training (just to test the pipeline)
+num_epochs: 2
+batch_size: 16
+learning_rate: 0.001
+
+# Device
+device: cuda
+
+# Minimal data
+data:
+  num_samples: 100  # Use only small subset
+  num_workers: 2
+
+# Simple model
+model:
+  type: mlp
+  hidden_dim: 128
+  num_layers: 2
+
+# Logging
+log_level: INFO
+log_interval: 5
+
+# Checkpointing
+checkpoint_interval: 1
+save_best_only: false
+
+# No early stopping for smoke test
+early_stopping:
+  enabled: false

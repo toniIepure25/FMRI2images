@@ -75,9 +75,10 @@ venv.bak/
 # ============================================================================
 
 # Large dataset directories (should be managed separately)
-data/
-cache/
-outputs/
+# Use /data/ to only ignore root data folder, not src/fmri2img/data/
+/data/
+/cache/
+/outputs/
 
 # Specific large file types
 *.npy

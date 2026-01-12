@@ -41,6 +41,7 @@ from pathlib import Path
 import yaml
 import torch
 import torch.nn as nn
+from torch.cuda.amp import autocast, GradScaler
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import json
@@ -100,7 +101,7 @@ def create_dataloader_with_clip(config):
     return dataloader
 
 
-def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config):
+def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config, scaler=None):
     """
     Train for one epoch with ALL novel contributions.
     
@@ -109,6 +110,9 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config):
     - KL divergence for probabilistic regularization
     - Soft reliability weighting (if available)
     - MC Dropout uncertainty (enabled during training)
+    
+    Args:
+        scaler: GradScaler for mixed precision training (optional)
     """
     model.train()
     
@@ -153,55 +157,72 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config):
             target_clip = target_clip / target_clip.norm(dim=1, keepdim=True)
             has_real_targets = False
         
-        # Forward pass: sample from probabilistic distribution
-        outputs, kl_loss = model(fmri, sample=True, return_kl=True)
+        # Use mixed precision if scaler provided
+        use_amp = scaler is not None
         
-        # Compute reconstruction losses for 'final' layer
-        pred_clip = outputs['final']
+        # Forward pass with autocast for mixed precision
+        with autocast(enabled=use_amp):
+            # Forward pass: sample from probabilistic distribution
+            outputs, kl_loss = model(fmri, sample=True, return_kl=True)
+            
+            # Compute reconstruction losses for 'final' layer
+            pred_clip = outputs['final']
+            
+            # Multi-objective loss composition
+            recon_losses = {}
+            
+            # Extract mean prediction from probabilistic output
+            pred_clip_mu = pred_clip.mu if hasattr(pred_clip, 'mu') else pred_clip
+            
+            # 1. MSE Loss
+            if loss_weights.get('mse', 0) > 0:
+                recon_losses['mse'] = mse_loss(pred_clip_mu, target_clip)
+            
+            # 2. Cosine Loss
+            if loss_weights.get('cosine', 0) > 0:
+                recon_losses['cosine'] = cosine_loss(pred_clip_mu, target_clip)
+            
+            # 3. InfoNCE Contrastive Loss (NOVEL!)
+            if loss_weights.get('infonce', 0) > 0 and has_real_targets:
+                infonce = infonce_loss(
+                    pred_clip_mu, 
+                    target_clip, 
+                    temperature=config['training'].get('infonce_temperature', 0.07)
+                )
+                recon_losses['infonce'] = infonce
+                total_infonce_loss += infonce.item()
+            
+            # Compose total reconstruction loss
+            recon_loss = sum(loss_weights.get(k, 0) * v for k, v in recon_losses.items())
+            
+            # Total loss: reconstruction + KL divergence
+            # Scale by accumulation_steps for correct gradient magnitude
+            loss = (recon_loss + kl_weight * kl_loss) / accumulation_steps
         
-        # Multi-objective loss composition
-        recon_losses = {}
-        
-        # Extract mean prediction from probabilistic output
-        pred_clip_mu = pred_clip.mu if hasattr(pred_clip, 'mu') else pred_clip
-        
-        # 1. MSE Loss
-        if loss_weights.get('mse', 0) > 0:
-            recon_losses['mse'] = mse_loss(pred_clip_mu, target_clip)
-        
-        # 2. Cosine Loss
-        if loss_weights.get('cosine', 0) > 0:
-            recon_losses['cosine'] = cosine_loss(pred_clip_mu, target_clip)
-        
-        # 3. InfoNCE Contrastive Loss (NOVEL!)
-        if loss_weights.get('infonce', 0) > 0 and has_real_targets:
-            infonce = infonce_loss(
-                pred_clip_mu, 
-                target_clip, 
-                temperature=config['training'].get('infonce_temperature', 0.07)
-            )
-            recon_losses['infonce'] = infonce
-            total_infonce_loss += infonce.item()
-        
-        # Compose total reconstruction loss
-        recon_loss = sum(loss_weights.get(k, 0) * v for k, v in recon_losses.items())
-        
-        # Total loss: reconstruction + KL divergence
-        # Scale by accumulation_steps for correct gradient magnitude
-        loss = (recon_loss + kl_weight * kl_loss) / accumulation_steps
-        
-        loss.backward()
+        # Backward pass with gradient scaling
+        if use_amp:
+            scaler.scale(loss).backward()
+        else:
+            loss.backward()
         
         # Update weights every accumulation_steps (or at end of epoch)
         if (batch_idx + 1) % accumulation_steps == 0 or (batch_idx + 1) == len(dataloader):
             # Gradient clipping for stability
             if config['training'].get('grad_clip', 0) > 0:
+                if use_amp:
+                    scaler.unscale_(optimizer)  # Unscale before clipping
                 torch.nn.utils.clip_grad_norm_(
                     model.parameters(), 
                     config['training']['grad_clip']
                 )
             
-            optimizer.step()
+            # Optimizer step with gradient scaling
+            if use_amp:
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                optimizer.step()
+            
             optimizer.zero_grad()
         
         # Accumulate metrics (use unscaled loss for logging)
@@ -336,12 +357,17 @@ def main():
         betas=(0.9, 0.999)
     )
     
+    # Mixed precision training (FP16) for memory efficiency
+    use_amp = config['advanced'].get('mixed_precision', True) and torch.cuda.is_available()
+    scaler = GradScaler() if use_amp else None
+    
     log.info(f"✓ Training setup complete")
     log.info(f"  Epochs: {config['training']['epochs']}")
     log.info(f"  Batch size: {config['training']['batch_size']}")
     log.info(f"  Learning rate: {config['training']['learning_rate']}")
     log.info(f"  KL weight: {config['training'].get('kl_weight', 0.01)}")
     log.info(f"  Loss weights: {config['training']['loss_weights']}")
+    log.info(f"  Mixed precision (FP16): {'✅ Enabled' if use_amp else '❌ Disabled'}")
     
     # Training loop
     print("\n" + "="*100)
@@ -353,7 +379,7 @@ def main():
     
     for epoch in range(1, config['training']['epochs'] + 1):
         avg_recon, avg_kl, avg_infonce = train_epoch_ultimate(
-            model, dataloader, optimizer, device, epoch, config
+            model, dataloader, optimizer, device, epoch, config, scaler
         )
         
         # Log epoch results

@@ -1,0 +1,90 @@
+# Configuration for Probabilistic Encoder Training (Novel Approach)
+# Subject 01, Session 1 - Variational Inference with Uncertainty Quantification
+
+experiment:
+  name: "probabilistic_subj01_session1"
+  description: "Novel probabilistic encoder with uncertainty estimation - predicts μ and σ² instead of point estimates"
+  tags:
+    - novel
+    - probabilistic
+    - variational_inference
+    - uncertainty
+    - real_nsd_data
+    - subj01
+    - session1
+  author: "Bachelor Thesis"
+
+# Data configuration
+data:
+  subject: "subj01"
+  session: 1
+  index_path: "data/indices/nsd_index/subject=subj01/index.parquet"
+  limit: null  # null = use all available data (750 trials for session 1)
+  
+# Model architecture - ProbabilisticMultiLayerTwoStageEncoder
+model:
+  type: "probabilistic_encoder"
+  
+  # Stage 1: fMRI → Latent representation (ResidualMLPEncoder)
+  latent_dim: 512  # Latent representation dimensionality
+  n_blocks: 4      # Number of residual blocks in Stage 1
+  dropout: 0.3     # Dropout probability for regularization
+  
+  # Stage 2: Latent → {μ, logσ²} for CLIP embeddings
+  head_hidden_dim: 512  # Hidden dimension for probabilistic heads
+  output_dim: 512       # CLIP embedding dimension (ViT-L/14)
+  
+  # Probabilistic settings
+  uncertainty: "diag"     # "diag" = diagonal covariance, "scalar" = single variance
+  logvar_min: -8.0        # Minimum log-variance (numerical stability)
+  logvar_max: 2.0         # Maximum log-variance (prevent too uncertain)
+  variance_floor: 1.0e-6  # Minimum variance to prevent collapse
+  
+  # Which layers to predict (for multi-layer approach)
+  enabled_layers:
+    - "final"  # Start simple with just final CLIP layer
+    # Later can add: layer_4, layer_8, layer_12 for hierarchical features
+
+# Training hyperparameters
+training:
+  epochs: 20
+  batch_size: 16
+  learning_rate: 0.0001
+  weight_decay: 1.0e-5  # L2 regularization
+  
+  # Variational inference settings
+  kl_weight: 0.01  # β in β-VAE: balance reconstruction vs. KL regularization
+  # Lower β → focus on reconstruction
+  # Higher β → more regularization, tighter distributions
+  
+  # KL annealing (optional, not implemented yet)
+  # kl_anneal_start: 0.0
+  # kl_anneal_end: 0.01
+  # kl_anneal_epochs: 10
+
+# Output settings
+output_dir: "/bigdata/userhome/students/md5_sd8f61177fd2312b9b32bd118ad1/runs"
+
+# Inference settings (for future use)
+inference:
+  n_samples: 10  # Number of samples for uncertainty estimation
+  use_mean: false  # If true, use μ directly; if false, sample z ~ N(μ, σ²)
+
+# Novel Contributions Summary:
+# ============================
+# 1. Probabilistic predictions: μ and σ² instead of point estimates
+# 2. Uncertainty quantification: Know when model is confident vs. uncertain
+# 3. Variational inference: Principled Bayesian approach
+# 4. KL divergence regularization: Prevents overfitting, smoother latent space
+# 5. Multiple samples at inference: Better reconstruction quality
+# 
+# Comparison to baselines:
+# - SimpleCNN: Deterministic, no uncertainty
+# - MindEye: Deterministic CLIP embeddings
+# - This approach: Probabilistic CLIP embeddings with uncertainty
+#
+# Expected benefits:
+# - Better calibrated predictions (confidence matches accuracy)
+# - Robustness to noisy fMRI measurements
+# - Can detect out-of-distribution samples (high uncertainty)
+# - Multiple samples → ensemble predictions → better images

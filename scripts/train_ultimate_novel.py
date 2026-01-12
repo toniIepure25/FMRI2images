@@ -161,18 +161,21 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config):
         # Multi-objective loss composition
         recon_losses = {}
         
+        # Extract mean prediction from probabilistic output
+        pred_clip_mu = pred_clip.mu if hasattr(pred_clip, 'mu') else pred_clip
+        
         # 1. MSE Loss
         if loss_weights.get('mse', 0) > 0:
-            recon_losses['mse'] = mse_loss(pred_clip, target_clip)
+            recon_losses['mse'] = mse_loss(pred_clip_mu, target_clip)
         
         # 2. Cosine Loss
         if loss_weights.get('cosine', 0) > 0:
-            recon_losses['cosine'] = cosine_loss(pred_clip, target_clip)
+            recon_losses['cosine'] = cosine_loss(pred_clip_mu, target_clip)
         
         # 3. InfoNCE Contrastive Loss (NOVEL!)
         if loss_weights.get('infonce', 0) > 0 and has_real_targets:
             infonce = infonce_loss(
-                pred_clip, 
+                pred_clip_mu, 
                 target_clip, 
                 temperature=config['training'].get('infonce_temperature', 0.07)
             )

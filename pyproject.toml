@@ -54,6 +54,8 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["fmri2img*"]
+namespaces = false
 
 [tool.black]
 line-length = 100

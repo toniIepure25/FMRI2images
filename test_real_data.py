@@ -8,9 +8,14 @@ import os
 from pathlib import Path
 
 # Add src to path so we can import without pip install
-repo_root = Path("/bigdata/userhome/students/md5_sd8f61177fd2312b9b32bd118ad1/Bachelor_V2")
+repo_root = Path(__file__).parent.absolute()
 sys.path.insert(0, str(repo_root / "src"))
 os.chdir(repo_root)
+
+print(f"[DEBUG] Repo root: {repo_root}")
+print(f"[DEBUG] Python path: {sys.path[:3]}")
+print(f"[DEBUG] Working dir: {os.getcwd()}")
+print()
 
 import logging
 import torch
@@ -22,8 +27,18 @@ logging.basicConfig(level=logging.INFO, format='%(message)s')
 log = logging.getLogger("smoke_test")
 
 # Now import after path is set
-from fmri2img.data.torch_dataset import NSDIterableDataset
-from fmri2img.io.nsd_layout import NSDLayout
+try:
+    from fmri2img.data.torch_dataset import NSDIterableDataset
+    from fmri2img.io.nsd_layout import NSDLayout
+    log.info("[DEBUG] ✓ Imports successful")
+except ImportError as e:
+    log.error(f"[DEBUG] ❌ Import failed: {e}")
+    log.error(f"[DEBUG] Checking if files exist...")
+    torch_ds = repo_root / "src" / "fmri2img" / "data" / "torch_dataset.py"
+    log.error(f"[DEBUG] torch_dataset.py exists: {torch_ds.exists()}")
+    if torch_ds.exists():
+        log.error(f"[DEBUG] File path: {torch_ds}")
+    sys.exit(1)
 
 def main():
     log.info("=" * 80)

@@ -126,9 +126,12 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config):
     loss_weights = config['training']['loss_weights']
     kl_weight = config['training'].get('kl_weight', 0.01)
     
+    # Gradient accumulation for memory-efficient training
+    accumulation_steps = config['advanced'].get('gradient_accumulation_steps', 1)
+    
     pbar = tqdm(dataloader, desc=f"Epoch {epoch}", unit="batch")
     
-    for batch in pbar:
+    for batch_idx, batch in enumerate(pbar):
         fmri = batch['fmri'].to(device)
         
         # Model expects (batch, n_voxels) - flatten spatial dimensions
@@ -149,8 +152,6 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config):
             target_clip = torch.randn(batch_size, 512, device=device)
             target_clip = target_clip / target_clip.norm(dim=1, keepdim=True)
             has_real_targets = False
-        
-        optimizer.zero_grad()
         
         # Forward pass: sample from probabilistic distribution
         outputs, kl_loss = model(fmri, sample=True, return_kl=True)
@@ -186,28 +187,33 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config):
         recon_loss = sum(loss_weights.get(k, 0) * v for k, v in recon_losses.items())
         
         # Total loss: reconstruction + KL divergence
-        loss = recon_loss + kl_weight * kl_loss
+        # Scale by accumulation_steps for correct gradient magnitude
+        loss = (recon_loss + kl_weight * kl_loss) / accumulation_steps
         
         loss.backward()
         
-        # Gradient clipping for stability
-        if config['training'].get('grad_clip', 0) > 0:
-            torch.nn.utils.clip_grad_norm_(
-                model.parameters(), 
-                config['training']['grad_clip']
-            )
+        # Update weights every accumulation_steps (or at end of epoch)
+        if (batch_idx + 1) % accumulation_steps == 0 or (batch_idx + 1) == len(dataloader):
+            # Gradient clipping for stability
+            if config['training'].get('grad_clip', 0) > 0:
+                torch.nn.utils.clip_grad_norm_(
+                    model.parameters(), 
+                    config['training']['grad_clip']
+                )
+            
+            optimizer.step()
+            optimizer.zero_grad()
         
-        optimizer.step()
-        
+        # Accumulate metrics (use unscaled loss for logging)
         total_recon_loss += recon_loss.item()
         total_kl_loss += kl_loss.item()
         num_batches += 1
         
-        # Update progress bar
+        # Update progress bar (show unscaled loss)
         pbar_dict = {
             'recon': f'{recon_loss.item():.4f}',
             'kl': f'{kl_loss.item():.4f}',
-            'total': f'{loss.item():.4f}'
+            'total': f'{(recon_loss.item() + kl_weight * kl_loss.item()):.4f}'
         }
         if has_real_targets and loss_weights.get('infonce', 0) > 0:
             pbar_dict['infonce'] = f'{recon_losses["infonce"].item():.4f}'

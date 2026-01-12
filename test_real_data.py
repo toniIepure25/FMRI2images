@@ -57,13 +57,15 @@ def main():
     log.info(f"  Limit: {limit} samples")
     log.info("")
     
-    # Check data location
-    layout = NSDLayout()
-    log.info(f"Data root: {layout.nsd_data_root}")
+    # Check data location from environment
+    import os
+    nsd_data_root = os.getenv('NSD_DATA_ROOT', '/bigdata/userhome/students/md5_sd8f61177fd2312b9b32bd118ad1/data/nsd')
+    log.info(f"Data root: {nsd_data_root}")
     
-    beta_dir = Path(layout.nsd_data_root) / f"nsddata_betas/ppdata/{subject}/func1pt8mm/betas_fithrf_GLMdenoise_RR"
+    beta_dir = Path(nsd_data_root) / f"nsddata_betas/ppdata/{subject}/func1pt8mm/betas_fithrf_GLMdenoise_RR"
     if not beta_dir.exists():
         log.error(f"❌ Beta directory not found: {beta_dir}")
+        log.error(f"   Make sure NSD_DATA_ROOT is set correctly")
         return 1
     
     beta_files = list(beta_dir.glob("betas_session*.nii.gz"))
@@ -72,10 +74,26 @@ def main():
     
     # Create dataset
     log.info("Creating NSD dataset...")
+    
+    # Check if index exists
+    nsd_data_root = os.getenv('NSD_DATA_ROOT', '/bigdata/userhome/students/md5_sd8f61177fd2312b9b32bd118ad1/data/nsd')
+    index_root = os.getenv('NSD_INDEX_ROOT', 'data/indices')
+    index_path = f"{index_root}/subject={subject}/index.parquet"
+    
+    log.info(f"  Index path: {index_path}")
+    
+    if not Path(index_path).exists():
+        log.error(f"❌ Index file not found: {index_path}")
+        log.error(f"   This dataset requires a pre-built parquet index.")
+        log.error(f"   Try using the smoke test training script instead:")
+        log.error(f"   python -m src.fmri2img.training.train_smoke --subject {subject} --session {sessions[0]} --limit {limit}")
+        return 1
+    
     try:
         dataset = NSDIterableDataset(
+            index_path_or_root=index_root,
             subject=subject,
-            sessions=sessions,
+            session=sessions[0] if sessions else None,
             limit=limit,
             shuffle=False
         )
@@ -83,6 +101,9 @@ def main():
         log.info("")
     except Exception as e:
         log.error(f"❌ Failed to create dataset: {e}")
+        log.error(f"   The index may be missing or corrupted.")
+        log.error(f"   Try using train_smoke.py which has its own data loading:")
+        log.error(f"   python -m src.fmri2img.training.train_smoke --subject {subject} --session {sessions[0]} --limit {limit}")
         import traceback
         traceback.print_exc()
         return 1

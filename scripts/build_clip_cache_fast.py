@@ -59,6 +59,7 @@ def load_clip_encoder(model_id: str, device: str):
 def load_local_images(
     nsd_ids: list,
     coco_ids: list,
+    coco_splits: list,
     stimuli_dir: Path
 ) -> Dict[int, Image.Image]:
     """Load images from local cache using COCO IDs."""
@@ -66,20 +67,38 @@ def load_local_images(
     images = {}
     missing = []
     
-    for nsd_id, coco_id in tqdm(zip(nsd_ids, coco_ids), total=len(nsd_ids), desc="Loading images"):
-        # Try both train and val splits
-        for split in ["train2017", "val2017"]:
-            img_path = stimuli_dir / f"{coco_id:06d}_{split}.jpg"
-            if img_path.exists():
-                try:
-                    img = Image.open(img_path).convert("RGB")
-                    images[nsd_id] = img
-                    break
-                except Exception as e:
-                    logger.warning(f"Failed to load {img_path}: {e}")
-        
-        if nsd_id not in images:
+    for nsd_id, coco_id, split in tqdm(zip(nsd_ids, coco_ids, coco_splits), total=len(nsd_ids), desc="Loading images"):
+        if pd.isna(coco_id):
             missing.append(nsd_id)
+            continue
+        
+        coco_id = int(coco_id)
+        
+        # Use the known split from stim_info
+        img_path = stimuli_dir / f"{coco_id:06d}_{split}.jpg"
+        if img_path.exists():
+            try:
+                img = Image.open(img_path).convert("RGB")
+                images[nsd_id] = img
+            except Exception as e:
+                logger.warning(f"Failed to load {img_path}: {e}")
+                missing.append(nsd_id)
+        else:
+            # Fallback: try both splits if the known split doesn't exist
+            found = False
+            for alt_split in ["train2017", "val2017"]:
+                alt_path = stimuli_dir / f"{coco_id:06d}_{alt_split}.jpg"
+                if alt_path.exists():
+                    try:
+                        img = Image.open(alt_path).convert("RGB")
+                        images[nsd_id] = img
+                        found = True
+                        break
+                    except Exception as e:
+                        logger.warning(f"Failed to load {alt_path}: {e}")
+            
+            if not found:
+                missing.append(nsd_id)
     
     if missing:
         logger.warning(f"Missing {len(missing)}/{len(nsd_ids)} images: {missing[:5]}...")
@@ -153,13 +172,25 @@ def main():
     logger.info(f"Loading index from {index_path}")
     df = pd.read_parquet(index_path)
     
-    # Check if cocoId column exists
-    if "cocoId" not in df.columns:
-        logger.error("Index missing 'cocoId' column. Cannot map to cached images.")
+    # Load stim_info CSV to get cocoId mapping
+    stim_info_path = Path("cache/nsd_stim_info_merged.csv")
+    if not stim_info_path.exists():
+        logger.error(f"Stimulus info CSV not found: {stim_info_path}")
+        logger.error("This file maps nsdId → cocoId. Download it first.")
         return 1
+    
+    logger.info("Loading stimulus info CSV to map nsdId → cocoId...")
+    stim_info = pd.read_csv(stim_info_path, index_col=0)
+    
+    # Merge to get cocoId for each nsdId in the index
+    df = df.merge(stim_info[["nsdId", "cocoId", "cocoSplit"]], on="nsdId", how="left")
+    
+    if df["cocoId"].isna().any():
+        logger.warning(f"{df['cocoId'].isna().sum()} images missing cocoId mapping")
     
     nsd_ids = df["nsdId"].tolist()
     coco_ids = df["cocoId"].tolist()
+    coco_splits = df["cocoSplit"].tolist()
     logger.info(f"Processing {len(nsd_ids)} images")
     
     # Load CLIP encoder
@@ -171,7 +202,7 @@ def main():
         logger.error(f"Stimuli directory not found: {stimuli_dir}")
         return 1
     
-    images = load_local_images(nsd_ids, coco_ids, stimuli_dir)
+    images = load_local_images(nsd_ids, coco_ids, coco_splits, stimuli_dir)
     
     if not images:
         logger.error("No images loaded! Check stimuli directory.")

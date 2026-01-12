@@ -145,9 +145,12 @@ class CLIPCache:
         ids = set(int(i) for i in nsd_ids)
         sub = self._df[self._df["nsdId"].isin(list(ids))]
         
+        # Detect column name (clip512 or embedding)
+        emb_col = "clip512" if "clip512" in self._df.columns else "embedding"
+        
         result = {}
         for _, r in sub.iterrows():
-            emb = np.array(r.clip512, dtype=np.float32)
+            emb = np.array(r[emb_col], dtype=np.float32)
             # Ensure L2 normalization
             norm = np.linalg.norm(emb)
             if norm > 0:

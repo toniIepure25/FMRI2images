@@ -90,11 +90,12 @@ def plot_training_curves(experiments: List[Dict], output_dir: Path) -> None:
                 label=exp['name'],
                 alpha=0.85)
         
-        # Mark best epoch
-        best_idx = exp['best_epoch'] - 1
-        ax.scatter([exp['best_epoch']], [exp['losses'][best_idx]], 
-                  color=color, s=200, marker='*', 
-                  edgecolors='black', linewidths=1.5, zorder=10)
+        # Mark best epoch (only if losses exist)
+        if exp['losses'] and exp['best_epoch'] > 0:
+            best_idx = exp['best_epoch'] - 1
+            ax.scatter([exp['best_epoch']], [exp['losses'][best_idx]], 
+                      color=color, s=200, marker='*', 
+                      edgecolors='black', linewidths=1.5, zorder=10)
     
     ax.set_xlabel('Epoch', fontsize=14, fontweight='bold')
     ax.set_ylabel('Training Loss', fontsize=14, fontweight='bold')
@@ -182,6 +183,12 @@ def plot_loss_convergence(experiments: List[Dict], output_dir: Path) -> None:
     
     for ax, exp in zip(axes, experiments):
         losses = exp['losses']
+        
+        # Skip if no losses
+        if not losses:
+            ax.text(0.5, 0.5, 'No Data', ha='center', va='center', transform=ax.transAxes)
+            ax.set_title(exp['name'], fontsize=13, fontweight='bold')
+            continue
         
         # Calculate improvement from first epoch
         improvements = [(losses[0] - loss) / losses[0] * 100 for loss in losses]

@@ -49,6 +49,12 @@ diffusion = [
     "pillow"
 ]
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.black]
 line-length = 100
 target-version = ['py310']

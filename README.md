@@ -15,9 +15,32 @@ This repository implements state-of-the-art approaches for decoding visual infor
 - **Engineering docs (how to run + troubleshoot)**: `docs/README.md`
 - **Paper/thesis track (claims, protocol, reproducibility)**: `docs/paper/README.md`
 
-## 🚀 Canonical workflow (remote GPU pods)
+## 🚀 Quick Setup (Automated)
 
-The repo supports a fresh-clone flow designed for remote GPU machines:
+**NEW**: One-command automated setup for fresh installations:
+
+```bash
+# Clone and setup
+git clone https://github.com/toniIepure25/FMRI2images.git
+cd FMRI2images
+git checkout probabilistic-distribution
+
+# Run automated setup (30-45 minutes)
+chmod +x setup.sh
+./setup.sh
+```
+
+The setup script automatically:
+- ✅ Configures environment variables
+- ✅ Creates Python virtual environment
+- ✅ Installs all dependencies (PyTorch, transformers, etc.)
+- ✅ Downloads NSD data (~17GB)
+- ✅ Builds CLIP embeddings cache
+- ✅ Verifies installation
+
+**See**: [`QUICKSTART.md`](QUICKSTART.md) for detailed instructions and options.
+
+### Alternative: Manual Setup (Advanced)
 
 ```bash
 cp .env.example .env   # edit paths once (NSD_DATA_ROOT/CACHE_ROOT/OUTPUT_ROOT/CHECKPOINT_ROOT)
@@ -31,6 +54,7 @@ See:
 
 - `docs/REMOTE_QUICKSTART.md`
 - `docs/DATA_MODELS.md`
+- `QUICKSTART.md` - Comprehensive setup guide
 
 ## 🎯 Overview
 

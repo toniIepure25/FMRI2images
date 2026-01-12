@@ -48,7 +48,7 @@ model:
   
   # Stage 2: Latent → {μ, σ²} for multiple targets
   head_hidden_dim: 1024  # MAXED: Larger prediction heads
-  output_dim: 512        # CLIP ViT-L/14 dimension
+  output_dim: 768        # CLIP ViT-L/14 dimension (768-D embeddings)
   
   # Probabilistic settings
   uncertainty: "diag"     # Diagonal covariance (full per-dimension variance)

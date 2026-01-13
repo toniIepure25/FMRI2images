@@ -34,6 +34,10 @@ Training:
 This represents the MAXIMUM research level achievable with this codebase!
 """
 
+import os
+# Set CUDA memory allocation config BEFORE importing torch
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+
 import argparse
 import logging
 import sys

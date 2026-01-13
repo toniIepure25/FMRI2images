@@ -69,7 +69,7 @@ model:
 # Training Hyperparameters (MAXED OUT!)
 training:
   epochs: 50  # MAXED: More epochs for convergence
-  batch_size: 16  # MAXED for 20GB VRAM (was 4 for shared GPU, now full A100)
+  batch_size: 8  # Optimized for 20GB VRAM with safety margin (16 caused OOM during optimizer step)
   learning_rate: 0.0001  # Standard AdamW
   weight_decay: 1.0e-4   # MAXED: Stronger L2 regularization
   
@@ -109,7 +109,7 @@ advanced:
     weighting_power: 2.0        # x^2 weighting curve
   
   # Gradient accumulation (simulate larger batch)
-  gradient_accumulation_steps: 2  # 16 * 2 = 32 effective batch size (optimal for full VRAM)
+  gradient_accumulation_steps: 4  # 8 * 4 = 32 effective batch size (safe for 20GB VRAM)
   
   # Mixed precision training
   mixed_precision: true  # FP16 for faster training (~40% memory reduction)

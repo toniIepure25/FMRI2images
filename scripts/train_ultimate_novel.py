@@ -35,9 +35,6 @@ This represents the MAXIMUM research level achievable with this codebase!
 """
 
 import os
-# Set CUDA memory allocation config BEFORE importing torch
-os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
-
 import argparse
 import logging
 import sys
@@ -229,6 +226,9 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config, sc
                 optimizer.step()
             
             optimizer.zero_grad()
+            
+            # Clear CUDA cache to reduce fragmentation
+            torch.cuda.empty_cache()
         
         # Accumulate metrics (use unscaled loss for logging)
         total_recon_loss += recon_loss.item()

@@ -248,7 +248,7 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config, sc
     
     # Apply any remaining accumulated gradients at the end of the epoch
     if (batch_idx + 1) % accumulation_steps != 0:
-        logger.info(f"Applying remaining gradients from last {(batch_idx + 1) % accumulation_steps} batches")
+        log.info(f"Applying remaining gradients from last {(batch_idx + 1) % accumulation_steps} batches")
         if config['training'].get('grad_clip', 0) > 0:
             if use_amp:
                 scaler.unscale_(optimizer)

@@ -17,28 +17,52 @@ This repository implements state-of-the-art approaches for decoding visual infor
 
 ## 🚀 Quick Setup (Automated)
 
-**NEW**: One-command automated setup for fresh installations:
+**🆕 ENHANCED**: Professional setup scripts with GPU memory detection and batch size recommendations:
+
+### Option 1: Enhanced Setup (Recommended for New Machines)
 
 ```bash
-# Clone and setup
+# Clone repository
 git clone https://github.com/toniIepure25/FMRI2images.git
 cd FMRI2images
 git checkout probabilistic-distribution
 
-# Run automated setup (30-45 minutes)
+# Run enhanced automated setup (30-45 minutes)
+chmod +x setup_enhanced.sh
+./setup_enhanced.sh
+```
+
+**🧠 Intelligent Features:**
+- ✅ Auto-detects GPU memory → recommends optimal batch size
+- ✅ Configures cache directories (prevents disk full on shared servers)
+- ✅ Resume capability if interrupted
+- ✅ Comprehensive health checks and diagnostics
+- ✅ Detailed logging for troubleshooting
+- ✅ Validates all prerequisites
+
+**See**: [`MACHINE_SETUP.md`](MACHINE_SETUP.md) for complete documentation.
+
+### Option 2: Original Setup Script
+
+```bash
+# Standard setup (simpler, less features)
 chmod +x setup.sh
 ./setup.sh
 ```
 
-The setup script automatically:
-- ✅ Configures environment variables
-- ✅ Creates Python virtual environment
-- ✅ Installs all dependencies (PyTorch, transformers, etc.)
-- ✅ Downloads NSD data (~17GB)
-- ✅ Builds CLIP embeddings cache
-- ✅ Verifies installation
+**See**: [`QUICKSTART.md`](QUICKSTART.md) for detailed instructions.
 
-**See**: [`QUICKSTART.md`](QUICKSTART.md) for detailed instructions and options.
+### Option 3: GPU Monitoring for Shared Environments
+
+If GPU is congested, use the monitoring script:
+
+```bash
+# Wait for GPU to have 5GB free, then notify
+./wait_and_train.sh --min-memory 5 --notify
+
+# Auto-start training when GPU is ready
+./wait_and_train.sh --min-memory 5 --auto-start
+```
 
 ### Alternative: Manual Setup (Advanced)
 

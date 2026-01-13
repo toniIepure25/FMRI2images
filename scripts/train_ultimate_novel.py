@@ -205,8 +205,9 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config, sc
         else:
             loss.backward()
         
-        # Update weights every accumulation_steps (or at end of epoch)
-        if (batch_idx + 1) % accumulation_steps == 0 or (batch_idx + 1) == len(dataloader):
+        # Update weights every accumulation_steps
+        # Note: For IterableDataset we can't check len(dataloader), so we just use modulo
+        if (batch_idx + 1) % accumulation_steps == 0:
             # Gradient clipping for stability
             if config['training'].get('grad_clip', 0) > 0:
                 if use_amp:
@@ -240,6 +241,25 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config, sc
             pbar_dict['infonce'] = f'{recon_losses["infonce"].item():.4f}'
         
         pbar.set_postfix(pbar_dict)
+    
+    # Apply any remaining accumulated gradients at the end of the epoch
+    if (batch_idx + 1) % accumulation_steps != 0:
+        logger.info(f"Applying remaining gradients from last {(batch_idx + 1) % accumulation_steps} batches")
+        if config['training'].get('grad_clip', 0) > 0:
+            if use_amp:
+                scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(
+                model.parameters(), 
+                config['training']['grad_clip']
+            )
+        
+        if use_amp:
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            optimizer.step()
+        
+        optimizer.zero_grad()
     
     avg_recon = total_recon_loss / num_batches if num_batches > 0 else 0.0
     avg_kl = total_kl_loss / num_batches if num_batches > 0 else 0.0

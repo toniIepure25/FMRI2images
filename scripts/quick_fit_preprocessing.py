@@ -10,7 +10,7 @@ import logging
 # Add project root
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.fmri2img.data.preproc import NSDPreprocessor
+from src.fmri2img.data.preprocess import NSDPreprocessor
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)

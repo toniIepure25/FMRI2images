@@ -87,7 +87,7 @@ def create_dataloader_with_clip(config):
     log.info(f"  Session: {config['data']['session']}")
     
     # Load preprocessing artifacts if available
-    from src.fmri2img.data.preproc import NSDPreprocessor
+    from src.fmri2img.data.preprocess import NSDPreprocessor
     preprocessor_path = Path(f"outputs/preproc/{config['data']['subject']}/preprocessor.pkl")
     preprocessor = None
     

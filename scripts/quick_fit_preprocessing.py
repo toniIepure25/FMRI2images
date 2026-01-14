@@ -36,7 +36,7 @@ def fit_preprocessing_for_subject(subject="subj01"):
     
     # Fit preprocessing
     log.info("Fitting preprocessing pipeline (this may take several minutes)...")
-    preprocessor = NSDPreprocessor()
+    preprocessor = NSDPreprocessor(subject=subject)
     
     try:
         preprocessor.fit(

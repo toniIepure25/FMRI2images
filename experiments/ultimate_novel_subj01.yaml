@@ -70,11 +70,11 @@ model:
 training:
   epochs: 50  # MAXED: More epochs for convergence
   batch_size: 4  # Conservative for 20GB VRAM (gradient accumulation handles OOM during optimizer step)
-  learning_rate: 0.00005  # REDUCED: Lower LR for stability after checkpoint resume (was 0.0001)
+  learning_rate: 0.00001  # VERY LOW: Prevent divergence after checkpoint (was 0.00005, original 0.0001)
   weight_decay: 1.0e-4   # MAXED: Stronger L2 regularization
   
   # Gradient clipping for stability
-  grad_clip: 0.5  # REDUCED: Stricter clipping to prevent divergence (was 1.0)
+  grad_clip: 0.3  # VERY STRICT: Maximum stability (was 0.5, original 1.0)
   
   # Variational Inference (KL Divergence)
   kl_weight: 0.01  # β in β-VAE

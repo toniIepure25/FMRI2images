@@ -230,6 +230,16 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config, sc
             # Clear CUDA cache to reduce fragmentation
             torch.cuda.empty_cache()
         
+        # Check for NaN during training (immediate detection)
+        if torch.isnan(recon_loss) or torch.isnan(kl_loss):
+            log.error(f"\n❌ NaN detected at epoch {epoch}, batch {batch_idx}!")
+            log.error("   Stopping training immediately to prevent corruption.")
+            log.error("   Last valid losses: recon={:.4f}, kl={:.4f}".format(
+                total_recon_loss / max(num_batches, 1),
+                total_kl_loss / max(num_batches, 1)
+            ))
+            raise ValueError(f"NaN loss at epoch {epoch}, batch {batch_idx}")
+        
         # Accumulate metrics (use unscaled loss for logging)
         total_recon_loss += recon_loss.item()
         total_kl_loss += kl_loss.item()

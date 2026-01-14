@@ -345,13 +345,31 @@ def save_checkpoint(model, optimizer, epoch, metrics, run_dir, is_best=False):
         'metrics': metrics,
     }
     
-    # Save epoch checkpoint
-    torch.save(checkpoint, checkpoint_dir / f'epoch_{epoch:02d}.pt')
+    # Save epoch checkpoint with error handling
+    try:
+        checkpoint_path = checkpoint_dir / f'epoch_{epoch:02d}.pt'
+        torch.save(checkpoint, checkpoint_path)
+        log.info(f"  ✓ Checkpoint saved: {checkpoint_path}")
+    except RuntimeError as e:
+        log.error(f"  ❌ Failed to save checkpoint: {e}")
+        log.error(f"     This may be due to disk space issues")
+        # Try to get disk usage info
+        import shutil
+        try:
+            usage = shutil.disk_usage(checkpoint_dir)
+            log.error(f"     Disk usage: {usage.used / (1024**3):.1f}GB used, {usage.free / (1024**3):.1f}GB free")
+        except:
+            pass
+        # Don't crash training - continue without checkpoint
+        log.warning(f"  ⚠️  Continuing training without saving checkpoint for epoch {epoch}")
     
     # Save best model
     if is_best:
-        torch.save(checkpoint, checkpoint_dir / 'best_model.pt')
-        log.info(f"  ✓ Saved best model (epoch {epoch}, loss={metrics['recon_loss']:.4f})")
+        try:
+            torch.save(checkpoint, checkpoint_dir / 'best_model.pt')
+            log.info(f"  ✓ Saved best model (epoch {epoch}, loss={metrics['recon_loss']:.4f})")
+        except RuntimeError as e:
+            log.error(f"  ❌ Failed to save best model: {e}")
 
 
 def main():

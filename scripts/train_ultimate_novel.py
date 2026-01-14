@@ -269,6 +269,16 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config, sc
     avg_kl = total_kl_loss / num_batches if num_batches > 0 else 0.0
     avg_infonce = total_infonce_loss / num_batches if num_batches > 0 else 0.0
     
+    # Check for NaN (training divergence)
+    if torch.isnan(torch.tensor(avg_recon)) or torch.isnan(torch.tensor(avg_kl)):
+        log.error("❌ NaN detected in losses! Training has diverged.")
+        log.error("   This usually means:")
+        log.error("   1. Learning rate is too high")
+        log.error("   2. Gradient explosion occurred")
+        log.error("   3. Numerical instability in loss computation")
+        log.error("   Recommendation: Resume from previous checkpoint with lower learning rate")
+        raise ValueError("NaN loss detected - training diverged")
+    
     return avg_recon, avg_kl, avg_infonce
 
 

@@ -86,14 +86,29 @@ def create_dataloader_with_clip(config):
     log.info(f"  Subject: {config['data']['subject']}")
     log.info(f"  Session: {config['data']['session']}")
     
-    # Create dataset with CLIP cache
+    # Load preprocessing artifacts if available
+    from src.fmri2img.data.preproc import NSDPreprocessor
+    preprocessor_path = Path(f"outputs/preproc/{config['data']['subject']}/preprocessor.pkl")
+    preprocessor = None
+    
+    if preprocessor_path.exists():
+        log.info(f"  Loading preprocessing from: {preprocessor_path}")
+        preprocessor = NSDPreprocessor.load(str(preprocessor_path))
+        log.info(f"  ✅ Preprocessing loaded successfully")
+    else:
+        log.warning(f"  ⚠️  No preprocessing found at {preprocessor_path}")
+        log.warning(f"     Training with RAW fMRI data - may cause numerical instability!")
+        log.warning(f"     Run: python scripts/fit_preprocessing.py --subject {config['data']['subject']}")
+    
+    # Create dataset with CLIP cache and preprocessor
     dataset = NSDIterableDataset(
         index_path_or_root=str(index_path),
         subject=config['data']['subject'],
         session=config['data']['session'],
         shuffle=True,
         limit=config['data'].get('limit', None),
-        clip_cache=clip_cache_path if Path(clip_cache_path).exists() else None
+        clip_cache=clip_cache_path if Path(clip_cache_path).exists() else None,
+        preprocessor=preprocessor  # Add preprocessor here!
     )
     
     dataloader = DataLoader(dataset, batch_size=config['training']['batch_size'], num_workers=0)

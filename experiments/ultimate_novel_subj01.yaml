@@ -42,12 +42,12 @@ model:
   type: "probabilistic_multi_layer_encoder"
   
   # Stage 1: fMRI → Latent (ResidualMLPEncoder)
-  latent_dim: 512  # REDUCED: Fit in limited VRAM (was 768)
-  n_blocks: 4      # REDUCED: Shallower network (was 6)
+  latent_dim: 768  # ORIGINAL: Match checkpoint architecture
+  n_blocks: 6      # ORIGINAL: Match checkpoint architecture
   dropout: 0.3     # Dropout for MC uncertainty estimation
   
   # Stage 2: Latent → {μ, σ²} for multiple targets
-  head_hidden_dim: 768   # REDUCED: Smaller prediction heads (was 1024)
+  head_hidden_dim: 1024  # ORIGINAL: Match checkpoint architecture
   output_dim: 768        # CLIP ViT-L/14 dimension (768-D embeddings)
   
   # Probabilistic settings
@@ -58,10 +58,13 @@ model:
   
   # Multi-layer predictions (hierarchical features)
   enabled_layers:
-    - "final"     # Global semantic embedding ONLY (save memory)
+    - "layer_4"   # ORIGINAL: Match checkpoint
+    - "layer_8"   # ORIGINAL: Match checkpoint
+    - "layer_12"  # ORIGINAL: Match checkpoint
+    - "final"     # Global semantic embedding
   
   # Text-CLIP prediction (optional - MindEye Phase 2)
-  predict_text_clip: false  # DISABLED: Save memory (was true)
+  predict_text_clip: true  # ORIGINAL: Match checkpoint
 
 # Training Hyperparameters (MAXED OUT!)
 training:

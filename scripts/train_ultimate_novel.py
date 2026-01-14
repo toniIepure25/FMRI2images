@@ -415,12 +415,14 @@ def main():
         log.info(f"\n🔄 Resuming from checkpoint: {args.resume}")
         checkpoint = torch.load(args.resume, map_location=device)
         model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        # SKIP OPTIMIZER STATE - Reset optimizer to avoid corrupted momentum/state
+        log.warning("⚠️  NOT loading optimizer state - resetting optimizer from scratch")
+        # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         start_epoch = checkpoint['epoch'] + 1
         best_loss = checkpoint['metrics'].get('recon_loss', float('inf'))
         log.info(f"  ✓ Resumed from epoch {checkpoint['epoch']}")
         log.info(f"  ✓ Best loss so far: {best_loss:.4f}")
-        log.info(f"  ✓ Continuing from epoch {start_epoch}")
+        log.info(f"  ✓ Continuing from epoch {start_epoch} (optimizer reset)")
         
         # Try to load metrics history if available
         metrics_file = Path(args.resume).parent.parent / 'metrics.json'

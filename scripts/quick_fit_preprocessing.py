@@ -31,20 +31,47 @@ def fit_preprocessing_for_subject(subject="subj01"):
         log.error(f"   Build it first: python scripts/build_full_index.py")
         return False
     
+    # Load index and get training split
+    import pandas as pd
+    log.info("Loading index...")
+    index_df = pd.read_parquet(index_path)
+    
+    # Check for split column
+    if 'split' not in index_df.columns:
+        log.warning("Index doesn't have 'split' column, using first 80% as training")
+        n = len(index_df)
+        train_end = int(0.8 * n)
+        index_df['split'] = 'test'
+        index_df.loc[:train_end-1, 'split'] = 'train'
+    
+    train_df = index_df[index_df['split'] == 'train'].copy()
+    log.info(f"Loaded {len(train_df)} training samples from {len(index_df)} total")
+    
     # Create output directory
     Path(output_dir).mkdir(parents=True, exist_ok=True)
     
     # Fit preprocessing
     log.info("Fitting preprocessing pipeline (this may take several minutes)...")
-    preprocessor = NSDPreprocessor(subject=subject)
+    preprocessor = NSDPreprocessor(subject=subject, out_dir="outputs/preproc")
+    
+    # Create loader factory
+    from src.fmri2img.io.s3 import NIfTILoader, get_s3_filesystem
+    def loader_factory():
+        s3_fs = get_s3_filesystem()
+        loader = NIfTILoader(s3_fs)
+        def get_volume(loader, row):
+            img = loader.load(row['beta_path'])
+            data = img.get_fdata()
+            return data[..., row['beta_index']]
+        return loader, get_volume
     
     try:
         preprocessor.fit(
-            index_path=index_path,
-            subject=subject,
-            session=None,  # Use all sessions for fitting
-            reliability_mode="soft_weight",  # Soft reliability weighting
-            n_samples=1000  # Use 1000 samples for fitting
+            train_df=train_df,
+            loader_factory=loader_factory,
+            reliability_mode="soft_weight",
+            reliability_threshold=0.1,
+            min_variance=1e-6
         )
         
         # Save

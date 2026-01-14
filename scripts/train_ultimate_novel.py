@@ -161,10 +161,32 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config, sc
         # Use mixed precision if scaler provided
         use_amp = scaler is not None
         
+        # DEBUG: Check input data for NaN/Inf at first batch
+        if batch_idx == 0:
+            log.info(f"\n🔍 Debugging batch 0:")
+            log.info(f"   fMRI shape: {fmri.shape}")
+            log.info(f"   fMRI min/max/mean: {fmri.min():.4f} / {fmri.max():.4f} / {fmri.mean():.4f}")
+            log.info(f"   fMRI has NaN: {torch.isnan(fmri).any()}")
+            log.info(f"   fMRI has Inf: {torch.isinf(fmri).any()}")
+            log.info(f"   target_clip shape: {target_clip.shape}")
+            log.info(f"   target_clip min/max/mean: {target_clip.min():.4f} / {target_clip.max():.4f} / {target_clip.mean():.4f}")
+            log.info(f"   target_clip has NaN: {torch.isnan(target_clip).any()}")
+            log.info(f"   target_clip has Inf: {torch.isinf(target_clip).any()}")
+        
         # Forward pass with autocast for mixed precision
         with autocast(enabled=use_amp):
             # Forward pass: sample from probabilistic distribution
             outputs, kl_loss = model(fmri, sample=True, return_kl=True)
+            
+            # DEBUG: Check outputs at first batch
+            if batch_idx == 0:
+                pred_clip_check = outputs['final']
+                pred_mu_check = pred_clip_check.mu if hasattr(pred_clip_check, 'mu') else pred_clip_check
+                log.info(f"   pred_clip_mu shape: {pred_mu_check.shape}")
+                log.info(f"   pred_clip_mu min/max/mean: {pred_mu_check.min():.4f} / {pred_mu_check.max():.4f} / {pred_mu_check.mean():.4f}")
+                log.info(f"   pred_clip_mu has NaN: {torch.isnan(pred_mu_check).any()}")
+                log.info(f"   pred_clip_mu has Inf: {torch.isinf(pred_mu_check).any()}")
+                log.info(f"   kl_loss: {kl_loss.item():.4f}")
             
             # Compute reconstruction losses for 'final' layer
             pred_clip = outputs['final']

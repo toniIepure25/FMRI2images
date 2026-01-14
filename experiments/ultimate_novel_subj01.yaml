@@ -42,12 +42,12 @@ model:
   type: "probabilistic_multi_layer_encoder"
   
   # Stage 1: fMRI → Latent (ResidualMLPEncoder)
-  latent_dim: 768  # MAXED: Higher capacity (MindEye uses 1024)
-  n_blocks: 6      # MAXED: Deeper network (more layers = more capacity)
+  latent_dim: 512  # REDUCED: Fit in limited VRAM (was 768)
+  n_blocks: 4      # REDUCED: Shallower network (was 6)
   dropout: 0.3     # Dropout for MC uncertainty estimation
   
   # Stage 2: Latent → {μ, σ²} for multiple targets
-  head_hidden_dim: 1024  # MAXED: Larger prediction heads
+  head_hidden_dim: 768   # REDUCED: Smaller prediction heads (was 1024)
   output_dim: 768        # CLIP ViT-L/14 dimension (768-D embeddings)
   
   # Probabilistic settings
@@ -58,13 +58,10 @@ model:
   
   # Multi-layer predictions (hierarchical features)
   enabled_layers:
-    - "layer_4"   # Early visual features (edges, textures)
-    - "layer_8"   # Mid-level features (parts, patterns)
-    - "layer_12"  # High-level features (objects, scenes)
-    - "final"     # Global semantic embedding
+    - "final"     # Global semantic embedding ONLY (save memory)
   
   # Text-CLIP prediction (optional - MindEye Phase 2)
-  predict_text_clip: true  # MAXED: Predict text embeddings too!
+  predict_text_clip: false  # DISABLED: Save memory (was true)
 
 # Training Hyperparameters (MAXED OUT!)
 training:

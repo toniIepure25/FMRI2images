@@ -296,6 +296,7 @@ def save_checkpoint(model, optimizer, epoch, metrics, run_dir, is_best=False):
 def main():
     parser = argparse.ArgumentParser(description='Train ULTIMATE model with ALL novel contributions')
     parser.add_argument('--config', type=str, required=True, help='Path to config YAML')
+    parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint to resume from (e.g., runs/.../checkpoints/epoch_05.pt)')
     args = parser.parse_args()
     
     # Load config
@@ -385,8 +386,31 @@ def main():
     use_amp = config['advanced'].get('mixed_precision', True) and torch.cuda.is_available()
     scaler = GradScaler() if use_amp else None
     
-    log.info(f"✓ Training setup complete")
-    log.info(f"  Epochs: {config['training']['epochs']}")
+    # Resume from checkpoint if provided
+    start_epoch = 1
+    best_loss = float('inf')
+    metrics_history = []
+    
+    if args.resume:
+        log.info(f"\n🔄 Resuming from checkpoint: {args.resume}")
+        checkpoint = torch.load(args.resume, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = checkpoint['epoch'] + 1
+        best_loss = checkpoint['metrics'].get('recon_loss', float('inf'))
+        log.info(f"  ✓ Resumed from epoch {checkpoint['epoch']}")
+        log.info(f"  ✓ Best loss so far: {best_loss:.4f}")
+        log.info(f"  ✓ Continuing from epoch {start_epoch}")
+        
+        # Try to load metrics history if available
+        metrics_file = Path(args.resume).parent.parent / 'metrics.json'
+        if metrics_file.exists():
+            with open(metrics_file, 'r') as f:
+                metrics_history = json.load(f)
+            log.info(f"  ✓ Loaded {len(metrics_history)} previous metrics")
+    
+    log.info(f"\n✓ Training setup complete")
+    log.info(f"  Epochs: {start_epoch} → {config['training']['epochs']}")
     log.info(f"  Batch size: {config['training']['batch_size']}")
     log.info(f"  Learning rate: {config['training']['learning_rate']}")
     log.info(f"  KL weight: {config['training'].get('kl_weight', 0.01)}")
@@ -395,13 +419,13 @@ def main():
     
     # Training loop
     print("\n" + "="*100)
-    print("STARTING TRAINING".center(100))
+    if args.resume:
+        print(f"RESUMING TRAINING FROM EPOCH {start_epoch}".center(100))
+    else:
+        print("STARTING TRAINING".center(100))
     print("="*100 + "\n")
     
-    best_loss = float('inf')
-    metrics_history = []
-    
-    for epoch in range(1, config['training']['epochs'] + 1):
+    for epoch in range(start_epoch, config['training']['epochs'] + 1):
         avg_recon, avg_kl, avg_infonce = train_epoch_ultimate(
             model, dataloader, optimizer, device, epoch, config, scaler
         )

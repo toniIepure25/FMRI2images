@@ -88,17 +88,21 @@ def create_dataloader_with_clip(config):
     
     # Load preprocessing artifacts if available
     from src.fmri2img.data.preprocess import NSDPreprocessor
-    preprocessor_path = Path(f"outputs/preproc/{config['data']['subject']}/preprocessor.pkl")
+    preprocessor_dir = Path(f"outputs/preproc/{config['data']['subject']}")
     preprocessor = None
     
-    if preprocessor_path.exists():
-        log.info(f"  Loading preprocessing from: {preprocessor_path}")
-        preprocessor = NSDPreprocessor.load(str(preprocessor_path))
-        log.info(f"  ✅ Preprocessing loaded successfully")
+    if preprocessor_dir.exists() and (preprocessor_dir / "scaler_mean.npy").exists():
+        log.info(f"  Loading preprocessing from: {preprocessor_dir}")
+        preprocessor = NSDPreprocessor(subject=config['data']['subject'], out_dir="outputs/preproc")
+        if preprocessor.load_artifacts():
+            log.info(f"  ✅ Preprocessing loaded successfully")
+        else:
+            log.warning(f"  ⚠️  Failed to load preprocessing artifacts")
+            preprocessor = None
     else:
-        log.warning(f"  ⚠️  No preprocessing found at {preprocessor_path}")
+        log.warning(f"  ⚠️  No preprocessing found at {preprocessor_dir}")
         log.warning(f"     Training with RAW fMRI data - may cause numerical instability!")
-        log.warning(f"     Run: python scripts/fit_preprocessing.py --subject {config['data']['subject']}")
+        log.warning(f"     Run: python scripts/quick_fit_preprocessing.py {config['data']['subject']}")
     
     # Create dataset with CLIP cache and preprocessor
     dataset = NSDIterableDataset(

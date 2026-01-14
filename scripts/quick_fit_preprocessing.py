@@ -74,11 +74,14 @@ def fit_preprocessing_for_subject(subject="subj01"):
             min_variance=1e-6
         )
         
-        # Save
-        output_path = Path(output_dir) / "preprocessor.pkl"
-        preprocessor.save(str(output_path))
-        
-        log.info(f"✅ Preprocessing fitted and saved to: {output_path}")
+        # Artifacts are automatically saved during fit()
+        log.info(f"✅ Preprocessing fitted and saved to: {output_dir}")
+        log.info(f"   Artifacts:")
+        log.info(f"     - scaler_mean.npy")
+        log.info(f"     - scaler_std.npy")
+        log.info(f"     - reliability_mask.npy")
+        log.info(f"     - reliability_weights.npy")
+        log.info(f"     - meta.json")
         
         # Print summary
         summary = preprocessor.summary()

@@ -333,8 +333,15 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config, sc
     return avg_recon, avg_kl, avg_infonce
 
 
-def save_checkpoint(model, optimizer, epoch, metrics, run_dir, is_best=False):
-    """Save model checkpoint with all metrics."""
+def save_checkpoint(model, optimizer, epoch, metrics, run_dir, is_best=False, keep_last_n=3):
+    """
+    Save model checkpoint with all metrics.
+    
+    Args:
+        keep_last_n: Number of recent epoch checkpoints to keep (default: 3)
+                     Older checkpoints are automatically deleted to save disk space.
+                     best_model.pt is always kept regardless of this setting.
+    """
     checkpoint_dir = run_dir / "checkpoints"
     checkpoint_dir.mkdir(exist_ok=True)
     
@@ -344,6 +351,21 @@ def save_checkpoint(model, optimizer, epoch, metrics, run_dir, is_best=False):
         'optimizer_state_dict': optimizer.state_dict(),
         'metrics': metrics,
     }
+    
+    # Clean up old checkpoints BEFORE saving new one (to free space)
+    import glob
+    epoch_checkpoints = sorted(glob.glob(str(checkpoint_dir / "epoch_*.pt")))
+    if len(epoch_checkpoints) >= keep_last_n:
+        # Delete oldest checkpoints, keeping only keep_last_n-1 (to make room for new one)
+        to_delete = epoch_checkpoints[:-(keep_last_n-1)]
+        for old_ckpt in to_delete:
+            try:
+                import os
+                size_mb = os.path.getsize(old_ckpt) / (1024**2)
+                os.remove(old_ckpt)
+                log.info(f"  🗑️  Deleted old checkpoint: {Path(old_ckpt).name} ({size_mb:.1f}MB freed)")
+            except Exception as e:
+                log.warning(f"  ⚠️  Failed to delete {Path(old_ckpt).name}: {e}")
     
     # Save epoch checkpoint with error handling
     try:

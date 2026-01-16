@@ -158,8 +158,8 @@ def generate_summary_report(exp_dir: Path, results: dict, config: dict, checkpoi
 **Training Hyperparameters**:
 - Learning Rate: {config['training']['learning_rate']}
 - Batch Size: {config['training']['batch_size']}
-- Gradient Accumulation: {config['training']['gradient_accumulation_steps']}
-- Effective Batch: {config['training']['batch_size'] * config['training']['gradient_accumulation_steps']}
+- Gradient Accumulation: {config['training'].get('gradient_accumulation_steps', config.get('advanced', {}).get('gradient_accumulation_steps', 1))}
+- Effective Batch: {config['training']['batch_size'] * config['training'].get('gradient_accumulation_steps', config.get('advanced', {}).get('gradient_accumulation_steps', 1))}
 - Gradient Clip: {config['training']['grad_clip']}
 - KL Weight: {config['training']['kl_weight']}
 
@@ -167,7 +167,7 @@ def generate_summary_report(exp_dir: Path, results: dict, config: dict, checkpoi
 - Latent Dim: {config['model']['latent_dim']}
 - Blocks: {config['model']['n_blocks']}
 - Head Hidden: {config['model']['head_hidden_dim']}
-- Dropout: {config['model']['dropout_rate']}
+- Dropout: {config['model'].get('dropout_rate', config['model'].get('dropout', 'N/A'))}
 - Enabled Layers: {', '.join(config['model']['enabled_layers'])}
 
 **Loss Weights**:

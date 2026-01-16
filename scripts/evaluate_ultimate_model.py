@@ -245,9 +245,10 @@ def evaluate_model(model: torch.nn.Module, loader, device: str, config: dict) ->
     batch_metrics = []
     
     with torch.no_grad():
-        for batch_idx, (fmri, clip_img, clip_text) in enumerate(tqdm(loader, desc="Evaluating")):
-            fmri = fmri.to(device)
-            clip_img = clip_img.to(device)
+        for batch_idx, batch in enumerate(tqdm(loader, desc="Evaluating")):
+            # Extract data from batch dictionary
+            fmri = batch['fmri'].to(device)
+            clip_target = batch['clip'].to(device)
             
             # Forward pass
             outputs = model(fmri)
@@ -258,8 +259,8 @@ def evaluate_model(model: torch.nn.Module, loader, device: str, config: dict) ->
                 all_kl_divs.append(outputs['final']['kl_div'].mean().item())
             
             # Compute batch-level metrics
-            batch_cos = compute_cosine_similarity(pred_clip, clip_img)
-            batch_retrieval = compute_retrieval_metrics(pred_clip, clip_img)
+            batch_cos = compute_cosine_similarity(pred_clip, clip_target)
+            batch_retrieval = compute_retrieval_metrics(pred_clip, clip_target)
             
             batch_metrics.append({
                 **batch_cos,
@@ -269,7 +270,7 @@ def evaluate_model(model: torch.nn.Module, loader, device: str, config: dict) ->
             
             # Accumulate for global metrics
             all_predictions.append(pred_clip.cpu())
-            all_targets.append(clip_img.cpu())
+            all_targets.append(clip_target.cpu())
     
     # Concatenate all batches
     all_predictions = torch.cat(all_predictions, dim=0)

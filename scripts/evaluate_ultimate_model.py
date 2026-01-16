@@ -85,7 +85,6 @@ def load_checkpoint(checkpoint_path: Path, config: dict, device: str) -> Tuple[t
     epoch = checkpoint.get('epoch', 'N/A')
     print(f"   ✓ Loaded from epoch: {epoch}")
     print(f"   ✓ Model parameters: {sum(p.numel() for p in model.parameters()):,}")
-    print(f"   ✓ Input dimension: {model.input_projection.weight.shape[1]:,}")
     
     return model, checkpoint
 

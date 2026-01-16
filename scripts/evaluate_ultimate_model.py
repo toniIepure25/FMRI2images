@@ -34,7 +34,7 @@ from sklearn.metrics import mean_squared_error
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from fmri2img.models.novel_two_stage import ProbabilisticMultiLayerTwoStageEncoder
+from fmri2img.models.encoders import ProbabilisticMultiLayerTwoStageEncoder
 from fmri2img.data.torch_dataset import NSDIterableDataset
 from fmri2img.data.preprocess import NSDPreprocessor
 

@@ -30,11 +30,16 @@ from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-# Import evaluation logic from evaluate_ultimate_model.py
-from evaluate_ultimate_model import (
-    load_checkpoint, prepare_dataloader, evaluate_model, 
-    print_results, compute_cosine_similarity
-)
+# Import evaluation logic - need to import as module
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+
+import evaluate_ultimate_model
+load_checkpoint = evaluate_ultimate_model.load_checkpoint
+prepare_dataloader = evaluate_ultimate_model.prepare_dataloader
+evaluate_model = evaluate_ultimate_model.evaluate_model
+print_results = evaluate_ultimate_model.print_results
 
 import torch
 

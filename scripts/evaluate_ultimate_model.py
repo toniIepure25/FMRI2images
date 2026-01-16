@@ -250,13 +250,16 @@ def evaluate_model(model: torch.nn.Module, loader, device: str, config: dict) ->
             fmri = batch['fmri'].to(device)
             clip_target = batch['clip'].to(device)
             
-            # Forward pass
-            outputs = model(fmri)
-            pred_clip = outputs['final']['mu']  # Use mean prediction (no sampling)
+            # Forward pass - model returns (outputs_dict, kl_loss)
+            outputs_dict, kl_loss = model(fmri, sample=False, return_kl=True)
             
-            # Store KL divergence
-            if 'kl_div' in outputs['final']:
-                all_kl_divs.append(outputs['final']['kl_div'].mean().item())
+            # Get the 'final' layer output (main CLIP prediction)
+            final_output = outputs_dict['final']  # ProbabilisticLayerOutput dataclass
+            pred_clip = final_output.mu  # Use mean prediction (no sampling)
+            
+            # Store KL divergence if available
+            if kl_loss is not None:
+                all_kl_divs.append(kl_loss.item())
             
             # Compute batch-level metrics
             batch_cos = compute_cosine_similarity(pred_clip, clip_target)

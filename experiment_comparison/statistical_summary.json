@@ -1,0 +1,39 @@
+{
+  "total_experiments": 3,
+  "experiments": [
+    {
+      "name": "baseline_subj01",
+      "best_loss": Infinity,
+      "best_epoch": 0,
+      "final_loss": null,
+      "total_epochs": 0,
+      "loss_std": NaN,
+      "loss_variance": NaN,
+      "convergence_speed": 0
+    },
+    {
+      "name": "novel_subj01",
+      "best_loss": Infinity,
+      "best_epoch": 0,
+      "final_loss": null,
+      "total_epochs": 0,
+      "loss_std": NaN,
+      "loss_variance": NaN,
+      "convergence_speed": 0
+    },
+    {
+      "name": "ablation_subj01",
+      "best_loss": Infinity,
+      "best_epoch": 0,
+      "final_loss": null,
+      "total_epochs": 0,
+      "loss_std": NaN,
+      "loss_variance": NaN,
+      "convergence_speed": 0
+    }
+  ],
+  "winner": {
+    "name": "baseline_subj01",
+    "loss": Infinity
+  }
+}

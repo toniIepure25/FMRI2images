@@ -1,0 +1,15 @@
+{
+  "checkpoint_path": "/bigdata/userhome/students/md5_sd8f61177fd2312b9b32bd118ad1/runs/20260115_172845_ultimate_novel_subj01/checkpoints/best_model.pt",
+  "epoch": 28,
+  "date_evaluated": "2026-01-17T01:09:49.048873",
+  "num_epochs_trained": 28,
+  "target_epochs": 50,
+  "training_completed": false,
+  "final_training_metrics": {
+    "epoch": 28,
+    "recon_loss": 0.4341596637634521,
+    "kl_loss": 0.26328491086655476,
+    "infonce_loss": 1.4482227081948138,
+    "total_loss": 0.4367925128721177
+  }
+}

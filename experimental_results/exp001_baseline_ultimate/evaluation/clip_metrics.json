@@ -1,0 +1,16 @@
+{
+  "cosine_similarity": {
+    "cosine_mean": 0.6831605434417725,
+    "cosine_median": 0.6874530911445618,
+    "cosine_std": 0.054646819829940796,
+    "cosine_min": 0.4472299814224243,
+    "cosine_max": 0.760505735874176
+  },
+  "retrieval": {
+    "top1_accuracy": 0.013333333333333334,
+    "top5_accuracy": 0.06666666666666667,
+    "top10_accuracy": 0.13333333333333333,
+    "mean_rank": 38.0,
+    "median_rank": 38.0
+  }
+}

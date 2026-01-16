@@ -1,0 +1,4 @@
+Experiment,Best Loss,Best Epoch,Final Loss,Total Epochs,Improvement (%),Run Directory
+baseline_subj01,inf,0,N/A,0,0.00%,20260112_191153_baseline_subj01
+novel_subj01,inf,0,N/A,0,0.00%,20260112_191216_novel_subj01
+ablation_subj01,inf,0,N/A,0,0.00%,20260112_191239_ablation_subj01

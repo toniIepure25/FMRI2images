@@ -241,8 +241,8 @@ def generate_summary_report(exp_dir: Path, results: dict, config: dict, checkpoi
 
 ---
 
-*Evaluation completed on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*
-""".format(exp_name=exp_dir.name)
+*Evaluation completed on {eval_datetime}*
+""".format(exp_name=exp_dir.name, eval_datetime=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     
     # Save report
     output_path = exp_dir / "evaluation" / "summary_report.md"

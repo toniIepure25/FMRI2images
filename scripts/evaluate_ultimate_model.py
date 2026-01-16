@@ -140,17 +140,24 @@ def prepare_dataloader(config: dict, device: str, num_samples: int = None):
     val_size = int(len(index_df) * 0.1)
     val_df = index_df.iloc[-val_size:]
     
+    # Determine number of samples to use
     if num_samples and num_samples < len(val_df):
-        val_df = val_df.sample(n=num_samples, random_state=42)
+        eval_samples = num_samples
+    else:
+        eval_samples = len(val_df)
     
-    print(f"   ✓ Evaluation samples: {len(val_df)}")
+    print(f"   ✓ Evaluation samples: {eval_samples}")
     
-    # Create dataset
+    # Create dataset using the index path and limit parameter
+    # NSDIterableDataset will read the file and apply limit/shuffle internally
+    subject = config['data'].get('subject', 'subj01')
     dataset = NSDIterableDataset(
-        index_df=val_df,
-        clip_cache_path=config['data']['clip_cache_path'],
+        index_path_or_root=index_path,
+        subject=subject,
+        shuffle=False,  # No shuffle for reproducible evaluation
+        limit=eval_samples,
         preprocessor=preprocessor,
-        augment=False  # No augmentation for evaluation
+        clip_cache=config['data']['clip_cache_path']
     )
     
     loader = torch.utils.data.DataLoader(
@@ -160,7 +167,7 @@ def prepare_dataloader(config: dict, device: str, num_samples: int = None):
         pin_memory=True
     )
     
-    return loader, len(val_df)
+    return loader, eval_samples
 
 
 def compute_cosine_similarity(predictions: torch.Tensor, targets: torch.Tensor) -> Dict[str, float]:

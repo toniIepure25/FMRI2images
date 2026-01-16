@@ -109,12 +109,26 @@ def prepare_dataloader(config: dict, device: str, num_samples: int = None):
         else:
             preprocessor = None
     
-    # Load index
+    # Load index with robust error handling
+    index_path = config['data']['index_path']
+    print(f"   Loading index from: {index_path}")
+    
     try:
-        index_df = pd.read_csv(config['data']['index_path'])
+        index_df = pd.read_csv(index_path)
     except UnicodeDecodeError:
-        # Try with latin-1 encoding if utf-8 fails
-        index_df = pd.read_csv(config['data']['index_path'], encoding='latin-1')
+        try:
+            # Try with latin-1 encoding if utf-8 fails
+            index_df = pd.read_csv(index_path, encoding='latin-1')
+        except:
+            # Last resort: try with errors='ignore'
+            index_df = pd.read_csv(index_path, encoding='utf-8', errors='ignore')
+    except pd.errors.ParserError:
+        # CSV parsing error - try with on_bad_lines='skip'
+        try:
+            index_df = pd.read_csv(index_path, on_bad_lines='skip')
+        except:
+            index_df = pd.read_csv(index_path, encoding='latin-1', on_bad_lines='skip')
+    
     print(f"   ✓ Loaded index: {len(index_df)} samples")
     
     # Use validation split (last 10%)

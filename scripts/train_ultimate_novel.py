@@ -146,6 +146,10 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config, sc
     total_infonce_loss = 0.0
     num_batches = 0
     
+    # CLIP metrics tracking
+    all_cosine_sims = []
+    all_retrieval_ranks = []
+    
     # Loss weights from config
     loss_weights = config['training']['loss_weights']
     kl_weight = config['training'].get('kl_weight', 0.01)
@@ -215,6 +219,24 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config, sc
             
             # Extract mean prediction from probabilistic output
             pred_clip_mu = pred_clip.mu if hasattr(pred_clip, 'mu') else pred_clip
+            
+            # Compute CLIP metrics (for logging only, not used in loss)
+            with torch.no_grad():
+                # Normalize embeddings
+                pred_norm = F.normalize(pred_clip_mu, p=2, dim=1)
+                target_norm = F.normalize(target_clip, p=2, dim=1)
+                
+                # Cosine similarity per sample
+                cosine_sim = (pred_norm * target_norm).sum(dim=1)  # (B,)
+                all_cosine_sims.extend(cosine_sim.cpu().numpy().tolist())
+                
+                # Retrieval: compute similarity matrix and rank
+                sim_matrix = pred_norm @ target_norm.T  # (B, B)
+                for i in range(sim_matrix.size(0)):
+                    # Rank of correct target (diagonal element)
+                    correct_sim = sim_matrix[i, i]
+                    rank = (sim_matrix[i] > correct_sim).sum().item() + 1
+                    all_retrieval_ranks.append(rank)
             
             # 1. MSE Loss
             if loss_weights.get('mse', 0) > 0:
@@ -330,7 +352,7 @@ def train_epoch_ultimate(model, dataloader, optimizer, device, epoch, config, sc
         log.error("   Recommendation: Resume from previous checkpoint with lower learning rate")
         raise ValueError("NaN loss detected - training diverged")
     
-    return avg_recon, avg_kl, avg_infonce
+    return avg_recon, avg_kl, avg_infonce, clip_metrics
 
 
 def save_checkpoint(model, optimizer, epoch, metrics, run_dir, is_best=False, keep_last_n=3):

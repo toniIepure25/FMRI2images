@@ -45,9 +45,30 @@ def load_checkpoint(checkpoint_path: Path, config: dict, device: str) -> Tuple[t
     
     checkpoint = torch.load(checkpoint_path, map_location=device)
     
+    # Auto-detect input dimension from checkpoint (try multiple possible keys)
+    input_dim = None
+    state_dict = checkpoint['model_state_dict']
+    
+    # Try different possible input layer names
+    for key in ['input_projection.weight', 'encoder.0.weight', 'fc1.weight', 'input_layer.weight']:
+        if key in state_dict:
+            input_dim = state_dict[key].shape[1]
+            break
+    
+    # Fallback: find first layer with 'weight' that looks like input
+    if input_dim is None:
+        for key in sorted(state_dict.keys()):
+            if 'weight' in key and len(state_dict[key].shape) == 2:
+                input_dim = state_dict[key].shape[1]
+                print(f"   Auto-detected input_dim from: {key}")
+                break
+    
+    if input_dim is None:
+        raise ValueError("Could not auto-detect input dimension from checkpoint")
+    
     # Initialize model
     model = ProbabilisticMultiLayerTwoStageEncoder(
-        input_dim=checkpoint['model_state_dict']['input_projection.weight'].shape[1],  # Auto-detect
+        input_dim=input_dim,
         latent_dim=config['model']['latent_dim'],
         output_dim=config['model']['output_dim'],
         n_blocks=config['model']['n_blocks'],

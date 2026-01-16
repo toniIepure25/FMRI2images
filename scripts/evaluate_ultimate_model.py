@@ -45,26 +45,28 @@ def load_checkpoint(checkpoint_path: Path, config: dict, device: str) -> Tuple[t
     
     checkpoint = torch.load(checkpoint_path, map_location=device)
     
-    # Auto-detect input dimension from checkpoint (try multiple possible keys)
+    # Auto-detect input dimension from checkpoint
+    # Find the layer with largest input dimension (likely the fMRI input layer)
     input_dim = None
     state_dict = checkpoint['model_state_dict']
     
-    # Try different possible input layer names
-    for key in ['input_projection.weight', 'encoder.0.weight', 'fc1.weight', 'input_layer.weight']:
-        if key in state_dict:
-            input_dim = state_dict[key].shape[1]
-            break
+    # Look for layers with very large input dimension (fMRI voxels)
+    max_input_dim = 0
+    selected_key = None
     
-    # Fallback: find first layer with 'weight' that looks like input
-    if input_dim is None:
-        for key in sorted(state_dict.keys()):
-            if 'weight' in key and len(state_dict[key].shape) == 2:
-                input_dim = state_dict[key].shape[1]
-                print(f"   Auto-detected input_dim from: {key}")
-                break
+    for key in state_dict.keys():
+        if 'weight' in key and len(state_dict[key].shape) == 2:
+            # shape[1] is input dimension, shape[0] is output
+            current_input_dim = state_dict[key].shape[1]
+            if current_input_dim > max_input_dim:
+                max_input_dim = current_input_dim
+                selected_key = key
+                input_dim = current_input_dim
     
     if input_dim is None:
         raise ValueError("Could not auto-detect input dimension from checkpoint")
+    
+    print(f"   ✓ Auto-detected input_dim={input_dim:,} from: {selected_key}")
     
     # Initialize model
     model = ProbabilisticMultiLayerTwoStageEncoder(

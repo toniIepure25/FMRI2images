@@ -73,7 +73,6 @@ def load_checkpoint(checkpoint_path: Path, config: dict, device: str) -> Tuple[t
         output_dim=config['model']['output_dim'],
         n_blocks=config['model']['n_blocks'],
         head_hidden_dim=config['model']['head_hidden_dim'],
-        dropout_rate=config['model'].get('dropout_rate', 0.1),  # Default 0.1
         enabled_layers=config['model']['enabled_layers'],
         predict_text_clip=config['model'].get('predict_text_clip', False)
     ).to(device)

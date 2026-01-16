@@ -100,7 +100,12 @@ def prepare_dataloader(config: dict, device: str, num_samples: int = None):
     if preprocessor_dir.exists():
         preprocessor = NSDPreprocessor(subject=subject, out_dir="outputs/preproc")
         if preprocessor.load_artifacts():
-            print(f"   ✓ Preprocessing loaded ({preprocessor.n_voxels_kept:,} voxels)")
+            # Get voxel count from loaded mask
+            try:
+                voxel_count = preprocessor.mask.sum() if hasattr(preprocessor, 'mask') else 'unknown'
+            except:
+                voxel_count = 'loaded'
+            print(f"   ✓ Preprocessing loaded ({voxel_count} voxels)")
         else:
             preprocessor = None
     

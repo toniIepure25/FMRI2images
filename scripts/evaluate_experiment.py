@@ -182,37 +182,70 @@ def generate_summary_report(exp_dir: Path, results: dict, config: dict, checkpoi
 """
     
     # Add recommendation based on metrics
+    # Primary metric: Cosine similarity (most reliable for embedding quality)
+    # Secondary: Retrieval (only meaningful with large validation sets)
     cosine_mean = results['global']['cosine_similarity']['cosine_mean']
     top5 = results['global']['retrieval']['top5_accuracy']
+    num_samples = results['num_samples']
+    kl_div = results['kl_divergence']['mean']
     
-    if cosine_mean > 0.50 and top5 > 0.50:
+    # Prioritize cosine similarity as main quality indicator
+    if cosine_mean > 0.60:
+        report += """### ✅ EXCELLENT - Strong Embedding Quality
+- **Cosine Similarity: {:.4f}** - Outstanding performance!
+- **Recommendation**: This model shows excellent learning
+  - Continue training to epoch 50 for potential further improvement
+  - Archive as strong baseline for thesis
+  - Consider generating reconstructions for visualization
+- **Note**: Low retrieval metrics are expected with small validation sets (<1000 samples)
+
+""".format(cosine_mean)
+    elif cosine_mean > 0.50:
         report += """### ✅ EXCELLENT - Proceed with Confidence
-- Metrics indicate strong embedding quality
-- **Recommendation**: Archive this model, generate reconstructions for thesis
-- Consider this as a strong baseline or even final model
+- **Cosine Similarity: {:.4f}** - Strong embedding alignment
+- **Recommendation**: Model is learning well
+  - Continue training to target epochs
+  - Archive for comparison
+  - May generate reconstructions
+- **Note**: Retrieval metrics less reliable with {num_samples} samples
 
-"""
-    elif cosine_mean > 0.40 and top5 > 0.40:
+""".format(cosine_mean, num_samples=num_samples)
+    elif cosine_mean > 0.40:
         report += """### ✅ GOOD - Acceptable Performance
-- Metrics show solid learning
-- **Recommendation**: Archive for comparison, may generate reconstructions
-- Could try further hyperparameter optimization
+- **Cosine Similarity: {:.4f}** - Solid learning progress
+- **Recommendation**: 
+  - Continue training with current hyperparameters
+  - Monitor for further improvement
+  - Consider architecture tweaks if plateau persists
 
-"""
-    elif cosine_mean > 0.30 and top5 > 0.25:
+""".format(cosine_mean)
+    elif cosine_mean > 0.30:
         report += """### ⚠️ MODERATE - Room for Improvement
-- Model is learning but not optimal
-- **Recommendation**: Try modifications before reconstructing images
-- Consider: higher LR, more epochs, architecture changes
+- **Cosine Similarity: {:.4f}** - Model learning but suboptimal
+- **Recommendation**: 
+  - Review loss weights and learning rate
+  - Check data preprocessing quality
+  - Consider increasing model capacity
 
-"""
+""".format(cosine_mean)
     else:
         report += """### ❌ NEEDS IMPROVEMENT
-- Metrics below expectations
-- **Recommendation**: Modify hyperparameters before continuing
-- Check: data preprocessing, loss weights, learning rate
+- **Cosine Similarity: {:.4f}** - Below target performance
+- **Recommendation**: Investigate and modify before continuing
+  - Check: data preprocessing, loss weights, learning rate
+  - Verify: training curves, gradient flow, data quality
 
-"""
+""".format(cosine_mean)
+    
+    # Add KL divergence interpretation
+    if kl_div < 0.05:
+        report += """
+**⚠️ KL Divergence Warning**: {:.4f} is very low - posterior may have collapsed to prior. Consider reducing KL weight.
+""".format(kl_div)
+    elif kl_div > 0.5:
+        report += """
+**⚠️ KL Divergence Warning**: {:.4f} is high - strong divergence from prior. Consider increasing KL weight for better regularization.
+""".format(kl_div)
     
     report += """
 ### Next Steps

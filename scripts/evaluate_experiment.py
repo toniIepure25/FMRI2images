@@ -64,8 +64,8 @@ def save_training_info(exp_dir: Path, checkpoint_path: Path, config: dict):
         'epoch': checkpoint.get('epoch', 'N/A'),
         'date_evaluated': datetime.now().isoformat(),
         'num_epochs_trained': checkpoint.get('epoch', 0),
-        'target_epochs': config['training']['num_epochs'],
-        'training_completed': checkpoint.get('epoch', 0) >= config['training']['num_epochs']
+        'target_epochs': config['training'].get('num_epochs', config['training'].get('epochs', 'N/A')),
+        'training_completed': checkpoint.get('epoch', 0) >= config['training'].get('num_epochs', config['training'].get('epochs', 999))
     }
     
     if 'metrics' in checkpoint:
@@ -84,7 +84,7 @@ def generate_summary_report(exp_dir: Path, results: dict, config: dict, checkpoi
     report = f"""# Experiment Evaluation Summary: {exp_dir.name}
 
 **Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  
-**Epoch**: {checkpoint_info.get('epoch', 'N/A')} / {config['training']['num_epochs']}  
+**Epoch**: {checkpoint_info.get('epoch', 'N/A')} / {config['training'].get('num_epochs', config['training'].get('epochs', 'N/A'))}  
 **Samples Evaluated**: {results['num_samples']}
 
 ---

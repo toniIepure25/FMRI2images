@@ -109,25 +109,30 @@ def prepare_dataloader(config: dict, device: str, num_samples: int = None):
         else:
             preprocessor = None
     
-    # Load index with robust error handling
+    # Load index with robust error handling for both Parquet and CSV
     index_path = config['data']['index_path']
     print(f"   Loading index from: {index_path}")
     
-    try:
-        index_df = pd.read_csv(index_path)
-    except UnicodeDecodeError:
+    # Check if file is Parquet or CSV
+    if index_path.endswith('.parquet'):
+        index_df = pd.read_parquet(index_path)
+    else:
+        # Try CSV with multiple fallback strategies
         try:
-            # Try with latin-1 encoding if utf-8 fails
-            index_df = pd.read_csv(index_path, encoding='latin-1')
-        except:
-            # Last resort: try with errors='ignore'
-            index_df = pd.read_csv(index_path, encoding='utf-8', errors='ignore')
-    except pd.errors.ParserError:
-        # CSV parsing error - try with on_bad_lines='skip'
-        try:
-            index_df = pd.read_csv(index_path, on_bad_lines='skip')
-        except:
-            index_df = pd.read_csv(index_path, encoding='latin-1', on_bad_lines='skip')
+            index_df = pd.read_csv(index_path)
+        except UnicodeDecodeError:
+            try:
+                # Try with latin-1 encoding if utf-8 fails
+                index_df = pd.read_csv(index_path, encoding='latin-1')
+            except:
+                # Last resort: try with ISO-8859-1
+                index_df = pd.read_csv(index_path, encoding='ISO-8859-1')
+        except pd.errors.ParserError:
+            # CSV parsing error - try with on_bad_lines='skip'
+            try:
+                index_df = pd.read_csv(index_path, on_bad_lines='skip')
+            except:
+                index_df = pd.read_csv(index_path, encoding='latin-1', on_bad_lines='skip')
     
     print(f"   ✓ Loaded index: {len(index_df)} samples")
     

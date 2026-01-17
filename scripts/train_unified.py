@@ -198,6 +198,51 @@ def main():
         yaml.dump(config, f)
     logger.info(f"Saved config to {config_save_path}")
     
+    # Load cached data FIRST to infer dimensions
+    logger.info("Loading cached data...")
+    
+    # Try multiple possible embedding file paths
+    possible_paths = [
+        Path("cache/clip_embeddings/nsd_clipcache_multilayer.parquet"),
+        Path("cache/clip_embeddings/nsd_clipvitl14.parquet"),
+        Path("cache/clip_embeddings/embeddings_ViT-B-32.parquet"),
+    ]
+    
+    embeddings_path = None
+    for p in possible_paths:
+        if p.exists():
+            embeddings_path = p
+            break
+    
+    if embeddings_path is None:
+        raise FileNotFoundError(f"No embedding cache found. Tried: {[str(p) for p in possible_paths]}")
+    
+    logger.info(f"Using embeddings from: {embeddings_path}")
+    import pandas as pd
+    df = pd.read_parquet(embeddings_path)
+    logger.info(f"Loaded {len(df)} samples")
+    
+    # Extract embeddings (flexible column detection)
+    if 'final' in df.columns:
+        # Multilayer cache format: embeddings stored as numpy arrays in 'final' column
+        embeddings_list = df['final'].tolist()
+        embeddings = torch.tensor(np.stack(embeddings_list), dtype=torch.float32)
+        logger.info(f"Extracted embeddings from 'final' column: {embeddings.shape}")
+    else:
+        # Try: emb_000, emb_001, ... or embedding_0, embedding_1, ...
+        embedding_cols = [c for c in df.columns if c.startswith('emb_')]
+        if not embedding_cols:
+            embedding_cols = [c for c in df.columns if c.startswith('embedding_')]
+        if not embedding_cols:
+            # Try any numeric columns as last resort
+            embedding_cols = [c for c in df.columns if df[c].dtype in ['float32', 'float64']]
+        
+        if not embedding_cols:
+            raise ValueError(f"No embedding columns found in {embeddings_path}. Columns: {df.columns.tolist()}")
+        
+        logger.info(f"Using {len(embedding_cols)} embedding dimensions from column format")
+        embeddings = torch.tensor(df[embedding_cols].values, dtype=torch.float32)
+    
     # Setup preprocessing
     preprocessor = setup_preprocessing(config, device)
     
@@ -207,6 +252,12 @@ def main():
     if model_config["encoder"]["input_dim"] is None:
         # TODO: Load from dataset or config
         model_config["encoder"]["input_dim"] = 15724  # Example for nsdgeneral
+    
+    # Infer output_dim from actual embeddings
+    embedding_dim = embeddings.shape[1]
+    if model_config["decoder"]["output_dim"] != embedding_dim:
+        logger.info(f"Adjusting decoder output_dim from {model_config['decoder']['output_dim']} to {embedding_dim} (from data)")
+        model_config["decoder"]["output_dim"] = embedding_dim
     
     model = create_model(model_config).to(device)
     
@@ -242,23 +293,7 @@ def main():
     logger.info(f"Experiment: {config['experiment']['name']}")
     logger.info(f"Description: {config['experiment']['description']}")
     logger.info("=" * 80)
-    
-    # Load cached data
-    logger.info("Loading cached data...")
-    embeddings_path = Path("cache/clip_embeddings/nsd_clipvitl14.parquet")
-    if not embeddings_path.exists():
-        raise FileNotFoundError(f"Embeddings not found: {embeddings_path}")
-    
-    import pandas as pd
-    df = pd.read_parquet(embeddings_path)
-    logger.info(f"Loaded {len(df)} samples")
-    
-    # Extract embeddings
-    embedding_cols = [c for c in df.columns if c.startswith('embedding_')]
-    if not embedding_cols:
-        raise ValueError("No embedding columns found in parquet file")
-    
-    embeddings = torch.tensor(df[embedding_cols].values, dtype=torch.float32)
+    logger.info("Starting training...")
     
     # Create dummy fMRI data (TODO: load real fMRI)
     fmri_dim = model_config["encoder"]["input_dim"]

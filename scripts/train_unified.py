@@ -237,6 +237,11 @@ def main():
             embeddings_list = df['final'].tolist()
             embeddings = torch.tensor(np.stack(embeddings_list), dtype=torch.float32)
             logger.info(f"Extracted embeddings from 'final' column: {embeddings.shape}")
+        elif 'embedding' in df.columns:
+            # Single embedding column format: embeddings stored as lists/arrays
+            embeddings_list = df['embedding'].tolist()
+            embeddings = torch.tensor(np.array(embeddings_list), dtype=torch.float32)
+            logger.info(f"Extracted embeddings from 'embedding' column: {embeddings.shape}")
         else:
             # Try: emb_000, emb_001, ... or embedding_0, embedding_1, ...
             embedding_cols = [c for c in df.columns if c.startswith('emb_')]

@@ -75,8 +75,10 @@ class NSDDataset(Dataset):
         # Load ROI mask if provided
         if roi_mask_path and roi_mask_path.exists():
             mask_img = nib.load(roi_mask_path)
-            self.roi_mask = mask_img.get_fdata().astype(bool)
-            logger.info(f"Loaded ROI mask: {self.roi_mask.sum()} voxels")
+            mask_data = mask_img.get_fdata()
+            # Threshold mask (NSD ROIs are often probabilistic, threshold at 0.5)
+            self.roi_mask = mask_data > 0.5
+            logger.info(f"Loaded ROI mask: {self.roi_mask.sum():.0f} voxels")
         
         logger.info(f"NSDDataset created: {len(self.index_df)} trials")
     

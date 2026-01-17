@@ -20,13 +20,13 @@ model:
   type: "deterministic"  # Single output, no variance
   encoder:
     input_dim: null  # Will be inferred from ROI
-    hidden_dims: [4096, 2048, 1024]
+    hidden_dims: [2048, 1024, 512]  # Reduced from [4096, 2048, 1024]
     activation: "relu"
     dropout: 0.1
   decoder:
-    input_dim: 1024
+    input_dim: 512  # Match encoder output
     output_dim: 768  # CLIP embedding dimension
-    hidden_dims: [1536]
+    hidden_dims: [768]  # Reduced from [1536]
     activation: "relu"
     dropout: 0.1
 
@@ -64,7 +64,7 @@ queue:
 
 # Training configuration
 training:
-  batch_size: 4
+  batch_size: 2  # Reduced from 4 to fit in memory
   num_epochs: 100
   optimizer:
     type: "adamw"

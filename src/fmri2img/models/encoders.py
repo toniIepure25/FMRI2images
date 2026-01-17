@@ -1124,6 +1124,17 @@ def load_probabilistic_encoder(
     checkpoint = torch.load(path, map_location=map_location)
     meta = checkpoint.get("meta", {})
     
+    # Infer input_dim from state_dict if not in metadata (backward compatibility)
+    if "input_dim" not in meta:
+        state_dict = checkpoint["state_dict"]
+        # Check for the first projection layer weight
+        if "projections.layer_4.0.weight" in state_dict:
+            input_dim = state_dict["projections.layer_4.0.weight"].shape[1]
+            meta["input_dim"] = input_dim
+            logger.warning(f"input_dim not in metadata, inferred from state_dict: {input_dim}")
+        else:
+            raise ValueError("Cannot infer input_dim from checkpoint. Please specify in training config.")
+    
     # Reconstruct model from metadata
     model = ProbabilisticMultiLayerTwoStageEncoder(
         input_dim=meta["input_dim"],

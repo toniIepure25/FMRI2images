@@ -12,6 +12,7 @@ import logging
 import sys
 from pathlib import Path
 import numpy as np
+import pandas as pd
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
@@ -29,9 +30,13 @@ def load_train_embeddings(cache_dir: Path) -> np.ndarray:
     """Load CLIP embeddings for training split from cache."""
     # Try different possible paths for training embeddings
     possible_paths = [
+        # .npy format
         cache_dir / "clip_embeddings" / "nsd_train_clip_embeddings.npy",
         cache_dir / "clip_embeddings" / "nsd_train_clipvit_embeddings.npy",
         cache_dir / "clip_embeddings" / "train_embeddings.npy",
+        # .parquet format
+        cache_dir / "clip_embeddings" / "nsd_clipcache_multilayer.parquet",
+        cache_dir / "clip_embeddings" / "embeddings_ViT-B-32.parquet",
     ]
     
     clip_emb_path = None
@@ -47,7 +52,36 @@ def load_train_embeddings(cache_dir: Path) -> np.ndarray:
             "\n\nPlease ensure CLIP embeddings are extracted to cache/clip_embeddings/"
         )
     
-    embeddings = np.load(clip_emb_path)
+    # Load based on file extension
+    if clip_emb_path.suffix == ".npy":
+        embeddings = np.load(clip_emb_path)
+    elif clip_emb_path.suffix == ".parquet":
+        logger.info(f"Loading from parquet: {clip_emb_path}")
+        df = pd.read_parquet(clip_emb_path)
+        
+        # Filter for training split if split column exists
+        if "split" in df.columns:
+            df = df[df["split"] == "train"]
+            logger.info(f"Filtered to {len(df)} training samples")
+        
+        # Extract embeddings (assumes 'embedding' or 'clip_embedding' column with arrays)
+        if "embedding" in df.columns:
+            embeddings = np.stack(df["embedding"].values)
+        elif "clip_embedding" in df.columns:
+            embeddings = np.stack(df["clip_embedding"].values)
+        elif "vit_embedding" in df.columns:
+            embeddings = np.stack(df["vit_embedding"].values)
+        else:
+            # Try to find any array-like column
+            array_cols = [col for col in df.columns if df[col].dtype == object]
+            if array_cols:
+                embeddings = np.stack(df[array_cols[0]].values)
+                logger.info(f"Using column '{array_cols[0]}' as embeddings")
+            else:
+                raise ValueError(f"Could not find embedding column in parquet file. Columns: {df.columns.tolist()}")
+    else:
+        raise ValueError(f"Unsupported file format: {clip_emb_path.suffix}")
+    
     logger.info(f"Loaded {len(embeddings)} training embeddings from {clip_emb_path}")
     logger.info(f"Embedding shape: {embeddings.shape}")
     

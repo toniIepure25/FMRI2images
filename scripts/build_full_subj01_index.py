@@ -76,7 +76,8 @@ def build_full_index():
     base_path = "/bigdata/userhome/students/md5_sd8f61177fd2312b9b32bd118ad1/data/nsd/nsddata_betas/ppdata/subj01/func1pt8mm/betas_fithrf_GLMdenoise_RR"
     
     # Session 1-39: 750 trials each
-    # Session 40: 91 trials (total: 9,841 trials)
+    # Session 40: 91 trials (total: 29,341 trials)
+    # Note: 10,000 unique stimuli shown across 29,341 trials (with repeats)
     global_trial_idx = 0
     
     for session in range(1, 41):
@@ -85,12 +86,15 @@ def build_full_index():
         beta_path = f"{base_path}/betas_session{session_str}.nii.gz"
         
         for trial_in_session in range(n_trials):
+            # Map trial to nsdId (cycle through available nsdIds if needed)
+            nsdId = int(nsdIds[global_trial_idx % len(nsdIds)])
+            
             rows.append({
                 'subject': 'subj01',
                 'session': session,
                 'trial_in_session': trial_in_session,
                 'global_trial_index': global_trial_idx,
-                'nsdId': int(nsdIds[global_trial_idx]),
+                'nsdId': nsdId,
                 'beta_path': beta_path,
                 'beta_index': trial_in_session,
             })
@@ -101,6 +105,7 @@ def build_full_index():
     logger.info(f"Sessions: {df['session'].min()} - {df['session'].max()}")
     logger.info(f"nsdId range: {df['nsdId'].min()} - {df['nsdId'].max()}")
     logger.info(f"Unique nsdIds: {df['nsdId'].nunique()}")
+    logger.info(f"⚠  Note: {len(df)} trials mapped to {df['nsdId'].nunique()} unique stimuli (with repetitions)")
     
     # Save
     df.to_parquet(output_path, index=False)

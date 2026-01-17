@@ -370,7 +370,14 @@ def main():
         logger.warning("Added sequential nsdId column to embeddings")
     
     # Create full dataset
-    full_dataset = NSDDataset(index_df, embeddings_df)
+    roi_mask_path = Path("data/nsd/ppdata/subj01/func1pt8mm/roi_nsdgeneral.nii.gz")
+    if roi_mask_path.exists():
+        logger.info(f"Using ROI mask: {roi_mask_path}")
+        full_dataset = NSDDataset(index_df, embeddings_df, roi_mask_path=roi_mask_path)
+    else:
+        logger.warning(f"ROI mask not found: {roi_mask_path}")
+        logger.warning("Using full brain volume (may cause OOM). Run: bash scripts/download_nsd_roi.sh")
+        full_dataset = NSDDataset(index_df, embeddings_df)
     
     # Get fMRI dimension from first sample
     sample_fmri, sample_emb = full_dataset[0]

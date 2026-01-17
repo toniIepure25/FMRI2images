@@ -1148,13 +1148,42 @@ def load_probabilistic_encoder(
     
     # Infer input_dim from state_dict if not in metadata (backward compatibility)
     if "input_dim" not in meta:
-        # Check for the first projection layer weight
+        # Try different common patterns for input projection layers
+        input_dim = None
+        
+        # Pattern 1: projections.layer_4.0.weight (new format)
         if "projections.layer_4.0.weight" in state_dict:
             input_dim = state_dict["projections.layer_4.0.weight"].shape[1]
-            meta["input_dim"] = input_dim
-            logger.warning(f"input_dim not in metadata, inferred from state_dict: {input_dim}")
+            logger.warning(f"input_dim inferred from projections.layer_4.0.weight: {input_dim}")
+        
+        # Pattern 2: stage1.input_proj.0.weight (older format)
+        elif "stage1.input_proj.0.weight" in state_dict:
+            input_dim = state_dict["stage1.input_proj.0.weight"].shape[1]
+            logger.warning(f"input_dim inferred from stage1.input_proj.0.weight: {input_dim}")
+        
+        # Pattern 3: input_projection.weight
+        elif "input_projection.weight" in state_dict:
+            input_dim = state_dict["input_projection.weight"].shape[1]
+            logger.warning(f"input_dim inferred from input_projection.weight: {input_dim}")
+        
+        # Pattern 4: Find any layer with "input" and "weight" that looks like a projection
         else:
-            raise ValueError("Cannot infer input_dim from checkpoint. Please specify in training config.")
+            for key in state_dict.keys():
+                if "input" in key.lower() and "weight" in key and isinstance(state_dict[key], torch.Tensor):
+                    shape = state_dict[key].shape
+                    if len(shape) == 2 and shape[1] > 10000:  # Likely an fMRI input projection
+                        input_dim = shape[1]
+                        logger.warning(f"input_dim inferred from {key}: {input_dim}")
+                        break
+        
+        if input_dim is not None:
+            meta["input_dim"] = input_dim
+        else:
+            raise ValueError(
+                "Cannot infer input_dim from checkpoint. "
+                "No input projection layer found. "
+                "Please specify input_dim in training config or checkpoint metadata."
+            )
     
     # Reconstruct model from metadata
     model = ProbabilisticMultiLayerTwoStageEncoder(

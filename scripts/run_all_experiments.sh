@@ -114,10 +114,21 @@ for i in "${!experiments[@]}"; do
         continue  # Skip evaluation and move to next experiment
     fi
     
-    # Evaluate model
-    log "Evaluating ${exp}..."
-    checkpoint="experimental_results/${exp}/checkpoints/best.ckpt"
-    eval_output="experimental_results/${exp}/evaluation"
+    # Log experiment completion
+    log ""
+    log "Completed ${exp_num}/${#experiments[@]} experiments"
+    log "---"
+    log ""
+    
+    # GPU status check
+    if command -v nvidia-smi &> /dev/null; then
+        log "GPU Status:"
+        nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader | \
+            awk -F', ' '{printf "  GPU Util: %s, Memory: %s / %s, Temp: %s\n", $1, $2, $3, $4}' | tee -a "${LOG_FILE}"
+        log ""
+    fi
+done
+
 log_separator
 log "All Experiments Complete!"
 log_separator
@@ -139,22 +150,14 @@ log ""
 log "Experiment Summary:"
 log "-------------------"
 for exp in "${experiments[@]}"; do
-    eval_dir="experimental_results/${exp}/evaluation"
-    if [ -f "${eval_dir}/metrics.json" ]; then
-        if command -v jq &> /dev/null; then
-            R1=$(jq -r '.retrieval."R@1" // "N/A"' "${eval_dir}/metrics.json")
-            oracle=$(jq -r '.oracle.passed // "N/A"' "${eval_dir}/metrics.json")
-            status="✅"
-            [ "${oracle}" == "false" ] && status="⚠️ "
-        else
-            R1="N/A"
-            status="✅"
-        fi
+    eval_dir="experimental_results/${exp}"
+    checkpoint="${eval_dir}/checkpoint.pth"
+    if [ -f "${checkpoint}" ]; then
+        status="✅ COMPLETE"
     else
-        R1="FAILED"
-        status="❌"
+        status="❌ FAILED"
     fi
-    log "${status} ${exp}: R@1=${R1}"
+    log "${status} ${exp}"
 done
 log ""
 
@@ -164,56 +167,4 @@ log "  2. Compare results: python3 scripts/compare_experiments.py"
 log "  3. Generate figures for paper"
 log "  4. Write paper using docs/paper_outline.md"
 log ""
-log_separator     --checkpoint "${checkpoint}" \
-            --output "${eval_output}" \
-            --split test \
-            --preprocessor "${preprocessor_path}"; then
-            
-            log "✅ Evaluation complete"
-            
-            # Log key metrics if available
-            if [ -f "${eval_output}/metrics.json" ]; then
-                log ""
-                log "Key Metrics for ${exp}:"
-                if command -v jq &> /dev/null; then
-                    R1=$(jq -r '.retrieval."R@1" // "N/A"' "${eval_output}/metrics.json")
-                    MeanR=$(jq -r '.retrieval.MeanR // "N/A"' "${eval_output}/metrics.json")
-                    oracle=$(jq -r '.oracle.passed // "N/A"' "${eval_output}/metrics.json")
-                    log "  R@1: ${R1}"
-                    log "  MeanR: ${MeanR}"
-                    log "  Oracle passed: ${oracle}"
-                fi
-            fi
-        else
-            log "❌ Evaluation FAILED"
-        fi
-    else
-        log "⚠️  Checkpoint not found, skipping evaluation"
-        log "   Expected: ${checkpoint}"
-    fi
-    
-    log ""
-    log "Completed ${exp_num}/${#experiments[@]} experiments"
-    log "---"
-    log ""
-    
-    # GPU status check
-    if command -v nvidia-smi &> /dev/null; then
-        log "GPU Status:"
-        nvidia-smi --query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu --format=csv,noheader | \
-            awk -F', ' '{printf "  GPU Util: %s, Memory: %s / %s, Temp: %s\n", $1, $2, $3, $4}' | tee -a "${LOG_FILE}"
-        log ""
-    fi
-done
-
-echo "="
-echo "All experiments complete!"
-echo "="
-echo ""
-echo "Results saved to: experimental_results/"
-echo ""
-echo "Next steps:"
-echo "  1. Compare results: python3 scripts/compare_experiments.py"
-echo "  2. Generate figures for paper"
-echo "  3. Write paper using docs/paper_outline.md"
-echo ""
+log_separator

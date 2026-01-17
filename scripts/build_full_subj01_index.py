@@ -57,9 +57,14 @@ def build_full_index():
         if 'subject1' in stim_df.columns:
             subj1_stimuli = stim_df[stim_df['subject1'] == 1]['nsdId'].values
             logger.info(f"Subject1 saw {len(subj1_stimuli)} stimuli")
-            # Take first 9841 (matching the 40 sessions of beta files)
-            nsdIds = sorted(subj1_stimuli[:9841])
-            logger.info(f"Using first 9841 nsdIds for subject1")
+            
+            if len(subj1_stimuli) >= 9841:
+                # Take first 9841 (matching the 40 sessions of beta files)
+                nsdIds = sorted(subj1_stimuli)[:9841]
+                logger.info(f"Using first 9841 nsdIds from subject1 stimuli")
+            else:
+                logger.warning(f"Only {len(subj1_stimuli)} stimuli available, need 9841. Using sequential nsdIds...")
+                nsdIds = list(range(9841))
         else:
             logger.warning("No subject1 column found. Using sequential nsdIds 0-9840...")
             nsdIds = list(range(9841))

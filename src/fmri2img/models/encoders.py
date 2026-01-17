@@ -1185,6 +1185,38 @@ def load_probabilistic_encoder(
                 "Please specify input_dim in training config or checkpoint metadata."
             )
     
+    # Infer latent_dim from state_dict if not in metadata
+    if "latent_dim" not in meta:
+        if "stage1.input_proj.0.bias" in state_dict:
+            latent_dim = state_dict["stage1.input_proj.0.bias"].shape[0]
+            meta["latent_dim"] = latent_dim
+            logger.warning(f"latent_dim inferred from stage1.input_proj.0.bias: {latent_dim}")
+    
+    # Infer n_blocks from state_dict if not in metadata
+    if "n_blocks" not in meta:
+        n_blocks = 0
+        for key in state_dict.keys():
+            if key.startswith("stage1.blocks.") and ".norm.weight" in key:
+                block_idx = int(key.split(".")[2])
+                n_blocks = max(n_blocks, block_idx + 1)
+        if n_blocks > 0:
+            meta["n_blocks"] = n_blocks
+            logger.warning(f"n_blocks inferred from state_dict: {n_blocks}")
+    
+    # Infer head_hidden_dim from state_dict if not in metadata
+    if "head_hidden_dim" not in meta:
+        if "head_backbone.0.bias" in state_dict:
+            head_hidden_dim = state_dict["head_backbone.0.bias"].shape[0]
+            meta["head_hidden_dim"] = head_hidden_dim
+            logger.warning(f"head_hidden_dim inferred from head_backbone.0.bias: {head_hidden_dim}")
+    
+    # Infer predict_text_clip from state_dict if not in metadata
+    if "predict_text_clip" not in meta:
+        has_text_head = "mu_heads.text.weight" in state_dict or "mu_heads.text.bias" in state_dict
+        meta["predict_text_clip"] = has_text_head
+        if has_text_head:
+            logger.warning(f"predict_text_clip inferred from state_dict: True")
+    
     # Reconstruct model from metadata
     model = ProbabilisticMultiLayerTwoStageEncoder(
         input_dim=meta["input_dim"],

@@ -162,14 +162,14 @@ def setup_kl_scheduler(config: Dict[str, Any]) -> Optional[KLScheduler]:
         return None
     
     scheduler = KLScheduler(
-        weight_start=kl_cfg.get("weight_start", 0.0),
-        weight_end=kl_cfg.get("weight_end", 0.001),
-        anneal_steps=kl_cfg.get("anneal_steps", 10000),
+        start_weight=kl_cfg.get("weight_start", 0.0),
+        end_weight=kl_cfg.get("weight_end", 0.001),
+        n_steps=kl_cfg.get("anneal_steps", 10000),
         anneal_type=kl_cfg.get("anneal_type", "linear"),
         free_bits=kl_cfg.get("free_bits", 0.5),
-        free_bits_type=kl_cfg.get("free_bits_type", "per_dim")
+        free_bits_aggregate=kl_cfg.get("free_bits_type", "dimension")
     )
-    logger.info(f"✓ KL scheduler enabled (anneal_steps={kl_cfg.get('anneal_steps')})")
+    logger.info(f"✓ KL scheduler enabled (n_steps={kl_cfg.get('anneal_steps')})")
     return scheduler
 
 

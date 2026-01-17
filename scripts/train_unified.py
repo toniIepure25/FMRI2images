@@ -346,49 +346,6 @@ def main():
     # Setup preprocessing
     preprocessor = setup_preprocessing(config, device)
     
-    # Setup model
-    model_config = config["model"]
-    # Infer input_dim from ROI if not specified
-    if model_config["encoder"]["input_dim"] is None:
-        # TODO: Load from dataset or config
-        model_config["encoder"]["input_dim"] = 15724  # Example for nsdgeneral
-    
-    # Infer output_dim from actual embeddings
-    embedding_dim = embeddings.shape[1]
-    if model_config["decoder"]["output_dim"] != embedding_dim:
-        logger.info(f"Adjusting decoder output_dim from {model_config['decoder']['output_dim']} to {embedding_dim} (from data)")
-        model_config["decoder"]["output_dim"] = embedding_dim
-    
-    model = create_model(model_config).to(device)
-    
-    # Setup memory queue
-    queue = None
-    if config.get("queue", {}).get("enabled", False):
-        embedding_dim = model_config["decoder"]["output_dim"]
-        queue = create_memory_queue(
-            config=config["queue"],
-            embedding_dim=embedding_dim
-        )
-        if queue is not None:
-            queue = queue.to(device)
-            logger.info(f"✓ Memory queue created (size={config['queue'].get('size', 8192)})")
-    
-    # Setup losses
-    losses = setup_losses(config, device, queue)
-    loss_weights = {k: v.get("weight", 1.0) for k, v in config.get("loss", {}).items() if isinstance(v, dict)}
-    
-    # Setup KL scheduler
-    kl_scheduler = setup_kl_scheduler(config)
-    
-    # Setup optimizer
-    optimizer_cfg = config["training"]["optimizer"]
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=float(optimizer_cfg.get("lr", 1e-4)),
-        weight_decay=float(optimizer_cfg.get("weight_decay", 0.01)),
-        betas=optimizer_cfg.get("betas", [0.9, 0.999])
-    )
-    
     logger.info("=" * 80)
     logger.info(f"Experiment: {config['experiment']['name']}")
     logger.info(f"Description: {config['experiment']['description']}")
@@ -421,10 +378,41 @@ def main():
     embedding_dim = sample_emb.shape[0]
     logger.info(f"Data dimensions: fMRI={fmri_dim}, Embedding={embedding_dim}")
     
-    # Update model config with actual dimensions
-    if model_config["encoder"]["input_dim"] != fmri_dim:
-        logger.info(f"Adjusting encoder input_dim from {model_config['encoder']['input_dim']} to {fmri_dim}")
-        model_config["encoder"]["input_dim"] = fmri_dim
+    # NOW setup model with correct dimensions
+    model_config = config["model"]
+    model_config["encoder"]["input_dim"] = fmri_dim
+    model_config["decoder"]["output_dim"] = embedding_dim
+    logger.info(f"Creating model: encoder {fmri_dim} → decoder {embedding_dim}")
+    
+    model = create_model(model_config).to(device)
+    
+    # Setup memory queue
+    queue = None
+    if config.get("queue", {}).get("enabled", False):
+        embedding_dim = model_config["decoder"]["output_dim"]
+        queue = create_memory_queue(
+            config=config["queue"],
+            embedding_dim=embedding_dim
+        )
+        if queue is not None:
+            queue = queue.to(device)
+            logger.info(f"✓ Memory queue created (size={config['queue'].get('size', 8192)})")
+    
+    # Setup losses
+    losses = setup_losses(config, device, queue)
+    loss_weights = {k: v.get("weight", 1.0) for k, v in config.get("loss", {}).items() if isinstance(v, dict)}
+    
+    # Setup KL scheduler
+    kl_scheduler = setup_kl_scheduler(config)
+    
+    # Setup optimizer
+    optimizer_cfg = config["training"]["optimizer"]
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=float(optimizer_cfg.get("lr", 1e-4)),
+        weight_decay=float(optimizer_cfg.get("weight_decay", 0.01)),
+        betas=optimizer_cfg.get("betas", [0.9, 0.999])
+    )
     
     # Split data
     train_split = config["data"]["train_split"]

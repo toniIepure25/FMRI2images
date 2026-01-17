@@ -173,125 +173,6 @@ def setup_kl_scheduler(config: Dict[str, Any]) -> Optional[KLScheduler]:
     return scheduler
 
 
-def compute_kl_divergence(mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
-    """
-    Compute KL divergence: KL(q(z|x) || N(0,I))
-    
-    Args:
-        mu: Mean (B, D)
-        logvar: Log-variance (B, D)
-    
-    Returns:
-        kl_loss: Scalar KL divergence
-    """
-    kl_div = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp(), dim=-1)
-    return kl_div.mean()
-
-
-def train_epoch(
-    model: nn.Module,
-    dataloader: DataLoader,
-    optimizer: torch.optim.Optimizer,
-    losses: Dict[str, nn.Module],
-    loss_weights: Dict[str, float],
-    device: str,
-    queue=None,
-    kl_scheduler: Optional[KLScheduler] = None,
-    preprocessor: Optional[EmbeddingPreprocessor] = None,
-    global_step: int = 0
-) -> Dict[str, float]:
-    """
-    Train for one epoch.
-    
-    Returns:
-        metrics: Dict of metric name -> average value
-    """
-    model.train()
-    epoch_metrics = {}
-    
-    pbar = tqdm(dataloader, desc="Training")
-    for batch in pbar:
-        fmri = batch["fmri"].to(device)
-        gt_embedding = batch["embedding"].to(device)
-        
-        # Apply preprocessing if enabled
-        if preprocessor is not None:
-            gt_embedding_np = gt_embedding.cpu().numpy()
-            gt_embedding_proc = preprocessor.transform(gt_embedding_np)
-            gt_embedding = torch.from_numpy(gt_embedding_proc).to(device)
-        
-        # Forward pass
-        pred, logvar = model(fmri)
-        
-        # Compute losses
-        total_loss = 0.0
-        batch_metrics = {}
-        
-        # MSE loss (deterministic models)
-        if "mse" in losses and logvar is None:
-            mse_loss = losses["mse"](pred, gt_embedding)
-            total_loss += loss_weights.get("mse", 1.0) * mse_loss
-            batch_metrics["mse"] = mse_loss.item()
-        
-        # InfoNCE loss (deterministic models)
-        if "infonce" in losses and logvar is None:
-            infonce_loss = losses["infonce"](pred, gt_embedding, queue=queue)
-            total_loss += loss_weights.get("infonce", 1.0) * infonce_loss
-            batch_metrics["infonce"] = infonce_loss.item()
-            
-            # Update queue
-            if queue is not None:
-                queue.enqueue(gt_embedding)
-        
-        # Gaussian NLL loss (probabilistic models)
-        if "gaussian_nll" in losses and logvar is not None:
-            nll_loss = losses["gaussian_nll"](pred, logvar, gt_embedding)
-            total_loss += loss_weights.get("gaussian_nll", 1.0) * nll_loss
-            batch_metrics["gaussian_nll"] = nll_loss.item()
-        
-        # Gaussian-NCE loss (probabilistic models)
-        if "gaussian_nce" in losses and logvar is not None:
-            gnce_loss = losses["gaussian_nce"](pred, logvar, gt_embedding, queue=queue)
-            total_loss += loss_weights.get("gaussian_nce", 1.0) * gnce_loss
-            batch_metrics["gaussian_nce"] = gnce_loss.item()
-            
-            # Update queue
-            if queue is not None:
-                queue.enqueue(gt_embedding)
-        
-        # KL loss (probabilistic models with annealing)
-        if kl_scheduler is not None and logvar is not None:
-            kl_raw = compute_kl_divergence(pred, logvar)
-            kl_loss = kl_scheduler.apply_loss(kl_raw, pred, logvar, global_step)
-            total_loss += kl_loss
-            batch_metrics["kl"] = kl_loss.item()
-            batch_metrics["kl_raw"] = kl_raw.item()
-            batch_metrics["kl_weight"] = kl_scheduler.get_weight(global_step)
-        
-        batch_metrics["total_loss"] = total_loss.item()
-        
-        # Backward pass
-        optimizer.zero_grad()
-        total_loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        optimizer.step()
-        
-        # Update progress bar
-        pbar.set_postfix(batch_metrics)
-        
-        # Accumulate metrics
-        for k, v in batch_metrics.items():
-            if k not in epoch_metrics:
-                epoch_metrics[k] = []
-            epoch_metrics[k].append(v)
-        
-        global_step += 1
-    
-    # Average metrics
-    avg_metrics = {k: np.mean(v) for k, v in epoch_metrics.items()}
-    return avg_metrics, global_step
-
-
 def main():
     parser = argparse.ArgumentParser(description="Unified training script")
     parser.add_argument("--config", type=str, required=True, help="Path to experiment config")
@@ -307,7 +188,8 @@ def main():
     logger.info(f"Using device: {device}")
     
     # Create output directory
-    output_dir = Path(config["paths"]["output_dir"])
+    exp_name = config["experiment"]["name"]
+    output_dir = Path("experimental_results") / exp_name
     output_dir.mkdir(parents=True, exist_ok=True)
     
     # Save config
@@ -360,15 +242,250 @@ def main():
     logger.info(f"Experiment: {config['experiment']['name']}")
     logger.info(f"Description: {config['experiment']['description']}")
     logger.info("=" * 80)
-    logger.info("Setup complete. Ready to train!")
-    logger.info("")
-    logger.info("TODO: Integrate with actual dataset and training loop")
-    logger.info("Next steps:")
-    logger.info("  1. Create dataset loader (NSDDataset)")
-    logger.info("  2. Implement validation loop")
-    logger.info("  3. Add checkpointing")
-    logger.info("  4. Add tensorboard logging")
+    
+    # Load cached data
+    logger.info("Loading cached data...")
+    embeddings_path = Path("cache/clip_embeddings/nsd_clipvitl14.parquet")
+    if not embeddings_path.exists():
+        raise FileNotFoundError(f"Embeddings not found: {embeddings_path}")
+    
+    import pandas as pd
+    df = pd.read_parquet(embeddings_path)
+    logger.info(f"Loaded {len(df)} samples")
+    
+    # Extract embeddings
+    embedding_cols = [c for c in df.columns if c.startswith('embedding_')]
+    if not embedding_cols:
+        raise ValueError("No embedding columns found in parquet file")
+    
+    embeddings = torch.tensor(df[embedding_cols].values, dtype=torch.float32)
+    
+    # Create dummy fMRI data (TODO: load real fMRI)
+    fmri_dim = model_config["encoder"]["input_dim"]
+    fmri_data = torch.randn(len(embeddings), fmri_dim)
+    
+    # Split data
+    train_split = config["data"]["train_split"]
+    val_split = config["data"]["val_split"]
+    n_train = int(len(embeddings) * train_split)
+    n_val = int(len(embeddings) * val_split)
+    
+    train_fmri, train_emb = fmri_data[:n_train], embeddings[:n_train]
+    val_fmri, val_emb = fmri_data[n_train:n_train+n_val], embeddings[n_train:n_train+n_val]
+    
+    # Create dataloaders
+    from torch.utils.data import TensorDataset
+    train_dataset = TensorDataset(train_fmri, train_emb)
+    val_dataset = TensorDataset(val_fmri, val_emb)
+    
+    batch_size = config["training"]["batch_size"]
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    
+    logger.info(f"Train: {len(train_dataset)} samples, Val: {len(val_dataset)} samples")
+    logger.info("Starting training...")
+    
+    # Training loop
+    num_epochs = config["training"]["num_epochs"]
+    best_val_loss = float('inf')
+    global_step = 0
+    
+    for epoch in range(1, num_epochs + 1):
+        logger.info(f"\nEpoch {epoch}/{num_epochs}")
+        
+        # Train
+        train_metrics, global_step = train_epoch(
+            model, train_loader, optimizer, losses, loss_weights,
+            device, kl_scheduler, queue, preprocessor, global_step
+        )
+        logger.info(f"Train: {' | '.join([f'{k}={v:.4f}' for k, v in train_metrics.items()])}")
+        
+        # Validate
+        val_metrics = validate(model, val_loader, losses, loss_weights, device, preprocessor, queue)
+        logger.info(f"Val:   {' | '.join([f'{k}={v:.4f}' for k, v in val_metrics.items()])}")
+        
+        # Save checkpoint
+        val_loss = val_metrics.get("total_loss", val_metrics.get("mse", float('inf')))
+        is_best = val_loss < best_val_loss
+        if is_best:
+            best_val_loss = val_loss
+            checkpoint_path = output_dir / "checkpoint.pth"
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'val_loss': val_loss,
+                'config': config
+            }, checkpoint_path)
+            logger.info(f"✓ Saved best checkpoint: val_loss={val_loss:.4f}")
+    
     logger.info("=" * 80)
+    logger.info("Training complete!")
+    logger.info(f"Best val loss: {best_val_loss:.4f}")
+    logger.info("=" * 80)
+
+
+def compute_kl_divergence(mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
+    """Compute KL(q(z|x) || p(z)) for Gaussian posterior."""
+    return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+
+
+def train_epoch(
+    model: nn.Module,
+    dataloader: DataLoader,
+    optimizer: torch.optim.Optimizer,
+    losses: Dict[str, nn.Module],
+    loss_weights: Dict[str, float],
+    device: torch.device,
+    kl_scheduler: Optional[KLScheduler],
+    queue: Optional[nn.Module],
+    preprocessor: Optional[EmbeddingPreprocessor],
+    global_step: int
+) -> tuple:
+    """Train for one epoch."""
+    model.train()
+    epoch_metrics = {}
+    
+    pbar = tqdm(dataloader, desc="Training")
+    for batch in pbar:
+        fmri, gt_embedding = batch
+        fmri = fmri.to(device)
+        gt_embedding = gt_embedding.to(device)
+        
+        # Apply preprocessing
+        if preprocessor is not None:
+            gt_embedding_np = gt_embedding.cpu().numpy()
+            gt_embedding_proc = preprocessor.transform(gt_embedding_np)
+            gt_embedding = torch.from_numpy(gt_embedding_proc).to(device)
+        
+        # Forward
+        output = model(fmri)
+        if isinstance(output, tuple):
+            pred, logvar = output
+        else:
+            pred, logvar = output, None
+        
+        # Compute losses
+        total_loss = 0.0
+        batch_metrics = {}
+        
+        # MSE
+        if "mse" in losses and logvar is None:
+            mse_loss = losses["mse"](pred, gt_embedding)
+            total_loss += loss_weights.get("mse", 1.0) * mse_loss
+            batch_metrics["mse"] = mse_loss.item()
+        
+        # InfoNCE
+        if "infonce" in losses and logvar is None:
+            infonce_loss = losses["infonce"](pred, gt_embedding, queue=queue)
+            total_loss += loss_weights.get("infonce", 1.0) * infonce_loss
+            batch_metrics["infonce"] = infonce_loss.item()
+            if queue is not None:
+                queue.enqueue(gt_embedding)
+        
+        # Gaussian NLL
+        if "gaussian_nll" in losses and logvar is not None:
+            nll_loss = losses["gaussian_nll"](pred, logvar, gt_embedding)
+            total_loss += loss_weights.get("gaussian_nll", 1.0) * nll_loss
+            batch_metrics["nll"] = nll_loss.item()
+        
+        # Gaussian-NCE
+        if "gaussian_nce" in losses and logvar is not None:
+            gnce_loss = losses["gaussian_nce"](pred, logvar, gt_embedding, queue=queue)
+            total_loss += loss_weights.get("gaussian_nce", 1.0) * gnce_loss
+            batch_metrics["gnce"] = gnce_loss.item()
+            if queue is not None:
+                queue.enqueue(gt_embedding)
+        
+        # KL
+        if kl_scheduler is not None and logvar is not None:
+            kl_raw = compute_kl_divergence(pred, logvar)
+            kl_weight = kl_scheduler.step()
+            kl_loss = kl_weight * kl_raw
+            total_loss += kl_loss
+            batch_metrics["kl"] = kl_loss.item()
+        
+        batch_metrics["loss"] = total_loss.item()
+        
+        # Backward
+        optimizer.zero_grad()
+        total_loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        optimizer.step()
+        
+        pbar.set_postfix({k: f"{v:.4f}" for k, v in batch_metrics.items()})
+        
+        for k, v in batch_metrics.items():
+            epoch_metrics.setdefault(k, []).append(v)
+        
+        global_step += 1
+    
+    return {k: np.mean(v) for k, v in epoch_metrics.items()}, global_step
+
+
+def validate(
+    model: nn.Module,
+    dataloader: DataLoader,
+    losses: Dict[str, nn.Module],
+    loss_weights: Dict[str, float],
+    device: torch.device,
+    preprocessor: Optional[EmbeddingPreprocessor],
+    queue: Optional[nn.Module]
+) -> Dict[str, float]:
+    """Validate model."""
+    model.eval()
+    epoch_metrics = {}
+    
+    with torch.no_grad():
+        for batch in dataloader:
+            fmri, gt_embedding = batch
+            fmri = fmri.to(device)
+            gt_embedding = gt_embedding.to(device)
+            
+            if preprocessor is not None:
+                gt_embedding_np = gt_embedding.cpu().numpy()
+                gt_embedding_proc = preprocessor.transform(gt_embedding_np)
+                gt_embedding = torch.from_numpy(gt_embedding_proc).to(device)
+            
+            output = model(fmri)
+            if isinstance(output, tuple):
+                pred, logvar = output
+            else:
+                pred, logvar = output, None
+            
+            total_loss = 0.0
+            batch_metrics = {}
+            
+            if "mse" in losses and logvar is None:
+                mse_loss = losses["mse"](pred, gt_embedding)
+                total_loss += loss_weights.get("mse", 1.0) * mse_loss
+                batch_metrics["mse"] = mse_loss.item()
+            
+            if "infonce" in losses and logvar is None:
+                infonce_loss = losses["infonce"](pred, gt_embedding, queue=None)
+                total_loss += loss_weights.get("infonce", 1.0) * infonce_loss
+                batch_metrics["infonce"] = infonce_loss.item()
+            
+            if "gaussian_nll" in losses and logvar is not None:
+                nll_loss = losses["gaussian_nll"](pred, logvar, gt_embedding)
+                total_loss += loss_weights.get("gaussian_nll", 1.0) * nll_loss
+                batch_metrics["nll"] = nll_loss.item()
+            
+            if "gaussian_nce" in losses and logvar is not None:
+                gnce_loss = losses["gaussian_nce"](pred, logvar, gt_embedding, queue=None)
+                total_loss += loss_weights.get("gaussian_nce", 1.0) * gnce_loss
+                batch_metrics["gnce"] = gnce_loss.item()
+            
+            if logvar is not None:
+                kl_raw = compute_kl_divergence(pred, logvar)
+                batch_metrics["kl"] = kl_raw.item()
+            
+            batch_metrics["loss"] = total_loss.item()
+            
+            for k, v in batch_metrics.items():
+                epoch_metrics.setdefault(k, []).append(v)
+    
+    return {k: np.mean(v) for k, v in epoch_metrics.items()}
 
 
 if __name__ == "__main__":

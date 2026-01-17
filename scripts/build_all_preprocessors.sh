@@ -16,7 +16,7 @@ echo ""
 
 # EXP1-EXP5: center_pcr with k=8
 echo "[1/2] Building center_pcr (k=8) preprocessor..."
-python scripts/build_embedding_preproc.py \
+python3 scripts/build_embedding_preproc.py \
     --mode center_pcr \
     --k_components 8 \
     --cache_dir "${CACHE_DIR}" \
@@ -24,7 +24,7 @@ python scripts/build_embedding_preproc.py \
 
 echo ""
 echo "[2/2] Building center_whiten preprocessor..."
-python scripts/build_embedding_preproc.py \
+python3 scripts/build_embedding_preproc.py \
     --mode center_whiten \
     --cache_dir "${CACHE_DIR}" \
     --output "${OUTPUT_DIR}/center_whiten.pkl"

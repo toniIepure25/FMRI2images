@@ -94,7 +94,7 @@ for i in "${!experiments[@]}"; do
     
     # Train model
     log "Training ${exp}..."
-    if python "${TRAIN_SCRIPT}" \
+    if python3 "${TRAIN_SCRIPT}" \
         --config "${config}" \
         --gpu "${GPU}"; then
         
@@ -160,7 +160,7 @@ log ""
 
 log "Next steps:"
 log "  1. Review log: cat ${LOG_FILE}"
-log "  2. Compare results: python scripts/compare_experiments.py"
+log "  2. Compare results: python3 scripts/compare_experiments.py"
 log "  3. Generate figures for paper"
 log "  4. Write paper using docs/paper_outline.md"
 log ""
@@ -213,7 +213,7 @@ echo ""
 echo "Results saved to: experimental_results/"
 echo ""
 echo "Next steps:"
-echo "  1. Compare results: python scripts/compare_experiments.py"
+echo "  1. Compare results: python3 scripts/compare_experiments.py"
 echo "  2. Generate figures for paper"
 echo "  3. Write paper using docs/paper_outline.md"
 echo ""

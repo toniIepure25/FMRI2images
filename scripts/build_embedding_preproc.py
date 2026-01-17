@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 """
-Build and cache embedding preprocessor from training split.
+Build embedding preprocessors (center_pcr or center_whiten) from training embeddings.
 
 Usage:
-    python scripts/build_embedding_preproc.py \
-        --subject subj01 \
-        --mode center_pcr \
-        --k_components 8 \
-        --output cache/embedding_preproc/subj01_center_pcr_k8.pkl
+    python scripts/build_embedding_preproc.py --mode center_pcr --k_components 8
+    python scripts/build_embedding_preproc.py --mode center_whiten
 """
 
 import argparse
@@ -15,17 +12,12 @@ import logging
 import sys
 from pathlib import Path
 import numpy as np
-import yaml
-import matplotlib.pyplot as plt
+import pickle
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from fmri2img.embedding_preproc import (
-    EmbeddingPreprocessor,
-    compute_separation_histograms,
-)
-from fmri2img.data.nsd_dataset import NSDDataset
+from fmri2img.embedding_preproc import CenterPCR, CenterWhiten
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,273 +26,142 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def load_config(config_path: Path) -> dict:
-    """Load YAML config."""
-    with open(config_path) as f:
-        return yaml.safe_load(f)
+def load_train_embeddings(cache_dir: Path) -> np.ndarray:
+    """Load CLIP embeddings for training split from cache."""
+    # Try different possible paths for training embeddings
+    possible_paths = [
+        cache_dir / "clip_embeddings" / "nsd_train_clip_embeddings.npy",
+        cache_dir / "clip_embeddings" / "nsd_train_clipvit_embeddings.npy",
+        cache_dir / "clip_embeddings" / "train_embeddings.npy",
+    ]
+    
+    clip_emb_path = None
+    for path in possible_paths:
+        if path.exists():
+            clip_emb_path = path
+            break
+    
+    if clip_emb_path is None:
+        raise FileNotFoundError(
+            f"Training embeddings not found. Searched:\n" +
+            "\n".join(f"  - {p}" for p in possible_paths) +
+            "\n\nPlease ensure CLIP embeddings are extracted to cache/clip_embeddings/"
+        )
+    
+    embeddings = np.load(clip_emb_path)
+    logger.info(f"Loaded {len(embeddings)} training embeddings from {clip_emb_path}")
+    logger.info(f"Embedding shape: {embeddings.shape}")
+    
+    return embeddings
+
+
+def build_center_pcr(embeddings: np.ndarray, k: int, output_path: Path):
+    """Build and save center_pcr preprocessor."""
+    logger.info(f"Building center_pcr with k={k}...")
+    logger.info("This performs PCA dimensionality reduction followed by re-centering.")
+    
+    preprocessor = CenterPCR(k=k)
+    preprocessor.fit(embeddings)
+    
+    # Save preprocessor
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "wb") as f:
+        pickle.dump(preprocessor, f)
+    
+    logger.info(f"✓ Saved preprocessor to {output_path}")
+    logger.info(f"  - Original dim: {embeddings.shape[1]}")
+    logger.info(f"  - Reduced dim: {k}")
+    logger.info(f"  - Explained variance: {preprocessor.pca.explained_variance_ratio_.sum():.4f}")
+    
+    # Verify by transforming a sample
+    sample_input = embeddings[:5]
+    sample_output = preprocessor.transform(sample_input)
+    logger.info(f"  - Sample output shape: {sample_output.shape}")
+    logger.info(f"  - Sample output mean: {sample_output.mean(axis=0)[:3]} (should be ~zero)")
+
+
+def build_center_whiten(embeddings: np.ndarray, output_path: Path):
+    """Build and save center_whiten preprocessor."""
+    logger.info("Building center_whiten...")
+    logger.info("This performs mean-centering followed by whitening (standardization).")
+    
+    preprocessor = CenterWhiten()
+    preprocessor.fit(embeddings)
+    
+    # Save preprocessor
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "wb") as f:
+        pickle.dump(preprocessor, f)
+    
+    logger.info(f"✓ Saved preprocessor to {output_path}")
+    logger.info(f"  - Embedding dim: {embeddings.shape[1]}")
+    logger.info(f"  - Mean norm (after centering): {np.linalg.norm(preprocessor.mean):.6f}")
+    logger.info(f"  - Std min/max: {preprocessor.std.min():.4f} / {preprocessor.std.max():.4f}")
+    
+    # Verify by transforming a sample
+    sample_input = embeddings[:5]
+    sample_output = preprocessor.transform(sample_input)
+    logger.info(f"  - Sample output shape: {sample_output.shape}")
+    logger.info(f"  - Sample output mean: {sample_output.mean():.6f} (should be ~zero)")
+    logger.info(f"  - Sample output std: {sample_output.std():.6f} (should be ~1)")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Build embedding preprocessor from training data"
-    )
-    parser.add_argument(
-        "--subject",
-        type=str,
-        default="subj01",
-        help="NSD subject (default: subj01)",
-    )
+    parser = argparse.ArgumentParser(description="Build embedding preprocessor")
     parser.add_argument(
         "--mode",
         type=str,
+        required=True,
         choices=["center_pcr", "center_whiten"],
-        default="center_pcr",
-        help="Preprocessing mode (default: center_pcr)",
+        help="Preprocessing method to use"
     )
     parser.add_argument(
         "--k_components",
         type=int,
         default=8,
-        help="Number of top PCs to remove (for center_pcr, default: 8)",
+        help="Number of PCA components for center_pcr (default: 8)"
     )
     parser.add_argument(
-        "--whiten_eps",
-        type=float,
-        default=1e-5,
-        help="Whitening epsilon (for center_whiten, default: 1e-5)",
+        "--cache_dir",
+        type=Path,
+        default=Path("cache"),
+        help="Path to cache directory containing CLIP embeddings (default: cache)"
     )
     parser.add_argument(
         "--output",
-        type=str,
-        required=True,
-        help="Output path for preprocessor artifacts",
-    )
-    parser.add_argument(
-        "--config",
-        type=str,
-        default="configs/data.yaml",
-        help="Data config path (default: configs/data.yaml)",
-    )
-    parser.add_argument(
-        "--plot_dir",
-        type=str,
+        type=Path,
         default=None,
-        help="Optional directory to save diagnostic plots",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=42,
-        help="Random seed (default: 42)",
+        help="Output path for preprocessor pickle (default: cache/<mode>.pkl)"
     )
     
     args = parser.parse_args()
     
-    logger.info("=" * 80)
-    logger.info("Building Embedding Preprocessor")
-    logger.info("=" * 80)
-    logger.info(f"Subject: {args.subject}")
-    logger.info(f"Mode: {args.mode}")
-    logger.info(f"K components: {args.k_components}")
-    logger.info(f"Output: {args.output}")
+    # Set default output path if not provided
+    if args.output is None:
+        if args.mode == "center_pcr":
+            args.output = args.cache_dir / f"center_pcr_k{args.k_components}.pkl"
+        else:
+            args.output = args.cache_dir / f"{args.mode}.pkl"
     
-    # Load config
-    config = load_config(Path(args.config))
+    logger.info("="*60)
+    logger.info(f"Building Embedding Preprocessor: {args.mode}")
+    logger.info("="*60)
     
-    # Load training data
-    logger.info("\nLoading training dataset...")
-    try:
-        dataset = NSDDataset(
-            subject=args.subject,
-            split="train",
-            roi="nsdgeneral",
-            **config.get("dataset", {}),
-        )
-        logger.info(f"Loaded {len(dataset)} training samples")
-    except Exception as e:
-        logger.error(f"Failed to load dataset: {e}")
-        logger.info("Attempting alternative loading method...")
-        # Fallback: load from cache if dataset class fails
-        raise NotImplementedError("Implement fallback loading from cache")
+    # Load training embeddings
+    train_embeddings = load_train_embeddings(args.cache_dir)
     
-    # Extract CLIP embeddings
-    logger.info("\nExtracting CLIP embeddings from training split...")
-    embeddings_list = []
-    labels_list = []
+    # Build and save preprocessor
+    if args.mode == "center_pcr":
+        build_center_pcr(train_embeddings, args.k_components, args.output)
+    elif args.mode == "center_whiten":
+        build_center_whiten(train_embeddings, args.output)
     
-    for idx in range(len(dataset)):
-        try:
-            sample = dataset[idx]
-            # Assuming sample has 'clip_embedding' or 'target' field
-            if 'clip_embedding' in sample:
-                emb = sample['clip_embedding']
-            elif 'target' in sample:
-                emb = sample['target']
-            else:
-                raise KeyError("No embedding field found in sample")
-            
-            # Convert to numpy
-            if isinstance(emb, np.ndarray):
-                pass
-            else:
-                emb = emb.cpu().numpy() if hasattr(emb, 'cpu') else np.array(emb)
-            
-            embeddings_list.append(emb)
-            
-            # Store image ID or index for separation analysis
-            image_id = sample.get('image_id', idx)
-            labels_list.append(image_id)
-            
-        except Exception as e:
-            logger.warning(f"Failed to extract embedding at index {idx}: {e}")
-            continue
-    
-    embeddings = np.stack(embeddings_list, axis=0)
-    labels = np.array(labels_list)
-    
-    logger.info(f"Extracted {len(embeddings)} embeddings with shape {embeddings.shape}")
-    
-    # Fit preprocessor
-    logger.info("\nFitting preprocessor...")
-    preprocessor = EmbeddingPreprocessor(
-        mode=args.mode,
-        k_components=args.k_components,
-        whiten_eps=args.whiten_eps,
-        seed=args.seed,
-    )
-    
-    preprocessor.fit(embeddings)
-    
-    # Compute diagnostics
-    logger.info("\nComputing diagnostics...")
-    diagnostics = preprocessor.compute_diagnostics(embeddings)
-    
-    logger.info("\nDiagnostics:")
-    for key, value in diagnostics.items():
-        logger.info(f"  {key}: {value:.4f}" if isinstance(value, float) else f"  {key}: {value}")
-    
-    # Save artifacts
-    output_path = Path(args.output)
-    preprocessor.save(output_path)
-    
-    # Save diagnostics
-    diagnostics_path = output_path.parent / f"{output_path.stem}_diagnostics.yaml"
-    with open(diagnostics_path, "w") as f:
-        yaml.dump(diagnostics, f)
-    logger.info(f"Saved diagnostics to {diagnostics_path}")
-    
-    # Generate plots if requested
-    if args.plot_dir:
-        plot_dir = Path(args.plot_dir)
-        plot_dir.mkdir(parents=True, exist_ok=True)
-        
-        logger.info(f"\nGenerating diagnostic plots in {plot_dir}...")
-        
-        # 1. Anisotropy comparison
-        if "anisotropy_score_after" in diagnostics:
-            fig, ax = plt.subplots(figsize=(8, 6))
-            scores = [
-                diagnostics["anisotropy_score"],
-                diagnostics["anisotropy_score_after"],
-            ]
-            ax.bar(["Before", "After"], scores, color=["#e74c3c", "#27ae60"])
-            ax.set_ylabel("Mean Cosine Similarity (Random Pairs)")
-            ax.set_title("Anisotropy Reduction")
-            ax.axhline(y=0, color='k', linestyle='--', alpha=0.3)
-            ax.set_ylim([-0.1, max(scores) * 1.2])
-            
-            # Annotate with values
-            for i, (label, score) in enumerate(zip(["Before", "After"], scores)):
-                ax.text(i, score + 0.01, f"{score:.4f}", ha='center', va='bottom')
-            
-            plt.tight_layout()
-            plt.savefig(plot_dir / "anisotropy_comparison.png", dpi=150)
-            plt.close()
-            logger.info("  Saved anisotropy_comparison.png")
-        
-        # 2. Positive/Negative separation histograms
-        logger.info("  Computing separation histograms...")
-        pos_before, neg_before, pos_after, neg_after = compute_separation_histograms(
-            embeddings,
-            labels,
-            preprocessor=preprocessor,
-            n_pairs=5000,
-            seed=args.seed,
-        )
-        
-        fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-        
-        # Before
-        axes[0].hist(neg_before, bins=50, alpha=0.6, label="Negative pairs", color="#e74c3c")
-        axes[0].hist(pos_before, bins=50, alpha=0.6, label="Positive pairs", color="#27ae60")
-        axes[0].set_xlabel("Cosine Similarity")
-        axes[0].set_ylabel("Count")
-        axes[0].set_title("Before Preprocessing")
-        axes[0].legend()
-        axes[0].axvline(x=0, color='k', linestyle='--', alpha=0.3)
-        
-        # After
-        if len(pos_after) > 0:
-            axes[1].hist(neg_after, bins=50, alpha=0.6, label="Negative pairs", color="#e74c3c")
-            axes[1].hist(pos_after, bins=50, alpha=0.6, label="Positive pairs", color="#27ae60")
-            axes[1].set_xlabel("Cosine Similarity")
-            axes[1].set_ylabel("Count")
-            axes[1].set_title("After Preprocessing")
-            axes[1].legend()
-            axes[1].axvline(x=0, color='k', linestyle='--', alpha=0.3)
-            
-            # Compute and display AUC/Cohen's d
-            from scipy.stats import mannwhitneyu
-            from sklearn.metrics import roc_auc_score
-            
-            # AUC before
-            y_true_before = np.concatenate([np.ones(len(pos_before)), np.zeros(len(neg_before))])
-            y_score_before = np.concatenate([pos_before, neg_before])
-            auc_before = roc_auc_score(y_true_before, y_score_before)
-            
-            # AUC after
-            y_true_after = np.concatenate([np.ones(len(pos_after)), np.zeros(len(neg_after))])
-            y_score_after = np.concatenate([pos_after, neg_after])
-            auc_after = roc_auc_score(y_true_after, y_score_after)
-            
-            # Cohen's d
-            def cohens_d(x1, x2):
-                nx1, nx2 = len(x1), len(x2)
-                dof = nx1 + nx2 - 2
-                return (np.mean(x1) - np.mean(x2)) / np.sqrt(
-                    ((nx1 - 1) * np.std(x1, ddof=1) ** 2 + (nx2 - 1) * np.std(x2, ddof=1) ** 2) / dof
-                )
-            
-            d_before = cohens_d(pos_before, neg_before)
-            d_after = cohens_d(pos_after, neg_after)
-            
-            axes[0].text(
-                0.05, 0.95, 
-                f"AUC: {auc_before:.3f}\nCohen's d: {d_before:.3f}",
-                transform=axes[0].transAxes,
-                va='top',
-                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-            )
-            
-            axes[1].text(
-                0.05, 0.95,
-                f"AUC: {auc_after:.3f}\nCohen's d: {d_after:.3f}",
-                transform=axes[1].transAxes,
-                va='top',
-                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-            )
-            
-            logger.info(f"    AUC: {auc_before:.4f} → {auc_after:.4f}")
-            logger.info(f"    Cohen's d: {d_before:.4f} → {d_after:.4f}")
-        
-        plt.tight_layout()
-        plt.savefig(plot_dir / "separation_histograms.png", dpi=150)
-        plt.close()
-        logger.info("  Saved separation_histograms.png")
-    
-    logger.info("\n" + "=" * 80)
-    logger.info("SUCCESS: Preprocessor built and saved")
-    logger.info("=" * 80)
+    logger.info("\n" + "="*60)
+    logger.info(f"✓ Preprocessor ready at {args.output}")
+    logger.info("="*60)
+    logger.info("\nYou can now use this preprocessor in your experiment configs:")
+    logger.info(f"  preprocess_embeddings: true")
+    logger.info(f"  embedding_preproc_path: '{args.output}'")
 
 
 if __name__ == "__main__":

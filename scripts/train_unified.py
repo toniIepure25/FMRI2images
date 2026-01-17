@@ -143,7 +143,7 @@ def setup_losses(config: Dict[str, Any], device: str, queue=None) -> Dict[str, n
         losses["gaussian_nce"] = GaussianNCELoss(
             use_temperature=gnce_cfg.get("use_temperature", True),
             temperature=gnce_cfg.get("temperature", 1.0),
-            queue=queue if use_queue else None,
+            use_queue=use_queue,
             symmetric=gnce_cfg.get("symmetric", False),
             clamp_logvar=gnce_cfg.get("clamp_logvar", True),
             logvar_min=gnce_cfg.get("logvar_min", -10.0),
@@ -351,8 +351,8 @@ def main():
     optimizer_cfg = config["training"]["optimizer"]
     optimizer = torch.optim.AdamW(
         model.parameters(),
-        lr=optimizer_cfg.get("lr", 1e-4),
-        weight_decay=optimizer_cfg.get("weight_decay", 0.01),
+        lr=float(optimizer_cfg.get("lr", 1e-4)),
+        weight_decay=float(optimizer_cfg.get("weight_decay", 0.01)),
         betas=optimizer_cfg.get("betas", [0.9, 0.999])
     )
     

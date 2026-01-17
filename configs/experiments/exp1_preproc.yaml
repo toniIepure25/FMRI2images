@@ -1,0 +1,121 @@
+# EXP1: + Embedding Preprocessing
+
+# Experiment metadata
+experiment:
+  name: "exp1_preproc"
+  description: "Baseline + embedding preprocessing (center_pcr k=8) - Tests geometry fix"
+  tags: ["deterministic", "preprocessing"]
+  parent: "exp0_baseline"
+
+# Data configuration
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.70
+  val_split: 0.15
+  test_split: 0.15
+  seed: 42
+
+# Model configuration
+model:
+  type: "deterministic"  # Single output, no variance
+  encoder:
+    input_dim: null  # Will be inferred from ROI
+    hidden_dims: [4096, 2048, 1024]
+    activation: "relu"
+    dropout: 0.1
+  decoder:
+    input_dim: 1024
+    output_dim: 768  # CLIP embedding dimension
+    hidden_dims: [1536]
+    activation: "relu"
+    dropout: 0.1
+
+# Preprocessing configuration (KEY CHANGE from EXP0)
+preprocessing:
+  enabled: true  # ✅ Enable preprocessing
+  mode: "center_pcr"
+  k_components: 8
+  whiten_eps: 1e-5
+  artifact_path: "cache/embedding_preproc/subj01_center_pcr_k8.pkl"
+  fit_on_train: true  # Fit preprocessor on train split only
+
+# Loss configuration (same as EXP0)
+loss:
+  mse:
+    enabled: true
+    weight: 1.0
+  
+  infonce:
+    enabled: true
+    weight: 1.0
+    type: "infonce_queue"
+    temperature: 0.07
+    learnable_temperature: true
+    symmetric: true
+    use_queue: false  # No queue yet (EXP2 adds this)
+
+  gaussian_nll:
+    enabled: false
+  
+  gaussian_nce:
+    enabled: false
+  
+  kl:
+    enabled: false
+
+# Memory queue (disabled for EXP1)
+queue:
+  enabled: false
+
+# Training configuration
+training:
+  batch_size: 4
+  num_epochs: 100
+  optimizer:
+    type: "adamw"
+    lr: 1e-4
+    weight_decay: 0.01
+    betas: [0.9, 0.999]
+  
+  scheduler:
+    type: "cosine"
+    warmup_steps: 1000
+    min_lr: 1e-6
+  
+  gradient_clip: 1.0
+  
+  early_stopping:
+    enabled: true
+    patience: 10
+    metric: "val_loss"
+    mode: "min"
+
+# Inference configuration
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 0
+  seed: 42
+
+# Evaluation configuration
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  n_identification_pairs: 5000
+  n_bootstrap_samples: 1000
+  compute_rsa: true
+  compute_cka: true
+  compute_probabilistic: false
+
+# Logging and checkpointing
+logging:
+  log_every_n_steps: 50
+  checkpoint_every_n_epochs: 5
+  save_top_k: 3
+  monitor: "val_loss"
+
+# Output paths
+paths:
+  output_dir: "experimental_results/exp1_preproc"
+  checkpoint_dir: "checkpoints"
+  log_dir: "logs"
+  eval_dir: "evaluation"

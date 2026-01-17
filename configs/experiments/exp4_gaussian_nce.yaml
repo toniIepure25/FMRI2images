@@ -1,0 +1,137 @@
+# EXP4: + Gaussian-NCE (Distribution-Aware Contrastive)
+
+# Experiment metadata
+experiment:
+  name: "exp4_gaussian_nce"
+  description: "Gaussian model with NLL + Gaussian-NCE (no KL yet)"
+  tags: ["gaussian", "gaussian_nce", "queue", "preprocessing"]
+  parent: "exp3_gaussian_nll"
+
+# Data configuration
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.70
+  val_split: 0.15
+  test_split: 0.15
+  seed: 42
+
+# Model configuration
+model:
+  type: "gaussian"  # Outputs mu and logvar
+  encoder:
+    input_dim: null
+    hidden_dims: [4096, 2048, 1024]
+    activation: "relu"
+    dropout: 0.1
+  decoder:
+    input_dim: 1024
+    output_dim: 768
+    hidden_dims: [1536]
+    activation: "relu"
+    dropout: 0.1
+    output_logvar: true  # Enable variance prediction
+
+# Preprocessing configuration
+preprocessing:
+  enabled: true
+  mode: "center_pcr"
+  k_components: 8
+  whiten_eps: 1e-5
+  artifact_path: "cache/embedding_preproc/subj01_center_pcr_k8.pkl"
+  fit_on_train: true  # Fit preprocessor on train split only
+
+# Loss configuration
+loss:
+  # Main reconstruction loss: Gaussian NLL
+  gaussian_nll:
+    enabled: true
+    weight: 1.0
+    type: "gaussian_nll"
+    logvar_min: -10.0
+    logvar_max: 5.0
+    learnable_global_scale: false
+    reduction: "mean"
+  
+  # Contrastive loss: Gaussian-NCE (NEW!)
+  gaussian_nce:
+    enabled: true
+    weight: 1.0
+    type: "gaussian_nce"
+    use_temperature: true
+    temperature: 1.0
+    use_queue: true
+    symmetric: false
+    clamp_logvar: true
+    logvar_min: -10.0
+    logvar_max: 5.0
+  
+  # Disable standard InfoNCE (replaced by Gaussian-NCE)
+  infonce:
+    enabled: false
+  
+  # No KL yet (EXP5 will add this)
+  kl:
+    enabled: false
+
+# Memory queue configuration
+queue:
+  enabled: true
+  size: 8192
+  store_ids: false  # Enable for debugging if needed
+
+# Training configuration
+training:
+  batch_size: 4
+  num_epochs: 100
+  optimizer:
+    type: "adamw"
+    lr: 1e-4
+    weight_decay: 0.01
+    betas: [0.9, 0.999]
+  
+  scheduler:
+    type: "cosine"
+    warmup_steps: 1000
+    min_lr: 1e-6
+  
+  gradient_clip: 1.0
+  
+  early_stopping:
+    enabled: true
+    patience: 15  # More patience for probabilistic training
+    metric: "val_loss"
+    mode: "min"
+
+# Inference configuration
+inference:
+  use_mean_for_retrieval: true  # Use mu for standard metrics
+  mc_samples_prob_metrics: 64  # Sample for probabilistic metrics
+  mc_samples_prob_2afc: 64
+  seed: 42
+
+# Evaluation configuration
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  n_identification_pairs: 5000
+  n_bootstrap_samples: 1000
+  compute_rsa: true
+  compute_cka: true
+  compute_probabilistic: true  # Enable probabilistic metrics
+  n_samples_energy: 64
+  n_calibration_bins: 10
+  seed: 42
+
+# Logging and checkpointing
+logging:
+  log_every_n_steps: 50
+  checkpoint_every_n_epochs: 5
+  save_top_k: 3
+  monitor: "val_loss"
+
+# Output paths
+paths:
+  output_dir: "experimental_results/exp4_gaussian_nce"
+  checkpoint_dir: "checkpoints"
+  log_dir: "logs"
+  eval_dir: "evaluation"

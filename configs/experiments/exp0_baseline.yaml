@@ -1,0 +1,115 @@
+# EXP0: Baseline (Deterministic, No Preprocessing, No Queue)
+
+# Experiment metadata
+experiment:
+  name: "exp0_baseline"
+  description: "Baseline deterministic model with MSE + cosine InfoNCE, no preprocessing, no queue"
+  tags: ["baseline", "deterministic"]
+
+# Data configuration
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.70
+  val_split: 0.15
+  test_split: 0.15
+  seed: 42
+
+# Model configuration
+model:
+  type: "deterministic"  # Single output, no variance
+  encoder:
+    input_dim: null  # Will be inferred from ROI
+    hidden_dims: [4096, 2048, 1024]
+    activation: "relu"
+    dropout: 0.1
+  decoder:
+    input_dim: 1024
+    output_dim: 768  # CLIP embedding dimension
+    hidden_dims: [1536]
+    activation: "relu"
+    dropout: 0.1
+
+# Preprocessing configuration
+preprocessing:
+  enabled: false  # No embedding preprocessing
+
+# Loss configuration
+loss:
+  mse:
+    enabled: true
+    weight: 1.0
+  
+  infonce:
+    enabled: true
+    weight: 1.0
+    type: "infonce_queue"
+    temperature: 0.07
+    learnable_temperature: true
+    symmetric: true
+    use_queue: false  # No queue for EXP0
+
+  gaussian_nll:
+    enabled: false
+  
+  gaussian_nce:
+    enabled: false
+  
+  kl:
+    enabled: false
+
+# Memory queue (disabled for EXP0)
+queue:
+  enabled: false
+
+# Training configuration
+training:
+  batch_size: 4
+  num_epochs: 100
+  optimizer:
+    type: "adamw"
+    lr: 1e-4
+    weight_decay: 0.01
+    betas: [0.9, 0.999]
+  
+  scheduler:
+    type: "cosine"
+    warmup_steps: 1000
+    min_lr: 1e-6
+  
+  gradient_clip: 1.0
+  
+  early_stopping:
+    enabled: true
+    patience: 10
+    metric: "val_loss"
+    mode: "min"
+
+# Inference configuration
+inference:
+  use_mean_for_retrieval: true  # N/A for deterministic, but keep for consistency
+  mc_samples_prob_metrics: 0  # No probabilistic metrics
+  seed: 42
+
+# Evaluation configuration
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  n_identification_pairs: 5000
+  n_bootstrap_samples: 1000
+  compute_rsa: true
+  compute_cka: true
+  seed: 42
+
+# Logging and checkpointing
+logging:
+  log_every_n_steps: 50
+  checkpoint_every_n_epochs: 5
+  save_top_k: 3
+  monitor: "val_loss"
+
+# Output paths
+paths:
+  output_dir: "experimental_results/exp0_baseline"
+  checkpoint_dir: "checkpoints"
+  log_dir: "logs"
+  eval_dir: "evaluation"

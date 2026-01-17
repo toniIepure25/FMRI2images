@@ -1,0 +1,123 @@
+# EXP2: + Memory Queue for InfoNCE
+
+# Experiment metadata
+experiment:
+  name: "exp2_queue"
+  description: "EXP1 + memory queue (MoCo-style, Q=8192) for contrastive learning"
+  tags: ["deterministic", "preprocessing", "queue"]
+  parent: "exp1_preproc"
+
+# Data configuration
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.70
+  val_split: 0.15
+  test_split: 0.15
+  seed: 42
+
+# Model configuration
+model:
+  type: "deterministic"  # Single output, no variance
+  encoder:
+    input_dim: null
+    hidden_dims: [4096, 2048, 1024]
+    activation: "relu"
+    dropout: 0.1
+  decoder:
+    input_dim: 1024
+    output_dim: 768
+    hidden_dims: [1536]
+    activation: "relu"
+    dropout: 0.1
+
+# Preprocessing configuration (same as EXP1)
+preprocessing:
+  enabled: true
+  mode: "center_pcr"
+  k_components: 8
+  whiten_eps: 1e-5
+  artifact_path: "cache/embedding_preproc/subj01_center_pcr_k8.pkl"
+  fit_on_train: true
+
+# Loss configuration
+loss:
+  mse:
+    enabled: true
+    weight: 1.0
+  
+  infonce:
+    enabled: true
+    weight: 1.0
+    type: "infonce_queue"
+    temperature: 0.07
+    learnable_temperature: true
+    symmetric: true
+    use_queue: true  # ✅ Enable queue (KEY CHANGE from EXP1)
+
+  gaussian_nll:
+    enabled: false
+  
+  gaussian_nce:
+    enabled: false
+  
+  kl:
+    enabled: false
+
+# Memory queue configuration (KEY CHANGE from EXP1)
+queue:
+  enabled: true  # ✅ Enable memory queue
+  size: 8192
+  store_ids: false
+
+# Training configuration
+training:
+  batch_size: 4
+  num_epochs: 100
+  optimizer:
+    type: "adamw"
+    lr: 1e-4
+    weight_decay: 0.01
+    betas: [0.9, 0.999]
+  
+  scheduler:
+    type: "cosine"
+    warmup_steps: 1000
+    min_lr: 1e-6
+  
+  gradient_clip: 1.0
+  
+  early_stopping:
+    enabled: true
+    patience: 10
+    metric: "val_loss"
+    mode: "min"
+
+# Inference configuration
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 0
+  seed: 42
+
+# Evaluation configuration
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  n_identification_pairs: 5000
+  n_bootstrap_samples: 1000
+  compute_rsa: true
+  compute_cka: true
+  compute_probabilistic: false
+
+# Logging and checkpointing
+logging:
+  log_every_n_steps: 50
+  checkpoint_every_n_epochs: 5
+  save_top_k: 3
+  monitor: "val_loss"
+
+# Output paths
+paths:
+  output_dir: "experimental_results/exp2_queue"
+  checkpoint_dir: "checkpoints"
+  log_dir: "logs"
+  eval_dir: "evaluation"

@@ -58,7 +58,15 @@ def extract_probabilistic_outputs(
     all_gt = []
     
     with torch.no_grad():
-        for fmri, clip_gt in tqdm(dataloader, desc="Extracting"):
+        for batch in tqdm(dataloader, desc="Extracting"):
+            # Handle different batch formats
+            if len(batch) == 2:
+                fmri, clip_gt = batch
+            elif len(batch) == 3:
+                fmri, clip_gt, _ = batch  # Ignore metadata/index
+            else:
+                raise ValueError(f"Unexpected batch format with {len(batch)} elements")
+            
             fmri = fmri.to(device)
             clip_gt = clip_gt.to(device)
             

@@ -1122,11 +1122,32 @@ def load_probabilistic_encoder(
         map_location = "cuda" if torch.cuda.is_available() else "cpu"
     
     checkpoint = torch.load(path, map_location=map_location)
-    meta = checkpoint.get("meta", {})
+    
+    # Handle different checkpoint formats
+    if isinstance(checkpoint, dict):
+        # Check for state_dict in various keys
+        if "state_dict" in checkpoint:
+            state_dict = checkpoint["state_dict"]
+            meta = checkpoint.get("meta", {})
+        elif "model_state_dict" in checkpoint:
+            state_dict = checkpoint["model_state_dict"]
+            meta = checkpoint.get("meta", {})
+        elif "model" in checkpoint:
+            state_dict = checkpoint["model"]
+            meta = checkpoint.get("meta", {})
+        else:
+            # Assume checkpoint is the state_dict itself
+            state_dict = checkpoint
+            meta = {}
+            logger.warning("Checkpoint appears to be a raw state_dict (no 'state_dict' key)")
+    else:
+        # Checkpoint is the model state_dict directly
+        state_dict = checkpoint
+        meta = {}
+        logger.warning("Checkpoint is a raw state_dict (not a dictionary)")
     
     # Infer input_dim from state_dict if not in metadata (backward compatibility)
     if "input_dim" not in meta:
-        state_dict = checkpoint["state_dict"]
         # Check for the first projection layer weight
         if "projections.layer_4.0.weight" in state_dict:
             input_dim = state_dict["projections.layer_4.0.weight"].shape[1]
@@ -1152,7 +1173,7 @@ def load_probabilistic_encoder(
         clip_space=meta.get("clip_space", "normalized"),
     )
     
-    model.load_state_dict(checkpoint["state_dict"], strict=True)
+    model.load_state_dict(state_dict, strict=True)
     logger.info(f"Loaded ProbabilisticMultiLayerTwoStageEncoder from {path}")
     
     return model, meta

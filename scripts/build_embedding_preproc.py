@@ -35,6 +35,7 @@ def load_train_embeddings(cache_dir: Path) -> np.ndarray:
         cache_dir / "clip_embeddings" / "nsd_train_clipvit_embeddings.npy",
         cache_dir / "clip_embeddings" / "train_embeddings.npy",
         # .parquet format
+        cache_dir / "clip_embeddings" / "nsd_clipvitl14.parquet",
         cache_dir / "clip_embeddings" / "nsd_clipcache_multilayer.parquet",
         cache_dir / "clip_embeddings" / "embeddings_ViT-B-32.parquet",
     ]

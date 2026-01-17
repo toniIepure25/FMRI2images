@@ -4,13 +4,12 @@ Sanity Tests for Evaluation Suite
 
 Critical tests to ensure evaluation metrics are correct and catch common bugs.
 
-Run with: pytest tests/test_evaluation_sanity.py -v
+Run with: python tests/test_evaluation_sanity.py
 
 Author: Research-grade evaluation suite
 Date: January 2026
 """
 
-import pytest
 import numpy as np
 import torch
 from pathlib import Path

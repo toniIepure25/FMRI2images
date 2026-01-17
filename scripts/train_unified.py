@@ -21,9 +21,11 @@ from typing import Dict, Any, Optional
 import yaml
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset, Subset
 import numpy as np
 from tqdm import tqdm
+import pandas as pd
+import nibabel as nib
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -42,6 +44,84 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)]
 )
 logger = logging.getLogger(__name__)
+
+
+class NSDDataset(Dataset):
+    """Dataset for NSD fMRI and CLIP embeddings."""
+    
+    def __init__(self, index_df: pd.DataFrame, embeddings_df: pd.DataFrame, 
+                 roi_mask_path: Optional[Path] = None):
+        """
+        Args:
+            index_df: DataFrame with columns [nsdId, beta_path, beta_index, ...]
+            embeddings_df: DataFrame with nsdId and embedding columns
+            roi_mask_path: Optional path to ROI mask for voxel selection
+        """
+        self.index_df = index_df.reset_index(drop=True)
+        self.embeddings_df = embeddings_df
+        self.roi_mask = None
+        self.beta_cache = {}  # Cache loaded beta files
+        
+        # Build nsdId to embedding lookup
+        if 'nsdId' in embeddings_df.columns:
+            self.embedding_lookup = {
+                row['nsdId']: idx 
+                for idx, row in embeddings_df.iterrows()
+            }
+        else:
+            # Fallback: assume index matches nsdId
+            self.embedding_lookup = {i: i for i in range(len(embeddings_df))}
+        
+        # Load ROI mask if provided
+        if roi_mask_path and roi_mask_path.exists():
+            mask_img = nib.load(roi_mask_path)
+            self.roi_mask = mask_img.get_fdata().astype(bool)
+            logger.info(f"Loaded ROI mask: {self.roi_mask.sum()} voxels")
+        
+        logger.info(f"NSDDataset created: {len(self.index_df)} trials")
+    
+    def __len__(self):
+        return len(self.index_df)
+    
+    def __getitem__(self, idx):
+        row = self.index_df.iloc[idx]
+        
+        # Load fMRI data
+        beta_path = row['beta_path']
+        beta_idx = row['beta_index']
+        
+        # Cache beta file to avoid repeated loading
+        if beta_path not in self.beta_cache:
+            img = nib.load(beta_path)
+            self.beta_cache[beta_path] = img.get_fdata()
+        
+        beta_vol = self.beta_cache[beta_path][..., beta_idx]
+        
+        # Apply ROI mask if available
+        if self.roi_mask is not None:
+            fmri = beta_vol[self.roi_mask].flatten()
+        else:
+            fmri = beta_vol.flatten()
+        
+        # Get embedding
+        nsdId = row['nsdId']
+        emb_idx = self.embedding_lookup.get(nsdId, nsdId % len(self.embeddings_df))
+        
+        # Extract embedding from dataframe
+        if 'final' in self.embeddings_df.columns:
+            embedding = self.embeddings_df.iloc[emb_idx]['final']
+        elif 'embedding' in self.embeddings_df.columns:
+            embedding = self.embeddings_df.iloc[emb_idx]['embedding']
+        else:
+            # Multi-column format
+            emb_cols = [c for c in self.embeddings_df.columns if c.startswith('emb_')]
+            embedding = self.embeddings_df.iloc[emb_idx][emb_cols].values
+        
+        # Convert to tensors
+        fmri_tensor = torch.tensor(fmri, dtype=torch.float32)
+        emb_tensor = torch.tensor(np.array(embedding), dtype=torch.float32)
+        
+        return fmri_tensor, emb_tensor
 
 
 def load_config(config_path: Path) -> Dict[str, Any]:
@@ -313,29 +393,58 @@ def main():
     logger.info(f"Experiment: {config['experiment']['name']}")
     logger.info(f"Description: {config['experiment']['description']}")
     logger.info("=" * 80)
-    logger.info("Starting training...")
     
-    # Create dummy fMRI data (TODO: load real fMRI)
-    fmri_dim = model_config["encoder"]["input_dim"]
-    fmri_data = torch.randn(len(embeddings), fmri_dim)
+    # Load NSD index
+    index_path = Path("data/indices/nsd_index/subject=subj01/index_full.parquet")
+    if not index_path.exists():
+        logger.error(f"Index not found: {index_path}")
+        logger.error("Run: python3 scripts/build_full_subj01_index.py")
+        sys.exit(1)
+    
+    index_df = pd.read_parquet(index_path)
+    logger.info(f"Loaded index: {len(index_df)} trials, {index_df['nsdId'].nunique()} unique stimuli")
+    
+    # Create dataset (embeddings already loaded as DataFrame)
+    embeddings_df = pd.read_parquet(embeddings_path)
+    
+    # Add nsdId if not present (assume sequential)
+    if 'nsdId' not in embeddings_df.columns:
+        embeddings_df['nsdId'] = range(len(embeddings_df))
+        logger.warning("Added sequential nsdId column to embeddings")
+    
+    # Create full dataset
+    full_dataset = NSDDataset(index_df, embeddings_df)
+    
+    # Get fMRI dimension from first sample
+    sample_fmri, sample_emb = full_dataset[0]
+    fmri_dim = sample_fmri.shape[0]
+    embedding_dim = sample_emb.shape[0]
+    logger.info(f"Data dimensions: fMRI={fmri_dim}, Embedding={embedding_dim}")
+    
+    # Update model config with actual dimensions
+    if model_config["encoder"]["input_dim"] != fmri_dim:
+        logger.info(f"Adjusting encoder input_dim from {model_config['encoder']['input_dim']} to {fmri_dim}")
+        model_config["encoder"]["input_dim"] = fmri_dim
     
     # Split data
     train_split = config["data"]["train_split"]
     val_split = config["data"]["val_split"]
-    n_train = int(len(embeddings) * train_split)
-    n_val = int(len(embeddings) * val_split)
+    n_total = len(full_dataset)
+    n_train = int(n_total * train_split)
+    n_val = int(n_total * val_split)
     
-    train_fmri, train_emb = fmri_data[:n_train], embeddings[:n_train]
-    val_fmri, val_emb = fmri_data[n_train:n_train+n_val], embeddings[n_train:n_train+n_val]
+    # Create train/val indices
+    indices = torch.randperm(n_total).tolist()
+    train_indices = indices[:n_train]
+    val_indices = indices[n_train:n_train+n_val]
+    
+    train_dataset = Subset(full_dataset, train_indices)
+    val_dataset = Subset(full_dataset, val_indices)
     
     # Create dataloaders
-    from torch.utils.data import TensorDataset
-    train_dataset = TensorDataset(train_fmri, train_emb)
-    val_dataset = TensorDataset(val_fmri, val_emb)
-    
     batch_size = config["training"]["batch_size"]
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
     
     logger.info(f"Train: {len(train_dataset)} samples, Val: {len(val_dataset)} samples")
     logger.info("Starting training...")

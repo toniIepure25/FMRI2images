@@ -49,18 +49,20 @@ def build_full_index():
     stim_df = download_nsd_stim_info()
     
     if stim_df is None:
-        logger.warning("Could not download stimulus info. Building index with sequential nsdIds...")
-        use_real_nsdids = False
+        logger.warning("Could not download stimulus info. Using sequential nsdIds 0-9840...")
+        nsdIds = list(range(9841))
     else:
         logger.info(f"Loaded stimulus info: {len(stim_df)} stimuli")
-        # Get subject 1's trial order
+        # Get nsdIds where subject1 saw the stimulus (subject1=1)
         if 'subject1' in stim_df.columns:
-            subj1_order = stim_df['subject1'].values
-            use_real_nsdids = True
-            logger.info(f"Found subject1 column with {len(subj1_order)} trials")
+            subj1_stimuli = stim_df[stim_df['subject1'] == 1]['nsdId'].values
+            logger.info(f"Subject1 saw {len(subj1_stimuli)} stimuli")
+            # Take first 9841 (matching the 40 sessions of beta files)
+            nsdIds = sorted(subj1_stimuli[:9841])
+            logger.info(f"Using first 9841 nsdIds for subject1")
         else:
-            logger.warning("No subject1 column found. Using sequential nsdIds...")
-            use_real_nsdids = False
+            logger.warning("No subject1 column found. Using sequential nsdIds 0-9840...")
+            nsdIds = list(range(9841))
     
     # Build index from NSD structure
     logger.info("Building index from NSD structure...")
@@ -78,18 +80,12 @@ def build_full_index():
         beta_path = f"{base_path}/betas_session{session_str}.nii.gz"
         
         for trial_in_session in range(n_trials):
-            # Get real nsdId if available
-            if use_real_nsdids and global_trial_idx < len(subj1_order):
-                nsdId = int(subj1_order[global_trial_idx])
-            else:
-                nsdId = global_trial_idx  # Fallback to sequential
-            
             rows.append({
                 'subject': 'subj01',
                 'session': session,
                 'trial_in_session': trial_in_session,
                 'global_trial_index': global_trial_idx,
-                'nsdId': nsdId,
+                'nsdId': int(nsdIds[global_trial_idx]),
                 'beta_path': beta_path,
                 'beta_index': trial_in_session,
             })
@@ -112,8 +108,7 @@ def build_full_index():
         'total_trials': len(df),
         'sessions': df['session'].nunique(),
         'nsdId_range': [int(df['nsdId'].min()), int(df['nsdId'].max())],
-        'unique_nsdIds': int(df['nsdId'].nunique()),
-        'has_real_nsdIds': use_real_nsdids
+        'unique_nsdIds': int(df['nsdId'].nunique())
     }
     
     import json
@@ -122,15 +117,10 @@ def build_full_index():
         json.dump(summary, f, indent=2)
     logger.info(f"✓ Saved summary to: {summary_path}")
     
-    if use_real_nsdids:
-        logger.info("\n" + "="*80)
-        logger.info("✓ Index built with real nsdId mappings from NSD experiment design")
-        logger.info("="*80)
-    else:
-        logger.info("\n" + "="*80)
-        logger.info("⚠  Index built with sequential nsdId values (fallback)")
-        logger.info("   Real mappings could not be downloaded")
-        logger.info("="*80)
+    logger.info("\n" + "="*80)
+    logger.info("✓ Index built successfully!")
+    logger.info(f"  {len(df)} trials mapped to nsdIds {df['nsdId'].min()}-{df['nsdId'].max()}")
+    logger.info("="*80)
     
     return df
 

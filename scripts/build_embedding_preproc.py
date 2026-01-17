@@ -12,12 +12,11 @@ import logging
 import sys
 from pathlib import Path
 import numpy as np
-import pickle
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from fmri2img.embedding_preproc import CenterPCR, CenterWhiten
+from fmri2img.embedding_preproc import EmbeddingPreprocessor
 
 logging.basicConfig(
     level=logging.INFO,
@@ -58,45 +57,44 @@ def load_train_embeddings(cache_dir: Path) -> np.ndarray:
 def build_center_pcr(embeddings: np.ndarray, k: int, output_path: Path):
     """Build and save center_pcr preprocessor."""
     logger.info(f"Building center_pcr with k={k}...")
-    logger.info("This performs PCA dimensionality reduction followed by re-centering.")
+    logger.info("This performs PCA to remove top-k principal components.")
     
-    preprocessor = CenterPCR(k=k)
+    preprocessor = EmbeddingPreprocessor(mode="center_pcr", k_components=k)
     preprocessor.fit(embeddings)
     
     # Save preprocessor
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "wb") as f:
-        pickle.dump(preprocessor, f)
+    preprocessor.save(output_path)
     
     logger.info(f"✓ Saved preprocessor to {output_path}")
     logger.info(f"  - Original dim: {embeddings.shape[1]}")
-    logger.info(f"  - Reduced dim: {k}")
-    logger.info(f"  - Explained variance: {preprocessor.pca.explained_variance_ratio_.sum():.4f}")
+    logger.info(f"  - Mode: center_pcr (k={k})")
+    if preprocessor.artifacts and preprocessor.artifacts.pca_explained_variance is not None:
+        total_var = preprocessor.artifacts.pca_explained_variance[:k].sum()
+        logger.info(f"  - Top-{k} PC variance: {total_var:.4f}")
     
     # Verify by transforming a sample
     sample_input = embeddings[:5]
     sample_output = preprocessor.transform(sample_input)
     logger.info(f"  - Sample output shape: {sample_output.shape}")
-    logger.info(f"  - Sample output mean: {sample_output.mean(axis=0)[:3]} (should be ~zero)")
+    logger.info(f"  - Sample output mean: {sample_output.mean():.6f} (should be ~zero)")
 
 
 def build_center_whiten(embeddings: np.ndarray, output_path: Path):
     """Build and save center_whiten preprocessor."""
     logger.info("Building center_whiten...")
-    logger.info("This performs mean-centering followed by whitening (standardization).")
+    logger.info("This performs mean-centering followed by whitening transformation.")
     
-    preprocessor = CenterWhiten()
+    preprocessor = EmbeddingPreprocessor(mode="center_whiten")
     preprocessor.fit(embeddings)
     
     # Save preprocessor
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "wb") as f:
-        pickle.dump(preprocessor, f)
+    preprocessor.save(output_path)
     
     logger.info(f"✓ Saved preprocessor to {output_path}")
     logger.info(f"  - Embedding dim: {embeddings.shape[1]}")
-    logger.info(f"  - Mean norm (after centering): {np.linalg.norm(preprocessor.mean):.6f}")
-    logger.info(f"  - Std min/max: {preprocessor.std.min():.4f} / {preprocessor.std.max():.4f}")
+    logger.info(f"  - Mode: center_whiten")
     
     # Verify by transforming a sample
     sample_input = embeddings[:5]

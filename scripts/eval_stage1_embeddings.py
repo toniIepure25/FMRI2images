@@ -151,13 +151,13 @@ def extract_embeddings(
     
     with torch.no_grad():
         for batch_idx, batch in enumerate(tqdm(dataloader, desc="Extracting")):
-            # Handle different batch formats
-            if len(batch) == 2:
-                fmri, clip_gt = batch
-            elif len(batch) == 3:
-                fmri, clip_gt, _ = batch  # Ignore metadata/index
+            # Handle different batch formats - just take first 2 elements
+            # Possible formats: (fmri, clip_gt) or (fmri, clip_gt, ...) with metadata
+            if len(batch) >= 2:
+                fmri = batch[0]
+                clip_gt = batch[1]
             else:
-                raise ValueError(f"Unexpected batch format with {len(batch)} elements")
+                raise ValueError(f"Batch must have at least 2 elements (fmri, clip_gt), got {len(batch)}")
             
             fmri = fmri.to(device)
             clip_gt = clip_gt.to(device)

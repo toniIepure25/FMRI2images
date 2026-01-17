@@ -119,7 +119,7 @@ def setup_losses(config: Dict[str, Any], device: str, queue=None) -> Dict[str, n
         losses["infonce"] = InfoNCEQueueLoss(
             temperature=infonce_cfg.get("temperature", 0.07),
             learnable_temperature=infonce_cfg.get("learnable_temperature", True),
-            queue=queue if use_queue else None,
+            use_queue=use_queue,
             symmetric=infonce_cfg.get("symmetric", True)
         )
         logger.info(f"✓ InfoNCE loss enabled (queue={use_queue})")
@@ -235,7 +235,7 @@ def train_epoch(
         
         # InfoNCE loss (deterministic models)
         if "infonce" in losses and logvar is None:
-            infonce_loss = losses["infonce"](pred, gt_embedding)
+            infonce_loss = losses["infonce"](pred, gt_embedding, queue=queue)
             total_loss += loss_weights.get("infonce", 1.0) * infonce_loss
             batch_metrics["infonce"] = infonce_loss.item()
             
@@ -251,7 +251,7 @@ def train_epoch(
         
         # Gaussian-NCE loss (probabilistic models)
         if "gaussian_nce" in losses and logvar is not None:
-            gnce_loss = losses["gaussian_nce"](pred, logvar, gt_embedding)
+            gnce_loss = losses["gaussian_nce"](pred, logvar, gt_embedding, queue=queue)
             total_loss += loss_weights.get("gaussian_nce", 1.0) * gnce_loss
             batch_metrics["gaussian_nce"] = gnce_loss.item()
             
@@ -331,14 +331,14 @@ def main():
     # Setup memory queue
     queue = None
     if config.get("queue", {}).get("enabled", False):
-        queue_size = config["queue"].get("size", 8192)
         embedding_dim = model_config["decoder"]["output_dim"]
         queue = create_memory_queue(
-            size=queue_size,
-            embedding_dim=embedding_dim,
-            device=device
+            config=config["queue"],
+            embedding_dim=embedding_dim
         )
-        logger.info(f"✓ Memory queue created (size={queue_size})")
+        if queue is not None:
+            queue = queue.to(device)
+            logger.info(f"✓ Memory queue created (size={config['queue'].get('size', 8192)})")
     
     # Setup losses
     losses = setup_losses(config, device, queue)

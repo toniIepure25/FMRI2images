@@ -1,18 +1,42 @@
 #!/usr/bin/env python3
 """
 Build full index for subj01 (all 40 sessions, ~9841 trials)
+Downloads the proper nsdId mapping from NSD experiment design.
 """
 
 import pandas as pd
 import numpy as np
 from pathlib import Path
 import logging
+import urllib.request
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 logger = logging.getLogger(__name__)
 
+def download_nsd_stim_info():
+    """Download NSD stimulus info with nsdId mapping."""
+    cache_dir = Path("cache")
+    cache_dir.mkdir(exist_ok=True)
+    
+    stim_file = cache_dir / "nsd_stim_info_merged.csv"
+    
+    if stim_file.exists():
+        logger.info(f"Using cached stimulus info: {stim_file}")
+        return pd.read_csv(stim_file)
+    
+    logger.info("Downloading NSD stimulus info from S3...")
+    url = "https://natural-scenes-dataset.s3.amazonaws.com/nsddata_stimuli/stimuli/nsd/nsd_stim_info_merged.csv"
+    
+    try:
+        urllib.request.urlretrieve(url, stim_file)
+        logger.info(f"✓ Downloaded stimulus info to: {stim_file}")
+        return pd.read_csv(stim_file)
+    except Exception as e:
+        logger.error(f"Failed to download stimulus info: {e}")
+        return None
+
 def build_full_index():
-    """Build full subj01 index from NSD experiment design."""
+    """Build full subj01 index with correct nsdId mapping."""
     
     # Output paths
     output_dir = Path("data/indices/nsd_index/subject=subj01")
@@ -21,29 +45,31 @@ def build_full_index():
     
     logger.info("Building full subj01 index...")
     
-    # NSD subj01 has 40 sessions, 750 trials per session (except last session has ~91)
-    # Total: 9,841 trials
+    # Download stimulus info
+    stim_df = download_nsd_stim_info()
     
-    # Try to download the experiment design from NSD
-    try:
-        import requests
-        logger.info("Downloading NSD experiment design from S3...")
-        
-        # Download the experiment design CSV
-        url = "https://natural-scenes-dataset.s3.amazonaws.com/nsddata/experiments/nsd/nsd_expdesign.mat"
-        logger.info(f"URL: {url}")
-        logger.info("Note: This is a .mat file. We'll build the index from known structure instead.")
-    except Exception as e:
-        logger.warning(f"Could not download experiment design: {e}")
+    if stim_df is None:
+        logger.warning("Could not download stimulus info. Building index with sequential nsdIds...")
+        use_real_nsdids = False
+    else:
+        logger.info(f"Loaded stimulus info: {len(stim_df)} stimuli")
+        # Get subject 1's trial order
+        if 'subject1' in stim_df.columns:
+            subj1_order = stim_df['subject1'].values
+            use_real_nsdids = True
+            logger.info(f"Found subject1 column with {len(subj1_order)} trials")
+        else:
+            logger.warning("No subject1 column found. Using sequential nsdIds...")
+            use_real_nsdids = False
     
-    # Build index manually from known NSD structure
+    # Build index from NSD structure
     logger.info("Building index from NSD structure...")
     
     rows = []
     base_path = "/bigdata/userhome/students/md5_sd8f61177fd2312b9b32bd118ad1/data/nsd/nsddata_betas/ppdata/subj01/func1pt8mm/betas_fithrf_GLMdenoise_RR"
     
     # Session 1-39: 750 trials each
-    # Session 40: 91 trials
+    # Session 40: 91 trials (total: 9,841 trials)
     global_trial_idx = 0
     
     for session in range(1, 41):
@@ -52,12 +78,18 @@ def build_full_index():
         beta_path = f"{base_path}/betas_session{session_str}.nii.gz"
         
         for trial_in_session in range(n_trials):
+            # Get real nsdId if available
+            if use_real_nsdids and global_trial_idx < len(subj1_order):
+                nsdId = int(subj1_order[global_trial_idx])
+            else:
+                nsdId = global_trial_idx  # Fallback to sequential
+            
             rows.append({
                 'subject': 'subj01',
                 'session': session,
                 'trial_in_session': trial_in_session,
                 'global_trial_index': global_trial_idx,
-                'nsdId': global_trial_idx,  # Placeholder - need actual nsdId mapping
+                'nsdId': nsdId,
                 'beta_path': beta_path,
                 'beta_index': trial_in_session,
             })
@@ -66,6 +98,8 @@ def build_full_index():
     df = pd.DataFrame(rows)
     logger.info(f"Built index with {len(df)} trials")
     logger.info(f"Sessions: {df['session'].min()} - {df['session'].max()}")
+    logger.info(f"nsdId range: {df['nsdId'].min()} - {df['nsdId'].max()}")
+    logger.info(f"Unique nsdIds: {df['nsdId'].nunique()}")
     
     # Save
     df.to_parquet(output_path, index=False)
@@ -77,7 +111,9 @@ def build_full_index():
     summary = {
         'total_trials': len(df),
         'sessions': df['session'].nunique(),
-        'trials_per_session': df.groupby('session').size().to_dict()
+        'nsdId_range': [int(df['nsdId'].min()), int(df['nsdId'].max())],
+        'unique_nsdIds': int(df['nsdId'].nunique()),
+        'has_real_nsdIds': use_real_nsdids
     }
     
     import json
@@ -86,10 +122,15 @@ def build_full_index():
         json.dump(summary, f, indent=2)
     logger.info(f"✓ Saved summary to: {summary_path}")
     
-    logger.info("\n" + "="*80)
-    logger.info("IMPORTANT: This index uses placeholder nsdId values!")
-    logger.info("You need to map global_trial_index to actual nsdId using NSD experiment design.")
-    logger.info("="*80)
+    if use_real_nsdids:
+        logger.info("\n" + "="*80)
+        logger.info("✓ Index built with real nsdId mappings from NSD experiment design")
+        logger.info("="*80)
+    else:
+        logger.info("\n" + "="*80)
+        logger.info("⚠  Index built with sequential nsdId values (fallback)")
+        logger.info("   Real mappings could not be downloaded")
+        logger.info("="*80)
     
     return df
 

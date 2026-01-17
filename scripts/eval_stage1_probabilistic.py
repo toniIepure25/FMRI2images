@@ -249,6 +249,7 @@ def main():
     # Load model
     logger.info(f"Loading checkpoint: {args.checkpoint}")
     model, meta = load_probabilistic_encoder(args.checkpoint, map_location=device)
+    model = model.to(device)  # Explicitly move to device
     model.eval()
     
     # Prepare dataset (reuse logic from eval_stage1_embeddings.py)

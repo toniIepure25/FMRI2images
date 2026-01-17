@@ -49,6 +49,7 @@ def load_model(checkpoint_path: Path, device: str) -> Tuple[torch.nn.Module, Dic
     logger.info(f"Loading checkpoint: {checkpoint_path}")
     
     model, meta = load_probabilistic_encoder(str(checkpoint_path), map_location=device)
+    model = model.to(device)  # Explicitly move to device
     model.eval()
     
     logger.info(f"Loaded model from epoch {meta.get('epoch', 'N/A')}")

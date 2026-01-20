@@ -33,19 +33,27 @@ echo -e "${GREEN}✓ Created .env with username: ${USERNAME}${NC}"
 echo ""
 echo -e "${YELLOW}Step 3: Setup MinIO Client${NC}"
 if ! command -v mc &> /dev/null; then
-    echo "Installing MinIO client..."
-    wget -q https://dl.min.io/client/mc/release/linux-amd64/mc
-    chmod +x mc
+    echo "Installing MinIO client to ~/bin ..."
     
-    # Try to install system-wide, fallback to local
-    if sudo mv mc /usr/local/bin/ 2>/dev/null; then
-        echo -e "${GREEN}✓ Installed MinIO client system-wide${NC}"
-    else
-        mv mc ~/bin/mc 2>/dev/null || mkdir -p ~/bin && mv mc ~/bin/mc
-        export PATH="$HOME/bin:$PATH"
-        echo -e "${GREEN}✓ Installed MinIO client to ~/bin${NC}"
-        echo "  Add to PATH: export PATH=\"\$HOME/bin:\$PATH\""
+    # Create bin directory if it doesn't exist
+    mkdir -p ~/bin
+    
+    # Download MinIO client
+    wget -q --show-progress https://dl.min.io/client/mc/release/linux-amd64/mc -O ~/bin/mc
+    chmod +x ~/bin/mc
+    
+    # Add to PATH for this session
+    export PATH="$HOME/bin:$PATH"
+    
+    echo -e "${GREEN}✓ Installed MinIO client to ~/bin/mc${NC}"
+    
+    # Add to shell profile if not already there
+    if ! grep -q 'export PATH="$HOME/bin:$PATH"' ~/.bashrc 2>/dev/null; then
+        echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
+        echo -e "${GREEN}✓ Added ~/bin to PATH in ~/.bashrc${NC}"
     fi
+    
+    echo -e "${BLUE}  Note: Restart shell or run: export PATH=\"\$HOME/bin:\$PATH\"${NC}"
 else
     echo -e "${GREEN}✓ MinIO client already installed${NC}"
 fi

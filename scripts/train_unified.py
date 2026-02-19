@@ -62,6 +62,14 @@ class NSDDataset(Dataset):
         self.roi_mask = None
         self.beta_cache = {}  # Cache loaded beta files
         
+        # Initialize S3 filesystem for MinIO
+        import s3fs
+        self.s3_fs = s3fs.S3FileSystem(
+            key='EMyfxXhCOfYyXvU3O5wn',
+            secret='PQpdz1TcUqj8b12kZHb0Sa0UtXMEnuZ4QLwbJmo8',
+            client_kwargs={'endpoint_url': 'http://s3hub-intern.cs.ubbcluj.ro:9000'}
+        )
+        
         # Build nsdId to embedding lookup
         if 'nsdId' in embeddings_df.columns:
             self.embedding_lookup = {
@@ -94,7 +102,21 @@ class NSDDataset(Dataset):
         
         # Cache beta file to avoid repeated loading
         if beta_path not in self.beta_cache:
-            img = nib.load(beta_path)
+            if beta_path.startswith("s3://"):
+                # Load from S3 via temp file in RAM disk
+                import os
+                temp_path = f"/dev/shm/temp_beta_{os.getpid()}_{hash(beta_path)}.nii.gz"
+                try:
+                    with self.s3_fs.open(beta_path, "rb") as f_in:
+                        with open(temp_path, "wb") as f_out:
+                            f_out.write(f_in.read())
+                    img = nib.load(temp_path)
+                finally:
+                    if os.path.exists(temp_path):
+                        os.unlink(temp_path)
+            else:
+                # Load local file
+                img = nib.load(beta_path)
             self.beta_cache[beta_path] = img.get_fdata()
         
         beta_vol = self.beta_cache[beta_path][..., beta_idx]

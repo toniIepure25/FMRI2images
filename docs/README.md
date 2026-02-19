@@ -1,213 +1,267 @@
-# Engineering documentation
+# Documentation Index
 
-This `docs/` directory is the **engineering / implementation** documentation for the repository: how to run the pipeline, how modules are structured, and how to troubleshoot.
+> **Complete documentation for the Brain-to-Image fMRI reconstruction system**
 
-If you're looking for the **paper/thesis-facing write-up**, see **`docs/paper/README.md`**.
-
----
-
-## 📚 Documentation organization
-
-This directory contains comprehensive documentation for the fMRI-to-Image reconstruction pipeline, organized by purpose and audience.
-
-### **Quick Navigation**
-
-| Document | Purpose | Audience |
-|----------|---------|----------|
-| **[Quick Start Guide](../START_HERE.md)** | Get started in <5 minutes | New users, researchers |
-| **[Usage Examples](../USAGE_EXAMPLES.md)** | Comprehensive command reference | All users |
-| **[README](../README.md)** | Project overview & setup | GitHub visitors |
-| **[Paper track](paper/README.md)** | Thesis/paper docs, claims, reproducibility | Writing / artifact prep |
+This directory contains comprehensive documentation organized by purpose and audience. For paper/thesis writing, see [docs/paper/README.md](paper/README.md).
 
 ---
 
-## 📖 Documentation Categories
+## 📚 Quick Navigation
 
-### **1. User Guides** (`guides/`)
-*Step-by-step tutorials for common tasks*
+### Essential Documents
 
-- **Getting Started**
-  - `GETTING_STARTED_DIFFUSION.md` - Introduction to diffusion-based reconstruction
-  - `QUICK_START.md` - Rapid setup and first experiments
-  
-- **Training Guides**
-  - `ADAPTER_TRAINING_GUIDE.md` - CLIP adapter training workflow
-  - `RIDGE_BASELINE.md` - Ridge regression baseline setup
-  - `MLP_IMPLEMENTATION.md` - MLP encoder implementation
-  
-- **Evaluation & Analysis**
-  - `EVALUATION_SUITE_GUIDE.md` - Comprehensive evaluation tools
-  - **[`PAPER_GRADE_EVALUATION.md`](PAPER_GRADE_EVALUATION.md)** - ⭐ **NEW**: Publication-quality evaluation suite
-  - `REPORTING_RECONSTRUCTION.md` - Generating reports and visualizations
-  - `GALLERY_SUPPORT.md` - Creating image galleries
+| Document                                                    | Purpose                      | Audience    |
+| ----------------------------------------------------------- | ---------------------------- | ----------- |
+| **[SETUP.md](guides/SETUP.md)**                             | Complete installation guide  | New users   |
+| **[RUNNING_EXPERIMENTS.md](guides/RUNNING_EXPERIMENTS.md)** | Training and evaluation      | Researchers |
+| **[IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)**    | What's ready to use          | All users   |
+| **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)**                | Command cheat sheet          | All users   |
+| **[Paper Docs](paper/README.md)**                           | Thesis/publication materials | Writers     |
 
-### **2. Architecture Documentation** (`architecture/`)
-*System design and component specifications*
+---
 
-- **Overview Documents**
-  - `MODULARIZATION_COMPLETE.md` - Module organization and structure
-  - `DIFFUSION_DECODER.md` - Diffusion model integration architecture
-  
-- **Component Specifications**
-  - Model architectures (Ridge, MLP, Two-Stage, Adapter)
-  - Data pipeline design
-  - Preprocessing modules
-  - Evaluation framework
+## 📖 Documentation Structure
 
-### **3. Technical Documentation** (`technical/`)
-*Implementation details and troubleshooting*
+### 1. **Getting Started**
 
-- **Configuration**
-  - `OPTIMAL_CONFIGURATION_GUIDE.md` - Best practices for hyperparameters
-  - `ADAPTER_METADATA_SUMMARY.md` - Adapter configuration reference
-  
-- **Data Management**
-  - `NSD_Dataset_Guide.md` - Natural Scenes Dataset structure
-  - `DATA_VALIDATION_REAL_VS_FALLBACK.md` - Data validation procedures
-  - `UPGRADE_TO_30K_SAMPLES.md` - Scaling to full dataset
-  - `GET_ALL_SAMPLES_GUIDE.md` - Complete sample retrieval
-  
-- **Advanced Topics**
-  - `DIFFUSION_ROBUSTNESS.md` - Robustness techniques for diffusion models
-  - `MANUAL_MODEL_DOWNLOAD.md` - Manual model weight management
-  - `PREVENTING_MODEL_DOWNLOAD_BLOCKING.md` - Offline model usage
+**New to the project? Start here:**
+
+- **[guides/SETUP.md](guides/SETUP.md)** - Complete setup for any environment
+  - Automated setup scripts
+  - Environment-specific instructions (JupyterHub, local, cluster)
+  - Manual setup steps
+  - Data download and preparation
+  - Troubleshooting
+
+- **[IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)** - Current system status
+  - What's implemented and tested
+  - Experiment configurations ready to run
+  - Novel contributions status
+  - Documentation completeness
+
+- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Quick command reference
+  - Common commands
+  - Useful snippets
+  - Configuration tips
+
+---
+
+### 2. **User Guides** (`guides/`)
+
+**Step-by-step tutorials for common tasks:**
+
+#### Setup & Configuration
+
+- **[SETUP.md](guides/SETUP.md)** - Complete setup guide (all environments)
+- **[SETUP_VERIFICATION.md](guides/SETUP_VERIFICATION.md)** - Verify installation
+- **[COMMANDS_AFTER_CLONE.md](guides/COMMANDS_AFTER_CLONE.md)** - Post-clone steps
+- **[TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)** - Common issues and solutions
+
+#### Training & Experiments
+
+- **[RUNNING_EXPERIMENTS.md](guides/RUNNING_EXPERIMENTS.md)** - Complete training guide
+  - Single experiment training
+  - Full ablation study
+  - GPU memory management
+  - Resume training
+- **[ADAPTER_TRAINING_GUIDE.md](guides/ADAPTER_TRAINING_GUIDE.md)** - CLIP adapter training
+- **[RIDGE_BASELINE.md](guides/RIDGE_BASELINE.md)** - Ridge regression baseline
+- **[MLP_IMPLEMENTATION.md](guides/MLP_IMPLEMENTATION.md)** - MLP encoder details
+
+#### Evaluation & Analysis
+
+- **[EVALUATION_SUITE_GUIDE.md](guides/EVALUATION_SUITE_GUIDE.md)** - Comprehensive metrics
+  - Standard metrics (retrieval, 2AFC, RSA)
+  - Bayesian metrics (calibration, conformal prediction)
+  - Statistical significance tests
+- **[REPORTING_RECONSTRUCTION.md](guides/REPORTING_RECONSTRUCTION.md)** - Generate reports
+- **[GALLERY_SUPPORT.md](guides/GALLERY_SUPPORT.md)** - Create image galleries
+
+#### Advanced Topics
+
+- **[NOVEL_CONTRIBUTIONS_PIPELINE.md](guides/NOVEL_CONTRIBUTIONS_PIPELINE.md)** - Novel features guide
+  - Soft reliability weighting
+  - InfoNCE contrastive loss
+  - MC Dropout uncertainty
+- **[NOVEL_CONTRIBUTIONS_IMPLEMENTATION.md](guides/NOVEL_CONTRIBUTIONS_IMPLEMENTATION.md)** - Detailed implementation
+- **[REALISTIC_WORKFLOW.md](guides/REALISTIC_WORKFLOW.md)** - End-to-end workflow
+- **[PIPELINE_SCRIPT_GUIDE.md](guides/PIPELINE_SCRIPT_GUIDE.md)** - Script documentation
+- **[SETUP_SCRIPT_DOCS.md](guides/SETUP_SCRIPT_DOCS.md)** - Setup script details
+- **[GETTING_STARTED_DIFFUSION.md](guides/GETTING_STARTED_DIFFUSION.md)** - Diffusion models intro
+- **[QUICK_START.md](guides/QUICK_START.md)** - Rapid setup for experienced users
+
+---
+
+### 3. **Architecture Documentation** (`architecture/`)
+
+**System design and component specifications:**
+
+- **[PIPELINE_ARCHITECTURE.md](architecture/PIPELINE_ARCHITECTURE.md)** - Complete system architecture
+  - Overall pipeline design
+  - Component interactions
+  - Data flow
+- **[WORKFLOW.md](architecture/WORKFLOW.md)** - JupyterHub/HPC workflow
+  - Environment setup
+  - Job submission
+  - Resource management
+- **[DIFFUSION_DECODER.md](architecture/DIFFUSION_DECODER.md)** - Diffusion model integration
+  - Architecture details
+  - Sampling strategies
+- **[DIFFUSION_ROBUSTNESS.md](architecture/DIFFUSION_ROBUSTNESS.md)** - Robustness analysis
+- **[MODULARIZATION_COMPLETE.md](architecture/MODULARIZATION_COMPLETE.md)** - Module organization
+
+---
+
+### 4. **Technical Documentation** (`technical/`)
+
+**Implementation details and advanced topics:**
+
+#### Data & Preprocessing
+
+- **[DATA_REQUIREMENTS.md](technical/DATA_REQUIREMENTS.md)** - Data requirements and specs
+- **[NSD_Dataset_Guide.md](technical/NSD_Dataset_Guide.md)** - Natural Scenes Dataset guide
+- **[DATA_VALIDATION_REAL_VS_FALLBACK.md](technical/DATA_VALIDATION_REAL_VS_FALLBACK.md)** - Data validation
+- **[UPGRADE_TO_30K_SAMPLES.md](technical/UPGRADE_TO_30K_SAMPLES.md)** - Scaling to full dataset
+
+#### Model & Training
+
+- **[OPTIMAL_CONFIGURATION_GUIDE.md](technical/OPTIMAL_CONFIGURATION_GUIDE.md)** - Best practices
+- **[ADAPTER_METADATA_SUMMARY.md](technical/ADAPTER_METADATA_SUMMARY.md)** - CLIP adapter metadata
+- **[CHECKPOINT_RESUME.md](technical/CHECKPOINT_RESUME.md)** - Checkpoint management
+- **[PREVENTING_MODEL_DOWNLOAD_BLOCKING.md](technical/PREVENTING_MODEL_DOWNLOAD_BLOCKING.md)** - Model download tips
+- **[MANUAL_MODEL_DOWNLOAD.md](technical/MANUAL_MODEL_DOWNLOAD.md)** - Manual model download
+
+#### Advanced Features
+
+- **[GET_ALL_SAMPLES_GUIDE.md](technical/GET_ALL_SAMPLES_GUIDE.md)** - Complete sample handling
+
+---
+
+### 5. **Paper/Thesis Documentation** (`paper/`)
+
+**Materials for writing and publishing:**
+
+- **[README.md](paper/README.md)** - Paper documentation index
+- **[outline.md](paper/outline.md)** - Complete paper outline and structure
+- **[method.md](paper/method.md)** - Methodology section template
+- **[experiments.md](paper/experiments.md)** - Experiment design
+- **[evaluation_protocol.md](paper/evaluation_protocol.md)** - Detailed evaluation protocol
+- **[results.md](paper/results.md)** - Results section template
+- **[claims.md](paper/claims.md)** - Research claims
+- **[limitations.md](paper/limitations.md)** - Limitations and future work
+- **[reproducibility.md](paper/reproducibility.md)** - Reproducibility guidelines
+- **[experiments/](paper/experiments/)** - Experiment-specific documentation
+
+---
+
+### 6. **Reference Documentation**
+
+**Quick reference materials:**
+
+- **[DATA_MODELS.md](DATA_MODELS.md)** - Data structures and schemas
+- **[EVAL_QUICK_REFERENCE.md](EVAL_QUICK_REFERENCE.md)** - Evaluation metrics reference
+- **[NOVEL_CONTRIBUTIONS_QUICK_REF.md](NOVEL_CONTRIBUTIONS_QUICK_REF.md)** - Novel features summary
+- **[PAPER_GRADE_EVALUATION.md](PAPER_GRADE_EVALUATION.md)** - Publication-quality evaluation
+- **[ablation_plan.md](ablation_plan.md)** - Ablation study plan and design
+- **[refs.md](refs.md)** - References and citations
 
 ---
 
 ## 🎯 Documentation by Task
 
-### **I want to train a model**
-1. Start with `RIDGE_BASELINE.md` for simplest approach
-2. Progress to `MLP_IMPLEMENTATION.md` for neural encoders
-3. See `ADAPTER_TRAINING_GUIDE.md` for diffusion integration
+### I want to...
 
-### **I want to evaluate my models**
-1. Read `EVALUATION_SUITE_GUIDE.md` for overview
-2. Use `REPORTING_RECONSTRUCTION.md` for generating reports
-3. Check `GALLERY_SUPPORT.md` for visual comparisons
+#### **Set up the system**
 
-### **I want to understand the architecture**
-1. Start with `MODULARIZATION_COMPLETE.md` for structure
-2. Review `DIFFUSION_DECODER.md` for reconstruction pipeline
-3. See component-specific docs in `architecture/`
+1. Read [guides/SETUP.md](guides/SETUP.md)
+2. Follow automated setup instructions
+3. Verify with [guides/SETUP_VERIFICATION.md](guides/SETUP_VERIFICATION.md)
+4. If issues: [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
 
-### **I'm troubleshooting an issue**
-1. Check `NSD_Dataset_Guide.md` for data problems
-2. See `OPTIMAL_CONFIGURATION_GUIDE.md` for config issues
-3. Review `DATA_VALIDATION_REAL_VS_FALLBACK.md` for validation
+#### **Run my first experiment**
 
----
+1. Complete setup (see above)
+2. Read [guides/RUNNING_EXPERIMENTS.md](guides/RUNNING_EXPERIMENTS.md)
+3. Start with EXP0 baseline
+4. Monitor with TensorBoard
 
-## 📊 Documentation Standards
+#### **Understand what's implemented**
 
-### **Style Guide**
-- Use clear, concise language appropriate for research audience
-- Include code examples with expected outputs
-- Provide performance benchmarks where applicable
-- Cross-reference related documentation
+1. Read [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)
+2. Check experiment configs in `configs/experiments/`
+3. Review test results (53/53 passing)
 
-### **Structure Template**
-```markdown
-# Title
+#### **Evaluate a trained model**
 
-**Brief description (1-2 sentences)**
+1. Read [guides/EVALUATION_SUITE_GUIDE.md](guides/EVALUATION_SUITE_GUIDE.md)
+2. Choose appropriate metrics for your experiments
+3. Run evaluation scripts
+4. Generate reports with [guides/REPORTING_RECONSTRUCTION.md](guides/REPORTING_RECONSTRUCTION.md)
 
-## Overview
-[High-level explanation]
+#### **Write my thesis/paper**
 
-## Prerequisites
-[Required knowledge/setup]
+1. Read [paper/README.md](paper/README.md)
+2. Use [paper/method.md](paper/method.md) for methodology section
+3. Use [paper/experiments.md](paper/experiments.md) for experiment design
+4. Use [paper/results.md](paper/results.md) for results section
+5. Follow [paper/reproducibility.md](paper/reproducibility.md) for reproducibility
 
-## Detailed Guide
-[Step-by-step instructions]
+#### **Understand the architecture**
 
-## Examples
-[Concrete usage examples]
+1. Read [architecture/PIPELINE_ARCHITECTURE.md](architecture/PIPELINE_ARCHITECTURE.md)
+2. For JupyterHub: [architecture/WORKFLOW.md](architecture/WORKFLOW.md)
+3. For diffusion models: [architecture/DIFFUSION_DECODER.md](architecture/DIFFUSION_DECODER.md)
 
-## Troubleshooting
-[Common issues and solutions]
+#### **Debug an issue**
 
-## References
-[Related docs and citations]
-```
-
-### **Code Examples**
-- Use syntax highlighting
-- Include expected outputs
-- Provide performance metrics (runtime, memory)
-- Show both minimal and production examples
+1. Check [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
+2. Review [QUICK_REFERENCE.md](QUICK_REFERENCE.md) for common commands
+3. Check [technical/DATA_VALIDATION_REAL_VS_FALLBACK.md](technical/DATA_VALIDATION_REAL_VS_FALLBACK.md) for data issues
 
 ---
 
-## 🔄 Documentation Maintenance
+## 📊 Documentation Status
 
-### **Versioning**
-- Major changes: Increment version in doc header
-- Keep deprecated sections with deprecation notices
-- Archive outdated docs in `docs/archive/`
+### ✅ Complete and Current
 
-### **Review Process**
-- Technical accuracy: Test all code examples
-- Clarity: Ensure understandability by target audience
-- Completeness: Cover prerequisites, steps, and troubleshooting
-- Currency: Update with API/implementation changes
+- **Setup guides** - Up-to-date for all environments
+- **Experiment guides** - All 7 experiments documented
+- **Evaluation documentation** - Comprehensive metrics coverage
+- **Architecture docs** - Complete system documentation
+- **Paper templates** - Ready for thesis writing
 
----
+### 🔄 Actively Maintained
 
-## 📚 Related Resources
-
-### **External Documentation**
-- [Natural Scenes Dataset (NSD)](http://naturalscenesdataset.org/)
-- [CLIP by OpenAI](https://github.com/openai/CLIP)
-- [Stable Diffusion](https://github.com/CompVis/stable-diffusion)
-- [PyTorch Documentation](https://pytorch.org/docs/)
-
-### **Academic Papers**
-- Allen et al. (2022) - Natural Scenes Dataset (NSD)
-- Radford et al. (2021) - CLIP: Learning Transferable Visual Models
-- Rombach et al. (2022) - High-Resolution Image Synthesis with Latent Diffusion
-
-### **Internal Resources**
-- [Project README](../README.md)
-- [Configuration Guide](../configs/README.md)
-- [Source Code](../src/fmri2img/)
+- **Implementation status** - Updated with each milestone
+- **Troubleshooting guide** - Updated with new issues/solutions
+- **Technical docs** - Updated as features are added
 
 ---
 
-## 💡 Contributing to Documentation
+## 🤝 Contributing to Documentation
 
-### **Adding New Documentation**
-1. Choose appropriate category (`guides/`, `architecture/`, `technical/`)
-2. Follow the structure template above
-3. Add entry to this README
-4. Cross-reference in related documents
-5. Test all code examples
+When adding or updating documentation:
 
-### **Updating Existing Documentation**
-1. Maintain backward compatibility notes
-2. Update cross-references
-3. Increment version number
-4. Note changes in commit message
-
-### **Quality Checklist**
-- [ ] Code examples tested and working
-- [ ] Cross-references verified
-- [ ] Follows style guide
-- [ ] Appropriate for target audience
-- [ ] Performance metrics included (if applicable)
-- [ ] Troubleshooting section complete
+1. **Follow the organization** - Place docs in appropriate subdirectories
+2. **Update this index** - Add new docs to relevant sections
+3. **Cross-reference** - Link to related documents
+4. **Keep it current** - Update dates and status when content changes
+5. **Use templates** - Follow existing formatting conventions
 
 ---
 
-## 📞 Support
+## 📞 Getting Help
 
-For questions not covered in documentation:
-1. Check [GitHub Issues](https://github.com/toniIepure25/FMRI2images/issues)
-2. Review [Usage Examples](../USAGE_EXAMPLES.md)
-3. Open a new issue with reproducible example
+- **Quick answers**: Check [QUICK_REFERENCE.md](QUICK_REFERENCE.md)
+- **Setup issues**: See [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
+- **General questions**: Read [guides/SETUP.md](guides/SETUP.md)
+- **Paper writing**: Start with [paper/README.md](paper/README.md)
+- **GitHub Issues**: For bugs or feature requests
 
 ---
 
-**Last Updated**: December 7, 2025  
-**Maintainer**: Bachelor Thesis Project  
-**Status**: Active Development
+<div align="center">
+
+**[Main README](../README.md) • [Setup](guides/SETUP.md) • [Running Experiments](guides/RUNNING_EXPERIMENTS.md) • [Paper Docs](paper/README.md)**
+
+</div>

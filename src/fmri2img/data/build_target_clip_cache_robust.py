@@ -130,7 +130,9 @@ def compute_embeddings_batch(
         # Encode using full CLIP model to get projected embeddings
         with torch.no_grad():
             # Use get_image_features which applies vision encoder + projection
-            batch_embeddings = clip_model.get_image_features(**inputs).cpu().numpy()
+            output = clip_model.get_image_features(**inputs)
+            # Extract the actual tensor from BaseModelOutputWithPooling
+            batch_embeddings = output.cpu().numpy() if hasattr(output, 'cpu') else output.pooler_output.cpu().numpy()
             
             # L2 normalize
             norms = np.linalg.norm(batch_embeddings, axis=1, keepdims=True)
@@ -183,8 +185,9 @@ def main():
     if args.limit:
         df = df.head(args.limit)
     
-    nsd_ids = df["nsdId"].values
-    logger.info(f"Processing {len(nsd_ids)} images")
+    # Get unique nsdIds only (deduplicate trials)
+    nsd_ids = df["nsdId"].unique()
+    logger.info(f"Processing {len(nsd_ids)} unique images (from {len(df)} trials)")
     
     # Check existing cache
     output_path = Path(args.output)
@@ -226,15 +229,15 @@ def main():
         batch_ids = missing_ids[i:i+args.batch_size]
         logger.info(f"Processing batch {i//args.batch_size + 1}/{(len(missing_ids)-1)//args.batch_size + 1}")
         
-        # Load images using HDF5 (individual PNGs don't exist in S3)
+        # Load images via HTTP to avoid downloading 40GB HDF5 file
         from fmri2img.io.nsd_images import load_nsd_images
         
         try:
-            images = load_nsd_images(batch_ids, s3_fs=s3_fs, prefer="hdf5")
-        except Exception as e:
-            logger.warning(f"HDF5 loading failed for batch: {e}")
-            logger.info("Trying HTTP fallback...")
             images = load_nsd_images(batch_ids, s3_fs=s3_fs, prefer="http")
+        except Exception as e:
+            logger.warning(f"HTTP loading failed for batch: {e}")
+            logger.info("Trying HDF5 fallback...")
+            images = load_nsd_images(batch_ids, s3_fs=s3_fs, prefer="hdf5")
         
         if not images:
             logger.warning(f"No images loaded for batch starting at {i}")

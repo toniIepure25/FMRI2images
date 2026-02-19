@@ -1,0 +1,100 @@
+data:
+  roi: nsdgeneral
+  seed: 42
+  subject: subj01
+  test_split: 0.15
+  train_split: 0.7
+  val_split: 0.15
+evaluation:
+  compute_cka: true
+  compute_rsa: true
+  gallery_sizes:
+  - 2
+  - 10
+  - 50
+  - 100
+  - 500
+  - 1000
+  n_bootstrap_samples: 1000
+  n_identification_pairs: 5000
+  seed: 42
+experiment:
+  description: Baseline deterministic model with MSE + cosine InfoNCE, no preprocessing,
+    no queue
+  name: exp0_baseline
+  tags:
+  - baseline
+  - deterministic
+inference:
+  mc_samples_prob_metrics: 0
+  seed: 42
+  use_mean_for_retrieval: true
+logging:
+  checkpoint_every_n_epochs: 5
+  log_every_n_steps: 50
+  monitor: val_loss
+  save_top_k: 3
+loss:
+  gaussian_nce:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  infonce:
+    enabled: true
+    learnable_temperature: true
+    symmetric: true
+    temperature: 0.07
+    type: infonce_queue
+    use_queue: false
+    weight: 1.0
+  kl:
+    enabled: false
+  mse:
+    enabled: true
+    weight: 1.0
+model:
+  decoder:
+    activation: relu
+    dropout: 0.1
+    hidden_dims:
+    - 768
+    input_dim: 512
+    output_dim: 768
+  encoder:
+    activation: relu
+    dropout: 0.1
+    hidden_dims:
+    - 2048
+    - 1024
+    - 512
+    input_dim: null
+  type: deterministic
+paths:
+  checkpoint_dir: checkpoints
+  eval_dir: evaluation
+  log_dir: logs
+  output_dir: experimental_results/exp0_baseline
+preprocessing:
+  enabled: false
+queue:
+  enabled: false
+training:
+  batch_size: 2
+  early_stopping:
+    enabled: true
+    metric: val_loss
+    mode: min
+    patience: 10
+  gradient_clip: 1.0
+  num_epochs: 100
+  optimizer:
+    betas:
+    - 0.9
+    - 0.999
+    lr: 1e-4
+    type: adamw
+    weight_decay: 0.01
+  scheduler:
+    min_lr: 1e-6
+    type: cosine
+    warmup_steps: 1000

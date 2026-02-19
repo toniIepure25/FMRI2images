@@ -1,529 +1,783 @@
-#!/bin/bash
+#!/usr/bin/env bash
 ################################################################################
-# Automated Setup Script for fMRI-to-Image Brain Decoding Project
+# Production Setup Script - fMRI-to-Image Brain Decoding
 ################################################################################
 #
-# This script automates the complete setup process for the fMRI2img project,
-# including environment configuration, dependency installation, data download,
-# and cache building.
+# Complete automated setup from zero to experiment-ready state.
+# This script is idempotent - safe to run multiple times.
+#
+# What it does:
+#   1. System preflight checks (Python, CUDA, disk space)
+#   2. Python environment setup (conda/venv)
+#   3. Package installation (fmri2img)
+#   4. Dataset verification
+#   5. Model downloads (CLIP, Stable Diffusion)
+#   6. Data index building
+#   7. Preprocessing pipeline fitting
+#   8. CLIP embeddings cache building
+#   9. Final readiness verification
 #
 # Usage:
 #   ./setup.sh [OPTIONS]
 #
 # Options:
-#   --skip-data         Skip NSD data download (if already present)
-#   --skip-models       Skip model checkpoint download
-#   --skip-clip-cache   Skip CLIP cache building
-#   --minimal           Minimal setup (environment + dependencies only)
+#   --subject SUBJ      Subject to prepare (default: subj01)
+#   --skip-data         Skip dataset verification (use with caution)
+#   --skip-cache        Skip CLIP cache building (can build later)
+#   --minimal           Minimal setup (no data, models, or cache)
+#   --clean             Clean all markers and start fresh
+#   --check-only        Only verify current setup status
 #   --help              Show this help message
 #
-# Requirements:
-#   - Python 3.11+
-#   - CUDA 11.8+ (for GPU support)
-#   - 60GB+ free disk space
+# After successful setup, run experiments:
+#   python scripts/train.py --config configs/experiments/exp0_baseline.yaml
 #
 ################################################################################
 
-set -e  # Exit on error
-set -u  # Exit on undefined variable
+set -euo pipefail
 
-# Color codes for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-NC='\033[0m' # No Color
-
+# ============================================================================
 # Configuration
+# ============================================================================
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_NAME="fMRI2img"
-PYTHON_VERSION="3.11"
-VENV_NAME="venv"
+LOG_DIR="${SCRIPT_DIR}/logs"
+LOG_FILE="${LOG_DIR}/setup_$(date +%Y%m%d_%H%M%S).log"
+MARKER_DIR="${SCRIPT_DIR}/.setup_markers"
 
-# Parse command-line arguments
+# Ensure log directory exists
+mkdir -p "${LOG_DIR}"
+mkdir -p "${MARKER_DIR}"
+
+# Default options
+SUBJECT="subj01"
 SKIP_DATA=false
-SKIP_MODELS=false
-SKIP_CLIP_CACHE=false
+SKIP_CACHE=false
 MINIMAL_SETUP=false
+CLEAN_START=false
+CHECK_ONLY=false
 
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --skip-data)
-            SKIP_DATA=true
-            shift
-            ;;
-        --skip-models)
-            SKIP_MODELS=true
-            shift
-            ;;
-        --skip-clip-cache)
-            SKIP_CLIP_CACHE=true
-            shift
-            ;;
-        --minimal)
-            MINIMAL_SETUP=true
-            SKIP_DATA=true
-            SKIP_MODELS=true
-            SKIP_CLIP_CACHE=true
-            shift
-            ;;
-        --help)
-            head -n 25 "$0" | tail -n 23
-            exit 0
-            ;;
-        *)
-            echo -e "${RED}Unknown option: $1${NC}"
-            echo "Use --help for usage information"
-            exit 1
-            ;;
-    esac
-done
+# ============================================================================
+# Color Output
+# ============================================================================
 
-################################################################################
-# Helper Functions
-################################################################################
+if [[ -t 1 ]]; then
+    RED='\033[0;31m'
+    GREEN='\033[0;32m'
+    YELLOW='\033[1;33m'
+    BLUE='\033[0;34m'
+    CYAN='\033[0;36m'
+    MAGENTA='\033[0;35m'
+    BOLD='\033[1m'
+    DIM='\033[2m'
+    NC='\033[0m'
+else
+    RED='' GREEN='' YELLOW='' BLUE='' CYAN='' MAGENTA='' BOLD='' DIM='' NC=''
+fi
+
+# ============================================================================
+# Logging Functions
+# ============================================================================
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
+}
 
 print_header() {
+    local text="$1"
     echo ""
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════════════════════${NC}"
-    echo -e "${CYAN}  $1${NC}"
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}${BOLD}╔══════════════════════════════════════════════════════════════════════════════╗${NC}"
+    printf "${CYAN}${BOLD}║ %-76s ║${NC}\n" "$text"
+    echo -e "${CYAN}${BOLD}╚══════════════════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
+    log "═══ $text ═══"
 }
 
 print_step() {
-    echo -e "${BLUE}▶ $1${NC}"
+    echo -e "${BLUE}▶${NC} ${BOLD}$1${NC}"
+    log "STEP: $1"
+}
+
+print_substep() {
+    echo -e "  ${DIM}→${NC} $1"
+    log "  → $1"
 }
 
 print_success() {
-    echo -e "${GREEN}✓ $1${NC}"
+    echo -e "${GREEN}✓${NC} $1"
+    log "SUCCESS: $1"
+}
+
+print_skip() {
+    echo -e "${YELLOW}⊘${NC} $1 ${DIM}(already done)${NC}"
+    log "SKIPPED: $1"
 }
 
 print_warning() {
-    echo -e "${YELLOW}⚠ $1${NC}"
+    echo -e "${YELLOW}⚠${NC} ${YELLOW}$1${NC}"
+    log "WARNING: $1"
 }
 
 print_error() {
-    echo -e "${RED}✗ $1${NC}"
+    echo -e "${RED}✗${NC} ${RED}$1${NC}"
+    log "ERROR: $1"
 }
 
+print_info() {
+    echo -e "${MAGENTA}ℹ${NC} $1"
+}
+
+# ============================================================================
+# State Management
+# ============================================================================
+
+mark_completed() {
+    local step="$1"
+    local marker="${MARKER_DIR}/${step}.done"
+    date +%s > "$marker"
+    log "Marked completed: $step"
+}
+
+is_completed() {
+    local step="$1"
+    local marker="${MARKER_DIR}/${step}.done"
+    [[ -f "$marker" ]]
+}
+
+clean_markers() {
+    print_step "Cleaning all setup markers..."
+    rm -rf "${MARKER_DIR}"
+    mkdir -p "${MARKER_DIR}"
+    print_success "All markers cleaned - fresh start"
+}
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
 check_command() {
-    if command -v "$1" &> /dev/null; then
-        print_success "$1 is installed"
+    local cmd="$1"
+    command -v "$cmd" &> /dev/null
+}
+
+get_python() {
+    # Try to find best Python 3.10+
+    for py in python3.11 python3.10 python3 python; do
+        if check_command "$py"; then
+            local version=$("$py" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || echo "0.0")
+            local major=$(echo "$version" | cut -d. -f1)
+            local minor=$(echo "$version" | cut -d. -f2)
+            if [[ "$major" -ge 3 ]] && [[ "$minor" -ge 10 ]]; then
+                echo "$py"
+                return 0
+            fi
+        fi
+    done
+    return 1
+}
+
+run_python_script() {
+    local script="$1"
+    shift
+    local python_cmd="${PYTHON:-python3}"
+    
+    print_substep "Running: $script $*"
+    if "$python_cmd" "$script" "$@" >> "$LOG_FILE" 2>&1; then
         return 0
     else
-        print_error "$1 is not installed"
-        return 1
+        local exit_code=$?
+        print_error "Script failed: $script (exit code: $exit_code)"
+        print_info "Check log file: $LOG_FILE"
+        return $exit_code
     fi
 }
 
-check_python_version() {
-    if command -v python3 &> /dev/null; then
-        PY_VERSION=$(python3 --version | awk '{print $2}')
-        PY_MAJOR=$(echo "$PY_VERSION" | cut -d. -f1)
-        PY_MINOR=$(echo "$PY_VERSION" | cut -d. -f2)
-        
-        if [[ "$PY_MAJOR" -ge 3 ]] && [[ "$PY_MINOR" -ge 11 ]]; then
-            print_success "Python $PY_VERSION detected"
-            return 0
+# ============================================================================
+# Setup Steps
+# ============================================================================
+
+step_preflight() {
+    if is_completed "preflight"; then
+        print_skip "System preflight checks"
+        return 0
+    fi
+    
+    print_step "Running system preflight checks..."
+    
+    # Check Python version
+    print_substep "Checking Python version..."
+    if ! PYTHON=$(get_python); then
+        print_error "Python 3.10+ not found"
+        print_info "Install Python 3.10 or 3.11 and try again"
+        return 1
+    fi
+    print_success "Python: $PYTHON ($($PYTHON --version 2>&1))"
+    
+    # Check CUDA
+    print_substep "Checking CUDA availability..."
+    if check_command nvidia-smi; then
+        local cuda_version=$(nvidia-smi | grep "CUDA Version" | sed -n 's/.*CUDA Version: \([0-9.]*\).*/\1/p' || echo "unknown")
+        local gpu_name=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n1 || echo "unknown")
+        print_success "GPU: $gpu_name (CUDA $cuda_version)"
+    else
+        print_warning "nvidia-smi not found - GPU training may not work"
+    fi
+    
+    # Check disk space
+    print_substep "Checking disk space..."
+    local available_gb=$(df -BG "${SCRIPT_DIR}" | tail -1 | awk '{print $4}' | sed 's/G//')
+    if [[ "$available_gb" -lt 50 ]]; then
+        print_warning "Only ${available_gb}GB free - recommend 80GB+ for full setup"
+    else
+        print_success "Disk space: ${available_gb}GB available"
+    fi
+    
+    # Run full preflight script if available
+    if [[ -f "${SCRIPT_DIR}/scripts/preflight.py" ]]; then
+        print_substep "Running comprehensive preflight checks..."
+        if run_python_script "${SCRIPT_DIR}/scripts/preflight.py"; then
+            print_success "Preflight checks passed"
         else
-            print_error "Python $PY_VERSION detected (requires 3.11+)"
+            print_warning "Preflight script reported issues (see log)"
+        fi
+    fi
+    
+    mark_completed "preflight"
+    return 0
+}
+
+step_environment() {
+    if is_completed "environment"; then
+        print_skip "Python environment setup"
+        return 0
+    fi
+    
+    print_step "Setting up Python environment..."
+    
+    # Check if we're in a conda environment
+    if [[ -n "${CONDA_DEFAULT_ENV:-}" ]]; then
+        print_info "Using existing conda environment: $CONDA_DEFAULT_ENV"
+        mark_completed "environment"
+        return 0
+    fi
+    
+    # Check if we're in a virtualenv
+    if [[ -n "${VIRTUAL_ENV:-}" ]]; then
+        print_info "Using existing virtual environment: $VIRTUAL_ENV"
+        mark_completed "environment"
+        return 0
+    fi
+    
+    # Try to create conda environment from environment.yml
+    if check_command conda && [[ -f "${SCRIPT_DIR}/environment.yml" ]]; then
+        print_substep "Creating conda environment from environment.yml..."
+        if conda env create -f "${SCRIPT_DIR}/environment.yml" >> "$LOG_FILE" 2>&1; then
+            print_success "Conda environment created: fmri2img"
+            print_info "Activate with: conda activate fmri2img"
+        else
+            print_warning "Conda environment creation failed (see log)"
+        fi
+    else
+        # Fall back to venv
+        print_substep "Creating Python virtual environment..."
+        local venv_dir="${SCRIPT_DIR}/venv"
+        if [[ ! -d "$venv_dir" ]]; then
+            if "$PYTHON" -m venv "$venv_dir" >> "$LOG_FILE" 2>&1; then
+                print_success "Virtual environment created: $venv_dir"
+                print_info "Activate with: source venv/bin/activate"
+            else
+                print_error "Failed to create virtual environment"
+                return 1
+            fi
+        else
+            print_info "Virtual environment already exists: $venv_dir"
+        fi
+    fi
+    
+    mark_completed "environment"
+    return 0
+}
+
+step_install_package() {
+    if is_completed "package"; then
+        print_skip "Package installation"
+        return 0
+    fi
+    
+    print_step "Installing fmri2img package..."
+    
+    # Install requirements
+    if [[ -f "${SCRIPT_DIR}/requirements.txt" ]]; then
+        print_substep "Installing dependencies from requirements.txt..."
+        if "$PYTHON" -m pip install -r "${SCRIPT_DIR}/requirements.txt" >> "$LOG_FILE" 2>&1; then
+            print_success "Dependencies installed"
+        else
+            print_warning "Some dependencies failed to install (see log)"
+        fi
+    fi
+    
+    # Install package in editable mode
+    print_substep "Installing fmri2img package (editable mode)..."
+    if "$PYTHON" -m pip install -e "${SCRIPT_DIR}" >> "$LOG_FILE" 2>&1; then
+        print_success "Package installed in editable mode"
+    else
+        print_error "Package installation failed"
+        return 1
+    fi
+    
+    # Verify installation
+    print_substep "Verifying installation..."
+    if "$PYTHON" -c "import fmri2img; print(f'fmri2img imported successfully')" >> "$LOG_FILE" 2>&1; then
+        print_success "Package verified - import successful"
+    else
+        print_error "Package import failed"
+        return 1
+    fi
+    
+    mark_completed "package"
+    return 0
+}
+
+step_verify_dataset() {
+    if [[ "$SKIP_DATA" == "true" ]]; then
+        print_skip "Dataset verification (--skip-data specified)"
+        return 0
+    fi
+    
+    if is_completed "dataset_${SUBJECT}"; then
+        print_skip "Dataset verification for ${SUBJECT}"
+        return 0
+    fi
+    
+    print_step "Verifying NSD dataset for ${SUBJECT}..."
+    
+    if [[ -f "${SCRIPT_DIR}/scripts/verify_dataset.py" ]]; then
+        print_substep "Running dataset verification script..."
+        if run_python_script "${SCRIPT_DIR}/scripts/verify_dataset.py" --subject "$SUBJECT"; then
+            print_success "Dataset verified for ${SUBJECT}"
+            mark_completed "dataset_${SUBJECT}"
+        else
+            print_error "Dataset verification failed"
+            print_info "The NSD dataset is required for training"
+            print_info "See: https://naturalscenesdataset.org/"
             return 1
         fi
     else
-        print_error "Python 3 not found"
-        return 1
+        print_warning "Dataset verification script not found - skipping"
+        mark_completed "dataset_${SUBJECT}"
     fi
+    
+    return 0
 }
 
-check_gpu() {
-    if command -v nvidia-smi &> /dev/null; then
-        GPU_INFO=$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)
-        print_success "GPU detected: $GPU_INFO"
-        return 0
-    else
-        print_warning "No GPU detected (nvidia-smi not available)"
-        return 1
-    fi
-}
-
-get_disk_space() {
-    local path="$1"
-    df -BG "$path" | awk 'NR==2 {print $4}' | sed 's/G//'
-}
-
-################################################################################
-# Main Setup Functions
-################################################################################
-
-setup_system_checks() {
-    print_header "SYSTEM REQUIREMENTS CHECK"
-    
-    local all_ok=true
-    
-    # Check Python
-    print_step "Checking Python installation..."
-    if ! check_python_version; then
-        all_ok=false
-    fi
-    
-    # Check Git
-    print_step "Checking Git installation..."
-    if ! check_command git; then
-        all_ok=false
-    fi
-    
-    # Check GPU (optional but recommended)
-    print_step "Checking GPU availability..."
-    check_gpu || true
-    
-    # Check disk space
-    print_step "Checking disk space..."
-    AVAILABLE_SPACE=$(get_disk_space "$SCRIPT_DIR")
-    if [[ "$AVAILABLE_SPACE" -lt 60 ]]; then
-        print_warning "Only ${AVAILABLE_SPACE}GB available. Recommended: 60GB+"
-    else
-        print_success "${AVAILABLE_SPACE}GB available"
-    fi
-    
-    if [[ "$all_ok" = false ]]; then
-        print_error "System requirements not met. Please install missing dependencies."
-        exit 1
-    fi
-    
-    print_success "All system checks passed!"
-}
-
-setup_environment_variables() {
-    print_header "CONFIGURING ENVIRONMENT VARIABLES"
-    
-    # Detect if we're on a shared server with /bigdata
-    if [[ -d "/bigdata" ]]; then
-        print_step "Detected shared server environment (/bigdata exists)"
-        CACHE_BASE="/bigdata/userhome/$(whoami)"
-    else
-        print_step "Using local environment"
-        CACHE_BASE="$SCRIPT_DIR"
-    fi
-    
-    # Create environment configuration file
-    ENV_FILE="$SCRIPT_DIR/.env"
-    print_step "Creating environment configuration: $ENV_FILE"
-    
-    cat > "$ENV_FILE" << EOF
-# fMRI2img Environment Configuration
-# Generated on $(date)
-
-# Cache directories (use /bigdata on shared servers to avoid filling system disk)
-export TORCH_HOME="${CACHE_BASE}/cache/torch"
-export HF_HOME="${CACHE_BASE}/cache/huggingface"
-export TRANSFORMERS_CACHE="${CACHE_BASE}/cache/transformers"
-export TMPDIR="${CACHE_BASE}/tmp"
-
-# Python paths
-export PYTHONPATH="${SCRIPT_DIR}/src:\${PYTHONPATH}"
-
-# CUDA settings (if available)
-export CUDA_VISIBLE_DEVICES=0
-
-# Disable warnings
-export PYTHONWARNINGS="ignore"
-EOF
-    
-    # Create shell rc additions
-    SHELL_RC="$HOME/.bashrc"
-    if [[ -f "$HOME/.zshrc" ]]; then
-        SHELL_RC="$HOME/.zshrc"
-    fi
-    
-    # Check if already sourced
-    if ! grep -q "source $ENV_FILE" "$SHELL_RC" 2>/dev/null; then
-        print_step "Adding environment sourcing to $SHELL_RC"
-        echo "" >> "$SHELL_RC"
-        echo "# fMRI2img environment (added by setup.sh)" >> "$SHELL_RC"
-        echo "[ -f \"$ENV_FILE\" ] && source \"$ENV_FILE\"" >> "$SHELL_RC"
-        print_success "Shell configuration updated"
-    else
-        print_warning "Environment already configured in $SHELL_RC"
-    fi
-    
-    # Source for current session
-    source "$ENV_FILE"
-    
-    # Create cache directories
-    print_step "Creating cache directories..."
-    mkdir -p "$TORCH_HOME"
-    mkdir -p "$HF_HOME"
-    mkdir -p "$TRANSFORMERS_CACHE"
-    mkdir -p "$TMPDIR"
-    mkdir -p "$SCRIPT_DIR/cache/clip_embeddings"
-    mkdir -p "$SCRIPT_DIR/cache/stimuli"
-    mkdir -p "$SCRIPT_DIR/data/indices"
-    mkdir -p "$SCRIPT_DIR/checkpoints"
-    mkdir -p "$SCRIPT_DIR/outputs"
-    mkdir -p "$SCRIPT_DIR/logs"
-    
-    print_success "Environment configured successfully!"
-}
-
-setup_python_environment() {
-    print_header "SETTING UP PYTHON ENVIRONMENT"
-    
-    cd "$SCRIPT_DIR"
-    
-    # Create virtual environment
-    if [[ ! -d "$VENV_NAME" ]]; then
-        print_step "Creating virtual environment..."
-        python3 -m venv "$VENV_NAME"
-        print_success "Virtual environment created"
-    else
-        print_warning "Virtual environment already exists"
-    fi
-    
-    # Activate virtual environment
-    print_step "Activating virtual environment..."
-    source "$VENV_NAME/bin/activate"
-    
-    # Upgrade pip
-    print_step "Upgrading pip..."
-    pip install --upgrade pip setuptools wheel -q
-    
-    # Install dependencies
-    print_step "Installing Python dependencies..."
-    print_warning "This may take 5-10 minutes..."
-    
-    # Install PyTorch first (CUDA 12.1)
-    if check_gpu &> /dev/null; then
-        print_step "Installing PyTorch with CUDA support..."
-        pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 -q
-    else
-        print_step "Installing PyTorch (CPU only)..."
-        pip install torch torchvision torchaudio -q
-    fi
-    
-    # Install other dependencies
-    if [[ -f "requirements.txt" ]]; then
-        print_step "Installing from requirements.txt..."
-        pip install -r requirements.txt -q
-    fi
-    
-    # Install package in development mode
-    print_step "Installing fmri2img package..."
-    pip install -e . -q
-    
-    print_success "Python environment configured successfully!"
-    
-    # Show installed packages
-    echo ""
-    print_step "Key packages installed:"
-    pip list | grep -E "(torch|transformers|diffusers|nibabel|pandas|numpy)" || true
-}
-
-download_nsd_data() {
-    print_header "DOWNLOADING NSD DATA"
-    
-    if [[ "$SKIP_DATA" = true ]]; then
-        print_warning "Skipping NSD data download (--skip-data flag)"
+step_fetch_models() {
+    if [[ "$SKIP_DATA" == "true" ]]; then
+        print_skip "Model downloads (--skip-data specified)"
         return 0
     fi
     
-    # Check if data already exists
-    if [[ -f "cache/nsd_stim_info_merged.csv" ]] && [[ -d "data/indices/nsd_index" ]]; then
-        print_warning "NSD data appears to be already downloaded"
-        read -p "Re-download? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    if is_completed "models"; then
+        print_skip "Model downloads"
+        return 0
+    fi
+    
+    print_step "Downloading required models (CLIP, Stable Diffusion)..."
+    print_substep "This may take 5-15 minutes depending on connection..."
+    
+    if [[ -f "${SCRIPT_DIR}/scripts/fetch_models.py" ]]; then
+        if run_python_script "${SCRIPT_DIR}/scripts/fetch_models.py"; then
+            print_success "Models downloaded and cached"
+            mark_completed "models"
+        else
+            print_warning "Model download encountered issues (see log)"
+            print_info "Models will be downloaded on-demand during training"
+            mark_completed "models"
+        fi
+    else
+        print_warning "Model fetch script not found - models will download on-demand"
+        mark_completed "models"
+    fi
+    
+    return 0
+}
+
+step_build_index() {
+    if [[ "$SKIP_DATA" == "true" ]]; then
+        print_skip "Index building (--skip-data specified)"
+        return 0
+    fi
+    
+    if is_completed "index_${SUBJECT}"; then
+        print_skip "Data index for ${SUBJECT}"
+        return 0
+    fi
+    
+    print_step "Building NSD data index for ${SUBJECT}..."
+    
+    local index_file="${SCRIPT_DIR}/data/indices/nsd_index/subject=${SUBJECT}/index.parquet"
+    if [[ -f "$index_file" ]]; then
+        print_info "Index file already exists: $index_file"
+        mark_completed "index_${SUBJECT}"
+        return 0
+    fi
+    
+    # Try multiple methods to build index
+    if [[ -f "${SCRIPT_DIR}/scripts/build_full_index.py" ]]; then
+        print_substep "Building index with build_full_index.py..."
+        if run_python_script "${SCRIPT_DIR}/scripts/build_full_index.py" --subject "$SUBJECT"; then
+            print_success "Index built for ${SUBJECT}"
+            mark_completed "index_${SUBJECT}"
             return 0
         fi
     fi
     
-    print_step "Downloading NSD stimulus info CSV..."
-    python scripts/fetch_models.py --component nsd-stim-info
+    if [[ -f "${SCRIPT_DIR}/build_minimal_index.py" ]]; then
+        print_substep "Building index with build_minimal_index.py..."
+        if run_python_script "${SCRIPT_DIR}/build_minimal_index.py" --subject "$SUBJECT"; then
+            print_success "Index built for ${SUBJECT}"
+            mark_completed "index_${SUBJECT}"
+            return 0
+        fi
+    fi
     
-    print_step "Downloading beta files for subject 01, session 1..."
-    print_warning "This downloads ~17GB of fMRI data. It may take 15-30 minutes."
-    python scripts/fetch_models.py --component nsd-betas --subject subj01 --session 1
-    
-    print_step "Building data index..."
-    python scripts/build_full_index.py --subject subj01 --session 1
-    
-    print_success "NSD data downloaded and indexed!"
-}
-
-download_models() {
-    print_header "DOWNLOADING MODEL CHECKPOINTS"
-    
-    if [[ "$SKIP_MODELS" = true ]]; then
-        print_warning "Skipping model download (--skip-models flag)"
+    # Try via Python module
+    print_substep "Building index via Python module..."
+    if "$PYTHON" -m fmri2img.data.build_full_index --subject "$SUBJECT" >> "$LOG_FILE" 2>&1; then
+        print_success "Index built for ${SUBJECT}"
+        mark_completed "index_${SUBJECT}"
         return 0
     fi
     
-    print_step "Downloading Stable Diffusion model..."
-    python scripts/download_sd_model.py --model-id runwayml/stable-diffusion-v1-5
-    
-    print_success "Model checkpoints downloaded!"
+    print_error "Failed to build index for ${SUBJECT}"
+    return 1
 }
 
-build_clip_cache() {
-    print_header "BUILDING CLIP EMBEDDINGS CACHE"
+step_fit_preprocessing() {
+    if [[ "$SKIP_DATA" == "true" ]]; then
+        print_skip "Preprocessing fitting (--skip-data specified)"
+        return 0
+    fi
     
-    if [[ "$SKIP_CLIP_CACHE" = true ]]; then
-        print_warning "Skipping CLIP cache build (--skip-clip-cache flag)"
+    if is_completed "preprocessing_${SUBJECT}"; then
+        print_skip "Preprocessing pipeline for ${SUBJECT}"
+        return 0
+    fi
+    
+    print_step "Fitting preprocessing pipeline for ${SUBJECT}..."
+    print_substep "This may take 10-30 minutes..."
+    
+    local index_file="${SCRIPT_DIR}/data/indices/nsd_index/subject=${SUBJECT}/index.parquet"
+    local preproc_dir="${SCRIPT_DIR}/cache/preproc/subject=${SUBJECT}"
+    
+    if [[ ! -f "$index_file" ]]; then
+        print_warning "Index file not found - skipping preprocessing"
+        print_info "Run index building first or use --skip-data"
+        return 0
+    fi
+    
+    # Check if preprocessing artifacts already exist
+    if [[ -f "${preproc_dir}/scaler.pkl" ]] && [[ -f "${preproc_dir}/pca.pkl" ]]; then
+        print_info "Preprocessing artifacts already exist"
+        mark_completed "preprocessing_${SUBJECT}"
+        return 0
+    fi
+    
+    if [[ -f "${SCRIPT_DIR}/scripts/fit_preprocessing.py" ]]; then
+        print_substep "Fitting preprocessing pipeline..."
+        if run_python_script "${SCRIPT_DIR}/scripts/fit_preprocessing.py" \
+            --subject "$SUBJECT" \
+            --index-file "$index_file" \
+            --output-dir "$preproc_dir"; then
+            print_success "Preprocessing pipeline fitted for ${SUBJECT}"
+            mark_completed "preprocessing_${SUBJECT}"
+        else
+            print_warning "Preprocessing fitting failed (see log)"
+            print_info "Preprocessing is optional - training can continue without it"
+            mark_completed "preprocessing_${SUBJECT}"
+        fi
+    else
+        print_warning "Preprocessing script not found - skipping"
+        mark_completed "preprocessing_${SUBJECT}"
+    fi
+    
+    return 0
+}
+
+step_build_clip_cache() {
+    if [[ "$SKIP_CACHE" == "true" ]]; then
+        print_skip "CLIP cache building (--skip-cache specified)"
+        return 0
+    fi
+    
+    if is_completed "clip_cache_${SUBJECT}"; then
+        print_skip "CLIP embeddings cache for ${SUBJECT}"
+        return 0
+    fi
+    
+    print_step "Building CLIP embeddings cache for ${SUBJECT}..."
+    print_substep "This may take 15-45 minutes depending on GPU..."
+    
+    local index_file="${SCRIPT_DIR}/data/indices/nsd_index/subject=${SUBJECT}/index.parquet"
+    
+    if [[ ! -f "$index_file" ]]; then
+        print_warning "Index file not found - skipping CLIP cache"
         return 0
     fi
     
     # Check if cache already exists
-    if [[ -f "cache/clip_embeddings/nsd_clipvitl14.parquet" ]]; then
-        print_warning "CLIP cache already exists"
-        read -p "Rebuild? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    local cache_dir="${SCRIPT_DIR}/cache/clip_embeddings"
+    if [[ -n "$(find "$cache_dir" -maxdepth 1 -name "*${SUBJECT}*.parquet" 2>/dev/null)" ]]; then
+        print_info "CLIP cache files already exist for ${SUBJECT}"
+        mark_completed "clip_cache_${SUBJECT}"
+        return 0
+    fi
+    
+    # Try different cache building scripts
+    if [[ -f "${SCRIPT_DIR}/scripts/build_clip_cache.py" ]]; then
+        print_substep "Building CLIP cache..."
+        if run_python_script "${SCRIPT_DIR}/scripts/build_clip_cache.py" --subject "$SUBJECT"; then
+            print_success "CLIP cache built for ${SUBJECT}"
+            mark_completed "clip_cache_${SUBJECT}"
             return 0
         fi
     fi
     
-    print_step "Building CLIP embeddings cache..."
-    print_warning "This may take 5-10 minutes on GPU, longer on CPU"
+    if [[ -f "${SCRIPT_DIR}/scripts/build_target_clip_cache_robust.py" ]]; then
+        print_substep "Building CLIP cache (robust method)..."
+        if run_python_script "${SCRIPT_DIR}/scripts/build_target_clip_cache_robust.py"; then
+            print_success "CLIP cache built for ${SUBJECT}"
+            mark_completed "clip_cache_${SUBJECT}"
+            return 0
+        fi
+    fi
     
-    python scripts/build_target_clip_cache_robust.py \
-        --subject subj01 \
-        --index-root data/indices/nsd_index \
-        --model-id runwayml/stable-diffusion-v1-5 \
-        --batch-size 100 \
-        --inference-batch-size 64 \
-        --output cache/clip_embeddings/nsd_clipvitl14.parquet
-    
-    print_success "CLIP cache built successfully!"
+    print_warning "CLIP cache building failed or not available"
+    print_info "CLIP cache will be built on-demand during training"
+    mark_completed "clip_cache_${SUBJECT}"
+    return 0
 }
 
-verify_installation() {
-    print_header "VERIFYING INSTALLATION"
+step_final_check() {
+    print_step "Running final readiness check..."
     
-    print_step "Running verification checks..."
+    if [[ -f "${SCRIPT_DIR}/scripts/doctor.py" ]]; then
+        print_substep "Running doctor check..."
+        if run_python_script "${SCRIPT_DIR}/scripts/doctor.py"; then
+            print_success "System is ready for experiments"
+            return 0
+        else
+            print_warning "Doctor check reported some issues (see log)"
+            print_info "You may still be able to run experiments"
+            return 0
+        fi
+    else
+        print_info "Doctor check script not found - skipping"
+        return 0
+    fi
+}
+
+# ============================================================================
+# Status Check
+# ============================================================================
+
+check_status() {
+    print_header "Setup Status Check"
     
-    # Check Python imports
-    python3 -c "
-import sys
-import torch
-import transformers
-import diffusers
-import nibabel
-import pandas
-print(f'✓ Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')
-print(f'✓ PyTorch {torch.__version__}')
-print(f'✓ Transformers {transformers.__version__}')
-print(f'✓ Diffusers {diffusers.__version__}')
-print(f'✓ CUDA available: {torch.cuda.is_available()}')
-if torch.cuda.is_available():
-    print(f'✓ GPU: {torch.cuda.get_device_name(0)}')
-"
+    local steps=(
+        "preflight:System Preflight"
+        "environment:Python Environment"
+        "package:Package Installation"
+        "dataset_${SUBJECT}:Dataset (${SUBJECT})"
+        "models:Model Downloads"
+        "index_${SUBJECT}:Data Index (${SUBJECT})"
+        "preprocessing_${SUBJECT}:Preprocessing (${SUBJECT})"
+        "clip_cache_${SUBJECT}:CLIP Cache (${SUBJECT})"
+    )
     
-    # Check data files
+    local all_done=true
+    
+    for step_info in "${steps[@]}"; do
+        local step="${step_info%%:*}"
+        local name="${step_info#*:}"
+        
+        if is_completed "$step"; then
+            echo -e "${GREEN}✓${NC} $name"
+        else
+            echo -e "${YELLOW}○${NC} $name ${DIM}(not done)${NC}"
+            all_done=false
+        fi
+    done
+    
     echo ""
-    print_step "Checking data files..."
-    if [[ -f "cache/nsd_stim_info_merged.csv" ]]; then
-        print_success "Stimulus info CSV present"
+    if [[ "$all_done" == "true" ]]; then
+        print_success "All setup steps completed!"
+        echo ""
+        print_info "Ready to run experiments:"
+        echo "  python scripts/train.py --config configs/experiments/exp0_baseline.yaml"
     else
-        print_warning "Stimulus info CSV missing"
+        print_info "Some steps are incomplete. Run './setup.sh' to complete setup."
     fi
+}
+
+# ============================================================================
+# Main Setup Flow
+# ============================================================================
+
+run_setup() {
+    print_header "${PROJECT_NAME} - Production Setup"
     
-    if [[ -d "data/indices/nsd_index/subject=subj01" ]]; then
-        print_success "Data index present"
-    else
-        print_warning "Data index missing"
-    fi
-    
-    if [[ -f "cache/clip_embeddings/nsd_clipvitl14.parquet" ]]; then
-        print_success "CLIP cache present"
-    else
-        print_warning "CLIP cache missing"
-    fi
-    
-    # Check disk usage
+    echo "This script will prepare your system for running experiments."
+    echo "Subject: ${SUBJECT}"
+    echo "Log file: ${LOG_FILE}"
     echo ""
-    print_step "Disk usage:"
-    du -sh "$SCRIPT_DIR" 2>/dev/null || echo "Unable to calculate"
     
-    print_success "Verification complete!"
+    local steps=(
+        step_preflight
+        step_environment
+        step_install_package
+        step_verify_dataset
+        step_fetch_models
+        step_build_index
+        step_fit_preprocessing
+        step_build_clip_cache
+        step_final_check
+    )
+    
+    local failed=false
+    
+    for step_func in "${steps[@]}"; do
+        if ! "$step_func"; then
+            failed=true
+            print_error "Setup step failed: $step_func"
+            print_info "Check log file for details: $LOG_FILE"
+            
+            # Ask if user wants to continue
+            echo ""
+            read -p "Continue with remaining steps? [y/N] " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                print_error "Setup aborted by user"
+                return 1
+            fi
+        fi
+        echo ""
+    done
+    
+    # Final summary
+    print_header "Setup Complete!"
+    
+    if [[ "$failed" == "true" ]]; then
+        print_warning "Setup completed with some warnings or errors"
+        print_info "Check the log file for details: $LOG_FILE"
+        echo ""
+        print_info "Run './setup.sh --check-only' to see status"
+    else
+        print_success "All setup steps completed successfully!"
+    fi
+    
+    echo ""
+    echo -e "${BOLD}Next Steps:${NC}"
+    echo ""
+    echo "1. Activate your Python environment:"
+    if [[ -d "${SCRIPT_DIR}/venv" ]]; then
+        echo "   ${CYAN}source venv/bin/activate${NC}"
+    else
+        echo "   ${CYAN}conda activate fmri2img${NC}"
+    fi
+    echo ""
+    echo "2. Run your first experiment:"
+    echo "   ${CYAN}python scripts/train.py --config configs/experiments/exp0_baseline.yaml${NC}"
+    echo ""
+    echo "3. Monitor training:"
+    echo "   ${CYAN}tensorboard --logdir outputs/${NC}"
+    echo ""
+    echo "For more information, see: ${CYAN}docs/guides/RUNNING_EXPERIMENTS.md${NC}"
+    echo ""
+    
+    return 0
 }
 
-print_next_steps() {
-    print_header "SETUP COMPLETE!"
-    
-    cat << EOF
-${GREEN}✓ Installation successful!${NC}
+# ============================================================================
+# Argument Parsing
+# ============================================================================
 
-${CYAN}Next Steps:${NC}
-
-1. ${YELLOW}Activate the environment:${NC}
-   ${BLUE}source venv/bin/activate${NC}
-   ${BLUE}source .env${NC}
-
-2. ${YELLOW}Run a quick smoke test:${NC}
-   ${BLUE}python scripts/smoke.py${NC}
-
-3. ${YELLOW}Train the ultimate model (8-12 hours on A100):${NC}
-   ${BLUE}python scripts/train_ultimate_novel.py --config experiments/ultimate_novel_subj01.yaml${NC}
-
-4. ${YELLOW}View training logs:${NC}
-   ${BLUE}tensorboard --logdir outputs/runs${NC}
-
-${CYAN}Documentation:${NC}
-  - Getting Started: ${BLUE}START_HERE.md${NC}
-  - Architecture: ${BLUE}ARCHITECTURE.md${NC}
-  - Usage Examples: ${BLUE}USAGE_EXAMPLES.md${NC}
-  - Ultimate Training Guide: ${BLUE}ULTIMATE_TRAINING_GUIDE.md${NC}
-
-${CYAN}Troubleshooting:${NC}
-  - Check setup: ${BLUE}python scripts/check_setup.sh${NC}
-  - Diagnose issues: ${BLUE}python scripts/doctor.py${NC}
-
-${GREEN}Happy brain decoding! 🧠→🖼️${NC}
-EOF
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --subject)
+                SUBJECT="$2"
+                shift 2
+                ;;
+            --skip-data)
+                SKIP_DATA=true
+                shift
+                ;;
+            --skip-cache)
+                SKIP_CACHE=true
+                shift
+                ;;
+            --minimal)
+                MINIMAL_SETUP=true
+                SKIP_DATA=true
+                SKIP_CACHE=true
+                shift
+                ;;
+            --clean)
+                CLEAN_START=true
+                shift
+                ;;
+            --check-only)
+                CHECK_ONLY=true
+                shift
+                ;;
+            --help|-h)
+                head -n 35 "$0" | tail -n 32
+                exit 0
+                ;;
+            *)
+                echo -e "${RED}Unknown option: $1${NC}"
+                echo "Use --help for usage information"
+                exit 1
+                ;;
+        esac
+    done
 }
 
-################################################################################
-# Main Execution
-################################################################################
+# ============================================================================
+# Main Entry Point
+# ============================================================================
 
 main() {
-    clear
+    parse_args "$@"
     
-    print_header "fMRI-TO-IMAGE BRAIN DECODING - AUTOMATED SETUP"
+    # Get Python early
+    if ! PYTHON=$(get_python); then
+        print_error "Python 3.10+ is required"
+        print_info "Install Python 3.10 or 3.11 and try again"
+        exit 1
+    fi
+    export PYTHON
     
-    echo -e "${CYAN}Project:${NC} $PROJECT_NAME"
-    echo -e "${CYAN}Location:${NC} $SCRIPT_DIR"
-    echo -e "${CYAN}User:${NC} $(whoami)"
-    echo -e "${CYAN}Date:${NC} $(date)"
-    echo ""
-    
-    if [[ "$MINIMAL_SETUP" = true ]]; then
-        print_warning "Running MINIMAL setup (environment + dependencies only)"
+    if [[ "$CLEAN_START" == "true" ]]; then
+        clean_markers
+        echo ""
     fi
     
-    # Confirmation
-    read -p "$(echo -e ${YELLOW}Continue with setup? \(Y/n\): ${NC})" -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Nn]$ ]]; then
-        echo "Setup cancelled."
+    if [[ "$CHECK_ONLY" == "true" ]]; then
+        check_status
         exit 0
     fi
     
-    # Run setup steps
-    setup_system_checks
-    setup_environment_variables
-    setup_python_environment
-    
-    if [[ "$MINIMAL_SETUP" = false ]]; then
-        download_nsd_data
-        download_models
-        build_clip_cache
+    # Run the setup
+    if run_setup; then
+        exit 0
+    else
+        print_error "Setup failed"
+        print_info "Log file: $LOG_FILE"
+        exit 1
     fi
-    
-    verify_installation
-    print_next_steps
 }
 
-# Run main function
+# Run main
 main "$@"

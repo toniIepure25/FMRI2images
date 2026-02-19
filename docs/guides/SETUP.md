@@ -7,6 +7,7 @@
 ## 🚀 Quick Start (5 Minutes)
 
 ### Prerequisites
+
 - Python 3.10+
 - CUDA-capable GPU (6GB+ VRAM recommended)
 - 50GB+ free disk space
@@ -26,6 +27,7 @@ chmod +x setup_enhanced.sh
 ```
 
 **What it does:**
+
 - ✅ Checks system requirements (Python, GPU, disk space)
 - ✅ Configures environment variables
 - ✅ Creates Python virtual environment
@@ -45,6 +47,7 @@ chmod +x setup_enhanced.sh
 ### JupyterHub/HPC Cluster
 
 **System Specs:**
+
 - CPU: 20 cores (Intel Xeon Platinum 8380 @ 2.30GHz)
 - RAM: 125GB
 - GPU: NVIDIA A100D-20C (20GB VRAM)
@@ -115,12 +118,14 @@ NUM_WORKERS=4
 ### Step 2: Create Python Environment
 
 **Option A: Conda**
+
 ```bash
 conda env create -f environment.yml
 conda activate fmri2img
 ```
 
 **Option B: Virtualenv**
+
 ```bash
 python3 -m venv venv
 source venv/bin/activate
@@ -182,18 +187,18 @@ python scripts/train.py \
 
 ### Required Data (~17GB)
 
-| Component | Size | Location | Purpose |
-|-----------|------|----------|---------|
-| **fMRI betas** | ~15GB | `cache/nsd_hdf5/subj01/*.hdf5` | Brain activity |
-| **Stimulus info** | ~2MB | `cache/nsd_stim_info_merged.csv` | Metadata |
-| **CLIP embeddings** | ~2GB | `cache/clip_embeddings/*.pt` | Image embeddings |
+| Component           | Size  | Location                         | Purpose          |
+| ------------------- | ----- | -------------------------------- | ---------------- |
+| **fMRI betas**      | ~15GB | `cache/nsd_hdf5/subj01/*.hdf5`   | Brain activity   |
+| **Stimulus info**   | ~2MB  | `cache/nsd_stim_info_merged.csv` | Metadata         |
+| **CLIP embeddings** | ~2GB  | `cache/clip_embeddings/*.pt`     | Image embeddings |
 
 ### Optional Data
 
-| Component | Size | Location | Purpose |
-|-----------|------|----------|---------|
-| **Images (HDF5)** | ~10GB | `cache/nsd_hdf5/nsd_stimuli.hdf5` | Faster image loading |
-| **Full NSD** | ~300GB | `bigdata/NSD/` | All subjects |
+| Component         | Size   | Location                          | Purpose              |
+| ----------------- | ------ | --------------------------------- | -------------------- |
+| **Images (HDF5)** | ~10GB  | `cache/nsd_hdf5/nsd_stimuli.hdf5` | Faster image loading |
+| **Full NSD**      | ~300GB | `bigdata/NSD/`                    | All subjects         |
 
 **Note:** Images are auto-downloaded from COCO API on-the-fly if not present locally.
 
@@ -202,12 +207,14 @@ python scripts/train.py \
 ## 🎯 Post-Setup: Next Steps
 
 ### 1. Verify Tests Pass
+
 ```bash
 pytest tests/test_losses.py tests/test_soft_reliability.py tests/test_uncertainty.py -v
 # Expected: 53 passed ✅
 ```
 
 ### 2. Run First Experiment
+
 ```bash
 # Train baseline model
 python scripts/train.py --config configs/experiments/exp0_baseline.yaml
@@ -217,6 +224,7 @@ tensorboard --logdir outputs/
 ```
 
 ### 3. Explore Documentation
+
 - **Running experiments:** [RUNNING_EXPERIMENTS.md](RUNNING_EXPERIMENTS.md)
 - **Evaluation suite:** [EVALUATION_SUITE_GUIDE.md](EVALUATION_SUITE_GUIDE.md)
 - **Novel contributions:** [NOVEL_CONTRIBUTIONS_PIPELINE.md](NOVEL_CONTRIBUTIONS_PIPELINE.md)
@@ -228,6 +236,7 @@ tensorboard --logdir outputs/
 ### Common Issues
 
 **Issue: CUDA not available**
+
 ```bash
 # Check CUDA version
 nvidia-smi
@@ -237,6 +246,7 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 ```
 
 **Issue: Out of GPU memory**
+
 ```bash
 # Reduce batch size in config
 nano configs/experiments/exp0_baseline.yaml
@@ -244,6 +254,7 @@ nano configs/experiments/exp0_baseline.yaml
 ```
 
 **Issue: Data files not found**
+
 ```bash
 # Re-download NSD data
 bash download_nsd_subj01.sh
@@ -253,6 +264,7 @@ python build_minimal_index.py
 ```
 
 **Issue: Import errors**
+
 ```bash
 # Reinstall package in editable mode
 pip install -e .

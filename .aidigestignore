@@ -217,16 +217,44 @@ temp/
 # ============================================================================
 # These scripts are NOT part of the main production pipeline
 
+# Setup and Installation Scripts (Exclude from LLM context)
+setup.sh
+setup_enhanced.sh
+simple_setup.sh
+install_package.sh
+fix_package_install.sh
+complete_fix.sh
+emergency_fix.sh
+scripts/setup_*.sh
+scripts/install_*.sh
+scripts/check_setup.sh
+
+# Download and Data Fetching Scripts
+download_nsd_subj01.sh
+download_stimuli_fix.sh
+download_*.sh
+scripts/download_*.sh
+scripts/fetch_*.py
+scripts/download_*.py
+
+# Diagnostic and Fix Scripts
+check_server_files.sh
+SERVER_COMMANDS.sh
+scripts/diagnose.sh
+scripts/diagnose.*
+scripts/check_*.sh
+scripts/verify_*.sh
+scripts/repair_*.py
+scripts/fix_*.sh
+
+*.sh
+
 # Experimental/development scripts
 scripts/ablate_*.py
 scripts/test_*.py
 scripts/*_test.py
-scripts/verify_*.py
-scripts/check_*.py
-scripts/repair_*.py
 scripts/smoke_*.py
 scripts/quick_*.py
-scripts/diagnose.*
 
 # Analysis and reporting (not core pipeline)
 scripts/report_*.py
@@ -235,7 +263,6 @@ scripts/summarize_*.py
 scripts/analyze_*.py
 
 # Utility scripts (helpful but not core)
-scripts/download_*.py
 scripts/rebuild_*.py
 scripts/cleanup_*.py
 
@@ -279,18 +306,38 @@ docs/experiments/
 **/README_old.md
 **/CHANGELOG.md
 **/HISTORY.md
+**/CONTRIBUTING.md
+**/LICENSE
+**/CODE_OF_CONDUCT.md
 
-# Exclude specific technical docs that are too detailed for overview
+# Exclude specific technical docs that are too detailed/situational for overview
 docs/technical/DATA_VALIDATION_REAL_VS_FALLBACK.md
 docs/technical/PREVENTING_MODEL_DOWNLOAD_BLOCKING.md
 docs/technical/UPGRADE_TO_30K_SAMPLES.md
 docs/technical/MANUAL_MODEL_DOWNLOAD.md
+docs/technical/SETUP_*.md
+
+# Exclude guides and tutorials (source code is better reference for LLM)
+docs/guides/
+docs/tutorials/
+docs/overview/
+RaportPaper3/
+
+# Exclude paper drafts and administrative docs
+docs/paper/
+docs/thesis/
+docs/admin/
+docs/*_grading.md
+docs/*_evaluation.md
+docs/*_status.md
+docs/*_plan.md
+docs/PAPER_*.md
+docs/IMPLEMENTATION_STATUS.md
 
 # Keep these essential docs by NOT excluding them:
 # ✅ README.md (project overview)
 # ✅ docs/README.md (documentation index)
-# ✅ docs/architecture/ (system architecture)
-# ✅ docs/guides/ (user guides)
+# ✅ docs/architecture/ (system architecture - CRITICAL)
 # ✅ docs/technical/OPTIMAL_CONFIGURATION_GUIDE.md
 # ✅ docs/technical/NSD_Dataset_Guide.md
 
@@ -300,6 +347,7 @@ docs/technical/MANUAL_MODEL_DOWNLOAD.md
 .git/
 .gitignore
 .gitattributes
+.github/
 *.orig
 
 # ============================================================================

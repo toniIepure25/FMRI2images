@@ -37,21 +37,22 @@ bash scripts/run_all_experiments.sh 0
 
 ### Overview of Experiments
 
-| Experiment | Description | Novel Feature | Expected Result |
-|------------|-------------|---------------|-----------------|
-| **EXP0** | Baseline | None | ~0.1% Top-1 accuracy |
-| **EXP1** | + Preprocessing | Center + PCR (k=8) | 50-100x improvement |
-| **EXP2** | + Memory queue | MoCo-style (Q=8192) | Moderate improvement |
-| **EXP3** | + Gaussian NLL | Heteroscedastic regression | Similar retrieval, poor calibration |
-| **EXP4** | + Gaussian-NCE | Distribution-aware loss ⭐ | Best retrieval + calibration |
-| **EXP5** | + KL annealing | Free-bits regularization | Similar to EXP4 |
-| **EXP6** | Ablation | Whitening vs PCR | Compare preprocessing |
+| Experiment | Description     | Novel Feature              | Expected Result                     |
+| ---------- | --------------- | -------------------------- | ----------------------------------- |
+| **EXP0**   | Baseline        | None                       | ~0.1% Top-1 accuracy                |
+| **EXP1**   | + Preprocessing | Center + PCR (k=8)         | 50-100x improvement                 |
+| **EXP2**   | + Memory queue  | MoCo-style (Q=8192)        | Moderate improvement                |
+| **EXP3**   | + Gaussian NLL  | Heteroscedastic regression | Similar retrieval, poor calibration |
+| **EXP4**   | + Gaussian-NCE  | Distribution-aware loss ⭐ | Best retrieval + calibration        |
+| **EXP5**   | + KL annealing  | Free-bits regularization   | Similar to EXP4                     |
+| **EXP6**   | Ablation        | Whitening vs PCR           | Compare preprocessing               |
 
 ⭐ = Novel contribution
 
 ### Config Files
 
 All configs located in `configs/experiments/`:
+
 - `exp0_baseline.yaml`
 - `exp1_preproc.yaml`
 - `exp2_queue.yaml`
@@ -153,12 +154,12 @@ grep "Top-1" outputs/exp0_baseline/train.log
 ```yaml
 # Model architecture
 encoder:
-  hidden_dims: [2048, 1024, 512]  # MLP layers
+  hidden_dims: [2048, 1024, 512] # MLP layers
   dropout: 0.1
   use_layer_norm: true
 
 # Training
-batch_size: 32                     # Adjust based on GPU
+batch_size: 32 # Adjust based on GPU
 learning_rate: 0.0001
 num_epochs: 50
 warmup_epochs: 5
@@ -169,20 +170,21 @@ weight_decay: 0.01
 gradient_clip: 1.0
 
 # Loss function
-loss_type: "infonce"               # or "gaussian_nll", "gaussian_nce"
-temperature: 0.07                  # For contrastive losses
+loss_type: "infonce" # or "gaussian_nll", "gaussian_nce"
+temperature: 0.07 # For contrastive losses
 ```
 
 ### GPU Memory Management
 
-| GPU VRAM | Batch Size | Training Time (50 epochs) |
-|----------|------------|---------------------------|
-| 8GB | 8 | ~24 hours |
-| 16GB | 16 | ~16 hours |
-| 20GB (A100) | 32 | ~12 hours |
-| 24GB (RTX 3090) | 64 | ~8 hours |
+| GPU VRAM        | Batch Size | Training Time (50 epochs) |
+| --------------- | ---------- | ------------------------- |
+| 8GB             | 8          | ~24 hours                 |
+| 16GB            | 16         | ~16 hours                 |
+| 20GB (A100)     | 32         | ~12 hours                 |
+| 24GB (RTX 3090) | 64         | ~8 hours                  |
 
 **Out of memory?** Reduce batch size in config:
+
 ```bash
 nano configs/experiments/exp0_baseline.yaml
 # Change: batch_size: 32 → batch_size: 8
@@ -195,6 +197,7 @@ nano configs/experiments/exp0_baseline.yaml
 ### During Training (Automatic)
 
 Validation runs every epoch:
+
 - Retrieval metrics (Top-1, Top-5, Top-10)
 - Mean/Median rank
 - Two-way identification
@@ -226,6 +229,7 @@ python scripts/evaluate_probabilistic.py \
 ### Evaluation Metrics
 
 #### Embedding Metrics (All experiments)
+
 - **Retrieval@K:** Top-1, Top-5, Top-10 accuracy
 - **Ranking:** Mean rank, Median rank, MRR
 - **2AFC:** Two-way identification with bootstrap CI
@@ -234,6 +238,7 @@ python scripts/evaluate_probabilistic.py \
 - **Collapse:** Per-dim std, pairwise similarity
 
 #### Bayesian Metrics (EXP3-6 only)
+
 - **Proper scoring:** Gaussian NLL, Energy Score
 - **Bayesian retrieval:** Distribution-aware ranking
 - **Probabilistic 2AFC:** Uncertainty propagation
@@ -378,21 +383,21 @@ experimental_results/exp0_baseline/
 
 ### On JupyterHub Cluster (A100-20GB)
 
-| Task | Time | GPU Usage |
-|------|------|-----------|
-| Build preprocessors | 1-2 hours | Minimal |
-| Single experiment (50 epochs) | 12-16 hours | 100% |
-| Full ablation (7 experiments) | 3-5 days | 100% |
-| Evaluation (per experiment) | 15-30 minutes | 50% |
+| Task                          | Time          | GPU Usage |
+| ----------------------------- | ------------- | --------- |
+| Build preprocessors           | 1-2 hours     | Minimal   |
+| Single experiment (50 epochs) | 12-16 hours   | 100%      |
+| Full ablation (7 experiments) | 3-5 days      | 100%      |
+| Evaluation (per experiment)   | 15-30 minutes | 50%       |
 
 ### On Local Workstation (RTX 3090)
 
-| Task | Time | GPU Usage |
-|------|------|-----------|
-| Build preprocessors | 2-3 hours | Minimal |
-| Single experiment (50 epochs) | 16-24 hours | 100% |
-| Full ablation (7 experiments) | 5-7 days | 100% |
-| Evaluation (per experiment) | 20-40 minutes | 50% |
+| Task                          | Time          | GPU Usage |
+| ----------------------------- | ------------- | --------- |
+| Build preprocessors           | 2-3 hours     | Minimal   |
+| Single experiment (50 epochs) | 16-24 hours   | 100%      |
+| Full ablation (7 experiments) | 5-7 days      | 100%      |
+| Evaluation (per experiment)   | 20-40 minutes | 50%       |
 
 ---
 
@@ -401,6 +406,7 @@ experimental_results/exp0_baseline/
 ### Training Issues
 
 **Issue: Out of GPU memory**
+
 ```bash
 # Solution: Reduce batch size
 nano configs/experiments/exp0_baseline.yaml
@@ -408,6 +414,7 @@ nano configs/experiments/exp0_baseline.yaml
 ```
 
 **Issue: Training stuck / not converging**
+
 ```bash
 # Check learning rate
 grep "learning_rate" outputs/*/train.log
@@ -417,6 +424,7 @@ python scripts/train.py --config ... --learning_rate 0.00005
 ```
 
 **Issue: NaN losses**
+
 ```bash
 # Enable gradient clipping (should be on by default)
 # Check config:
@@ -427,6 +435,7 @@ nano configs/experiments/exp0_baseline.yaml
 ### Data Issues
 
 **Issue: Data files not found**
+
 ```bash
 # Verify data presence
 bash scripts/preflight.sh
@@ -436,6 +445,7 @@ bash download_nsd_subj01.sh
 ```
 
 **Issue: Preprocessor not found**
+
 ```bash
 # Rebuild preprocessors
 bash scripts/build_all_preprocessors.sh
@@ -444,6 +454,7 @@ bash scripts/build_all_preprocessors.sh
 ### Checkpoint Issues
 
 **Issue: Can't load checkpoint**
+
 ```bash
 # Inspect checkpoint
 python inspect_checkpoint.py outputs/exp0_baseline/best.pt

@@ -36,15 +36,15 @@ All research components are **implemented, tested (53/53 tests passing ✅), and
 
 All experiment configs ready in `configs/experiments/`:
 
-| Config | Description | Status |
-|--------|-------------|--------|
-| **exp0_baseline.yaml** | Baseline model | ✅ Ready |
-| **exp1_preproc.yaml** | + Preprocessing (center_pcr k=8) | ✅ Ready |
-| **exp2_queue.yaml** | + Memory queue (Q=8192) | ✅ Ready |
-| **exp3_gaussian_nll.yaml** | + Gaussian NLL loss | ✅ Ready |
-| **exp4_gaussian_nce.yaml** | + Gaussian-NCE ⭐ (novel) | ✅ Ready |
-| **exp5_kl_anneal.yaml** | + KL annealing | ✅ Ready |
-| **exp6_whiten.yaml** | Ablation: whiten vs PCR | ✅ Ready |
+| Config                     | Description                      | Status   |
+| -------------------------- | -------------------------------- | -------- |
+| **exp0_baseline.yaml**     | Baseline model                   | ✅ Ready |
+| **exp1_preproc.yaml**      | + Preprocessing (center_pcr k=8) | ✅ Ready |
+| **exp2_queue.yaml**        | + Memory queue (Q=8192)          | ✅ Ready |
+| **exp3_gaussian_nll.yaml** | + Gaussian NLL loss              | ✅ Ready |
+| **exp4_gaussian_nce.yaml** | + Gaussian-NCE ⭐ (novel)        | ✅ Ready |
+| **exp5_kl_anneal.yaml**    | + KL annealing                   | ✅ Ready |
+| **exp6_whiten.yaml**       | Ablation: whiten vs PCR          | ✅ Ready |
 
 ---
 
@@ -55,13 +55,10 @@ All experiment configs ready in `configs/experiments/`:
 - **✅ MLPEncoder** - Multi-layer encoder with configurable architecture
   - Location: `src/fmri2img/models/unified_model.py`
   - Features: Layer norm, dropout, skip connections
-  
 - **✅ DeterministicDecoder** - Single output for EXP0-2
   - Location: `src/fmri2img/models/unified_model.py`
-  
 - **✅ GaussianDecoder** - Outputs mu + logvar for EXP3-6
   - Location: `src/fmri2img/models/unified_model.py`
-  
 - **✅ UnifiedModel** - Wrapper supporting both types
   - Location: `src/fmri2img/models/unified_model.py`
 
@@ -69,13 +66,10 @@ All experiment configs ready in `configs/experiments/`:
 
 - **✅ InfoNCE** - Standard contrastive loss
   - Location: `src/fmri2img/losses/contrastive.py`
-  
 - **✅ Gaussian NLL** - Heteroscedastic regression
   - Location: `src/fmri2img/losses/gaussian.py`
-  
 - **✅ Gaussian-NCE** - Distribution-aware contrastive (novel ⭐)
   - Location: `src/fmri2img/losses/gaussian_nce.py`
-  
 - **✅ KL Divergence** - With free-bits and annealing
   - Location: `src/fmri2img/losses/gaussian.py`
 
@@ -83,16 +77,15 @@ All experiment configs ready in `configs/experiments/`:
 
 - **✅ Center + PCA/PCR** - Geometry normalization
   - Location: `src/fmri2img/preprocessing/embedding_preproc.py`
-  
 - **✅ Center + Whitening** - Alternative method
   - Location: `src/fmri2img/preprocessing/embedding_preproc.py`
-  
 - **✅ Memory Queue** - MoCo-style momentum queue
   - Location: `src/fmri2img/models/memory_queue.py`
 
 ### Evaluation Suite (Complete)
 
 #### Standard Metrics
+
 - **✅ Embedding Evaluation** - `src/fmri2img/eval/embedding_eval.py`
   - Retrieval@K (Top-1, Top-5, Top-10)
   - Mean/Median rank, MRR
@@ -103,6 +96,7 @@ All experiment configs ready in `configs/experiments/`:
   - Gallery size scaling analysis
 
 #### Bayesian Metrics (Novel ⭐)
+
 - **✅ Probabilistic Evaluation** - `src/fmri2img/eval/probabilistic_eval.py`
   - Proper scoring rules (Gaussian NLL, Energy Score)
   - Distribution-aware retrieval (log q(c|x) scoring)
@@ -142,11 +136,13 @@ pytest tests/ -v
 ### Immediate Use (Now)
 
 1. **Single Experiment**
+
    ```bash
    python scripts/train.py --config configs/experiments/exp0_baseline.yaml
    ```
 
 2. **Full Ablation Study**
+
    ```bash
    bash scripts/run_all_experiments.sh 0  # Run EXP0-6
    ```
@@ -161,11 +157,13 @@ pytest tests/ -v
 ### Data Requirements
 
 **Minimum (Works Today):**
+
 - ✅ 37 fMRI beta files (~17GB) - COMPLETE
 - ✅ Stimulus metadata CSV
 - ✅ Built-in image loading (COCO API fallback)
 
 **Optional:**
+
 - Images HDF5 (~10GB) - For faster loading
 - Full NSD dataset (~300GB) - For all subjects
 
@@ -243,6 +241,7 @@ Your code has a **smart fallback system** (`src/fmri2img/io/image_loader.py`):
 ### For Bachelor Thesis
 
 **✅ Ready to write:**
+
 - Introduction (background, motivation)
 - Related work (baseline comparisons)
 - Methodology (all 3 novel contributions)
@@ -250,6 +249,7 @@ Your code has a **smart fallback system** (`src/fmri2img/io/image_loader.py`):
 - Evaluation protocol (comprehensive metrics)
 
 **✅ Ready to run:**
+
 - Full ablation study (EXP0-6)
 - Baseline comparisons
 - Statistical significance tests
@@ -257,6 +257,7 @@ Your code has a **smart fallback system** (`src/fmri2img/io/image_loader.py`):
 - Visualization pipeline
 
 **✅ Ready to defend:**
+
 - Complete codebase
 - Passing tests (53/53)
 - Reproducible results
@@ -291,11 +292,13 @@ Your code has a **smart fallback system** (`src/fmri2img/io/image_loader.py`):
 ### For Running Experiments
 
 1. **Build preprocessors** (1-2 hours)
+
    ```bash
    bash scripts/build_all_preprocessors.sh
    ```
 
 2. **Run ablation study** (3-7 days)
+
    ```bash
    bash scripts/run_all_experiments.sh 0
    ```
@@ -317,12 +320,14 @@ Your code has a **smart fallback system** (`src/fmri2img/io/image_loader.py`):
 ## 🎉 Summary
 
 **You have everything you need to:**
+
 - ✅ Run experiments
 - ✅ Generate results
 - ✅ Write your thesis
 - ✅ Defend your work
 
 **All components are:**
+
 - ✅ Implemented
 - ✅ Tested
 - ✅ Documented

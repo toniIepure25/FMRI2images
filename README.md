@@ -15,15 +15,15 @@ This repository implements state-of-the-art approaches for decoding visual infor
 
 ### Quick Navigation
 
-| Category | Document | Description |
-|----------|----------|-------------|
-| **🚀 Getting Started** | [SETUP.md](docs/guides/SETUP.md) | Complete setup for any environment |
-| **🎯 Running Experiments** | [RUNNING_EXPERIMENTS.md](docs/guides/RUNNING_EXPERIMENTS.md) | Training and evaluation guide |
-| **📊 Implementation Status** | [IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) | What's ready to use |
-| **🔧 Troubleshooting** | [TROUBLESHOOTING.md](docs/guides/TROUBLESHOOTING.md) | Common issues and solutions |
-| **📖 Documentation Index** | [docs/README.md](docs/README.md) | All guides and technical docs |
-| **📝 Paper/Thesis** | [docs/paper/README.md](docs/paper/README.md) | Academic documentation |
-| **⚡ Quick Reference** | [QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md) | Command cheat sheet |
+| Category                     | Document                                                     | Description                        |
+| ---------------------------- | ------------------------------------------------------------ | ---------------------------------- |
+| **🚀 Getting Started**       | [SETUP.md](docs/guides/SETUP.md)                             | Complete setup for any environment |
+| **🎯 Running Experiments**   | [RUNNING_EXPERIMENTS.md](docs/guides/RUNNING_EXPERIMENTS.md) | Training and evaluation guide      |
+| **📊 Implementation Status** | [IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md)    | What's ready to use                |
+| **🔧 Troubleshooting**       | [TROUBLESHOOTING.md](docs/guides/TROUBLESHOOTING.md)         | Common issues and solutions        |
+| **📖 Documentation Index**   | [docs/README.md](docs/README.md)                             | All guides and technical docs      |
+| **📝 Paper/Thesis**          | [docs/paper/README.md](docs/paper/README.md)                 | Academic documentation             |
+| **⚡ Quick Reference**       | [QUICK_REFERENCE.md](docs/QUICK_REFERENCE.md)                | Command cheat sheet                |
 
 ---
 
@@ -37,12 +37,13 @@ git clone https://github.com/toniIepure25/FMRI2images.git
 cd FMRI2images
 git checkout probabilistic-distribution
 
-# Run automated setup (30-45 minutes)
-chmod +x setup_enhanced.sh
-./setup_enhanced.sh
+# Run automated setup (30-60 minutes)
+chmod +x setup.sh
+./setup.sh
 ```
 
 **What it does:**
+
 - ✅ Checks system requirements (Python, GPU, disk space)
 - ✅ Creates Python environment and installs dependencies
 - ✅ Downloads required data (~17GB)
@@ -72,7 +73,7 @@ tensorboard --logdir outputs/
 ### Novel Contributions (Research-Ready)
 
 1. **✅ Soft Reliability Weighting** - Continuous voxel importance instead of binary thresholding
-2. **✅ InfoNCE Contrastive Loss** - Direct ranking optimization for improved retrieval  
+2. **✅ InfoNCE Contrastive Loss** - Direct ranking optimization for improved retrieval
 3. **✅ MC Dropout Uncertainty** - Bayesian confidence estimation with calibration analysis
 
 **Status:** All implementations tested (53/53 tests passing ✅) and documented. Ready for experiments and thesis writing.
@@ -89,6 +90,7 @@ tensorboard --logdir outputs/
 ### Research Context
 
 This work builds upon recent advances in neural decoding and generative modeling:
+
 - Allen et al. (2022) - [Natural Scenes Dataset (NSD)](https://www.nature.com/articles/s41593-021-00962-x)
 - Radford et al. (2021) - [CLIP: Learning Transferable Visual Models](https://arxiv.org/abs/2103.00020)
 - Rombach et al. (2022) - [Stable Diffusion: Latent Diffusion Models](https://arxiv.org/abs/2112.10752)
@@ -120,15 +122,15 @@ This work builds upon recent advances in neural decoding and generative modeling
 
 ### Ablation Study (7 Experiments)
 
-| Experiment | Description | Novel Feature | Config File |
-|------------|-------------|---------------|-------------|
-| **EXP0** | Baseline | None | [exp0_baseline.yaml](configs/experiments/exp0_baseline.yaml) |
-| **EXP1** | + Preprocessing | Center + PCR (k=8) | [exp1_preproc.yaml](configs/experiments/exp1_preproc.yaml) |
-| **EXP2** | + Memory queue | MoCo-style (Q=8192) | [exp2_queue.yaml](configs/experiments/exp2_queue.yaml) |
-| **EXP3** | + Gaussian NLL | Heteroscedastic regression | [exp3_gaussian_nll.yaml](configs/experiments/exp3_gaussian_nll.yaml) |
-| **EXP4** | + Gaussian-NCE ⭐ | Distribution-aware loss | [exp4_gaussian_nce.yaml](configs/experiments/exp4_gaussian_nce.yaml) |
-| **EXP5** | + KL annealing | Free-bits regularization | [exp5_kl_anneal.yaml](configs/experiments/exp5_kl_anneal.yaml) |
-| **EXP6** | Ablation | Whitening vs PCR | [exp6_whiten.yaml](configs/experiments/exp6_whiten.yaml) |
+| Experiment | Description       | Novel Feature              | Config File                                                          |
+| ---------- | ----------------- | -------------------------- | -------------------------------------------------------------------- |
+| **EXP0**   | Baseline          | None                       | [exp0_baseline.yaml](configs/experiments/exp0_baseline.yaml)         |
+| **EXP1**   | + Preprocessing   | Center + PCR (k=8)         | [exp1_preproc.yaml](configs/experiments/exp1_preproc.yaml)           |
+| **EXP2**   | + Memory queue    | MoCo-style (Q=8192)        | [exp2_queue.yaml](configs/experiments/exp2_queue.yaml)               |
+| **EXP3**   | + Gaussian NLL    | Heteroscedastic regression | [exp3_gaussian_nll.yaml](configs/experiments/exp3_gaussian_nll.yaml) |
+| **EXP4**   | + Gaussian-NCE ⭐ | Distribution-aware loss    | [exp4_gaussian_nce.yaml](configs/experiments/exp4_gaussian_nce.yaml) |
+| **EXP5**   | + KL annealing    | Free-bits regularization   | [exp5_kl_anneal.yaml](configs/experiments/exp5_kl_anneal.yaml)       |
+| **EXP6**   | Ablation          | Whitening vs PCR           | [exp6_whiten.yaml](configs/experiments/exp6_whiten.yaml)             |
 
 ⭐ = Novel contribution
 
@@ -188,6 +190,7 @@ python test_real_data.py
 ```
 
 **Test Coverage:**
+
 - ✅ All encoder architectures (Ridge, MLP, Unified, Gaussian)
 - ✅ All loss functions (InfoNCE, Gaussian NLL, Gaussian-NCE, KL)
 - ✅ All preprocessing pipelines (PCA/PCR, whitening, soft reliability)
@@ -228,7 +231,7 @@ FMRI2images/
 ├── experimental_results/     # Experiment results
 ├── README.md                 # This file
 ├── environment.yml           # Conda environment
-└── setup_enhanced.sh         # Automated setup script
+└── setup.sh                  # Automated setup script
 ```
 
 ---
@@ -237,13 +240,13 @@ FMRI2images/
 
 ### System Requirements
 
-| Component | Minimum | Recommended |
-|-----------|---------|-------------|
-| **Python** | 3.10+ | 3.11+ |
-| **GPU** | 6GB VRAM | 20GB+ VRAM (A100) |
-| **RAM** | 16GB | 32GB+ |
-| **Storage** | 50GB free | 200GB+ free |
-| **OS** | Linux/macOS | Linux (Ubuntu 20.04+) |
+| Component   | Minimum     | Recommended           |
+| ----------- | ----------- | --------------------- |
+| **Python**  | 3.10+       | 3.11+                 |
+| **GPU**     | 6GB VRAM    | 20GB+ VRAM (A100)     |
+| **RAM**     | 16GB        | 32GB+                 |
+| **Storage** | 50GB free   | 200GB+ free           |
+| **OS**      | Linux/macOS | Linux (Ubuntu 20.04+) |
 
 ### Key Dependencies
 
@@ -255,6 +258,44 @@ FMRI2images/
 - pandas, numpy, scipy
 
 **Full environment:** See [environment.yml](environment.yml)
+
+---
+
+## �️ Utility Scripts
+
+The repository includes several utility scripts in the root directory for common tasks:
+
+### Setup & Installation
+
+- **`setup.sh`** - Professional all-in-one setup script ⭐:
+  - Idempotent design - safe to run multiple times
+  - Automatic step skipping for completed tasks
+  - System preflight checks (Python, CUDA, disk)
+  - Complete preparation from environment to experiment-ready
+  - Handles: environment, packages, data, models, indices, preprocessing, CLIP cache
+  - Options: `--subject`, `--skip-data`, `--skip-cache`, `--check-only`, `--clean`
+  - Use: `./setup.sh` (see [docs/guides/SETUP.md](docs/guides/SETUP.md) for details)
+
+### Training Utilities
+
+- **`wait_and_train.sh`** - GPU availability monitor and auto-trainer:
+  - Monitors GPU memory usage
+  - Automatically starts training when resources are available
+  - Perfect for shared GPU environments
+  - Use: `./wait_and_train.sh --min-memory 5 --auto-start`
+
+- **`sync_embeddings_to_cluster.sh`** - Sync CLIP embeddings to GPU cluster:
+  - Transfers embedding cache files to remote cluster
+  - Use: `bash sync_embeddings_to_cluster.sh`
+
+### Build Automation
+
+- **`Makefile`** - Comprehensive build and workflow commands:
+  - `make setup` - Install package in development mode
+  - `make doctor` - Run comprehensive readiness checks
+  - `make prepare` - Stage all prerequisites (data + models + indices + cache)
+  - `make smoke-tests` - Run quick sanity checks
+  - See `make help` for full list of targets
 
 ---
 
@@ -346,6 +387,7 @@ If you use this code in your research, please cite:
 ```
 
 **Related datasets and methods:**
+
 - Allen et al. (2022) - Natural Scenes Dataset (NSD)
 - Radford et al. (2021) - CLIP
 - Rombach et al. (2022) - Stable Diffusion

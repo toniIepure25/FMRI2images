@@ -78,7 +78,8 @@ venv.bak/
 # Use /data/ to only ignore root data folder, not src/fmri2img/data/
 /data/
 /cache/
-/outputs/
+/outputs/*
+!outputs/README.md
 
 # Specific large file types
 *.npy
@@ -117,16 +118,12 @@ cache/nsd_hdf5/
 cache/s3_cache/
 cache/stimuli/
 
-# Output directories
-outputs/ablations/
+# Output subdirectories (redundant with /outputs/* but explicit for clarity)
 outputs/clip_cache/
 outputs/eval/
-outputs/galleries/
-outputs/logs/
 outputs/preproc/
 outputs/recon/
 outputs/reports/
-outputs/runs/
 
 # Experiment runs
 runs/

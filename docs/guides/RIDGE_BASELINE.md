@@ -222,13 +222,13 @@ A lightweight feedforward neural network baseline for fMRI → CLIP embedding ma
 
 ```bash
 # Quick test
-python scripts/train_mlp.py --subject subj01 --limit 256 --epochs 10
+python scripts/training/train_mlp.py --subject subj01 --limit 256 --epochs 10
 
 # Full training via Makefile
 make mlp
 
 # Custom configuration
-python scripts/train_mlp.py \
+python scripts/training/train_mlp.py \
     --index-root data/indices/nsd_index \
     --subject subj01 \
     --use-preproc \

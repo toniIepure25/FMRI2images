@@ -1,13 +1,55 @@
-# Complete Evaluation Suite - User Guide
+# Complete Evaluation Suite Guide
 
 ## Overview
 
 The evaluation suite provides comprehensive tools for assessing fMRI reconstruction models:
 
-1. **NSD Shared 1000 Evaluation** - Standard benchmark with 3 fMRI repetitions
-2. **Comparison Galleries** - Visual side-by-side comparisons
-3. **Ablation Studies** - Systematic hyperparameter sweeps
-4. **Automated Reporting** - LaTeX tables and summaries
+1. **NSD Shared 1000 Evaluation** -- Standard benchmark with 3 fMRI repetitions
+2. **Comparison Galleries** -- Visual side-by-side comparisons
+3. **Ablation Studies** -- Systematic hyperparameter sweeps
+4. **Automated Reporting** -- LaTeX tables and summaries
+
+## Key Metrics At-A-Glance
+
+### Standard Metrics (compare to literature)
+
+| Metric | Good | Chance | Interpretation |
+|--------|------|--------|----------------|
+| **Top-1 Retrieval** | >10% | 1/N | Correct in #1 position |
+| **Top-5 Retrieval** | >40% | 5/N | Correct in top-5 |
+| **2AFC Accuracy** | >60% | 50% | Forced-choice identification |
+| **Mean Rank** | <100 | N/2 | Average position |
+
+### Novel Bayesian Metrics (this work)
+
+| Metric | Good | Interpretation |
+|--------|------|----------------|
+| **Bayesian vs Cosine** | >0% | Does uncertainty help? |
+| **Calibration Error** | <5% | Are uncertainties reliable? |
+| **AURC** | <0.2 | Selective prediction quality |
+
+### Interpretation Guide
+
+- **Top-1 retrieval <5%**: Model barely works, check training
+- **Top-1 5-10%**: Moderate, baseline-level
+- **Top-1 10-15%**: Good, competitive with literature
+- **Top-1 >15%**: Excellent, state-of-the-art
+- **Bayesian retrieval improvement <0%**: Uncertainty not helping (check calibration)
+- **Calibration error <5%**: Well-calibrated, uncertainties reliable
+- **Calibration error >10%**: Poorly calibrated, uncertainty unreliable
+
+### Core Modules
+
+| Location | Module | Purpose |
+|----------|--------|---------|
+| `src/fmri2img/eval/` | `embedding_eval.py` | Standard metrics |
+| `src/fmri2img/eval/` | `probabilistic_eval.py` | Novel Bayesian metrics |
+| `src/fmri2img/eval/` | `recon_eval.py` | Image reconstruction metrics |
+| `src/fmri2img/eval/` | `sampling_eval.py` | End-to-end sampling |
+| `scripts/evaluation/` | `eval_stage1_embeddings.py` | Run standard eval |
+| `scripts/evaluation/` | `eval_stage1_probabilistic.py` | Run Bayesian eval |
+
+---
 
 ## Quick Start
 
@@ -16,7 +58,7 @@ The evaluation suite provides comprehensive tools for assessing fMRI reconstruct
 Evaluate your model on the standard benchmark:
 
 ```bash
-python scripts/eval_comprehensive.py \
+python scripts/evaluation/eval_comprehensive.py \
     --subject subj01 \
     --encoder-checkpoint checkpoints/two_stage/subj01/two_stage_best.pt \
     --encoder-type two_stage \
@@ -50,7 +92,7 @@ outputs/eval_shared1000/
 Create visual comparisons of different generation strategies:
 
 ```bash
-python scripts/generate_comparison_gallery.py \
+python scripts/analysis/generate_comparison_gallery.py \
     --subject subj01 \
     --encoder-checkpoint checkpoints/two_stage/subj01/two_stage_best.pt \
     --encoder-type two_stage \
@@ -87,7 +129,7 @@ Systematically test different hyperparameters:
 #### PCA Dimensionality Ablation
 
 ```bash
-python scripts/ablation_driver.py \
+python scripts/analysis/ablation_driver.py \
     --subject subj01 \
     --ablation-type pca_dims \
     --output-dir outputs/ablations/pca_dims \
@@ -101,7 +143,7 @@ Tests: k ∈ {128, 256, 512, 768, 1024}
 #### InfoNCE Weight Ablation
 
 ```bash
-python scripts/ablation_driver.py \
+python scripts/analysis/ablation_driver.py \
     --subject subj01 \
     --ablation-type infonce_weight \
     --output-dir outputs/ablations/infonce \
@@ -115,7 +157,7 @@ Tests: weight ∈ {0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6}
 #### Architecture Depth Ablation
 
 ```bash
-python scripts/ablation_driver.py \
+python scripts/analysis/ablation_driver.py \
     --subject subj01 \
     --ablation-type arch_depth \
     --output-dir outputs/ablations/depth \
@@ -129,7 +171,7 @@ Tests: n_blocks ∈ {2, 3, 4, 6, 8}
 #### Best-of-N Ablation (Generation-only)
 
 ```bash
-python scripts/ablation_driver.py \
+python scripts/analysis/ablation_driver.py \
     --subject subj01 \
     --ablation-type best_of_n \
     --output-dir outputs/ablations/best_of_n \
@@ -159,7 +201,7 @@ outputs/ablations/<ablation_type>/
 Create publication-ready reports from evaluation results:
 
 ```bash
-python scripts/generate_report.py \
+python scripts/analysis/generate_report.py \
     --results-dir outputs/eval_shared1000 \
     --output-dir outputs/reports \
     --report-type full
@@ -177,7 +219,7 @@ outputs/reports/
 For ablation studies:
 
 ```bash
-python scripts/generate_report.py \
+python scripts/analysis/generate_report.py \
     --results-dir outputs/ablations/infonce \
     --output-dir outputs/reports/ablation_infonce \
     --report-type ablation
@@ -325,7 +367,7 @@ After running evaluations:
    - Extract best/worst examples from galleries
 
 4. **Run Statistical Tests**
-   - Use `scripts/generate_report.py` with multiple runs
+   - Use `scripts/analysis/generate_report.py` with multiple runs
    - Compute significance tests (paired t-tests)
    - Report effect sizes (Cohen's d)
 
@@ -409,7 +451,7 @@ Generated Image → Encoding Model → Predicted fMRI → Correlation with True 
 
 ```bash
 # Run with 3 seeds
-python scripts/eval_shared1000_full.py \
+python scripts/evaluation/eval_shared1000_full.py \
     --subject subj01 \
     --seeds 0 1 2 \
     ...
@@ -688,7 +730,7 @@ make eval-shared1000 \
     STRATEGIES=single
 
 # Compare
-python scripts/summarize_shared1000.py \
+python scripts/evaluation/summarize_shared1000.py \
     --eval-dir outputs/eval_shared1000 \
     --subjects subj01 \
     --output-dir outputs/eval_shared1000
@@ -740,7 +782,7 @@ for weight in 0.0 0.2 0.4 0.6; do
 done
 
 # Aggregate with statistics
-python scripts/summarize_shared1000.py \
+python scripts/evaluation/summarize_shared1000.py \
     --eval-dir outputs/eval_shared1000 \
     --subjects subj01 \
     --group-by infonce_weight \
@@ -788,7 +830,7 @@ ERROR: Smoke test failed with exit code 1
 
 **Solution**: Run manually to see full error:
 ```bash
-python scripts/eval_shared1000_full.py \
+python scripts/evaluation/eval_shared1000_full.py \
     --subject subj01 \
     --encoder-checkpoint checkpoints/mlp/subj01/mlp.pt \
     --encoder-type mlp \
@@ -856,10 +898,10 @@ pytest tests/test_brain_alignment.py -v
 
 ### See Also
 
-- [IMPLEMENTATION_SUMMARY.md](../../IMPLEMENTATION_SUMMARY.md): Detailed technical overview
+- [IMPLEMENTATION_STATUS.md](../IMPLEMENTATION_STATUS.md): Project status overview
 - [src/fmri2img/stats/README.md](../../src/fmri2img/stats/README.md): Statistical methods API
 - [src/fmri2img/reliability/README.md](../../src/fmri2img/reliability/README.md): Noise ceiling documentation
-- [scripts/eval_shared1000_full.py](../../scripts/eval_shared1000_full.py): Main evaluation script
+- [scripts/evaluation/eval_shared1000_full.py](../../scripts/evaluation/eval_shared1000_full.py): Main evaluation script
 
 ---
 

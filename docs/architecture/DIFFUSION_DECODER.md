@@ -91,7 +91,7 @@ python scripts/decode_diffusion.py \
     --clip-cache outputs/clip_cache/clip.parquet \
     --use-preproc \
     --limit 16 \
-    --guidance 7.5 \
+    --guidance 5.0 \
     --steps 50
 ```
 
@@ -107,7 +107,7 @@ python scripts/decode_diffusion.py \
     --clip-cache outputs/clip_cache/clip.parquet \
     --use-preproc \
     --limit 16 \
-    --guidance 7.5 \
+    --guidance 5.0 \
     --steps 50
 ```
 
@@ -121,7 +121,7 @@ python scripts/decode_diffusion.py \
     --ckpt checkpoints/mlp/subj01/mlp.pt \
     --clip-cache outputs/clip_cache/clip.parquet \
     --use-preproc \
-    --guidance 7.5 \
+    --guidance 5.0 \
     --steps 50
 # No --limit → uses all test samples
 ```
@@ -137,7 +137,7 @@ python scripts/decode_diffusion.py \
     --clip-cache outputs/clip_cache/clip.parquet \
     --model-id "stabilityai/stable-diffusion-xl-base-1.0" \
     --use-preproc \
-    --guidance 7.5 \
+    --guidance 5.0 \
     --steps 50
 ```
 
@@ -178,10 +178,20 @@ python scripts/decode_diffusion.py \
 
 - `--model-id`: HuggingFace model ID (default: `stabilityai/stable-diffusion-2-1`)
   - Options: `stabilityai/stable-diffusion-2-1`, `stabilityai/stable-diffusion-xl-base-1.0`, `runwayml/stable-diffusion-v1-5`
-- `--guidance`: Classifier-free guidance scale (default: 7.5)
-  - Higher = stronger conditioning (range: 5-15, typical: 7.5)
+- `--guidance`: Classifier-free guidance scale (default: 5.0)
+  - Lower values (3-5): More diverse, creative outputs
+  - Higher values (7-10): Stronger prompt adherence
 - `--steps`: Number of denoising steps (default: 50)
   - More steps = higher quality (range: 25-100, typical: 50)
+- `--dtype`: Model precision `{float16, float32}` (default: `float32`)
+  - `float32`: More stable, prevents numerical issues, recommended for debugging
+  - `float16`: Faster inference on GPU, uses less memory
+  - Auto-fallback to `float32` if CUDA unavailable
+- `--scheduler`: Diffusion scheduler `{dpm, euler, pndm, default}` (default: `dpm`)
+  - `dpm`: DPMSolverMultistep -- fast, high quality
+  - `euler`: EulerDiscrete -- simple, stable
+  - `pndm`: PNDM -- original Stable Diffusion scheduler
+  - `default`: Keep model's default scheduler
 
 ### Evaluation
 
@@ -223,8 +233,13 @@ outputs/recon/{subject}/{encoder}_diffusion/
   "encoder": "mlp",
   "checkpoint": "checkpoints/mlp/subj01/mlp.pt",
   "diffusion_model": "stabilityai/stable-diffusion-2-1",
-  "guidance_scale": 7.5,
+  "device": "cuda",
+  "dtype": "float32",
+  "scheduler": "dpm",
+  "guidance_scale": 5.0,
   "num_inference_steps": 50,
+  "clip_adapter": "checkpoints/clip_adapter/subj01/adapter.pt",
+  "clip_adapter_target_dim": 1024,
   "n_generated": 16,
   "mean_cosine": 0.3456,
   "results": [
@@ -249,6 +264,30 @@ outputs/recon/{subject}/{encoder}_diffusion/
 - `nn_nsdId`: Nearest neighbor NSD ID from gallery (for comparison)
 - `nn_cosine`: Cosine similarity to nearest neighbor
 - `image_path`: Path to generated image
+
+---
+
+## Robustness and Stability
+
+### Embedding Hygiene and NaN Guards
+
+The pipeline includes multiple NaN/Inf checks to prevent black or corrupted images:
+
+1. **Before generation**: Conditioning embeddings are normalized with `clamp_min(1e-6)` to prevent division by zero, then checked for finite values.
+2. **After adapter application**: Adapter outputs are validated for NaN/Inf with detailed error diagnostics (NaN count, Inf count, input/output ranges).
+3. **Before pipeline invocation**: Final normalized predictions are checked before being passed to the diffusion model.
+
+### Latent Debug Hooks
+
+A callback logs latent statistics every 10 denoising steps, useful for diagnosing latent explosion (exponentially growing ranges indicating numerical instability):
+
+```
+[step 0/50]  latents range: -3.142 .. 3.089
+[step 10/50] latents range: -2.456 .. 2.401
+[step 20/50] latents range: -1.892 .. 1.847
+```
+
+If latent ranges grow beyond `[-50, 50]`, try: `--scheduler dpm`, `--guidance 3.0`, or `--dtype float32`.
 
 ---
 
@@ -447,7 +486,7 @@ python scripts/decode_diffusion.py \
     --dtype float16 \
     --use-preproc \
     --limit 16 \
-    --guidance 7.5 \
+    --guidance 5.0 \
     --steps 50
 ```
 
@@ -469,6 +508,30 @@ python scripts/decode_diffusion.py \
 
 ## Troubleshooting
 
+### Issue: Black Images
+
+**Causes and solutions:**
+
+1. **NaN/Inf in adapter output** -- Check logs for "Adapter output contains NaN or Inf". Retrain adapter with proper normalization, or use `--dtype float32` as a temporary fix.
+2. **Numerical instability in float16** -- Use `--dtype float32`. Slower but more stable.
+3. **Guidance scale too high** -- Values above 10 can cause saturation. Try `--guidance 3.0` or `--guidance 5.0`.
+4. **Bad conditioning vectors** -- Check logs for extreme min/max values or unusual norms. Review encoder training and preprocessing.
+
+**Maximum stability debugging command:**
+
+```bash
+python scripts/decode_diffusion.py \
+    --subject subj01 --encoder mlp \
+    --ckpt checkpoints/mlp/subj01/mlp.pt \
+    --clip-cache outputs/clip_cache/clip.parquet \
+    --dtype float32 --scheduler pndm --guidance 3.0 \
+    --steps 50 --limit 8
+```
+
+### Issue: Latent Explosion
+
+Latent ranges growing exponentially (e.g. `[-50, 50]`, `[-100, 100]`) cause noisy or corrupted images. Use `--scheduler dpm`, reduce guidance (`--guidance 3.0`), or use `--dtype float32`.
+
 ### Issue: "diffusers not found"
 
 ```bash
@@ -479,20 +542,13 @@ pip install diffusers transformers accelerate
 
 Try these in order:
 
-1. Reduce batch size (currently 1, already minimal)
-2. Use attention slicing (already enabled)
-3. Use float32 instead of float16:
-   ```bash
-   --dtype float32
-   ```
-4. Use smaller model:
-   ```bash
-   --model-id "runwayml/stable-diffusion-v1-5"
-   ```
-5. Use CPU fallback:
-   ```bash
-   --device cpu --dtype float32 --steps 25
-   ```
+1. Use `--dtype float16` (saves ~50% VRAM)
+2. Reduce `--steps` (fewer denoising steps)
+3. Process smaller batches with `--limit`
+4. Use smaller model: `--model-id "runwayml/stable-diffusion-v1-5"`
+5. Use CPU fallback: `--device cpu --dtype float32 --steps 25`
+
+Memory optimizations (attention slicing, VAE slicing) are already enabled automatically.
 
 ### Issue: "Model download fails"
 
@@ -510,7 +566,7 @@ python scripts/decode_diffusion.py ...
 Try increasing guidance scale and steps:
 
 ```bash
---guidance 10.0 --steps 100
+--guidance 7.5 --steps 100
 ```
 
 Or use higher-quality model (requires more VRAM):

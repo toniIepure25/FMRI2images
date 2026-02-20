@@ -19,15 +19,14 @@
 │                                                                          │
 │  2. run=true source initialSetup.sh  ─────> Set shell env (if needed)  │
 │                                                                          │
-│  3. bash scripts/setup_env.sh  ────────────> Create venv + install     │
-│     • Creates ./venv/                                                   │
+│  3. ./setup.sh  ─────────────────────────────> Create venv + install     │
+│     • Creates ./.venv/                                                   │
 │     • Installs PyTorch (CUDA 12.2)                                      │
 │     • Installs all dependencies                                         │
-│     • Generates activate_env.sh                                         │
 │                                                                          │
-│  4. source activate_env.sh  ───────────────> Activate environment       │
+│  4. source .venv/bin/activate  ──────────────> Activate environment     │
 │                                                                          │
-│  5. bash scripts/preflight.sh  ────────────> Verify everything          │
+│  5. make preflight  ─────────────────────────> Verify everything        │
 │     ✓ Python + packages                                                 │
 │     ✓ GPU/CUDA                                                           │
 │     ✓ Disk space                                                         │
@@ -39,7 +38,7 @@
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                     SESSION WORKFLOW (Every Login)                      │
 │                                                                          │
-│  source activate_env.sh  ──────────────────> Activate venv             │
+│  source .venv/bin/activate  ───────────────> Activate venv             │
 └─────────────────────────────────────────────────────────────────────────┘
 
                                     │
@@ -50,7 +49,7 @@
 │  ┌────────────────────────────────────────────────────────────────┐    │
 │  │ Option 1: Short/Interactive Run                                │    │
 │  │                                                                 │    │
-│  │  bash scripts/run_experiment_simple.sh config.yaml             │    │
+│  │  python scripts/training/train.py --config config.yaml         │    │
 │  │                                                                 │    │
 │  │  • Runs in foreground                                          │    │
 │  │  • See output in real-time                                     │    │
@@ -95,11 +94,11 @@
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                      EXPERIMENT EXECUTION FLOW                          │
 │                                                                          │
-│  run_experiment_simple.sh                                               │
+│  python scripts/training/train.py --config config.yaml                  │
 │         │                                                                │
 │         ├─> Load .env                                                   │
 │         ├─> Check venv active                                           │
-│         ├─> Run preflight.sh                                            │
+│         ├─> Run preflight checks                                        │
 │         │      ✓ Python, packages                                       │
 │         │      ✓ GPU/CUDA                                               │
 │         │      ✓ Disk space                                             │
@@ -234,30 +233,22 @@ Bachelor V2/
 │   ├── .env.example             # Generic template
 │   └── configs/experiments/     # Experiment configs
 │
-├── 🔧 Scripts
-│   ├── setup_env.sh            # Setup + install
-│   ├── preflight.sh            # Validation
-│   ├── snapshot_env.sh         # Environment capture
-│   ├── run_experiment_simple.sh # Single run
-│   ├── run_sweep.sh            # Batch runs
-│   ├── tmux_run.sh             # tmux wrapper
-│   ├── nohup_run.sh            # nohup wrapper
-│   └── verify_setup.sh         # Installation check
+├── Scripts
+│   ├── setup.sh                           # Automated setup
+│   ├── scripts/training/train.py          # Training entrypoint
+│   ├── scripts/evaluation/                # Evaluation scripts
+│   ├── scripts/orchestration/             # Batch run scripts
+│   └── scripts/utils/                     # Utilities (preflight, doctor, etc.)
 │
-├── 🐍 Python
-│   └── src/train.py            # Main entrypoint
+├── Documentation
+│   ├── docs/guides/SETUP.md              # Setup guide
+│   ├── docs/guides/JUPYTERHUB_REFERENCE.md # Quick commands
+│   └── docs/guides/RUNNING_EXPERIMENTS.md  # Experiment guide
 │
-├── 📚 Documentation
-│   ├── START_JUPYTERHUB.md     # ⭐ Start here
-│   ├── QUICK_REFERENCE.md      # Quick commands
-│   ├── README_JUPYTERHUB.md    # Complete guide
-│   └── IMPLEMENTATION_SUMMARY.md # Technical details
-│
-└── 📊 Outputs (Generated)
-    ├── venv/                   # Virtual environment
-    ├── runs/                   # Experiment outputs
-    ├── logs/                   # Log files
-    └── activate_env.sh         # Helper script
+└── Outputs (Generated)
+    ├── .venv/                  # Virtual environment
+    ├── outputs/                # Experiment outputs
+    └── logs/                   # Log files
 ```
 
 ## Command Flow Diagram
@@ -267,7 +258,7 @@ User Command
     │
     ▼
 ┌─────────────────────┐
-│  Wrapper Script     │  (run_experiment_simple.sh, tmux_run.sh, etc.)
+│  Training Script    │  (scripts/training/train.py)
 │  • Load .env        │
 │  • Check venv       │
 │  • Run preflight    │
@@ -275,7 +266,7 @@ User Command
     │
     ▼
 ┌─────────────────────┐
-│  preflight.sh       │
+│  make preflight     │
 │  • Validate env     │
 │  • Check GPU        │
 │  • Check disk       │

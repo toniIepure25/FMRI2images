@@ -488,7 +488,7 @@ tests/
 ### Example 1: Single Subject Evaluation
 
 ```bash
-python scripts/eval_shared1000_full.py \
+python scripts/evaluation/eval_shared1000_full.py \
     --subject subj01 \
     --encoder-checkpoint checkpoints/mlp/subj01/mlp.pt \
     --encoder-type mlp \
@@ -499,7 +499,7 @@ python scripts/eval_shared1000_full.py \
 ### Example 2: With Brain Alignment & Ceiling Normalization
 
 ```bash
-python scripts/eval_shared1000_full.py \
+python scripts/evaluation/eval_shared1000_full.py \
     --subject subj01 \
     --encoder-checkpoint checkpoints/two_stage/subj01/two_stage_best.pt \
     --encoder-type two_stage \
@@ -513,7 +513,7 @@ python scripts/eval_shared1000_full.py \
 ### Example 3: Multi-Seed Evaluation
 
 ```bash
-python scripts/eval_shared1000_full.py \
+python scripts/evaluation/eval_shared1000_full.py \
     --subject subj01 \
     --encoder-checkpoint checkpoints/two_stage/subj01/two_stage_best.pt \
     --encoder-type two_stage \
@@ -526,19 +526,19 @@ python scripts/eval_shared1000_full.py \
 
 ```bash
 # Average across repetitions (highest SNR)
-python scripts/eval_shared1000_full.py ... --rep-mode avg
+python scripts/evaluation/eval_shared1000_full.py ... --rep-mode avg
 
 # Single repetition (test robustness)
-python scripts/eval_shared1000_full.py ... --rep-mode rep1
+python scripts/evaluation/eval_shared1000_full.py ... --rep-mode rep1
 
 # All repetitions (compute consistency)
-python scripts/eval_shared1000_full.py ... --rep-mode all
+python scripts/evaluation/eval_shared1000_full.py ... --rep-mode all
 ```
 
 ### Example 5: Cross-Subject Summary
 
 ```bash
-python scripts/summarize_shared1000.py \
+python scripts/evaluation/summarize_shared1000.py \
     --eval-dir outputs/eval_shared1000 \
     --subjects subj01 subj02 subj03 \
     --output-dir outputs/eval_shared1000 \

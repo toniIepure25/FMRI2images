@@ -323,7 +323,7 @@ After running ablation study, expect these **approximate** improvements:
 
 - **Main script**: `scripts/run_full_pipeline.py`
 - **Uncertainty eval**: `scripts/eval_uncertainty.py` (auto-created)
-- **Quick reference**: `docs/NOVEL_CONTRIBUTIONS_QUICK_REF.md`
+- **Quick reference**: `docs/guides/NOVEL_CONTRIBUTIONS_QUICK_REF.md`
 - **Detailed guide**: `docs/guides/NOVEL_CONTRIBUTIONS_PIPELINE.md`
 - **Realistic workflow**: `docs/guides/REALISTIC_WORKFLOW.md`
 
@@ -333,7 +333,7 @@ After running ablation study, expect these **approximate** improvements:
 
 Before running pipeline:
 
-- [ ] Environment activated: `conda activate fmri2img`
+- [ ] Environment activated: `source .venv/bin/activate`
 - [ ] Package installed: `pip install -e .`
 - [ ] Tests passing: `pytest tests/test_losses.py tests/test_soft_reliability.py tests/test_uncertainty.py`
 - [ ] CUDA available: `nvidia-smi`

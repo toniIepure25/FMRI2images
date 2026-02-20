@@ -1,27 +1,34 @@
-# 🚀 Novel Contributions: End-to-End Pipeline Guide
+# Novel Contributions: Pipeline and Implementation Guide
 
-**Complete workflow for using all three novel contributions together**
+Complete workflow and implementation reference for the three novel contributions:
 
-This guide shows how to run the full fMRI-to-Image reconstruction pipeline with the three novel contributions:
+1. **Soft Reliability Weighting** -- Continuous voxel weighting instead of hard thresholding
+2. **InfoNCE Contrastive Loss** -- Direct retrieval optimization in CLIP space
+3. **MC Dropout Uncertainty** -- Bayesian uncertainty estimation
 
-1. ✅ **Soft Reliability Weighting** - Continuous voxel weighting instead of hard thresholding
-2. ✅ **InfoNCE Contrastive Loss** - Direct retrieval optimization in CLIP space
-3. ✅ **MC Dropout Uncertainty** - Bayesian uncertainty estimation
+## Implementation Summary
+
+| Contribution | Module | Tests | Status |
+|-------------|--------|-------|--------|
+| InfoNCE Loss | `src/fmri2img/models/losses.py` | 18/18 | Complete |
+| Soft Reliability | `src/fmri2img/data/reliability.py` + `preprocess.py` | 15/15 | Complete |
+| MC Dropout | `src/fmri2img/eval/uncertainty.py` | 19/19 | Complete |
+| **Total** | **3 modules** | **53/53** | **Complete** |
 
 ---
 
-## 📋 Quick Start (TL;DR)
+## Quick Start (TL;DR)
 
 ```bash
 # 1. Preprocessing with soft reliability weighting
-python scripts/preprocess_subject.py \
+python scripts/build/fit_preprocessing.py \
     --subject subj01 \
     --reliability-mode soft_weight \
     --reliability-curve sigmoid \
     --reliability-temperature 0.1
 
 # 2. Training with InfoNCE contrastive loss
-python scripts/train_mlp.py \
+python scripts/training/train_mlp.py \
     --subject subj01 \
     --cosine-weight 1.0 \
     --infonce-weight 0.3 \
@@ -39,21 +46,21 @@ model = load_mlp('checkpoints/mlp/subj01/best_model.pt')
 
 ---
 
-## 🎯 Complete Workflow
+## Complete Workflow
 
 ### Prerequisites
 
 **Environment Setup**:
 ```bash
 # Activate environment
-conda activate fmri2img
+source .venv/bin/activate
 
 # Verify novel modules are available
 python -c "
 from fmri2img.models.losses import infonce_loss
 from fmri2img.data.reliability import compute_soft_reliability_weights
 from fmri2img.eval.uncertainty import predict_with_mc_dropout
-print('✅ All novel contributions available!')
+print('All novel contributions available!')
 "
 ```
 
@@ -82,7 +89,7 @@ Three modes available:
 
 ```bash
 # Soft weighting with sigmoid curve
-python scripts/preprocess_subject.py \
+python scripts/build/fit_preprocessing.py \
     --subject subj01 \
     --reliability-mode soft_weight \
     --reliability-curve sigmoid \
@@ -91,7 +98,7 @@ python scripts/preprocess_subject.py \
     --output-dir outputs/preproc_soft
 
 # For comparison: baseline hard threshold
-python scripts/preprocess_subject.py \
+python scripts/build/fit_preprocessing.py \
     --subject subj01 \
     --reliability-mode hard_threshold \
     --pca-k 4096 \
@@ -205,7 +212,7 @@ Multi-objective loss with three components:
 
 ```bash
 # Baseline: Cosine only (backward compatible)
-python scripts/train_mlp.py \
+python scripts/training/train_mlp.py \
     --subject subj01 \
     --preproc-dir outputs/preproc_hard \
     --use-preproc \
@@ -218,7 +225,7 @@ python scripts/train_mlp.py \
     --checkpoint-dir checkpoints/mlp_baseline
 
 # Novel: Add InfoNCE for retrieval optimization
-python scripts/train_mlp.py \
+python scripts/training/train_mlp.py \
     --subject subj01 \
     --preproc-dir outputs/preproc_soft \
     --use-preproc \
@@ -281,7 +288,7 @@ Recommended configurations:
 
 ```bash
 # Standard reconstruction
-python scripts/run_reconstruct_and_eval.py \
+python scripts/orchestration/run_reconstruct_and_eval.py \
     --subject subj01 \
     --encoder-checkpoint checkpoints/mlp_infonce/subj01/best_model.pt \
     --encoder-type mlp \
@@ -470,7 +477,7 @@ p-value: 0.0001
 
 ```bash
 # Comprehensive evaluation
-python scripts/eval_comprehensive.py \
+python scripts/evaluation/eval_comprehensive.py \
     --subject subj01 \
     --encoder-checkpoint checkpoints/mlp_infonce/subj01/best_model.pt \
     --encoder-type mlp \
@@ -520,12 +527,12 @@ BASE_DIR="outputs/ablations"
 
 # Experiment 1: Baseline (hard + no InfoNCE)
 echo "Running Baseline..."
-python scripts/preprocess_subject.py \
+python scripts/build/fit_preprocessing.py \
     --subject $SUBJECT \
     --reliability-mode hard_threshold \
     --output-dir $BASE_DIR/hard_noinfonce/preproc
 
-python scripts/train_mlp.py \
+python scripts/training/train_mlp.py \
     --subject $SUBJECT \
     --preproc-dir $BASE_DIR/hard_noinfonce/preproc \
     --use-preproc \
@@ -536,14 +543,14 @@ python scripts/train_mlp.py \
 
 # Experiment 2: Soft reliability only
 echo "Running Soft Reliability Only..."
-python scripts/preprocess_subject.py \
+python scripts/build/fit_preprocessing.py \
     --subject $SUBJECT \
     --reliability-mode soft_weight \
     --reliability-curve sigmoid \
     --reliability-temperature 0.1 \
     --output-dir $BASE_DIR/soft_noinfonce/preproc
 
-python scripts/train_mlp.py \
+python scripts/training/train_mlp.py \
     --subject $SUBJECT \
     --preproc-dir $BASE_DIR/soft_noinfonce/preproc \
     --use-preproc \
@@ -554,7 +561,7 @@ python scripts/train_mlp.py \
 
 # Experiment 3: InfoNCE only
 echo "Running InfoNCE Only..."
-python scripts/train_mlp.py \
+python scripts/training/train_mlp.py \
     --subject $SUBJECT \
     --preproc-dir $BASE_DIR/hard_noinfonce/preproc \
     --use-preproc \
@@ -566,7 +573,7 @@ python scripts/train_mlp.py \
 
 # Experiment 4: Full novel (soft + InfoNCE)
 echo "Running Full Novel Approach..."
-python scripts/train_mlp.py \
+python scripts/training/train_mlp.py \
     --subject $SUBJECT \
     --preproc-dir $BASE_DIR/soft_noinfonce/preproc \
     --use-preproc \
@@ -649,7 +656,7 @@ Full Novel: +2.34% vs Baseline (+35% retrieval!)
 
 ---
 
-## 📊 Expected Improvements
+## Expected Improvements
 
 ### Quantitative Gains
 
@@ -680,7 +687,7 @@ Full Novel: +2.34% vs Baseline (+35% retrieval!)
 
 ---
 
-## 🔬 Paper-Ready Experiments
+## Paper-Ready Experiments
 
 ### Experiment Setup for Publication
 
@@ -720,7 +727,7 @@ if p_value < 0.05:
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Issue: Soft weights not loading
 
@@ -756,16 +763,60 @@ enable_dropout(model)  # Then enable dropout
 
 ---
 
-## 📚 Additional Resources
+## API Reference
 
-- **Implementation Details**: See `docs/NOVEL_CONTRIBUTIONS_IMPLEMENTATION.md`
-- **API Reference**: See individual module docstrings
-- **Test Suite**: Run `pytest tests/test_losses.py tests/test_soft_reliability.py tests/test_uncertainty.py`
-- **Paper Draft**: See `docs/paper/` (if available)
+### InfoNCE Loss (`src/fmri2img/models/losses.py`)
+
+```python
+from fmri2img.models.losses import compose_loss
+
+loss, components = compose_loss(
+    pred, target,
+    cosine_weight=1.0,
+    mse_weight=0.0,
+    infonce_weight=0.3,
+    temperature=0.07
+)
+# components dict has keys: 'cosine', 'mse', 'infonce'
+```
+
+Key features: symmetric InfoNCE (following CLIP training), temperature-scaled softmax, batch-level negative mining, composable with existing losses. Default weights (`cosine_weight=1.0`, others `0.0`) maintain backward compatibility.
+
+### Soft Reliability Weighting (`src/fmri2img/data/reliability.py`)
+
+```python
+from fmri2img.data.reliability import compute_soft_reliability_weights
+
+weights, stats = compute_soft_reliability_weights(
+    r, voxel_variance,
+    mode="soft_weight",       # "hard_threshold" | "soft_weight" | "none"
+    reliability_thr=0.1,
+    curve="sigmoid",          # "sigmoid" | "linear"
+    temperature=0.1,
+)
+```
+
+Preprocessing applies `sqrt(weight)` scaling before PCA. Default mode `hard_threshold` preserves backward compatibility.
+
+### MC Dropout Uncertainty (`src/fmri2img/eval/uncertainty.py`)
+
+```python
+from fmri2img.eval.uncertainty import predict_with_mc_dropout
+
+result = predict_with_mc_dropout(model, fmri_tensor, n_samples=20)
+# result keys: "mean", "variance", "std", "uncertainty"
+```
+
+MC dropout is opt-in: standard `model.eval()` disables dropout; `predict_with_mc_dropout()` enables it for stochastic forward passes. No changes required to existing training/eval code.
+
+## Additional Resources
+
+- **Test Suite**: `pytest tests/test_losses.py tests/test_soft_reliability.py tests/test_uncertainty.py`
+- **Paper Draft**: See `docs/paper/`
 
 ---
 
-## ✅ Checklist
+## Checklist
 
 Before submitting results:
 
@@ -777,4 +828,4 @@ Before submitting results:
 - [ ] Documented hyperparameters
 - [ ] Verified reproducibility (fixed seeds)
 
-**Good luck with your experiments! 🚀**
+**Good luck with your experiments!**

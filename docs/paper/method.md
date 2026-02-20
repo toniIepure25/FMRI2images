@@ -26,4 +26,4 @@ See code for exact losses and toggles in training scripts and configs.
 
 ## References
 
-See `docs/refs.md` and `REFERENCES.bib`.
+See `docs/paper/refs.md` and `REFERENCES.bib`.

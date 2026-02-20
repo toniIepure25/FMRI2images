@@ -18,7 +18,7 @@ The "3 simple commands" version was **oversimplified**. Here's what you **actual
 cd "/home/tonystark/Desktop/Bachelor V2"
 
 # Activate conda environment
-conda activate fmri2img
+source .venv/bin/activate
 
 # Install package in development mode
 pip install -e .
@@ -136,7 +136,7 @@ print(f"Continuous: {not np.allclose(weights, mask.astype(float))}")
 #### A. Train Baseline MLP (Hard threshold, no InfoNCE)
 
 ```bash
-python scripts/train_mlp.py \
+python scripts/training/train_mlp.py \
     --subject subj01 \
     --index-file data/indices/nsd_index/subject=subj01/index.parquet \
     --clip-cache outputs/clip_cache/clip.parquet \
@@ -160,7 +160,7 @@ python scripts/train_mlp.py \
 #### B. Train with Soft Reliability Only ⭐
 
 ```bash
-python scripts/train_mlp.py \
+python scripts/training/train_mlp.py \
     --subject subj01 \
     --index-file data/indices/nsd_index/subject=subj01/index.parquet \
     --clip-cache outputs/clip_cache/clip.parquet \
@@ -178,7 +178,7 @@ python scripts/train_mlp.py \
 #### C. Train with InfoNCE Only ⭐
 
 ```bash
-python scripts/train_mlp.py \
+python scripts/training/train_mlp.py \
     --subject subj01 \
     --index-file data/indices/nsd_index/subject=subj01/index.parquet \
     --clip-cache outputs/clip_cache/clip.parquet \
@@ -199,7 +199,7 @@ python scripts/train_mlp.py \
 #### D. Train with Both Novel Contributions ⭐⭐
 
 ```bash
-python scripts/train_mlp.py \
+python scripts/training/train_mlp.py \
     --subject subj01 \
     --index-file data/indices/nsd_index/subject=subj01/index.parquet \
     --clip-cache outputs/clip_cache/clip.parquet \
@@ -230,7 +230,7 @@ tail -f checkpoints/mlp_full_novel/subj01/train.log
 #### A. Standard Metrics (Existing Script)
 
 ```bash
-python scripts/run_reconstruct_and_eval.py \
+python scripts/orchestration/run_reconstruct_and_eval.py \
     --subject subj01 \
     --encoder-checkpoint checkpoints/mlp_full_novel/subj01/best_model.pt \
     --encoder-type mlp \
@@ -446,7 +446,7 @@ python scripts/decode_diffusion.py \
 ### Step 7: Compare All Ablations
 
 ```bash
-python scripts/compare_evals.py \
+python scripts/analysis/compare_evals.py \
     outputs/eval/baseline/metrics.json \
     outputs/eval/soft/metrics.json \
     outputs/eval/infonce/metrics.json \
@@ -466,11 +466,11 @@ python scripts/compare_evals.py \
 | 1. Index | `make index` | 10m | `data/indices/` | ✅ |
 | 2. CLIP Cache | `make build-clip-cache` | 2-3h | `outputs/clip_cache/` | ✅ |
 | 3. Preprocess | `python -m fmri2img.data.preprocess` | 5-10m | `outputs/preproc/` | Per config |
-| 4. Train | `python scripts/train_mlp.py` | 2h | `checkpoints/` | Per config |
-| 5. Eval | `python scripts/run_reconstruct_and_eval.py` | 10m | `outputs/eval/` | Per model |
+| 4. Train | `python scripts/training/train_mlp.py` | 2h | `checkpoints/` | Per config |
+| 5. Eval | `python scripts/orchestration/run_reconstruct_and_eval.py` | 10m | `outputs/eval/` | Per model |
 | 5b. Uncertainty | `python scripts/eval_uncertainty.py` | 15m | `outputs/eval/uncertainty/` | Per model |
 | 6. Reconstruct | `python scripts/decode_diffusion.py` | 10m | `outputs/recon/` | Optional |
-| 7. Compare | `python scripts/compare_evals.py` | 1m | `outputs/reports/` | Final |
+| 7. Compare | `python scripts/analysis/compare_evals.py` | 1m | `outputs/reports/` | Final |
 
 **Total time (first run)**: ~8-10 hours
 **Total time (subsequent runs with different configs)**: ~2-3 hours
@@ -489,7 +489,7 @@ python -m fmri2img.data.preprocess \
     --reliability-mode soft_weight
 
 # 2. Train (with InfoNCE)
-python scripts/train_mlp.py \
+python scripts/training/train_mlp.py \
     --subject subj01 \
     --preproc-dir outputs/preproc/soft \
     --output-dir checkpoints/mlp_full_novel/subj01 \
@@ -497,7 +497,7 @@ python scripts/train_mlp.py \
     --epochs 150
 
 # 3. Evaluate standard metrics
-python scripts/run_reconstruct_and_eval.py \
+python scripts/orchestration/run_reconstruct_and_eval.py \
     --subject subj01 \
     --encoder-checkpoint checkpoints/mlp_full_novel/subj01/best_model.pt \
     --encoder-type mlp \
@@ -555,9 +555,9 @@ To generate weights, re-run preprocessing with `--reliability-mode soft_weight`.
 
 ## 🔗 Related Documentation
 
-- **Quick Reference**: `docs/NOVEL_CONTRIBUTIONS_QUICK_REF.md`
+- **Quick Reference**: `docs/guides/NOVEL_CONTRIBUTIONS_QUICK_REF.md`
 - **Full Pipeline Guide**: `docs/guides/NOVEL_CONTRIBUTIONS_PIPELINE.md`
-- **Implementation Details**: `docs/NOVEL_CONTRIBUTIONS_IMPLEMENTATION.md`
+- **Implementation Details**: `docs/guides/NOVEL_CONTRIBUTIONS_PIPELINE.md`
 
 ---
 
@@ -565,7 +565,7 @@ To generate weights, re-run preprocessing with `--reliability-mode soft_weight`.
 
 Before running experiments:
 
-- [ ] Environment activated (`conda activate fmri2img`)
+- [ ] Environment activated (`source .venv/bin/activate`)
 - [ ] Package installed (`pip install -e .`)
 - [ ] Tests passing (`pytest tests/test_*.py`)
 - [ ] Index built (`data/indices/nsd_index/`)

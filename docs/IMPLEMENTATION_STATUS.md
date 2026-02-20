@@ -138,18 +138,18 @@ pytest tests/ -v
 1. **Single Experiment**
 
    ```bash
-   python scripts/train.py --config configs/experiments/exp0_baseline.yaml
+   python scripts/training/train.py --config configs/experiments/exp0_baseline.yaml
    ```
 
 2. **Full Ablation Study**
 
    ```bash
-   bash scripts/run_all_experiments.sh 0  # Run EXP0-6
+   bash scripts/orchestration/run_all_experiments.sh 0  # Run EXP0-6
    ```
 
 3. **Evaluation Only**
    ```bash
-   python scripts/evaluate.py \
+   python scripts/evaluation/evaluate.py \
      --checkpoint outputs/exp0_baseline/best.pt \
      --test_split test
    ```
@@ -201,10 +201,10 @@ Your code has a **smart fallback system** (`src/fmri2img/io/image_loader.py`):
 
 ### Scripts Available
 
-- **`scripts/train.py`** - Main training script
-- **`scripts/evaluate.py`** - Standalone evaluation
-- **`scripts/run_all_experiments.sh`** - Batch experiment runner
-- **`scripts/build_all_preprocessors.sh`** - Build preprocessing caches
+- **`scripts/training/train.py`** - Main training script
+- **`scripts/evaluation/evaluate.py`** - Standalone evaluation
+- **`scripts/orchestration/run_all_experiments.sh`** - Batch experiment runner
+- **`scripts/build/build_all_preprocessors.sh`** - Build preprocessing caches
 - **`inspect_checkpoint.py`** - Debug checkpoint contents
 
 ---
@@ -223,7 +223,7 @@ Your code has a **smart fallback system** (`src/fmri2img/io/image_loader.py`):
 
 - ✅ `docs/architecture/PIPELINE_ARCHITECTURE.md` - System architecture
 - ✅ `docs/architecture/WORKFLOW.md` - JupyterHub workflow
-- ✅ `docs/technical/OPTIMAL_CONFIGURATION_GUIDE.md` - Best practices
+- ✅ `docs/technical/DATA_PIPELINE.md` - Data pipeline and configuration
 - ✅ `docs/technical/NSD_Dataset_Guide.md` - Dataset details
 
 ### Paper Documentation (Complete)
@@ -294,18 +294,18 @@ Your code has a **smart fallback system** (`src/fmri2img/io/image_loader.py`):
 1. **Build preprocessors** (1-2 hours)
 
    ```bash
-   bash scripts/build_all_preprocessors.sh
+   bash scripts/build/build_all_preprocessors.sh
    ```
 
 2. **Run ablation study** (3-7 days)
 
    ```bash
-   bash scripts/run_all_experiments.sh 0
+   bash scripts/orchestration/run_all_experiments.sh 0
    ```
 
 3. **Generate visualizations**
    ```bash
-   python scripts/visualize_results.py --experiments exp0,exp1,exp2,exp3,exp4,exp5,exp6
+   python scripts/analysis/plot_metrics.py --experiments exp0,exp1,exp2,exp3,exp4,exp5,exp6
    ```
 
 ### For Writing Paper

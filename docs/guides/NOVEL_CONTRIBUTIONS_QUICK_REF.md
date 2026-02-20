@@ -19,7 +19,7 @@
 ### Preprocessing (Contribution #1)
 ```bash
 # Soft weighting (novel)
-python scripts/preprocess_subject.py \
+python scripts/build/fit_preprocessing.py \
     --subject subj01 \
     --reliability-mode soft_weight \
     --reliability-curve sigmoid \
@@ -29,7 +29,7 @@ python scripts/preprocess_subject.py \
 ### Training (Contribution #2)
 ```bash
 # Add InfoNCE loss (novel)
-python scripts/train_mlp.py \
+python scripts/training/train_mlp.py \
     --subject subj01 \
     --cosine-weight 1.0 \
     --infonce-weight 0.3 \
@@ -268,7 +268,7 @@ outputs/eval/novel/
 ## 🔗 Links
 
 - **Full Guide**: `docs/guides/NOVEL_CONTRIBUTIONS_PIPELINE.md`
-- **Implementation**: `docs/NOVEL_CONTRIBUTIONS_IMPLEMENTATION.md`
+- **Implementation**: `docs/guides/NOVEL_CONTRIBUTIONS_PIPELINE.md`
 - **Tests**: `tests/test_losses.py`, `tests/test_soft_reliability.py`, `tests/test_uncertainty.py`
 - **Modules**: `src/fmri2img/models/losses.py`, `src/fmri2img/data/reliability.py`, `src/fmri2img/eval/uncertainty.py`
 

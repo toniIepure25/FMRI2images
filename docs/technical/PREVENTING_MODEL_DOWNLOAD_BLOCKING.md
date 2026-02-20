@@ -106,7 +106,7 @@ python scripts/download_sd_model.py
 
 ```bash
 # Run other scripts, tests, etc.
-python scripts/report_ablation.py
+python scripts/analysis/report_ablation.py
 python scripts/reconstruct_nn.py --test-mode
 ```
 

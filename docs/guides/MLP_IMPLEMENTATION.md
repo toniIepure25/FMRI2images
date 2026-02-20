@@ -98,7 +98,7 @@ model, meta = load_mlp("checkpoints/mlp/subj01/mlp.pt", map_location="cpu")
 
 ---
 
-## 3. MLP Training Script (`scripts/train_mlp.py`)
+## 3. MLP Training Script (`scripts/training/train_mlp.py`)
 
 ### Pipeline Flow
 
@@ -179,7 +179,7 @@ model, meta = load_mlp("checkpoints/mlp/subj01/mlp.pt", map_location="cpu")
 **Quick Test** (tiny setup):
 
 ```bash
-python scripts/train_mlp.py --subject subj01 --limit 256 --epochs 10
+python scripts/training/train_mlp.py --subject subj01 --limit 256 --epochs 10
 ```
 
 **Full Training** (via Makefile):
@@ -191,7 +191,7 @@ make mlp  # Uses sensible defaults
 **Custom Configuration**:
 
 ```bash
-python scripts/train_mlp.py \
+python scripts/training/train_mlp.py \
     --index-root data/indices/nsd_index \
     --subject subj01 \
     --use-preproc \
@@ -289,7 +289,7 @@ python scripts/train_mlp.py \
 ```makefile
 mlp:
 	@echo "=== Training MLP Encoder ==="
-	@$(PY) scripts/train_mlp.py \
+	@$(PY) scripts/training/train_mlp.py \
 		--index-root data/indices/nsd_index \
 		--subject subj01 \
 		--use-preproc \
@@ -452,7 +452,7 @@ make build-clip-cache LIMIT=""
 
 ```bash
 # Remove --limit to use all data
-python scripts/train_mlp.py \
+python scripts/training/train_mlp.py \
     --subject subj01 \
     --use-preproc \
     --clip-cache outputs/clip_cache/clip.parquet \
@@ -522,7 +522,7 @@ print(f"MLP:   cosine={mlp['test_metrics']['cosine']:.4f}, R@1={mlp['test_metric
 ### New Files (2):
 
 1. `src/fmri2img/models/mlp.py` (~120 lines) - MLP encoder + save/load
-2. `scripts/train_mlp.py` (~440 lines) - Training script with early stopping
+2. `scripts/training/train_mlp.py` (~440 lines) - Training script with early stopping
 
 ### Modified Files (4):
 

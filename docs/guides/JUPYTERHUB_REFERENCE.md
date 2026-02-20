@@ -15,16 +15,14 @@ nano .env  # Edit USER=your_username
 # 2. Source initialSetup.sh if required
 run=true source initialSetup.sh
 
-# 3. Install dependencies
-bash scripts/setup_env.sh
+# 3. Run automated setup
+./setup.sh
 
 # 4. Verify setup
-source activate_env.sh
-bash scripts/preflight.sh
+source .venv/bin/activate
+make preflight
 
 # 5. Download NSD dataset (manual - see DATA_REQUIREMENTS.md)
-# 6. Prepare models
-bash scripts/prepare_data.sh
 ```
 
 ### Option B: MinIO Object Storage (No download!)
@@ -48,7 +46,7 @@ python scripts/verify_dataset.py --allow-s3-only
 
 ```bash
 # Activate environment
-source activate_env.sh
+source .venv/bin/activate
 ```
 
 ---
@@ -56,33 +54,39 @@ source activate_env.sh
 ## 🧪 Running Experiments
 
 ### Quick Test
+
 ```bash
-bash scripts/run_experiment_simple.sh configs/experiments/smoke_test.yaml
+python scripts/training/train.py --config configs/experiments/smoke_test.yaml --max_steps 1
 ```
 
-### Short Run (interactive)
+### Single Experiment
+
 ```bash
-bash scripts/run_experiment_simple.sh configs/experiments/my_exp.yaml
+python scripts/training/train.py --config configs/experiments/exp0_baseline.yaml
 ```
 
 ### Long Run (tmux - recommended)
+
 ```bash
 # Start in tmux
-bash scripts/tmux_run.sh configs/experiments/my_exp.yaml my_session
+tmux new -s my_session
+python scripts/training/train.py --config configs/experiments/exp0_baseline.yaml
 
 # Detach: Ctrl+B, then D
 # Reattach later: tmux attach -t my_session
 ```
 
-### Long Run (nohup - fire and forget)
+### Long Run (nohup)
+
 ```bash
-bash scripts/nohup_run.sh configs/experiments/my_exp.yaml
-tail -f logs/nohup_*.log
+nohup python scripts/training/train.py --config configs/experiments/exp0_baseline.yaml &
+tail -f nohup.out
 ```
 
-### Multiple Experiments (sweep)
+### All Experiments (batch)
+
 ```bash
-bash scripts/run_sweep.sh configs/experiments/*.yaml
+bash scripts/orchestration/run_all_experiments.sh 0
 ```
 
 ---
@@ -104,8 +108,10 @@ bash scripts/run_sweep.sh configs/experiments/*.yaml
 ```
 
 **Example:**
+
 ```bash
-bash scripts/run_experiment_simple.sh configs/experiments/my_exp.yaml \
+python scripts/training/train.py \
+  --config configs/experiments/exp0_baseline.yaml \
   --name ablation_lr001 \
   --seed 42
 ```
@@ -143,14 +149,14 @@ ps aux | grep python
 
 ### Virtual environment not active
 ```bash
-source activate_env.sh
+source .venv/bin/activate
 ```
 
 ### CUDA not available
 ```bash
 nvidia-smi  # Check GPU
 python -c "import torch; print(torch.cuda.is_available())"
-bash scripts/setup_env.sh --force --cuda-version 12.2
+./setup.sh
 ```
 
 ### Out of memory
@@ -195,14 +201,11 @@ runs/<timestamp>_<name>/
 
 | Task | Command |
 |------|---------|
-| Activate env | `source activate_env.sh` |
-| Check setup | `bash scripts/preflight.sh` |
-| Prepare data | `bash scripts/prepare_data.sh` |
-| Test MinIO | `python scripts/verify_dataset.py --allow-s3-only` |
-| Run experiment | `bash scripts/run_experiment_simple.sh <config>` |
-| Run in tmux | `bash scripts/tmux_run.sh <config>` |
-| Run in background | `bash scripts/nohup_run.sh <config>` |
-| Run multiple | `bash scripts/run_sweep.sh <configs...>` |
+| Activate env | `source .venv/bin/activate` |
+| Check setup | `make preflight` |
+| Test MinIO | `python scripts/utils/verify_dataset.py --allow-s3-only` |
+| Run experiment | `python scripts/training/train.py --config <config>` |
+| Run all experiments | `bash scripts/orchestration/run_all_experiments.sh 0` |
 | List tmux | `tmux ls` |
 | Attach tmux | `tmux attach -t <name>` |
 | Detach tmux | `Ctrl+B, then D` |
@@ -226,7 +229,7 @@ runs/<timestamp>_<name>/
 
 ---
 
-## 📞 Emergency Commands
+## Emergency Commands
 
 ```bash
 # Kill tmux session
@@ -239,18 +242,19 @@ kill <PID>
 pkill -f python
 
 # Force clean and restart
-bash scripts/setup_env.sh --force
-source activate_env.sh
-bash scripts/preflight.sh
+rm -rf .venv
+./setup.sh
+source .venv/bin/activate
+make preflight
 ```
 
 ---
 
 ## ✅ Pre-Run Checklist
 
-- [ ] Environment activated: `source activate_env.sh`
-- [ ] Preflight passed: `bash scripts/preflight.sh`
-- [ ] Config ready: `configs/experiments/my_exp.yaml`
+- [ ] Environment activated: `source .venv/bin/activate`
+- [ ] Preflight passed: `make preflight`
+- [ ] Config ready: `configs/experiments/exp0_baseline.yaml`
 - [ ] Git committed: `git status` shows clean
 - [ ] Disk space OK: `df -h /bigdata` shows >50GB
 - [ ] Using tmux for long runs: `scripts/tmux_run.sh`
@@ -260,9 +264,5 @@ bash scripts/preflight.sh
 **Ready to run? 🚀**
 
 ```bash
-bash scripts/run_experiment_simple.sh configs/experiments/my_exp.yaml
+python scripts/training/train.py --config configs/experiments/exp0_baseline.yaml
 ```
-
----
-
-**Need help?** Check `README_JUPYTERHUB.md` for full documentation.

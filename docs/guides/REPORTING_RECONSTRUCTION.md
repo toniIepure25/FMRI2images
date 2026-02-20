@@ -4,7 +4,7 @@
 
 Two surgical scripts added for ablation analysis and NN reconstruction baseline:
 
-### 1. `scripts/report_ablation.py` - Mixed-Model Ablation Reporter
+### 1. `scripts/analysis/report_ablation.py` - Mixed-Model Ablation Reporter
 
 **Purpose**: Analyzes ablation CSV (Ridge vs MLP across reliability × PCA grid) and generates summary + plots.
 
@@ -20,10 +20,10 @@ Two surgical scripts added for ablation analysis and NN reconstruction baseline:
 
 ```bash
 # Basic usage
-python scripts/report_ablation.py --subject subj01
+python scripts/analysis/report_ablation.py --subject subj01
 
 # Custom paths
-python scripts/report_ablation.py \
+python scripts/analysis/report_ablation.py \
     --csv outputs/reports/subj01/ablation_ridge.csv \
     --out outputs/reports/subj01/ablation_summary.md \
     --fig-dir outputs/reports/subj01/figs
@@ -314,7 +314,7 @@ pip install matplotlib seaborn scikit-learn
 2. **Generate report**:
 
    ```bash
-   python scripts/report_ablation.py --subject subj01
+   python scripts/analysis/report_ablation.py --subject subj01
    ```
 
 3. **Verify outputs**:
@@ -450,7 +450,7 @@ python scripts/ablate_preproc_and_ridge.py --model ridge ...
 python scripts/ablate_preproc_and_ridge.py --model mlp ...
 
 # Generate report and plots
-python scripts/report_ablation.py --subject subj01
+python scripts/analysis/report_ablation.py --subject subj01
 
 # View results
 cat outputs/reports/subj01/ablation_summary.md
@@ -492,7 +492,7 @@ make ablate            # Ridge
 make ablate-mlp        # MLP
 
 # 2. Generate report and plots
-python scripts/report_ablation.py --subject subj01
+python scripts/analysis/report_ablation.py --subject subj01
 
 # 3. Evaluate NN reconstruction
 python scripts/reconstruct_nn.py \
@@ -571,7 +571,7 @@ cp outputs/reports/subj01/nn_figs/*.png paper/figures/
 
 ## Files Created
 
-1. **scripts/report_ablation.py** (~350 lines)
+1. **scripts/analysis/report_ablation.py** (~350 lines)
 
    - CSV loading with backward compatibility
    - Markdown summary generation
@@ -602,7 +602,7 @@ cp outputs/reports/subj01/nn_figs/*.png paper/figures/
 
 ---
 
-## 4. scripts/run_reconstruct_and_eval.py - One-Click Orchestrator
+## 4. scripts/orchestration/run_reconstruct_and_eval.py - One-Click Orchestrator
 
 **Purpose**: End-to-end workflow that generates reconstructions and evaluates them in the correct CLIP space, producing a thesis-ready Markdown summary.
 
@@ -647,7 +647,7 @@ make recon-eval \
     LIMIT=64
 
 # Direct invocation
-python scripts/run_reconstruct_and_eval.py \
+python scripts/orchestration/run_reconstruct_and_eval.py \
     --subject subj01 \
     --encoder mlp \
     --ckpt checkpoints/mlp/subj01/mlp.pt \
@@ -672,7 +672,7 @@ make recon-eval-adapter \
     LIMIT=64
 
 # Direct invocation
-python scripts/run_reconstruct_and_eval.py \
+python scripts/orchestration/run_reconstruct_and_eval.py \
     --subject subj01 \
     --encoder mlp \
     --ckpt checkpoints/mlp/subj01/mlp.pt \
@@ -870,12 +870,12 @@ Generated with CLIP adapter → evaluated in 1024-D target space (consistent).
 
 **Syntax Check:**
 ```bash
-python3 -m py_compile scripts/run_reconstruct_and_eval.py
+python3 -m py_compile scripts/orchestration/run_reconstruct_and_eval.py
 ```
 
 **Help Output:**
 ```bash
-python scripts/run_reconstruct_and_eval.py --help
+python scripts/orchestration/run_reconstruct_and_eval.py --help
 ```
 
 **Dry Run (no adapter):**
@@ -965,7 +965,7 @@ make recon-eval \
 
 ---
 
-## 5. scripts/compare_evals.py - Aggregate Multiple Evaluations
+## 5. scripts/analysis/compare_evals.py - Aggregate Multiple Evaluations
 
 **Purpose**: Discover multiple evaluation JSONs, compute bootstrap 95% confidence intervals, and generate comprehensive comparison reports (CSV, LaTeX, Markdown, plots).
 
@@ -1009,7 +1009,7 @@ make compare-evals SUBJECT=subj02
 
 **Direct invocation:**
 ```bash
-python scripts/compare_evals.py \
+python scripts/analysis/compare_evals.py \
     --report-dir outputs/reports/subj01 \
     --out-csv outputs/reports/subj01/recon_compare.csv \
     --out-tex outputs/reports/subj01/recon_compare.tex \

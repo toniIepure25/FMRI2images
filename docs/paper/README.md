@@ -21,7 +21,7 @@ If you’re looking for *how to run the code*, start at `docs/README.md` (engine
 
 ## Conventions
 
-- Citations: we keep a lightweight bib in `REFERENCES.bib` and a human-readable map in `docs/refs.md`.
+- Citations: we keep a lightweight bib in `REFERENCES.bib` and a human-readable map in `docs/paper/refs.md`.
 - Repository citation metadata: `CITATION.cff`.
 - Runs: every experiment should emit a `manifest.json` using `fmri2img.utils.manifest.write_manifest()`.
 

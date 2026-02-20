@@ -84,7 +84,7 @@ For quick testing, you can:
 ### Verify Dataset
 
 ```bash
-python scripts/verify_dataset.py
+python scripts/utils/verify_dataset.py
 ```
 
 Expected output:
@@ -115,7 +115,7 @@ PASS: dataset looks usable
 
 **Automatic** (recommended):
 ```bash
-bash scripts/prepare_data.sh
+make prepare
 ```
 
 This will:
@@ -154,7 +154,7 @@ Some models require HuggingFace authentication:
 If you just want to test the pipeline without diffusion:
 
 ```bash
-bash scripts/prepare_data.sh --skip-models
+make prepare --skip-models
 ```
 
 ---
@@ -205,21 +205,21 @@ cp .env.jupyterhub .env
 nano .env  # Set USER and paths
 
 # 3. Install Python environment
-bash scripts/setup_env.sh
-source activate_env.sh
+./setup.sh
+source .venv/bin/activate
 
 # 4. Download NSD dataset
 # Do this manually from naturalscenesdataset.org
 # Extract to /bigdata/userhome/students/$USER/data/nsd/
 
 # 5. Download models and verify data
-bash scripts/prepare_data.sh
+make prepare
 
 # 6. Verify everything
-bash scripts/preflight.sh
+make preflight
 
 # 7. Run smoke test
-bash scripts/run_experiment_simple.sh configs/experiments/smoke_test.yaml
+python scripts/training/train.py --config configs/experiments/smoke_test.yaml --max_steps 1
 ```
 
 ### Minimal Setup (Testing Only)
@@ -233,10 +233,10 @@ If you just want to test the pipeline structure without full data:
 export ALLOW_S3_ONLY=1  # Or use dummy data
 
 # 5. Download only models
-bash scripts/prepare_data.sh --skip-models
+make prepare --skip-models
 
 # 6. Run tests with minimal data
-bash scripts/run_experiment_simple.sh configs/experiments/smoke_test.yaml
+python scripts/training/train.py --config configs/experiments/smoke_test.yaml --max_steps 1
 ```
 
 ---
@@ -266,7 +266,7 @@ df -h /bigdata
 
 ### Check NSD Dataset
 ```bash
-python scripts/verify_dataset.py
+python scripts/utils/verify_dataset.py
 ```
 
 ### Check Models
@@ -276,12 +276,12 @@ python scripts/fetch_models.py
 
 ### Check All (Comprehensive)
 ```bash
-python scripts/doctor.py
+python scripts/utils/doctor.py
 ```
 
 ### Quick Status
 ```bash
-bash scripts/prepare_data.sh --verify-only
+make prepare --verify-only
 ```
 
 ---
@@ -350,7 +350,7 @@ rm -rf cache/clip_embeddings/old_*
 3. **Use tmux** so downloads persist:
    ```bash
    tmux new -s download
-   bash scripts/prepare_data.sh
+   make prepare
    # Ctrl+B, D to detach
    ```
 
@@ -360,10 +360,10 @@ rm -rf cache/clip_embeddings/old_*
 
 | Script | Purpose | When to Use |
 |--------|---------|-------------|
-| `prepare_data.sh` | Complete data setup | After initial install |
-| `verify_dataset.py` | Check NSD dataset | Anytime to verify |
+| `setup.sh` | Complete data setup | After initial install |
+| `scripts/utils/verify_dataset.py` | Check NSD dataset | Anytime to verify |
 | `fetch_models.py` | Download HF models | If models missing |
-| `doctor.py` | Full system check | Before important runs |
+| `scripts/utils/doctor.py` | Full system check | Before important runs |
 
 ---
 
@@ -371,21 +371,21 @@ rm -rf cache/clip_embeddings/old_*
 
 **Day 1**: Initial Setup
 ```bash
-bash scripts/setup_env.sh
-bash scripts/prepare_data.sh
+./setup.sh
+make prepare
 ```
 
 **Day 2**: Verify and Test
 ```bash
-source activate_env.sh
-bash scripts/preflight.sh
-bash scripts/run_experiment_simple.sh configs/experiments/smoke_test.yaml
+source .venv/bin/activate
+make preflight
+python scripts/training/train.py --config configs/experiments/smoke_test.yaml --max_steps 1
 ```
 
 **Day 3+**: Run Experiments
 ```bash
-source activate_env.sh
-bash scripts/run_experiment_simple.sh configs/experiments/your_experiment.yaml
+source .venv/bin/activate
+python scripts/training/train.py --config configs/experiments/exp0_baseline.yaml
 ```
 
 ---
@@ -405,7 +405,7 @@ bash scripts/run_experiment_simple.sh configs/experiments/your_experiment.yaml
 
 **Dataset issues**:
 ```bash
-python scripts/verify_dataset.py --help
+python scripts/utils/verify_dataset.py --help
 ```
 
 **Model issues**:
@@ -416,19 +416,19 @@ cat logs/fetch_models.log
 
 **Full diagnostic**:
 ```bash
-python scripts/doctor.py
+python scripts/utils/doctor.py
 ```
 
 **Verification only** (no downloads):
 ```bash
-bash scripts/prepare_data.sh --verify-only
+make prepare --verify-only
 ```
 
 ---
 
 ## ✅ Success Checklist
 
-After running `bash scripts/prepare_data.sh`, you should have:
+After running `make prepare`, you should have:
 
 - [x] NSD dataset at `$NSD_DATA_ROOT`
 - [x] Models in `$CACHE_ROOT/hf/`

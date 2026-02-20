@@ -1,10 +1,10 @@
 # Complete Setup Guide
 
-> **Unified guide for setting up the fMRI-to-Image reconstruction system on any environment**
+Unified guide for setting up the fMRI-to-Image reconstruction system on any environment.
 
 ---
 
-## 🚀 Quick Start (5 Minutes)
+## Quick Start (5 Minutes)
 
 ### Prerequisites
 
@@ -22,56 +22,65 @@ cd FMRI2images
 git checkout probabilistic-distribution
 
 # Run automated setup
-chmod +x setup_enhanced.sh
-./setup_enhanced.sh
+chmod +x setup.sh
+./setup.sh
 ```
 
 **What it does:**
 
-- ✅ Checks system requirements (Python, GPU, disk space)
-- ✅ Configures environment variables
-- ✅ Creates Python virtual environment
-- ✅ Installs PyTorch with CUDA support
-- ✅ Installs all dependencies
-- ✅ Downloads NSD data (~17GB)
-- ✅ Builds data index and CLIP embeddings cache
-- ✅ Detects GPU memory and recommends batch size
-- ✅ Runs health checks
+- Checks system requirements (Python, GPU, disk space)
+- Auto-detects shared server vs local environment for cache paths
+- Configures environment variables (`TORCH_HOME`, `HF_HOME`, `TMPDIR`)
+- Creates Python virtual environment
+- Installs PyTorch with CUDA support
+- Installs all dependencies
+- Downloads NSD data (~17GB)
+- Builds data index and CLIP embeddings cache
+- Runs health checks
 
-**Time:** ~30-45 minutes (depending on network speed)
+### Setup Script Options
+
+```bash
+./setup.sh                  # Full installation (recommended)
+./setup.sh --minimal        # Environment only (no data download)
+./setup.sh --skip-data      # Skip NSD data download
+./setup.sh --skip-models    # Skip model checkpoints
+./setup.sh --skip-clip-cache # Skip CLIP cache building
+./setup.sh --help           # Show all options
+```
+
+### Time and Space Requirements
+
+| Component | Time | Disk Space |
+|-----------|------|------------|
+| Environment Setup | 5-10 min | ~5GB |
+| NSD Data Download | 15-30 min | ~17GB |
+| CLIP Cache Build | 5-10 min | ~200MB |
+| **Total (Full Setup)** | **30-45 min** | **~60GB** |
 
 ---
 
-## 📋 Environment-Specific Setup
+## Environment-Specific Setup
 
 ### JupyterHub/HPC Cluster
-
-**System Specs:**
-
-- CPU: 20 cores (Intel Xeon Platinum 8380 @ 2.30GHz)
-- RAM: 125GB
-- GPU: NVIDIA A100D-20C (20GB VRAM)
-- CUDA: 12.2
-
-**Setup:**
 
 ```bash
 # 1. Configure environment
 cd ~/Bachelor_V2
 cp .env.jupyterhub .env
 
-# Edit username in .env
+# Edit username in .env if needed
 nano .env
-# Change: USER=${USER:-YOUR_USERNAME}
 
-# 2. Set up Python environment
-bash scripts/setup_env.sh
+# 2. Run setup (auto-detects /bigdata for cache paths)
+./setup.sh
 
 # 3. Activate environment
-source activate_env.sh
+source .venv/bin/activate
+source .env
 
 # 4. Verify installation
-bash scripts/preflight.sh
+make preflight
 ```
 
 ### Local Machine / Workstation
@@ -84,15 +93,15 @@ cp .env.example .env
 nano .env
 
 # 3. Run setup
-bash setup_enhanced.sh
+./setup.sh
 
 # 4. Activate environment
-conda activate fmri2img  # or: source venv/bin/activate
+source .venv/bin/activate
 ```
 
 ---
 
-## 🔧 Manual Setup (If Automated Fails)
+## Manual Setup (If Automated Fails)
 
 ### Step 1: Environment Configuration
 
@@ -117,18 +126,9 @@ NUM_WORKERS=4
 
 ### Step 2: Create Python Environment
 
-**Option A: Conda**
-
 ```bash
-conda env create -f environment.yml
-conda activate fmri2img
-```
-
-**Option B: Virtualenv**
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -e .
 ```
 
@@ -146,19 +146,19 @@ python build_minimal_index.py
 
 ```bash
 # Run preflight checks
-bash scripts/preflight.sh
+make preflight
 
 # Expected output:
-# ✅ Python environment
-# ✅ PyTorch + CUDA
-# ✅ All dependencies
-# ✅ GPU availability
-# ✅ Data files present
+# Python environment OK
+# PyTorch + CUDA OK
+# All dependencies OK
+# GPU availability OK
+# Data files present OK
 ```
 
 ---
 
-## 🧪 Testing Your Setup
+## Testing Your Setup
 
 ### Quick Smoke Test (No Data Download Needed)
 
@@ -173,7 +173,7 @@ pytest tests/ -v
 
 ```bash
 # Quick training test (1 batch)
-python scripts/train.py \
+python scripts/training/train.py \
   --config configs/experiments/exp0_baseline.yaml \
   --max_steps 1 \
   --debug
@@ -183,7 +183,7 @@ python scripts/train.py \
 
 ---
 
-## 📦 Data Overview
+## Data Overview
 
 ### Required Data (~17GB)
 
@@ -204,7 +204,7 @@ python scripts/train.py \
 
 ---
 
-## 🎯 Post-Setup: Next Steps
+## Post-Setup: Next Steps
 
 ### 1. Verify Tests Pass
 
@@ -217,7 +217,7 @@ pytest tests/test_losses.py tests/test_soft_reliability.py tests/test_uncertaint
 
 ```bash
 # Train baseline model
-python scripts/train.py --config configs/experiments/exp0_baseline.yaml
+python scripts/training/train.py --config configs/experiments/exp0_baseline.yaml
 
 # Monitor with tensorboard
 tensorboard --logdir outputs/
@@ -231,7 +231,33 @@ tensorboard --logdir outputs/
 
 ---
 
-## 🐛 Troubleshooting
+## Advanced Setup Options
+
+### Custom Cache Locations
+
+```bash
+export TORCH_HOME=/mnt/ssd/cache/torch
+export HF_HOME=/mnt/ssd/cache/huggingface
+./setup.sh
+```
+
+### Silent/Automated Mode (for CI)
+
+```bash
+yes | ./setup.sh
+```
+
+### Makefile Alternative
+
+```bash
+make setup     # Traditional make workflow
+make doctor    # Health check
+make prepare   # Prepare data
+```
+
+---
+
+## Troubleshooting
 
 ### Common Issues
 
@@ -272,13 +298,12 @@ pip install -e .
 
 ### Still Having Issues?
 
-See [SETUP_TROUBLESHOOTING.md](../../SETUP_TROUBLESHOOTING.md) for detailed debugging steps.
+See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) for detailed debugging steps.
 
 ---
 
-## 📖 Additional Resources
+## Additional Resources
 
 - **Quick reference:** [QUICK_START.md](QUICK_START.md)
 - **Realistic workflow:** [REALISTIC_WORKFLOW.md](REALISTIC_WORKFLOW.md)
-- **Remote setup:** [docs/REMOTE_QUICKSTART.md](../REMOTE_QUICKSTART.md)
 - **Architecture overview:** [docs/architecture/WORKFLOW.md](../architecture/WORKFLOW.md)

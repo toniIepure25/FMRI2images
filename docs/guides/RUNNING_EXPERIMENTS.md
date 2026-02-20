@@ -10,10 +10,10 @@
 
 ```bash
 # Activate environment
-source activate_env.sh  # or: conda activate fmri2img
+source .venv/bin/activate
 
 # Train baseline model
-python scripts/train.py --config configs/experiments/exp0_baseline.yaml
+python scripts/training/train.py --config configs/experiments/exp0_baseline.yaml
 
 # Monitor training
 tensorboard --logdir outputs/
@@ -23,10 +23,10 @@ tensorboard --logdir outputs/
 
 ```bash
 # Build preprocessors (required once, 1-2 hours)
-bash scripts/build_all_preprocessors.sh
+make preprocess
 
 # Run all experiments (3-7 days on A100)
-bash scripts/run_all_experiments.sh 0
+bash scripts/orchestration/run_all_experiments.sh 0
 
 # Results saved to: experimental_results/
 ```
@@ -69,7 +69,7 @@ All configs located in `configs/experiments/`:
 
 ```bash
 # Check system health
-bash scripts/preflight.sh
+make preflight
 
 # Expected output:
 # ✅ Python environment
@@ -83,7 +83,7 @@ bash scripts/preflight.sh
 
 ```bash
 # Build all preprocessing caches
-bash scripts/build_all_preprocessors.sh
+make preprocess
 
 # This creates:
 # - cache/preproc_center_pcr_k8/*.pt    (~500MB)
@@ -98,7 +98,7 @@ bash scripts/build_all_preprocessors.sh
 #### Option A: Single Experiment
 
 ```bash
-python scripts/train.py \
+python scripts/training/train.py \
   --config configs/experiments/exp0_baseline.yaml \
   --output_dir outputs/exp0_baseline \
   --device cuda \
@@ -109,7 +109,7 @@ python scripts/train.py \
 
 ```bash
 # Run experiments sequentially
-bash scripts/run_all_experiments.sh 0
+bash scripts/orchestration/run_all_experiments.sh 0
 
 # Logs saved to:
 # experimental_results/logs/run_all_experiments_YYYYMMDD_HHMMSS.log
@@ -120,7 +120,7 @@ bash scripts/run_all_experiments.sh 0
 ```bash
 # Run only EXP1, EXP2, EXP4
 for exp in exp1_preproc exp2_queue exp4_gaussian_nce; do
-  python scripts/train.py --config configs/experiments/${exp}.yaml
+  python scripts/training/train.py --config configs/experiments/${exp}.yaml
 done
 ```
 
@@ -210,7 +210,7 @@ Results saved to: `outputs/{experiment}/metrics.json`
 #### Standard Evaluation
 
 ```bash
-python scripts/evaluate.py \
+python scripts/evaluation/evaluate.py \
   --checkpoint outputs/exp0_baseline/best.pt \
   --test_split test \
   --output_dir experimental_results/exp0_baseline
@@ -219,7 +219,7 @@ python scripts/evaluate.py \
 #### Probabilistic Evaluation (for EXP3-6)
 
 ```bash
-python scripts/evaluate_probabilistic.py \
+python scripts/evaluation/evaluate_probabilistic.py \
   --checkpoint outputs/exp4_gaussian_nce/best.pt \
   --test_split test \
   --num_samples 100 \
@@ -254,7 +254,7 @@ python scripts/evaluate_probabilistic.py \
 
 ```bash
 # Generate comparison table
-python scripts/compare_experiments.py \
+python scripts/analysis/compare_experiments.py \
   --experiments exp0,exp1,exp2,exp3,exp4,exp5,exp6 \
   --metrics top1,top5,mrr,auc \
   --output experiment_comparison/
@@ -303,12 +303,12 @@ python scripts/statistical_tests.py \
 
 ```bash
 # Automatically resumes from latest checkpoint
-python scripts/train.py \
+python scripts/training/train.py \
   --config configs/experiments/exp0_baseline.yaml \
   --resume
 
 # Or specify checkpoint explicitly
-python scripts/train.py \
+python scripts/training/train.py \
   --config configs/experiments/exp0_baseline.yaml \
   --resume_from outputs/exp0_baseline/epoch_25.pt
 ```
@@ -317,7 +317,7 @@ python scripts/train.py \
 
 ```bash
 # Run with minimal data for quick debugging
-python scripts/train.py \
+python scripts/training/train.py \
   --config configs/experiments/exp0_baseline.yaml \
   --debug \
   --max_steps 10
@@ -327,7 +327,7 @@ python scripts/train.py \
 
 ```bash
 # Multi-GPU training
-torchrun --nproc_per_node=4 scripts/train.py \
+torchrun --nproc_per_node=4 scripts/training/train.py \
   --config configs/experiments/exp0_baseline.yaml \
   --distributed
 ```
@@ -336,7 +336,7 @@ torchrun --nproc_per_node=4 scripts/train.py \
 
 ```bash
 # Override config parameters from command line
-python scripts/train.py \
+python scripts/training/train.py \
   --config configs/experiments/exp0_baseline.yaml \
   --batch_size 64 \
   --learning_rate 0.0002 \
@@ -420,7 +420,7 @@ nano configs/experiments/exp0_baseline.yaml
 grep "learning_rate" outputs/*/train.log
 
 # Try lower learning rate
-python scripts/train.py --config ... --learning_rate 0.00005
+python scripts/training/train.py --config ... --learning_rate 0.00005
 ```
 
 **Issue: NaN losses**
@@ -438,17 +438,16 @@ nano configs/experiments/exp0_baseline.yaml
 
 ```bash
 # Verify data presence
-bash scripts/preflight.sh
+make preflight
 
-# Re-download if needed
-bash download_nsd_subj01.sh
+# Re-download if needed - see SETUP.md for data download instructions
 ```
 
 **Issue: Preprocessor not found**
 
 ```bash
 # Rebuild preprocessors
-bash scripts/build_all_preprocessors.sh
+make preprocess
 ```
 
 ### Checkpoint Issues
@@ -460,7 +459,7 @@ bash scripts/build_all_preprocessors.sh
 python inspect_checkpoint.py outputs/exp0_baseline/best.pt
 
 # If corrupted, use earlier epoch
-python scripts/train.py --config ... --resume_from outputs/exp0_baseline/epoch_48.pt
+python scripts/training/train.py --config ... --resume_from outputs/exp0_baseline/epoch_48.pt
 ```
 
 ---
@@ -471,4 +470,4 @@ python scripts/train.py --config ... --resume_from outputs/exp0_baseline/epoch_4
 - **Evaluation details:** [docs/guides/EVALUATION_SUITE_GUIDE.md](EVALUATION_SUITE_GUIDE.md)
 - **Novel contributions:** [docs/guides/NOVEL_CONTRIBUTIONS_PIPELINE.md](NOVEL_CONTRIBUTIONS_PIPELINE.md)
 - **Architecture:** [docs/architecture/PIPELINE_ARCHITECTURE.md](../architecture/PIPELINE_ARCHITECTURE.md)
-- **Troubleshooting:** [SETUP_TROUBLESHOOTING.md](../../SETUP_TROUBLESHOOTING.md)
+- **Troubleshooting:** [TROUBLESHOOTING.md](TROUBLESHOOTING.md)

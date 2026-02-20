@@ -490,7 +490,7 @@ If you encounter issues not covered here:
 2. **Run diagnostics**:
    ```bash
    source venv/bin/activate
-   python scripts/doctor.py
+   python scripts/utils/doctor.py
    ```
 
 3. **Verbose mode**:
@@ -524,8 +524,8 @@ python scripts/fetch_models.py --component nsd-stim-info
 ./setup.sh
 
 # Verify everything
-python scripts/doctor.py
-python scripts/smoke.py
+python scripts/utils/doctor.py
+python scripts/utils/smoke.py
 ```
 
 ### Server Setup (Shared Resources)
@@ -552,7 +552,7 @@ echo "export TMPDIR=/bigdata/userhome/$(whoami)/tmp" >> ~/.bashrc
 1. **Save disk space**: Use `--minimal` first, then selectively download data
 2. **Speed up setup**: Pre-download data on fast connection, then rsync to server
 3. **Avoid re-downloads**: Point `TORCH_HOME`/`HF_HOME` to existing caches
-4. **Test before full setup**: Run `python scripts/doctor.py` to check environment
+4. **Test before full setup**: Run `python scripts/utils/doctor.py` to check environment
 5. **Use screen/tmux**: For long-running setups on remote servers
    ```bash
    screen -S fmri_setup

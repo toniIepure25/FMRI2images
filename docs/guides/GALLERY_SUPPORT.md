@@ -2,7 +2,7 @@
 
 ## Overview
 
-The `scripts/run_reconstruct_and_eval.py` script now has first-class support for retrieval galleries, allowing you to evaluate reconstructions against different gallery compositions in a single workflow.
+The `scripts/orchestration/run_reconstruct_and_eval.py` script now has first-class support for retrieval galleries, allowing you to evaluate reconstructions against different gallery compositions in a single workflow.
 
 ## New Features
 
@@ -61,7 +61,7 @@ Optionally specify the NSD HDF5 file path:
 Evaluate against the matched gallery (default):
 
 ```bash
-python scripts/run_reconstruct_and_eval.py \
+python scripts/orchestration/run_reconstruct_and_eval.py \
   --subject subj01 \
   --encoder mlp \
   --ckpt checkpoints/mlp/subj01/mlp.pt \
@@ -77,7 +77,7 @@ python scripts/run_reconstruct_and_eval.py \
 Evaluate against the test gallery:
 
 ```bash
-python scripts/run_reconstruct_and_eval.py \
+python scripts/orchestration/run_reconstruct_and_eval.py \
   --subject subj01 \
   --encoder mlp \
   --ckpt checkpoints/mlp/subj01/mlp.pt \
@@ -97,7 +97,7 @@ python scripts/run_reconstruct_and_eval.py \
 Run evaluation against all gallery types:
 
 ```bash
-python scripts/run_reconstruct_and_eval.py \
+python scripts/orchestration/run_reconstruct_and_eval.py \
   --subject subj01 \
   --encoder mlp \
   --ckpt checkpoints/mlp/subj01/mlp.pt \
@@ -200,7 +200,7 @@ make eval-recon-all SUBJ=subj01
 After running with `--all-galleries`, compare results:
 
 ```bash
-python scripts/compare_evals.py \
+python scripts/analysis/compare_evals.py \
   --report-dir outputs/reports/subj01 \
   --pattern "recon_eval_*.json" \
   --out-csv outputs/reports/subj01/gallery_comparison.csv \
@@ -274,7 +274,7 @@ Test the implementation:
 python scripts/test_gallery_support.py
 
 # Test single gallery (small limit)
-python scripts/run_reconstruct_and_eval.py \
+python scripts/orchestration/run_reconstruct_and_eval.py \
   --subject subj01 \
   --encoder mlp \
   --ckpt checkpoints/mlp/subj01/mlp.pt \
@@ -286,7 +286,7 @@ python scripts/run_reconstruct_and_eval.py \
   --skip-sd-cache-check
 
 # Test all galleries (small limit)
-python scripts/run_reconstruct_and_eval.py \
+python scripts/orchestration/run_reconstruct_and_eval.py \
   --subject subj01 \
   --encoder mlp \
   --ckpt checkpoints/mlp/subj01/mlp.pt \
@@ -309,12 +309,12 @@ python scripts/run_reconstruct_and_eval.py \
 
 ## Files Modified
 
-- `scripts/run_reconstruct_and_eval.py`: Added gallery orchestration logic
+- `scripts/orchestration/run_reconstruct_and_eval.py`: Added gallery orchestration logic
 - Documentation: `docs/GALLERY_SUPPORT.md` (this file)
 - Test: `scripts/test_gallery_support.py`
 
 ## Related Scripts
 
 - `scripts/eval_reconstruction.py`: Core evaluation script (supports `--gallery`)
-- `scripts/compare_evals.py`: Compare evaluations across galleries
+- `scripts/analysis/compare_evals.py`: Compare evaluations across galleries
 - `scripts/summarize_reports.py`: Aggregate results from multiple runs

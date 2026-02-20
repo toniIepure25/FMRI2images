@@ -6,7 +6,7 @@ This guide provides a complete workflow for running the fMRI→CLIP→Diffusion 
 
 ```bash
 # 1. Activate environment
-conda activate fmri2img
+source .venv/bin/activate
 
 # 2. Verify NSD dataset is accessible
 ls data/indices/nsd_index/

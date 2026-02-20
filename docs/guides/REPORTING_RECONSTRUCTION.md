@@ -109,14 +109,14 @@ python scripts/reconstruct_nn.py \
 
 **CLIP Adapter Note**:
 
-When using a CLIP adapter (512→768/1024D), NN retrieval can be done in either space:
+When using a CLIP adapter (768→1024D for SD 2.1), NN retrieval can be done in either space:
 
-- **512-D space** (default): Uses encoder output directly, matches training objective
-- **Adapted space** (768/1024-D): Apply adapter before retrieval, matches diffusion conditioning
+- **768-D space** (default, Phase 2 ViT-L/14): Uses encoder output directly, matches training objective
+- **Adapted space** (1024-D): Apply adapter before retrieval, matches diffusion conditioning
 
 **Recommendation**: Keep NN retrieval in the **same space** as your comparison baseline:
 
-- If comparing to encoder training metrics → use 512-D (pre-adapter)
+- If comparing to encoder training metrics → use 768-D (pre-adapter)
 - If comparing to diffusion-generated images → optionally use adapted space
 - Always report which space is used for reproducibility
 
@@ -133,14 +133,14 @@ When using a CLIP adapter (512→768/1024D), NN retrieval can be done in either 
 - **CLIPScore** (Hessel et al. 2021): Semantic similarity between generated and GT images in CLIP space
 - **Retrieval@K**: How often generated image retrieves correct GT from gallery
 - Standard metrics for image generation quality without pixel-level matching
-- Supports both 512-D (ViT-B/32) and target-D (768/1024) evaluation
+- Supports both 768-D (ViT-L/14) and target-D (1024 for SD 2.1) evaluation
 
 **Features**:
 
 - ✅ Computes CLIPScore (per-sample cosine between generated and GT embeddings)
 - ✅ Computes Retrieval@K (K=1,5,10) where query=generated, gallery=GT embeddings
 - ✅ Ranking metrics: mean/median rank, MRR
-- ✅ Supports 512-D (ViT-B/32) and target-D (768/1024 with `--use-adapter`)
+- ✅ Supports 768-D (ViT-L/14) and target-D (1024 with `--use-adapter`)
 - ✅ Automatic filename pattern matching (*_nsd{ID}.* or CSV mapping)
 - ✅ Visualization grids: GT | Nearest Neighbor | Generated
 - ✅ Per-sample CSV + aggregate JSON reports
@@ -148,8 +148,10 @@ When using a CLIP adapter (512→768/1024D), NN retrieval can be done in either 
 
 **Usage**:
 
+*Phase 2: reconstruction images may live in `experimental_results/B0_deterministic/evaluation/reconstructions/` or `outputs/recon/`.*
+
 ```bash
-# Evaluate in 512-D space (ViT-B/32)
+# Evaluate in 768-D space (ViT-L/14)
 python scripts/eval_reconstruction.py \
     --subject subj01 \
     --recon-dir outputs/recon/subj01/mlp_diffusion/images \
@@ -237,10 +239,10 @@ make eval-recon-adapter RECON_DIR=outputs/recon/subj01/run_001
 
 **CRITICAL**: Evaluate in the **same CLIP space** used for generation/conditioning:
 
-- If generated with 512-D embeddings (no adapter) → evaluate in 512-D
-- If generated with 768/1024-D adapted embeddings → evaluate in target space with `--use-adapter`
+- If generated with 768-D embeddings (no adapter, ViT-L/14) → evaluate in 768-D
+- If generated with 1024-D adapted embeddings → evaluate in target space with `--use-adapter`
 
-**Why?** Dimension mismatch creates unfair comparisons. A 512-D generated image should be evaluated against 512-D GTs for apples-to-apples comparison.
+**Why?** Dimension mismatch creates unfair comparisons. A 768-D generated image should be evaluated against 768-D GTs for apples-to-apples comparison.
 
 **Filename Matching**:
 
@@ -615,8 +617,8 @@ cp outputs/reports/subj01/nn_figs/*.png paper/figures/
 - Creates thesis-ready Markdown summary with all metrics
 
 **✅ Space Consistency Guarantee:**
-- No adapter → 512-D evaluation (ViT-B/32)
-- With adapter → 768/1024-D evaluation (target CLIP)
+- No adapter → 768-D evaluation (ViT-L/14)
+- With adapter → 1024-D evaluation (target CLIP for SD 2.1)
 - Automatically matches generation to evaluation space
 
 **✅ Thesis-Ready Output:**
@@ -634,7 +636,7 @@ cp outputs/reports/subj01/nn_figs/*.png paper/figures/
 
 ### Usage
 
-**No Adapter (512-D):**
+**No Adapter (768-D):**
 ```bash
 # Using defaults
 make recon-eval
@@ -701,7 +703,7 @@ python scripts/orchestration/run_reconstruct_and_eval.py \
 **Step 3: Evaluate**
 - Shells out to `scripts/eval_reconstruction.py`
 - Matches CLIP space to generation:
-  - No adapter → default 512-D evaluation
+  - No adapter → default 768-D evaluation
   - With adapter → `--use-adapter --model-id` for target-D
 - Produces CSV (per-sample), JSON (aggregate), PNG (grid)
 
@@ -847,7 +849,7 @@ Generated with CLIP adapter → evaluated in 1024-D target space (consistent).
 **2. Space Consistency:**
 - Automatically extracts `target_dim` from adapter metadata
 - Passes correct flags to evaluation script
-- No-adapter → 512-D eval (default)
+- No-adapter → 768-D eval (default)
 - With-adapter → target-D eval (768/1024)
 
 **3. Error Propagation:**
@@ -893,7 +895,7 @@ make recon-eval-adapter LIMIT=4
 **Compare No-Adapter vs Adapter:**
 
 ```bash
-# Run 1: No adapter (512-D)
+# Run 1: No adapter (768-D)
 make recon-eval LIMIT=64
 
 # Run 2: With adapter (1024-D)
@@ -1059,7 +1061,7 @@ make compare-evals PATTERN="*eval*.json" BOOTS=2000
 ```csv
 run_name,encoder,use_adapter,clip_space,clip_dim,n_samples,clipscore_mean,clipscore_ci_low,clipscore_ci_high,r1,r1_ci_low,r1_ci_high,...
 auto_with_adapter,mlp,True,1024-D (target),1024,64,0.654,0.613,0.695,0.543,0.502,0.584,...
-auto_no_adapter,mlp,False,512-D (base),512,64,0.612,0.571,0.653,0.487,0.446,0.528,...
+auto_no_adapter,mlp,False,768-D (base),768,64,0.612,0.571,0.653,0.487,0.446,0.528,...
 ```
 
 #### LaTeX Table Example
@@ -1073,7 +1075,7 @@ auto_no_adapter,mlp,False,512-D (base),512,64,0.612,0.571,0.653,0.487,0.446,0.52
 Run & CLIP Space & n & CLIPScore & R@1 & R@5 & R@10 & MRR \\
 \hline
 auto\_with\_adapter & 1024D (target) & 64 & 0.654 ± 0.041 & 0.543 ± 0.042 & 0.812 ± 0.039 & 0.891 ± 0.031 & 0.612 ± 0.045 \\
-auto\_no\_adapter & 512D (base) & 64 & 0.612 ± 0.041 & 0.487 ± 0.041 & 0.765 ± 0.042 & 0.843 ± 0.037 & 0.571 ± 0.043 \\
+auto\_no\_adapter & 768D (base) & 64 & 0.612 ± 0.041 & 0.487 ± 0.041 & 0.765 ± 0.042 & 0.843 ± 0.037 & 0.571 ± 0.043 \\
 \hline
 \end{tabular}
 \end{table}
@@ -1086,7 +1088,7 @@ auto\_no\_adapter & 512D (base) & 64 & 0.612 ± 0.041 & 0.487 ± 0.041 & 0.765 �
 ## Evaluated Runs
 
 - **auto_with_adapter**: 1024-D (target), with adapter, encoder=mlp, n=64
-- **auto_no_adapter**: 512-D (base), no adapter, encoder=mlp, n=64
+- **auto_no_adapter**: 768-D (base), no adapter, encoder=mlp, n=64
 
 ---
 
@@ -1095,7 +1097,7 @@ auto\_no\_adapter & 512D (base) & 64 & 0.612 ± 0.041 & 0.487 ± 0.041 & 0.765 �
 | Run | CLIP Space | n | CLIPScore | R@1 | R@5 | R@10 | MRR |
 |-----|------------|---|-----------|-----|-----|------|-----|
 | auto_with_adapter | 1024-D (target) | 64 | 0.654 ± 0.041 | 0.543 ± 0.042 | 0.812 ± 0.039 | 0.891 ± 0.031 | 0.612 ± 0.045 |
-| auto_no_adapter | 512-D (base) | 64 | 0.612 ± 0.041 | 0.487 ± 0.041 | 0.765 ± 0.042 | 0.843 ± 0.037 | 0.571 ± 0.043 |
+| auto_no_adapter | 768-D (base) | 64 | 0.612 ± 0.041 | 0.487 ± 0.041 | 0.765 ± 0.042 | 0.843 ± 0.037 | 0.571 ± 0.043 |
 
 ---
 
@@ -1170,7 +1172,7 @@ Each panel includes:
 
 **Generate multiple evaluations:**
 ```bash
-# No adapter (512-D)
+# No adapter (768-D)
 make recon-eval LIMIT=64
 
 # With adapter (1024-D)
@@ -1221,12 +1223,12 @@ open outputs/reports/subj01/recon_compare.png
 ### Fair Comparison Guidelines
 
 **✅ Valid Comparisons:**
-- Same CLIP space (all 512-D or all 1024-D)
+- Same CLIP space (all 768-D or all 1024-D)
 - Same test set (same `--limit`)
 - Same evaluation protocol
 
 **⚠️ Caution Required:**
-- Cross-dimensional (512-D vs 1024-D)
+- Cross-dimensional (768-D vs 1024-D)
   - Different semantic spaces
   - CLIPScore not directly comparable
   - Note this in interpretation
@@ -1236,7 +1238,7 @@ open outputs/reports/subj01/recon_compare.png
 
 **❌ Invalid Comparisons:**
 - Mixing generation spaces in evaluation
-  - Generated with adapter but evaluated in 512-D
+  - Generated with adapter but evaluated in 768-D
   - This would be caught by orchestrator
 
 ### Scientific Context

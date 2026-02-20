@@ -4,7 +4,7 @@
 
 ### Overview
 
-Implements a reproducible Ridge regression baseline for mapping preprocessed fMRI activity (after T0/T1/T2 pipeline) to CLIP ViT-B/32 embeddings (512D). This provides a strong linear baseline that captures first-order relationships without overfitting.
+Implements a reproducible Ridge regression baseline for mapping preprocessed fMRI activity (after T0/T1/T2 pipeline) to CLIP ViT-L/14 embeddings (768D). This provides a strong linear baseline that captures first-order relationships without overfitting.
 
 ### Scientific Design
 
@@ -200,7 +200,7 @@ A lightweight feedforward neural network baseline for fMRI → CLIP embedding ma
 
 **Architecture**:
 
-- Input layer → Hidden layer (1024 units) → ReLU → Dropout (0.1) → Output (512D) → L2-normalize
+- Input layer → Hidden layer (1024 units) → ReLU → Dropout (0.1) → Output (768D) → L2-normalize
 - Total parameters: ~1M (depending on input dimensionality)
 
 **Training Protocol**:
@@ -271,7 +271,7 @@ python scripts/training/train_mlp.py \
 
 ```python
 # Training targets (already normalized by CLIP)
-Y_train = clip_cache.get(nsd_ids)  # Shape: (n, 512), norm=1.0
+Y_train = clip_cache.get(nsd_ids)  # Shape: (n, 768), norm=1.0
 
 # Predictions (normalized in model.predict)
 Y_pred = model.predict(X_test, normalize=True)

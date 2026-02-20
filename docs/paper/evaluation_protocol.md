@@ -160,6 +160,12 @@ This document specifies the exact evaluation protocol for all experiments to ens
 - AURC = ∫ risk(coverage) d(coverage)
 - Lower is better
 
+**vMF-Specific Metrics** (for VonMisesFisherDecoder, D=768):
+- **vMF-NLL per-dimension**: NLL under vMF(μ, κ), average over samples; report per-dimension (divide by D=768)
+- **Energy Score (vMF)**: Proper scoring rule on hypersphere; sample S=64 from vMF, compute ES = E[‖Y − X‖] − 0.5·E[‖Y − Y′‖]; lower is better
+- **AURC (vMF)**: Same as Gaussian AURC but sort by 1/κ (inverse concentration) as uncertainty; lower is better
+- **Risk-Coverage curves**: Error vs coverage when rejecting by uncertainty; vMF uses κ-based rejection
+
 **Probabilistic 2AFC**:
 - Use likelihood ratios instead of cosine similarity
 - Choose prediction with higher likelihood under predicted distribution
@@ -264,7 +270,7 @@ inference:
 
 Each experiment should produce:
 ```
-experimental_results/<exp_name>/
+experimental_results/<exp_name>/   # e.g. B0_deterministic, B1_gaussian, N1_vmf_nce, N4_full_system
 ├── config.yaml                      # Experiment config
 ├── metadata.json                    # Git hash, seeds, timestamps
 ├── checkpoints/

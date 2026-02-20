@@ -15,7 +15,7 @@ This project reconstructs images from fMRI by predicting an embedding (CLIP or d
 - Ridge baseline: linear fMRI → CLIP.
 - MLP: nonlinear fMRI → CLIP.
 - Two-stage: supports probabilistic outputs (KL, NLL variants) depending on training mode.
-- CLIP adapter: maps 512-D CLIP space into diffusion target space (e.g., 768/1024-D).
+- CLIP adapter: maps 768-D CLIP space into diffusion target space (e.g., 768/1024-D).
 
 ## Objectives
 

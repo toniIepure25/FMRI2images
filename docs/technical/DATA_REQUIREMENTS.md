@@ -219,7 +219,7 @@ make prepare
 make preflight
 
 # 7. Run smoke test
-python scripts/training/train.py --config configs/experiments/smoke_test.yaml --max_steps 1
+python scripts/training/train_unified.py --config configs/experiments/smoke_test.yaml --max_steps 1
 ```
 
 ### Minimal Setup (Testing Only)
@@ -236,7 +236,7 @@ export ALLOW_S3_ONLY=1  # Or use dummy data
 make prepare --skip-models
 
 # 6. Run tests with minimal data
-python scripts/training/train.py --config configs/experiments/smoke_test.yaml --max_steps 1
+python scripts/training/train_unified.py --config configs/experiments/smoke_test.yaml --max_steps 1
 ```
 
 ---
@@ -379,13 +379,13 @@ make prepare
 ```bash
 source .venv/bin/activate
 make preflight
-python scripts/training/train.py --config configs/experiments/smoke_test.yaml --max_steps 1
+python scripts/training/train_unified.py --config configs/experiments/smoke_test.yaml --max_steps 1
 ```
 
 **Day 3+**: Run Experiments
 ```bash
 source .venv/bin/activate
-python scripts/training/train.py --config configs/experiments/exp0_baseline.yaml
+python scripts/training/train_unified.py --config configs/experiments/B0_deterministic.yaml
 ```
 
 ---

@@ -96,13 +96,26 @@ Modelele deterministe nu-ți spun când greșesc. Tu introduci incertitudine:
 
 ## 7) Studiul de ablație (de ce e important)
 
-Ai 7 experimente (EXP0–EXP6) ca să demonstrezi științific *ce componentă ajută*.
+### Phase 1 (completat): 7 experimente (EXP0–EXP6)
+
+Rezultatele Phase 1 sunt în `experimental_results/exp001_baseline_ultimate/` și `RaportPaper3/`.
 
 * **EXP0:** baseline fără preprocesare → eșec pe retrieval
 * **EXP1:** + preprocesare → salt uriaș
 * **EXP3–EXP5:** gaussian + loss-uri probabilistice → crește retrieval și calibrarea
 * **EXP4 (vedeta):** Gaussian-NCE → cel mai bun trade-off retrieval + uncertainty
 * **EXP6:** compari variante de preprocesare (PCR vs whitening etc.)
+
+### Phase 2 (curent): 6 experimente (B0–N4), CLIP ViT-L/14 (768-D)
+
+* **B0:** Baseline determinist (MLP + PCR + queue + MSE + InfoNCE)
+* **B1:** Baseline probabilistic Gaussian (Gaussian-NCE + KL)
+* **N1:** vMF-NCE — distribuție pe hipersferă S^{d-1} (novel)
+* **N2:** ROI Transformer — encoder brain-topology-aware (novel)
+* **N3:** ROI-DCF — fuziune consens direcțional per-ROI (novel)
+* **N4:** Sistem complet — toate inovațiile combinate (novel)
+
+Fiecare comparație consecutivă izolează o inovație: B1 vs N1 = distribuție, N1 vs N2 = arhitectură, N2 vs N3 = fuziune, N3 vs N4 = generație.
 
 **Ce vrea coordonatoarea să audă:** că nu e “am încercat multe”, ci “am izolat cauza → efect”.
 
@@ -157,7 +170,7 @@ Optimizează direct task-ul de retrieval: împinge embedding-ul corect mai aproa
 
 ### „Cum demonstrezi că fiecare componentă contează?”
 
-Prin ablație: EXP0 vs EXP1 arată efectul preprocesării; EXP3 vs EXP4 arată efectul Gaussian-NCE; EXP4 vs EXP5 arată dacă KL annealing ajută sau nu.
+Phase 1: EXP0 vs EXP1 arată efectul preprocesării; EXP3 vs EXP4 arată efectul Gaussian-NCE. Phase 2: B1 vs N1 arată că vMF > Gaussian; N1 vs N2 arată avantajul ROI Transformer; N2 vs N3 arată beneficiul ROI-DCF.
 
 ### „Care sunt limitările?”
 
@@ -165,9 +178,8 @@ Un singur subiect (subj01), doar imagini naturale NSD, generarea nu e real-time 
 
 ### „Ce e original la tine?”
 
-1. soft reliability weighting (nu hard threshold),
-2. InfoNCE adaptat pentru brain→CLIP retrieval,
-3. probabilistic framework + calibrare + selective prediction; plus explorarea multi-target.
+Phase 1: (1) soft reliability weighting, (2) InfoNCE contrastiv, (3) probabilistic framework.
+Phase 2: (1) vMF-NCE pe S^{d-1}, (2) ROI Transformer, (3) ROI-DCF cu dual uncertainty, (4) Decomposed UA-CFG.
 
 ---
 

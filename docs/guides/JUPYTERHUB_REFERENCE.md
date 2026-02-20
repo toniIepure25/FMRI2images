@@ -56,13 +56,13 @@ source .venv/bin/activate
 ### Quick Test
 
 ```bash
-python scripts/training/train.py --config configs/experiments/smoke_test.yaml --max_steps 1
+python scripts/training/train_unified.py --config configs/experiments/smoke_test.yaml --max_steps 1
 ```
 
 ### Single Experiment
 
 ```bash
-python scripts/training/train.py --config configs/experiments/exp0_baseline.yaml
+python scripts/training/train_unified.py --config configs/experiments/B0_deterministic.yaml
 ```
 
 ### Long Run (tmux - recommended)
@@ -70,7 +70,7 @@ python scripts/training/train.py --config configs/experiments/exp0_baseline.yaml
 ```bash
 # Start in tmux
 tmux new -s my_session
-python scripts/training/train.py --config configs/experiments/exp0_baseline.yaml
+python scripts/training/train_unified.py --config configs/experiments/B0_deterministic.yaml
 
 # Detach: Ctrl+B, then D
 # Reattach later: tmux attach -t my_session
@@ -79,14 +79,14 @@ python scripts/training/train.py --config configs/experiments/exp0_baseline.yaml
 ### Long Run (nohup)
 
 ```bash
-nohup python scripts/training/train.py --config configs/experiments/exp0_baseline.yaml &
+nohup python scripts/training/train_unified.py --config configs/experiments/B0_deterministic.yaml &
 tail -f nohup.out
 ```
 
 ### All Experiments (batch)
 
 ```bash
-bash scripts/orchestration/run_all_experiments.sh 0
+bash scripts/training/run_ablation_ladder.sh
 ```
 
 ---
@@ -110,8 +110,8 @@ bash scripts/orchestration/run_all_experiments.sh 0
 **Example:**
 
 ```bash
-python scripts/training/train.py \
-  --config configs/experiments/exp0_baseline.yaml \
+python scripts/training/train_unified.py \
+  --config configs/experiments/B0_deterministic.yaml \
   --name ablation_lr001 \
   --seed 42
 ```
@@ -204,8 +204,8 @@ runs/<timestamp>_<name>/
 | Activate env | `source .venv/bin/activate` |
 | Check setup | `make preflight` |
 | Test MinIO | `python scripts/utils/verify_dataset.py --allow-s3-only` |
-| Run experiment | `python scripts/training/train.py --config <config>` |
-| Run all experiments | `bash scripts/orchestration/run_all_experiments.sh 0` |
+| Run experiment | `python scripts/training/train_unified.py --config <config>` |
+| Run all experiments | `bash scripts/training/run_ablation_ladder.sh` |
 | List tmux | `tmux ls` |
 | Attach tmux | `tmux attach -t <name>` |
 | Detach tmux | `Ctrl+B, then D` |
@@ -254,7 +254,7 @@ make preflight
 
 - [ ] Environment activated: `source .venv/bin/activate`
 - [ ] Preflight passed: `make preflight`
-- [ ] Config ready: `configs/experiments/exp0_baseline.yaml`
+- [ ] Config ready: `configs/experiments/B0_deterministic.yaml`
 - [ ] Git committed: `git status` shows clean
 - [ ] Disk space OK: `df -h /bigdata` shows >50GB
 - [ ] Using tmux for long runs: `scripts/tmux_run.sh`
@@ -264,5 +264,5 @@ make preflight
 **Ready to run? 🚀**
 
 ```bash
-python scripts/training/train.py --config configs/experiments/exp0_baseline.yaml
+python scripts/training/train_unified.py --config configs/experiments/B0_deterministic.yaml
 ```

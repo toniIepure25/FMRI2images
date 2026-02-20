@@ -1,63 +1,63 @@
-# Von Mises-Fisher Decoder & Uncertainty-Aware CFG
+# Von Mises-Fisher Decoder and Uncertainty-Aware CFG
 
-This guide explains how to train a vMF model, calibrate kappa, and run
-uncertainty-aware diffusion inference (UA-CFG).
+Guide for training vMF models, calibrating kappa, and running
+uncertainty-aware diffusion inference.
 
 ---
 
 ## Overview
 
 The standard Gaussian posterior is geometrically wrong for L2-normalised
-CLIP embeddings on the unit hypersphere.  The **vMF (von Mises-Fisher)**
+CLIP embeddings on the unit hypersphere. The **vMF (von Mises-Fisher)**
 posterior is the natural distribution on S^{d-1}:
 
     p(z | mu, kappa) = C_d(kappa) * exp(kappa * mu^T z)
 
 - **mu** (unit norm) is the mean direction
-- **kappa** (positive scalar) is the concentration — higher means more
+- **kappa** (positive scalar) is the concentration -- higher means more
   confident
 
 At inference time, kappa drives **per-sample adaptive guidance** in
-Stable Diffusion:  confident samples get higher CFG scale and more
+Stable Diffusion: confident samples get higher CFG scale and more
 steps; uncertain samples get conservative guidance to avoid
 hallucination.
 
 ---
 
-## 1. Training: Gaussian baseline vs vMF
+## 1. Training: Gaussian Baseline vs vMF
 
-### Gaussian (existing, unchanged)
-
-```bash
-python scripts/training/train_unified.py \
-    --config configs/experiments/exp4_gaussian_nce.yaml
-```
-
-### vMF (new)
+### Gaussian Baseline (B1)
 
 ```bash
-python scripts/training/train_unified.py \
-    --config configs/experiments/exp7_vmf_nce.yaml
+python3 scripts/training/train_unified.py \
+    --config configs/experiments/B1_gaussian.yaml
 ```
 
-Key config differences in `exp7_vmf_nce.yaml`:
+### vMF (N1)
+
+```bash
+python3 scripts/training/train_unified.py \
+    --config configs/experiments/N1_vmf_nce.yaml
+```
+
+Key config differences in `N1_vmf_nce.yaml`:
 
 ```yaml
 model:
   type: "vmf"
-  posterior: "vmf"          # selects bounded-sigmoid decoder
+  posterior: "vmf"
   decoder:
-    kappa_min: 0.001        # lower bound for concentration
-    kappa_max: 500.0        # upper bound for concentration
+    kappa_min: 0.001
+    kappa_max: 500.0
 
 loss:
   vmf_nce:
     enabled: true
-    tau: 0.07               # temperature (same as InfoNCE)
+    tau: 0.07
     use_queue: true
   kappa_reg:
     enabled: true
-    lambda_kappa: 0.01      # penalises unbounded kappa growth
+    lambda_kappa: 0.01
 ```
 
 During training, kappa statistics are logged every epoch:
@@ -70,7 +70,23 @@ saturates at the upper bound.
 
 ---
 
-## 2. Kappa calibration
+## 2. Full System: ROI-DCF with Dual Uncertainty
+
+The full system (N3/N4) produces **two uncertainty signals**:
+
+- **kappa** (concentration) -- within-region measurement noise (aleatoric)
+- **delta** (disagreement) -- between-region directional conflict (epistemic-like)
+
+```bash
+python3 scripts/training/train_unified.py \
+    --config configs/experiments/N4_full_system.yaml
+```
+
+These are used by the Decomposed UA-CFG (see Section 4).
+
+---
+
+## 3. Kappa Calibration
 
 After training, compute kappa quantiles on the **validation set**:
 
@@ -81,7 +97,7 @@ from fmri2img.eval.kappa_calibration import (
 )
 
 cal = compute_kappa_calibration(model, val_loader, device)
-save_calibration(cal, "experimental_results/exp7_vmf_nce/kappa_calibration.json")
+save_calibration(cal, "experimental_results/N1_vmf_nce/kappa_calibration.json")
 ```
 
 This produces a JSON file:
@@ -101,44 +117,30 @@ This produces a JSON file:
 
 ---
 
-## 3. Uncertainty-aware diffusion inference (UA-CFG)
+## 4. Uncertainty-Aware Diffusion Inference
 
-### Fixed policy (baseline — identical to before)
-
-```bash
-python scripts/reconstruction/decode_diffusion.py \
-    --encoder prob --ckpt path/to/checkpoint.pt \
-    --inference-policy fixed \
-    --guidance 7.5 --steps 50 \
-    --clip-cache outputs/clip_cache/clip.parquet
-```
-
-### UA-CFG (dynamic guidance per sample)
+### Fixed Policy (Baseline)
 
 ```bash
-python scripts/reconstruction/decode_diffusion.py \
-    --encoder prob --ckpt path/to/checkpoint.pt \
-    --inference-policy ua_cfg \
-    --kappa-calibration path/to/kappa_calibration.json \
-    --kappa-values path/to/kappa_per_sample.npy \
-    --w-min 1.5 --w-max 12.0 --gamma 1.0 \
-    --clip-cache outputs/clip_cache/clip.parquet
+python3 scripts/reconstruction/decode_diffusion.py \
+    --config configs/inference/production.yaml \
+    --checkpoint experimental_results/N1_vmf_nce/best_model.pt \
+    --subject subj01
 ```
 
-### UA-CFG + dynamic steps
+### UA-CFG (Dynamic Guidance per Sample)
 
 ```bash
-python scripts/reconstruction/decode_diffusion.py \
-    --encoder prob --ckpt path/to/checkpoint.pt \
-    --inference-policy ua_cfg_steps \
-    --kappa-calibration path/to/kappa_calibration.json \
-    --kappa-values path/to/kappa_per_sample.npy \
-    --w-min 1.5 --w-max 12.0 --gamma 1.0 \
-    --steps-min 10 --steps-max 50 \
-    --clip-cache outputs/clip_cache/clip.parquet
+python3 scripts/reconstruction/decode_diffusion.py \
+    --config configs/inference/production.yaml \
+    --checkpoint experimental_results/N4_full_system/best_model.pt \
+    --subject subj01 \
+    --override "ua_cfg.enabled=true"
 ```
 
-The mapping is:
+### Guidance Mapping
+
+For single-uncertainty models (N1):
 
 ```
 kappa_norm = clamp((kappa - q10) / (q90 - q10), 0, 1)
@@ -146,11 +148,18 @@ guidance   = w_min + (kappa_norm ^ gamma) * (w_max - w_min)
 steps      = steps_min + round(kappa_norm * (steps_max - steps_min))
 ```
 
-Per-sample values are logged and saved to `risk_coverage.csv`.
+For dual-uncertainty models (N3, N4):
+
+| kappa | delta | Interpretation | Strategy |
+|-------|-------|----------------|----------|
+| High | Low | Confident, regions agree | Strong CFG, few steps |
+| Low | Low | Noisy but consistent | Moderate CFG |
+| High | High | Confident but conflicting | Multiple mixture samples |
+| Low | High | Everything uncertain | Abstain or conservative |
 
 ---
 
-## 4. Outputs
+## 5. Outputs
 
 | File | Description |
 |------|-------------|
@@ -161,26 +170,28 @@ Per-sample values are logged and saved to `risk_coverage.csv`.
 
 ---
 
-## 5. Backward compatibility
+## 6. Experiment Progression
 
-- Old Gaussian configs (`exp0`–`exp6`) are completely untouched
-- Old checkpoints with `log_kappa_min`/`log_kappa_max` load via the
-  legacy decoder (`VonMisesFisherDecoderLegacy`)
-- The `--inference-policy fixed` default reproduces the original
-  fixed-guidance behaviour
-- All new features are behind config flags
+| Experiment | Distribution | Uncertainty | UA-CFG |
+|-----------|-------------|------------|--------|
+| B0 | Deterministic | None | Fixed |
+| B1 | Gaussian | sigma (Euclidean) | Fixed |
+| **N1** | **vMF** | **kappa** | kappa -> w |
+| **N2** | **vMF** | **kappa** | kappa -> w |
+| **N3** | **vMF-DCF** | **kappa + delta** | Decomposed |
+| **N4** | **vMF-DCF** | **kappa + delta** | Decomposed + Mixture |
 
 ---
 
-## 6. Running tests
+## 7. Running Tests
 
 ```bash
-pytest tests/test_vmf.py -v
+pytest tests/test_vmf.py tests/test_vmf_mixture.py tests/test_decomposed_ua_cfg.py -v
 ```
 
 Tests cover:
 - Decoder: mu unit-norm, kappa bounds, gradient flow
-- vMF-NCE: no NaN, no Bessel in logits, gradient flow, alignment
-- Legacy decoder: backward compat with old configs
-- Kappa calibration: normalise + save/load roundtrip
-- CSLS + hubness: shape checks, self-retrieval sanity (requires sklearn)
+- vMF-NCE: no NaN, no Bessel in logits, gradient flow
+- Mixture sampling: concentration ordering, energy score
+- Decomposed UA-CFG: monotonicity, boundary conditions
+- Kappa calibration: normalize + save/load roundtrip

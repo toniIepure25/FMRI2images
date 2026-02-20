@@ -354,7 +354,7 @@ make eval-shared1000 \
 
 ### Multi-Strategy Comparison
 
-Compare multiple generation strategies:
+Compare multiple generation strategies. *Phase 1 used `two_stage` checkpoints; Phase 2 uses `configs/experiments/B0_deterministic.yaml` through `N4_full_system.yaml` with checkpoints in `experimental_results/<exp_name>/` (e.g. `checkpoint.pth`).*
 
 ```bash
 make eval-shared1000 \
@@ -368,7 +368,7 @@ make eval-shared1000 \
 
 ### Cross-Subject Paper Table
 
-Generate tables for all subjects:
+Generate tables for all subjects. *Phase 2: train with `scripts/training/train_unified.py` and configs `B0_deterministic` through `N4_full_system`; checkpoints in `experimental_results/<exp>/checkpoints/`.*
 
 ```bash
 # 1. Evaluate all subjects
@@ -498,6 +498,8 @@ python scripts/evaluation/eval_shared1000_full.py \
 
 ### Example 2: With Brain Alignment & Ceiling Normalization
 
+*Phase 2: use `experimental_results/B0_deterministic/checkpoint.pth` or similar.*
+
 ```bash
 python scripts/evaluation/eval_shared1000_full.py \
     --subject subj01 \
@@ -515,7 +517,7 @@ python scripts/evaluation/eval_shared1000_full.py \
 ```bash
 python scripts/evaluation/eval_shared1000_full.py \
     --subject subj01 \
-    --encoder-checkpoint checkpoints/two_stage/subj01/two_stage_best.pt \
+    --encoder-checkpoint experimental_results/B0_deterministic/checkpoint.pth \
     --encoder-type two_stage \
     --clip-cache outputs/clip_cache/clip.parquet \
     --output-dir outputs/eval_shared1000/subj01 \

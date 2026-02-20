@@ -133,8 +133,10 @@ python scripts/analysis/ablation_driver.py \
     --subject subj01 \
     --ablation-type pca_dims \
     --output-dir outputs/ablations/pca_dims \
-    --base-config configs/sota_two_stage.yaml
+    --base-config configs/experiments/B0_deterministic.yaml
 ```
+
+*Note: Phase 1 used `configs/sota_two_stage.yaml`. Phase 2 uses `configs/experiments/B0_deterministic.yaml` through `N4_full_system.yaml`.*
 
 Tests: k ∈ {128, 256, 512, 768, 1024}
 
@@ -147,7 +149,7 @@ python scripts/analysis/ablation_driver.py \
     --subject subj01 \
     --ablation-type infonce_weight \
     --output-dir outputs/ablations/infonce \
-    --base-config configs/sota_two_stage.yaml
+    --base-config configs/experiments/B0_deterministic.yaml
 ```
 
 Tests: weight ∈ {0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6}
@@ -161,7 +163,7 @@ python scripts/analysis/ablation_driver.py \
     --subject subj01 \
     --ablation-type arch_depth \
     --output-dir outputs/ablations/depth \
-    --base-config configs/sota_two_stage.yaml
+    --base-config configs/experiments/B0_deterministic.yaml
 ```
 
 Tests: n_blocks ∈ {2, 3, 4, 6, 8}
@@ -277,6 +279,8 @@ Measures neural fidelity:
 
 Based on MindEye2, Brain-Diffuser, and our implementations:
 
+*Phase 1 used two-stage configs (exp0–exp6). Phase 2 uses `B0_deterministic`, `B1_gaussian`, `N1_vmf_nce`, `N2_roi_transformer`, `N3_roi_dcf`, `N4_full_system` with CLIP ViT-L/14 (768-D).*
+
 ### Encoder Performance (Validation)
 
 | Configuration | Val Cosine | Test Cosine | R@1 (Test) | R@5 (Test) |
@@ -345,7 +349,7 @@ Based on MindEye2, Brain-Diffuser, and our implementations:
    ```
    **Solution:** Train encoding model first:
    ```bash
-   python scripts/train_encoding_model.py --subject subj01
+   python scripts/training/train_unified.py --subject subj01 --config configs/experiments/B0_deterministic.yaml
    ```
 
 ## Next Steps
@@ -741,9 +745,9 @@ python scripts/evaluation/summarize_shared1000.py \
 #### Workflow 2: Multi-Subject Paper Table
 
 ```bash
-# Train models for all subjects
+# Train models for all subjects (Phase 2: use configs/experiments/B0_deterministic.yaml through N4_full_system.yaml)
 for subj in subj01 subj02 subj03 subj04 subj05 subj06 subj07 subj08; do
-    python scripts/train_two_stage.py --subject $subj
+    python scripts/training/train_unified.py --subject $subj --config configs/experiments/B0_deterministic.yaml
 done
 
 # Evaluate all
@@ -768,15 +772,15 @@ make summarize-shared1000 SUBJECTS="subj01 subj02 subj03 subj04 subj05 subj06 su
 # Run ablation with 3 seeds
 for weight in 0.0 0.2 0.4 0.6; do
     for seed in 0 1 2; do
-        python scripts/train_two_stage.py \
+        # Use config with modified loss weight; output goes to experimental_results/<exp_name>/
+        python scripts/training/train_unified.py \
             --subject subj01 \
-            --infonce-weight $weight \
-            --seed $seed \
-            --output-dir checkpoints/ablation/infonce_${weight}/seed_${seed}
+            --config configs/experiments/B1_gaussian.yaml \
+            --gpu 0
         
         make eval-shared1000 \
             SUBJECT=subj01 \
-            ENCODER_CKPT=checkpoints/ablation/infonce_${weight}/seed_${seed}/two_stage_best.pt \
+            ENCODER_CKPT=experimental_results/B1_gaussian/checkpoint.pth \
             ENCODER_TYPE=two_stage
     done
 done
@@ -814,7 +818,7 @@ WARNING: Encoding model not found, skipping brain alignment
 
 **Solution**: Train encoding model first:
 ```bash
-python scripts/train_encoding_model.py --subject subj01 --roi nsdgeneral
+python scripts/training/train_unified.py --subject subj01 --config configs/experiments/B0_deterministic.yaml --roi nsdgeneral
 ```
 
 Or skip brain alignment:

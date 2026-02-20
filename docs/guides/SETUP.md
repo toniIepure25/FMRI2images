@@ -173,8 +173,8 @@ pytest tests/ -v
 
 ```bash
 # Quick training test (1 batch)
-python scripts/training/train.py \
-  --config configs/experiments/exp0_baseline.yaml \
+python scripts/training/train_unified.py \
+  --config configs/experiments/B0_deterministic.yaml \
   --max_steps 1 \
   --debug
 
@@ -217,7 +217,7 @@ pytest tests/test_losses.py tests/test_soft_reliability.py tests/test_uncertaint
 
 ```bash
 # Train baseline model
-python scripts/training/train.py --config configs/experiments/exp0_baseline.yaml
+python scripts/training/train_unified.py --config configs/experiments/B0_deterministic.yaml
 
 # Monitor with tensorboard
 tensorboard --logdir outputs/
@@ -275,7 +275,7 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 
 ```bash
 # Reduce batch size in config
-nano configs/experiments/exp0_baseline.yaml
+nano configs/experiments/B0_deterministic.yaml
 # Change: batch_size: 32 → batch_size: 8
 ```
 

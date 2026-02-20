@@ -10,7 +10,7 @@
 
 ## 📋 Rezumat Executiv
 
-Am implementat un sistem complet de decodare neurală pentru reconstrucția imaginilor din semnale fMRI, utilizând Natural Scenes Dataset (NSD), embeddings CLIP, și modele de difuzie Stable Diffusion. Proiectul include **trei contribuții originale** în domeniul decodării neurale probabilistice, un studiu de ablație comprehensiv (7 experimente), și o suită completă de evaluare cu metrici standard și bayesiene.
+Am implementat un sistem complet de decodare neurală pentru reconstrucția imaginilor din semnale fMRI, utilizând Natural Scenes Dataset (NSD), embeddings CLIP, și modele de difuzie Stable Diffusion. Proiectul include **trei contribuții originale** în domeniul decodării neurale probabilistice, un studiu de ablație comprehensiv (7 experimente Phase 1), extins în Phase 2 la 6 experimente noi (B0–N4) cu CLIP ViT-L/14 (768-D), și o suită completă de evaluare cu metrici standard și bayesiene.
 
 **Status actual:** Sistem complet implementat, testat (53/53 teste ✅), și documentat, gata pentru rularea experimentelor finale și scrierea tezei.
 
@@ -146,7 +146,7 @@ Am experimentat cu **5 arhitecturi diferite** pentru mapping-ul fMRI → CLIP em
   - Flexibil (suportă deterministic și probabilistic)
   - Consistență între experimente (aceeași arhitectură de bază)
   - Ușor de configurat prin YAML
-- **Utilizare:** Folosit pentru toate cele 7 experimente (EXP0-6)
+- **Utilizare:** Folosit pentru toate cele 7 experimente Phase 1 (EXP0-6). Phase 2 introduce tipuri noi: vmf, vmf_dcf, roi_transformer (vezi tabelul Phase 2).
 
 **E. Multi-Target Decoder (Contribuție Originală)**
 - **Tip:** Encoder cu multiple outputs pentru condiționate avansate
@@ -423,6 +423,14 @@ Am conceput un studiu sistematic de ablație pentru a izola contribuția fiecăr
 | **EXP6** | Ablație | Unified (det) | Whitening vs. PCR | Compară metode preprocessing |
 
 ⭐ = Configurație cu toate contribuțiile
+
+| **Phase 2** | | | | |
+| **B0** | Baseline determinist | MLP (det) | MSE+InfoNCE, PCR, queue | Baseline puternic standard |
+| **B1** | Baseline Gaussian | MLP (gauss) | Gaussian-NCE + KL | Baseline probabilistic |
+| **N1** | vMF-NCE | MLP (vMF) | vMF-NCE pe S^{d-1} | Novel: distributie pe hipersfera |
+| **N2** | ROI Transformer | ROI-Trans (vMF) | vMF-NCE + ROI tokenization | Novel: brain-topology-aware |
+| **N3** | ROI-DCF | ROI-Trans (vMF-DCF) | Multi-vMF-NCE + consensus | Novel: fuziune directional per-ROI |
+| **N4** | Sistem complet | ROI-Trans (vMF-DCF) | kappa-SPCL + DUA-CFG | Novel: toate inovatiile |
 
 **Arhitecturi suplimentare testate (în afara ablation study):**
 - Ridge regression: Baseline rapid pentru comparație
@@ -754,7 +762,7 @@ Linear    Non-linear    Deep arch         Consistent          Probabilistic
 
 - [x] Pipeline complet fMRI → imagini
 - [x] Toate cele 3 contribuții originale
-- [x] 7 configurații experimentale
+- [x] 7 configurații experimentale Phase 1 + 6 configurații experimentale Phase 2
 - [x] Suite completă de evaluare
 - [x] 53 teste automate (toate trec)
 - [x] Documentație comprehensivă
@@ -762,9 +770,9 @@ Linear    Non-linear    Deep arch         Consistent          Probabilistic
 
 ### În Progres 🔄
 
-- [ ] Rulare experiment EXP0 (baseline)
-- [ ] Rulare experiment EXP1 (+ preprocessing)
-- [ ] Rulare experiment EXP4 (configurație completă)
+- [ ] Rulare experiment B0 (baseline determinist)
+- [ ] Rulare experiment N1 (vMF-NCE)
+- [ ] Rulare experiment N4 (sistem complet)
 - [ ] Colectare rezultate preliminare
 
 ### Planificat 📅
@@ -845,7 +853,7 @@ Linear    Non-linear    Deep arch         Consistent          Probabilistic
 
 **Capitol 4: Design Experimental** (~15 pagini)
 - Dataset NSD
-- Studiu de ablație (EXP0-6)
+- Studiu de ablație (Phase 1: EXP0-6, Phase 2: B0-N4)
 - Metrici de evaluare
 - Protocol experimental
 
@@ -873,7 +881,7 @@ Linear    Non-linear    Deep arch         Consistent          Probabilistic
 **Training (per experiment):**
 - GPU: NVIDIA A100 (20GB VRAM) sau similar
 - Timp: ~12-16 ore per experiment
-- Total pentru 7 experimente: ~3-5 zile
+- Total pentru 6 experimente: ~2-3 zile
 
 **Evaluare:**
 - Timp: ~30 minute per experiment
@@ -881,7 +889,7 @@ Linear    Non-linear    Deep arch         Consistent          Probabilistic
 
 **Generare imagini (opțional, pentru vizualizări):**
 - ~3 secunde per imagine
-- 100 imagini × 7 experimente = ~35 minute
+- 100 imagini × 6 experimente = ~30 minute
 
 ### Date
 
@@ -901,8 +909,8 @@ Linear    Non-linear    Deep arch         Consistent          Probabilistic
 
 ```
 Februarie 2026 (Săptămânile 1-2):
-├─ Săptămâna 1: Rulare EXP0, EXP1, EXP2
-├─ Săptămâna 2: Rulare EXP3, EXP4, EXP5, EXP6
+├─ Săptămâna 1: Rulare B0, B1, N1
+├─ Săptămâna 2: Rulare N2, N3, N4
 └─ Output: Toate rezultatele cantitative
 
 Martie 2026 (Săptămânile 3-6):
@@ -940,7 +948,7 @@ Mai 2026:
    - MC Dropout cu evaluare bayesiană
 
 3. **Design experimental riguros**
-   - 7 experimente pentru ablation study
+   - 7 experimente Phase 1 + 6 experimente Phase 2 (B0-N4) pentru ablation study
    - Metrici standard + bayesiene
    - Protocol reproductibil
 

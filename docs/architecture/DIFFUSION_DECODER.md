@@ -32,7 +32,7 @@ fMRI data (test split)
     ↓
 Encoder (Ridge/MLP) + Preprocessing (T0/T1/T2)
     ↓
-Predicted CLIP vectors (512-D, L2-normalized)
+Predicted CLIP vectors (768-D, L2-normalized)
     ↓
 Stable Diffusion with CLIP conditioning
     ↓
@@ -299,7 +299,7 @@ If latent ranges grow beyond `[-50, 50]`, try: `--scheduler dpm`, `--guidance 3.
 
 - **SD 1.5**: OpenAI CLIP ViT-L/14 (768D)
 - **SD 2.1**: OpenCLIP ViT-H/14 (1024D)
-- **Our encoder**: CLIP ViT-B/32 (512D)
+- **Our encoder**: CLIP ViT-L/14 (768D)
 
 **Current approach** (simplified unCLIP):
 
@@ -309,27 +309,27 @@ If latent ranges grow beyond `[-50, 50]`, try: `--scheduler dpm`, `--guidance 3.
 
 **Advanced approach** (future work):
 
-- Train projection layer: 512D → 768D/1024D
-- Fine-tune SD UNet to accept 512D CLIP directly (LoRA)
+- Train projection layer: 768D → 1024D (for SD 2.1; SD 1.5 matches natively)
+- Fine-tune SD UNet to accept 768D CLIP directly (LoRA)
 - Use IP-Adapter for better CLIP conditioning
 
 ---
 
-### CLIP Adapter (512→{768,1024}D)
+### CLIP Adapter (768→{768,1024}D)
 
-**Problem**: Dimensional mismatch between our encoder (512-D ViT-B/32) and diffusion models:
+**Problem**: Dimensional mismatch between our encoder (768-D ViT-L/14) and diffusion models:
 
 - **SD 1.5**: Expects 768-D CLIP embeddings (ViT-L/14)
 - **SD 2.1**: Expects 1024-D CLIP embeddings (OpenCLIP ViT-H/14)
 
-**Solution**: Lightweight trainable adapter that maps 512-D to target dimension.
+**Solution**: Lightweight trainable adapter that maps 768-D to target dimension (when using SD 2.1; SD 1.5 accepts 768-D natively).
 
 #### Architecture
 
 ```
-512-D CLIP (encoder output)
+768-D CLIP (encoder output)
     ↓
-Linear(512 → {768,1024})
+Linear(768 → {768,1024})
     ↓
 LayerNorm (optional, improves stability)
     ↓
@@ -342,14 +342,14 @@ L2-normalize
 
 - **Lightweight**: Only ~400K-1M parameters (vs 80M+ for full encoder)
 - **Preserves angular relationships**: L2-normalized outputs maintain cosine similarity metric
-- **Trained on ground-truth pairs**: Uses NSD's ViT-B/32 embeddings → diffusion model's CLIP embeddings
+- **Trained on ground-truth pairs**: Uses NSD's ViT-L/14 embeddings → diffusion model's CLIP embeddings
 - **Reduces representation gap**: Better alignment with diffusion model's conditioning space
 
 #### Training
 
 **Data**: Ground-truth CLIP pairs computed from NSD images:
 
-- **Input**: ViT-B/32 embeddings (512-D) from cache
+- **Input**: ViT-L/14 embeddings (768-D) from cache
 - **Target**: Diffusion model's CLIP encoder applied to same images (768/1024-D)
 
 **Loss**: Combined MSE + cosine for both magnitude and angular alignment:
@@ -398,7 +398,7 @@ python scripts/decode_diffusion.py \
 **Pipeline with adapter**:
 
 ```
-fMRI → Encoder → 512-D CLIP → Adapter → 1024-D CLIP → Diffusion → Image
+fMRI → Encoder → 768-D CLIP → Adapter → 1024-D CLIP → Diffusion → Image
 ```
 
 **Benefits**:
@@ -411,7 +411,7 @@ fMRI → Encoder → 512-D CLIP → Adapter → 1024-D CLIP → Diffusion → Im
 
 - ✅ When using SD 2.1 or SD 1.5 (dimensional mismatch)
 - ✅ When quality matters more than simplicity
-- ❌ For quick experiments (default 512-D works reasonably)
+- ❌ For quick experiments (default 768-D works reasonably with SD 1.5)
 - ❌ When encoder already outputs target dimension
 
 ---
@@ -581,11 +581,11 @@ Or use higher-quality model (requires more VRAM):
 
 ### 1. Better CLIP Injection
 
-Current limitation: SD expects different CLIP dims than our 512D encoder.
+Current limitation: SD 2.1 expects 1024D CLIP; our encoder outputs 768D.
 
 **Solution**:
 
-- Train projection layer: 512D → 768D/1024D
+- Train projection layer: 768D → 1024D
 - Fine-tune SD with LoRA on NSD dataset
 - Use IP-Adapter for better CLIP conditioning
 
@@ -652,7 +652,7 @@ Evaluate generated images with:
 
 ### Limitations
 
-1. **CLIP dimension mismatch**: 512D vs 768D/1024D (current workaround: generic prompt fallback)
+1. **CLIP dimension mismatch**: 768D vs 1024D for SD 2.1 (current workaround: generic prompt fallback or adapter)
 2. **No subject-specific fine-tuning**: Uses pretrained SD (future: fine-tune on NSD)
 3. **Single image per trial**: No multi-sample averaging (future: generate K images, select best)
 

@@ -1,13 +1,22 @@
 # EXP3: + Gaussian NLL (Heteroscedastic Regression)
+#
+# Replaces MSE with Gaussian NLL — the model now predicts (mu, logvar)
+# per trial, learning per-sample aleatoric uncertainty. This is the
+# first probabilistic step in the ladder.
+#
+# Key changes vs EXP2:
+#   model.type = gaussian, decoder.output_logvar = true
+#   loss: Gaussian NLL replaces MSE
+#
+# Hypothesis: H3: Gaussian model captures trial-level uncertainty and
+#             improves calibration without hurting retrieval.
 
-# Experiment metadata
 experiment:
   name: "exp3_gaussian_nll"
-  description: "EXP2 + Gaussian model (mu + logvar) with NLL loss - Tests heteroscedastic regression"
+  description: "Gaussian model (mu + logvar) with NLL loss"
   tags: ["gaussian", "nll", "preprocessing", "queue"]
   parent: "exp2_queue"
 
-# Data configuration
 data:
   subject: "subj01"
   roi: "nsdgeneral"
@@ -16,123 +25,79 @@ data:
   test_split: 0.15
   seed: 42
 
-# Model configuration (KEY CHANGE: Gaussian outputs)
 model:
-  type: "gaussian"  # ✅ Outputs mu and logvar
+  type: "gaussian"
   encoder:
+    encoder_type: "mlp"
     input_dim: null
     hidden_dims: [4096, 2048, 1024]
-    activation: "relu"
+    activation: "gelu"
     dropout: 0.1
   decoder:
     input_dim: 1024
     output_dim: 768
     hidden_dims: [1536]
-    activation: "relu"
+    activation: "gelu"
     dropout: 0.1
-    output_logvar: true  # ✅ Enable variance prediction
+    output_logvar: true
 
-# Preprocessing configuration (same as EXP2)
 preprocessing:
   enabled: true
   mode: "center_pcr"
   k_components: 8
-  whiten_eps: 1e-5
+  whiten_eps: 1.0e-5
   artifact_path: "cache/embedding_preproc/subj01_center_pcr_k8.pkl"
   fit_on_train: true
 
-# Loss configuration
 loss:
-  # Replace MSE with Gaussian NLL (KEY CHANGE)
   gaussian_nll:
-    enabled: true  # ✅ Gaussian NLL replaces MSE
+    enabled: true
     weight: 1.0
-    type: "gaussian_nll"
     logvar_min: -10.0
     logvar_max: 5.0
-    learnable_global_scale: false
     reduction: "mean"
-  
-  # Still use cosine InfoNCE (not Gaussian-NCE yet)
   infonce:
     enabled: true
     weight: 1.0
-    type: "infonce_queue"
     temperature: 0.07
     learnable_temperature: true
     symmetric: true
-    use_queue: true  # Queue enabled (from EXP2)
-  
-  # Disable MSE (replaced by Gaussian NLL)
+    use_queue: true
   mse:
     enabled: false
-  
-  # No Gaussian-NCE yet (EXP4 adds this)
   gaussian_nce:
     enabled: false
-  
-  # No KL yet (EXP5 adds this)
   kl:
     enabled: false
 
-# Memory queue configuration (same as EXP2)
 queue:
   enabled: true
   size: 8192
-  store_ids: false
 
-# Training configuration
 training:
   batch_size: 4
+  gradient_accumulation_steps: 16
+  mixed_precision: true
   num_epochs: 100
   optimizer:
     type: "adamw"
-    lr: 1e-4
+    lr: 1.0e-4
     weight_decay: 0.01
     betas: [0.9, 0.999]
-  
-  scheduler:
-    type: "cosine"
-    warmup_steps: 1000
-    min_lr: 1e-6
-  
+  warmup_epochs: 5
+  min_lr: 1.0e-6
   gradient_clip: 1.0
-  
-  early_stopping:
-    enabled: true
-    patience: 15  # More patience for probabilistic training
-    metric: "val_loss"
-    mode: "min"
+  early_stop_patience: 15
 
-# Inference configuration
 inference:
-  use_mean_for_retrieval: true  # ✅ Use mu for standard metrics
-  mc_samples_prob_metrics: 64  # ✅ Sample for probabilistic metrics
-  mc_samples_prob_2afc: 64
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
   seed: 42
 
-# Evaluation configuration
 evaluation:
   gallery_sizes: [2, 10, 50, 100, 500, 1000]
-  n_identification_pairs: 5000
-  n_bootstrap_samples: 1000
-  compute_rsa: true
-  compute_cka: true
-  compute_probabilistic: true  # ✅ Enable probabilistic metrics
-  n_samples_energy: 64
-  n_calibration_bins: 10
+  compute_probabilistic: true
   seed: 42
 
-# Logging and checkpointing
-logging:
-  log_every_n_steps: 50
-  checkpoint_every_n_epochs: 5
-  save_top_k: 3
-  monitor: "val_loss"
-
-# Output paths
 paths:
   output_dir: "experimental_results/exp3_gaussian_nll"
-  checkpoint_dir: "checkpoints"
-  log_dir: "logs"
-  eval_dir: "evaluation"

@@ -1,9 +1,0 @@
-# Stage 2 selection ablation: oracle upper bound (report separately, not main)
-_base_: ../stage1/prob_adapt_q.yaml
-
-experiment:
-  name: prob_adapt_q_select_oracle
-  tags: [stage2, selection, oracle, upper_bound]
-
-inference:
-  selection_rule: oracle

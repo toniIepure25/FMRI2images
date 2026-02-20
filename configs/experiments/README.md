@@ -1,403 +1,113 @@
 # Experiment Configurations
 
-**Research and Ablation Study Templates**
+Self-contained configs for the Phase 2 ablation ladder (EXP0-EXP14).
+Each file fully specifies one experiment — no implicit dependencies.
 
----
-
-## 🧪 Experimental Configurations
-
-### `ablation.yaml` - Ablation Study Template
-
-**Purpose**: Systematic component analysis and ablation studies
-
-```yaml
-study:
-  name: component_ablation
-  components:
-    - preprocessing
-    - architecture
-    - loss_functions
-    - training_strategy
-  
-baseline:
-  config: configs/training/two_stage_sota.yaml
-  
-ablations:
-  - name: no_pca
-    changes:
-      preprocessing.pca.enabled: false
-    
-  - name: smaller_model
-    changes:
-      model.latent_dim: 256
-      model.num_layers: 2
-    
-  - name: no_infonce
-    changes:
-      training.infonce_weight: 0.0
-    
-  - name: no_residual
-    changes:
-      model.use_residual: false
-
-evaluation:
-  metrics:
-    - cosine_similarity
-    - retrieval_r1
-    - retrieval_r5
-    - retrieval_r10
-  statistical_tests:
-    - paired_t_test
-    - wilcoxon_signed_rank
-  confidence_level: 0.95
-```
-
----
-
-## 🎯 Types of Experiments
-
-### **1. Component Ablation**
-
-Study the impact of individual components.
-
-**Example**: Effect of preprocessing
-```bash
-python scripts/ablate_preproc_and_ridge.py \
-    --config configs/experiments/ablation.yaml \
-    --component preprocessing \
-    --variations pca,zscore,both,none
-```
-
-**Variations**:
-- No PCA
-- No normalization
-- Different PCA dimensions
-- Different normalization methods
-
-### **2. Architecture Ablation**
-
-Study architectural choices.
-
-**Example**: Model capacity
-```yaml
-ablations:
-  - name: small_model
-    changes: {model.latent_dim: 256}
-  - name: medium_model
-    changes: {model.latent_dim: 512}
-  - name: large_model
-    changes: {model.latent_dim: 768}
-  - name: xlarge_model
-    changes: {model.latent_dim: 1024}
-```
+## Running Experiments
 
 ```bash
-python scripts/run_architecture_ablation.py \
-    --config configs/experiments/ablation.yaml \
-    --study model_capacity
+# Single experiment
+python3 scripts/training/train_unified.py \
+    --config configs/experiments/exp7_vmf_nce.yaml --gpu 0
+
+# Full ablation ladder (all 15 experiments x 4 subjects)
+bash scripts/training/run_ablation_ladder.sh \
+    --subjects "subj01 subj02 subj05 subj07" --gpu 0
 ```
 
-### **3. Training Strategy Ablation**
+## Ablation Ladder
 
-Study training hyperparameters.
+### EXP0-EXP6: Foundation (MLP Encoder)
 
-**Example**: Learning rate schedule
-```yaml
-ablations:
-  - name: constant_lr
-    changes: {training.scheduler: constant}
-  - name: cosine_lr
-    changes: {training.scheduler: cosine}
-  - name: exponential_lr
-    changes: {training.scheduler: exponential}
-  - name: polynomial_lr
-    changes: {training.scheduler: polynomial}
-```
+| Config | Key Addition | Model Type |
+|--------|-------------|-----------|
+| `exp0_baseline.yaml` | Deterministic MLP + MSE + InfoNCE | deterministic |
+| `exp1_preproc.yaml` | + center_pcr (k=8) | deterministic |
+| `exp2_queue.yaml` | + memory queue (Q=8192) | deterministic |
+| `exp3_gaussian_nll.yaml` | + Gaussian NLL (mu, logvar) | gaussian |
+| `exp4_gaussian_nce.yaml` | + Gaussian-NCE contrastive | gaussian |
+| `exp5_kl_anneal.yaml` | + KL annealing + free-bits | gaussian |
+| `exp6_whiten.yaml` | Whitening ablation (vs PCR) | gaussian |
 
-### **4. Loss Function Ablation**
+### EXP7-EXP9: Core Novel Contributions
 
-Study different loss combinations.
+| Config | Key Addition | Model Type |
+|--------|-------------|-----------|
+| `exp7_vmf_nce.yaml` | vMF decoder + vMF-NCE loss | vmf |
+| `exp8_roi_transformer.yaml` | ROI-Tokenized Transformer encoder | vmf |
+| `exp9_roi_dcf.yaml` | Per-ROI vMF experts + consensus fusion | vmf_dcf |
 
-**Example**: InfoNCE weight
-```yaml
-ablations:
-  - name: no_infonce
-    changes: {training.infonce_weight: 0.0}
-  - name: weak_infonce
-    changes: {training.infonce_weight: 0.1}
-  - name: medium_infonce
-    changes: {training.infonce_weight: 0.4}
-  - name: strong_infonce
-    changes: {training.infonce_weight: 0.8}
-```
+### EXP10-EXP14: Extended Innovations
 
----
+| Config | Key Addition | Model Type |
+|--------|-------------|-----------|
+| `exp10_vmf_mixture.yaml` | vMF mixture posterior sampling | vmf_dcf |
+| `exp11_dual_ua_cfg.yaml` | Decomposed UA-CFG (kappa->w, delta->K) | vmf_dcf |
+| `exp12_ceiling_temperature.yaml` | Noise-ceiling contrastive temperature | vmf_dcf |
+| `exp13_kappa_spcl.yaml` | kappa-SPCL curriculum learning | vmf_dcf |
+| `exp14_full_system.yaml` | All innovations combined (flagship) | vmf_dcf |
 
-## 📊 Running Ablation Studies
+## Config Schema
 
-### **Basic Ablation**
-```bash
-python scripts/run_ablation.py \
-    --config configs/experiments/ablation.yaml \
-    --study component_ablation \
-    --output outputs/ablations/
-```
-
-### **With Statistical Analysis**
-```bash
-python scripts/run_ablation.py \
-    --config configs/experiments/ablation.yaml \
-    --study component_ablation \
-    --statistics \
-    --confidence 0.95 \
-    --output outputs/ablations/
-```
-
-### **Cross-Subject Validation**
-```bash
-for subject in subj01 subj02 subj03 subj04; do
-    python scripts/run_ablation.py \
-        --config configs/experiments/ablation.yaml \
-        --subject $subject \
-        --output outputs/ablations/$subject/
-done
-
-# Aggregate results
-python scripts/aggregate_ablations.py \
-    --input outputs/ablations/*/results.json \
-    --output outputs/ablations/summary.csv
-```
-
----
-
-## 📝 Creating Custom Experiments
-
-### **1. Define Study**
-```yaml
-# configs/experiments/my_study.yaml
-_base_: ablation.yaml
-
-study:
-  name: my_custom_study
-  description: "Investigating effect of X on Y"
-  
-baseline:
-  config: configs/training/two_stage_sota.yaml
-  
-ablations:
-  - name: variation_1
-    description: "Test hypothesis A"
-    changes:
-      model.parameter: value1
-  
-  - name: variation_2
-    description: "Test hypothesis B"
-    changes:
-      model.parameter: value2
-```
-
-### **2. Run Experiment**
-```bash
-python scripts/run_ablation.py \
-    --config configs/experiments/my_study.yaml \
-    --subjects subj01,subj02,subj03 \
-    --output outputs/experiments/my_study/
-```
-
-### **3. Analyze Results**
-```bash
-python scripts/analyze_ablation.py \
-    --input outputs/experiments/my_study/ \
-    --report outputs/experiments/my_study/report.pdf
-```
-
----
-
-## 🎓 Best Practices
-
-### **1. Control Variables**
-
-Keep everything constant except what you're testing:
+Every experiment config follows this structure:
 
 ```yaml
-ablations:
-  - name: test_pca
-    changes:
-      preprocessing.pca.n_components: 500  # Only change this
-    # All other parameters stay same as baseline
+experiment:
+  name: "exp7_vmf_nce"
+  description: "..."
+  tags: [...]
+  parent: "exp4_gaussian_nce"     # Which experiment this builds on
+
+data:
+  subject: "subj01"               # Overridden by --subject CLI arg
+  roi: "nsdgeneral"
+  train_split: 0.70
+  val_split: 0.15
+  test_split: 0.15
+  seed: 42
+
+model:
+  type: "vmf"                     # deterministic | gaussian | vmf | vmf_dcf
+  encoder: { ... }
+  decoder: { ... }
+
+preprocessing:
+  enabled: true/false
+  mode: "center_pcr"
+
+loss:
+  vmf_nce: { enabled: true, ... }
+  # All unused losses: enabled: false
+
+queue:
+  enabled: true/false
+  size: 8192
+
+training:
+  batch_size: 4
+  gradient_accumulation_steps: 16
+  mixed_precision: true
+  num_epochs: 100
+  optimizer: { type: "adamw", lr: ..., weight_decay: ..., betas: [...] }
+  warmup_epochs: 5-10
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 15-20
+
+paths:
+  output_dir: "experimental_results/<exp_name>"
 ```
 
-### **2. Multiple Seeds**
+## ROI Dimensions
 
-Run with different random seeds for robustness:
+EXP8-EXP14 use placeholder ROI dimensions. These are populated at runtime
+from the NSD atlas masks for the specified subject. The values in the configs
+(V1v: 700, V2v: 600, etc.) are approximate and serve as documentation only.
 
-```yaml
-study:
-  seeds: [42, 43, 44, 45, 46]  # Run each ablation 5 times
-  aggregate: mean_and_std
-```
+## Output Convention
 
-### **3. Statistical Testing**
-
-Always include statistical significance tests:
-
-```yaml
-evaluation:
-  statistical_tests:
-    - paired_t_test       # Parametric
-    - wilcoxon_signed_rank # Non-parametric
-  confidence_level: 0.95  # p < 0.05
-  multiple_comparison_correction: bonferroni
-```
-
-### **4. Document Hypotheses**
-
-Write clear hypotheses before running:
-
-```yaml
-ablations:
-  - name: no_pca
-    hypothesis: "PCA reduces noise and improves performance"
-    expected: "Performance drop without PCA"
-    changes:
-      preprocessing.pca.enabled: false
-```
-
----
-
-## 📊 Example Studies
-
-### **Preprocessing Study**
-```bash
-python scripts/ablate_preproc_and_ridge.py \
-    --config configs/experiments/ablation.yaml \
-    --variations pca_500,pca_1000,pca_2000,no_pca \
-    --output outputs/ablations/preprocessing/
-```
-
-**Questions Answered**:
-- How many PCA components are optimal?
-- Is PCA necessary?
-- Which normalization works best?
-
-### **Architecture Study**
-```yaml
-study:
-  name: architecture_search
-  
-ablations:
-  - {name: depth_2, changes: {model.num_layers: 2}}
-  - {name: depth_4, changes: {model.num_layers: 4}}
-  - {name: depth_6, changes: {model.num_layers: 6}}
-  - {name: width_256, changes: {model.latent_dim: 256}}
-  - {name: width_512, changes: {model.latent_dim: 512}}
-  - {name: width_768, changes: {model.latent_dim: 768}}
-```
-
-**Questions Answered**:
-- Optimal model depth?
-- Optimal model width?
-- Depth vs width tradeoff?
-
-### **Training Study**
-```yaml
-study:
-  name: training_strategy
-  
-ablations:
-  - {name: lr_1e-3, changes: {training.learning_rate: 0.001}}
-  - {name: lr_1e-4, changes: {training.learning_rate: 0.0001}}
-  - {name: lr_1e-5, changes: {training.learning_rate: 0.00001}}
-  - {name: bs_16, changes: {training.batch_size: 16}}
-  - {name: bs_32, changes: {training.batch_size: 32}}
-  - {name: bs_64, changes: {training.batch_size: 64}}
-```
-
-**Questions Answered**:
-- Optimal learning rate?
-- Optimal batch size?
-- LR and batch size interaction?
-
----
-
-## 📈 Analyzing Results
-
-### **Generate Report**
-```bash
-python scripts/report_ablation.py \
-    --input outputs/ablations/my_study/ \
-    --output outputs/ablations/my_study/report.html \
-    --include-plots
-```
-
-**Report Includes**:
-- Performance comparison table
-- Statistical significance tests
-- Visualization plots
-- Confidence intervals
-- Effect sizes
-
-### **Plot Results**
-```bash
-python scripts/plot_ablation.py \
-    --input outputs/ablations/my_study/results.json \
-    --output outputs/ablations/my_study/plots/ \
-    --metrics cosine_similarity,retrieval_r1
-```
-
----
-
-## 🐛 Troubleshooting
-
-### **Issue: Inconsistent Results**
-
-**Solution**: Use multiple seeds and aggregate
-```yaml
-study:
-  seeds: [42, 43, 44, 45, 46]
-  aggregate: mean_and_std
-```
-
-### **Issue: Not Enough Samples**
-
-**Solution**: Use cross-validation or bootstrap
-```yaml
-evaluation:
-  method: k_fold_cross_validation
-  k: 5
-```
-
-### **Issue: Multiple Comparisons**
-
-**Solution**: Apply correction
-```yaml
-evaluation:
-  multiple_comparison_correction: bonferroni
-  # or: holm, fdr_bh
-```
-
----
-
-## 📚 Related Documentation
-
-- **[Main Config README](../README.md)** - Overview
-- **[Training Configs](../training/README.md)** - Training settings
-- **[Evaluation Guide](../../docs/guides/EVALUATION_SUITE_GUIDE.md)** - Metrics
-- **[Usage Examples](../../USAGE_EXAMPLES.md)** - Complete commands
-
----
-
-## 💡 Research Tips
-
-1. **Start small**: Test on single subject first
-2. **Control variables**: Change one thing at a time
-3. **Use statistics**: Always test significance
-4. **Document**: Write hypotheses before running
-5. **Replicate**: Use multiple seeds
-6. **Share**: Make configs and results public
-
----
-
-**Last Updated**: December 7, 2025  
-**Status**: Research Tool  
-**Use For**: Ablation studies, hyperparameter search, component analysis
+All experiments write to `experimental_results/<exp_name>/` with:
+- `config.yaml` — frozen config snapshot
+- `training_info.json` — epoch, loss curves, checkpoint path
+- `notes.md` — per-experiment analysis
+- `evaluation/` — metric JSONs and summary reports

@@ -3,63 +3,42 @@
 # =============================================================================
 #
 # Single source of truth for CLIP model settings.
-# Do NOT hardcode model names elsewhere in the codebase.
+# Do NOT hardcode model names elsewhere — always inherit from here.
+#
+# Phase 2 default: ViT-L/14 (768-D) to match MindEye2 and SOTA decoders.
 #
 # Supported Models:
-# - ViT-B/32: 512D embeddings, fastest, baseline
-# - ViT-B/16: 512D embeddings, better quality  
-# - ViT-L/14: 768D embeddings, high quality
-# - ViT-L/14@336px: 768D embeddings, highest quality
-#
-# For custom models, see: configs/clip_custom.yaml
+#   ViT-B/32:      512-D, fastest, used in Phase 1
+#   ViT-B/16:      512-D, better spatial resolution
+#   ViT-L/14:      768-D, high quality (Phase 2 default)
+#   ViT-L/14@336:  768-D, highest quality
 # =============================================================================
 
 # Model Selection
 # -----------------------------------------------------------------------------
-model_name: "ViT-B/32"              # CLIP architecture
-pretrained: openai                  # Pretrained weights source
-embedding_dim: 512                  # Output embedding dimension
+model_name: "ViT-L/14"
+pretrained: openai
+embedding_dim: 768
 
 # Device Configuration
 # -----------------------------------------------------------------------------
-device: cuda                        # Device for CLIP inference
-dtype: float32                      # Data type (float32 or float16)
+device: cuda
+dtype: float32
 
 # Batch Processing
 # -----------------------------------------------------------------------------
-batch_size: 64                      # Batch size for encoding
-num_workers: 4                      # Data loader workers
+batch_size: 64
+num_workers: 4
 
 # Cache Configuration
 # -----------------------------------------------------------------------------
-cache_dir: cache/clip_embeddings    # Cache directory
-use_cache: true                     # Enable caching
-cache_format: parquet               # Options: parquet, hdf5, pickle
+cache_dir: cache/clip_embeddings
+use_cache: true
+cache_format: parquet
 
 # Feature Extraction
 # -----------------------------------------------------------------------------
 extract_features:
-  enabled: false                    # Extract intermediate features
-  layers: [4, 8, 12]                # Layers to extract
-  pooling: cls_token                # Options: cls_token, mean_pool
-
-# Model Variants
-# -----------------------------------------------------------------------------
-# To use different models, override model_name and embedding_dim:
-#
-# ViT-B/16:
-#   model_name: "ViT-B/16"
-#   embedding_dim: 512
-#
-# ViT-L/14:
-#   model_name: "ViT-L/14"  
-#   embedding_dim: 768
-#
-# ViT-L/14@336px:
-#   model_name: "ViT-L/14@336px"
-#   embedding_dim: 768
-
-# Metadata
-# -----------------------------------------------------------------------------
-description: "CLIP model configuration for embedding extraction"
-version: "3.0"
+  enabled: false
+  layers: [6, 12, 18, 24]
+  pooling: cls_token

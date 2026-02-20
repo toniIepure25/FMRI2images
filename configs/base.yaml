@@ -1,13 +1,15 @@
 # =============================================================================
-# Base Configuration - Default Settings for All Experiments
+# Base Configuration — Default Settings for All Phase 2 Experiments
 # =============================================================================
 #
-# This file contains shared defaults across all configurations.
-# Specific experiment configs can override these values.
+# Shared defaults inherited by every experiment in the EXP0-EXP14 ablation
+# ladder. Experiment-specific configs override individual fields.
 #
-# Author: Bachelor Thesis - fMRI to Image Reconstruction
-# Date: December 2025
-# Version: 3.0
+# Phase 2 target: CLIP ViT-L/14 (768-D) with vMF-NCE, ROI Transformer,
+# and Uncertainty-Aware Diffusion.
+#
+# Reference: Allen et al., 2022 (NSD); Scotti et al., 2024 (MindEye2)
+# Version: 4.0
 # =============================================================================
 
 # Dataset Configuration
@@ -51,19 +53,19 @@ preprocessing:
 # CLIP Model Configuration
 # -----------------------------------------------------------------------------
 clip:
-  model_name: "ViT-B/32"            # CLIP architecture
+  model_name: "ViT-L/14"            # CLIP architecture (Phase 2: ViT-L/14)
   pretrained: openai                # Pretrained weights source
-  embedding_dim: 512                # Output embedding dimension
+  embedding_dim: 768                # Output embedding dimension
   device: cuda                      # Device for CLIP model
   batch_size: 64                    # Batch size for CLIP encoding
   
-  # Multi-layer features (for advanced methods)
-  extract_layers: [4, 8, 12]        # Intermediate layers to extract
+  # Multi-layer features (ViT-L/14: 24 transformer layers, hidden_dim=1024)
+  extract_layers: [6, 12, 18, 24]   # Intermediate layers to extract
   layer_dims:
-    layer_4: 768                    # Dimension of layer 4
-    layer_8: 768                    # Dimension of layer 8
-    layer_12: 768                   # Dimension of layer 12
-    final: 512                      # Final embedding dimension
+    layer_6: 1024
+    layer_12: 1024
+    layer_18: 1024
+    layer_24: 768                   # Final projection dimension
 
 
 # CLIP Embedding Space Configuration
@@ -99,28 +101,32 @@ training:
   save_frequency: 5                 # Save every N epochs
   early_stop_patience: 15           # Early stopping patience
 
-# Loss Function Configuration (novel contribution)
+# Loss Function Configuration
 # -----------------------------------------------------------------------------
 loss:
-  # Multi-objective loss composition
-  # Default: cosine-only for backward compatibility
-  # Set infonce_weight > 0 to enable contrastive learning
   cosine_weight: 1.0                # Weight for cosine similarity loss
   mse_weight: 0.0                   # Weight for MSE loss
-  infonce_weight: 0.0               # Weight for InfoNCE contrastive loss (novel)
+  infonce_weight: 0.0               # Weight for InfoNCE contrastive loss
   
-  # InfoNCE parameters (only used when infonce_weight > 0)
-  infonce_temperature: 0.07         # Temperature for InfoNCE (lower = harder negatives)
-  infonce_normalize: true           # Normalize embeddings before InfoNCE
+  # InfoNCE / contrastive parameters
+  infonce_temperature: 0.07         # Temperature (lower = harder negatives)
+  infonce_normalize: true           # L2-normalize embeddings before contrastive loss
 
-  # Probabilistic loss components (default off for backward compatibility)
-  nll_weight: 0.0                   # Gaussian NLL weight (diag/scalar)
-  cosine_aux_weight: 0.0            # Auxiliary cosine on mu vs z_true
-  variance_penalty_weight: 0.0      # Weight on mean(exp(logvar)) to prevent variance inflation
-  nll_reduction: mean               # Reduction over dims: mean | sum
-  logvar_min: -8.0                  # Clamp lower bound for log-variance
-  logvar_max: 2.0                   # Clamp upper bound for log-variance
-  variance_floor: 1.0e-6            # Additive floor to variance for stability
+  # vMF-NCE parameters (Phase 2 default — enabled per experiment)
+  vmf_nce_weight: 0.0               # Weight for vMF-NCE loss (Banerjee et al., 2005)
+  vmf_nce:
+    bessel_free: true               # Use Bessel-free approximation
+    queue_size: 16384               # Negative queue size
+    temperature: 0.07               # Contrastive temperature
+
+  # Gaussian NLL components (off by default)
+  nll_weight: 0.0
+  cosine_aux_weight: 0.0
+  variance_penalty_weight: 0.0
+  nll_reduction: mean
+  logvar_min: -8.0
+  logvar_max: 2.0
+  variance_floor: 1.0e-6
 
 # Evaluation Configuration
 # -----------------------------------------------------------------------------
@@ -142,33 +148,48 @@ evaluation:
   calibration_bins: 10              # Number of bins for reliability curves
   calibration_error_metric: cosine  # Options: cosine, mse
 
-# Probabilistic Decoder & Inference Configuration
+# Decoder Configuration
 # -----------------------------------------------------------------------------
 decoder:
-  type: deterministic               # Options: deterministic, probabilistic
-  uncertainty: diag                 # Options: diag, scalar
-  predict_logvar: true              # Enable log-variance head for probabilistic decoding
-  logvar_min: -8.0                  # Clamp lower bound for log-variance
-  logvar_max: 2.0                   # Clamp upper bound for log-variance
-  variance_floor: 1.0e-6            # Additive variance floor for stability
+  type: deterministic               # Options: deterministic, vmf, gaussian
+  output_dim: 768                   # Must match clip.embedding_dim
 
+  # vMF decoder parameters (used when type=vmf)
+  vmf:
+    kappa_mode: "bounded_sigmoid"   # Options: bounded_sigmoid, softplus, exp
+    kappa_min: 1.0                  # Minimum concentration
+    kappa_max: 256.0                # Maximum concentration
+    log_kappa_min: 0.0              # bounded-sigmoid input clamp
+    log_kappa_max: 6.0
+
+  # Gaussian decoder (used when type=gaussian)
+  gaussian:
+    uncertainty: diag               # Options: diag, scalar
+    logvar_min: -8.0
+    logvar_max: 2.0
+    variance_floor: 1.0e-6
+
+# Inference Configuration
+# -----------------------------------------------------------------------------
 inference:
-  sampling_policy: fixed_k          # Options: fixed_k, adaptive_quantile, adaptive_mapping
-  K_base: 1                         # Base compute budget per trial (kept minimal by default)
-  K_set: [1, 2, 4, 8, 16]           # Allowed K values for adaptive policies
-  enforce_budget: true              # Enforce sum_i K_i == N_trials * K_base
-  selection_rule: cosine            # Options: cosine, likelihood, oracle (oracle = upper bound only)
+  sampling_policy: fixed_k          # Options: fixed_k, adaptive_quantile, ua_cfg
+  K_base: 1
+  K_set: [1, 2, 4, 8, 16]
+  selection_rule: cosine            # Options: cosine, likelihood, oracle
 
-  adaptive_quantile:
-    # Quantile bins for uncertainty u (sorted descending). Bins map to K_set in order.
-    # Default follows: top 10%→16, next 20%→8, next 30%→4, next 25%→2, rest→1
-    quantiles: [0.0, 0.10, 0.30, 0.60, 0.85, 1.0]
-    K_bins: [16, 8, 4, 2, 1]
-    budget_correction: deterministic # Placeholder for deterministic correction strategy
-
-  adaptive_mapping:
-    thresholds: [0.2, 0.4, 0.6, 0.8] # u thresholds to bucketize
-    K_values: [1, 2, 4, 8, 16]        # Must align with thresholds+1 buckets
+  # Decomposed Uncertainty-Aware CFG (Phase 2 novel contribution)
+  ua_cfg:
+    enabled: false
+    w_min: 2.0                      # Min guidance scale (high confidence)
+    w_max: 12.0                     # Max guidance scale (low confidence)
+    gamma_w: 1.5                    # Kappa-to-guidance exponent
+    k_min: 1                        # Min ensemble size
+    k_max: 8                        # Max ensemble size
+    delta_threshold_low: 0.1        # Low ROI disagreement
+    delta_threshold_high: 0.6       # High ROI disagreement
+    steps_min: 30                   # Min diffusion steps
+    steps_max: 150                  # Max diffusion steps
+    abstention_kappa_min: 5.0       # Abstain if kappa below this
 
 # Diffusion Model Configuration (for generation)
 # -----------------------------------------------------------------------------
@@ -214,7 +235,7 @@ logging:
 # Metadata
 # -----------------------------------------------------------------------------
 metadata:
-  config_version: "3.0"
-  description: "Base configuration with sensible defaults"
-  paper_reference: "Bachelor Thesis 2025"
+  config_version: "4.0"
+  description: "Phase 2 base configuration — ViT-L/14, vMF-NCE, ROI Transformer"
+  paper_reference: "Bachelor Thesis 2026"
   dataset_reference: "Allen et al., 2022, Nature Neuroscience"

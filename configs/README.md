@@ -1,528 +1,115 @@
-# Configuration Management System# =============================================================================
+# Configuration System
 
-# Configuration Files Guide
+Hierarchical YAML configuration for the fMRI-to-Image neural decoding pipeline.
+All configs inherit from `base.yaml` and can be overridden at runtime.
 
-**fMRI-to-Image Reconstruction**  # =============================================================================
+## Directory Structure
 
-*Research-Level YAML-Based Configuration*
-
-This directory contains professional configuration files for different use cases
-
----and experiment types. All configs are in YAML format with comprehensive
-
-documentation and expected results.
-
-## 📁 Professional Organization
-
-## Configuration Hierarchy
-
-The configuration system follows a **hierarchical, modular architecture** for maximum flexibility and maintainability.
-
-### Base Configuration
-
-```- **base.yaml** - Default settings shared across all experiments
-
-configs/  - Contains sensible defaults
-
-├── base.yaml                    # Base configuration (inheritance root)  - Override in specific configs
-
-│  - ~150 parameters documented
-
-├── 📚 training/                 # Model training configurations
-
-│   ├── README.md## Training Configurations
-
-│   ├── ridge_baseline.yaml      # Ridge regression (baseline)
-
-│   ├── mlp_standard.yaml        # MLP encoder (standard)### Baseline & Standard
-
-│   ├── two_stage_sota.yaml      # Two-Stage encoder (SOTA) ⭐- **ridge_baseline.yaml** - Ridge regression baseline
-
-│   ├── sota_two_stage.yaml      # Legacy naming (deprecated)  - Fast training (~5 min)
-
-│   ├── adapter_vitl14.yaml      # CLIP adapter  - Cosine similarity: 0.25-0.35
-
-│   ├── clip2fmri.yaml           # Inverse mapping (research)  - Good for quick experiments
-
-│   └── dev_fast.yaml            # Fast development/debugging  
-
-│- **mlp_standard.yaml** - Standard MLP encoder
-
-├── 🚀 inference/                # Image generation configurations  - Moderate training (~1-2 hours)
-
-│   ├── README.md  - Cosine similarity: 0.35-0.45
-
-│   ├── production.yaml          # Production deployment ⭐  - Good performance/speed tradeoff
-
-│   ├── production_improved.yaml # Enhanced production
-
-│   ├── fast_inference.yaml      # Speed-optimized### Advanced
-
-│   └── highres_quality.yaml     # Quality-optimized- **two_stage_sota.yaml** - State-of-the-art two-stage encoder
-
-│  - Best performance (~3-6 hours)
-
-├── ⚙️ system/                   # System & infrastructure  - Cosine similarity: 0.45-0.55
-
-│   ├── README.md  - Multi-layer supervision, InfoNCE loss
-
-│   ├── data.yaml                # Dataset configuration (NSD)  - Recommended for final results
-
-│   ├── clip.yaml                # CLIP model settings
-
-│   └── logging.yaml             # Logging configuration- **adapter_vitl14.yaml** - CLIP adapter training
-
-│  - Maps 512D → 768D CLIP space
-
-├── 🧪 experiments/              # Research & ablation studies  - Quick training (~30 min)
-
-│   ├── README.md  - Improves generation quality
-
-│   └── ablation.yaml            # Ablation study template  - Use after training main encoder
-
+```
+configs/
+├── base.yaml                        # Global defaults (Phase 2: ViT-L/14, 768-D)
 │
+├── experiments/                     # Ablation ladder (EXP0-EXP14)
+│   ├── exp0_baseline.yaml           # Deterministic MLP baseline
+│   ├── exp1_preproc.yaml            # + center_pcr preprocessing
+│   ├── exp2_queue.yaml              # + memory queue
+│   ├── exp3_gaussian_nll.yaml       # + Gaussian NLL
+│   ├── exp4_gaussian_nce.yaml       # + Gaussian-NCE contrastive
+│   ├── exp5_kl_anneal.yaml          # + KL annealing
+│   ├── exp6_whiten.yaml             # Ablation: whitening vs PCR
+│   ├── exp7_vmf_nce.yaml            # vMF-NCE (MLP encoder)
+│   ├── exp8_roi_transformer.yaml    # ROI Transformer + vMF-NCE
+│   ├── exp9_roi_dcf.yaml            # ROI-DCF consensus fusion
+│   ├── exp10_vmf_mixture.yaml       # + vMF mixture sampling
+│   ├── exp11_dual_ua_cfg.yaml       # + decomposed UA-CFG
+│   ├── exp12_ceiling_temperature.yaml # + noise-ceiling temperature
+│   ├── exp13_kappa_spcl.yaml        # + kappa-SPCL curriculum
+│   └── exp14_full_system.yaml       # Full system (flagship)
+│
+├── training/                        # Training recipes
+│   ├── dev_fast.yaml                # Fast development loop
+│   ├── ridge_baseline.yaml          # Linear baseline
+│   └── adapter_vitl14.yaml          # CLIP adapter (512->768)
+│
+├── inference/                       # Diffusion generation
+│   ├── production.yaml              # Balanced quality/speed
+│   ├── fast_inference.yaml          # Speed-optimized (25 steps)
+│   └── highres_quality.yaml         # Publication quality (200 steps)
+│
+└── system/                          # Infrastructure
+    ├── clip.yaml                    # CLIP model defaults
+    ├── data.yaml                    # NSD dataset paths
+    └── logging.yaml                 # Logging settings
+```
 
-└── README.md                    # This file### Specialized Training
+## Quick Start
 
-```- **clip2fmri.yaml** - Inverse mapping (CLIP → fMRI)
+```bash
+# Run a Phase 2 experiment
+python3 scripts/training/train_unified.py \
+    --config configs/experiments/exp7_vmf_nce.yaml --gpu 0
 
-  - For brain-consistency loss
+# Run the full ablation ladder
+bash scripts/training/run_ablation_ladder.sh \
+    --subjects "subj01 subj02 subj05 subj07" --gpu 0
 
----  - Research/ablation use
-
-  
-
-## 🎯 Quick Start## Inference Configurations
-
-
-
-### **Training a Model**### Production
-
-```bash- **production.yaml** - Production inference settings
-
-# Ridge baseline (5 minutes)  - Balanced quality/speed
-
-python scripts/train_ridge.py \  - 50 diffusion steps
-
-    --config configs/training/ridge_baseline.yaml \  - ~10s per image
-
-    --subject subj01  - Recommended for deployment
-
-
-
-# MLP encoder (2 hours)### Quality-Focused
-
-python scripts/train_mlp.py \- **highres_quality.yaml** - Maximum quality generation
-
-    --config configs/training/mlp_standard.yaml \  - 1024px resolution
-
-    --subject subj01  - 200 diffusion steps
-
-  - ~30-60s per image
-
-# Two-Stage SOTA (4 hours, best performance)  - Best for publications/demos
-
-python scripts/train_two_stage.py \
-
-    --config configs/training/two_stage_sota.yaml \### Speed-Focused
-
-    --subject subj01- **fast_inference.yaml** - Rapid generation
-
-```  - 512px resolution
-
-  - 25 diffusion steps
-
-### **Generating Images**  - ~3-5s per image
-
-```bash  - Good for batch processing
-
-# Production (balanced quality/speed)
-
-python scripts/decode_diffusion.py \## Development & Testing
-
+# Generate images from a trained model
+python3 scripts/reconstruction/decode_diffusion.py \
     --config configs/inference/production.yaml \
+    --checkpoint experimental_results/exp14_full_system/best_model.pt
 
-    --checkpoint checkpoints/two_stage/best.pt- **dev_fast.yaml** - Quick development testing
-
-  - 1000 samples, 10 epochs
-
-# High quality (slow, best for demos)  - ~2-5 min training
-
-python scripts/decode_diffusion.py \  - For debugging & rapid iteration
-
-    --config configs/inference/highres_quality.yaml \  - Not for final results
-
-    --checkpoint checkpoints/two_stage/best.pt
-
-```## Analysis
-
-
-
----- **ablation.yaml** - Systematic ablation studies
-
-  - Template for component analysis
-
-## 📖 Configuration Hierarchy  - Statistical testing built-in
-
-  - Comprehensive result tracking
-
-### **Inheritance System**
-
-## Data & Model Configs
-
-All configurations inherit from `base.yaml`:
-
-- **data.yaml** - NSD dataset configuration
-
-```yaml  - S3 access settings
-
-# configs/training/mlp_standard.yaml  - File paths & structure
-
-_base_: ../base.yaml  # Inherit defaults  - Preprocessing pipelines
-
-
-
-model:- **clip.yaml** - CLIP model settings
-
-  hidden_dim: 256     # Override specific parameters  - Model selection
-
-```  - Embedding dimensions
-
-  - Feature extraction
-
-### **Runtime Overrides**
-
-- **logging.yaml** - Logging configuration
-
-```bash  - Log levels & formats
-
-python scripts/train_mlp.py \  - Output destinations
-
-    --config configs/training/mlp_standard.yaml \
-
-    --override "training.learning_rate=0.001" \## Deprecated Configs
-
-    --override "training.batch_size=64"
-
-```- **sota_two_stage.yaml** → Use **two_stage_sota.yaml**
-
-- **production_improved.yaml** → Use **production.yaml**
-
----
-
-These are kept for backward compatibility but redirect to new configs.
-
-## 📚 Configuration Categories
-
-## Usage Examples
-
-### **1. Training** (`training/`) - See [training/README.md](training/README.md)
-
-### Training
-
-| Config | Performance | Time | Use Case |```bash
-
-|--------|-------------|------|----------|# Quick baseline
-
-| `ridge_baseline.yaml` | 0.25-0.35 | 5 min | Baseline, quick experiments |python -m fmri2img.training.train_ridge \
-
-| `mlp_standard.yaml` | 0.35-0.45 | 2 hours | Standard training |    --config configs/ridge_baseline.yaml
-
-| `two_stage_sota.yaml` ⭐ | 0.45-0.55 | 4 hours | Best performance (SOTA) |
-
-| `adapter_vitl14.yaml` | N/A | 30 min | Diffusion integration |# Standard MLP
-
-| `dev_fast.yaml` | N/A | 2-5 min | Development/debugging |python -m fmri2img.training.train_mlp \
-
-    --config configs/mlp_standard.yaml
-
-### **2. Inference** (`inference/`) - See [inference/README.md](inference/README.md)
-
-# SOTA two-stage
-
-| Config | Resolution | Speed | Quality | Use Case |python -m fmri2img.training.train_two_stage \
-
-|--------|-----------|-------|---------|----------|    --config configs/two_stage_sota.yaml \
-
-| `production.yaml` ⭐ | 512px | ~10s | Good | Deployment |    --subject subj01
-
-| `fast_inference.yaml` | 512px | ~5s | Fair | Batch processing |
-
-| `highres_quality.yaml` | 1024px | ~60s | Excellent | Publications |# Train adapter
-
-python -m fmri2img.training.train_clip_adapter \
-
-### **3. System** (`system/`) - See [system/README.md](system/README.md)    --config configs/adapter_vitl14.yaml
-
+# Quick dev iteration
+python3 scripts/training/train_unified.py \
+    --config configs/training/dev_fast.yaml --gpu 0
 ```
 
-Infrastructure configurations: data paths, CLIP models, logging.
+## Inheritance
 
-### Inference
+All configs inherit from `base.yaml` via the `_base_` key:
 
-### **4. Experiments** (`experiments/`) - See [experiments/README.md](experiments/README.md)```bash
-
-# Production inference
-
-Research and ablation study templates.python -m fmri2img.generation.decode_diffusion \
-
-    --config configs/production.yaml \
-
----    --checkpoint checkpoints/two_stage/subj01/best.pt
-
-
-
-## 📊 Performance Benchmarks# High-quality generation
-
-python -m fmri2img.generation.decode_diffusion \
-
-### **Training Time** (NVIDIA A100 40GB)    --config configs/highres_quality.yaml \
-
-    --checkpoint checkpoints/two_stage/subj01/best.pt
-
-| Configuration | Time | Peak Memory | Performance (Cosine Sim) |
-
-|--------------|------|-------------|-------------------------|# Fast batch processing
-
-| Ridge Baseline | 5 min | 4GB RAM | 0.28 |python -m fmri2img.generation.decode_diffusion \
-
-| MLP Standard | 2 hours | 8GB VRAM | 0.41 |    --config configs/fast_inference.yaml \
-
-| Two-Stage SOTA | 4 hours | 12GB VRAM | 0.52 ⭐ |    --checkpoint checkpoints/two_stage/subj01/best.pt \
-
-    --batch-size 8
-
-### **Inference Speed** (per image)```
-
-
-
-| Configuration | Resolution | Time | Quality |### Development
-
-|--------------|-----------|------|---------|```bash
-
-| Fast | 512px | ~5s | Fair |# Quick test
-
-| Production | 512px | ~10s | Good ⭐ |python -m fmri2img.training.train_mlp \
-
-| High Quality | 1024px | ~60s | Excellent |    --config configs/dev_fast.yaml
-
-
-
----# Ablation study
-
-python -m fmri2img.eval.ablation_driver \
-
-## 🔧 Common Workflows    --base-config configs/ablation.yaml \
-
-    --components infonce_loss,multi_layer,dropout
-
-### **Quick Experiment**```
-
-```bash
-
-python scripts/train_ridge.py \## Configuration Override
-
-    --config configs/training/dev_fast.yaml
-
-```All configs support command-line overrides:
-
-
-
-### **Production Training**```bash
-
-```bash# Override specific parameters
-
-python scripts/train_two_stage.py \python -m fmri2img.training.train_mlp \
-
-    --config configs/training/two_stage_sota.yaml \    --config configs/mlp_standard.yaml \
-
-    --subject subj01    --training.learning_rate 5e-5 \
-
-```    --training.batch_size 128 \
-
-    --preprocessing.pca_k 1024
-
-### **High-Quality Generation**```
-
-```bash
-
-python scripts/decode_diffusion.py \## Adding New Configurations
-
-    --config configs/inference/highres_quality.yaml \
-
-    --checkpoint checkpoints/two_stage/best.pt1. Copy an existing config as template
-
-```2. Update experiment metadata
-
-3. Modify parameters as needed
-
----4. Document expected results
-
-5. Test thoroughly before committing
-
-## 📝 Configuration Format
-
-## Best Practices
-
-All configs use YAML with inheritance:
-
-### For Research
-
-```yaml- Use **two_stage_sota.yaml** for best results
-
-_base_: ../base.yaml  # Inherit from base- Run **ablation.yaml** for component analysis
-
-- Document all parameter changes
-
-model:- Include expected results in config
-
-  architecture: mlp
-
-  hidden_dim: 256### For Production
-
-- Use **production.yaml** as starting point
-
-training:- Adjust based on quality/speed requirements
-
-  epochs: 100- Monitor memory usage and generation time
-
-  learning_rate: 0.0001- Use **fast_inference.yaml** for real-time needs
-
-```
-
-### For Development
-
-**Override at runtime**:- Use **dev_fast.yaml** for quick iteration
-
-```bash- Test with full config before final run
-
---override "training.learning_rate=0.001"- Keep configs in version control
-
-```- Document any custom modifications
-
-
-
----## Configuration Validation
-
-
-
-## 🎓 Best PracticesValidate configs before use:
-
-```bash
-
-1. **Use appropriate config for task**python -m fmri2img.utils.validate_config \
-
-   - Development → `training/dev_fast.yaml`    --config configs/your_config.yaml
-
-   - Production → `training/two_stage_sota.yaml````
-
-
-
-2. **Override at runtime** (don't modify files)## File Organization
-
-   ```bash
-
-   --override "param=value"```
-
-   ```configs/
-
-├── README.md                    # This file
-
-3. **Document custom configs** (purpose, performance, requirements)├── base.yaml                    # Base configuration
-
-├── Training/
-
-4. **Version control** (commit templates, ignore personal configs)│   ├── ridge_baseline.yaml
-
-│   ├── mlp_standard.yaml
-
----│   ├── two_stage_sota.yaml
-
-│   └── adapter_vitl14.yaml
-
-## 🆕 Creating New Configurations├── Inference/
-
-│   ├── production.yaml
-
-```bash│   ├── highres_quality.yaml
-
-# 1. Copy template│   └── fast_inference.yaml
-
-cp configs/training/mlp_standard.yaml configs/training/my_experiment.yaml├── Development/
-
-│   ├── dev_fast.yaml
-
-# 2. Modify parameters│   └── ablation.yaml
-
-vim configs/training/my_experiment.yaml└── Data/
-
-    ├── data.yaml
-
-# 3. Test with dry run    ├── clip.yaml
-
-python scripts/train_mlp.py \    └── logging.yaml
-
-    --config configs/training/my_experiment.yaml \```
-
-    --dry-run
-
-```## Support
-
-
-
----For issues or questions about configurations:
-
-1. Check this README
-
-## 📚 Related Documentation2. Review config comments
-
-3. See docs/USAGE_EXAMPLES.md
-
-- **Category READMEs**: See subdirectory READMEs for detailed info4. Check START_HERE.md
-
-- **[Usage Examples](../USAGE_EXAMPLES.md)** - Command-line usage
-
-- **[Training Guides](../docs/guides/)** - Model-specific guides## Version History
-
-- **[Quick Start](../START_HERE.md)** - Getting started
-
-- v3.0 (Dec 2025): Complete reorganization, professional configs
-
----- v2.0 (Nov 2025): Added multi-layer and ablation configs
-
-- v1.0 (Oct 2025): Initial configs
-
-## 🐛 Troubleshooting
-
----
-
-**Config not found?****Last Updated**: December 6, 2025
-
-```bash**Version**: 3.0
-
-python script.py --config configs/training/mlp_standard.yaml
-```
-
-**Override not working?**
-```bash
---override "training.learning_rate=0.001"  # Use quotes!
-```
-
-**Inheritance failing?**
 ```yaml
-_base_: ../base.yaml  # Correct relative path
+_base_: ../base.yaml
+
+training:
+  batch_size: 8        # Override specific fields
 ```
 
----
+Runtime overrides:
 
-## 📞 Support
+```bash
+python3 scripts/training/train_unified.py \
+    --config configs/experiments/exp7_vmf_nce.yaml \
+    --override "training.batch_size=8" \
+    --override "training.num_epochs=50"
+```
 
-1. Check category-specific README (`training/`, `inference/`, etc.)
-2. Review [Usage Examples](../USAGE_EXAMPLES.md)
-3. Open GitHub issue with config file
+## Ablation Ladder
 
----
+Each experiment adds one component to isolate its effect:
 
-**Last Updated**: December 7, 2025  
-**Version**: 2.0 (Professionally Organized)  
-**Status**: Production-Ready
+| Exp | What Changes | Hypothesis |
+|-----|-------------|-----------|
+| EXP0 | Deterministic MLP baseline | Lower bound |
+| EXP1 | + center_pcr preprocessing | Reduces hubness |
+| EXP2 | + memory queue (Q=8192) | Harder negatives |
+| EXP3 | + Gaussian NLL | Captures uncertainty |
+| EXP4 | + Gaussian-NCE | Distribution-aware contrastive |
+| EXP5 | + KL annealing + free-bits | Stabilizes training |
+| EXP6 | Whitening ablation | PCR vs whitening |
+| **EXP7** | **vMF-NCE** | **Matches S^{d-1} geometry** |
+| **EXP8** | **ROI Transformer** | **Brain-topology inductive bias** |
+| **EXP9** | **ROI-DCF consensus** | **Per-ROI directional experts** |
+| EXP10 | + vMF mixture sampling | Diversity in generation |
+| EXP11 | + decomposed UA-CFG | Principled uncertainty guidance |
+| EXP12 | + noise-ceiling temperature | Measurement-aware calibration |
+| EXP13 | + kappa-SPCL curriculum | Self-paced learning |
+| **EXP14** | **Full system** | **All contributions combined** |
+
+Bold = novel contributions (EXP7-EXP9 core, EXP14 flagship).
+
+## Phase History
+
+- **Phase 1** (completed): ViT-B/32 (512-D), TwoStageEncoder, InfoNCE.
+  Results in `experimental_results/exp001_baseline_ultimate/`.
+- **Phase 2** (current): ViT-L/14 (768-D), ROI Transformer, vMF-NCE, ROI-DCF.
+  Configs = `experiments/exp0-exp14`.

@@ -95,9 +95,10 @@ venv.bak/
 *.pth
 *.ckpt
 *.safetensors
-checkpoints/*.pt
-checkpoints/*.pth
-!checkpoints/.gitkeep
+checkpoints/
+!checkpoints/clip_adapter/
+!checkpoints/clip_adapter/subj01/
+!checkpoints/clip_adapter/subj01/*.json
 
 # Training logs
 logs/
@@ -186,5 +187,3 @@ Thumbs.db
 *codebase.md*
 
 *.png
-
-checkpoints/

@@ -1,12 +1,17 @@
-# EXP0: Baseline (Deterministic, No Preprocessing, No Queue)
+# EXP0: Deterministic Baseline (No Preprocessing, No Queue, No Uncertainty)
+#
+# Reference point for the entire ablation ladder. Deterministic MLP encoder
+# with MSE + InfoNCE losses, no embedding preprocessing, no memory queue.
+#
+# Hypothesis: H0: This provides a fair lower bound. Each subsequent
+#             experiment (EXP1-EXP14) should improve on at least one
+#             metric dimension.
 
-# Experiment metadata
 experiment:
   name: "exp0_baseline"
-  description: "Baseline deterministic model with MSE + cosine InfoNCE, no preprocessing, no queue"
+  description: "Deterministic MLP baseline with MSE + InfoNCE"
   tags: ["baseline", "deterministic"]
 
-# Data configuration
 data:
   subject: "subj01"
   roi: "nsdgeneral"
@@ -15,101 +20,69 @@ data:
   test_split: 0.15
   seed: 42
 
-# Model configuration
 model:
-  type: "deterministic"  # Single output, no variance
+  type: "deterministic"
   encoder:
-    input_dim: null  # Will be inferred from ROI
-    hidden_dims: [2048, 1024, 512]  # Reduced from [4096, 2048, 1024]
-    activation: "relu"
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [4096, 2048, 1024]
+    activation: "gelu"
     dropout: 0.1
   decoder:
-    input_dim: 512  # Match encoder output
-    output_dim: 768  # CLIP embedding dimension
-    hidden_dims: [768]  # Reduced from [1536]
-    activation: "relu"
+    input_dim: 1024
+    output_dim: 768
+    hidden_dims: [1536]
+    activation: "gelu"
     dropout: 0.1
 
-# Preprocessing configuration
 preprocessing:
-  enabled: false  # No embedding preprocessing
+  enabled: false
 
-# Loss configuration
 loss:
   mse:
     enabled: true
     weight: 1.0
-  
   infonce:
     enabled: true
     weight: 1.0
-    type: "infonce_queue"
     temperature: 0.07
     learnable_temperature: true
     symmetric: true
-    use_queue: false  # No queue for EXP0
-
+    use_queue: false
   gaussian_nll:
     enabled: false
-  
   gaussian_nce:
     enabled: false
-  
   kl:
     enabled: false
 
-# Memory queue (disabled for EXP0)
 queue:
   enabled: false
 
-# Training configuration
 training:
-  batch_size: 2  # Reduced from 4 to fit in memory
+  batch_size: 4
+  gradient_accumulation_steps: 16
+  mixed_precision: true
   num_epochs: 100
   optimizer:
     type: "adamw"
-    lr: 1e-4
+    lr: 1.0e-4
     weight_decay: 0.01
     betas: [0.9, 0.999]
-  
-  scheduler:
-    type: "cosine"
-    warmup_steps: 1000
-    min_lr: 1e-6
-  
+  warmup_epochs: 5
+  min_lr: 1.0e-6
   gradient_clip: 1.0
-  
-  early_stopping:
-    enabled: true
-    patience: 10
-    metric: "val_loss"
-    mode: "min"
+  early_stop_patience: 15
 
-# Inference configuration
 inference:
-  use_mean_for_retrieval: true  # N/A for deterministic, but keep for consistency
-  mc_samples_prob_metrics: 0  # No probabilistic metrics
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 0
   seed: 42
 
-# Evaluation configuration
 evaluation:
   gallery_sizes: [2, 10, 50, 100, 500, 1000]
-  n_identification_pairs: 5000
-  n_bootstrap_samples: 1000
-  compute_rsa: true
-  compute_cka: true
+  compute_probabilistic: false
   seed: 42
 
-# Logging and checkpointing
-logging:
-  log_every_n_steps: 50
-  checkpoint_every_n_epochs: 5
-  save_top_k: 3
-  monitor: "val_loss"
-
-# Output paths
 paths:
   output_dir: "experimental_results/exp0_baseline"
-  checkpoint_dir: "checkpoints"
-  log_dir: "logs"
-  eval_dir: "evaluation"

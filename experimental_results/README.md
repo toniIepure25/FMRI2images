@@ -11,7 +11,7 @@ experimental_results/
 ├── README.md                          # This file
 │
 ├── exp001_baseline_ultimate/          # Phase 1 baseline (completed)
-│   ├── config.yaml                    # Training configuration used
+│   ├── config.yaml                    # Training configuration snapshot
 │   ├── training_info.json             # Epoch, checkpoint path, training metrics
 │   ├── notes.md                       # Observations and analysis
 │   └── evaluation/
@@ -20,10 +20,7 @@ experimental_results/
 │       ├── eval_results.json          # Full evaluation dump
 │       └── summary_report.md          # Formatted summary
 │
-├── exp0_baseline/                     # Phase 2 EXP0 (pending)
-│   └── config.yaml
-│
-└── exp{N}_{name}/                     # Phase 2 experiments (EXP7-EXP14)
+└── exp{N}_{name}/                     # Phase 2 experiments (EXP0-EXP14)
     ├── config.yaml                    # Frozen config snapshot
     ├── training_info.json             # Training metadata
     ├── notes.md                       # Per-experiment analysis

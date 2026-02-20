@@ -1,211 +1,140 @@
-# Experimental Results Analysis
+# Experimental Results
 
-This folder contains **evaluation metrics and analysis** for all completed training experiments. This is separate from training runs and focuses only on final results for comparison.
+Structured evaluation outputs for all training experiments. Each experiment
+directory contains the full configuration, evaluation metrics, and analysis
+needed for reproducible comparison and paper-ready reporting.
 
-## Folder Structure
+## Directory Structure
 
 ```
 experimental_results/
-├── exp001_baseline_ultimate/
-│   ├── evaluation/
-│   │   ├── clip_metrics.json          # CLIP embedding quality metrics
-│   │   ├── probabilistic_metrics.json # KL divergence, uncertainty
-│   │   ├── retrieval_results.json     # Top-k accuracy, rankings
-│   │   └── summary_report.md          # Human-readable summary
-│   ├── reconstructions/               # (Optional) Generated images
-│   │   ├── gallery_top10.png
-│   │   ├── gallery_worst10.png
-│   │   └── samples/
+├── README.md                          # This file
+│
+├── exp001_baseline_ultimate/          # Phase 1 baseline (completed)
 │   ├── config.yaml                    # Training configuration used
-│   ├── training_info.json             # Epochs, time, hardware info
-│   └── notes.md                       # Observations, insights
+│   ├── training_info.json             # Epoch, checkpoint path, training metrics
+│   ├── notes.md                       # Observations and analysis
+│   └── evaluation/
+│       ├── clip_metrics.json          # Cosine similarity, retrieval R@K
+│       ├── probabilistic_metrics.json # KL divergence, reconstruction error
+│       ├── eval_results.json          # Full evaluation dump
+│       └── summary_report.md          # Formatted summary
 │
-├── exp002_higher_lr/
-│   └── ... (same structure)
+├── exp0_baseline/                     # Phase 2 EXP0 (pending)
+│   └── config.yaml
 │
-├── exp003_ablation_layer4/
-│   └── ... (same structure)
-│
-└── comparison_reports/
-    ├── baseline_vs_higher_lr.md
-    ├── ablation_study_layers.md
-    └── final_thesis_comparison.md
+└── exp{N}_{name}/                     # Phase 2 experiments (EXP7-EXP14)
+    ├── config.yaml                    # Frozen config snapshot
+    ├── training_info.json             # Training metadata
+    ├── notes.md                       # Per-experiment analysis
+    └── evaluation/
+        ├── embedding_metrics.json     # Retrieval: R@K, MRR, MedR, CSLS, hubness
+        ├── probabilistic_metrics.json # NLL, Energy Score, ECE, coverage
+        ├── risk_coverage.json         # AURC, E-AURC, R@80/90/95
+        ├── ceiling_normalized.json    # All metrics as % of noise ceiling
+        ├── roi_analysis.json          # Per-ROI kappa, attention, lesion study
+        ├── kappa_calibration.json     # kappa quantiles for UA-CFG
+        └── summary_report.md          # Formatted comparison-ready summary
 ```
 
-## Workflow: From Training to Analysis
+## Ablation Ladder
 
-### Phase 1: Training Completion ✅
-- Train model to completion (e.g., 50 epochs)
-- Checkpoint saved: `runs/DATE_TIME_NAME/checkpoints/best_model.pt`
+| Exp | Description | Key Hypothesis | Status |
+|-----|-------------|---------------|--------|
+| **Phase 1** | | | |
+| exp001 | Baseline Ultimate (all 7 Phase 1 contributions) | Combined system works | Completed (epoch 28) |
+| **Phase 2** | | | |
+| EXP0 | Deterministic MLP (MSE + cosine) | Baseline reference | Pending |
+| EXP1 | + center_pcr preprocessing | H1: PCR reduces hubness | Pending |
+| EXP2 | + InfoNCE + memory queue | H2: Contrastive + queue helps retrieval | Pending |
+| EXP3 | + Gaussian NLL | H3: Gaussian captures uncertainty | Pending |
+| EXP4 | + Gaussian-NCE | H4: Gaussian-NCE improves calibration | Pending |
+| EXP5 | + KL annealing | H5: Annealing stabilizes training | Pending |
+| EXP6 | + whitening (ablation) | H6: Whitening vs PCR | Pending |
+| **EXP7** | **vMF-NCE (MLP)** | **H7: vMF > Gaussian on S^{d-1}** | Pending |
+| **EXP8** | **ROI Transformer + vMF-NCE** | **H8: ROI inductive bias helps** | Pending |
+| **EXP9** | **ROI-DCF consensus** | **H9: Per-ROI distributions are richer** | Pending |
+| **EXP10** | + vMF mixture sampling | H10: Mixture > consensus for generation | Pending |
+| **EXP11** | + decomposed UA-CFG | H11: Dual uncertainty > heuristic CFG | Pending |
+| **EXP12** | + noise-ceiling temperature | H12: Ceiling-temp improves calibration | Pending |
+| **EXP13** | + kappa-SPCL curriculum | H13: Curriculum helps convergence | Pending |
+| **EXP14** | **Full system** | **H14: Full > any ablation** | Pending |
 
-### Phase 2: Evaluation (FIRST - MOST IMPORTANT) 🔍
-**Run comprehensive evaluation** on the trained model:
+## Metric Tiers
+
+### Tier 1: Primary (Paper Tables)
+
+| Metric | Type | Direction | Phase 2 Module |
+|--------|------|-----------|----------------|
+| R@1, R@5 | Retrieval | Higher | `eval/embedding_metrics.py` |
+| MRR | Retrieval | Higher | `eval/embedding_metrics.py` |
+| AURC | Selective prediction | Lower | `eval/vmf_risk_coverage.py` |
+| PixCorr | Reconstruction | Higher | `eval/image_metrics.py` |
+| SSIM | Reconstruction | Higher | `eval/image_metrics.py` |
+
+### Tier 2: Calibration and Uncertainty
+
+| Metric | Type | Direction | Phase 2 Module |
+|--------|------|-----------|----------------|
+| ECE | Calibration | Lower | `eval/probabilistic_metrics.py` |
+| Coverage@95 | Calibration | Close to 95% | `eval/probabilistic_metrics.py` |
+| Energy Score | Proper scoring | Lower | `inference/vmf_mixture.py` |
+| kappa statistics | Uncertainty | Interpretive | `eval/kappa_calibration.py` |
+
+### Tier 3: Neuroscience and Interpretability
+
+| Metric | Type | Direction | Phase 2 Module |
+|--------|------|-----------|----------------|
+| ROI attention importance | Interpretability | — | `eval/neuroscience_analysis.py` |
+| Frequency band weights | Interpretability | — | `models/freq_roi.py` |
+| Ceiling-normalized metrics | Fair comparison | Higher | `eval/ceiling_normalized_eval.py` |
+
+## Running Evaluations
+
+### Phase 2 Training
+
 ```bash
-python scripts/evaluate_ultimate_model.py \
-    --checkpoint runs/YOUR_RUN/checkpoints/best_model.pt \
-    --config experiments/YOUR_CONFIG.yaml \
-    --output-dir experimental_results/exp001_baseline_ultimate/evaluation \
-    --num-samples 1000
+python3 scripts/training/train_unified.py \
+    --config configs/experiments/exp7_vmf_nce.yaml \
+    --gpu 0
 ```
 
-**Key Metrics for 2-Stage Probabilistic Model**:
-1. **CLIP Embedding Quality**:
-   - Cosine similarity (mean, median, std) - measures embedding alignment
-   - Expected: >0.40 for good performance, >0.50 for excellent
+### Full Ablation Ladder
 
-2. **Retrieval Performance**:
-   - Top-1 accuracy (correct image in top-1)
-   - Top-5 accuracy (correct image in top-5)
-   - Top-10 accuracy
-   - Mean rank (lower = better)
-   - Expected: Top-5 >40% indicates strong learning
-
-3. **Probabilistic Metrics** (Novel for this model):
-   - KL divergence (regularization quality)
-   - Variance in predictions (uncertainty estimation)
-   - Expected: KL ~0.1-0.3 for good balance
-
-4. **Reconstruction Error**:
-   - MSE/RMSE in embedding space
-   - L2 distance (mean, std)
-
-**Decision Point**: Based on these metrics, decide if:
-- ✅ **Good** → Archive and maybe generate reconstructions
-- ❌ **Poor** → Modify hyperparameters and train new experiment
-
-### Phase 3: Image Reconstruction (OPTIONAL - Visual Validation) 🖼️
-**Only if evaluation metrics are satisfactory**, generate image reconstructions:
 ```bash
-python scripts/run_stage34_recon_eval.py \
-    --checkpoint runs/YOUR_RUN/checkpoints/best_model.pt \
-    --config experiments/YOUR_CONFIG.yaml \
-    --output-dir experimental_results/exp001_baseline_ultimate/reconstructions \
-    --num-images 50
+bash scripts/training/run_ablation_ladder.sh \
+    --subjects "subj01 subj02 subj05 subj07" \
+    --gpu 0 \
+    --start-exp 7
 ```
 
-**Why optional?**
-- Image reconstruction is slow (requires Stable Diffusion inference)
-- CLIP metrics already tell you embedding quality
-- Use reconstructions for:
-  - Visual validation of best model
-  - Thesis figures/presentations
-  - Comparing top experiments visually
+### Cross-Experiment Comparison
 
-### Phase 4: Archive and Document 📝
-Copy configuration and add notes:
+After running multiple experiments, compare with statistical tests:
+
 ```bash
-cp experiments/YOUR_CONFIG.yaml experimental_results/exp001_baseline_ultimate/config.yaml
+python3 scripts/evaluation/compare_experiments.py \
+    --exp-dirs experimental_results/exp7_vmf_nce \
+               experimental_results/exp8_roi_transformer \
+               experimental_results/exp9_roi_dcf \
+    --output experimental_results/comparison_exp7_vs_exp9.md \
+    --paired-test
 ```
 
-Edit `notes.md` with observations:
-- What hyperparameters were used
-- Training stability observations
-- Metric interpretation
-- Ideas for next experiment
+## SOTA Benchmarks (Published, for Reference)
 
-### Phase 5: Compare Experiments 📊
-After running multiple experiments:
-```bash
-python scripts/compare_experimental_results.py \
-    --experiments exp001_baseline exp002_higher_lr exp003_ablation \
-    --output experimental_results/comparison_reports/baseline_comparison.md
-```
+| Method | PixCorr | SSIM | Alex(2) | Alex(5) | R@1 |
+|--------|---------|------|---------|---------|-----|
+| MindEye (2023) | 0.309 | 0.323 | 0.947 | 0.978 | — |
+| MindEye2 (2024) | 0.320 | 0.341 | 0.960 | 0.983 | — |
+| Brain Diffuser (2023) | 0.254 | 0.356 | 0.942 | 0.962 | — |
 
-## Naming Convention
+## Conventions
 
-**Format**: `expXXX_descriptive_name`
-
-Examples:
-- `exp001_baseline_ultimate` - Baseline with all 7 contributions
-- `exp002_lr5e5` - Higher learning rate (5e-5)
-- `exp003_lr1e6` - Lower learning rate (1e-6)
-- `exp004_ablation_layer4` - Disable layer_4 output
-- `exp005_ablation_layer8` - Disable layer_8 output
-- `exp006_no_infonce` - Remove InfoNCE loss
-- `exp007_kl_weight_01` - Higher KL weight (0.1 instead of 0.01)
-- `exp008_more_blocks` - 8 blocks instead of 6
-- `exp009_dropout_03` - Higher dropout (0.3 instead of 0.1)
-- `exp010_final_thesis` - Best configuration for final thesis
-
-## Quick Commands
-
-### Evaluate completed training
-```bash
-cd ~/Bachelor_V2  # On JupyterHub cluster
-
-# Evaluate
-python scripts/evaluate_ultimate_model.py \
-    --checkpoint runs/20260115_172845_ultimate_novel_subj01/checkpoints/best_model.pt \
-    --config experiments/ultimate_novel_subj01.yaml \
-    --output-dir experimental_results/exp001_baseline_ultimate/evaluation \
-    --num-samples 1000
-```
-
-### Check results
-```bash
-# View metrics
-cat experimental_results/exp001_baseline_ultimate/evaluation/eval_best_model.json
-
-# List all experiments
-ls -lh experimental_results/
-```
-
-### Compare multiple experiments
-```bash
-# After you have multiple experiments
-python scripts/compare_experimental_results.py \
-    --exp-dirs experimental_results/exp001_baseline_ultimate \
-                experimental_results/exp002_higher_lr \
-    --output experimental_results/comparison_reports/exp001_vs_exp002.md
-```
-
-## Metrics Priority for 2-Stage Probabilistic Model
-
-### Tier 1: Essential (Check First)
-1. **Cosine Similarity (mean)** - Overall embedding quality
-2. **Top-5 Retrieval** - Practical retrieval performance
-3. **KL Divergence** - Probabilistic component health
-
-### Tier 2: Important (Context)
-4. **Top-1 Retrieval** - Best-case performance
-5. **Mean Rank** - Average performance
-6. **L2 Distance** - Raw reconstruction error
-
-### Tier 3: Diagnostic (Understanding)
-7. **Cosine Similarity (std)** - Consistency across samples
-8. **MSE/RMSE** - Alternative error metrics
-9. **Median Rank** - Robustness to outliers
-
-## Thesis Comparison Strategy
-
-For your bachelor thesis, you'll want to show:
-
-1. **Baseline Performance** (exp001)
-   - All 7 novel contributions enabled
-   - Standard hyperparameters
-
-2. **Ablation Studies** (exp004-006)
-   - Remove one contribution at a time
-   - Shows importance of each component
-
-3. **Hyperparameter Optimization** (exp002-003, exp007-009)
-   - Learning rate sweep
-   - KL weight tuning
-   - Architecture depth
-
-4. **Final Best Model** (exp010)
-   - Best hyperparameters discovered
-   - Use for final reconstructions and thesis figures
-
-## Tips
-
-1. **Evaluate immediately** after training finishes
-2. **Don't generate reconstructions** for every experiment (slow)
-3. **Focus on CLIP metrics** for comparing experiments
-4. **Use reconstructions** only for best 2-3 models
-5. **Document observations** in notes.md right away
-6. **Compare systematically** using automated tools
-
----
-
-*This folder is for **analysis only** - training runs stay in `runs/` directory*
+- **Naming**: `exp{N}_{short_name}/` matches `configs/experiments/exp{N}_{short_name}.yaml`
+- **Configs are frozen**: Once an experiment starts, its `config.yaml` is copied here
+  and never modified. Configuration changes require a new experiment number.
+- **Notes are mandatory**: Every completed experiment must have a filled `notes.md`
+  documenting observations, surprises, and lessons before starting the next experiment.
+- **No fabricated numbers**: All reported metrics must trace to a JSON file in this
+  directory. If an experiment hasn't been run, mark it "Pending" — never estimate.

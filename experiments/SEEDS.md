@@ -1,14 +1,42 @@
-# Seed & Determinism Policy
+# Seed and Determinism Policy
 
-This repository targets **reproducible paper-grade runs**. Use these defaults unless a config overrides them.
+This repository targets **reproducible, paper-grade experiments**. All seeds are set
+via YAML configs (`training.seed`, `evaluation.seed`, `inference.seed`). The global
+default is `42` (from `configs/base.yaml`).
 
-- **Global seed**: `42` (matches `training.seed` in `configs/base.yaml`).
-- **PyTorch**: set `torch.manual_seed`, `torch.cuda.manual_seed_all`, enable `torch.backends.cudnn.deterministic = True`, and set `torch.backends.cudnn.benchmark = False` for deterministic kernels when reproducibility matters.
-- **NumPy**: `np.random.seed(training.seed)`.
-- **Python**: `random.seed(training.seed)`.
-- **DataLoader**: set `worker_init_fn` to seed workers, and `generator` to a seeded `torch.Generator` when shuffling.
-- **Diffusion sampling**: pass an explicit seed to the sampler; for adaptive-K runs, keep a deterministic per-trial seed schedule (e.g., `base_seed + trial_id * 1000 + k`).
-- **Logvar/uncertainty heads**: sampling uses reparameterization noise; use the seeded RNG from PyTorch for determinism in validation/inference when you need identical draws. For reporting, prefer deterministic mean or a fixed `eps` seed unless ablation requires stochasticity.
-- **CUDA/cuDNN determinism caveat**: some ops have non-deterministic kernels on GPU. If exact determinism is required, set `CUBLAS_WORKSPACE_CONFIG=:16:8` or `:4096:2` (see PyTorch docs) before running.
+## Required Seeds
 
-When running large grids, record the seed in your run name (see `experiments/RUNS.md`).
+| Component | How | Config Key |
+|-----------|-----|------------|
+| PyTorch | `torch.manual_seed(seed)` | `training.seed` |
+| CUDA | `torch.cuda.manual_seed_all(seed)` | `training.seed` |
+| NumPy | `np.random.seed(seed)` | `training.seed` |
+| Python | `random.seed(seed)` | `training.seed` |
+| DataLoader | `worker_init_fn` + seeded `torch.Generator` | `training.seed` |
+| Diffusion | Per-trial: `base_seed + trial_id * 1000 + k` | `inference.seed` |
+| vMF Sampling | Seeded `torch.Generator` for rejection sampling | `inference.seed` |
+| Evaluation | Bootstrap CIs, 2AFC pair sampling | `evaluation.seed` |
+
+## cuDNN Determinism
+
+For exact reproducibility across runs:
+
+```bash
+export CUBLAS_WORKSPACE_CONFIG=:4096:2
+```
+
+And in code:
+
+```python
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+torch.use_deterministic_algorithms(True)
+```
+
+**Caveat**: Deterministic mode disables some fast GPU kernels. Use only for final
+reported numbers, not during hyperparameter search.
+
+## Multi-Seed Reporting
+
+For statistical significance in the paper, run each experiment with 3 seeds
+(`42`, `123`, `2024`) and report `mean +/- std` with paired t-tests across subjects.

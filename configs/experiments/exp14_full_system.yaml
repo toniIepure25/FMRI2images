@@ -1,0 +1,164 @@
+# EXP14: Full System — All Novel Contributions Combined
+#
+# Combines all innovations from EXP10-EXP13:
+#   - ROI-DCF with per-ROI vMF experts (EXP9)
+#   - vMF Mixture Sampling for generation (EXP10)
+#   - Decomposed UA-CFG: kappa -> w, delta -> K (EXP11)
+#   - Noise-Ceiling Temperature (EXP12)
+#   - kappa-SPCL Curriculum (EXP13)
+#
+# This is the flagship experiment for the paper.
+#
+# Hypothesis: H14: The full system achieves the best overall performance
+#             across retrieval, calibration, reconstruction, and
+#             interpretability metrics, outperforming each ablation.
+
+experiment:
+  name: "exp14_full_system"
+  description: "Full system: ROI-DCF + Mixture + DUA-CFG + Ceiling-Temp + SPCL"
+  tags: ["roi_dcf", "vmf", "mixture", "dual_ua_cfg", "ceiling", "spcl", "full_system", "flagship"]
+  parent: "exp9_roi_dcf"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.70
+  val_split: 0.15
+  test_split: 0.15
+  seed: 42
+
+model:
+  type: "vmf_dcf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "roi_transformer"
+    input_dim: null
+    roi_dims:
+      V1v: 700
+      V1d: 700
+      V2v: 600
+      V2d: 600
+      V3v: 500
+      V3d: 500
+      V3A: 350
+      V3B: 350
+      V4: 500
+      FFA1: 200
+      FFA2: 200
+      PPA: 300
+      EBA: 400
+      OFA: 200
+      OPA: 250
+      RSC: 250
+      nsdgeneral_other: 9374
+    d_model: 512
+    nhead: 8
+    num_layers: 4
+    dropout: 0.1
+    activation: "gelu"
+  decoder:
+    output_dim: 768
+    kappa_min: 0.001
+    kappa_max: 500.0
+    dropout: 0.1
+    dcf:
+      shared_heads: true
+      hidden_dim: null
+      return_per_roi: true
+
+preprocessing:
+  enabled: true
+  mode: "center_pcr"
+  k_components: 8
+  artifact_path: "cache/embedding_preproc/subj01_center_pcr_k8.pkl"
+  fit_on_train: true
+
+loss:
+  vmf_nce_spcl:
+    enabled: true
+    weight: 1.0
+    tau: 0.07
+    use_queue: true
+    initial_curriculum_t: 100.0
+    final_curriculum_t: 1.0
+    warmup_epochs: 10
+    anneal_strategy: "cosine"
+    ceiling_temperature:
+      enabled: true
+      beta: 0.5
+      ceiling_source: "ncsnr"
+  vmf_nce_multitask:
+    enabled: true
+    lambda_aux: 0.5
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+  vmf_nce:
+    enabled: false
+  vmf_nll:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 8192
+
+training:
+  batch_size: 4
+  gradient_accumulation_steps: 16
+  mixed_precision: true
+  num_epochs: 100
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-4
+    weight_decay: 0.05
+    betas: [0.9, 0.95]
+  warmup_epochs: 10
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 20
+
+inference:
+  use_mean_for_retrieval: true
+  seed: 42
+  # vMF Mixture Sampling
+  mixture_sampling:
+    enabled: true
+    num_samples: 8
+    strategy: "proportional"
+    selection: "closest_to_consensus"
+  # Decomposed UA-CFG
+  decomposed_ua_cfg:
+    enabled: true
+    w_min: 1.5
+    w_max: 12.0
+    gamma_w: 1.0
+    k_min: 1
+    k_max: 8
+    delta_threshold_low: 0.2
+    delta_threshold_high: 0.6
+    steps_min: 10
+    steps_max: 50
+    gamma_steps: 0.5
+    abstain_kappa_quantile: 0.05
+    abstain_delta_threshold: 0.85
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  compute_probabilistic: true
+  compute_attention_analysis: true
+  compute_per_roi_analysis: true
+  compute_mixture_energy_score: true
+  compute_risk_coverage: true
+  compute_ceiling_normalized: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/exp14_full_system"

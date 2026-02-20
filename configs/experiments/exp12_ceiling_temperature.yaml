@@ -1,0 +1,137 @@
+# EXP12: ROI-DCF + Noise-Ceiling Temperature
+#
+# Scales the contrastive temperature tau per-subject based on the
+# Spearman-Brown noise ceiling, accounting for inherent fMRI
+# measurement limits in the loss function.
+#
+# tau_subject = tau_base * (1 + beta * (1 - ceiling_subject))
+#
+# Subjects with lower noise ceiling (noisier data) get a higher
+# temperature, relaxing the contrastive constraint appropriately.
+#
+# Hypothesis: H12: Ceiling-informed temperature improves calibration
+#             (ECE, Coverage@95) without sacrificing retrieval, because
+#             the loss correctly accounts for measurement noise.
+
+experiment:
+  name: "exp12_ceiling_temperature"
+  description: "ROI-DCF with noise-ceiling-informed contrastive temperature"
+  tags: ["roi_dcf", "vmf", "ceiling", "calibration", "novel"]
+  parent: "exp9_roi_dcf"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.70
+  val_split: 0.15
+  test_split: 0.15
+  seed: 42
+
+model:
+  type: "vmf_dcf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "roi_transformer"
+    input_dim: null
+    roi_dims:
+      V1v: 700
+      V1d: 700
+      V2v: 600
+      V2d: 600
+      V3v: 500
+      V3d: 500
+      V3A: 350
+      V3B: 350
+      V4: 500
+      FFA1: 200
+      FFA2: 200
+      PPA: 300
+      EBA: 400
+      OFA: 200
+      OPA: 250
+      RSC: 250
+      nsdgeneral_other: 9374
+    d_model: 512
+    nhead: 8
+    num_layers: 4
+    dropout: 0.1
+    activation: "gelu"
+  decoder:
+    output_dim: 768
+    kappa_min: 0.001
+    kappa_max: 500.0
+    dropout: 0.1
+    dcf:
+      shared_heads: true
+      hidden_dim: null
+      return_per_roi: true
+
+preprocessing:
+  enabled: true
+  mode: "center_pcr"
+  k_components: 8
+  artifact_path: "cache/embedding_preproc/subj01_center_pcr_k8.pkl"
+  fit_on_train: true
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    dim: 768
+    tau: 0.07                     # Base temperature
+    use_queue: true
+    # Ceiling temperature modulation
+    ceiling_temperature:
+      enabled: true
+      beta: 0.5                   # Modulation strength: tau = tau_base * (1 + beta * (1 - ceiling))
+      ceiling_source: "ncsnr"     # ncsnr | embedding_repeats
+  vmf_nce_multitask:
+    enabled: true
+    lambda_aux: 0.5
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+  vmf_nll:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 8192
+
+training:
+  batch_size: 4
+  gradient_accumulation_steps: 16
+  mixed_precision: true
+  num_epochs: 100
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-4
+    weight_decay: 0.05
+    betas: [0.9, 0.95]
+  warmup_epochs: 10
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 20
+
+inference:
+  use_mean_for_retrieval: true
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  compute_probabilistic: true
+  compute_attention_analysis: true
+  compute_per_roi_analysis: true
+  compute_ceiling_normalized: true  # Report metrics as % of ceiling
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/exp12_ceiling_temperature"

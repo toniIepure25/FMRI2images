@@ -255,9 +255,89 @@ def compute_ceiling_normalized_score(
     return raw_score / ceiling
 
 
+def spearman_brown_noise_ceiling(
+    betas: np.ndarray,
+    nsd_ids: np.ndarray,
+    n_repeats: int = 3,
+) -> dict:
+    """
+    Estimate noise ceiling via Spearman-Brown prophecy on repeated stimuli.
+
+    For each stimulus shown *n_repeats* times, compute inter-repeat
+    correlations and apply the Spearman-Brown formula to estimate the
+    upper bound on achievable correlation.
+
+    Args:
+        betas: (N_trials, V) fMRI beta values  OR  (N_trials, D) embeddings
+        nsd_ids: (N_trials,) stimulus IDs indicating repeats
+        n_repeats: expected number of repeats per stimulus
+
+    Returns:
+        dict with:
+            upper: upper-bound noise ceiling (avg Spearman-Brown)
+            lower: lower-bound (avg single-repeat to mean-of-others)
+            per_voxel_upper: (V,) upper ceiling per voxel/feature
+    """
+    unique_ids = np.unique(nsd_ids)
+    stim_groups = {sid: np.where(nsd_ids == sid)[0] for sid in unique_ids}
+    stim_groups = {k: v for k, v in stim_groups.items() if len(v) >= 2}
+
+    V = betas.shape[1]
+    pairwise_corrs = []
+
+    for sid, idxs in stim_groups.items():
+        reps = betas[idxs[:n_repeats]]  # (n_repeats, V)
+        n = reps.shape[0]
+        for i in range(n):
+            for j in range(i + 1, n):
+                r = _vec_corrcoef(reps[i], reps[j])
+                pairwise_corrs.append(r)
+
+    if not pairwise_corrs:
+        return {"upper": 0.0, "lower": 0.0, "per_voxel_upper": np.zeros(V)}
+
+    pairwise_corrs = np.stack(pairwise_corrs, axis=0)  # (n_pairs, V)
+    mean_r = np.nanmean(pairwise_corrs, axis=0)  # (V,)
+    mean_r_clipped = np.clip(mean_r, 0, 1)
+
+    # Spearman-Brown: r_ceiling = n*r / (1 + (n-1)*r)
+    sb = n_repeats * mean_r_clipped / (1 + (n_repeats - 1) * mean_r_clipped + 1e-10)
+
+    # Lower bound: single repeat vs mean of others
+    lower_corrs = []
+    for sid, idxs in stim_groups.items():
+        reps = betas[idxs[:n_repeats]]
+        for i in range(reps.shape[0]):
+            others = np.delete(reps, i, axis=0).mean(axis=0)
+            lower_corrs.append(_vec_corrcoef(reps[i], others))
+    lower_corrs = np.stack(lower_corrs, axis=0)
+    lower_mean = np.nanmean(lower_corrs, axis=0)
+
+    return {
+        "upper": float(np.nanmean(sb)),
+        "lower": float(np.nanmean(lower_mean)),
+        "per_voxel_upper": sb,
+        "per_voxel_lower": lower_mean,
+        "n_stimuli": len(stim_groups),
+    }
+
+
+def _vec_corrcoef(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Element-wise Pearson correlation for two (V,) arrays, returning (V,)."""
+    # When a and b are 1-D vectors of the same feature dimension,
+    # the "per-voxel" correlation across a single pair of repeats
+    # is just the product of z-scored values.
+    # For a proper noise ceiling we need many pairs -> averaged outside.
+    a_m = a - np.nanmean(a)
+    b_m = b - np.nanmean(b)
+    num = a_m * b_m
+    den = np.sqrt(np.nanmean(a_m ** 2) * np.nanmean(b_m ** 2)) + 1e-10
+    return num / den
+
+
 def compute_repeat_consistency(
     predictions_per_rep: List[np.ndarray],
-    metric: str = "cosine"
+    metric: str = "cosine",
 ) -> dict:
     """
     Compute consistency of predictions across fMRI repetitions.

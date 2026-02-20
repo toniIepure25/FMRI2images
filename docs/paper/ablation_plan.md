@@ -140,18 +140,58 @@ Systematic ablation study to isolate the contribution of each component. All exp
 
 ---
 
-## Ablation Matrix
+### EXP7: Von Mises-Fisher NCE (Novel Contribution - Principled Distribution)
+**Purpose**: Replace diagonal Gaussian with the von Mises-Fisher distribution.
 
-| Component | EXP0 | EXP1 | EXP2 | EXP3 | EXP4 | EXP5 | EXP6 |
-|-----------|------|------|------|------|------|------|------|
-| **Preprocessing** | ❌ | center_pcr | center_pcr | center_pcr | center_pcr | center_pcr | center_whiten |
-| **Queue** | ❌ | ❌ | 8192 | 8192 | 8192 | 8192 | 8192 |
-| **Model** | Deterministic | Deterministic | Deterministic | Gaussian | Gaussian | Gaussian | Gaussian |
-| **Loss: NLL** | MSE | MSE | MSE | ✅ | ✅ | ✅ | ✅ |
-| **Loss: InfoNCE** | Cosine | Cosine | Cosine+Queue | Cosine+Queue | ❌ | ❌ | ❌ |
-| **Loss: Gaussian-NCE** | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ |
-| **Loss: KL** | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
-| **Inference Mode** | mu | mu | mu | mu | mu | mu | mu |
+**Changes from EXP4**:
+- Model type: vmf (outputs mu + log_kappa instead of mu + logvar)
+- Loss: vMF-NLL + vMF-NCE (replaces Gaussian-NLL + Gaussian-NCE)
+- Training: gradient accumulation (effective batch 64), mixed precision, GELU, residual connections
+
+**Expected**:
+- **Better calibration** than EXP4: Coverage@95 closer to 0.95 (correct manifold)
+- **Better retrieval**: vMF log-density as score is more principled for L2-normalised keys
+- **Lower AURC**: uncertainty is more decision-relevant
+
+**Proves**: vMF is the correct distribution for hyperspherical embeddings; Gaussian wastes probability mass off-manifold.
+
+**Hypothesis**: EXP7 > EXP4 for both retrieval AND calibration
+
+---
+
+### EXP8: ROI-Tokenised Transformer (Novel Contribution - Brain-Topology-Aware)
+**Purpose**: Replace flat MLP with brain-region-aware Transformer encoder.
+
+**Changes from EXP7**:
+- Encoder: ROI-Tokenised Transformer (17 ROI tokens + [CLS])
+- Interpretability: attention weights reveal which brain regions drive each prediction
+- Higher LR (3e-4), longer warmup (10 epochs)
+
+**Expected**:
+- **Better retrieval** than EXP7: inductive bias from cortical topology
+- **Interpretable**: V1-V4 attend to low-level features, FFA/PPA to high-level
+- **ROI ablation**: masking individual ROIs reveals functional specialisation
+
+**Proves**: Brain topology is a useful inductive bias for fMRI decoding.
+
+**Hypothesis**: EXP8 > EXP7 for retrieval; provides neuroscience insights
+
+---
+
+## Ablation Matrix (Extended with Novel Contributions)
+
+| Component | EXP0 | EXP1 | EXP2 | EXP3 | EXP4 | EXP5 | EXP6 | **EXP7** | **EXP8** |
+|-----------|------|------|------|------|------|------|------|------|------|
+| **Architecture** | MLP | MLP | MLP | MLP | MLP | MLP | MLP | **MLP+Res** | **ROI-Trans** |
+| **Preprocessing** | - | center_pcr | center_pcr | center_pcr | center_pcr | center_pcr | center_whiten | **center_pcr** | **center_pcr** |
+| **Queue** | - | - | 8192 | 8192 | 8192 | 8192 | 8192 | **8192** | **8192** |
+| **Distribution** | - | - | - | Gaussian | Gaussian | Gaussian | Gaussian | **vMF** | **vMF** |
+| **Reconstruction Loss** | MSE | MSE | MSE | G-NLL | G-NLL | G-NLL | G-NLL | **vMF-NLL** | **vMF-NLL** |
+| **Contrastive Loss** | Cosine | Cosine | InfoNCE+Q | InfoNCE+Q | G-NCE | G-NCE | G-NCE | **vMF-NCE** | **vMF-NCE** |
+| **KL** | - | - | - | - | - | Yes | Yes | - | - |
+| **Grad Accum (eff. batch)** | 4 | 4 | 4 | 4 | 4 | 4 | 4 | **64** | **64** |
+| **AMP** | - | - | - | - | - | - | - | **Yes** | **Yes** |
+| **Inference** | mu | mu | mu | mu | mu | mu | mu | **mu** | **mu** |
 
 ## Evaluation Metrics per Experiment
 

@@ -819,7 +819,37 @@ def main():
                        help="Bypass CLIP adapter even if --clip-adapter is provided (for debugging)")
     parser.add_argument("--no-cfg", action="store_true",
                        help="Disable classifier-free guidance (sets guidance=1.0)")
-    
+
+    # Uncertainty-aware inference (UA-CFG)
+    parser.add_argument("--inference-policy", default="fixed",
+                       choices=["fixed", "ua_cfg", "ua_cfg_steps"],
+                       help="Inference policy: fixed (default), ua_cfg (dynamic guidance), "
+                            "ua_cfg_steps (dynamic guidance + steps)")
+    parser.add_argument("--kappa-calibration", default=None,
+                       help="Path to kappa_calibration.json (required for ua_cfg*)")
+    parser.add_argument("--kappa-values", default=None,
+                       help="Path to .npy with per-sample kappa values (Nx1 or N,). "
+                            "Required for ua_cfg* if encoder does not output kappa.")
+    parser.add_argument("--w-min", type=float, default=1.5,
+                       help="Minimum guidance scale for UA-CFG (default 1.5)")
+    parser.add_argument("--w-max", type=float, default=12.0,
+                       help="Maximum guidance scale for UA-CFG (default 12.0)")
+    parser.add_argument("--gamma", type=float, default=1.0,
+                       help="Exponent for kappa_norm -> guidance mapping (default 1.0)")
+    parser.add_argument("--steps-min", type=int, default=10,
+                       help="Minimum denoising steps for UA-CFG-Steps (default 10)")
+    parser.add_argument("--steps-max", type=int, default=50,
+                       help="Maximum denoising steps for UA-CFG-Steps (default 50)")
+
+    # ROI-DCF disagreement-aware guidance
+    parser.add_argument("--delta-values", default=None,
+                       help="Path to .npy with per-sample ROI disagreement scores (N,). "
+                            "When provided alongside --kappa-values, the effective "
+                            "confidence is kappa_norm * (1 - beta * delta).")
+    parser.add_argument("--delta-beta", type=float, default=0.5,
+                       help="Scaling factor for disagreement penalty on confidence "
+                            "(default 0.5). Higher values penalise disagreement more.")
+
     # Evaluation
     parser.add_argument("--limit", type=int, help="Limit number of test samples")
     parser.add_argument("--gallery-limit", type=int, default=1000,
@@ -1266,16 +1296,43 @@ def main():
             # Graceful degrade: continue without NN gallery
             logger.info("Proceeding without NN gallery (generation and per-sample eval will continue).")
         
+        # ---- UA-CFG setup --------------------------------------------------
+        ua_policy = args.inference_policy
+        kappa_cal = None
+        per_sample_kappa = None
+        per_sample_delta = None
+
+        if ua_policy != "fixed":
+            if args.kappa_calibration is None:
+                logger.error("--kappa-calibration is required when --inference-policy != fixed")
+                return 1
+            from fmri2img.eval.kappa_calibration import load_calibration, normalise_kappa
+            kappa_cal = load_calibration(Path(args.kappa_calibration))
+
+            if args.kappa_values is not None:
+                per_sample_kappa = np.load(args.kappa_values).ravel()
+                logger.info(f"Loaded per-sample kappa from {args.kappa_values} ({len(per_sample_kappa)} values)")
+            else:
+                logger.info("No --kappa-values provided; using default guidance for all samples")
+
+            if args.delta_values is not None:
+                per_sample_delta = np.load(args.delta_values).ravel()
+                logger.info(
+                    f"Loaded per-sample ROI disagreement from {args.delta_values} "
+                    f"({len(per_sample_delta)} values, beta={args.delta_beta})"
+                )
+
         # Generate images
         logger.info("\n" + "=" * 80)
         logger.info("GENERATING IMAGES")
+        if ua_policy != "fixed":
+            logger.info(f"  Policy: {ua_policy}  w=[{args.w_min}, {args.w_max}]  gamma={args.gamma}")
         logger.info("=" * 80)
-        
+
         results = []
-        
-        # Handle None cosine_scores for zip
+
         cosine_scores_iter = cosine_scores if cosine_scores is not None else [None] * len(test_nsd_ids)
-        
+
         for i, (clip_pred, clip_gt, nsd_id, cosine) in enumerate(zip(
             Y_pred_normalized, Y_test, test_nsd_ids, cosine_scores_iter
         )):
@@ -1284,55 +1341,135 @@ def main():
                 logger.info(f"  Cosine (pred vs GT): {cosine:.4f}")
             else:
                 logger.info(f"  Cosine (pred vs GT): not computed")
-            
+
+            # Determine per-sample guidance and steps
+            guidance_i = args.guidance
+            steps_i = args.steps
+            kappa_i = None
+            kappa_norm_i = None
+
+            delta_i = None
+            confidence_i = None
+
+            if ua_policy != "fixed" and per_sample_kappa is not None and i < len(per_sample_kappa):
+                kappa_i = float(per_sample_kappa[i])
+                kappa_norm_i = normalise_kappa(kappa_i, kappa_cal)
+
+                # Disagreement-aware confidence (ROI-DCF extension)
+                confidence_i = kappa_norm_i
+                if per_sample_delta is not None and i < len(per_sample_delta):
+                    delta_i = float(per_sample_delta[i])
+                    confidence_i = kappa_norm_i * (1.0 - args.delta_beta * delta_i)
+                    confidence_i = max(0.0, min(1.0, confidence_i))
+
+                guidance_i = args.w_min + (confidence_i ** args.gamma) * (args.w_max - args.w_min)
+                if ua_policy == "ua_cfg_steps":
+                    steps_i = args.steps_min + round(confidence_i * (args.steps_max - args.steps_min))
+
+                delta_str = f"  delta={delta_i:.3f}" if delta_i is not None else ""
+                logger.info(
+                    f"  UA-CFG: kappa={kappa_i:.2f}  norm={kappa_norm_i:.3f}"
+                    f"{delta_str}  confidence={confidence_i:.3f}  "
+                    f"guidance={guidance_i:.2f}  steps={steps_i}"
+                )
+
             try:
-                # Generate image from predicted CLIP embedding
                 generated_img = generate_image_from_clip_embedding(
                     pipe,
                     clip_pred,
-                    guidance_scale=args.guidance,
-                    num_inference_steps=args.steps,
-                    seed=args.seed + i,  # Different seed per sample
+                    guidance_scale=guidance_i,
+                    num_inference_steps=steps_i,
+                    seed=args.seed + i,
                     blend_alpha=args.blend_alpha
                 )
-                
-                # Save generated image
+
                 img_path = images_dir / f"nsd{nsd_id}_generated.png"
                 generated_img.save(img_path)
-                logger.info(f"  ✅ Saved generated image: {img_path}")
-                
-                # Find nearest neighbor for comparison (if gallery available)
+                logger.info(f"  Saved generated image: {img_path}")
+
                 nn_nsd_id = None
                 nn_cosine = None
                 if gallery_embeddings is not None and len(gallery_embeddings) > 0:
-                    # Compute similarity to gallery
                     sim_to_gallery = cosine_sim(clip_pred.reshape(1, -1), gallery_embeddings)[0]
                     nn_idx = np.argmax(sim_to_gallery)
                     nn_nsd_id = gallery_nsd_ids[nn_idx]
                     nn_cosine = sim_to_gallery[nn_idx]
-                    
                     logger.info(f"  NN retrieval: NSD ID {nn_nsd_id} (cosine: {nn_cosine:.4f})")
                 else:
                     logger.info(f"  NN retrieval: skipped (no gallery)")
-                
-                # For now, we don't have actual images, so skip grid creation
-                # In a full implementation, you'd load the actual image via COCO/NSD dataset
-                # and create the comparison grid here
-                
-                # Record results
+
                 results.append({
                     "trial_id": i,
                     "nsdId": int(nsd_id),
                     "cosine_pred_gt": float(cosine) if cosine is not None else None,
                     "nn_nsdId": int(nn_nsd_id) if nn_nsd_id is not None else None,
                     "nn_cosine": float(nn_cosine) if nn_cosine is not None else None,
-                    "image_path": str(img_path)
+                    "image_path": str(img_path),
+                    "kappa": kappa_i,
+                    "kappa_norm": kappa_norm_i,
+                    "delta": delta_i,
+                    "confidence": confidence_i,
+                    "guidance_scale": guidance_i,
+                    "num_steps": steps_i,
                 })
-                
+
             except Exception as e:
-                logger.error(f"  ❌ Failed to generate image: {e}")
+                logger.error(f"  Failed to generate image: {e}")
                 continue
-        
+
+        # ---- Risk-coverage CSV + qualitative triplets ------------------
+        if ua_policy != "fixed" and results:
+            import csv
+            csv_path = output_dir / "risk_coverage.csv"
+            fieldnames = [
+                "nsd_id", "kappa", "kappa_norm", "delta", "confidence",
+                "guidance_scale", "num_steps", "cosine_pred_gt",
+            ]
+            with open(csv_path, "w", newline="") as cf:
+                writer = csv.DictWriter(cf, fieldnames=fieldnames)
+                writer.writeheader()
+                for r in results:
+                    writer.writerow({
+                        "nsd_id": r["nsdId"],
+                        "kappa": r.get("kappa"),
+                        "kappa_norm": r.get("kappa_norm"),
+                        "delta": r.get("delta"),
+                        "confidence": r.get("confidence"),
+                        "guidance_scale": r.get("guidance_scale"),
+                        "num_steps": r.get("num_steps"),
+                        "cosine_pred_gt": r.get("cosine_pred_gt"),
+                    })
+            logger.info(f"Saved risk-coverage CSV to {csv_path}")
+
+            sorted_by_kappa = sorted(
+                [r for r in results if r.get("kappa") is not None],
+                key=lambda r: r["kappa"],
+            )
+            if len(sorted_by_kappa) >= 2:
+                triplets_dir = output_dir / "triplets"
+                triplets_dir.mkdir(exist_ok=True)
+                high_k = sorted_by_kappa[-1]
+                low_k = sorted_by_kappa[0]
+                triplet_info = {
+                    "high_kappa": {
+                        "nsd_id": high_k["nsdId"],
+                        "kappa": high_k["kappa"],
+                        "image": high_k.get("image_path"),
+                    },
+                    "low_kappa": {
+                        "nsd_id": low_k["nsdId"],
+                        "kappa": low_k["kappa"],
+                        "image": low_k.get("image_path"),
+                    },
+                }
+                with open(triplets_dir / "triplet_info.json", "w") as tf:
+                    json.dump(triplet_info, tf, indent=2)
+                logger.info(
+                    f"Saved qualitative triplet info: "
+                    f"high_kappa nsd={high_k['nsdId']} (k={high_k['kappa']:.1f}), "
+                    f"low_kappa nsd={low_k['nsdId']} (k={low_k['kappa']:.1f})"
+                )
+
         # Save summary JSON
         summary_path = output_dir / "decode_summary.json"
         with open(summary_path, "w") as f:
@@ -1346,6 +1483,7 @@ def main():
                 "scheduler": args.scheduler,
                 "guidance_scale": args.guidance,
                 "num_inference_steps": args.steps,
+                "inference_policy": ua_policy,
                 "clip_adapter": args.clip_adapter,
                 "clip_adapter_target_dim": adapter_target_dim if clip_adapter else None,
                 "n_generated": len(results),

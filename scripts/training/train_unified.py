@@ -36,6 +36,7 @@ from src.fmri2img.contrastive.queue import create_memory_queue
 from src.fmri2img.losses.infonce_queue import InfoNCEQueueLoss
 from src.fmri2img.losses.gaussian_nll import GaussianNLLLoss
 from src.fmri2img.losses.gaussian_nce import GaussianNCELoss
+from src.fmri2img.losses.vmf_nce import VonMisesFisherNCELoss, VonMisesFisherNLLLoss, kappa_regularizer
 from src.fmri2img.training.kl_schedule import KLScheduler
 
 logging.basicConfig(
@@ -243,7 +244,7 @@ def setup_losses(config: Dict[str, Any], device: str, queue=None) -> Dict[str, n
     if loss_cfg.get("gaussian_nce", {}).get("enabled", False):
         gnce_cfg = loss_cfg["gaussian_nce"]
         use_queue = gnce_cfg.get("use_queue", False) and queue is not None
-        
+
         losses["gaussian_nce"] = GaussianNCELoss(
             use_temperature=gnce_cfg.get("use_temperature", True),
             temperature=gnce_cfg.get("temperature", 1.0),
@@ -251,10 +252,37 @@ def setup_losses(config: Dict[str, Any], device: str, queue=None) -> Dict[str, n
             symmetric=gnce_cfg.get("symmetric", False),
             clamp_logvar=gnce_cfg.get("clamp_logvar", True),
             logvar_min=gnce_cfg.get("logvar_min", -10.0),
-            logvar_max=gnce_cfg.get("logvar_max", 5.0)
+            logvar_max=gnce_cfg.get("logvar_max", 5.0),
         )
-        logger.info(f"✓ Gaussian-NCE loss enabled (queue={use_queue})")
-    
+        logger.info(f"Gaussian-NCE loss enabled (queue={use_queue})")
+
+    # Detect whether the vMF decoder outputs log_kappa (legacy) or direct kappa
+    model_cfg = config.get("model", {})
+    decoder_cfg = model_cfg.get("decoder", {})
+    vmf_kappa_is_log = "log_kappa_min" in decoder_cfg or "log_kappa_max" in decoder_cfg
+    if model_cfg.get("posterior") == "vmf" or "kappa_min" in decoder_cfg:
+        vmf_kappa_is_log = False
+
+    # vMF NLL
+    if loss_cfg.get("vmf_nll", {}).get("enabled", False):
+        vmf_nll_cfg = loss_cfg["vmf_nll"]
+        losses["vmf_nll"] = VonMisesFisherNLLLoss(
+            dim=vmf_nll_cfg.get("dim", 768),
+            kappa_is_log=vmf_kappa_is_log,
+        )
+        logger.info(f"vMF-NLL loss enabled (kappa_is_log={vmf_kappa_is_log})")
+
+    # vMF-NCE
+    if loss_cfg.get("vmf_nce", {}).get("enabled", False):
+        vmf_nce_cfg = loss_cfg["vmf_nce"]
+        use_queue = vmf_nce_cfg.get("use_queue", False) and queue is not None
+        losses["vmf_nce"] = VonMisesFisherNCELoss(
+            tau=vmf_nce_cfg.get("tau", 0.07),
+            use_queue=use_queue,
+            kappa_is_log=vmf_kappa_is_log,
+        )
+        logger.info(f"vMF-NCE loss enabled (queue={use_queue}, tau={vmf_nce_cfg.get('tau', 0.07)}, kappa_is_log={vmf_kappa_is_log})")
+
     return losses
 
 
@@ -282,6 +310,7 @@ def main():
     parser.add_argument("--config", type=str, required=True, help="Path to experiment config")
     parser.add_argument("--gpu", type=int, default=0, help="GPU device ID")
     parser.add_argument("--resume", type=str, default=None, help="Resume from checkpoint")
+    parser.add_argument("--subject", type=str, default=None, help="Override subject (e.g. subj02)")
     args = parser.parse_args()
     
     # Load config
@@ -468,49 +497,115 @@ def main():
     logger.info(f"Train: {len(train_dataset)} samples, Val: {len(val_dataset)} samples")
     logger.info("Starting training...")
     
-    # Training loop
+    # Gradient accumulation and mixed-precision
+    grad_accum_steps = config["training"].get("gradient_accumulation_steps", 16)
+    use_amp = config["training"].get("mixed_precision", False) and device.startswith("cuda")
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
+    logger.info(
+        f"Gradient accumulation: {grad_accum_steps} steps "
+        f"(effective batch {batch_size * grad_accum_steps}) | AMP: {use_amp}"
+    )
+
+    # Cosine LR scheduler
     num_epochs = config["training"]["num_epochs"]
+    total_steps = num_epochs * len(train_loader) // grad_accum_steps
+    warmup_steps = config["training"].get("warmup_epochs", 5) * len(train_loader) // grad_accum_steps
+    min_lr = float(config["training"].get("min_lr", 1e-6))
+
+    def lr_lambda(step: int) -> float:
+        if step < warmup_steps and warmup_steps > 0:
+            return step / max(warmup_steps, 1)
+        progress = (step - warmup_steps) / max(total_steps - warmup_steps, 1)
+        return max(min_lr / float(optimizer_cfg.get("lr", 1e-4)),
+                    0.5 * (1.0 + math.cos(math.pi * progress)))
+
+    lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+
+    # Training loop
     best_val_loss = float('inf')
+    patience_counter = 0
+    early_stop_patience = config["training"].get("early_stop_patience", 15)
     global_step = 0
-    
+
     for epoch in range(1, num_epochs + 1):
-        logger.info(f"\nEpoch {epoch}/{num_epochs}")
-        
-        # Train
+        logger.info(f"\nEpoch {epoch}/{num_epochs} | lr={optimizer.param_groups[0]['lr']:.2e}")
+
+        _vmf_is_log = getattr(model, "vmf_output_is_log", True)
         train_metrics, global_step = train_epoch(
             model, train_loader, optimizer, losses, loss_weights,
-            device, kl_scheduler, queue, preprocessor, global_step
+            device, kl_scheduler, queue, preprocessor, global_step,
+            grad_accum_steps=grad_accum_steps, scaler=scaler,
+            lr_scheduler=lr_scheduler,
+            config_ref=config,
+            vmf_is_log=_vmf_is_log,
         )
         logger.info(f"Train: {' | '.join([f'{k}={v:.4f}' for k, v in train_metrics.items()])}")
-        
-        # Validate
+
+        # Kappa health warnings
+        if "kappa_std" in train_metrics:
+            if train_metrics["kappa_std"] < 0.01:
+                logger.warning("kappa has collapsed (std < 0.01) — model may not be learning uncertainty")
+            kappa_upper = getattr(model.decoder, "kappa_max", None)
+            kq90 = train_metrics.get("kappa_q90")
+            if kappa_upper is not None and kq90 is not None and kq90 > 0.99 * kappa_upper:
+                logger.warning(f"kappa saturating at upper bound ({kq90:.1f} / {kappa_upper:.1f})")
+
         val_metrics = validate(model, val_loader, losses, loss_weights, device, preprocessor, queue)
         logger.info(f"Val:   {' | '.join([f'{k}={v:.4f}' for k, v in val_metrics.items()])}")
-        
-        # Save checkpoint
-        val_loss = val_metrics.get("total_loss", val_metrics.get("mse", float('inf')))
-        is_best = val_loss < best_val_loss
-        if is_best:
+
+        val_loss = val_metrics.get("loss", val_metrics.get("mse", float('inf')))
+        if val_loss < best_val_loss:
             best_val_loss = val_loss
+            patience_counter = 0
             checkpoint_path = output_dir / "checkpoint.pth"
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'val_loss': val_loss,
-                'config': config
+                'config': config,
+                'model_config': config.get("model", {}),
             }, checkpoint_path)
-            logger.info(f"✓ Saved best checkpoint: val_loss={val_loss:.4f}")
-    
+            logger.info(f"Saved best checkpoint: val_loss={val_loss:.4f}")
+        else:
+            patience_counter += 1
+            if patience_counter >= early_stop_patience:
+                logger.info(f"Early stopping at epoch {epoch} (patience={early_stop_patience})")
+                break
+
     logger.info("=" * 80)
     logger.info("Training complete!")
     logger.info(f"Best val loss: {best_val_loss:.4f}")
     logger.info("=" * 80)
 
 
+import math as math
+
+
 def compute_kl_divergence(mu: torch.Tensor, logvar: torch.Tensor) -> torch.Tensor:
     """Compute KL(q(z|x) || p(z)) for Gaussian posterior."""
     return -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+
+
+def compute_vmf_kl(mu: torch.Tensor, log_kappa: torch.Tensor, dim: int) -> torch.Tensor:
+    """
+    KL(vMF(mu, kappa) || Uniform(S^{d-1})).
+
+    Uses the Amos-type approximation for the ratio I_{d/2}(k)/I_{d/2-1}(k).
+    """
+    kappa = log_kappa.exp().squeeze(-1)  # (B,)
+    half_d = dim / 2.0
+    log_sphere = half_d * math.log(2 * math.pi) + torch.lgamma(torch.tensor(half_d, device=mu.device)) - torch.tensor(half_d, device=mu.device) * math.log(1.0)
+    log_c_kappa = (half_d - 1) * torch.log(kappa + 1e-8) - half_d * math.log(2 * math.pi) - torch.log(
+        _ive(half_d - 1, kappa) + 1e-10
+    ) - kappa
+    kl = kappa * _ive(half_d, kappa) / (_ive(half_d - 1, kappa) + 1e-10) - log_c_kappa + log_sphere
+    return kl.mean()
+
+
+def _ive(v: float, z: torch.Tensor) -> torch.Tensor:
+    """Exponentially-scaled modified Bessel I_v(z) * exp(-z)."""
+    return torch.special.i1e(z) if abs(v - 1.0) < 0.01 else torch.special.i0e(z)
 
 
 def train_epoch(
@@ -519,90 +614,150 @@ def train_epoch(
     optimizer: torch.optim.Optimizer,
     losses: Dict[str, nn.Module],
     loss_weights: Dict[str, float],
-    device: torch.device,
+    device: str,
     kl_scheduler: Optional[KLScheduler],
     queue: Optional[nn.Module],
     preprocessor: Optional[EmbeddingPreprocessor],
-    global_step: int
+    global_step: int,
+    grad_accum_steps: int = 1,
+    scaler: Optional[torch.amp.GradScaler] = None,
+    lr_scheduler: Optional[torch.optim.lr_scheduler.LambdaLR] = None,
+    config_ref: Optional[Dict[str, Any]] = None,
+    vmf_is_log: bool = True,
 ) -> tuple:
-    """Train for one epoch."""
+    """Train for one epoch with gradient accumulation and optional AMP."""
     model.train()
-    epoch_metrics = {}
-    
+    epoch_metrics: Dict[str, list] = {}
+    use_amp = scaler is not None and scaler.is_enabled()
+    model_type = getattr(model, "model_type", "deterministic")
+
+    optimizer.zero_grad()
     pbar = tqdm(dataloader, desc="Training")
-    for batch in pbar:
+    for step_in_epoch, batch in enumerate(pbar):
         fmri, gt_embedding = batch
         fmri = fmri.to(device)
         gt_embedding = gt_embedding.to(device)
-        
-        # Apply preprocessing
+
         if preprocessor is not None:
             gt_embedding_np = gt_embedding.cpu().numpy()
             gt_embedding_proc = preprocessor.transform(gt_embedding_np)
             gt_embedding = torch.from_numpy(gt_embedding_proc).to(device)
-        
-        # Forward
-        output = model(fmri)
-        if isinstance(output, tuple):
-            pred, logvar = output
-        else:
-            pred, logvar = output, None
-        
-        # Compute losses
-        total_loss = 0.0
-        batch_metrics = {}
-        
-        # MSE
-        if "mse" in losses and logvar is None:
-            mse_loss = losses["mse"](pred, gt_embedding)
-            total_loss += loss_weights.get("mse", 1.0) * mse_loss
-            batch_metrics["mse"] = mse_loss.item()
-        
-        # InfoNCE
-        if "infonce" in losses and logvar is None:
-            infonce_loss = losses["infonce"](pred, gt_embedding, queue=queue)
-            total_loss += loss_weights.get("infonce", 1.0) * infonce_loss
-            batch_metrics["infonce"] = infonce_loss.item()
-            if queue is not None:
-                queue.enqueue(gt_embedding)
-        
-        # Gaussian NLL
-        if "gaussian_nll" in losses and logvar is not None:
-            nll_loss = losses["gaussian_nll"](pred, logvar, gt_embedding)
-            total_loss += loss_weights.get("gaussian_nll", 1.0) * nll_loss
-            batch_metrics["nll"] = nll_loss.item()
-        
-        # Gaussian-NCE
-        if "gaussian_nce" in losses and logvar is not None:
-            gnce_loss = losses["gaussian_nce"](pred, logvar, gt_embedding, queue=queue)
-            total_loss += loss_weights.get("gaussian_nce", 1.0) * gnce_loss
-            batch_metrics["gnce"] = gnce_loss.item()
-            if queue is not None:
-                queue.enqueue(gt_embedding)
-        
-        # KL
-        if kl_scheduler is not None and logvar is not None:
-            kl_raw = compute_kl_divergence(pred, logvar)
-            kl_weight = kl_scheduler.step()
-            kl_loss = kl_weight * kl_raw
-            total_loss += kl_loss
-            batch_metrics["kl"] = kl_loss.item()
-        
-        batch_metrics["loss"] = total_loss.item()
-        
-        # Backward
-        optimizer.zero_grad()
-        total_loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-        optimizer.step()
-        
+
+        with torch.amp.autocast("cuda", enabled=use_amp):
+            output = model(fmri)
+            if isinstance(output, tuple):
+                pred, aux = output
+            else:
+                pred, aux = output, None
+
+            total_loss = torch.tensor(0.0, device=device)
+            batch_metrics: Dict[str, float] = {}
+
+            is_gaussian = model_type == "gaussian" and aux is not None
+            is_vmf = model_type == "vmf" and aux is not None
+
+            # Deterministic losses
+            if "mse" in losses and not is_gaussian and not is_vmf:
+                mse_loss = losses["mse"](pred, gt_embedding)
+                total_loss = total_loss + loss_weights.get("mse", 1.0) * mse_loss
+                batch_metrics["mse"] = mse_loss.item()
+
+            if "infonce" in losses and not is_gaussian and not is_vmf:
+                infonce_loss = losses["infonce"](pred, gt_embedding, queue=queue)
+                total_loss = total_loss + loss_weights.get("infonce", 1.0) * infonce_loss
+                batch_metrics["infonce"] = infonce_loss.item()
+                if queue is not None:
+                    queue.enqueue(gt_embedding)
+
+            # Gaussian losses
+            if "gaussian_nll" in losses and is_gaussian:
+                nll_loss = losses["gaussian_nll"](pred, aux, gt_embedding)
+                total_loss = total_loss + loss_weights.get("gaussian_nll", 1.0) * nll_loss
+                batch_metrics["nll"] = nll_loss.item()
+
+            if "gaussian_nce" in losses and is_gaussian:
+                gnce_loss = losses["gaussian_nce"](pred, aux, gt_embedding, queue=queue)
+                total_loss = total_loss + loss_weights.get("gaussian_nce", 1.0) * gnce_loss
+                batch_metrics["gnce"] = gnce_loss.item()
+                if queue is not None:
+                    queue.enqueue(gt_embedding)
+
+            # vMF losses
+            if "vmf_nll" in losses and is_vmf:
+                vmf_nll_loss = losses["vmf_nll"](pred, aux, gt_embedding)
+                total_loss = total_loss + loss_weights.get("vmf_nll", 1.0) * vmf_nll_loss
+                batch_metrics["vmf_nll"] = vmf_nll_loss.item()
+
+            if "vmf_nce" in losses and is_vmf:
+                vmf_nce_loss = losses["vmf_nce"](pred, aux, gt_embedding, queue=queue)
+                total_loss = total_loss + loss_weights.get("vmf_nce", 1.0) * vmf_nce_loss
+                batch_metrics["vmf_nce"] = vmf_nce_loss.item()
+                if queue is not None:
+                    queue.enqueue(gt_embedding)
+
+            # Kappa regularizer (optional, config-driven)
+            kappa_reg_cfg = config_ref.get("loss", {}).get("kappa_reg", {}) if config_ref else {}
+            if kappa_reg_cfg.get("enabled", False) and is_vmf and aux is not None:
+                kappa_vals = aux.squeeze(-1) if not vmf_is_log else aux.exp().squeeze(-1)
+                kr = kappa_regularizer(kappa_vals, kappa_reg_cfg.get("lambda_kappa", 0.01))
+                total_loss = total_loss + kr
+                batch_metrics["kappa_reg"] = kr.item()
+
+            # Kappa statistics logging
+            if is_vmf and aux is not None:
+                with torch.no_grad():
+                    kappa_vals = aux.squeeze(-1) if not vmf_is_log else aux.exp().squeeze(-1)
+                    batch_metrics["kappa_mean"] = kappa_vals.mean().item()
+                    batch_metrics["kappa_std"] = kappa_vals.std().item()
+                    batch_metrics["kappa_min"] = kappa_vals.min().item()
+                    batch_metrics["kappa_max"] = kappa_vals.max().item()
+                    if kappa_vals.numel() >= 2:
+                        q = torch.quantile(
+                            kappa_vals.float(),
+                            torch.tensor([0.1, 0.5, 0.9], device=kappa_vals.device),
+                        )
+                        batch_metrics["kappa_q10"] = q[0].item()
+                        batch_metrics["kappa_q50"] = q[1].item()
+                        batch_metrics["kappa_q90"] = q[2].item()
+
+            # KL divergence
+            if kl_scheduler is not None and is_gaussian:
+                kl_raw = compute_kl_divergence(pred, aux)
+                kl_weight = kl_scheduler.step()
+                total_loss = total_loss + kl_weight * kl_raw
+                batch_metrics["kl"] = (kl_weight * kl_raw).item()
+
+            if kl_scheduler is not None and is_vmf:
+                kl_raw = compute_vmf_kl(pred, aux, pred.size(-1))
+                kl_weight = kl_scheduler.step()
+                total_loss = total_loss + kl_weight * kl_raw
+                batch_metrics["kl"] = (kl_weight * kl_raw).item()
+
+            # Scale for accumulation
+            total_loss = total_loss / grad_accum_steps
+
+        batch_metrics["loss"] = total_loss.item() * grad_accum_steps
+
+        scaler.scale(total_loss).backward() if scaler is not None else total_loss.backward()
+
+        if (step_in_epoch + 1) % grad_accum_steps == 0 or (step_in_epoch + 1) == len(dataloader):
+            if scaler is not None:
+                scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            if scaler is not None:
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                optimizer.step()
+            optimizer.zero_grad()
+            if lr_scheduler is not None:
+                lr_scheduler.step()
+
         pbar.set_postfix({k: f"{v:.4f}" for k, v in batch_metrics.items()})
-        
         for k, v in batch_metrics.items():
             epoch_metrics.setdefault(k, []).append(v)
-        
         global_step += 1
-    
+
     return {k: np.mean(v) for k, v in epoch_metrics.items()}, global_step
 
 
@@ -611,63 +766,76 @@ def validate(
     dataloader: DataLoader,
     losses: Dict[str, nn.Module],
     loss_weights: Dict[str, float],
-    device: torch.device,
+    device: str,
     preprocessor: Optional[EmbeddingPreprocessor],
-    queue: Optional[nn.Module]
+    queue: Optional[nn.Module],
 ) -> Dict[str, float]:
     """Validate model."""
     model.eval()
-    epoch_metrics = {}
-    
+    epoch_metrics: Dict[str, list] = {}
+    model_type = getattr(model, "model_type", "deterministic")
+
     with torch.no_grad():
         for batch in dataloader:
             fmri, gt_embedding = batch
             fmri = fmri.to(device)
             gt_embedding = gt_embedding.to(device)
-            
+
             if preprocessor is not None:
                 gt_embedding_np = gt_embedding.cpu().numpy()
                 gt_embedding_proc = preprocessor.transform(gt_embedding_np)
                 gt_embedding = torch.from_numpy(gt_embedding_proc).to(device)
-            
+
             output = model(fmri)
             if isinstance(output, tuple):
-                pred, logvar = output
+                pred, aux = output
             else:
-                pred, logvar = output, None
-            
-            total_loss = 0.0
-            batch_metrics = {}
-            
-            if "mse" in losses and logvar is None:
+                pred, aux = output, None
+
+            total_loss = torch.tensor(0.0, device=device)
+            batch_metrics: Dict[str, float] = {}
+            is_gaussian = model_type == "gaussian" and aux is not None
+            is_vmf = model_type == "vmf" and aux is not None
+
+            if "mse" in losses and not is_gaussian and not is_vmf:
                 mse_loss = losses["mse"](pred, gt_embedding)
-                total_loss += loss_weights.get("mse", 1.0) * mse_loss
+                total_loss = total_loss + loss_weights.get("mse", 1.0) * mse_loss
                 batch_metrics["mse"] = mse_loss.item()
-            
-            if "infonce" in losses and logvar is None:
+
+            if "infonce" in losses and not is_gaussian and not is_vmf:
                 infonce_loss = losses["infonce"](pred, gt_embedding, queue=None)
-                total_loss += loss_weights.get("infonce", 1.0) * infonce_loss
+                total_loss = total_loss + loss_weights.get("infonce", 1.0) * infonce_loss
                 batch_metrics["infonce"] = infonce_loss.item()
-            
-            if "gaussian_nll" in losses and logvar is not None:
-                nll_loss = losses["gaussian_nll"](pred, logvar, gt_embedding)
-                total_loss += loss_weights.get("gaussian_nll", 1.0) * nll_loss
+
+            if "gaussian_nll" in losses and is_gaussian:
+                nll_loss = losses["gaussian_nll"](pred, aux, gt_embedding)
+                total_loss = total_loss + loss_weights.get("gaussian_nll", 1.0) * nll_loss
                 batch_metrics["nll"] = nll_loss.item()
-            
-            if "gaussian_nce" in losses and logvar is not None:
-                gnce_loss = losses["gaussian_nce"](pred, logvar, gt_embedding, queue=None)
-                total_loss += loss_weights.get("gaussian_nce", 1.0) * gnce_loss
+
+            if "gaussian_nce" in losses and is_gaussian:
+                gnce_loss = losses["gaussian_nce"](pred, aux, gt_embedding, queue=None)
+                total_loss = total_loss + loss_weights.get("gaussian_nce", 1.0) * gnce_loss
                 batch_metrics["gnce"] = gnce_loss.item()
-            
-            if logvar is not None:
-                kl_raw = compute_kl_divergence(pred, logvar)
-                batch_metrics["kl"] = kl_raw.item()
-            
+
+            if "vmf_nll" in losses and is_vmf:
+                vmf_nll_loss = losses["vmf_nll"](pred, aux, gt_embedding)
+                total_loss = total_loss + loss_weights.get("vmf_nll", 1.0) * vmf_nll_loss
+                batch_metrics["vmf_nll"] = vmf_nll_loss.item()
+
+            if "vmf_nce" in losses and is_vmf:
+                vmf_nce_loss = losses["vmf_nce"](pred, aux, gt_embedding, queue=None)
+                total_loss = total_loss + loss_weights.get("vmf_nce", 1.0) * vmf_nce_loss
+                batch_metrics["vmf_nce"] = vmf_nce_loss.item()
+
+            if is_gaussian:
+                batch_metrics["kl"] = compute_kl_divergence(pred, aux).item()
+            if is_vmf:
+                batch_metrics["kl"] = compute_vmf_kl(pred, aux, pred.size(-1)).item()
+
             batch_metrics["loss"] = total_loss.item()
-            
             for k, v in batch_metrics.items():
                 epoch_metrics.setdefault(k, []).append(v)
-    
+
     return {k: np.mean(v) for k, v in epoch_metrics.items()}
 
 

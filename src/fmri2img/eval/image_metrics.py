@@ -241,80 +241,163 @@ def lpips_score(
     return distance
 
 
-def compute_all_metrics(
+def pixel_correlation(
     generated_image: Image.Image,
     ground_truth_image: Image.Image,
-    clip_model,
+    resize_to: int = 256,
+) -> float:
+    """
+    PixCorr: Pearson correlation between flattened pixel arrays.
+
+    Standard metric in brain decoding (Takagi & Nishimoto 2023,
+    Scotti et al. 2023).  Measures low-level structural agreement.
+    """
+    transform = transforms.Compose([
+        transforms.Resize((resize_to, resize_to)),
+        transforms.Grayscale(),
+        transforms.ToTensor(),
+    ])
+    gen = transform(generated_image).flatten().numpy()
+    gt = transform(ground_truth_image).flatten().numpy()
+    corr = np.corrcoef(gen, gt)[0, 1]
+    return float(corr) if not np.isnan(corr) else 0.0
+
+
+class AlexNetFeatureExtractor:
+    """Extract features from early (layer2) and late (layer5) AlexNet."""
+
+    _instance = None
+
+    @classmethod
+    def get(cls, device: str = "cuda"):
+        if cls._instance is None or cls._instance._device != device:
+            cls._instance = cls(device)
+        return cls._instance
+
+    def __init__(self, device: str = "cuda"):
+        import torchvision.models as models
+        self._device = device
+        alexnet = models.alexnet(weights=models.AlexNet_Weights.IMAGENET1K_V1).to(device).eval()
+        self.early = nn.Sequential(*list(alexnet.features.children())[:5]).to(device)
+        self.late = nn.Sequential(*list(alexnet.features.children())).to(device)
+        self._transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
+
+    @torch.no_grad()
+    def extract(self, img: Image.Image):
+        t = self._transform(img).unsqueeze(0).to(self._device)
+        return self.early(t).flatten(1), self.late(t).flatten(1)
+
+
+def alexnet_feature_similarity(
+    generated_image: Image.Image,
+    ground_truth_image: Image.Image,
     device: str = "cuda",
-    include_lpips: bool = False,
-    include_ssim: bool = False
 ) -> dict:
     """
-    Compute all available image quality metrics.
-    
-    Args:
-        generated_image: Generated PIL Image
-        ground_truth_image: Ground truth PIL Image
-        clip_model: CLIP model for CLIPScore
-        device: Device for computation
-        include_lpips: Compute LPIPS (slower)
-        include_ssim: Compute SSIM (slower)
-        
-    Returns:
-        metrics: Dict with all computed metrics
+    Compute AlexNet feature similarity at early and late layers.
+
+    Used by MindEye, Brain Diffuser, etc. as a mid-level perceptual metric.
     """
-    metrics = {}
-    
-    # CLIPScore (always computed)
-    metrics["clip_score"] = clip_score(
-        generated_image, ground_truth_image, clip_model, device
-    )
-    
-    # SSIM (optional)
-    if include_ssim:
-        try:
-            metrics["ssim"] = ssim_score(
-                generated_image, ground_truth_image, device=device
-            )
-        except ImportError:
-            pass
-    
-    # LPIPS (optional)
-    if include_lpips:
-        try:
-            metrics["lpips"] = lpips_score(
-                generated_image, ground_truth_image, device=device
-            )
-        except ImportError:
-            pass
-    
-    return metrics
+    extractor = AlexNetFeatureExtractor.get(device)
+    gen_early, gen_late = extractor.extract(generated_image)
+    gt_early, gt_late = extractor.extract(ground_truth_image)
+
+    def _cos(a, b):
+        return torch.nn.functional.cosine_similarity(a, b, dim=-1).item()
+
+    return {
+        "alexnet_early": _cos(gen_early, gt_early),
+        "alexnet_late": _cos(gen_late, gt_late),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Comprehensive evaluation
+# ---------------------------------------------------------------------------
+
+import torch.nn as nn
+
+
+class ImageReconstructionEvaluator:
+    """
+    Evaluates a set of generated images against ground-truth stimuli
+    using the full suite of metrics from the brain decoding literature:
+
+        Low-level:   PixCorr, SSIM
+        Mid-level:   AlexNet(2), AlexNet(5), LPIPS
+        High-level:  CLIP-I (image cosine), InceptionV3 cosine
+        Per-sample:  returns arrays for paired statistical tests
+
+    Usage:
+        evaluator = ImageReconstructionEvaluator(clip_model, device)
+        results = evaluator.evaluate(gen_images, gt_images)
+    """
+
+    def __init__(self, clip_model=None, device: str = "cuda"):
+        self.clip_model = clip_model
+        self.device = device
+
+    def evaluate(
+        self,
+        generated_images: List[Image.Image],
+        ground_truth_images: List[Image.Image],
+    ) -> dict:
+        N = len(generated_images)
+        assert N == len(ground_truth_images)
+
+        pixcorr = np.zeros(N)
+        ssim_vals = np.zeros(N)
+        alex_early = np.zeros(N)
+        alex_late = np.zeros(N)
+        clip_i = np.zeros(N)
+
+        for i in range(N):
+            pixcorr[i] = pixel_correlation(generated_images[i], ground_truth_images[i])
+            try:
+                ssim_vals[i] = ssim_score(generated_images[i], ground_truth_images[i], device=self.device)
+            except ImportError:
+                ssim_vals[i] = float("nan")
+            afeats = alexnet_feature_similarity(generated_images[i], ground_truth_images[i], self.device)
+            alex_early[i] = afeats["alexnet_early"]
+            alex_late[i] = afeats["alexnet_late"]
+            if self.clip_model is not None:
+                clip_i[i] = clip_score(generated_images[i], ground_truth_images[i], self.clip_model, self.device)
+
+        results = {
+            "pixcorr_mean": float(np.nanmean(pixcorr)),
+            "pixcorr_std": float(np.nanstd(pixcorr)),
+            "ssim_mean": float(np.nanmean(ssim_vals)),
+            "ssim_std": float(np.nanstd(ssim_vals)),
+            "alexnet_early_mean": float(np.nanmean(alex_early)),
+            "alexnet_late_mean": float(np.nanmean(alex_late)),
+            "clip_i_mean": float(np.nanmean(clip_i)),
+            "clip_i_std": float(np.nanstd(clip_i)),
+            "n_images": N,
+            "per_sample": {
+                "pixcorr": pixcorr.tolist(),
+                "ssim": ssim_vals.tolist(),
+                "alexnet_early": alex_early.tolist(),
+                "alexnet_late": alex_late.tolist(),
+                "clip_i": clip_i.tolist(),
+            },
+        }
+        return results
 
 
 def pixel_mse(
     generated_image: Image.Image,
     ground_truth_image: Image.Image,
-    resize_to: int = 512
+    resize_to: int = 512,
 ) -> float:
-    """
-    Compute pixel-level MSE (for completeness, not recommended as primary metric).
-    
-    Args:
-        generated_image: Generated PIL Image
-        ground_truth_image: Ground truth PIL Image
-        resize_to: Resize images to this size
-        
-    Returns:
-        mse: Mean squared error (float, lower is better)
-    """
+    """Pixel-level MSE."""
     transform = transforms.Compose([
         transforms.Resize((resize_to, resize_to)),
-        transforms.ToTensor()
+        transforms.ToTensor(),
     ])
-    
     gen_tensor = transform(generated_image)
     gt_tensor = transform(ground_truth_image)
-    
-    mse = ((gen_tensor - gt_tensor) ** 2).mean().item()
-    
-    return mse
+    return float(((gen_tensor - gt_tensor) ** 2).mean().item())

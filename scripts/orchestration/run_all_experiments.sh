@@ -61,7 +61,7 @@ if [ ! -f "cache/embedding_preproc/subj01_center_pcr_k8.pkl" ]; then
     log ""
 fi
 
-# Array of experiments
+# Array of experiments (EXP0-EXP6: original ablation, EXP7-EXP8: novel contributions)
 experiments=(
     "exp0_baseline"
     "exp1_preproc"
@@ -70,6 +70,8 @@ experiments=(
     "exp4_gaussian_nce"
     "exp5_kl_anneal"
     "exp6_whiten"
+    "exp7_vmf_nce"
+    "exp8_roi_transformer"
 )
 
 for i in "${!experiments[@]}"; do

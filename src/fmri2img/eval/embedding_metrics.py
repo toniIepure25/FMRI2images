@@ -15,13 +15,32 @@ All metrics support both deterministic (cosine) and Bayesian (distribution-aware
 import numpy as np
 import torch
 from typing import Dict, List, Tuple, Optional, Callable
-from dataclasses import dataclass
-from scipy.stats import spearmanr, bootstrap
+from dataclasses import dataclass, field
+from scipy.stats import spearmanr, bootstrap, skew
 from scipy.spatial.distance import squareform, pdist
 from sklearn.metrics import roc_auc_score, ndcg_score
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class HubnessMetrics:
+    """Container for hubness diagnostics."""
+    k_occurrence_skewness: float
+    k_occurrence_mean: float
+    k_occurrence_std: float
+    robin_hood_index: float
+    top_hubs: List[int]
+
+    def to_dict(self) -> Dict:
+        return {
+            "k_occurrence_skewness": self.k_occurrence_skewness,
+            "k_occurrence_mean": self.k_occurrence_mean,
+            "k_occurrence_std": self.k_occurrence_std,
+            "robin_hood_index": self.robin_hood_index,
+            "top_hubs": self.top_hubs,
+        }
 
 
 @dataclass
@@ -36,9 +55,10 @@ class RetrievalMetrics:
     ndcg_at_10: float
     gallery_size: int
     chance_r_at_1: float
-    
+    hubness: Optional[HubnessMetrics] = None
+
     def to_dict(self) -> Dict:
-        return {
+        d = {
             "r@1": self.r_at_1,
             "r@5": self.r_at_5,
             "r@10": self.r_at_10,
@@ -49,6 +69,9 @@ class RetrievalMetrics:
             "gallery_size": self.gallery_size,
             "chance_r@1": self.chance_r_at_1,
         }
+        if self.hubness is not None:
+            d["hubness"] = self.hubness.to_dict()
+        return d
 
 
 @dataclass
@@ -90,69 +113,157 @@ def cosine_similarity_matrix(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     return a_norm @ b_norm.T
 
 
+def compute_csls_similarity(
+    query: np.ndarray,
+    gallery: np.ndarray,
+    k_csls: int = 10,
+) -> np.ndarray:
+    """
+    Cross-domain Similarity Local Scaling (Conneau et al., 2018).
+
+    CSLS(x, y) = 2*cos(x,y) - r_T(x) - r_S(y)
+    where r_T(x) = mean cosine of x to its k-NN in gallery,
+          r_S(y) = mean cosine of y to its k-NN in query.
+
+    Reduces hubness by penalising gallery points that are
+    universally similar (hubs).
+
+    Args:
+        query:   (N, D) L2-normalised query embeddings
+        gallery: (M, D) L2-normalised gallery embeddings
+        k_csls:  neighbourhood size for local scaling
+
+    Returns:
+        (N, M) CSLS-adjusted similarity matrix
+    """
+    cos = cosine_similarity_matrix(query, gallery)  # (N, M)
+
+    k_q = min(k_csls, cos.shape[1])
+    k_g = min(k_csls, cos.shape[0])
+
+    r_T = np.sort(cos, axis=1)[:, -k_q:].mean(axis=1)      # (N,)
+    r_S = np.sort(cos.T, axis=1)[:, -k_g:].mean(axis=1)     # (M,)
+
+    return 2 * cos - r_T[:, None] - r_S[None, :]
+
+
+def compute_hubness_metrics(
+    sim_matrix: np.ndarray,
+    k: int = 10,
+    top_n: int = 5,
+) -> HubnessMetrics:
+    """
+    Compute hubness diagnostics from a similarity matrix.
+
+    Args:
+        sim_matrix: (N, M) similarity scores (query x gallery)
+        k:          neighbourhood size for k-occurrence counts
+        top_n:      how many top hubs to report
+
+    Returns:
+        HubnessMetrics
+    """
+    k_eff = min(k, sim_matrix.shape[1])
+    top_k_indices = np.argsort(-sim_matrix, axis=1)[:, :k_eff]
+
+    M = sim_matrix.shape[1]
+    k_occ = np.bincount(top_k_indices.ravel(), minlength=M).astype(float)
+
+    skewness = float(skew(k_occ))
+    mean_occ = float(k_occ.mean())
+    std_occ = float(k_occ.std())
+
+    total = k_occ.sum()
+    sorted_occ = np.sort(k_occ)
+    cumsum = np.cumsum(sorted_occ)
+    robin_hood = float(1.0 - 2.0 * cumsum.sum() / (total * M)) if total > 0 else 0.0
+
+    top_hubs = list(np.argsort(-k_occ)[:top_n].astype(int))
+
+    return HubnessMetrics(
+        k_occurrence_skewness=skewness,
+        k_occurrence_mean=mean_occ,
+        k_occurrence_std=std_occ,
+        robin_hood_index=robin_hood,
+        top_hubs=top_hubs,
+    )
+
+
+def _ranks_from_sim(sim_matrix: np.ndarray, gt_indices: np.ndarray) -> np.ndarray:
+    """Return 1-indexed rank of each GT in its row of the sim matrix."""
+    N = sim_matrix.shape[0]
+    sorted_idx = np.argsort(-sim_matrix, axis=1)
+    ranks = np.empty(N, dtype=int)
+    for i in range(N):
+        ranks[i] = int(np.where(sorted_idx[i] == gt_indices[i])[0][0]) + 1
+    return ranks
+
+
 def compute_retrieval_metrics(
     query_embeddings: np.ndarray,
     gallery_embeddings: np.ndarray,
     query_ids: np.ndarray,
     gallery_ids: np.ndarray,
     k_values: List[int] = [1, 5, 10],
+    use_csls: bool = False,
+    k_csls: int = 10,
+    compute_hubness: bool = False,
 ) -> RetrievalMetrics:
     """
     Compute retrieval metrics for query-gallery matching.
-    
+
     Args:
         query_embeddings: (N, D) query embeddings
         gallery_embeddings: (M, D) gallery embeddings
         query_ids: (N,) query IDs
         gallery_ids: (M,) gallery IDs
         k_values: List of K for R@K computation
-        
+        use_csls: If True, rank by CSLS-adjusted similarity instead of cosine
+        k_csls: Neighbourhood size for CSLS (ignored when use_csls=False)
+        compute_hubness: If True, return hubness diagnostics
+
     Returns:
         RetrievalMetrics object
     """
     N = len(query_embeddings)
     M = len(gallery_embeddings)
-    
-    # Compute similarity matrix (N x M)
-    sim_matrix = cosine_similarity_matrix(query_embeddings, gallery_embeddings)
-    
+
+    cos_matrix = cosine_similarity_matrix(query_embeddings, gallery_embeddings)
+
+    if use_csls:
+        sim_matrix = compute_csls_similarity(query_embeddings, gallery_embeddings, k_csls=k_csls)
+    else:
+        sim_matrix = cos_matrix
+
     # Find ground truth indices in gallery for each query
     gt_indices = []
     for qid in query_ids:
         matches = np.where(gallery_ids == qid)[0]
         if len(matches) == 0:
             raise ValueError(f"Query ID {qid} not found in gallery")
-        gt_indices.append(matches[0])  # Take first match
-    
+        gt_indices.append(matches[0])
     gt_indices = np.array(gt_indices)
-    
-    # Rank gallery items by similarity (descending)
-    ranks = []
-    for i in range(N):
-        scores = sim_matrix[i]
-        sorted_indices = np.argsort(-scores)  # Descending order
-        rank = np.where(sorted_indices == gt_indices[i])[0][0] + 1  # 1-indexed
-        ranks.append(rank)
-    
-    ranks = np.array(ranks)
-    
-    # Compute metrics
+
+    ranks = _ranks_from_sim(sim_matrix, gt_indices)
+
     r_at_k = {}
     for k in k_values:
-        r_at_k[k] = (ranks <= k).mean()
-    
-    mean_rank = ranks.mean()
-    median_rank = np.median(ranks)
-    mrr = (1.0 / ranks).mean()
-    
-    # nDCG@10
+        r_at_k[k] = float((ranks <= k).mean())
+
+    mean_rank = float(ranks.mean())
+    median_rank = float(np.median(ranks))
+    mrr = float((1.0 / ranks).mean())
+
     relevance = np.zeros((N, M))
     relevance[np.arange(N), gt_indices] = 1.0
-    ndcg_10 = ndcg_score(relevance, sim_matrix, k=10)
-    
-    # Chance baseline
+    ndcg_10 = float(ndcg_score(relevance, sim_matrix, k=10))
+
     chance_r_at_1 = 1.0 / M
-    
+
+    hub = None
+    if compute_hubness:
+        hub = compute_hubness_metrics(cos_matrix, k=10)
+
     return RetrievalMetrics(
         r_at_1=r_at_k.get(1, 0.0),
         r_at_5=r_at_k.get(5, 0.0),
@@ -163,6 +274,7 @@ def compute_retrieval_metrics(
         ndcg_at_10=ndcg_10,
         gallery_size=M,
         chance_r_at_1=chance_r_at_1,
+        hubness=hub,
     )
 
 
@@ -378,7 +490,13 @@ def compute_retrieval_curves(
             query_ids,
             sub_gallery_ids,
         )
-        
+
+        logger.info(
+            f"  Gallery {size:>5d}: R@1={metrics.r_at_1:.4f}  "
+            f"chance={metrics.chance_r_at_1:.4f}  "
+            f"ratio={metrics.r_at_1 / metrics.chance_r_at_1:.1f}x"
+        )
+
         results[size] = metrics
     
     return results
@@ -444,38 +562,42 @@ class EmbeddingEvaluator:
         pred_embeddings: np.ndarray,
         gt_embeddings: np.ndarray,
         ids: np.ndarray,
-        compute_rsa: bool = True,
-        compute_cka: bool = False,
+        run_rsa: bool = True,
+        run_cka: bool = False,
+        use_csls: bool = False,
+        run_hubness: bool = False,
     ) -> Dict:
         """
         Run full evaluation suite.
-        
+
         Args:
             pred_embeddings: (N, D) predicted embeddings
             gt_embeddings: (N, D) ground truth embeddings
             ids: (N,) sample IDs
-            compute_rsa: Whether to compute RSA
-            compute_cka: Whether to compute CKA (slower)
-            
+            run_rsa: Whether to compute RSA
+            run_cka: Whether to compute CKA (slower)
+            use_csls: Use CSLS-adjusted similarity for retrieval
+            run_hubness: Compute hubness diagnostics
+
         Returns:
             Dictionary of all metrics
         """
         logger.info("Running embedding evaluation...")
-        
+
         results = {}
-        
+
         # 1. Oracle check
         logger.info("  Oracle check...")
         passed, oracle_metrics = oracle_retrieval_check(gt_embeddings, ids)
         results["oracle"] = oracle_metrics
         results["oracle_passed"] = passed
-        
+
         if not passed:
             logger.error(
                 f"Oracle check FAILED: R@1={oracle_metrics['oracle_r@1']:.4f} < 0.95. "
                 "Check for ID mismatches, normalization issues, or shuffling bugs!"
             )
-        
+
         # 2. Retrieval curves
         logger.info("  Computing retrieval curves...")
         retrieval_curves = compute_retrieval_curves(
@@ -486,22 +608,24 @@ class EmbeddingEvaluator:
             gallery_sizes=self.gallery_sizes,
             seed=self.seed,
         )
-        
+
         results["retrieval_curves"] = {
             size: metrics.to_dict()
             for size, metrics in retrieval_curves.items()
         }
-        
-        # 3. Full retrieval (all data)
+
+        # 3. Full retrieval (all data), optionally with CSLS + hubness
         logger.info("  Computing full retrieval metrics...")
         full_retrieval = compute_retrieval_metrics(
             pred_embeddings,
             gt_embeddings,
             ids,
             ids,
+            use_csls=use_csls,
+            compute_hubness=run_hubness,
         )
         results["retrieval_full"] = full_retrieval.to_dict()
-        
+
         # 4. Identification
         logger.info("  Computing identification metrics...")
         identification = compute_identification_metrics(
@@ -513,19 +637,19 @@ class EmbeddingEvaluator:
             seed=self.seed,
         )
         results["identification"] = identification.to_dict()
-        
+
         # 5. RSA
-        if compute_rsa:
+        if run_rsa:
             logger.info("  Computing RSA...")
             rsa_score = compute_rsa(pred_embeddings, gt_embeddings, method="spearman")
             results["rsa_spearman"] = rsa_score
-        
+
         # 6. CKA
-        if compute_cka:
+        if run_cka:
             logger.info("  Computing linear CKA...")
             cka_score = compute_linear_cka(pred_embeddings, gt_embeddings)
             results["linear_cka"] = cka_score
-        
+
         logger.info("Evaluation complete.")
-        
+
         return results

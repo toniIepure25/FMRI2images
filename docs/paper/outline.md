@@ -184,45 +184,34 @@ PixCorr, SSIM, AlexNet(2), AlexNet(5), LPIPS, CLIPScore
 - ROI: nsdgeneral mask with 17 sub-regions
 - Train/Val/Test: 70/15/15
 
-### 5.2 Ablation Ladder (EXP0–EXP14)
+### 5.2 Ablation Ladder (B0 -> N4)
 
-| Exp | Architecture | Distribution | Loss | Key Innovation |
-|-----|-------------|-------------|------|---------------|
-| EXP0 | MLP | — | MSE+cos | Baseline |
-| EXP1 | MLP | — | MSE+cos | +center_pcr |
-| EXP2 | MLP | — | InfoNCE+Q | +contrastive |
-| EXP3 | MLP | Gaussian | NLL+InfoNCE | +probabilistic |
-| EXP4 | MLP | Gaussian | G-NCE | +Gaussian-NCE |
-| EXP5 | MLP | Gaussian | G-NCE+KL | +KL annealing |
-| EXP6 | MLP | Gaussian | G-NCE+KL | +whitening |
-| **EXP7** | **MLP** | **vMF** | **vMF-NCE** | **+spherical model** |
-| **EXP8** | **ROI-Trans** | **vMF** | **vMF-NCE** | **+ROI Transformer** |
-| **EXP9** | **ROI-Trans** | **vMF-DCF** | **Multi-vMF-NCE** | **+ROI-DCF consensus** |
-| **EXP10** | ROI-Trans | vMF-DCF | Multi-vMF-NCE | +mixture sampling |
-| **EXP11** | ROI-Trans | vMF-DCF | Multi-vMF-NCE | +decomposed UA-CFG |
-| **EXP12** | ROI-Trans | vMF-DCF | Multi-vMF-NCE | +ceiling temperature |
-| **EXP13** | ROI-Trans | vMF-DCF | kappa-SPCL | +curriculum learning |
-| **EXP14** | ROI-Trans | vMF-DCF | kappa-SPCL | **Full system** |
+6 experiments: 2 strong baselines + 4 novel contributions. Consecutive row differences isolate each innovation — no separate ablation table needed.
+
+| ID | Architecture | Distribution | Loss | What It Proves |
+|----|-------------|-------------|------|---------------|
+| **B0** | MLP | — | MSE + InfoNCE + Q | Strong deterministic baseline |
+| **B1** | MLP | Gaussian | G-NCE + KL | Probabilistic Gaussian baseline |
+| **N1** | **MLP** | **vMF** | **vMF-NCE** | **vMF > Gaussian on S^{d-1}** |
+| **N2** | **ROI-Trans** | **vMF** | **vMF-NCE** | **Brain-topology > flat MLP** |
+| **N3** | **ROI-Trans** | **vMF-DCF** | **Multi-vMF-NCE** | **Per-ROI consensus > single-head** |
+| **N4** | **ROI-Trans** | **vMF-DCF** | **kappa-SPCL** | **Full system (+ Mixture + DUA-CFG + Ceiling-Temp)** |
 
 ### 5.3 Hypotheses
-- **H7**: vMF > Gaussian on $S^{d-1}$ (distribution matches geometry)
-- **H8**: ROI-Transformer > MLP (inductive bias helps)
-- **H9**: ROI-DCF > single-head (per-ROI distributions are richer)
-- **H10**: Mixture sampling > consensus point (more diversity for generation)
-- **H11**: Decomposed UA-CFG > heuristic UA-CFG (principled uncertainty use)
-- **H12**: Ceiling temperature improves calibration without hurting retrieval
-- **H13**: kappa-SPCL curriculum improves convergence
-- **H14**: Full system > any ablation
+- **B1 vs N1**: vMF > Gaussian on $S^{d-1}$ (distribution matches geometry)
+- **N1 vs N2**: ROI-Transformer > MLP (brain-topology inductive bias helps)
+- **N2 vs N3**: ROI-DCF > single-head (per-ROI distributions are richer)
+- **N3 vs N4**: Full system > base system (generation stack innovations)
 
 ---
 
 ## 6. Results
 
 ### 6.1 Main Results Table
-SOTA comparison: our EXP14 vs MindEye, MindEye2, Brain Diffuser, Brain-IT
+SOTA comparison: our N4 vs MindEye, MindEye2, Brain Diffuser, Brain-IT
 
-### 6.2 Ablation Table (EXP0–EXP14)
-Full metrics across all experiments, all subjects, with significance tests
+### 6.2 Ablation Table (B0 -> N4)
+Full metrics across 6 experiments, all subjects, with significance tests
 
 ### 6.3 Risk-Coverage Curves (Figure 1) — KEY FIGURE
 - kappa-only, delta-only, combined, random orderings
@@ -255,7 +244,7 @@ Full metrics across all experiments, all subjects, with significance tests
 ### 7.1 Why Per-ROI Distributions Beat Point Estimates
 - Geometric argument: each ROI sees different visual aspects
 - The consensus naturally captures multi-view agreement
-- Ablation: EXP9 vs EXP8 shows per-ROI vMF > single vMF
+- Ablation: N3 vs N2 shows per-ROI vMF > single vMF
 
 ### 7.2 Dual Uncertainty Is Not Redundant
 - $\kappa$ and $\delta$ are weakly correlated (show scatter)

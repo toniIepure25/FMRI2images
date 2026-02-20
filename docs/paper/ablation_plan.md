@@ -1,339 +1,220 @@
 # Ablation Plan
 
 ## Overview
-Systematic ablation study to isolate the contribution of each component. All experiments use the same dataset, split, seeds, and evaluation protocol.
+
+Streamlined ablation study with 6 experiments: 2 strong baselines + 4 novel contributions.
+Consecutive row differences isolate each innovation — the main table IS the ablation.
+All experiments use the same dataset, splits, seeds, and evaluation protocol.
 
 ## Experimental Conditions
 
-### EXP0: Baseline (Deterministic)
-**Purpose**: Establish baseline with standard approach.
+### B0: Strong Deterministic Baseline
+**Purpose**: Best possible system using only published, well-known components.
 
 **Configuration**:
-- Model: Deterministic (single output, no variance)
-- Loss: MSE + Cosine similarity (standard InfoNCE)
-- Preprocessing: ❌ None
-- Queue: ❌ No memory queue
-- Batch size: 4 (same as all experiments)
+- Architecture: MLP encoder [V -> 4096 -> 2048 -> 1024], GELU, dropout 0.1
+- Loss: MSE + InfoNCE (symmetric, learnable temperature)
+- Preprocessing: center_pcr (k=8)
+- Queue: MoCo-style (Q=8192)
+- Batch size: 4, gradient accumulation 16 (effective 64), mixed precision
 
 **Expected**:
-- High cosine similarity (~0.6-0.8)
-- **Chance-level retrieval** due to anisotropy (R@1 ≈ 1/N)
+- Good cosine similarity and decent R@1 (standard techniques all combined)
 - No uncertainty estimates
+- Establishes the ceiling for non-probabilistic methods
 
-**Proves**: Without geometry fix, identification fails despite high similarity.
+**Proves**: This is the strongest standard baseline. Every novel experiment must beat this.
 
 ---
 
-### EXP1: + Embedding Preprocessing
-**Purpose**: Isolate effect of geometry normalization.
+### B1: Probabilistic Gaussian Baseline
+**Purpose**: Best possible probabilistic system using Gaussian assumption.
 
-**Changes from EXP0**:
-- ✅ Preprocessing: center_pcr with k=8 components removed
-- Everything else same as EXP0
+**Changes from B0**:
+- Model outputs: mu + logvar (heteroscedastic)
+- Loss: Gaussian-NLL + Gaussian-NCE + KL annealing (linear, free-bits 0.5)
+- Removes MSE and InfoNCE
 
 **Expected**:
-- **Dramatic improvement** in R@1 (from ~0.001 to ~0.05-0.10)
-- Mean rank decreases substantially
-- AUC(pos vs neg) increases significantly
-- Anisotropy score drops from ~0.3 to ~0.0
+- Similar or slightly better retrieval than B0
+- Calibrated uncertainty via Gaussian-NCE
+- Usable AURC for selective prediction
 
-**Proves**: Geometry normalization is the **single most critical component**.
-
-**Hypothesis**: EXP1 >> EXP0 by X% absolute R@1
+**Proves**: Gaussian probabilistic modeling provides uncertainty but assumes wrong geometry
+(Euclidean in R^d vs hyperspherical S^{d-1}).
 
 ---
 
-### EXP2: + Memory Queue for InfoNCE
-**Purpose**: Test if queue-augmented contrastive learning helps.
+### N1: vMF-NCE (Novel — Principled Hyperspherical Distribution)
+**Purpose**: Replace Gaussian with vMF, which matches the data manifold.
 
-**Changes from EXP1**:
-- ✅ Queue: MoCo-style memory queue (size Q=8192)
-- ✅ InfoNCE with queue negatives
-- ✅ Learnable temperature (logit_scale)
+**Changes from B1**:
+- Distribution: vMF with bounded-sigmoid kappa [0.001, 500]
+- Loss: vMF-NCE (Bessel-free) + kappa regularizer
+- Same MLP encoder as B0/B1
 
 **Expected**:
-- Moderate improvement in retrieval (more negatives → better contrastive signal)
-- Improved 2AFC accuracy
-- Better separation of positive/negative pairs
+- **Better calibration** than B1: Coverage@95 closer to 0.95 (correct manifold)
+- **Better retrieval**: vMF log-density is the principled similarity for L2-normalized keys
+- **Lower AURC**: uncertainty is more decision-relevant on S^{d-1}
 
-**Proves**: Queue helps overcome small batch size limitation.
+**Proves**: vMF is the correct distribution for hyperspherical CLIP embeddings.
 
-**Hypothesis**: EXP2 > EXP1 by Y% absolute R@1
-
----
-
-### EXP3: + Gaussian NLL (Heteroscedastic Regression)
-**Purpose**: Introduce probabilistic predictions without distribution-aware contrastive.
-
-**Changes from EXP2**:
-- ✅ Model outputs: mu + logvar
-- ✅ Loss: Gaussian NLL (replaces MSE)
-- ✅ Inference: use_mean_for_retrieval=true (deterministic metrics use mu)
-- ❌ Contrastive: Still uses cosine InfoNCE (not Gaussian-NCE yet)
-
-**Expected**:
-- Similar retrieval to EXP2 (still using mu for retrieval)
-- **Uncalibrated uncertainty**: NLL high, Coverage@95 ≠ 0.95
-- AURC poor (uncertainty not useful)
-
-**Proves**: Heteroscedastic regression alone doesn't calibrate uncertainty.
-
-**Hypothesis**: EXP3 ≈ EXP2 for retrieval, but poor calibration
+**Key comparison**: B1 vs N1 isolates the effect of the distributional assumption.
 
 ---
 
-### EXP4: + Gaussian-NCE (Novel Contribution)
-**Purpose**: Test distribution-aware contrastive objective.
-
-**Changes from EXP3**:
-- ✅ Loss: Gaussian-NCE (uses likelihood as similarity score)
-- ✅ Contrastive learning now optimizes for Bayesian retrieval
-
-**Expected**:
-- **Best retrieval performance**: R@1 highest, MeanR lowest
-- **Calibrated uncertainty**: Coverage@95 ≈ 0.95
-- **Low AURC**: Uncertainty enables effective selective prediction
-- Probabilistic 2AFC works (likelihood ratios are meaningful)
-
-**Proves**: Gaussian-NCE makes uncertainty decision-relevant and improves retrieval.
-
-**Hypothesis**: EXP4 > EXP3 for both retrieval AND calibration
-
----
-
-### EXP5: + KL Annealing + Free-Bits
-**Purpose**: Test if explicit KL regularization is necessary.
-
-**Changes from EXP4**:
-- ✅ KL divergence term with annealing schedule
-  - Start weight: 0.0
-  - End weight: 0.001 (small, just regularization)
-  - Annealing: Linear over 10,000 steps
-- ✅ Free-bits: 0.5 per dimension (prevent collapse)
-
-**Expected**:
-- Similar or slightly better calibration
-- Possible reduction in posterior collapse (if it exists)
-- May not improve retrieval if Gaussian-NCE already provides sufficient regularization
-
-**Proves**: Whether explicit KL is needed given Gaussian-NCE.
-
-**Hypothesis**: EXP5 ≈ EXP4 (Gaussian-NCE may be sufficient)
-
----
-
-### EXP6: Ablation - Whitening vs PCR
-**Purpose**: Compare preprocessing methods.
-
-**Changes from EXP5**:
-- ✅ Preprocessing: center_whiten (instead of center_pcr)
-- Everything else same as EXP5
-
-**Expected**:
-- Similar performance to EXP5
-- Slightly different anisotropy scores
-- Both methods should work well
-
-**Proves**: Preprocessing mode is flexible; both center_pcr and center_whiten work.
-
-**Hypothesis**: EXP6 ≈ EXP5
-
----
-
-### EXP7: Von Mises-Fisher NCE (Novel Contribution - Principled Distribution)
-**Purpose**: Replace diagonal Gaussian with the von Mises-Fisher distribution.
-
-**Changes from EXP4**:
-- Model type: vmf (outputs mu + log_kappa instead of mu + logvar)
-- Loss: vMF-NLL + vMF-NCE (replaces Gaussian-NLL + Gaussian-NCE)
-- Training: gradient accumulation (effective batch 64), mixed precision, GELU, residual connections
-
-**Expected**:
-- **Better calibration** than EXP4: Coverage@95 closer to 0.95 (correct manifold)
-- **Better retrieval**: vMF log-density as score is more principled for L2-normalised keys
-- **Lower AURC**: uncertainty is more decision-relevant
-
-**Proves**: vMF is the correct distribution for hyperspherical embeddings; Gaussian wastes probability mass off-manifold.
-
-**Hypothesis**: EXP7 > EXP4 for both retrieval AND calibration
-
----
-
-### EXP8: ROI-Tokenised Transformer (Novel Contribution - Brain-Topology-Aware)
+### N2: ROI Transformer (Novel — Brain-Topology-Aware Architecture)
 **Purpose**: Replace flat MLP with brain-region-aware Transformer encoder.
 
-**Changes from EXP7**:
-- Encoder: ROI-Tokenised Transformer (17 ROI tokens + [CLS])
-- Interpretability: attention weights reveal which brain regions drive each prediction
-- Higher LR (3e-4), longer warmup (10 epochs)
+**Changes from N1**:
+- Encoder: ROI-Tokenized Transformer (17 ROI tokens + [CLS], 4 layers, 8 heads)
+- Higher LR (3e-4), longer warmup (10 epochs), weight decay 0.05
+- Interpretability: attention weights reveal which ROIs drive each prediction
 
 **Expected**:
-- **Better retrieval** than EXP7: inductive bias from cortical topology
+- **Better retrieval** than N1: inductive bias from cortical topology
 - **Interpretable**: V1-V4 attend to low-level features, FFA/PPA to high-level
-- **ROI ablation**: masking individual ROIs reveals functional specialisation
+- **ROI ablation**: masking individual ROIs reveals functional specialization
 
 **Proves**: Brain topology is a useful inductive bias for fMRI decoding.
 
-**Hypothesis**: EXP8 > EXP7 for retrieval; provides neuroscience insights
+**Key comparison**: N1 vs N2 isolates MLP vs ROI Transformer (same vMF distribution).
 
 ---
 
-## Ablation Matrix (Extended with Novel Contributions)
+### N3: ROI-DCF (Novel — Per-ROI Directional Consensus Fusion)
+**Purpose**: Each brain region predicts its own vMF distribution; fuse via spherical consensus.
 
-| Component | EXP0 | EXP1 | EXP2 | EXP3 | EXP4 | EXP5 | EXP6 | **EXP7** | **EXP8** |
-|-----------|------|------|------|------|------|------|------|------|------|
-| **Architecture** | MLP | MLP | MLP | MLP | MLP | MLP | MLP | **MLP+Res** | **ROI-Trans** |
-| **Preprocessing** | - | center_pcr | center_pcr | center_pcr | center_pcr | center_pcr | center_whiten | **center_pcr** | **center_pcr** |
-| **Queue** | - | - | 8192 | 8192 | 8192 | 8192 | 8192 | **8192** | **8192** |
-| **Distribution** | - | - | - | Gaussian | Gaussian | Gaussian | Gaussian | **vMF** | **vMF** |
-| **Reconstruction Loss** | MSE | MSE | MSE | G-NLL | G-NLL | G-NLL | G-NLL | **vMF-NLL** | **vMF-NLL** |
-| **Contrastive Loss** | Cosine | Cosine | InfoNCE+Q | InfoNCE+Q | G-NCE | G-NCE | G-NCE | **vMF-NCE** | **vMF-NCE** |
-| **KL** | - | - | - | - | - | Yes | Yes | - | - |
-| **Grad Accum (eff. batch)** | 4 | 4 | 4 | 4 | 4 | 4 | 4 | **64** | **64** |
-| **AMP** | - | - | - | - | - | - | - | **Yes** | **Yes** |
-| **Inference** | mu | mu | mu | mu | mu | mu | mu | **mu** | **mu** |
+**Changes from N2**:
+- model.type = vmf_dcf (per-ROI vMF heads + consensus fusion)
+- Multi-task loss: fused vMF-NCE + auxiliary per-ROI vMF-NCE (lambda=0.5)
+- Produces kappa_consensus and disagreement delta
+- Disagreement-aware UA-CFG for inference
+
+**Expected**:
+- **Better retrieval and calibration** than N2
+- **Dual uncertainty**: kappa (aleatoric) + delta (epistemic-like)
+- **Per-ROI interpretability**: each region's directional prediction is inspectable
+
+**Proves**: Per-ROI distributions > single-head distribution.
+
+**Key comparison**: N2 vs N3 isolates single-head vs ROI-DCF consensus.
+
+---
+
+### N4: Full System (Flagship — All Innovations Combined)
+**Purpose**: Combine all innovations for best overall performance.
+
+**Changes from N3**:
+- kappa-SPCL curriculum: self-paced contrastive learning (T: 100 -> 1, cosine)
+- Noise-ceiling temperature: beta=0.5, ceiling from NCSNR
+- vMF mixture sampling for generation (K=8, proportional, closest-to-consensus)
+- Decomposed UA-CFG: kappa -> w, delta -> K and steps
+
+**Expected**:
+- **Best overall**: retrieval, calibration, reconstruction, interpretability
+- Demonstrates the full value of decomposed uncertainty for generation
+- Risk-coverage curves show principled selective prediction
+
+**Proves**: Full system > any subset; all innovations contribute.
+
+**Key comparison**: N3 vs N4 isolates the generation stack innovations.
+
+---
+
+## Ablation Matrix
+
+| Component | B0 | B1 | **N1** | **N2** | **N3** | **N4** |
+|-----------|----|----|--------|--------|--------|--------|
+| **Architecture** | MLP | MLP | MLP | **ROI-Trans** | **ROI-Trans** | **ROI-Trans** |
+| **Preprocessing** | center_pcr | center_pcr | center_pcr | center_pcr | center_pcr | center_pcr |
+| **Queue** | 8192 | 8192 | 8192 | 8192 | 8192 | 8192 |
+| **Distribution** | — | Gaussian | **vMF** | **vMF** | **vMF-DCF** | **vMF-DCF** |
+| **Contrastive Loss** | InfoNCE | G-NCE | **vMF-NCE** | **vMF-NCE** | **Multi-vMF-NCE** | **kappa-SPCL** |
+| **KL/Regularizer** | — | KL anneal | kappa reg | kappa reg | kappa reg | kappa reg |
+| **Mixture Sampling** | — | — | — | — | — | **Yes** |
+| **DUA-CFG** | — | — | — | — | UA-CFG | **Decomposed** |
+| **Ceiling Temp** | — | — | — | — | — | **Yes** |
 
 ## Evaluation Metrics per Experiment
 
-### Core Metrics (All Experiments)
-- Retrieval: R@1, R@5, R@10, MeanR, MRR, nDCG@10
+### All Experiments
+- Retrieval: R@1, R@5, R@10, MeanR, MedR, MRR, nDCG@10
 - Identification: 2AFC, AUC, Cohen's d, d'
 - Structure: RSA, CKA
 - Oracle check: Pass/Fail
 
-### Probabilistic Metrics (EXP3-EXP6 only)
-- NLL per-dim, ΔNLL
+### Probabilistic (B1, N1-N4)
+- NLL per-dim
 - Energy Score (with sampling)
 - Coverage@80, Coverage@95
 - ECE, AURC
 - Probabilistic 2AFC
 
+### ROI-specific (N2-N4)
+- Per-ROI attention importance (bootstrap CIs)
+- ROI ablation study (leave-one-out)
+- Category-ROI interaction heatmaps
+
+### Full System (N4 only)
+- Risk-coverage curves (kappa-only, delta-only, combined)
+- Mixture energy score
+- Ceiling-normalized metrics
+- Dual uncertainty quadrant analysis
+
 ## Key Comparisons
 
-### Critical Test 1: Geometry Matters
-**Compare**: EXP0 vs EXP1
-**Metric**: R@1, Mean Rank, AUC
-**Expected**: Massive improvement (10-100x R@1)
-**Significance**: This is the biggest contribution
-
-### Critical Test 2: Queue Helps Small Batches
-**Compare**: EXP1 vs EXP2
-**Metric**: R@1, 2AFC
-**Expected**: Moderate improvement (1.5-2x R@1)
-**Significance**: Validates queue design
-
-### Critical Test 3: Gaussian-NCE Enables Calibration
-**Compare**: EXP3 vs EXP4
-**Metric**: Coverage@95, AURC, Prob-2AFC
-**Expected**: EXP4 has Coverage@95 ≈ 0.95, low AURC; EXP3 does not
-**Significance**: Proves Gaussian-NCE makes uncertainty useful
-
-### Critical Test 4: Gaussian-NCE Also Improves Retrieval
-**Compare**: EXP3 vs EXP4
-**Metric**: R@1, MeanR
-**Expected**: EXP4 > EXP3 for retrieval too
-**Significance**: Dual benefit (retrieval + calibration)
-
-### Critical Test 5: KL May Not Be Necessary
-**Compare**: EXP4 vs EXP5
-**Metric**: All metrics
-**Expected**: EXP5 ≈ EXP4 (small or no improvement)
-**Significance**: If true, simplifies training
-
-## Hyperparameters (Shared Across Experiments)
-
-### Model Architecture
-- fMRI encoder: MLP [V → 4096 → 2048 → 1024]
-- Embedding decoder: MLP [1024 → 1536 → 768]
-- For Gaussian models (EXP3-6): Dual head for mu and logvar
-
-### Training
-- Optimizer: AdamW
-- Learning rate: 1e-4 with cosine decay
-- Batch size: 4 (all experiments)
-- Epochs: 100 (early stopping on val loss)
-- Gradient clipping: 1.0
-
-### Loss Weights (EXP5-6)
-- NLL: 1.0
-- KL: Annealed 0.0 → 0.001
-- Gaussian-NCE: 1.0
-
-### Queue (EXP2-6)
-- Size: 8192
-- Update: Every batch (enqueue GT embeddings)
-- Min size before use: 256
-
-### Preprocessing (EXP1-6)
-- center_pcr: k=8
-- center_whiten: epsilon=1e-5
-
-### Inference
-- Deterministic metrics: Use mu only
-- Probabilistic metrics: Sample S=64 times
+| Comparison | Isolates | Expected Winner |
+|------------|----------|-----------------|
+| B0 vs B1 | Probabilistic modeling (Gaussian) | B1 (adds calibrated uncertainty) |
+| B1 vs N1 | Distribution choice (Gaussian vs vMF) | N1 (correct manifold) |
+| N1 vs N2 | Architecture (MLP vs ROI Transformer) | N2 (topology inductive bias) |
+| N2 vs N3 | Fusion (single-head vs ROI-DCF) | N3 (per-ROI distributions) |
+| N3 vs N4 | Generation stack (base vs full) | N4 (all innovations) |
 
 ## Statistical Testing
 
-For each critical comparison, perform:
+For each consecutive comparison, perform:
 1. **Bootstrap test** (1000 iterations) for significance of R@1 difference
 2. **Paired t-test** on per-sample metrics (2AFC, RSA)
 3. Report **effect sizes** (Cohen's d) for all comparisons
 
 **Significance threshold**: p < 0.05 (after Bonferroni correction for 5 tests)
 
-## Expected Outcomes
-
-### Success Criteria
-1. EXP1 >> EXP0: R@1 improves by ≥5x (e.g., 0.001 → 0.005+)
-2. EXP4 > EXP3: Coverage@95 within [0.90, 1.00] for EXP4, not for EXP3
-3. EXP4: AURC < 0.5 (usable selective prediction)
-4. Any experiment with oracle_passed=false is INVALID
-
-### Failure Modes
-- If EXP1 ≈ EXP0: Preprocessing not working → check implementation
-- If EXP4 ≈ EXP3: Gaussian-NCE not helping → check loss weight, temperature
-- If oracle check fails: BUG in eval code → fix before continuing
-
-## Visualization Plan
-
-### Figure 1: Ablation Bar Chart
-- X-axis: EXP0, EXP1, EXP2, EXP3, EXP4, EXP5, EXP6
-- Y-axis: R@1 (left), 2AFC (middle), Coverage@95 (right)
-- 3 subplots side-by-side
-- Color code by component added
-
-### Figure 2: Retrieval Curves
-- X-axis: Gallery size (log scale)
-- Y-axis: R@1
-- 7 lines (one per experiment)
-- Dashed line for chance baseline
-
-### Figure 3: Calibration
-- X-axis: Nominal coverage
-- Y-axis: Empirical coverage
-- One line per probabilistic experiment (EXP3-6)
-- Diagonal line for perfect calibration
-
-### Figure 4: Risk-Coverage
-- X-axis: Coverage (0 to 1)
-- Y-axis: Risk (error)
-- Lines for EXP3, EXP4, EXP5, EXP6
-- Annotate with AURC values
-
 ## Timeline and Resources
 
 ### Estimated Time per Experiment
-- EXP0: 2 hours (training) + 30 min (eval) = 2.5 hours
-- EXP1-6: Similar (~2-3 hours each)
-- **Total**: ~18-21 hours for all experiments
+- B0, B1, N1: ~2-3 hours each (MLP encoder)
+- N2, N3, N4: ~4-6 hours each (Transformer encoder)
+- **Total**: ~18-24 hours for all 6 experiments (was ~45-60 hours for 15)
 
 ### Compute Requirements
 - GPU: 1x A100 or V100 (min 16GB VRAM)
 - Storage: ~50GB (checkpoints + cached data)
 
-### Parallelization
-- Can run experiments in parallel if multiple GPUs available
-- Queue experiments: EXP0, EXP1 → EXP2 → EXP3 → EXP4 → EXP5, EXP6
+### Execution Order
+Sequential chain: B0 -> B1 -> N1 -> N2 -> N3 -> N4.
+Can partially parallelize baselines (B0 || B1) if multiple GPUs available.
+
+## Paper Results Table Structure
+
+**Table 1 — Main comparison** (each row is one training run):
+
+| Method | R@1 | R@5 | MRR | AURC | PixCorr | SSIM |
+|--------|-----|-----|-----|------|---------|------|
+| Ridge baseline (published) | - | - | - | - | - | - |
+| MindEye (Scotti et al., 2023) | - | - | - | - | 0.309 | 0.323 |
+| MindEye2 (Scotti et al., 2024) | - | - | - | - | 0.320 | 0.341 |
+| B0: Deterministic MLP | x | x | x | - | x | x |
+| B1: Gaussian MLP | x | x | x | x | x | x |
+| **N1: vMF-NCE (ours)** | x | x | x | x | x | x |
+| **N2: ROI Transformer (ours)** | x | x | x | x | x | x |
+| **N3: ROI-DCF (ours)** | x | x | x | x | x | x |
+| **N4: Full system (ours)** | x | x | x | x | x | x |
+
+The chain structure means **consecutive row differences = ablation**.
+No separate ablation table needed.
 
 ## Deliverables
 
@@ -342,10 +223,3 @@ For each critical comparison, perform:
 3. **Comparison report** (compare_experiments.py output)
 4. **LaTeX table** for paper (auto-generated from metrics)
 5. **Statistical test results** (p-values, effect sizes)
-
-## Notes
-
-- If any experiment crashes or produces NaN: Debug before continuing
-- If oracle check fails: Fix evaluation code immediately
-- Save all configs and seeds for exact reproducibility
-- Document any deviations from plan in experiment logs

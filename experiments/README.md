@@ -23,15 +23,15 @@ CLIP ViT-B/32 (512-D), 4 NSD subjects. Configs used a separate runner
 
 ### Phase 2 (Current — Configs in `configs/experiments/`)
 
-vMF-NCE, ROI-DCF, Dual Uncertainty, full ablation ladder EXP0-EXP14.
+vMF-NCE, ROI-DCF, Dual Uncertainty, streamlined ablation ladder (B0-B1-N1-N2-N3-N4).
 CLIP ViT-L/14 (768-D). All configs use `scripts/training/train_unified.py`.
 
 To run Phase 2 experiments:
 
 ```bash
 # Single experiment
-python3 scripts/training/train_unified.py --config configs/experiments/exp7_vmf_nce.yaml --gpu 0
+python3 scripts/training/train_unified.py --config configs/experiments/N1_vmf_nce.yaml --gpu 0
 
-# Full ablation ladder (4 subjects x 15 experiments)
+# Full ablation ladder (4 subjects x 6 experiments)
 bash scripts/training/run_ablation_ladder.sh --subjects "subj01 subj02 subj05 subj07" --gpu 0
 ```

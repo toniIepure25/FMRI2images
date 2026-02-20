@@ -1,16 +1,18 @@
-# EXP0: Deterministic Baseline (No Preprocessing, No Queue, No Uncertainty)
+# B0: Strong Deterministic Baseline
 #
-# Reference point for the entire ablation ladder. Deterministic MLP encoder
-# with MSE + InfoNCE losses, no embedding preprocessing, no memory queue.
+# Consolidates all standard (non-novel) techniques into one strong
+# reference point: MLP encoder with GELU, center_pcr preprocessing,
+# MoCo-style memory queue, and MSE + InfoNCE loss.
 #
-# Hypothesis: H0: This provides a fair lower bound. Each subsequent
-#             experiment (EXP1-EXP14) should improve on at least one
-#             metric dimension.
+# This is the best possible system using only published, well-known
+# components. Every novel experiment (N1-N4) must beat this.
+#
+# Merges: old EXP0 (baseline) + EXP1 (PCR) + EXP2 (queue)
 
 experiment:
-  name: "exp0_baseline"
-  description: "Deterministic MLP baseline with MSE + InfoNCE"
-  tags: ["baseline", "deterministic"]
+  name: "B0_deterministic"
+  description: "Strong deterministic baseline: MLP + PCR + queue + MSE + InfoNCE"
+  tags: ["baseline", "deterministic", "pcr", "queue"]
 
 data:
   subject: "subj01"
@@ -36,7 +38,12 @@ model:
     dropout: 0.1
 
 preprocessing:
-  enabled: false
+  enabled: true
+  mode: "center_pcr"
+  k_components: 8
+  whiten_eps: 1.0e-5
+  artifact_path: "cache/embedding_preproc/subj01_center_pcr_k8.pkl"
+  fit_on_train: true
 
 loss:
   mse:
@@ -48,7 +55,7 @@ loss:
     temperature: 0.07
     learnable_temperature: true
     symmetric: true
-    use_queue: false
+    use_queue: true
   gaussian_nll:
     enabled: false
   gaussian_nce:
@@ -57,7 +64,8 @@ loss:
     enabled: false
 
 queue:
-  enabled: false
+  enabled: true
+  size: 8192
 
 training:
   batch_size: 4
@@ -85,4 +93,4 @@ evaluation:
   seed: 42
 
 paths:
-  output_dir: "experimental_results/exp0_baseline"
+  output_dir: "experimental_results/B0_deterministic"

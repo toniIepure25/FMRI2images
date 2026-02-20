@@ -1,19 +1,20 @@
-# EXP2: + Memory Queue for Contrastive Learning
+# N1: Von Mises-Fisher NCE  (Novel — principled hyperspherical model)
 #
-# Adds MoCo-style memory queue (Q=8192) for InfoNCE. The queue provides
-# a large pool of negatives without increasing batch size, critical for
-# contrastive learning with small effective batch sizes.
+# Uses the geometry-correct vMF decoder with bounded-sigmoid kappa
+# parameterisation and Bessel-free vMF-NCE contrastive loss.
 #
-# Key change vs EXP1: queue.enabled = true, infonce.use_queue = true
-#
-# Hypothesis: H2: Queue negatives improve retrieval metrics by providing
-#             harder negatives beyond the current mini-batch.
+# Key changes vs B1 (Gaussian baseline):
+#   - model.posterior = vmf  -> bounded sigmoid kappa in [0.001, 500]
+#   - Loss: vMF-NCE (kappa-scaled cosine / tau, no Bessel functions)
+#   - Optional kappa regularizer instead of vMF-NLL
+#   - Hypothesis: vMF > Gaussian for retrieval AND calibration
+#                 because the distribution matches the data geometry on S^{d-1}.
 
 experiment:
-  name: "exp2_queue"
-  description: "EXP1 + memory queue (MoCo-style, Q=8192)"
-  tags: ["deterministic", "preprocessing", "queue"]
-  parent: "exp1_preproc"
+  name: "N1_vmf_nce"
+  description: "Von Mises-Fisher model with bounded-sigmoid kappa + vMF-NCE"
+  tags: ["vmf", "vmf_nce", "queue", "preprocessing", "novel"]
+  parent: "B1_gaussian"
 
 data:
   subject: "subj01"
@@ -24,7 +25,8 @@ data:
   seed: 42
 
 model:
-  type: "deterministic"
+  type: "vmf"
+  posterior: "vmf"
   encoder:
     encoder_type: "mlp"
     input_dim: null
@@ -37,29 +39,35 @@ model:
     hidden_dims: [1536]
     activation: "gelu"
     dropout: 0.1
+    kappa_min: 0.001
+    kappa_max: 500.0
 
 preprocessing:
   enabled: true
   mode: "center_pcr"
   k_components: 8
-  whiten_eps: 1.0e-5
   artifact_path: "cache/embedding_preproc/subj01_center_pcr_k8.pkl"
   fit_on_train: true
 
 loss:
-  mse:
+  vmf_nce:
     enabled: true
     weight: 1.0
-  infonce:
-    enabled: true
-    weight: 1.0
-    temperature: 0.07
-    learnable_temperature: true
-    symmetric: true
+    tau: 0.07
     use_queue: true
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
   gaussian_nll:
     enabled: false
   gaussian_nce:
+    enabled: false
+  infonce:
     enabled: false
   kl:
     enabled: false
@@ -75,7 +83,7 @@ training:
   num_epochs: 100
   optimizer:
     type: "adamw"
-    lr: 1.0e-4
+    lr: 1e-4
     weight_decay: 0.01
     betas: [0.9, 0.999]
   warmup_epochs: 5
@@ -85,13 +93,13 @@ training:
 
 inference:
   use_mean_for_retrieval: true
-  mc_samples_prob_metrics: 0
+  mc_samples_prob_metrics: 64
   seed: 42
 
 evaluation:
   gallery_sizes: [2, 10, 50, 100, 500, 1000]
-  compute_probabilistic: false
+  compute_probabilistic: true
   seed: 42
 
 paths:
-  output_dir: "experimental_results/exp2_queue"
+  output_dir: "experimental_results/N1_vmf_nce"

@@ -20,7 +20,7 @@ experimental_results/
 │       ├── eval_results.json          # Full evaluation dump
 │       └── summary_report.md          # Formatted summary
 │
-└── exp{N}_{name}/                     # Phase 2 experiments (EXP0-EXP14)
+└── {B0,B1,N1,N2,N3,N4}_{name}/       # Phase 2 experiments
     ├── config.yaml                    # Frozen config snapshot
     ├── training_info.json             # Training metadata
     ├── notes.md                       # Per-experiment analysis
@@ -36,26 +36,24 @@ experimental_results/
 
 ## Ablation Ladder
 
-| Exp | Description | Key Hypothesis | Status |
-|-----|-------------|---------------|--------|
+| ID | Description | Key Hypothesis | Status |
+|----|-------------|---------------|--------|
 | **Phase 1** | | | |
-| exp001 | Baseline Ultimate (all 7 Phase 1 contributions) | Combined system works | Completed (epoch 28) |
+| exp001 | Baseline Ultimate (all Phase 1 contributions) | Combined system works | Completed (epoch 28) |
 | **Phase 2** | | | |
-| EXP0 | Deterministic MLP (MSE + cosine) | Baseline reference | Pending |
-| EXP1 | + center_pcr preprocessing | H1: PCR reduces hubness | Pending |
-| EXP2 | + InfoNCE + memory queue | H2: Contrastive + queue helps retrieval | Pending |
-| EXP3 | + Gaussian NLL | H3: Gaussian captures uncertainty | Pending |
-| EXP4 | + Gaussian-NCE | H4: Gaussian-NCE improves calibration | Pending |
-| EXP5 | + KL annealing | H5: Annealing stabilizes training | Pending |
-| EXP6 | + whitening (ablation) | H6: Whitening vs PCR | Pending |
-| **EXP7** | **vMF-NCE (MLP)** | **H7: vMF > Gaussian on S^{d-1}** | Pending |
-| **EXP8** | **ROI Transformer + vMF-NCE** | **H8: ROI inductive bias helps** | Pending |
-| **EXP9** | **ROI-DCF consensus** | **H9: Per-ROI distributions are richer** | Pending |
-| **EXP10** | + vMF mixture sampling | H10: Mixture > consensus for generation | Pending |
-| **EXP11** | + decomposed UA-CFG | H11: Dual uncertainty > heuristic CFG | Pending |
-| **EXP12** | + noise-ceiling temperature | H12: Ceiling-temp improves calibration | Pending |
-| **EXP13** | + kappa-SPCL curriculum | H13: Curriculum helps convergence | Pending |
-| **EXP14** | **Full system** | **H14: Full > any ablation** | Pending |
+| **B0** | Deterministic MLP (MSE + InfoNCE + queue + PCR) | Strong standard baseline | Pending |
+| **B1** | Gaussian MLP (Gaussian-NCE + KL annealing) | Probabilistic baseline | Pending |
+| **N1** | **vMF-NCE (MLP encoder)** | **vMF > Gaussian on S^{d-1}** | Pending |
+| **N2** | **ROI Transformer + vMF-NCE** | **ROI inductive bias helps** | Pending |
+| **N3** | **ROI-DCF consensus** | **Per-ROI distributions are richer** | Pending |
+| **N4** | **Full system** (DCF + Mixture + DUA-CFG + Ceiling-Temp + SPCL) | **Full > any ablation** | Pending |
+
+### What Each Comparison Proves
+
+- **B1 vs N1** = Gaussian vs vMF (distributional choice)
+- **N1 vs N2** = Flat MLP vs ROI Transformer (architecture)
+- **N2 vs N3** = Single-head vs ROI-DCF (fusion strategy)
+- **N3 vs N4** = Base system vs full innovations (generation stack)
 
 ## Metric Tiers
 
@@ -92,7 +90,7 @@ experimental_results/
 
 ```bash
 python3 scripts/training/train_unified.py \
-    --config configs/experiments/exp7_vmf_nce.yaml \
+    --config configs/experiments/N1_vmf_nce.yaml \
     --gpu 0
 ```
 
@@ -102,7 +100,7 @@ python3 scripts/training/train_unified.py \
 bash scripts/training/run_ablation_ladder.sh \
     --subjects "subj01 subj02 subj05 subj07" \
     --gpu 0 \
-    --start-exp 7
+    --start N1
 ```
 
 ### Cross-Experiment Comparison
@@ -111,10 +109,10 @@ After running multiple experiments, compare with statistical tests:
 
 ```bash
 python3 scripts/evaluation/compare_experiments.py \
-    --exp-dirs experimental_results/exp7_vmf_nce \
-               experimental_results/exp8_roi_transformer \
-               experimental_results/exp9_roi_dcf \
-    --output experimental_results/comparison_exp7_vs_exp9.md \
+    --exp-dirs experimental_results/N1_vmf_nce \
+               experimental_results/N2_roi_transformer \
+               experimental_results/N3_roi_dcf \
+    --output experimental_results/comparison_N1_vs_N3.md \
     --paired-test
 ```
 
@@ -128,9 +126,9 @@ python3 scripts/evaluation/compare_experiments.py \
 
 ## Conventions
 
-- **Naming**: `exp{N}_{short_name}/` matches `configs/experiments/exp{N}_{short_name}.yaml`
+- **Naming**: `{ID}_{short_name}/` matches `configs/experiments/{ID}_{short_name}.yaml`
 - **Configs are frozen**: Once an experiment starts, its `config.yaml` is copied here
-  and never modified. Configuration changes require a new experiment number.
+  and never modified. Configuration changes require a new experiment.
 - **Notes are mandatory**: Every completed experiment must have a filled `notes.md`
   documenting observations, surprises, and lessons before starting the next experiment.
 - **No fabricated numbers**: All reported metrics must trace to a JSON file in this

@@ -1,17 +1,22 @@
-# EXP10: ROI-DCF + vMF Mixture Sampling
+# N2: ROI-Tokenized Transformer Encoder  (Novel — brain-topology-aware)
 #
-# Extends EXP9 (ROI-DCF) by sampling from the full vMF mixture
-# posterior instead of collapsing to a single consensus direction.
+# Replaces the flat MLP encoder with a brain-region-aware Transformer
+# that tokenises fMRI voxels by anatomical ROI and uses cross-ROI
+# attention to aggregate information.
 #
-# Hypothesis: H10: Mixture sampling produces more diverse and accurate
-#             reconstructions than consensus point estimate, especially
-#             for stimuli where ROIs disagree (high delta).
+# Combined with the vMF decoder from N1, this represents the full
+# proposed architecture.
+#
+# Key changes vs N1:
+#   - encoder_type = roi_transformer
+#   - ROI tokenisation over NSD visual ROIs
+#   - Provides interpretability via attention weights
 
 experiment:
-  name: "exp10_vmf_mixture"
-  description: "ROI-DCF with vMF Mixture Posterior Sampling for generation"
-  tags: ["roi_dcf", "vmf", "mixture", "generation", "novel"]
-  parent: "exp9_roi_dcf"
+  name: "N2_roi_transformer"
+  description: "ROI-Tokenized Transformer + vMF-NCE"
+  tags: ["roi_transformer", "vmf", "vmf_nce", "interpretable", "novel"]
+  parent: "N1_vmf_nce"
 
 data:
   subject: "subj01"
@@ -22,8 +27,7 @@ data:
   seed: 42
 
 model:
-  type: "vmf_dcf"
-  posterior: "vmf"
+  type: "vmf"
   encoder:
     encoder_type: "roi_transformer"
     input_dim: null
@@ -51,14 +55,13 @@ model:
     dropout: 0.1
     activation: "gelu"
   decoder:
+    input_dim: 512
     output_dim: 768
-    kappa_min: 0.001
-    kappa_max: 500.0
+    hidden_dims: [1024]
+    activation: "gelu"
     dropout: 0.1
-    dcf:
-      shared_heads: true
-      hidden_dim: null
-      return_per_roi: true
+    log_kappa_min: -2.0
+    log_kappa_max: 8.0
 
 preprocessing:
   enabled: true
@@ -68,17 +71,17 @@ preprocessing:
   fit_on_train: true
 
 loss:
+  vmf_nll:
+    enabled: true
+    weight: 1.0
+    dim: 768
+
   vmf_nce:
     enabled: true
     weight: 1.0
     dim: 768
-    tau: 0.07
     use_queue: true
-  vmf_nce_multitask:
-    enabled: true
-    lambda_aux: 0.5
-  vmf_nll:
-    enabled: false
+
   gaussian_nll:
     enabled: false
   gaussian_nce:
@@ -87,9 +90,6 @@ loss:
     enabled: false
   kl:
     enabled: false
-  kappa_reg:
-    enabled: true
-    lambda_kappa: 0.01
 
 queue:
   enabled: true
@@ -102,7 +102,7 @@ training:
   num_epochs: 100
   optimizer:
     type: "adamw"
-    lr: 3.0e-4
+    lr: 3e-4
     weight_decay: 0.05
     betas: [0.9, 0.95]
   warmup_epochs: 10
@@ -114,20 +114,13 @@ inference:
   use_mean_for_retrieval: true
   mc_samples_prob_metrics: 64
   seed: 42
-  # vMF Mixture sampling
-  mixture_sampling:
-    enabled: true
-    num_samples: 8           # Samples per trial from the mixture
-    strategy: "proportional"  # proportional | categorical | top_k
-    selection: "closest_to_consensus"  # closest_to_consensus | highest_likelihood | clip_rerank
 
 evaluation:
   gallery_sizes: [2, 10, 50, 100, 500, 1000]
   compute_probabilistic: true
   compute_attention_analysis: true
-  compute_per_roi_analysis: true
-  compute_mixture_energy_score: true  # Evaluate mixture quality
+  compute_roi_ablation: true
   seed: 42
 
 paths:
-  output_dir: "experimental_results/exp10_vmf_mixture"
+  output_dir: "experimental_results/N2_roi_transformer"

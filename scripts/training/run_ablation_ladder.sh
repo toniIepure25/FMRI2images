@@ -1,58 +1,57 @@
 #!/bin/bash
 # =============================================================================
-# Full Ablation Ladder Runner: EXP0 → EXP14
+# Ablation Ladder Runner: B0 -> B1 -> N1 -> N2 -> N3 -> N4
 # =============================================================================
 #
-# Runs the complete ablation study across all experiments and subjects.
-# Each experiment tests ONE hypothesis; the full system combines all.
+# Runs the streamlined 6-experiment ablation study:
+#   B0  Deterministic MLP baseline (MSE + InfoNCE + queue + PCR)
+#   B1  Gaussian probabilistic baseline (Gaussian-NCE + KL)
+#   N1  vMF-NCE  (novel distribution — vMF on S^{d-1})
+#   N2  ROI Transformer  (novel architecture — brain-topology-aware)
+#   N3  ROI-DCF  (novel fusion — per-ROI directional consensus)
+#   N4  Full System  (all innovations combined)
 #
 # Usage:
-#   bash scripts/training/run_ablation_ladder.sh [--subjects "subj01 subj02"] [--gpu 0] [--start-exp 0]
+#   bash scripts/training/run_ablation_ladder.sh
+#   bash scripts/training/run_ablation_ladder.sh --subjects "subj01 subj02" --gpu 0
+#   bash scripts/training/run_ablation_ladder.sh --start B1
 #
-# Results are saved to experimental_results/expN_<name>/
+# Results are saved to experimental_results/<experiment_name>/
 # =============================================================================
 
 set -euo pipefail
 
 SUBJECTS="${SUBJECTS:-subj01 subj02 subj05 subj07}"
 GPU="${GPU:-0}"
-START_EXP="${START_EXP:-0}"
+START="${START:-B0}"
 CONFIG_DIR="configs/experiments"
 SCRIPT="scripts/training/train_unified.py"
 
-# Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         --subjects) SUBJECTS="$2"; shift 2 ;;
         --gpu) GPU="$2"; shift 2 ;;
-        --start-exp) START_EXP="$2"; shift 2 ;;
+        --start) START="$2"; shift 2 ;;
         *) echo "Unknown arg: $1"; exit 1 ;;
     esac
 done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-# Experiment ladder with configs and hypotheses
-declare -A EXPERIMENTS=(
-    [0]="exp0_baseline.yaml|Baseline (MSE+cos, no queue)"
-    [1]="exp1_preproc.yaml|H1: center_pcr improves geometry"
-    [2]="exp2_queue.yaml|H2: InfoNCE+queue improves retrieval"
-    [3]="exp3_gaussian_nll.yaml|H3: Gaussian NLL captures uncertainty"
-    [4]="exp4_gaussian_nce.yaml|H4: Gaussian-NCE improves calibration"
-    [5]="exp5_kl_anneal.yaml|H5: KL annealing stabilizes training"
-    [6]="exp6_whiten.yaml|H6: Whitening vs PCR ablation"
-    [7]="exp7_vmf_nce.yaml|H7: vMF > Gaussian on S^{d-1}"
-    [8]="exp8_roi_transformer.yaml|H8: ROI Transformer > MLP"
-    [9]="exp9_roi_dcf.yaml|H9: ROI-DCF consensus improves both"
-    [10]="exp10_vmf_mixture.yaml|H10: Mixture sampling > consensus"
-    [11]="exp11_dual_ua_cfg.yaml|H11: Decomposed UA-CFG > heuristic"
-    [12]="exp12_ceiling_temperature.yaml|H12: Ceiling-temp improves calibration"
-    [13]="exp13_kappa_spcl.yaml|H13: kappa-SPCL curriculum helps"
-    [14]="exp14_full_system.yaml|H14: Full system is best overall"
+EXPERIMENT_ORDER=(B0 B1 N1 N2 N3 N4)
+
+declare -A CONFIGS=(
+    [B0]="B0_deterministic.yaml|Strong deterministic baseline (MLP + PCR + queue + MSE + InfoNCE)"
+    [B1]="B1_gaussian.yaml|Probabilistic Gaussian baseline (Gaussian-NCE + KL annealing)"
+    [N1]="N1_vmf_nce.yaml|Novel: vMF > Gaussian on S^{d-1}"
+    [N2]="N2_roi_transformer.yaml|Novel: ROI Transformer > flat MLP"
+    [N3]="N3_roi_dcf.yaml|Novel: ROI-DCF directional consensus fusion"
+    [N4]="N4_full_system.yaml|Novel: Full system (all innovations)"
 )
 
+started=false
 echo "=============================================="
-echo "ABLATION LADDER: EXP${START_EXP} → EXP14"
+echo "ABLATION LADDER: ${START} -> N4"
 echo "Subjects: ${SUBJECTS}"
 echo "GPU: ${GPU}"
 echo "=============================================="
@@ -61,36 +60,44 @@ TOTAL_RUNS=0
 PASSED_RUNS=0
 FAILED_RUNS=0
 
-for exp_num in $(seq "$START_EXP" 14); do
-    IFS='|' read -r config_file hypothesis <<< "${EXPERIMENTS[$exp_num]}"
+for exp_id in "${EXPERIMENT_ORDER[@]}"; do
+    if [[ "$exp_id" == "$START" ]]; then
+        started=true
+    fi
+    if [[ "$started" != true ]]; then
+        continue
+    fi
+
+    IFS='|' read -r config_file description <<< "${CONFIGS[$exp_id]}"
     config_path="${CONFIG_DIR}/${config_file}"
 
     if [[ ! -f "$config_path" ]]; then
-        echo "[SKIP] EXP${exp_num}: Config not found: ${config_path}"
+        echo "[SKIP] ${exp_id}: Config not found: ${config_path}"
         continue
     fi
 
     echo ""
-    echo "====== EXP${exp_num}: ${hypothesis} ======"
+    echo "====== ${exp_id}: ${description} ======"
     echo "Config: ${config_path}"
 
     for subject in $SUBJECTS; do
         TOTAL_RUNS=$((TOTAL_RUNS + 1))
-        run_id="exp${exp_num}_${subject}"
-        log_file="experimental_results/${run_id}/train.log"
-        mkdir -p "experimental_results/${run_id}"
+        run_id="${exp_id}_${subject}"
+        log_dir="experimental_results/${exp_id}_${config_file%.yaml}"
+        log_file="${log_dir}/${subject}_train.log"
+        mkdir -p "$log_dir"
 
-        echo "  → ${subject} ... "
+        echo "  -> ${subject} ... "
 
         if python3 "$SCRIPT" \
             --config "$config_path" \
             --subject "$subject" \
             --gpu 0 \
             > "$log_file" 2>&1; then
-            echo "    ✓ PASSED"
+            echo "    PASSED"
             PASSED_RUNS=$((PASSED_RUNS + 1))
         else
-            echo "    ✗ FAILED (see ${log_file})"
+            echo "    FAILED (see ${log_file})"
             FAILED_RUNS=$((FAILED_RUNS + 1))
         fi
     done
@@ -100,6 +107,6 @@ echo ""
 echo "=============================================="
 echo "ABLATION LADDER COMPLETE"
 echo "  Total runs: ${TOTAL_RUNS}"
-echo "  Passed: ${PASSED_RUNS}"
-echo "  Failed: ${FAILED_RUNS}"
+echo "  Passed:     ${PASSED_RUNS}"
+echo "  Failed:     ${FAILED_RUNS}"
 echo "=============================================="

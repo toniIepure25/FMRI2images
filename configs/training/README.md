@@ -28,5 +28,5 @@ python3 scripts/training/train_clip_adapter.py \
 
 ## Note
 
-For the main ablation experiments (EXP0-EXP14), use `configs/experiments/exp*.yaml`
+For the main ablation experiments (B0-N4), use `configs/experiments/{B0,B1,N1,N2,N3,N4}_*.yaml`
 with `train_unified.py`. These training configs serve supplementary roles.

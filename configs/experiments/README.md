@@ -1,6 +1,6 @@
 # Experiment Configurations
 
-Self-contained configs for the Phase 2 ablation ladder (EXP0-EXP14).
+Self-contained configs for the Phase 2 ablation ladder (B0-B1-N1-N2-N3-N4).
 Each file fully specifies one experiment — no implicit dependencies.
 
 ## Running Experiments
@@ -8,44 +8,45 @@ Each file fully specifies one experiment — no implicit dependencies.
 ```bash
 # Single experiment
 python3 scripts/training/train_unified.py \
-    --config configs/experiments/exp7_vmf_nce.yaml --gpu 0
+    --config configs/experiments/N1_vmf_nce.yaml --gpu 0
 
-# Full ablation ladder (all 15 experiments x 4 subjects)
+# Full ablation ladder (6 experiments x 4 subjects)
 bash scripts/training/run_ablation_ladder.sh \
     --subjects "subj01 subj02 subj05 subj07" --gpu 0
+
+# Resume from a specific experiment
+bash scripts/training/run_ablation_ladder.sh --start N1
 ```
 
 ## Ablation Ladder
 
-### EXP0-EXP6: Foundation (MLP Encoder)
+The ladder is structured so that **consecutive row differences = ablation**.
+No separate ablation table needed — the main table IS the ablation.
 
-| Config | Key Addition | Model Type |
+### Baselines (B0-B1): Best Known Standard Techniques
+
+| Config | Description | Model Type |
 |--------|-------------|-----------|
-| `exp0_baseline.yaml` | Deterministic MLP + MSE + InfoNCE | deterministic |
-| `exp1_preproc.yaml` | + center_pcr (k=8) | deterministic |
-| `exp2_queue.yaml` | + memory queue (Q=8192) | deterministic |
-| `exp3_gaussian_nll.yaml` | + Gaussian NLL (mu, logvar) | gaussian |
-| `exp4_gaussian_nce.yaml` | + Gaussian-NCE contrastive | gaussian |
-| `exp5_kl_anneal.yaml` | + KL annealing + free-bits | gaussian |
-| `exp6_whiten.yaml` | Whitening ablation (vs PCR) | gaussian |
+| `B0_deterministic.yaml` | MLP + PCR + queue + MSE + InfoNCE | deterministic |
+| `B1_gaussian.yaml` | MLP + PCR + queue + Gaussian-NCE + KL annealing | gaussian |
 
-### EXP7-EXP9: Core Novel Contributions
+### Novel Contributions (N1-N4): Our Innovations
 
-| Config | Key Addition | Model Type |
+| Config | Description | Model Type |
 |--------|-------------|-----------|
-| `exp7_vmf_nce.yaml` | vMF decoder + vMF-NCE loss | vmf |
-| `exp8_roi_transformer.yaml` | ROI-Tokenized Transformer encoder | vmf |
-| `exp9_roi_dcf.yaml` | Per-ROI vMF experts + consensus fusion | vmf_dcf |
+| `N1_vmf_nce.yaml` | vMF decoder + vMF-NCE loss (replaces Gaussian) | vmf |
+| `N2_roi_transformer.yaml` | ROI-Tokenized Transformer encoder + vMF-NCE | vmf |
+| `N3_roi_dcf.yaml` | Per-ROI vMF experts + consensus fusion | vmf_dcf |
+| `N4_full_system.yaml` | All innovations: DCF + Mixture + DUA-CFG + Ceiling-Temp + SPCL | vmf_dcf |
 
-### EXP10-EXP14: Extended Innovations
+### What Each Comparison Proves
 
-| Config | Key Addition | Model Type |
-|--------|-------------|-----------|
-| `exp10_vmf_mixture.yaml` | vMF mixture posterior sampling | vmf_dcf |
-| `exp11_dual_ua_cfg.yaml` | Decomposed UA-CFG (kappa->w, delta->K) | vmf_dcf |
-| `exp12_ceiling_temperature.yaml` | Noise-ceiling contrastive temperature | vmf_dcf |
-| `exp13_kappa_spcl.yaml` | kappa-SPCL curriculum learning | vmf_dcf |
-| `exp14_full_system.yaml` | All innovations combined (flagship) | vmf_dcf |
+| Comparison | Isolates |
+|------------|----------|
+| B1 vs N1 | Gaussian vs vMF (distributional choice) |
+| N1 vs N2 | Flat MLP vs ROI Transformer (architecture) |
+| N2 vs N3 | Single-head vs ROI-DCF (fusion strategy) |
+| N3 vs N4 | Base system vs full innovations (generation stack) |
 
 ## Config Schema
 
@@ -53,13 +54,13 @@ Every experiment config follows this structure:
 
 ```yaml
 experiment:
-  name: "exp7_vmf_nce"
+  name: "N1_vmf_nce"
   description: "..."
   tags: [...]
-  parent: "exp4_gaussian_nce"     # Which experiment this builds on
+  parent: "B1_gaussian"              # Which experiment this builds on
 
 data:
-  subject: "subj01"               # Overridden by --subject CLI arg
+  subject: "subj01"                  # Overridden by --subject CLI arg
   roi: "nsdgeneral"
   train_split: 0.70
   val_split: 0.15
@@ -67,7 +68,7 @@ data:
   seed: 42
 
 model:
-  type: "vmf"                     # deterministic | gaussian | vmf | vmf_dcf
+  type: "vmf"                        # deterministic | gaussian | vmf | vmf_dcf
   encoder: { ... }
   decoder: { ... }
 
@@ -100,7 +101,7 @@ paths:
 
 ## ROI Dimensions
 
-EXP8-EXP14 use placeholder ROI dimensions. These are populated at runtime
+N2-N4 use placeholder ROI dimensions. These are populated at runtime
 from the NSD atlas masks for the specified subject. The values in the configs
 (V1v: 700, V2v: 600, etc.) are approximate and serve as documentation only.
 

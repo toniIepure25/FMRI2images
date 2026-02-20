@@ -1,23 +1,23 @@
-# EXP12: ROI-DCF + Noise-Ceiling Temperature
+# N4: Full System — All Novel Contributions Combined
 #
-# Scales the contrastive temperature tau per-subject based on the
-# Spearman-Brown noise ceiling, accounting for inherent fMRI
-# measurement limits in the loss function.
+# Combines all innovations:
+#   - ROI-DCF with per-ROI vMF experts (N3)
+#   - vMF Mixture Sampling for generation
+#   - Decomposed UA-CFG: kappa -> w, delta -> K
+#   - Noise-Ceiling Temperature
+#   - kappa-SPCL Curriculum
 #
-# tau_subject = tau_base * (1 + beta * (1 - ceiling_subject))
+# This is the flagship experiment for the paper.
 #
-# Subjects with lower noise ceiling (noisier data) get a higher
-# temperature, relaxing the contrastive constraint appropriately.
-#
-# Hypothesis: H12: Ceiling-informed temperature improves calibration
-#             (ECE, Coverage@95) without sacrificing retrieval, because
-#             the loss correctly accounts for measurement noise.
+# Hypothesis: The full system achieves the best overall performance
+#             across retrieval, calibration, reconstruction, and
+#             interpretability metrics, outperforming each ablation.
 
 experiment:
-  name: "exp12_ceiling_temperature"
-  description: "ROI-DCF with noise-ceiling-informed contrastive temperature"
-  tags: ["roi_dcf", "vmf", "ceiling", "calibration", "novel"]
-  parent: "exp9_roi_dcf"
+  name: "N4_full_system"
+  description: "Full system: ROI-DCF + Mixture + DUA-CFG + Ceiling-Temp + SPCL"
+  tags: ["roi_dcf", "vmf", "mixture", "dual_ua_cfg", "ceiling", "spcl", "full_system", "flagship"]
+  parent: "N3_roi_dcf"
 
 data:
   subject: "subj01"
@@ -74,23 +74,27 @@ preprocessing:
   fit_on_train: true
 
 loss:
-  vmf_nce:
+  vmf_nce_spcl:
     enabled: true
     weight: 1.0
-    dim: 768
-    tau: 0.07                     # Base temperature
+    tau: 0.07
     use_queue: true
-    # Ceiling temperature modulation
+    initial_curriculum_t: 100.0
+    final_curriculum_t: 1.0
+    warmup_epochs: 10
+    anneal_strategy: "cosine"
     ceiling_temperature:
       enabled: true
-      beta: 0.5                   # Modulation strength: tau = tau_base * (1 + beta * (1 - ceiling))
-      ceiling_source: "ncsnr"     # ncsnr | embedding_repeats
+      beta: 0.5
+      ceiling_source: "ncsnr"
   vmf_nce_multitask:
     enabled: true
     lambda_aux: 0.5
   kappa_reg:
     enabled: true
     lambda_kappa: 0.01
+  vmf_nce:
+    enabled: false
   vmf_nll:
     enabled: false
   gaussian_nll:
@@ -124,14 +128,35 @@ training:
 inference:
   use_mean_for_retrieval: true
   seed: 42
+  mixture_sampling:
+    enabled: true
+    num_samples: 8
+    strategy: "proportional"
+    selection: "closest_to_consensus"
+  decomposed_ua_cfg:
+    enabled: true
+    w_min: 1.5
+    w_max: 12.0
+    gamma_w: 1.0
+    k_min: 1
+    k_max: 8
+    delta_threshold_low: 0.2
+    delta_threshold_high: 0.6
+    steps_min: 10
+    steps_max: 50
+    gamma_steps: 0.5
+    abstain_kappa_quantile: 0.05
+    abstain_delta_threshold: 0.85
 
 evaluation:
   gallery_sizes: [2, 10, 50, 100, 500, 1000]
   compute_probabilistic: true
   compute_attention_analysis: true
   compute_per_roi_analysis: true
-  compute_ceiling_normalized: true  # Report metrics as % of ceiling
+  compute_mixture_energy_score: true
+  compute_risk_coverage: true
+  compute_ceiling_normalized: true
   seed: 42
 
 paths:
-  output_dir: "experimental_results/exp12_ceiling_temperature"
+  output_dir: "experimental_results/N4_full_system"

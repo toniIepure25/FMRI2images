@@ -18,7 +18,7 @@ All configs use Stable Diffusion 2.1 (`stabilityai/stable-diffusion-2-1`).
 # Production inference
 python3 scripts/reconstruction/decode_diffusion.py \
     --config configs/inference/production.yaml \
-    --checkpoint experimental_results/exp14_full_system/best_model.pt \
+    --checkpoint experimental_results/N4_full_system/best_model.pt \
     --subject subj01
 
 # Fast batch evaluation
@@ -34,13 +34,13 @@ python3 scripts/reconstruction/decode_diffusion.py \
 
 ## Uncertainty-Aware CFG (Phase 2)
 
-When using a vMF model with ROI-DCF (EXP9+), `production.yaml` supports
+When using a vMF model with ROI-DCF (N3+), `production.yaml` supports
 decomposed uncertainty-aware CFG. Enable it in the config or at runtime:
 
 ```bash
 python3 scripts/reconstruction/decode_diffusion.py \
     --config configs/inference/production.yaml \
-    --checkpoint path/to/exp14_model.pt \
+    --checkpoint path/to/N4_model.pt \
     --override "ua_cfg.enabled=true"
 ```
 

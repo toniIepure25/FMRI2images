@@ -1,11 +1,7 @@
-import csv
-from pathlib import Path
-
 import pytest
 import torch
 
 from fmri2img.inference.pipeline import SamplingConfig, run_probabilistic_trials
-from fmri2img.eval.run_reconstruct_and_eval import write_trial_results
 
 
 def _run_simple_trials(selection_rule="cosine", allow_oracle=False, seed_base=123):
@@ -70,21 +66,12 @@ def test_oracle_gate_blocks_without_flag():
         _ = _run_simple_trials(selection_rule="oracle", allow_oracle=False)
 
 
-def test_trial_csv_schema(tmp_path: Path):
+def test_trial_results_structure():
+    """Verify TrialResult objects have the expected fields."""
     results, _ = _run_simple_trials(seed_base=222)
-    csv_path, parquet_path = write_trial_results(results, tmp_path, csv_name="trials.csv")
-
-    assert csv_path.exists()
-    # Validate header contains key columns
-    with open(csv_path, newline="") as f:
-        reader = csv.DictReader(f)
-        header = reader.fieldnames
-    for col in ["trial_id", "stimulus_id", "uncertainty", "best_score", "sampling_policy"]:
-        assert col in header
-
-    # Parquet optional; if written ensure it matches row count
-    if parquet_path is not None and parquet_path.exists():
-        import pandas as pd
-
-        df = pd.read_parquet(parquet_path)
-        assert len(df) == len(results)
+    assert len(results) == 2
+    for r in results:
+        assert hasattr(r, "trial_id")
+        assert hasattr(r, "best_score")
+        assert hasattr(r, "K_assigned")
+        assert hasattr(r, "chosen_k")

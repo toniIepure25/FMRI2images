@@ -2,8 +2,9 @@
 CLIP Adapter for Dimension Alignment
 =====================================
 
-Lightweight trainable adapter to map 512-D CLIP embeddings (ViT-B/32) to higher
-dimensions required by diffusion models (768-D for SD-1.5, 1024-D for SD-2.1).
+Lightweight trainable adapter to map CLIP embeddings (configurable dimension,
+default 768 for ViT-L/14) to target dimensions required by diffusion models
+(768-D for SD-1.5, 1024-D for SD-2.1).
 
 Scientific Design:
 - Linear projection with optional LayerNorm for stable training
@@ -13,7 +14,7 @@ Scientific Design:
 
 Usage:
     # Training
-    adapter = CLIPAdapter(in_dim=512, out_dim=1024, use_layernorm=True)
+    adapter = CLIPAdapter(in_dim=768, out_dim=1024, use_layernorm=True)
     pred_512d = encoder(fmri)
     target_1024d = diffusion_clip(images)
     loss = mse_loss(adapter(pred_512d), target_1024d)
@@ -35,21 +36,21 @@ class CLIPAdapter(nn.Module):
     """
     Lightweight adapter for CLIP embedding dimension alignment.
     
-    Maps 512-D embeddings (ViT-B/32) to target dimension (768/1024) for diffusion
-    model compatibility. Preserves angular relationships in CLIP space.
+    Maps CLIP embeddings (default 768-D for ViT-L/14) to target dimension
+    (768/1024) for diffusion model compatibility. Preserves angular relationships in CLIP space.
     
     Architecture:
         Linear(in_dim, out_dim) → [LayerNorm(out_dim)] → L2-normalize
     
     Args:
-        in_dim: Input dimension (default: 512, ViT-B/32)
+        in_dim: Input dimension (default: 768, ViT-L/14)
         out_dim: Output dimension (768 for SD-1.5, 1024 for SD-2.1)
         use_layernorm: Apply LayerNorm before normalization (default: True)
     """
     
     def __init__(
         self,
-        in_dim: int = 512,
+        in_dim: int = 768,
         out_dim: int = 1024,
         use_layernorm: bool = True
     ):
@@ -162,7 +163,7 @@ class CLIPAdapter(nn.Module):
             repaired_fields.append("model_id=stabilityai/stable-diffusion-2-1")
         
         if "input_dim" not in metadata:
-            metadata["input_dim"] = metadata.get("in_dim", 512)
+            metadata["input_dim"] = metadata.get("in_dim", 768)
             repaired_fields.append(f"input_dim={metadata['input_dim']}")
         
         if "target_dim" not in metadata:
@@ -190,7 +191,7 @@ class CLIPAdapter(nn.Module):
         
         # Reconstruct model from metadata
         adapter = cls(
-            in_dim=metadata.get("in_dim", 512),
+            in_dim=metadata.get("in_dim", 768),
             out_dim=metadata.get("out_dim", 1024),
             use_layernorm=metadata.get("use_layernorm", True)
         )
@@ -249,7 +250,7 @@ def load_adapter(path: str, map_location: str = "cpu") -> Tuple[CLIPAdapter, Dic
     logger.info(f"Loaded adapter (target_dim={target_dim}) with metadata: "
                f"{{subject={metadata.get('subject', 'unknown')}, "
                f"model_id={metadata.get('model_id', 'unknown')}, "
-               f"input_dim={metadata.get('input_dim', 512)}, "
+               f"input_dim={metadata.get('input_dim', 768)}, "
                f"target_dim={target_dim}}}")
     
     return adapter, metadata

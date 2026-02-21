@@ -38,7 +38,7 @@ class ImageEncoder(nn.Module):
     Image encoder for extracting visual features.
     
     Supports multiple pretrained backbones:
-    - CLIP ViT (clip_vit_b32, clip_vit_l14)
+    - CLIP ViT (clip_vit_l14 default, clip_vit_b32)
     - DINO (dino_vits16, dino_vitb16)
     - ResNet (resnet50, resnet101)
     
@@ -49,7 +49,7 @@ class ImageEncoder(nn.Module):
     
     def __init__(
         self,
-        backbone: str = "clip_vit_b32",
+        backbone: str = "clip_vit_l14",
         freeze: bool = True
     ):
         super().__init__()
@@ -57,7 +57,7 @@ class ImageEncoder(nn.Module):
         self.freeze = freeze
         
         if backbone == "clip_vit_b32":
-            # Use CLIP ViT-B/32
+            # Use CLIP ViT-B/32 (512-D output)
             try:
                 import open_clip
                 model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='openai')
@@ -68,12 +68,12 @@ class ImageEncoder(nn.Module):
                 raise ImportError("open_clip_torch required. Install: pip install open-clip-torch")
         
         elif backbone == "clip_vit_l14":
-            # Use CLIP ViT-L/14 (larger)
+            # Use CLIP ViT-L/14 (768-D output, Phase 2 default)
             try:
                 import open_clip
                 model, _, preprocess = open_clip.create_model_and_transforms('ViT-L-14', pretrained='openai')
                 self.backbone = model.visual
-                self.feature_dim = 1024
+                self.feature_dim = 1024  # ViT-L/14 hidden dim
                 self.preprocess = preprocess
             except ImportError:
                 raise ImportError("open_clip_torch required")
@@ -166,8 +166,8 @@ class EncodingModel(nn.Module):
         dropout: Dropout probability
     
     Example:
-        >>> # Create encoding model
-        >>> model = EncodingModel(output_dim=512, backbone="clip_vit_b32")
+        >>> # Create encoding model (Phase 2 default: ViT-L/14)
+        >>> model = EncodingModel(output_dim=512, backbone="clip_vit_l14")
         >>> 
         >>> # Forward pass
         >>> img_tensor = preprocess_image(pil_image)
@@ -177,7 +177,7 @@ class EncodingModel(nn.Module):
     def __init__(
         self,
         output_dim: int,
-        backbone: str = "clip_vit_b32",
+        backbone: str = "clip_vit_l14",
         freeze_backbone: bool = True,
         hidden_dim: int = 1024,
         dropout: float = 0.3
@@ -276,7 +276,7 @@ def load_encoding_model(
     # Reconstruct model
     model = EncodingModel(
         output_dim=meta["output_dim"],
-        backbone=meta.get("backbone", "clip_vit_b32"),
+        backbone=meta.get("backbone", "clip_vit_l14"),
         freeze_backbone=meta.get("freeze_backbone", True),
         hidden_dim=meta.get("hidden_dim", 1024),
         dropout=meta.get("dropout", 0.3)

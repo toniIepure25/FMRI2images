@@ -3,7 +3,7 @@ Ridge Regression Encoder for fMRI → CLIP Mapping
 ================================================
 
 Implements a reproducible Ridge baseline that maps preprocessed fMRI features
-(after T0/T1/T2 pipeline) to CLIP 512D embeddings.
+(after T0/T1/T2 pipeline) to CLIP embeddings (configurable dimension; default 768 for ViT-L/14).
 
 Scientific Design:
 - Uses L2-regularized linear regression (Ridge) for stable parameter estimation
@@ -37,7 +37,7 @@ class RidgeEncoder:
     """
     Ridge regression encoder for fMRI → CLIP embedding mapping.
     
-    Maps preprocessed fMRI features (shape: n_voxels or k_pca) to CLIP embeddings (512D).
+    Maps preprocessed fMRI features (shape: n_voxels or k_pca) to CLIP embeddings (768D default for ViT-L/14).
     Uses L2 regularization for stable parameter estimation with high-dimensional inputs.
     
     Scientific Rationale:
@@ -49,7 +49,7 @@ class RidgeEncoder:
         alpha: L2 regularization strength (higher = more regularization)
         model: sklearn Ridge regressor
         input_dim: Input feature dimension (set during fit)
-        output_dim: Output dimension (always 512 for CLIP ViT-B/32)
+        output_dim: Output dimension (768 default for CLIP ViT-L/14)
     """
     
     def __init__(self, alpha: float = 1.0):
@@ -66,7 +66,7 @@ class RidgeEncoder:
         self.alpha = alpha
         self.model = None
         self.input_dim = None
-        self.output_dim = 512  # CLIP ViT-B/32 embedding dimension
+        self.output_dim = 768  # CLIP ViT-L/14 embedding dimension
         
     def fit(self, X: np.ndarray, Y: np.ndarray) -> None:
         """
@@ -76,7 +76,7 @@ class RidgeEncoder:
             X: fMRI features, shape (n_samples, n_features)
                - Can be raw voxels, masked voxels, or PCA components
                - Should already be preprocessed (T0/T1/T2)
-            Y: CLIP embeddings, shape (n_samples, 512)
+            Y: CLIP embeddings, shape (n_samples, output_dim); default 768 for ViT-L/14
                - Should be L2-normalized (standard CLIP output)
         
         Raises:
@@ -86,7 +86,7 @@ class RidgeEncoder:
             raise ValueError(f"Sample mismatch: X has {X.shape[0]} samples, Y has {Y.shape[0]}")
         
         if Y.shape[1] != self.output_dim:
-            raise ValueError(f"Y must be shape (n_samples, 512), got {Y.shape}")
+            raise ValueError(f"Y must be shape (n_samples, {self.output_dim}), got {Y.shape}")
         
         if np.any(np.isnan(X)) or np.any(np.isnan(Y)):
             raise ValueError("Input contains NaN values")
@@ -118,7 +118,7 @@ class RidgeEncoder:
                        (required for cosine similarity and retrieval)
         
         Returns:
-            Predicted CLIP embeddings, shape (n_samples, 512)
+            Predicted CLIP embeddings, shape (n_samples, output_dim)
             If normalize=True, each row has L2 norm = 1.0
         
         Raises:
@@ -200,14 +200,14 @@ class RidgeEncoder:
         
         Returns:
             Dictionary with keys:
-            - "coef": Coefficient matrix (n_features, 512)
-            - "intercept": Bias vector (512,)
+            - "coef": Coefficient matrix (n_features, output_dim)
+            - "intercept": Bias vector (output_dim,)
         """
         if self.model is None:
             raise ValueError("Model not fitted")
         
         return {
-            "coef": self.model.coef_.T,  # Transpose to (n_features, 512)
+            "coef": self.model.coef_.T,  # Transpose to (n_features, output_dim)
             "intercept": self.model.intercept_,
         }
 
@@ -221,8 +221,8 @@ def evaluate_predictions(
     Evaluate prediction quality using standard metrics.
     
     Args:
-        Y_true: Ground truth CLIP embeddings (n_samples, 512)
-        Y_pred: Predicted CLIP embeddings (n_samples, 512)
+        Y_true: Ground truth CLIP embeddings (n_samples, D); D=768 for ViT-L/14
+        Y_pred: Predicted CLIP embeddings (n_samples, D)
         normalize: If True, L2-normalize before computing cosine
     
     Returns:

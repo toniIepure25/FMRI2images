@@ -154,15 +154,17 @@ class CLIPMappingHead(nn.Module):
     """
     Stage 2: Mapping head from latent brain representation to CLIP space.
     
-    Maps the latent representation h from Stage 1 to a 512-D CLIP embedding.
+    Maps the latent representation h from Stage 1 to CLIP embedding space
+    (configurable dimension, default 768 for ViT-L/14).
     Supports both linear and MLP variants.
     
     Architecture:
-        Linear: Linear(latent_dim, 512) → L2-normalize
-        MLP: Linear(latent_dim, hidden) → GELU → Dropout → Linear(hidden, 512) → L2-normalize
+        Linear: Linear(latent_dim, clip_dim) → L2-normalize
+        MLP: Linear(latent_dim, hidden) → GELU → Dropout → Linear(hidden, clip_dim) → L2-normalize
     
     Args:
         latent_dim: Input latent dimensionality (from Stage 1)
+        clip_dim: Output CLIP embedding dimension (default 768 for ViT-L/14)
         head_type: "linear" or "mlp"
         hidden_dim: Hidden dimension for MLP head (ignored for linear)
         dropout: Dropout for MLP head (default: 0.2)
@@ -176,19 +178,21 @@ class CLIPMappingHead(nn.Module):
     def __init__(
         self,
         latent_dim: int,
+        clip_dim: int = 768,
         head_type: Literal["linear", "mlp"] = "linear",
         hidden_dim: int = 512,
         dropout: float = 0.2
     ):
         super().__init__()
         self.latent_dim = latent_dim
+        self.clip_dim = clip_dim
         self.head_type = head_type
         self.hidden_dim = hidden_dim
         self.dropout = dropout
         
         if head_type == "linear":
             # Simple linear projection
-            self.head = nn.Linear(latent_dim, 512)
+            self.head = nn.Linear(latent_dim, clip_dim)
         
         elif head_type == "mlp":
             # Two-layer MLP
@@ -196,7 +200,7 @@ class CLIPMappingHead(nn.Module):
                 nn.Linear(latent_dim, hidden_dim),
                 nn.GELU(),
                 nn.Dropout(dropout),
-                nn.Linear(hidden_dim, 512)
+                nn.Linear(hidden_dim, clip_dim)
             )
         
         else:
@@ -210,9 +214,9 @@ class CLIPMappingHead(nn.Module):
             h: Latent brain representation (B, latent_dim)
         
         Returns:
-            z: L2-normalized CLIP embedding (B, 512)
+            z: L2-normalized CLIP embedding (B, clip_dim)
         """
-        z = self.head(h)  # (B, 512)
+        z = self.head(h)  # (B, clip_dim)
         z = torch.nn.functional.normalize(z, dim=-1)  # Unit sphere for cosine similarity
         return z
 
@@ -233,6 +237,7 @@ class TwoStageEncoder(nn.Module):
         dropout: Dropout probability
         head_type: "linear" or "mlp" for Stage 2
         head_hidden_dim: Hidden dimension for MLP head
+        clip_dim: CLIP embedding dimension (default 768 for ViT-L/14)
     
     Example:
         >>> # Create encoder
@@ -240,11 +245,11 @@ class TwoStageEncoder(nn.Module):
         >>> 
         >>> # Forward pass
         >>> x = torch.randn(32, 512)  # Batch of fMRI features
-        >>> z = encoder(x)  # (32, 512) CLIP embeddings
+        >>> z = encoder(x)  # (32, 768) CLIP embeddings (ViT-L/14)
         >>> 
         >>> # Access stages separately
         >>> h = encoder.stage1(x)  # (32, 768) latent representation
-        >>> z = encoder.stage2(h)  # (32, 512) CLIP embedding
+        >>> z = encoder.stage2(h)  # (32, 768) CLIP embedding
     """
     
     def __init__(
@@ -284,10 +289,10 @@ class TwoStageEncoder(nn.Module):
             x: Input fMRI features (B, input_dim)
         
         Returns:
-            z: L2-normalized CLIP embeddings (B, 512)
+            z: L2-normalized CLIP embeddings (B, clip_dim)
         """
         h = self.stage1(x)  # (B, latent_dim)
-        z = self.stage2(h)  # (B, 512)
+        z = self.stage2(h)  # (B, clip_dim)
         return z
     
     def freeze_stage1(self):
@@ -308,10 +313,10 @@ class MultiLayerTwoStageEncoder(nn.Module):
     Extended TwoStageEncoder with multi-layer CLIP supervision.
     
     Predicts CLIP features from multiple ViT layers simultaneously:
-    - layer_4: Early visual features (768-D)
-    - layer_8: Mid-level features (768-D)
-    - layer_12: Late semantic features (768-D)
-    - final: Final CLIP embedding (512-D)
+    - layer_4: Early visual features (768-D ViT-B/32, 1024-D ViT-L/14)
+    - layer_8: Mid-level features (768-D ViT-B/32, 1024-D ViT-L/14)
+    - layer_12: Late semantic features (768-D ViT-B/32, 1024-D ViT-L/14)
+    - final: Final CLIP embedding (512-D ViT-B/32, 768-D ViT-L/14)
     
     Architecture:
         Stage 1: fMRI → latent h (shared, ResidualMLPEncoder)
@@ -329,7 +334,7 @@ class MultiLayerTwoStageEncoder(nn.Module):
         - Layer 4 proj: 1024 → 768 (linear)
         - Layer 8 proj: 1024 → 768 (linear)
         - Layer 12 proj: 1024 → 768 (linear)
-        - Final proj: 1024 → 512 (linear)
+        - Final proj: 1024 → clip_dim (768 for ViT-L/14)
         
         Parameter reduction: ~60% fewer parameters vs independent heads
     
@@ -364,7 +369,7 @@ class MultiLayerTwoStageEncoder(nn.Module):
         >>> #     'layer_4': (32, 768),
         >>> #     'layer_8': (32, 768),
         >>> #     'layer_12': (32, 768),
-        >>> #     'final': (32, 512)
+        >>> #     'final': (32, 768)
         >>> # }
     
     Scientific Rationale:
@@ -383,6 +388,7 @@ class MultiLayerTwoStageEncoder(nn.Module):
         dropout: float = 0.3,
         head_type: Literal["linear", "mlp"] = "linear",
         head_hidden_dim: int = 512,
+        clip_dim: int = 768,
         enabled_layers: Optional[list] = None,
         shared_head_backbone: bool = False,
         predict_text_clip: bool = False  # Phase 2: Text-CLIP prediction
@@ -390,6 +396,7 @@ class MultiLayerTwoStageEncoder(nn.Module):
         super().__init__()
         self.input_dim = input_dim
         self.latent_dim = latent_dim
+        self.clip_dim = clip_dim
         self.enabled_layers = enabled_layers or ['layer_4', 'layer_8', 'layer_12', 'final']
         self.shared_head_backbone = shared_head_backbone
         self.head_hidden_dim = head_hidden_dim
@@ -423,11 +430,11 @@ class MultiLayerTwoStageEncoder(nn.Module):
                     self.heads[layer_name] = nn.Linear(head_hidden_dim, 768)
             
             if 'final' in self.enabled_layers:
-                self.heads['final'] = nn.Linear(head_hidden_dim, 512)
+                self.heads['final'] = nn.Linear(head_hidden_dim, clip_dim)
             
             # Phase 2: Text-CLIP head (shares backbone)
             if predict_text_clip:
-                self.heads['text'] = nn.Linear(head_hidden_dim, 512)
+                self.heads['text'] = nn.Linear(head_hidden_dim, clip_dim)
                 logger.info("Phase 2: Text-CLIP head enabled (shared backbone)")
                 
         else:
@@ -449,10 +456,11 @@ class MultiLayerTwoStageEncoder(nn.Module):
                             nn.Linear(head_hidden_dim, 768)
                         )
             
-            # Final CLIP embedding head (512-D)
+            # Final CLIP embedding head (768-D for ViT-L/14)
             if 'final' in self.enabled_layers:
                 self.heads['final'] = CLIPMappingHead(
                     latent_dim=latent_dim,
+                    clip_dim=clip_dim,
                     head_type=head_type,
                     hidden_dim=head_hidden_dim,
                     dropout=dropout * 0.7
@@ -462,6 +470,7 @@ class MultiLayerTwoStageEncoder(nn.Module):
             if predict_text_clip:
                 self.heads['text'] = CLIPMappingHead(
                     latent_dim=latent_dim,
+                    clip_dim=clip_dim,
                     head_type=head_type,
                     hidden_dim=head_hidden_dim,
                     dropout=dropout * 0.7
@@ -480,7 +489,7 @@ class MultiLayerTwoStageEncoder(nn.Module):
                 - layer_4: (B, 768)
                 - layer_8: (B, 768)
                 - layer_12: (B, 768)
-                - final: (B, 512)
+                - final: (B, clip_dim) — 768 for ViT-L/14
         """
         # Stage 1: Shared encoding
         h = self.stage1(x)  # (B, latent_dim)
@@ -518,14 +527,14 @@ class MultiLayerTwoStageEncoder(nn.Module):
         Args:
             layer_outputs: Dict of layer predictions from forward()
                 - layer_4, layer_8, layer_12: (B, 768) each
-                - final: (B, 512)
+                - final: (B, clip_dim) — 768 for ViT-L/14
             strategy: Combination strategy
-                - "weighted_pool": Weight by layer importances, project to 512-D
-                - "concat_project": Concatenate all, linear project to 512-D
-                - "average": Simple average of all layers projected to 512-D
+                - "weighted_pool": Weight by layer importances, project to clip_dim
+                - "concat_project": Concatenate all, linear project to clip_dim
+                - "average": Simple average of all layers projected to clip_dim
         
         Returns:
-            z_infonce: Combined representation (B, 512), L2-normalized
+            z_infonce: Combined representation (B, clip_dim), L2-normalized
         
         Scientific Rationale:
         - Multi-layer features capture different levels of abstraction
@@ -540,7 +549,7 @@ class MultiLayerTwoStageEncoder(nn.Module):
         device = layer_outputs['final'].device
         
         if strategy == "weighted_pool":
-            # Project each layer to 512-D, then weighted average
+            # Project each layer to clip_dim, then weighted average
             # Use default layer weights as importances
             layer_weights = {
                 'layer_4': 0.15,
@@ -549,33 +558,35 @@ class MultiLayerTwoStageEncoder(nn.Module):
                 'final': 0.40
             }
             
-            # Project 768-D layers to 512-D to match final
+            # Project 768-D layers to clip_dim to match final
             # We'll use simple linear projections (minimal params)
+            clip_dim = self.clip_dim
             if not hasattr(self, '_infonce_projectors'):
                 self._infonce_projectors = nn.ModuleDict({
-                    'layer_4': nn.Linear(768, 512, bias=False),
-                    'layer_8': nn.Linear(768, 512, bias=False),
-                    'layer_12': nn.Linear(768, 512, bias=False),
+                    'layer_4': nn.Linear(768, clip_dim, bias=False),
+                    'layer_8': nn.Linear(768, clip_dim, bias=False),
+                    'layer_12': nn.Linear(768, clip_dim, bias=False),
                 }).to(device)
             
             # Weighted combination
-            z_combined = torch.zeros(batch_size, 512, device=device)
+            z_combined = torch.zeros(batch_size, clip_dim, device=device)
             for layer_name in ['layer_4', 'layer_8', 'layer_12']:
                 if layer_name in layer_outputs:
                     z_proj = self._infonce_projectors[layer_name](layer_outputs[layer_name])
                     z_combined += layer_weights[layer_name] * z_proj
             
-            # Add final layer (already 512-D)
+            # Add final layer (already clip_dim)
             z_combined += layer_weights['final'] * layer_outputs['final']
             
             # L2 normalize
             z_infonce = torch.nn.functional.normalize(z_combined, dim=-1)
             
         elif strategy == "concat_project":
-            # Concatenate all layers (768*3 + 512 = 2816-D) → project to 512-D
+            # Concatenate all layers (768*3 + clip_dim) → project to clip_dim
+            clip_dim = self.clip_dim
             if not hasattr(self, '_infonce_concat_proj'):
-                total_dim = 768 * 3 + 512  # layer_4, layer_8, layer_12, final
-                self._infonce_concat_proj = nn.Linear(total_dim, 512, bias=False).to(device)
+                total_dim = 768 * 3 + clip_dim  # layer_4, layer_8, layer_12, final
+                self._infonce_concat_proj = nn.Linear(total_dim, clip_dim, bias=False).to(device)
             
             # Concatenate
             z_concat = torch.cat([
@@ -583,19 +594,20 @@ class MultiLayerTwoStageEncoder(nn.Module):
                 layer_outputs['layer_8'],
                 layer_outputs['layer_12'],
                 layer_outputs['final']
-            ], dim=-1)  # (B, 2816)
+            ], dim=-1)  # (B, 768*3 + clip_dim)
             
             # Project and normalize
             z_infonce = self._infonce_concat_proj(z_concat)
             z_infonce = torch.nn.functional.normalize(z_infonce, dim=-1)
             
         elif strategy == "average":
-            # Simple average: project all to 512-D, then mean
+            # Simple average: project all to clip_dim, then mean
+            clip_dim = self.clip_dim
             if not hasattr(self, '_infonce_projectors_avg'):
                 self._infonce_projectors_avg = nn.ModuleDict({
-                    'layer_4': nn.Linear(768, 512, bias=False),
-                    'layer_8': nn.Linear(768, 512, bias=False),
-                    'layer_12': nn.Linear(768, 512, bias=False),
+                    'layer_4': nn.Linear(768, clip_dim, bias=False),
+                    'layer_8': nn.Linear(768, clip_dim, bias=False),
+                    'layer_12': nn.Linear(768, clip_dim, bias=False),
                 }).to(device)
             
             z_list = []
@@ -606,7 +618,7 @@ class MultiLayerTwoStageEncoder(nn.Module):
             z_list.append(layer_outputs['final'])
             
             # Average
-            z_combined = torch.stack(z_list, dim=0).mean(dim=0)  # (B, 512)
+            z_combined = torch.stack(z_list, dim=0).mean(dim=0)  # (B, clip_dim)
             z_infonce = torch.nn.functional.normalize(z_combined, dim=-1)
             
         else:
@@ -796,7 +808,8 @@ def load_two_stage_encoder(
         n_blocks=meta.get("n_blocks", 4),
         dropout=meta.get("dropout", 0.3),
         head_type=meta.get("head_type", "linear"),
-        head_hidden_dim=meta.get("head_hidden_dim", 512)
+        head_hidden_dim=meta.get("head_hidden_dim", 512),
+        clip_dim=meta.get("clip_dim", 768)
     )
     
     model.load_state_dict(checkpoint["state_dict"], strict=True)
@@ -835,6 +848,7 @@ def load_multilayer_two_stage_encoder(
         dropout=meta.get("dropout", 0.3),
         head_type=meta.get("head_type", "linear"),
         head_hidden_dim=meta.get("head_hidden_dim", 512),
+        clip_dim=meta.get("clip_dim", 768),
         shared_head_backbone=meta.get("shared_head_backbone", False)
     )
     
@@ -905,7 +919,7 @@ class ProbabilisticMultiLayerTwoStageEncoder(nn.Module):
         >>> 
         >>> # Training: Sample from distribution
         >>> outputs, kl_loss = encoder(x, sample=True, return_kl=True)
-        >>> # outputs = {'final': (32, 512), ...}
+        >>> # outputs = {'final': (32, 768), ...}
         >>> # kl_loss = scalar
         >>> 
         >>> # Inference: Uncertainty estimation
@@ -1224,6 +1238,7 @@ def load_probabilistic_encoder(
         n_blocks=meta.get("n_blocks", 4),
         dropout=meta.get("dropout", 0.3),
         head_hidden_dim=meta.get("head_hidden_dim", 512),
+        output_dim=meta.get("output_dim", 768),
         enabled_layers=meta.get("enabled_layers", ['layer_4', 'layer_8', 'layer_12', 'final']),
         predict_text_clip=meta.get("predict_text_clip", False),
         kl_weight=meta.get("kl_weight", 0.01),

@@ -412,31 +412,84 @@ def variance_penalty(logvar: torch.Tensor, clamp_min: float = -8.0, clamp_max: f
     return torch.exp(logvar).mean()
 
 
-# Backward compatibility: keep old compose_loss function
 def compose_loss(
     pred: torch.Tensor,
     target: torch.Tensor,
-    mse_weight: float = 0.5
-) -> torch.Tensor:
+    cosine_weight: float = 1.0,
+    mse_weight: float = 0.0,
+    infonce_weight: float = 0.0,
+    temperature: float = 0.07
+) -> tuple[torch.Tensor, Dict[str, float]]:
     """
-    Legacy combined cosine + MSE loss (for backward compatibility).
-    
-    This is the original loss function from train_utils.py.
-    Kept for backward compatibility with existing training scripts.
-    
-    For new code, prefer MultiLoss or compute_multiloss which include InfoNCE.
-    
+    Compose multiple loss terms with configurable weights.
+
     Args:
-        pred: Predicted embeddings (B, D), L2-normalized
-        target: Target embeddings (B, D), L2-normalized
-        mse_weight: Weight for MSE term (default: 0.5)
-    
+        pred: Predicted embeddings (B, D)
+        target: Target embeddings (B, D)
+        cosine_weight: Weight for cosine loss
+        mse_weight: Weight for MSE loss
+        infonce_weight: Weight for InfoNCE loss
+        temperature: Temperature for InfoNCE
+
     Returns:
-        Scalar loss
+        total_loss: Weighted sum of all losses
+        components: Dictionary of individual loss values (for logging)
     """
-    loss_cos = cosine_loss(pred, target)
-    loss_mse = mse_loss(pred, target)
-    return loss_cos + mse_weight * loss_mse
+    components: Dict[str, float] = {}
+    total_loss = torch.tensor(0.0, device=pred.device, dtype=pred.dtype)
+
+    if cosine_weight > 0:
+        cos_loss = cosine_loss(pred, target)
+        components['cosine'] = cos_loss.item()
+        total_loss = total_loss + cosine_weight * cos_loss
+    else:
+        components['cosine'] = 0.0
+
+    if mse_weight > 0:
+        mse_loss_val = mse_loss(pred, target)
+        components['mse'] = mse_loss_val.item()
+        total_loss = total_loss + mse_weight * mse_loss_val
+    else:
+        components['mse'] = 0.0
+
+    if infonce_weight > 0 and pred.size(0) > 1:
+        info_loss = info_nce_loss(pred, target, temperature)
+        components['infonce'] = info_loss.item()
+        total_loss = total_loss + infonce_weight * info_loss
+    else:
+        components['infonce'] = 0.0
+
+    return total_loss, components
+
+
+class ComposedLoss(nn.Module):
+    """PyTorch module wrapper for compose_loss."""
+
+    def __init__(
+        self,
+        cosine_weight: float = 1.0,
+        mse_weight: float = 0.0,
+        infonce_weight: float = 0.0,
+        temperature: float = 0.07
+    ):
+        super().__init__()
+        self.cosine_weight = cosine_weight
+        self.mse_weight = mse_weight
+        self.infonce_weight = infonce_weight
+        self.temperature = temperature
+
+    def forward(
+        self,
+        pred: torch.Tensor,
+        target: torch.Tensor
+    ) -> tuple[torch.Tensor, Dict[str, float]]:
+        return compose_loss(
+            pred, target,
+            cosine_weight=self.cosine_weight,
+            mse_weight=self.mse_weight,
+            infonce_weight=self.infonce_weight,
+            temperature=self.temperature
+        )
 
 
 def brain_consistency_loss(

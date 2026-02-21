@@ -4,10 +4,10 @@ import pytest
 import torch
 import numpy as np
 
-from fmri2img.models.losses import (
+from fmri2img.training.losses import (
     cosine_loss,
     mse_loss,
-    infonce_loss,
+    info_nce_loss as infonce_loss,
     compose_loss,
     ComposedLoss
 )

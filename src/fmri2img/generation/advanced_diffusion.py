@@ -79,11 +79,12 @@ def generate_best_of_n(
         ...     clip_encoder=lambda img: encode_image_with_clip(img, clip_model)
         ... )
     """
+    from fmri2img.generation.diffusion_utils import generate_from_clip_embedding
+
     if n == 1:
-        # Single sample (current behavior)
-        from scripts.decode_diffusion import generate_image_from_clip_embedding
-        img = generate_image_from_clip_embedding(
-            pipe, clip_embedding, guidance_scale, num_inference_steps, seed
+        img = generate_from_clip_embedding(
+            pipe, clip_embedding, guidance_scale=guidance_scale,
+            num_inference_steps=num_inference_steps, seed=seed
         )
         if return_all:
             return img, [img], np.array([1.0])
@@ -94,14 +95,11 @@ def generate_best_of_n(
     
     logger.info(f"Generating {n} candidates (best-of-N sampling)...")
     
-    # Import here to avoid circular dependency
-    from scripts.decode_diffusion import generate_image_from_clip_embedding
-    
     # Generate N candidates with different seeds
     candidates = []
     for i in tqdm(range(n), desc="Generating candidates", leave=False):
         candidate_seed = seed + i
-        img = generate_image_from_clip_embedding(
+        img = generate_from_clip_embedding(
             pipe,
             clip_embedding,
             guidance_scale=guidance_scale,
@@ -335,9 +333,10 @@ def generate_with_all_strategies(
     # Single sample (baseline)
     if "single" in strategies:
         logger.info("Strategy: Single sample")
-        from scripts.decode_diffusion import generate_image_from_clip_embedding
-        results["single"] = generate_image_from_clip_embedding(
-            pipe, clip_embedding, guidance_scale, num_inference_steps, seed
+        from fmri2img.generation.diffusion_utils import generate_from_clip_embedding as _gen
+        results["single"] = _gen(
+            pipe, clip_embedding, guidance_scale=guidance_scale,
+            num_inference_steps=num_inference_steps, seed=seed
         )
     
     # Best-of-N
@@ -364,9 +363,10 @@ def generate_with_all_strategies(
             if "single" in results:
                 initial_img = results["single"]
             else:
-                from scripts.decode_diffusion import generate_image_from_clip_embedding
-                initial_img = generate_image_from_clip_embedding(
-                    pipe, clip_embedding, guidance_scale, num_inference_steps, seed
+                from fmri2img.generation.diffusion_utils import generate_from_clip_embedding as _gen
+                initial_img = _gen(
+                    pipe, clip_embedding, guidance_scale=guidance_scale,
+                    num_inference_steps=num_inference_steps, seed=seed
                 )
             
             results["boi_lite"] = refine_with_boi_lite(

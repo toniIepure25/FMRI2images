@@ -23,25 +23,27 @@ class MLPEncoder(nn.Module):
     Multilayer perceptron encoder for fMRI → CLIP embedding mapping.
     
     Architecture:
-        Linear(input_dim, hidden) → ReLU → Dropout → Linear(hidden, 512) → L2-normalize
+        Linear(input_dim, hidden) → ReLU → Dropout → Linear(hidden, output_dim) → L2-normalize
     
     Args:
         input_dim: Input feature dimensionality (after preprocessing)
         hidden: Hidden layer size (default: 1024)
         dropout: Dropout probability (default: 0.1)
+        output_dim: CLIP embedding dimension (default: 768 for ViT-L/14)
     """
     
-    def __init__(self, input_dim: int, hidden: int = 1024, dropout: float = 0.1):
+    def __init__(self, input_dim: int, hidden: int = 1024, dropout: float = 0.1, output_dim: int = 768):
         super().__init__()
         self.input_dim = input_dim
         self.hidden = hidden
         self.dropout = dropout
+        self.output_dim = output_dim
         
         self.net = nn.Sequential(
             nn.Linear(input_dim, hidden),
             nn.ReLU(inplace=True),
             nn.Dropout(dropout),
-            nn.Linear(hidden, 512)  # CLIP ViT-B/32 embedding dimension
+            nn.Linear(hidden, output_dim)  # CLIP embedding dimension (default 768 for ViT-L/14)
         )
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -55,9 +57,9 @@ class MLPEncoder(nn.Module):
             x: Input features (B, input_dim)
         
         Returns:
-            z: L2-normalized CLIP embeddings (B, 512)
+            z: L2-normalized CLIP embeddings (B, output_dim)
         """
-        z = self.net(x)  # (B, 512)
+        z = self.net(x)  # (B, output_dim)
         z = torch.nn.functional.normalize(z, dim=-1)  # Unit sphere for cosine
         return z
 
@@ -69,7 +71,7 @@ def save_mlp(model: MLPEncoder, path: str, meta: Dict) -> None:
     Args:
         model: Trained MLPEncoder
         path: Output checkpoint path
-        meta: Metadata dictionary (input_dim, hidden, dropout, training info)
+        meta: Metadata dictionary (input_dim, hidden, dropout, output_dim, training info)
     """
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     
@@ -114,11 +116,12 @@ def load_mlp(path: str, map_location: str = "cpu") -> Tuple[MLPEncoder, Dict]:
     checkpoint = torch.load(path, map_location=map_location)
     meta = checkpoint.get("meta", {})
     
-    # Reconstruct model from metadata
+    # Reconstruct model from metadata (output_dim default 512 for backward compat with legacy 512-D checkpoints)
     model = MLPEncoder(
         input_dim=meta["input_dim"],
         hidden=meta.get("hidden", 1024),
-        dropout=meta.get("dropout", 0.1)
+        dropout=meta.get("dropout", 0.1),
+        output_dim=meta.get("output_dim", 512)
     )
     
     model.load_state_dict(checkpoint["state_dict"], strict=True)

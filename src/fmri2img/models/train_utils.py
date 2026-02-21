@@ -163,7 +163,7 @@ def compose_loss(
         >>> logger.info(f"Cosine: {components['cosine']:.4f}, InfoNCE: {components['infonce']:.4f}")
     """
     # Import the new comprehensive loss module
-    from fmri2img.models.losses import compose_loss as new_compose_loss
+    from fmri2img.training.losses import compose_loss as new_compose_loss
 
     # New compose_loss returns (loss, components) by default. To remain
     # backward-compatible with callers that request only the scalar loss,

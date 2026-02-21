@@ -1,6 +1,7 @@
 # =============================================================================
-# Core Dependencies - fMRI to Image Pipeline
+# Core Dependencies - fMRI-to-Image Neural Decoding (Phase 2)
 # =============================================================================
+
 # Data handling
 fsspec
 s3fs
@@ -30,14 +31,16 @@ loguru>=0.6.0
 # =============================================================================
 # Deep Learning Stack
 # =============================================================================
-# PyTorch and vision (install with CUDA support via setup_env.sh)
-# Note: setup_env.sh handles PyTorch installation with correct CUDA version
-# Uncomment below if you want to install manually:
+# PyTorch: install with CUDA support for your platform.
+# See: https://pytorch.org/get-started/locally/
 # torch>=2.0.0
 # torchvision>=0.15.0
 
 # CLIP and embeddings
 open_clip_torch>=2.20.0
+
+# Transformer utilities
+einops>=0.6.0
 
 # Image processing
 pillow>=9.0.0
@@ -46,7 +49,7 @@ pillow>=9.0.0
 requests>=2.28.0
 
 # =============================================================================
-# Diffusion Models (Optional - for image generation)
+# Diffusion Models (for image generation)
 # =============================================================================
 diffusers>=0.21.0
 transformers>=4.30.0
@@ -54,11 +57,11 @@ accelerate>=0.20.0
 huggingface_hub>=0.16.0
 
 # =============================================================================
-# Development and Testing (Optional)
+# Development and Testing (uncomment for development)
 # =============================================================================
-# Uncomment for development:
 # pytest>=7.0.0
 # black>=23.0.0
 # isort>=5.12.0
 # ruff>=0.0.260
-# pre-commit>=3.0.0tensorboard
+# pre-commit>=3.0.0
+# tensorboard

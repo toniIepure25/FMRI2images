@@ -30,7 +30,7 @@
 #   --help              Show this help message
 #
 # After successful setup, run experiments:
-#   python scripts/train.py --config configs/experiments/exp0_baseline.yaml
+#   python3 scripts/training/train_unified.py --config configs/experiments/B0_deterministic.yaml
 #
 ################################################################################
 
@@ -234,9 +234,9 @@ step_preflight() {
     fi
     
     # Run full preflight script if available
-    if [[ -f "${SCRIPT_DIR}/scripts/preflight.py" ]]; then
+    if [[ -f "${SCRIPT_DIR}/scripts/utils/preflight.py" ]]; then
         print_substep "Running comprehensive preflight checks..."
-        if run_python_script "${SCRIPT_DIR}/scripts/preflight.py"; then
+        if run_python_script "${SCRIPT_DIR}/scripts/utils/preflight.py"; then
             print_success "Preflight checks passed"
         else
             print_warning "Preflight script reported issues (see log)"
@@ -352,9 +352,9 @@ step_verify_dataset() {
     
     print_step "Verifying NSD dataset for ${SUBJECT}..."
     
-    if [[ -f "${SCRIPT_DIR}/scripts/verify_dataset.py" ]]; then
+    if [[ -f "${SCRIPT_DIR}/scripts/utils/verify_dataset.py" ]]; then
         print_substep "Running dataset verification script..."
-        if run_python_script "${SCRIPT_DIR}/scripts/verify_dataset.py" --subject "$SUBJECT"; then
+        if run_python_script "${SCRIPT_DIR}/scripts/utils/verify_dataset.py" --subject "$SUBJECT"; then
             print_success "Dataset verified for ${SUBJECT}"
             mark_completed "dataset_${SUBJECT}"
         else
@@ -385,8 +385,8 @@ step_fetch_models() {
     print_step "Downloading required models (CLIP, Stable Diffusion)..."
     print_substep "This may take 5-15 minutes depending on connection..."
     
-    if [[ -f "${SCRIPT_DIR}/scripts/fetch_models.py" ]]; then
-        if run_python_script "${SCRIPT_DIR}/scripts/fetch_models.py"; then
+    if [[ -f "${SCRIPT_DIR}/scripts/utils/fetch_models.py" ]]; then
+        if run_python_script "${SCRIPT_DIR}/scripts/utils/fetch_models.py"; then
             print_success "Models downloaded and cached"
             mark_completed "models"
         else
@@ -422,10 +422,9 @@ step_build_index() {
         return 0
     fi
     
-    # Try multiple methods to build index
-    if [[ -f "${SCRIPT_DIR}/scripts/build_full_index.py" ]]; then
+    if [[ -f "${SCRIPT_DIR}/scripts/build/build_full_index.py" ]]; then
         print_substep "Building index with build_full_index.py..."
-        if run_python_script "${SCRIPT_DIR}/scripts/build_full_index.py" --subject "$SUBJECT"; then
+        if run_python_script "${SCRIPT_DIR}/scripts/build/build_full_index.py" --subject "$SUBJECT"; then
             print_success "Index built for ${SUBJECT}"
             mark_completed "index_${SUBJECT}"
             return 0
@@ -433,20 +432,12 @@ step_build_index() {
     fi
     
     if [[ -f "${SCRIPT_DIR}/build_minimal_index.py" ]]; then
-        print_substep "Building index with build_minimal_index.py..."
+        print_substep "Falling back to build_minimal_index.py..."
         if run_python_script "${SCRIPT_DIR}/build_minimal_index.py" --subject "$SUBJECT"; then
             print_success "Index built for ${SUBJECT}"
             mark_completed "index_${SUBJECT}"
             return 0
         fi
-    fi
-    
-    # Try via Python module
-    print_substep "Building index via Python module..."
-    if "$PYTHON" -m fmri2img.data.build_full_index --subject "$SUBJECT" >> "$LOG_FILE" 2>&1; then
-        print_success "Index built for ${SUBJECT}"
-        mark_completed "index_${SUBJECT}"
-        return 0
     fi
     
     print_error "Failed to build index for ${SUBJECT}"
@@ -476,16 +467,16 @@ step_fit_preprocessing() {
         return 0
     fi
     
-    # Check if preprocessing artifacts already exist
-    if [[ -f "${preproc_dir}/scaler.pkl" ]] && [[ -f "${preproc_dir}/pca.pkl" ]]; then
+    # Check if preprocessing artifacts already exist (.npy format)
+    if [[ -f "${preproc_dir}/scaler_mean.npy" ]] && [[ -f "${preproc_dir}/pca_components.npy" ]]; then
         print_info "Preprocessing artifacts already exist"
         mark_completed "preprocessing_${SUBJECT}"
         return 0
     fi
     
-    if [[ -f "${SCRIPT_DIR}/scripts/fit_preprocessing.py" ]]; then
+    if [[ -f "${SCRIPT_DIR}/scripts/build/fit_preprocessing.py" ]]; then
         print_substep "Fitting preprocessing pipeline..."
-        if run_python_script "${SCRIPT_DIR}/scripts/fit_preprocessing.py" \
+        if run_python_script "${SCRIPT_DIR}/scripts/build/fit_preprocessing.py" \
             --subject "$SUBJECT" \
             --index-file "$index_file" \
             --output-dir "$preproc_dir"; then
@@ -526,26 +517,25 @@ step_build_clip_cache() {
     fi
     
     # Check if cache already exists
-    local cache_dir="${SCRIPT_DIR}/cache/clip_embeddings"
-    if [[ -n "$(find "$cache_dir" -maxdepth 1 -name "*${SUBJECT}*.parquet" 2>/dev/null)" ]]; then
-        print_info "CLIP cache files already exist for ${SUBJECT}"
+    local cache_dir="${SCRIPT_DIR}/outputs/clip_cache"
+    if [[ -n "$(find "$cache_dir" -maxdepth 1 -name "*.parquet" 2>/dev/null)" ]]; then
+        print_info "CLIP cache files already exist"
         mark_completed "clip_cache_${SUBJECT}"
         return 0
     fi
     
-    # Try different cache building scripts
-    if [[ -f "${SCRIPT_DIR}/scripts/build_clip_cache.py" ]]; then
+    if [[ -f "${SCRIPT_DIR}/scripts/build/build_clip_cache.py" ]]; then
         print_substep "Building CLIP cache..."
-        if run_python_script "${SCRIPT_DIR}/scripts/build_clip_cache.py" --subject "$SUBJECT"; then
+        if run_python_script "${SCRIPT_DIR}/scripts/build/build_clip_cache.py" --subject "$SUBJECT"; then
             print_success "CLIP cache built for ${SUBJECT}"
             mark_completed "clip_cache_${SUBJECT}"
             return 0
         fi
     fi
     
-    if [[ -f "${SCRIPT_DIR}/scripts/build_target_clip_cache_robust.py" ]]; then
+    if [[ -f "${SCRIPT_DIR}/scripts/build/build_target_clip_cache_robust.py" ]]; then
         print_substep "Building CLIP cache (robust method)..."
-        if run_python_script "${SCRIPT_DIR}/scripts/build_target_clip_cache_robust.py"; then
+        if run_python_script "${SCRIPT_DIR}/scripts/build/build_target_clip_cache_robust.py"; then
             print_success "CLIP cache built for ${SUBJECT}"
             mark_completed "clip_cache_${SUBJECT}"
             return 0
@@ -561,9 +551,9 @@ step_build_clip_cache() {
 step_final_check() {
     print_step "Running final readiness check..."
     
-    if [[ -f "${SCRIPT_DIR}/scripts/doctor.py" ]]; then
+    if [[ -f "${SCRIPT_DIR}/scripts/utils/doctor.py" ]]; then
         print_substep "Running doctor check..."
-        if run_python_script "${SCRIPT_DIR}/scripts/doctor.py"; then
+        if run_python_script "${SCRIPT_DIR}/scripts/utils/doctor.py"; then
             print_success "System is ready for experiments"
             return 0
         else
@@ -614,7 +604,7 @@ check_status() {
         print_success "All setup steps completed!"
         echo ""
         print_info "Ready to run experiments:"
-        echo "  python scripts/train.py --config configs/experiments/exp0_baseline.yaml"
+        echo "  python3 scripts/training/train_unified.py --config configs/experiments/B0_deterministic.yaml"
     else
         print_info "Some steps are incomplete. Run './setup.sh' to complete setup."
     fi
@@ -687,7 +677,7 @@ run_setup() {
     fi
     echo ""
     echo "2. Run your first experiment:"
-    echo "   ${CYAN}python scripts/train.py --config configs/experiments/exp0_baseline.yaml${NC}"
+    echo "   ${CYAN}python3 scripts/training/train_unified.py --config configs/experiments/B0_deterministic.yaml${NC}"
     echo ""
     echo "3. Monitor training:"
     echo "   ${CYAN}tensorboard --logdir outputs/${NC}"

@@ -1,599 +1,279 @@
-PY?=python3
-PREPROC_FLAG := $(if $(USE_PREPROC),--use-preproc,)
-PREPROC_DIR_FLAG := $(if $(PREPROC_DIR),--preproc-dir $(PREPROC_DIR),)
+PY ?= python3
+SUBJECT ?= subj01
+CACHE_ROOT ?= cache
+DEVICE ?= cuda
 
-# Optional .env loading (best-effort). In pods/CI you can also export vars directly.
+# Optional .env loading (best-effort)
 -include .env
 export
 
-.PHONY: setup preflight doctor smoke smoke-pipeline prepare data models preprocess index clip-cache exp
-.PHONY: setup index test demo sanity read-index check-index clean build-clip-cache check-headers clip-cache-small smoke-tests clean-logs help ridge repair-adapter
+# ============================================================================
+# Phony targets
+# ============================================================================
+
+.PHONY: help setup preflight doctor smoke
+.PHONY: prepare data models index preprocess clip-cache build-clip-cache
+.PHONY: train ablation
+.PHONY: eval-recon eval-shared1000 summarize-shared1000 compare-evals
+.PHONY: test test-quick
+.PHONY: clean clean-logs download-sd check-headers
+.PHONY: ridge ablate fit-preproc
 .PHONY: paper manifest-check repro-check
 
+# ============================================================================
+# Help
+# ============================================================================
+
 help:
-	@echo "Bachelor V2 - fMRI to Image Pipeline"
+	@echo "fmri2img -- fMRI-to-Image Neural Decoding (Phase 2: ViT-L/14, 768-D)"
 	@echo ""
-	@echo "Smoke Tests & Quick Sanity Checks:"
-	@echo "  make check-headers      - Validate beta_index bounds in index files"
-	@echo "  make clip-cache-small   - Build small CLIP cache (256 samples)"
-	@echo "  make smoke-tests        - Run all smoke tests (headers + small cache)"
+	@echo "Setup:"
+	@echo "  make setup          Install package in editable mode"
+	@echo "  make preflight      System readiness checks (Python, CUDA, disk)"
+	@echo "  make doctor         Comprehensive readiness check"
+	@echo "  make prepare        Full data pipeline (data + models + index + preprocess + clip-cache)"
 	@echo ""
-	@echo "Main Targets:"
-	@echo "  make setup              - Install package in development mode"
-	@echo "  make doctor             - Comprehensive readiness check (preflight + data + models)"
-	@echo "  make prepare            - Stage prerequisites (data + models + index + preprocess + clip-cache)"
-	@echo "  make index              - Build canonical NSD index"
-	@echo "  make build-clip-cache   - Build CLIP embeddings cache"
-	@echo "  make fit-preproc        - Fit preprocessing pipeline (scaler + reliability + PCA)"
-	@echo "  make ridge              - Train Ridge baseline (fMRI → CLIP)"
-	@echo "  make mlp                - Train MLP encoder (fMRI → CLIP)"
-	@echo "  make clip-adapter       - Train CLIP adapter (512D → 768/1024D)"
-	@echo "  make test               - Run comprehensive tests"
-	@echo "  make test-reliability   - Run reliability module tests"
-	@echo "  make demo               - Run IO layer demo"
-	@echo "  make train-smoke        - Run training smoke test"
+	@echo "Data Preparation:"
+	@echo "  make index          Build canonical NSD index"
+	@echo "  make preprocess     Fit preprocessing pipeline (scaler + reliability + PCA)"
+	@echo "  make clip-cache     Build CLIP embeddings cache"
 	@echo ""
-	@echo "Evaluation & Reporting:"
-	@echo "  make eval-recon         - Evaluate reconstructions (512-D space)"
-	@echo "  make eval-recon-adapter - Evaluate reconstructions (768/1024-D target space)"
-	@echo "  make recon-eval         - Generate + evaluate (512-D, one-click)"
-	@echo "  make recon-eval-adapter - Generate + evaluate (768/1024-D, one-click)"
-	@echo "  make compare-evals      - Aggregate multiple evaluations with bootstrap CIs"
+	@echo "Training:"
+	@echo "  make train CONFIG=configs/experiments/B0_deterministic.yaml"
+	@echo "                      Train a single experiment"
+	@echo "  make ablation       Run full B0-N4 ablation ladder"
+	@echo "  make ridge          Train Ridge baseline (fMRI -> CLIP)"
 	@echo ""
-	@echo "Paper-Grade Shared1000 Evaluation:"
-	@echo "  make eval-shared1000    - Run comprehensive Shared1000 evaluation"
-	@echo "  make summarize-shared1000 - Aggregate results across subjects/strategies"
-	@echo "  make test-pipeline      - Run evaluation pipeline smoke test"
+	@echo "Evaluation:"
+	@echo "  make eval-recon     Evaluate reconstruction quality"
+	@echo "  make eval-shared1000  Paper-grade Shared1000 evaluation"
+	@echo "  make compare-evals  Aggregate evaluations with bootstrap CIs"
 	@echo ""
-	@echo "Environment Variables:"
-	@echo "  USE_PREPROC=1                     - Enable preprocessing (auto-detected from checkpoint if not set)"
-	@echo "  PREPROC_DIR=<path>                - Override preprocessing directory (auto-discovered if not set)"
-	@echo "  MODEL=<model-id>                  - Override diffusion model (e.g., stabilityai/stable-diffusion-2-1)"
-	@echo "  LIMIT=<n>                         - Limit number of samples to process"
-	@echo ""
-	@echo "Diffusion Image Generation:"
-	@echo "  make download-sd        - Download Stable Diffusion model (one-time, ~5GB)"
-	@echo "  make check-sd           - Check if SD model is cached"
+	@echo "Testing:"
+	@echo "  make test           Run full test suite"
+	@echo "  make test-quick     Run fast unit tests only"
 	@echo ""
 	@echo "Utilities:"
-	@echo "  make clean              - Clean cache and build artifacts"
-	@echo "  make clean-logs         - Remove log files"
-	@echo "  make repair-adapter     - Backfill missing metadata in adapter checkpoint"
+	@echo "  make download-sd    Download Stable Diffusion model"
+	@echo "  make check-headers  Validate NSD index header bounds"
+	@echo "  make clean          Remove build artifacts and caches"
 	@echo ""
-	@echo "Paper / Reproducibility:"
-	@echo "  make paper              - Build paper-facing summary artifacts from outputs/reports"
-	@echo "  make manifest-check     - Backfill/check a manifest for a chosen OUTPUT_DIR"
-	@echo "  make repro-check        - Smoke tests for reproducibility helpers"
+	@echo "Environment Variables:"
+	@echo "  SUBJECT=subj01      NSD subject ID (default: subj01)"
+	@echo "  DEVICE=cuda         Compute device (default: cuda)"
+	@echo "  LIMIT=N             Limit number of samples to process"
+	@echo "  GPU=0               GPU device ID for training"
 	@echo ""
+
+# ============================================================================
+# Setup
+# ============================================================================
 
 setup:
 	@echo "=== Installing fmri2img (editable) ==="
-	@pip install -e .
-	@echo "✅ Installed. Next: make preflight"
+	pip install -e ".[train]"
+	@echo "Done. Next: make preflight"
 
-# Canonical preflight for remote GPU pods
 preflight:
-	@$(PY) scripts/preflight.py
+	$(PY) scripts/utils/preflight.py
 
-# Canonical readiness check (preflight + dataset + models)
 doctor:
-	@$(PY) scripts/doctor.py
+	$(PY) scripts/utils/doctor.py
 
-# Fast smoke test (imports only)
 smoke:
-	@$(PY) scripts/smoke.py
+	$(PY) scripts/utils/smoke.py
 
-# Prepare stage: ensure dataset + models + caches exist before training
-# Order matters: index -> preprocess -> clip-cache
+# ============================================================================
+# Data Preparation
+# ============================================================================
+
 prepare: data models index preprocess clip-cache
-	@echo "✅ Prepare complete"
+	@echo "=== Prepare complete ==="
 
-# Optional tiny end-to-end prep (fast sanity): index + small clip cache
-smoke-pipeline: data index
-	@$(MAKE) clip-cache-small
-	@echo "✅ smoke-pipeline complete"
-
-# Dataset fetch/verify (implemented in scripts/verify_dataset.py by default)
 data:
-	@$(PY) scripts/verify_dataset.py --subject $${SUBJECT:-subj01}
+	$(PY) scripts/utils/verify_dataset.py --subject $(SUBJECT)
 
-# Fetch diffusion/CLIP models into HF cache
 models:
-	@mkdir -p $${CACHE_ROOT:-cache}/.markers
-	@if [ -f "$${CACHE_ROOT:-cache}/.markers/models.ok" ]; then \
-		echo "models: already prepared ($${CACHE_ROOT:-cache}/.markers/models.ok)"; \
+	@mkdir -p $(CACHE_ROOT)/.markers
+	@if [ -f "$(CACHE_ROOT)/.markers/models.ok" ]; then \
+		echo "models: already prepared ($(CACHE_ROOT)/.markers/models.ok)"; \
 	else \
-		$(PY) scripts/fetch_models.py && date -Iseconds > "$${CACHE_ROOT:-cache}/.markers/models.ok"; \
+		$(PY) scripts/utils/fetch_models.py && \
+		date -Iseconds > "$(CACHE_ROOT)/.markers/models.ok"; \
 	fi
 
-# Preprocessing fit stage (idempotent in script)
-preprocess:
-	@mkdir -p $${CACHE_ROOT:-cache}/.markers
-	@if [ -f "$${CACHE_ROOT:-cache}/.markers/preprocess_$${SUBJECT:-subj01}.ok" ]; then \
-		echo "preprocess: already prepared ($${CACHE_ROOT:-cache}/.markers/preprocess_$${SUBJECT:-subj01}.ok)"; \
-	else \
-		mkdir -p $${CACHE_ROOT:-cache}/preproc && \
-		$(PY) scripts/fit_preprocessing.py \
-			--subject $${SUBJECT:-subj01} \
-			--index-file $${INDEX_FILE:-data/indices/nsd_index/subject=$${SUBJECT:-subj01}/index.parquet} \
-			--output-dir $${PREPROC_DIR:-$${CACHE_ROOT:-cache}/preproc/subject=$${SUBJECT:-subj01}} && \
-		date -Iseconds > "$${CACHE_ROOT:-cache}/.markers/preprocess_$${SUBJECT:-subj01}.ok"; \
-	fi
-
-# Canonical index (existing target retained)
-
-# CLIP cache (alias for existing build-clip-cache)
-clip-cache: build-clip-cache
-	@mkdir -p $${CACHE_ROOT:-cache}/.markers
-	@date -Iseconds > "$${CACHE_ROOT:-cache}/.markers/clip_cache_$${SUBJECT:-subj01}.ok"
-
-# Run a declarative experiment YAML recipe
-# Usage: make exp EXP=experiments/novel_subj01.yaml OVERRIDES="training.lr=1e-4 training.epochs=50"
-exp:
-	@test -n "$${EXP}" || (echo "ERROR: set EXP=experiments/<file>.yaml" && exit 2)
-	@$(PY) scripts/run_experiment.py --exp $${EXP} $(foreach o,$(OVERRIDES),--override $(o))
-
-# Build paper-facing artifacts (tables) from existing evaluation outputs
-paper:
-	@echo "=== Building Paper Artifacts ==="
-	@$(PY) scripts/build_paper_artifacts.py
-	@echo "✅ Wrote outputs/paper/eval_summary.csv (if evaluation summaries exist)"
-
-# Backfill/check a manifest for an output directory
-# Usage: make manifest-check OUTPUT_DIR=outputs/recon/subj01/<run>
-manifest-check:
-	@echo "=== Writing/Checking Run Manifest ==="
-	@test -n "$${OUTPUT_DIR}" || (echo "ERROR: set OUTPUT_DIR=..." && exit 2)
-	@$(PY) scripts/write_run_manifest.py --output-dir $${OUTPUT_DIR}
-	@echo "✅ Manifest present at $${OUTPUT_DIR}/manifest.json"
-
-# Quick reproducibility helper smoke checks
-repro-check:
-	@echo "=== Reproducibility Smoke Check ==="
-	@$(PY) -c "from fmri2img.utils.manifest import gather_env_info; print('git_commit' in gather_env_info())"
-	@echo "✅ Reproducibility helpers import and run"
-
-# Build canonical index with unified API
 index:
 	@mkdir -p data/indices/nsd_index
-	@if [ -f "data/indices/nsd_index/subject=$${SUBJECT:-subj01}/index.parquet" ]; then \
-		echo "index: already present (data/indices/nsd_index/subject=$${SUBJECT:-subj01}/index.parquet)"; \
+	@if [ -f "data/indices/nsd_index/subject=$(SUBJECT)/index.parquet" ]; then \
+		echo "index: already present (data/indices/nsd_index/subject=$(SUBJECT)/index.parquet)"; \
 	else \
-		$(PY) -m fmri2img.data.nsd_index_builder --subjects $${SUBJECTS:-$${SUBJECT:-subj01}} $${MAX_TRIALS:+--max-trials $$MAX_TRIALS} --output-format parquet; \
+		$(PY) scripts/build/build_full_index.py --subject $(SUBJECT); \
 	fi
 
-# Build CLIP embeddings cache with resume support
+preprocess:
+	@mkdir -p $(CACHE_ROOT)/.markers
+	@if [ -f "$(CACHE_ROOT)/.markers/preprocess_$(SUBJECT).ok" ]; then \
+		echo "preprocess: already prepared ($(CACHE_ROOT)/.markers/preprocess_$(SUBJECT).ok)"; \
+	else \
+		mkdir -p $(CACHE_ROOT)/preproc && \
+		$(PY) scripts/build/fit_preprocessing.py \
+			--subject $(SUBJECT) \
+			--index-file data/indices/nsd_index/subject=$(SUBJECT)/index.parquet \
+			--output-dir $(CACHE_ROOT)/preproc/subject=$(SUBJECT) && \
+		date -Iseconds > "$(CACHE_ROOT)/.markers/preprocess_$(SUBJECT).ok"; \
+	fi
+
+fit-preproc: preprocess
+
+clip-cache: build-clip-cache
+	@mkdir -p $(CACHE_ROOT)/.markers
+	@date -Iseconds > "$(CACHE_ROOT)/.markers/clip_cache_$(SUBJECT).ok"
+
 build-clip-cache:
 	@mkdir -p outputs/clip_cache
 	@if [ -f "$${CACHE:-outputs/clip_cache/clip.parquet}" ]; then \
 		echo "clip-cache: already present ($${CACHE:-outputs/clip_cache/clip.parquet})"; \
 	else \
-		$(PY) scripts/build_clip_cache.py \
+		$(PY) scripts/build/build_clip_cache.py \
 			$${INDEX_FILE:+--index-file $$INDEX_FILE} \
 			$${INDEX_ROOT:+--index-root $$INDEX_ROOT} \
 			$${SUBJECT:+--subject $$SUBJECT} \
 			--cache $${CACHE:-outputs/clip_cache/clip.parquet} \
 			--batch $${BATCH:-128} \
-			--device $${DEVICE:-cuda} \
+			--device $(DEVICE) \
 			$${LIMIT:+--limit $$LIMIT}; \
 	fi
 
-# Run comprehensive tests
-test:
-	$(PY) -m pytest src/fmri2img/scripts/test_*.py -v
+# ============================================================================
+# Training
+# ============================================================================
 
-# Run IO layer demo with unified API
-demo:
-	$(PY) src/fmri2img/scripts/io_layer_demo.py
+# Single experiment: make train CONFIG=configs/experiments/B0_deterministic.yaml
+train:
+	@test -n "$${CONFIG}" || (echo "ERROR: set CONFIG=configs/experiments/<file>.yaml" && exit 2)
+	$(PY) scripts/training/train_unified.py \
+		--config $${CONFIG} \
+		--gpu $${GPU:-0} \
+		$${SUBJECT:+--subject $$SUBJECT}
 
-# Alias for demo (for backward compatibility)
-sanity: demo
+# Full B0-N4 ablation ladder
+ablation:
+	bash scripts/training/run_ablation_ladder.sh \
+		--subjects "$${SUBJECTS:-subj01 subj02 subj05 subj07}" \
+		--gpu $${GPU:-0}
 
-# Read canonical index with filtering
-read-index:
-	$(PY) src/fmri2img/scripts/nsd_index_reader.py --index $${INDEX:-data/indices/nsd_index/subject=subj01/index.parquet} --subject $${SUBJECT:-subj01} --n 10
-
-# Check index header bounds (verbose version with all beta files)
-check-index:
-	$(PY) scripts/check_index_headers.py data/indices/nsd_index/subject=subj01/index.parquet
-
-# Quick header validation (checks only 10 files for smoke test)
-check-headers:
-	@echo "=== Validating Index Headers (10 files sample) ==="
-	@$(PY) scripts/check_index_headers.py \
-		data/indices/nsd_index/subject=subj01/index.parquet \
-		--max-files 10
-	@echo "✅ Header validation passed"
-
-# Build small CLIP cache for smoke testing (256 samples, uses configs/clip.yaml)
-clip-cache-small:
-	@echo "=== Building Small CLIP Cache (256 samples) ==="
-	@mkdir -p outputs/clip_cache
-	@$(PY) scripts/build_clip_cache.py \
-		--index-file data/indices/nsd_index/subject=subj01/index.parquet \
-		--cache outputs/clip_cache/clip_smoke.parquet \
-		--batch 64 \
-		--device cuda \
-		--limit 256
-	@echo "✅ Small CLIP cache built successfully"
-
-# Run all smoke tests
-smoke-tests: check-headers clip-cache-small
-	@echo ""
-	@echo "✅ All smoke tests passed!"
-
-# Train Ridge baseline (fMRI → CLIP)
+# Ridge baseline
 ridge:
 	@echo "=== Training Ridge Baseline ==="
-	@$(PY) scripts/train_ridge.py \
+	$(PY) scripts/training/train_ridge.py \
 		--index-root data/indices/nsd_index \
-		--subject subj01 \
+		--subject $(SUBJECT) \
 		--use-preproc \
 		--clip-cache outputs/clip_cache/clip.parquet \
 		--alpha-grid "0.1,1,3,10,30,100" \
-		--limit 2048
-	@echo "✅ Ridge training complete"
+		--limit $${LIMIT:-2048}
+	@echo "=== Ridge training complete ==="
 
-# Ablation study: reliability threshold × PCA dimensionality
+# Ridge ablation study
 ablate:
-	@echo "=== Ridge Ablation Study ==="
-	@$(PY) scripts/ablate_preproc_and_ridge.py \
+	$(PY) scripts/analysis/ablate_preproc_and_ridge.py \
 		--index-root data/indices/nsd_index \
-		--subject subj01 \
+		--subject $(SUBJECT) \
 		--clip-cache outputs/clip_cache/clip.parquet \
 		--rel-grid "0.05,0.1,0.2" \
 		--k-grid "512,1024,4096" \
 		--limit $${LIMIT:-4096}
-	@echo "✅ Ablation study complete: outputs/reports/subj01/ablation_ridge.csv"
 
-# Ablation study running MLP for quick comparison
-ablate-mlp:
-	@echo "=== MLP Ablation Study ==="
-	@$(PY) scripts/ablate_preproc_and_ridge.py \
-		--index-root data/indices/nsd_index \
-		--subject subj01 \
-		--clip-cache outputs/clip_cache/clip.parquet \
-		--model mlp \
-		--rel-grid "0.1,0.2" \
-		--k-grid "512,1024" \
-		--hidden 1024 --dropout 0.1 --lr 1e-3 --wd 1e-4 --epochs 50 --patience 7 \
-		--batch-size 256 --limit $${LIMIT:-2048}
-	@echo "✅ MLP ablation study complete: outputs/reports/subj01/ablation_ridge.csv"
+# ============================================================================
+# Evaluation
+# ============================================================================
 
-# Train MLP encoder (fMRI → CLIP)
-mlp:
-	@echo "=== Training MLP Encoder ==="
-	@$(PY) scripts/train_mlp.py \
-		--index-root data/indices/nsd_index \
-		--subject subj01 \
-		--use-preproc \
-		--clip-cache outputs/clip_cache/clip.parquet \
-		--hidden 1024 --dropout 0.1 \
-		--lr 1e-3 --wd 1e-4 --epochs 50 --patience 7 \
-		--batch-size 256 --limit $${LIMIT:-2048}
-	@echo "✅ MLP training complete"
-
-# Train CLIP adapter (512D → 768/1024D for diffusion models)
-clip-adapter:
-	@echo "=== Training CLIP Adapter ==="
-	@$(PY) scripts/train_clip_adapter.py \
-		--index-root data/indices/nsd_index \
-		--subject subj01 \
-		--clip-cache outputs/clip_cache/clip.parquet \
-		--model-id stabilityai/stable-diffusion-2-1 \
-		--epochs 30 --batch-size 256 --limit $${LIMIT:-4096} \
-		--out checkpoints/clip_adapter/subj01/adapter.pt
-	@echo "✅ CLIP adapter training complete"
-
-# Evaluate reconstructed images (512-D ViT-B/32 space)
 eval-recon:
-	@echo "=== Evaluating Reconstruction (512-D) ==="
-	@$(PY) scripts/eval_reconstruction.py \
+	@echo "=== Evaluating Reconstructions ==="
+	$(PY) scripts/evaluation/eval_reconstruction.py \
 		--index-root data/indices/nsd_index \
-		--subject $${SUBJECT:-subj01} \
-		--recon-dir $${RECON_DIR:-outputs/recon/subj01/run_001} \
+		--subject $(SUBJECT) \
+		--recon-dir $${RECON_DIR:-outputs/recon/$(SUBJECT)/production_final} \
 		--clip-cache outputs/clip_cache/clip.parquet \
-		--out-csv outputs/reports/$${SUBJECT:-subj01}/recon_eval.csv \
-		--out-fig outputs/reports/$${SUBJECT:-subj01}/recon_grid.png
-	@echo "✅ Reconstruction evaluation complete"
-
-# Evaluate reconstructed images with adapter (768/1024-D target space)
-eval-recon-adapter:
-	@echo "=== Evaluating Reconstruction (1024-D target) ==="
-	@$(PY) scripts/eval_reconstruction.py \
-		--index-root data/indices/nsd_index \
-		--subject $${SUBJECT:-subj01} \
-		--recon-dir $${RECON_DIR:-outputs/recon/subj01/run_001} \
-		--clip-cache outputs/clip_cache/clip.parquet \
-		--use-adapter --model-id stabilityai/stable-diffusion-2-1 \
-		--out-csv outputs/reports/$${SUBJECT:-subj01}/recon_eval_1024.csv \
-		--out-fig outputs/reports/$${SUBJECT:-subj01}/recon_grid_1024.png
-	@echo "✅ Reconstruction evaluation complete"
-
-# One-click: Generate + Evaluate reconstructions (512-D, no adapter)
-recon-eval:
-	@echo "=== Reconstruct & Evaluate (512-D, no adapter) ==="
-	@$(PY) scripts/run_reconstruct_and_eval.py \
-		--subject $${SUBJECT:-subj01} \
-		--encoder $${ENCODER:-mlp} \
-		--ckpt $${CKPT:-checkpoints/mlp/subj01/mlp.pt} \
-		--clip-cache outputs/clip_cache/clip.parquet \
-		$${MODEL:+--model-id $$MODEL} \
-		$(PREPROC_FLAG) \
-		$(PREPROC_DIR_FLAG) \
-		--output-dir outputs/recon/$${SUBJECT:-subj01}/auto_no_adapter \
-		--report-dir outputs/reports/$${SUBJECT:-subj01} \
-		--limit $${LIMIT:-64} \
-		$${INDEX_ROOT:+--index-root $$INDEX_ROOT} \
-		$${INDEX_FILE:+--index-file $$INDEX_FILE}
-	@echo "✅ Reconstruct & evaluate complete"
-
-# One-click: Generate + Evaluate reconstructions (768/1024-D, with adapter)
-recon-eval-adapter:
-	@echo "=== Reconstruct & Evaluate (1024-D, with adapter) ==="
-	@$(PY) scripts/run_reconstruct_and_eval.py \
-		--subject $${SUBJECT:-subj01} \
-		--encoder $${ENCODER:-mlp} \
-		--ckpt $${CKPT:-checkpoints/mlp/subj01/mlp.pt} \
-		--clip-cache outputs/clip_cache/clip.parquet \
-		--use-adapter \
-		--adapter $${ADAPTER:-checkpoints/clip_adapter/subj01/adapter.pt} \
-		--model-id $${MODEL:-stabilityai/stable-diffusion-2-1} \
-		$(PREPROC_FLAG) \
-		$(PREPROC_DIR_FLAG) \
-		--output-dir outputs/recon/$${SUBJECT:-subj01}/auto_with_adapter \
-		--report-dir outputs/reports/$${SUBJECT:-subj01} \
-		--limit $${LIMIT:-64} \
-		$${INDEX_ROOT:+--index-root $$INDEX_ROOT} \
-		$${INDEX_FILE:+--index-file $$INDEX_FILE}
-	@echo "✅ Reconstruct & evaluate complete"
-
-# Aggregate multiple evaluations with bootstrap confidence intervals
-compare-evals:
-	@echo "=== Comparing Evaluations ==="
-	@$(PY) scripts/compare_evals.py \
-		--report-dir outputs/reports/$${SUBJECT:-subj01} \
-		--out-csv outputs/reports/$${SUBJECT:-subj01}/recon_compare.csv \
-		--out-tex outputs/reports/$${SUBJECT:-subj01}/recon_compare.tex \
-		--out-md  outputs/reports/$${SUBJECT:-subj01}/recon_compare.md \
-		--out-fig outputs/reports/$${SUBJECT:-subj01}/recon_compare.png \
-		$${PATTERN:+--pattern $$PATTERN} \
-		$${BOOTS:+--boots $$BOOTS}
-	@echo "✅ Evaluation comparison complete"
-
-train-smoke:
-	$(PY) scripts/train_smoke.py --index-root $${INDEX:-data/indices/nsd_index} $(ARGS)
-
-# Fit preprocessing pipeline with split-half reliability
-fit-preproc:
-	@echo "=== Fitting Preprocessing Pipeline ==="
-	@$(MAKE) preprocess SUBJECT=$${SUBJECT:-subj01} \
-		PREPROC_DIR=$${PREPROC_DIR:-$${CACHE_ROOT:-cache}/preproc/subject=$${SUBJECT:-subj01}} \
-		INDEX_FILE=$${INDEX_FILE:-data/indices/nsd_index/subject=$${SUBJECT:-subj01}/index.parquet}
-	@echo "✅ Preprocessing fitted successfully"
-
-test-preproc:
-	$(PY) -m pytest src/fmri2img/scripts/test_preprocess.py -v
-
-test-reliability:
-	$(PY) -m pytest src/fmri2img/scripts/test_reliability.py -v
-
-# Clean up cache and build artifacts
-clean:
-	find . -type d -name __pycache__ -exec rm -rf {} +
-	find . -name "*.pyc" -delete
-	rm -rf .pytest_cache/
-	rm -rf build/
-	rm -rf dist/
-	rm -rf *.egg-info/
-	rm -rf cache/
-	rm -f test_unified_index.parquet
-
-# Clean up log files
-clean-logs:
-	@echo "Removing log files from outputs/logs/..."
-	@rm -rf outputs/logs/*.log
-	@echo "✅ Logs cleaned"
-
-# Download Stable Diffusion model to cache (one-time)
-download-sd:
-	@echo "Downloading Stable Diffusion model to cache..."
-	$(PY) scripts/download_sd_model.py --model-id $${MODEL:-stabilityai/stable-diffusion-2-1}
-	@echo "✅ Model downloaded and cached"
-
-# Check if Stable Diffusion model is cached
-check-sd:
-	@echo "Checking HuggingFace cache status..."
-	$(PY) scripts/check_hf_cache.py --model-id $${MODEL:-stabilityai/stable-diffusion-2-1}
-
-# Repair adapter checkpoint metadata (backfill missing fields)
-repair-adapter:
-	@echo "=== Repairing Adapter Metadata ==="
-	@$(PY) scripts/repair_adapter_metadata.py \
-		--adapter $${ADAPTER:-checkpoints/clip_adapter/subj01/adapter.pt} \
-		--subject $${SUBJECT:-subj01} \
-		--model-id $${MODEL:-stabilityai/stable-diffusion-2-1}
-	@echo "✅ Adapter metadata repaired"
-
-# ════════════════════════════════════════════════════════════════════════════
-# PUBLICATION-READY AUTOMATION
-# ════════════════════════════════════════════════════════════════════════════
-
-SUBJECTS := subj01 subj02 subj03
-MODEL_ID := stabilityai/stable-diffusion-2-1
-CACHE_DIR := outputs/clip_cache
-RECON_DIR := outputs/recon
-REPORTS_DIR := outputs/reports
-FIGURES_DIR := $(REPORTS_DIR)/figures
-TARGET_CACHE := $(CACHE_DIR)/target_clip_$(shell echo $(MODEL_ID) | sed 's/\//_/g').parquet
-
-.PHONY: pipeline build_target_cache reconstruct_all eval_all_subjects summarize_reports generate_figures
-
-# Complete publication pipeline
-pipeline: build_target_cache reconstruct_all eval_all_subjects summarize_reports generate_figures
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "✅ PUBLICATION PIPELINE COMPLETE!"
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "📊 Reports:      $(REPORTS_DIR)/summary_*.csv"
-	@echo "📈 Figures:      $(FIGURES_DIR)/"
-	@echo "🖼️  Reconstructions: $(RECON_DIR)/"
-	@echo "════════════════════════════════════════════════════════════════"
-
-# Build 1024-D target CLIP cache for SD 2.1
-build_target_cache:
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "Building 1024-D CLIP cache for $(MODEL_ID)..."
-	@echo "════════════════════════════════════════════════════════════════"
-	@mkdir -p $(CACHE_DIR)
-	$(PY) scripts/nsd_build_clip_cache.py \
-		--model-id $(MODEL_ID) \
-		--output-dir $(CACHE_DIR) \
-		--device cuda \
-		--batch-size 32
-
-# Reconstruct test sets for all subjects
-reconstruct_all: $(foreach subj,$(SUBJECTS),reconstruct_$(subj))
-
-reconstruct_%:
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "Reconstructing test set for $*..."
-	@echo "════════════════════════════════════════════════════════════════"
-	@mkdir -p $(RECON_DIR)/$*/ridge_diffusion/images
-	$(PY) scripts/decode_diffusion.py \
-		--subject $* \
-		--model-id $(MODEL_ID) \
-		--output-dir $(RECON_DIR)/$*/ridge_diffusion \
-		--split test \
-		--num-inference-steps 50 \
-		--guidance-scale 7.5 \
-		--device cuda \
-		--batch-size 4
-
-# Evaluate all subjects with all gallery types
-eval_all_subjects: $(foreach subj,$(SUBJECTS),eval_full_$(subj))
-
-eval_full_%:
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "Evaluating reconstructions for $* (3 gallery types)..."
-	@echo "════════════════════════════════════════════════════════════════"
-	@mkdir -p $(REPORTS_DIR)/$*
-	@# Gallery: matched
-	$(PY) scripts/eval_reconstruction.py \
-		--subject $* \
-		--recon-dir $(RECON_DIR)/$*/ridge_diffusion/images \
-		--clip-cache $(TARGET_CACHE) \
-		--use-adapter \
-		--model-id $(MODEL_ID) \
-		--gallery matched \
-		--image-source hdf5 \
-		--out-csv $(REPORTS_DIR)/$*/eval_matched.csv \
-		--out-json $(REPORTS_DIR)/$*/eval_matched.json \
-		--out-fig $(REPORTS_DIR)/$*/eval_matched_grid.png
-	@# Gallery: test
-	$(PY) scripts/eval_reconstruction.py \
-		--subject $* \
-		--recon-dir $(RECON_DIR)/$*/ridge_diffusion/images \
-		--clip-cache $(TARGET_CACHE) \
-		--use-adapter \
-		--model-id $(MODEL_ID) \
-		--gallery test \
-		--image-source hdf5 \
-		--out-csv $(REPORTS_DIR)/$*/eval_test.csv \
-		--out-json $(REPORTS_DIR)/$*/eval_test.json \
-		--out-fig $(REPORTS_DIR)/$*/eval_test_grid.png
-	@# Gallery: all
-	$(PY) scripts/eval_reconstruction.py \
-		--subject $* \
-		--recon-dir $(RECON_DIR)/$*/ridge_diffusion/images \
-		--clip-cache $(TARGET_CACHE) \
-		--use-adapter \
-		--model-id $(MODEL_ID) \
-		--gallery all \
-		--image-source hdf5 \
-		--out-csv $(REPORTS_DIR)/$*/eval_all.csv \
-		--out-json $(REPORTS_DIR)/$*/eval_all.json \
-		--out-fig $(REPORTS_DIR)/$*/eval_all_grid.png
-
-# Summarize all evaluation reports
-summarize_reports:
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "Summarizing evaluation reports..."
-	@echo "════════════════════════════════════════════════════════════════"
-	$(PY) scripts/summarize_reports.py \
-		--reports-dir $(REPORTS_DIR) \
-		--output-csv $(REPORTS_DIR)/summary_by_subject.csv \
-		--output-md $(REPORTS_DIR)/SUMMARY.md
-
-# Generate publication figures
-generate_figures:
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "Generating publication figures..."
-	@echo "════════════════════════════════════════════════════════════════"
-	@mkdir -p $(FIGURES_DIR)
-	$(PY) scripts/plot_metrics.py \
-		--reports-dir $(REPORTS_DIR) \
-		--output-dir $(FIGURES_DIR) \
-		--subjects $(SUBJECTS)
-
-# ════════════════════════════════════════════════════════════════════════════
-# PAPER-GRADE SHARED1000 EVALUATION
-# ════════════════════════════════════════════════════════════════════════════
+		--out-csv outputs/reports/$(SUBJECT)/recon_eval.csv \
+		--out-fig outputs/reports/$(SUBJECT)/recon_grid.png
 
 SHARED1000_OUT := outputs/eval_shared1000
 STRATEGIES := single best_of_8 boi_lite
 REP_MODE := avg
 SEEDS := 0 1 2
 
-.PHONY: eval-shared1000 summarize-shared1000 test-pipeline
-
-# Run comprehensive Shared1000 evaluation for one subject
 eval-shared1000:
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "Running Paper-Grade Shared1000 Evaluation"
-	@echo "Subject:    $${SUBJECT:-subj01}"
-	@echo "Strategies: $(STRATEGIES)"
-	@echo "Rep Mode:   $(REP_MODE)"
-	@echo "Seeds:      $(SEEDS)"
-	@echo "════════════════════════════════════════════════════════════════"
-	@mkdir -p $(SHARED1000_OUT)/$${SUBJECT:-subj01}
-	$(PY) scripts/eval_shared1000_full.py \
-		--subject $${SUBJECT:-subj01} \
-		--encoder-checkpoint $${ENCODER_CKPT:-checkpoints/mlp/$${SUBJECT:-subj01}/mlp.pt} \
-		--encoder-type $${ENCODER_TYPE:-mlp} \
-		--output-dir $(SHARED1000_OUT)/$${SUBJECT:-subj01} \
+	@echo "=== Paper-Grade Shared1000 Evaluation ==="
+	@mkdir -p $(SHARED1000_OUT)/$(SUBJECT)
+	$(PY) scripts/evaluation/eval_shared1000_full.py \
+		--subject $(SUBJECT) \
+		--encoder-checkpoint $${ENCODER_CKPT} \
+		--encoder-type $${ENCODER_TYPE:-unified} \
+		--output-dir $(SHARED1000_OUT)/$(SUBJECT) \
 		--rep-mode $(REP_MODE) \
 		--strategies $(STRATEGIES) \
 		--seeds $(SEEDS) \
 		--clip-cache $${CLIP_CACHE:-outputs/clip_cache/clip.parquet} \
 		$${USE_CEILING:+--use-noise-ceiling} \
-		$${ENCODING_CKPT:+--encoding-model-checkpoint $$ENCODING_CKPT} \
-		--device $${DEVICE:-cuda}
+		--device $(DEVICE)
 
-# Aggregate results across subjects and strategies
 summarize-shared1000:
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "Summarizing Shared1000 Results"
-	@echo "Subjects:   $${SUBJECTS:-subj01 subj02 subj03}"
-	@echo "Strategies: $(STRATEGIES)"
-	@echo "════════════════════════════════════════════════════════════════"
-	$(PY) scripts/summarize_shared1000.py \
+	$(PY) scripts/evaluation/summarize_shared1000.py \
 		--eval-dir $(SHARED1000_OUT) \
 		--output-dir $(SHARED1000_OUT) \
-		--subjects $${SUBJECTS:-subj01 subj02 subj03} \
+		--subjects $${SUBJECTS:-subj01 subj02 subj05 subj07} \
 		--strategies $(STRATEGIES) \
 		--rep-mode $(REP_MODE)
-	@echo "✅ Summary complete: $(SHARED1000_OUT)/SUMMARY.*"
 
-# Quick smoke test of evaluation pipeline
-test-pipeline:
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "Running Evaluation Pipeline Smoke Test"
-	@echo "════════════════════════════════════════════════════════════════"
-	@mkdir -p outputs/eval_test
-	$(PY) scripts/eval_shared1000_full.py \
-		--subject subj01 \
-		--encoder-checkpoint checkpoints/mlp/subj01/mlp.pt \
-		--encoder-type mlp \
-		--output-dir outputs/eval_test \
-		--smoke
-	@echo "✅ Smoke test passed"
+compare-evals:
+	$(PY) scripts/analysis/compare_evals.py \
+		--report-dir outputs/reports/$(SUBJECT) \
+		--out-csv outputs/reports/$(SUBJECT)/recon_compare.csv \
+		--out-tex outputs/reports/$(SUBJECT)/recon_compare.tex \
+		--out-md  outputs/reports/$(SUBJECT)/recon_compare.md \
+		--out-fig outputs/reports/$(SUBJECT)/recon_compare.png \
+		$${PATTERN:+--pattern $$PATTERN} \
+		$${BOOTS:+--boots $$BOOTS}
+
+# ============================================================================
+# Testing
+# ============================================================================
+
+test:
+	$(PY) -m pytest tests/ -v
+
+test-quick:
+	$(PY) -m pytest tests/ -v -x --ignore=tests/unit -k "not slow"
+
+# ============================================================================
+# Utilities
+# ============================================================================
+
+check-headers:
+	@echo "=== Validating Index Headers ==="
+	$(PY) scripts/utils/check_index_headers.py \
+		data/indices/nsd_index/subject=$(SUBJECT)/index.parquet \
+		--max-files 10
+
+download-sd:
+	$(PY) scripts/utils/download_sd_model.py \
+		--model-id $${MODEL:-stabilityai/stable-diffusion-2-1}
+
+paper:
+	$(PY) scripts/analysis/build_paper_artifacts.py
+
+manifest-check:
+	@test -n "$${OUTPUT_DIR}" || (echo "ERROR: set OUTPUT_DIR=..." && exit 2)
+	$(PY) scripts/utils/write_run_manifest.py --output-dir $${OUTPUT_DIR}
+
+repro-check:
+	$(PY) -c "from fmri2img.utils.manifest import gather_env_info; print('git_commit' in gather_env_info())"
+
+clean:
+	find . -type d -name __pycache__ -exec rm -rf {} +
+	find . -name "*.pyc" -delete
+	rm -rf .pytest_cache/ build/ dist/ *.egg-info/
+
+clean-logs:
+	rm -rf outputs/logs/*.log

@@ -4,49 +4,55 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fmri2img"
-version = "0.1.0"
-description = "fMRI-to-Image reconstruction using Natural Scenes Dataset"
+version = "2.0.0"
+description = "Neural decoding of visual perception from fMRI to images"
 authors = [{name = "NSD Team", email = "nsd@example.com"}]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "fsspec",
-    "s3fs", 
-    "pandas",
-    "numpy",
+    "s3fs",
+    "pandas>=1.5.0",
+    "numpy>=1.23.0,<2.0.0",
     "nibabel",
     "pyarrow",
-    "tqdm",
+    "tqdm>=4.64.0",
     "h5py",
-    "pyyaml",
-    "matplotlib",
-    "seaborn"
+    "pyyaml>=6.0",
+    "matplotlib>=3.5.0",
+    "seaborn>=0.12.0",
+    "scipy>=1.9.0",
+    "scikit-learn>=1.1.0",
+    "joblib",
+    "rich>=12.0.0",
+    "loguru>=0.6.0",
+    "pillow>=9.0.0",
+    "requests>=2.28.0",
 ]
 
 [project.optional-dependencies]
-dev = [
-    "black",
-    "isort", 
-    "ruff",
-    "pytest",
-    "pre-commit",
-    "scikit-learn",
-    "joblib",
-    "torch",
-    "torchvision",
-    "open_clip_torch",
-    "pillow",
-    "requests"
+train = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "open_clip_torch>=2.20.0",
+    "einops>=0.6.0",
 ]
 
 diffusion = [
-    "torch",
-    "torchvision",
-    "diffusers",
-    "transformers",
-    "huggingface_hub",
-    "accelerate",
-    "pillow"
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "diffusers>=0.21.0",
+    "transformers>=4.30.0",
+    "huggingface_hub>=0.16.0",
+    "accelerate>=0.20.0",
+]
+
+dev = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "ruff>=0.0.260",
+    "pre-commit>=3.0.0",
 ]
 
 [tool.setuptools]

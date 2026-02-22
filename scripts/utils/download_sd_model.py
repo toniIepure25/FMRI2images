@@ -159,6 +159,14 @@ def download_model(
         logger.error("Install with: pip install huggingface_hub")
         return 1
     
+    # Resolve HuggingFace token for gated/private models
+    hf_token = os.getenv("HF_TOKEN") or os.getenv("HUGGING_FACE_HUB_TOKEN")
+    if hf_token:
+        logger.info("Using HF_TOKEN from environment for authentication.")
+    else:
+        logger.warning("No HF_TOKEN found. If the model is gated, set HF_TOKEN in .env")
+        logger.warning("  Get a token at: https://huggingface.co/settings/tokens")
+    
     # Setup Rich progress (optional)
     progress_bar = None
     if not no_progress:
@@ -178,27 +186,21 @@ def download_model(
             logger.warning("Install with: pip install rich")
     
     try:
+        dl_kwargs = dict(
+            repo_id=model_id,
+            cache_dir=cache_root,
+            repo_type="model",
+            token=hf_token or True,
+        )
+        
         # Download with resumable downloads
         if progress_bar:
             with progress_bar:
                 task = progress_bar.add_task(f"Downloading {model_id}", total=None)
-                
-                cache_path = snapshot_download(
-                    repo_id=model_id,
-                    cache_dir=cache_root,
-                    resume_download=True,
-                    local_dir_use_symlinks=False,
-                    repo_type="model"
-                )
+                cache_path = snapshot_download(**dl_kwargs)
         else:
             logger.info("Downloading (this may take a while)...")
-            cache_path = snapshot_download(
-                repo_id=model_id,
-                cache_dir=cache_root,
-                resume_download=True,
-                local_dir_use_symlinks=False,
-                repo_type="model"
-            )
+            cache_path = snapshot_download(**dl_kwargs)
         
         # Success - compute final size
         cache_path = Path(cache_path)
@@ -233,7 +235,18 @@ def download_model(
     except Exception as e:
         error_msg = str(e).lower()
         
-        if "connection" in error_msg or "network" in error_msg or "timeout" in error_msg:
+        if "401" in error_msg or "unauthorized" in error_msg or "repository not found" in error_msg:
+            logger.error("")
+            logger.error("ERROR: Authentication required (401 Unauthorized)")
+            logger.error(f"Details: {e}")
+            logger.error("")
+            logger.error("Troubleshooting:")
+            logger.error("  1. Get a token: https://huggingface.co/settings/tokens")
+            logger.error("  2. Accept the model license at: https://huggingface.co/%s", model_id)
+            logger.error("  3. Set the token:  export HF_TOKEN=hf_xxxxx")
+            logger.error("     Or add to .env: HF_TOKEN=hf_xxxxx")
+            logger.error("  4. Re-run this script")
+        elif "connection" in error_msg or "network" in error_msg or "timeout" in error_msg:
             logger.error("")
             logger.error("ERROR: Network connection issue")
             logger.error(f"Details: {e}")

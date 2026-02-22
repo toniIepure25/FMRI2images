@@ -27,12 +27,23 @@ class CLIPCache:
     On-disk cache of CLIP embeddings for nsdId.
     Stored as Parquet with columns:
       - nsdId: int32
-      - clip512: fixed-length list[float32] (len=512)
+      - clip_embedding: fixed-length list[float32] (len=dim)
+
+    Also supports legacy column names (clip512) for backward compatibility.
+
+    Args:
+        cache_path: Path to the parquet cache file.
+        dim: Embedding dimensionality (512 for ViT-B/32, 768 for ViT-L/14).
     """
     
-    def __init__(self, cache_path: str = "outputs/clip_cache/clip.parquet"):
+    LEGACY_COLUMN = "clip512"
+    COLUMN = "clip_embedding"
+    
+    def __init__(self, cache_path: str = "outputs/clip_cache/clip.parquet",
+                 dim: int = 768):
         self.cache_path = Path(cache_path)
         self.cache_path.parent.mkdir(parents=True, exist_ok=True)
+        self.dim = dim
         self._df: Optional[pd.DataFrame] = None
         self._is_loaded: bool = False
         self._meta: Optional[Dict[str, Any]] = None
@@ -43,12 +54,12 @@ class CLIPCache:
         return self._is_loaded
 
     def _schema(self) -> pa.schema:
-        """PyArrow schema for CLIP cache."""
+        """PyArrow schema for CLIP cache (dimension-aware)."""
         if not PYARROW_AVAILABLE:
             raise ImportError("pyarrow required for CLIP cache. Install with: pip install pyarrow")
         return pa.schema([
             pa.field("nsdId", pa.int32()),
-            pa.field("clip512", pa.list_(pa.float32(), list_size=512)),
+            pa.field(self.COLUMN, pa.list_(pa.float32(), list_size=self.dim)),
         ])
 
     @property
@@ -84,6 +95,16 @@ class CLIPCache:
         log.info(f"Wrote CLIP cache metadata to {path}")
         return path
 
+    @property
+    def _emb_col(self) -> str:
+        """Detect the embedding column name in the loaded DataFrame."""
+        if self._df is not None:
+            if self.COLUMN in self._df.columns:
+                return self.COLUMN
+            if self.LEGACY_COLUMN in self._df.columns:
+                return self.LEGACY_COLUMN
+        return self.COLUMN
+
     def load(self) -> "CLIPCache":
         """
         Load cache from disk (fluent API).
@@ -96,9 +117,12 @@ class CLIPCache:
             
         if self.cache_path.exists():
             self._df = pd.read_parquet(self.cache_path)
-            log.debug(f"Loaded CLIP cache with {len(self._df)} entries")
+            if self.dim == 0 and self._emb_col in self._df.columns:
+                first = self._df[self._emb_col].iloc[0]
+                self.dim = len(first) if first is not None else 768
+            log.debug("Loaded CLIP cache with %d entries (col=%s)", len(self._df), self._emb_col)
         else:
-            self._df = pd.DataFrame(columns=["nsdId", "clip512"])
+            self._df = pd.DataFrame(columns=["nsdId", self.COLUMN])
             log.debug("Initialized empty CLIP cache")
         
         self._is_loaded = True
@@ -145,8 +169,7 @@ class CLIPCache:
         ids = set(int(i) for i in nsd_ids)
         sub = self._df[self._df["nsdId"].isin(list(ids))]
         
-        # Detect column name (clip512 or embedding)
-        emb_col = "clip512" if "clip512" in self._df.columns else "embedding"
+        emb_col = self._emb_col
         
         result = {}
         for _, r in sub.iterrows():
@@ -164,31 +187,35 @@ class CLIPCache:
         Save new rows to cache, deduplicating on nsdId.
         
         Args:
-            rows: DataFrame with columns ['nsdId', 'clip512']
+            rows: DataFrame with columns ['nsdId', 'clip_embedding'] (or legacy 'clip512').
         """
         if not PYARROW_AVAILABLE:
             raise ImportError("pyarrow required for CLIP cache. Install with: pip install pyarrow")
         
-        # Ensure cache is loaded
         if not self._is_loaded:
             self.load()
         
-        # Concatenate and deduplicate
+        # Normalize column name to standard
+        if self.LEGACY_COLUMN in rows.columns and self.COLUMN not in rows.columns:
+            rows = rows.rename(columns={self.LEGACY_COLUMN: self.COLUMN})
+        
+        # Normalize existing df column name
+        if self._df is not None and self.LEGACY_COLUMN in self._df.columns and self.COLUMN not in self._df.columns:
+            self._df = self._df.rename(columns={self.LEGACY_COLUMN: self.COLUMN})
+        
         df = pd.concat([self._df, rows], ignore_index=True)
         df = df.drop_duplicates(subset=["nsdId"], keep='last').reset_index(drop=True)
         
-        # Enforce types
         df["nsdId"] = df["nsdId"].astype("int32")
-        df["clip512"] = df["clip512"].apply(
-            lambda v: list(np.asarray(v, dtype=np.float32).reshape(512))
+        df[self.COLUMN] = df[self.COLUMN].apply(
+            lambda v: list(np.asarray(v, dtype=np.float32).reshape(self.dim))
         )
         
-        # Write with pyarrow to enforce schema
         table = pa.Table.from_pandas(df, schema=self._schema(), preserve_index=False)
         pq.write_table(table, self.cache_path, compression="snappy")
         
         self._df = df
-        log.info(f"CLIP cache now has {len(self._df)} items at {self.cache_path}")
+        log.info("CLIP cache now has %d items at %s", len(self._df), self.cache_path)
 
     def stats(self) -> dict:
         """

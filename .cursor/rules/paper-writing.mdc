@@ -1,0 +1,86 @@
+---
+description: Standards for paper writing, documentation, and scientific communication in this project.
+globs: docs/paper/**/*.md
+alwaysApply: false
+---
+
+# Paper and Documentation Standards
+
+## Mathematical Notation
+
+Use consistent LaTeX notation throughout all documentation:
+
+| Concept                  | Notation                                      |
+|--------------------------|-----------------------------------------------|
+| Mean direction           | $\boldsymbol{\mu}$                            |
+| Concentration            | $\kappa$                                      |
+| Temperature              | $\tau$                                        |
+| CLIP embedding           | $\mathbf{z}$                                  |
+| fMRI input               | $\mathbf{x}$                                  |
+| Loss function            | $\mathcal{L}$                                 |
+| Real space               | $\mathbb{R}^d$                                |
+| Unit hypersphere         | $\mathcal{S}^{d-1}$                           |
+| vMF density              | $f(\mathbf{x}; \boldsymbol{\mu}, \kappa)$     |
+| Bessel function          | $I_v(\kappa)$                                 |
+| Normalizing constant     | $C_d(\kappa)$                                 |
+| Guidance scale           | $s$                                           |
+| Number of subjects       | $N_{\text{subj}}$                             |
+
+## Citation Format
+
+- In-text: Author et al., Year (e.g., "Allen et al., 2022")
+- Multiple: (Allen et al., 2022; Scotti et al., 2024)
+- Never use bare numbers like "[1]" in Markdown docs — always author+year
+- Maintain a central reference list in the paper outline
+
+## Reporting Experimental Results
+
+### Mandatory Elements
+- **Sample size**: Always state N (number of test samples, subjects, etc.)
+- **Statistical tests**: Report test statistic, p-value, and effect size (Cohen's d)
+- **Confidence intervals**: When possible, report 95% CI
+- **Source traceability**: Every number must link to a specific file in `outputs/` or `RaportPaper3/`
+
+### Table Format
+```markdown
+| Method       | Cosine↑ | R@1↑  | R@5↑  | p-value | Cohen's d |
+|-------------|---------|-------|-------|---------|-----------|
+| Baseline     | 0.XXX   | X.XX% | X.XX% | —       | —         |
+| Ours (Full)  | 0.XXX   | X.XX% | X.XX% | < 0.001 | X.XX      |
+```
+
+- Always indicate metric direction (↑ = higher is better, ↓ = lower is better)
+- Report to consistent decimal precision (3 decimals for cosine, 2 for percentages)
+- Bold the best result in each column
+
+### Figures
+- Reference format: "Figure X: [descriptive caption]"
+- Every figure must have a caption that is understandable without reading the text
+- Use vector formats (SVG/PDF) for plots, not rasterized images
+- Consistent color scheme across all figures
+
+## Never Fabricate Results
+
+This is the most important rule. If an experiment hasn't been run:
+- Write "**Pending experiment**" explicitly
+- Do not estimate, extrapolate, or guess what the numbers might be
+- Reference the config file that would run the experiment: "See `configs/experiments/exp7_vmf_nce.yaml`"
+
+## Document Structure
+
+### Paper Outline (`docs/paper/outline.md`)
+- Follow standard ML paper structure: Abstract → Introduction → Related Work → Method → Experiments → Discussion → Conclusion
+- Each section has bullet points for key arguments
+- Mark sections as [DRAFT], [COMPLETE], or [NEEDS DATA]
+
+### Ablation Plan (`docs/paper/ablation_plan.md`)
+- Each experiment has: ID, hypothesis, config file, metrics to report, status (done/pending)
+- Results filled in only when actual numbers exist
+
+## Writing Style
+
+- Active voice preferred: "We propose" not "It is proposed"
+- Present tense for established facts: "CLIP embeddings lie on the unit hypersphere"
+- Past tense for experiments: "We trained the model for 100 epochs"
+- Precise language: "improves" requires statistical evidence; use "aims to improve" for untested claims
+- Define all acronyms on first use: "Natural Scenes Dataset (NSD)"

@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _run(cmd: list[str]) -> int:
@@ -30,13 +30,13 @@ def main() -> int:
     rc = 0
 
     # Preflight (deps + cuda + disk + paths contract)
-    rc = max(rc, _run([sys.executable, str(REPO_ROOT / "scripts" / "preflight.py")]))
+    rc = max(rc, _run([sys.executable, str(REPO_ROOT / "scripts" / "utils" / "preflight.py")]))
 
     # Dataset
-    rc = max(rc, _run([sys.executable, str(REPO_ROOT / "scripts" / "verify_dataset.py")]))
+    rc = max(rc, _run([sys.executable, str(REPO_ROOT / "scripts" / "utils" / "verify_dataset.py")]))
 
     # Models (only relevant when DIFFUSION_ENABLED=1; fetch_models itself enforces deps)
-    rc = max(rc, _run([sys.executable, str(REPO_ROOT / "scripts" / "fetch_models.py")]))
+    rc = max(rc, _run([sys.executable, str(REPO_ROOT / "scripts" / "utils" / "fetch_models.py")]))
 
     if rc != 0:
         print("doctor: FAIL")

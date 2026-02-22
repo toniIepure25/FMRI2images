@@ -3,7 +3,7 @@ CLIP Model Utilities
 ===================
 
 Centralized CLIP model loading and configuration.
-Single source of truth: configs/clip.yaml
+Single source of truth: configs/system/clip.yaml
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ except ImportError:
     CLIP_AVAILABLE = False
 
 
-def load_clip_config(config_path: str = "configs/clip.yaml") -> dict:
+def load_clip_config(config_path: str = "configs/system/clip.yaml") -> dict:
     """
     Load CLIP configuration from YAML file.
     
@@ -41,7 +41,7 @@ def load_clip_config(config_path: str = "configs/clip.yaml") -> dict:
     if not config_path.exists():
         raise FileNotFoundError(
             f"CLIP config not found at {config_path}. "
-            "Create configs/clip.yaml with model_name and other settings."
+            "Create configs/system/clip.yaml with model_name and other settings."
         )
     
     with open(config_path, 'r') as f:
@@ -60,7 +60,7 @@ def load_clip_config(config_path: str = "configs/clip.yaml") -> dict:
 
 
 def load_clip_model(
-    config_path: str = "configs/clip.yaml",
+    config_path: str = "configs/system/clip.yaml",
     device: str = None
 ) -> Tuple[Any, Any, dict]:
     """
@@ -262,7 +262,7 @@ def encode_images_multilayer(
 
 def verify_embedding_dimension(
     embeddings: np.ndarray,
-    config_path: str = "configs/clip.yaml"
+    config_path: str = "configs/system/clip.yaml"
 ) -> None:
     """
     Verify that embeddings match expected dimension from config.

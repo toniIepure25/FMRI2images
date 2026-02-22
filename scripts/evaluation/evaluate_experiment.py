@@ -30,17 +30,17 @@ from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-# Import evaluation logic - need to import as module
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent))
+# Import evaluation logic from the library
+from fmri2img.eval.eval_comprehensive import (
+    load_encoder,
+    predict_clip_embeddings,
+    compute_retrieval_metrics,
+    compute_perceptual_metrics,
+)
 
-import evaluate_ultimate_model
-load_checkpoint = evaluate_ultimate_model.load_checkpoint
-prepare_dataloader = evaluate_ultimate_model.prepare_dataloader
-evaluate_model = evaluate_ultimate_model.evaluate_model
-print_results = evaluate_ultimate_model.print_results
 
+import os
+import numpy as np
 import torch
 
 
@@ -78,211 +78,6 @@ def save_training_info(exp_dir: Path, checkpoint_path: Path, config: dict):
     print(f"   ✓ Saved training info: {output_path}")
 
 
-def generate_summary_report(exp_dir: Path, results: dict, config: dict, checkpoint_info: dict):
-    """Generate human-readable summary report."""
-    
-    report = f"""# Experiment Evaluation Summary: {exp_dir.name}
-
-**Date**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}  
-**Epoch**: {checkpoint_info.get('epoch', 'N/A')} / {config['training'].get('num_epochs', config['training'].get('epochs', 'N/A'))}  
-**Samples Evaluated**: {results['num_samples']}
-
----
-
-## Quick Summary
-
-| Metric | Value | Interpretation |
-|--------|-------|----------------|
-| **Cosine Similarity** | {results['global']['cosine_similarity']['cosine_mean']:.4f} ± {results['global']['cosine_similarity']['cosine_std']:.4f} | {'✅ Excellent' if results['global']['cosine_similarity']['cosine_mean'] > 0.50 else '✅ Good' if results['global']['cosine_similarity']['cosine_mean'] > 0.40 else '⚠️ Moderate' if results['global']['cosine_similarity']['cosine_mean'] > 0.30 else '❌ Poor'} |
-| **Top-1 Retrieval** | {results['global']['retrieval']['top1_accuracy']:.2%} | {'✅ Excellent' if results['global']['retrieval']['top1_accuracy'] > 0.20 else '✅ Good' if results['global']['retrieval']['top1_accuracy'] > 0.10 else '⚠️ Moderate' if results['global']['retrieval']['top1_accuracy'] > 0.05 else '❌ Poor'} |
-| **Top-5 Retrieval** | {results['global']['retrieval']['top5_accuracy']:.2%} | {'✅ Excellent' if results['global']['retrieval']['top5_accuracy'] > 0.50 else '✅ Good' if results['global']['retrieval']['top5_accuracy'] > 0.40 else '⚠️ Moderate' if results['global']['retrieval']['top5_accuracy'] > 0.25 else '❌ Poor'} |
-| **Mean Rank** | {results['global']['retrieval']['mean_rank']:.1f} | {'✅ Excellent' if results['global']['retrieval']['mean_rank'] < 5 else '✅ Good' if results['global']['retrieval']['mean_rank'] < 10 else '⚠️ Moderate' if results['global']['retrieval']['mean_rank'] < 20 else '❌ Poor'} |
-| **KL Divergence** | {results['kl_divergence']['mean']:.4f} | {'✅ Good balance' if 0.1 <= results['kl_divergence']['mean'] <= 0.3 else '⚠️ Check regularization'} |
-
----
-
-## Detailed Metrics
-
-### CLIP Embedding Quality
-
-**Cosine Similarity Distribution**:
-- Mean: {results['global']['cosine_similarity']['cosine_mean']:.4f}
-- Median: {results['global']['cosine_similarity']['cosine_median']:.4f}
-- Std: {results['global']['cosine_similarity']['cosine_std']:.4f}
-- Min: {results['global']['cosine_similarity']['cosine_min']:.4f}
-- Max: {results['global']['cosine_similarity']['cosine_max']:.4f}
-
-**Interpretation**: 
-- Values closer to 1.0 indicate better alignment with ground truth CLIP embeddings
-- Median similar to mean suggests consistent performance
-- Low std (<0.15) indicates stable predictions across samples
-
-### Retrieval Performance
-
-**Top-K Accuracy**:
-- Top-1: {results['global']['retrieval']['top1_accuracy']:.2%} (correct image ranked #1)
-- Top-5: {results['global']['retrieval']['top5_accuracy']:.2%} (correct image in top-5)
-- Top-10: {results['global']['retrieval']['top10_accuracy']:.2%} (correct image in top-10)
-
-**Ranking Statistics**:
-- Mean Rank: {results['global']['retrieval']['mean_rank']:.1f}
-- Median Rank: {results['global']['retrieval']['median_rank']:.1f}
-
-**Interpretation**:
-- Top-5 >40% indicates strong practical retrieval capability
-- Lower mean rank indicates more predictions near ground truth
-- Median < Mean suggests some outliers with very poor predictions
-
-### Reconstruction Error
-
-**Embedding Space Distance**:
-- MSE: {results['global']['mse']:.4f}
-- RMSE: {results['global']['rmse']:.4f}
-- L2 Distance (mean): {results['global']['l2_distance_mean']:.4f} ± {results['global']['l2_distance_std']:.4f}
-
-### Probabilistic Component
-
-**KL Divergence (Variational Regularization)**:
-- Mean: {results['kl_divergence']['mean']:.4f}
-- Std: {results['kl_divergence']['std']:.4f}
-
-**Interpretation**:
-- KL ~0.1-0.3: Good balance between reconstruction and regularization
-- KL <0.05: Posterior collapsed to prior (underfitting)
-- KL >0.5: High divergence (may need higher KL weight)
-
----
-
-## Configuration
-
-**Training Hyperparameters**:
-- Learning Rate: {config['training']['learning_rate']}
-- Batch Size: {config['training']['batch_size']}
-- Gradient Accumulation: {config['training'].get('gradient_accumulation_steps', config.get('advanced', {}).get('gradient_accumulation_steps', 1))}
-- Effective Batch: {config['training']['batch_size'] * config['training'].get('gradient_accumulation_steps', config.get('advanced', {}).get('gradient_accumulation_steps', 1))}
-- Gradient Clip: {config['training']['grad_clip']}
-- KL Weight: {config['training']['kl_weight']}
-
-**Model Architecture**:
-- Latent Dim: {config['model']['latent_dim']}
-- Blocks: {config['model']['n_blocks']}
-- Head Hidden: {config['model']['head_hidden_dim']}
-- Dropout: {config['model'].get('dropout_rate', config['model'].get('dropout', 'N/A'))}
-- Enabled Layers: {', '.join(config['model']['enabled_layers'])}
-
-**Loss Weights**:
-- MSE: {config['training']['loss_weights']['mse']}
-- Cosine: {config['training']['loss_weights']['cosine']}
-- InfoNCE: {config['training']['loss_weights']['infonce']}
-
----
-
-## Decision
-
-"""
-    
-    # Add recommendation based on metrics
-    # Primary metric: Cosine similarity (most reliable for embedding quality)
-    # Secondary: Retrieval (only meaningful with large validation sets)
-    cosine_mean = results['global']['cosine_similarity']['cosine_mean']
-    top5 = results['global']['retrieval']['top5_accuracy']
-    num_samples = results['num_samples']
-    kl_div = results['kl_divergence']['mean']
-    
-    # Prioritize cosine similarity as main quality indicator
-    if cosine_mean > 0.60:
-        report += """### ✅ EXCELLENT - Strong Embedding Quality
-- **Cosine Similarity: {:.4f}** - Outstanding performance!
-- **Recommendation**: This model shows excellent learning
-  - Continue training to epoch 50 for potential further improvement
-  - Archive as strong baseline for thesis
-  - Consider generating reconstructions for visualization
-- **Note**: Low retrieval metrics are expected with small validation sets (<1000 samples)
-
-""".format(cosine_mean)
-    elif cosine_mean > 0.50:
-        report += """### ✅ EXCELLENT - Proceed with Confidence
-- **Cosine Similarity: {:.4f}** - Strong embedding alignment
-- **Recommendation**: Model is learning well
-  - Continue training to target epochs
-  - Archive for comparison
-  - May generate reconstructions
-- **Note**: Retrieval metrics less reliable with {num_samples} samples
-
-""".format(cosine_mean, num_samples=num_samples)
-    elif cosine_mean > 0.40:
-        report += """### ✅ GOOD - Acceptable Performance
-- **Cosine Similarity: {:.4f}** - Solid learning progress
-- **Recommendation**: 
-  - Continue training with current hyperparameters
-  - Monitor for further improvement
-  - Consider architecture tweaks if plateau persists
-
-""".format(cosine_mean)
-    elif cosine_mean > 0.30:
-        report += """### ⚠️ MODERATE - Room for Improvement
-- **Cosine Similarity: {:.4f}** - Model learning but suboptimal
-- **Recommendation**: 
-  - Review loss weights and learning rate
-  - Check data preprocessing quality
-  - Consider increasing model capacity
-
-""".format(cosine_mean)
-    else:
-        report += """### ❌ NEEDS IMPROVEMENT
-- **Cosine Similarity: {:.4f}** - Below target performance
-- **Recommendation**: Investigate and modify before continuing
-  - Check: data preprocessing, loss weights, learning rate
-  - Verify: training curves, gradient flow, data quality
-
-""".format(cosine_mean)
-    
-    # Add KL divergence interpretation
-    if kl_div < 0.05:
-        report += """
-**⚠️ KL Divergence Warning**: {:.4f} is very low - posterior may have collapsed to prior. Consider reducing KL weight.
-""".format(kl_div)
-    elif kl_div > 0.5:
-        report += """
-**⚠️ KL Divergence Warning**: {:.4f} is high - strong divergence from prior. Consider increasing KL weight for better regularization.
-""".format(kl_div)
-    
-    report += """
-### Next Steps
-
-1. **If satisfied with metrics**:
-   ```bash
-   # Generate reconstructions (optional)
-   python scripts/run_stage34_recon_eval.py \\
-       --checkpoint CHECKPOINT_PATH \\
-       --config CONFIG_PATH \\
-       --output-dir experimental_results/{exp_name}/reconstructions \\
-       --num-images 50
-   ```
-
-2. **If trying new experiment**:
-   - Modify hyperparameters in config
-   - Train new model
-   - Evaluate with this workflow again
-
-3. **Compare with other experiments**:
-   ```bash
-   python scripts/compare_experimental_results.py \\
-       --exp-dirs experimental_results/{exp_name} experimental_results/exp002_... \\
-       --output experimental_results/comparison_reports/comparison.md
-   ```
-
----
-
-*Evaluation completed on {eval_datetime}*
-""".format(exp_name=exp_dir.name, eval_datetime=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-    
-    # Save report
-    output_path = exp_dir / "evaluation" / "summary_report.md"
-    with open(output_path, 'w') as f:
-        f.write(report)
-    
-    print(f"   ✓ Generated summary report: {output_path}")
 
 
 def create_notes_template(exp_dir: Path):
@@ -333,97 +128,101 @@ def main():
     parser = argparse.ArgumentParser(description='Complete experiment evaluation workflow')
     parser.add_argument('--checkpoint', type=str, required=True, help='Path to checkpoint file')
     parser.add_argument('--config', type=str, required=True, help='Path to config file')
-    parser.add_argument('--exp-name', type=str, required=True, help='Experiment name (e.g., exp001_baseline_ultimate)')
-    parser.add_argument('--num-samples', type=int, default=1000, help='Number of samples to evaluate')
+    parser.add_argument('--exp-name', type=str, required=True, help='Experiment name')
+    parser.add_argument('--subject', type=str, default='subj01', help='NSD subject id')
+    parser.add_argument('--encoder-type', type=str, default='unified',
+                        choices=['ridge', 'mlp', 'two_stage', 'unified'])
+    parser.add_argument('--nsd-root', type=str, default=None,
+                        help='NSD data root (default: $NSD_DATA_ROOT)')
+    parser.add_argument('--clip-cache', type=str, default=None,
+                        help='Path to CLIP cache parquet')
+    parser.add_argument('--fmri-path', type=str, default=None,
+                        help='Path to preprocessed fMRI .npy')
     parser.add_argument('--device', type=str, default='cuda', help='Device to use')
     args = parser.parse_args()
-    
-    print("="*100)
+
+    print("=" * 100)
     print(" " * 30 + "EXPERIMENT EVALUATION WORKFLOW")
-    print("="*100)
-    print(f"Experiment: {args.exp_name}")
-    print(f"Checkpoint: {args.checkpoint}")
-    print(f"Config: {args.config}")
+    print("=" * 100)
+    print(f"Experiment : {args.exp_name}")
+    print(f"Checkpoint : {args.checkpoint}")
+    print(f"Subject    : {args.subject}")
     print()
-    
-    # Load config
+
     with open(args.config, 'r') as f:
         config = yaml.safe_load(f)
-    
-    # Create experiment structure
-    print("📁 Creating experiment structure...")
+
     exp_dir = create_experiment_structure(args.exp_name)
-    print(f"   ✓ Created: {exp_dir}")
-    
-    # Copy config
-    config_dest = exp_dir / "config.yaml"
-    shutil.copy(args.config, config_dest)
-    print(f"   ✓ Copied config")
-    
-    # Save training info
+    shutil.copy(args.config, exp_dir / "config.yaml")
     save_training_info(exp_dir, Path(args.checkpoint), config)
-    
-    # Run evaluation (using imported functions)
-    device = torch.device(args.device if torch.cuda.is_available() else 'cpu')
-    checkpoint_path = Path(args.checkpoint)
-    
-    print("\n📥 Loading model...")
-    model, checkpoint_info = load_checkpoint(checkpoint_path, config, device)
-    
-    print("\n📊 Preparing evaluation dataset...")
-    loader, num_samples = prepare_dataloader(config, device, args.num_samples)
-    
-    print("\n🔍 Running evaluation...")
-    results = evaluate_model(model, loader, device, config)
-    
-    # Print results
-    print_results(results, checkpoint_info)
-    
-    # Save detailed results
-    output_path = exp_dir / "evaluation" / f"eval_results.json"
+
+    device = args.device if torch.cuda.is_available() else 'cpu'
+    nsd_root = Path(args.nsd_root or os.environ.get('NSD_DATA_ROOT', 'data/nsd'))
+
+    print("Loading encoder...")
+    encoder = load_encoder(args.encoder_type, args.checkpoint, device)
+
+    stim_info_path = nsd_root / 'nsddata' / 'experiments' / 'nsd' / 'nsd_stim_info_merged.csv'
+    from fmri2img.eval.eval_comprehensive import load_nsd_shared_1000, get_shared_1000_trials, average_fmri_reps
+
+    shared_df = load_nsd_shared_1000(str(stim_info_path))
+    trials, nsd_ids = get_shared_1000_trials(shared_df, args.subject, average_reps=True)
+
+    fmri_path = args.fmri_path
+    if fmri_path is None:
+        fmri_path = f"data/preprocessed/{args.subject}/fmri_masked.npy"
+    print(f"Loading fMRI data from {fmri_path}...")
+    fmri_all = np.load(fmri_path)
+    fmri_avg = average_fmri_reps(fmri_all, trials)
+
+    clip_cache_path = args.clip_cache
+    if clip_cache_path is None:
+        clip_cache_path = str(nsd_root / 'clip_cache' / 'clip_cache.parquet')
+    print(f"Loading CLIP targets from {clip_cache_path}...")
+    import pandas as pd
+    clip_df = pd.read_parquet(clip_cache_path)
+    if 'nsdId' in clip_df.columns and clip_df.index.name != 'nsdId':
+        clip_df = clip_df.set_index('nsdId')
+    clip_col = 'clip_embedding' if 'clip_embedding' in clip_df.columns else clip_df.columns[-1]
+    gt_embeddings = np.stack(clip_df.loc[nsd_ids, clip_col].values).astype(np.float32)
+
+    print("Predicting CLIP embeddings...")
+    pred_embeddings = predict_clip_embeddings(encoder, args.encoder_type, fmri_avg, device)
+
+    print("Computing retrieval metrics...")
+    retrieval = compute_retrieval_metrics(pred_embeddings, gt_embeddings)
+    perceptual = compute_perceptual_metrics(pred_embeddings, gt_embeddings)
+
+    results = {
+        "subject": args.subject,
+        "encoder_type": args.encoder_type,
+        "num_samples": len(pred_embeddings),
+        "retrieval": retrieval,
+        "perceptual": perceptual,
+    }
+
+    for k, v in retrieval.items():
+        if k != "per_sample_ranks":
+            print(f"  {k}: {v:.4f}" if isinstance(v, float) else f"  {k}: {v}")
+    for k, v in perceptual.items():
+        if k != "per_sample_cosine":
+            print(f"  {k}: {v:.4f}" if isinstance(v, float) else f"  {k}: {v}")
+
+    output_path = exp_dir / "evaluation" / "eval_results.json"
+    serializable = {k: v for k, v in results.items()
+                    if k not in {"per_sample_ranks", "per_sample_cosine"}}
     with open(output_path, 'w') as f:
-        json.dump(results, f, indent=2)
-    print(f"\n💾 Detailed results saved: {output_path}")
-    
-    # Save CLIP metrics separately
-    clip_metrics_path = exp_dir / "evaluation" / "clip_metrics.json"
-    with open(clip_metrics_path, 'w') as f:
-        json.dump({
-            'cosine_similarity': results['global']['cosine_similarity'],
-            'retrieval': results['global']['retrieval']
-        }, f, indent=2)
-    print(f"   ✓ CLIP metrics: {clip_metrics_path}")
-    
-    # Save probabilistic metrics separately
-    prob_metrics_path = exp_dir / "evaluation" / "probabilistic_metrics.json"
-    with open(prob_metrics_path, 'w') as f:
-        json.dump({
-            'kl_divergence': results['kl_divergence'],
-            'reconstruction_error': {
-                'mse': results['global']['mse'],
-                'rmse': results['global']['rmse'],
-                'l2_distance_mean': results['global']['l2_distance_mean'],
-                'l2_distance_std': results['global']['l2_distance_std']
-            }
-        }, f, indent=2)
-    print(f"   ✓ Probabilistic metrics: {prob_metrics_path}")
-    
-    # Generate summary report
-    print("\n📝 Generating summary report...")
-    generate_summary_report(exp_dir, results, config, checkpoint_info)
-    
-    # Create notes template
+        json.dump(serializable, f, indent=2, default=str)
+    print(f"Saved results: {output_path}")
+
     create_notes_template(exp_dir)
-    
-    print("\n" + "="*100)
-    print("✅ EVALUATION COMPLETE!")
-    print("="*100)
-    print(f"\nResults location: {exp_dir}")
-    print(f"\nNext steps:")
-    print(f"  1. Review: {exp_dir / 'evaluation' / 'summary_report.md'}")
-    print(f"  2. Add notes: {exp_dir / 'notes.md'}")
-    print(f"  3. Decide: Generate reconstructions or try new experiment")
-    print()
+
+    print("\n" + "=" * 100)
+    print("EVALUATION COMPLETE")
+    print("=" * 100)
+    print(f"\nResults: {exp_dir}")
+    print(f"  eval   : {output_path}")
+    print(f"  config : {exp_dir / 'config.yaml'}")
 
 
 if __name__ == '__main__':

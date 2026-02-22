@@ -82,10 +82,9 @@ for exp_id in "${EXPERIMENT_ORDER[@]}"; do
 
     for subject in $SUBJECTS; do
         TOTAL_RUNS=$((TOTAL_RUNS + 1))
-        run_id="${exp_id}_${subject}"
-        log_dir="experimental_results/${exp_id}_${config_file%.yaml}"
-        log_file="${log_dir}/${subject}_train.log"
+        log_dir="experimental_results/${config_file%.yaml}/${subject}/logs"
         mkdir -p "$log_dir"
+        log_file="${log_dir}/train.log"
 
         echo "  -> ${subject} ... "
 

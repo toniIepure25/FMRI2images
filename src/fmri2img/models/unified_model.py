@@ -334,7 +334,7 @@ class UnifiedModel(nn.Module):
         encoder_type = encoder_cfg.get("encoder_type", "mlp")
 
         if encoder_type == "roi_transformer":
-            from src.fmri2img.models.roi_transformer import ROITransformerEncoder
+            from fmri2img.models.roi_transformer import ROITransformerEncoder
             self.encoder = ROITransformerEncoder(
                 roi_dims=encoder_cfg["roi_dims"],
                 d_model=encoder_cfg.get("d_model", 512),
@@ -378,7 +378,7 @@ class UnifiedModel(nn.Module):
             posterior = config.get("posterior", "")
 
             if use_new or posterior == "vmf":
-                from src.fmri2img.models.vmf_decoder import VonMisesFisherDecoder as VmfDec
+                from fmri2img.models.vmf_decoder import VonMisesFisherDecoder as VmfDec
                 self.decoder = VmfDec(
                     input_dim=latent_dim,
                     output_dim=output_dim,
@@ -406,7 +406,7 @@ class UnifiedModel(nn.Module):
                     "vmf_dcf requires encoder_type='roi_transformer'; "
                     f"got '{encoder_type}'"
                 )
-            from src.fmri2img.models.roi_dcf import ROIDCFDecoder
+            from fmri2img.models.roi_dcf import ROIDCFDecoder
             n_rois = len(encoder_cfg["roi_dims"])
             dcf_cfg = decoder_cfg.get("dcf", {})
             self.decoder = ROIDCFDecoder(

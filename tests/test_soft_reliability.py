@@ -7,7 +7,7 @@ into the NSDPreprocessor pipeline.
 
 import pytest
 import numpy as np
-from src.fmri2img.data.reliability import compute_soft_reliability_weights
+from fmri2img.data.reliability import compute_soft_reliability_weights
 
 
 class TestComputeSoftReliabilityWeights:
@@ -222,7 +222,7 @@ class TestComputeSoftReliabilityWeights:
     
     def test_backward_compatibility_with_hard_threshold(self):
         """Test that hard_threshold mode produces same results as old filter_voxels_by_reliability."""
-        from src.fmri2img.data.reliability import filter_voxels_by_reliability
+        from fmri2img.data.reliability import filter_voxels_by_reliability
         
         r = np.array([0.8, 0.5, 0.15, 0.05, -0.1])
         var = np.array([1.0, 1.0, 1.0, 1.0, 1.0])

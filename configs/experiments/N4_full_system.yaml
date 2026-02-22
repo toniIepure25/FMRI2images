@@ -22,9 +22,9 @@ experiment:
 data:
   subject: "subj01"
   roi: "nsdgeneral"
-  train_split: 0.70
-  val_split: 0.15
-  test_split: 0.15
+  train_split: 0.80
+  val_split: 0.10
+  test_split: 0.10
   seed: 42
 
 model:
@@ -83,10 +83,7 @@ loss:
     final_curriculum_t: 1.0
     warmup_epochs: 10
     anneal_strategy: "cosine"
-    ceiling_temperature:
-      enabled: true
-      beta: 0.5
-      ceiling_source: "ncsnr"
+    # NOTE: ceiling_temperature is a planned future feature (not yet implemented)
   vmf_nce_multitask:
     enabled: true
     lambda_aux: 0.5

@@ -163,7 +163,7 @@ def get_shared_1000_trials(
         >>> trials, nsd_ids = get_shared_1000_trials(shared, "subj01", average_reps=True)
         >>> print(trials.shape)  # (1000, 3) - 3 repetitions
     """
-    subj_num = int(subject.replace("subj", "").replace("0", ""))
+    subj_num = int(subject.replace("subj", ""))
     
     if average_reps:
         # Get all 3 repetitions
@@ -703,9 +703,10 @@ def main():
     clip_cache = CLIPCache(args.clip_cache)
     
     # Get ground truth embeddings for shared 1000
+    emb_dict = clip_cache.get(list(nsd_ids))
     gt_embeddings = []
     for nsd_id in nsd_ids:
-        emb = clip_cache.get_embedding(nsd_id)
+        emb = emb_dict.get(nsd_id)
         if emb is None:
             logger.error(f"Missing CLIP embedding for nsdId={nsd_id}")
             raise ValueError(f"Missing embedding for nsdId={nsd_id}")

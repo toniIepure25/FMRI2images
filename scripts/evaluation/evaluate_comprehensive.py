@@ -29,23 +29,23 @@ import torch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.fmri2img.models.unified_model import load_model
-from src.fmri2img.eval.embedding_metrics import (
+from fmri2img.models.unified_model import load_model
+from fmri2img.eval.embedding_metrics import (
     compute_retrieval_metrics,
     compute_identification_metrics,
     compute_rsa,
     compute_linear_cka,
 )
-from src.fmri2img.eval.neuroscience_analysis import (
+from fmri2img.eval.neuroscience_analysis import (
     compute_hubness_metrics,
     estimate_mi_infonce,
 )
-from src.fmri2img.eval.sota_comparison import (
+from fmri2img.eval.sota_comparison import (
     get_comparison_table,
     print_comparison_table,
     to_latex_table,
 )
-from src.fmri2img.reliability.noise_ceiling import (
+from fmri2img.reliability.noise_ceiling import (
     spearman_brown_noise_ceiling,
 )
 

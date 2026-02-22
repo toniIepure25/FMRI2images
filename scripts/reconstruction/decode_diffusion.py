@@ -206,6 +206,53 @@ def load_encoder(encoder_type: str, ckpt_path: Path, device: str = "cpu"):
         logger.info(f"✅ Loaded Two-Stage encoder (multilayer={is_multilayer})")
         return TwoStageWrapper(model, device, is_multilayer)
 
+    elif encoder_type == "unified":
+        import torch
+        from fmri2img.models.unified_model import create_model
+
+        ckpt = torch.load(str(ckpt_path), map_location=device, weights_only=False)
+        model_config = ckpt.get("model_config", ckpt.get("config", {}).get("model", {}))
+        model = create_model(model_config).to(device)
+        model.load_state_dict(ckpt["model_state_dict"])
+        model.eval()
+
+        model_type = getattr(model, "model_type", "deterministic")
+
+        class UnifiedWrapper:
+            """Wraps UnifiedModel (B0-N4) for the reconstruction pipeline."""
+
+            def __init__(self, model, device, model_type):
+                self.model = model
+                self.device = device
+                self.model_type = model_type
+
+            def predict(self, X: np.ndarray) -> np.ndarray:
+                with torch.no_grad():
+                    x_t = torch.from_numpy(X).float().to(self.device)
+                    output = self.model(x_t)
+                    if isinstance(output, tuple):
+                        mu, aux = output
+                    else:
+                        mu, aux = output, None
+                    mu = torch.nn.functional.normalize(mu, dim=-1)
+                    return mu.cpu().numpy()
+
+            def predict_with_uncertainty(self, X: np.ndarray):
+                """Return (mu, kappa) for UA-CFG inference."""
+                with torch.no_grad():
+                    x_t = torch.from_numpy(X).float().to(self.device)
+                    output = self.model(x_t)
+                    if isinstance(output, tuple):
+                        mu, aux = output
+                    else:
+                        mu, aux = output, None
+                    mu = torch.nn.functional.normalize(mu, dim=-1)
+                    kappa = aux.squeeze(-1) if aux is not None else None
+                    return mu.cpu().numpy(), kappa.cpu().numpy() if kappa is not None else None
+
+        logger.info(f"✅ Loaded UnifiedModel encoder (type={model_type})")
+        return UnifiedWrapper(model, device, model_type)
+
     else:
         raise ValueError(f"Unknown encoder type: {encoder_type}")
 
@@ -775,8 +822,8 @@ def main():
                        help="Path to CLIP cache")
     
     # Encoder
-    parser.add_argument("--encoder", choices=["ridge", "mlp", "two_stage", "prob"], required=True,
-                       help="Encoder type")
+    parser.add_argument("--encoder", choices=["ridge", "mlp", "two_stage", "prob", "unified"], required=True,
+                       help="Encoder type (unified = B0-N4 UnifiedModel checkpoints)")
     parser.add_argument("--ckpt", required=True, help="Path to encoder checkpoint")
     
     # Preprocessing
@@ -1251,16 +1298,13 @@ def main():
         
         def _safe_get_all_clip_ids(cache):
             """Backward-compatible helper to get all IDs from various CLIP cache implementations."""
-            # Try common method names first
-            for name in ("get_all_ids", "get_ids", "list_ids"):
+            for name in ("list_cached_ids", "get_all_ids", "get_ids", "list_ids"):
                 if hasattr(cache, name):
                     try:
                         return list(getattr(cache, name)())
                     except Exception:
                         pass
-            # Fallbacks
             try:
-                # common parquet-backed cache: df with 'nsd_id' or 'id'
                 df = getattr(cache, "df", None)
                 if df is not None:
                     col = "nsd_id" if "nsd_id" in df.columns else ("id" if "id" in df.columns else None)
@@ -1279,7 +1323,9 @@ def main():
         gallery_embeddings = None
         
         if all_nsd_ids:
-            all_embeddings = clip_cache.get_batch(all_nsd_ids)
+            emb_dict = clip_cache.get(all_nsd_ids)
+            all_nsd_ids = np.array([k for k in all_nsd_ids if k in emb_dict])
+            all_embeddings = np.stack([emb_dict[k] for k in all_nsd_ids])
             
             # Exclude test samples
             mask = ~np.isin(all_nsd_ids, test_nsd_ids)

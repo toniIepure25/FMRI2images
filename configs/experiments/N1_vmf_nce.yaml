@@ -19,9 +19,9 @@ experiment:
 data:
   subject: "subj01"
   roi: "nsdgeneral"
-  train_split: 0.70
-  val_split: 0.15
-  test_split: 0.15
+  train_split: 0.80
+  val_split: 0.10
+  test_split: 0.10
   seed: 42
 
 model:

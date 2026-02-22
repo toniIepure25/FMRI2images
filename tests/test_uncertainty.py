@@ -8,7 +8,7 @@ import pytest
 import torch
 import torch.nn as nn
 import numpy as np
-from src.fmri2img.eval.uncertainty import (
+from fmri2img.eval.uncertainty import (
     enable_dropout,
     predict_with_mc_dropout,
     compute_uncertainty_error_correlation,

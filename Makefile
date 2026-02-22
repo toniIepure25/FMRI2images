@@ -71,7 +71,7 @@ help:
 
 setup:
 	@echo "=== Installing fmri2img (editable) ==="
-	pip install -e ".[train]"
+	pip install -e ".[train,diffusion]"
 	@echo "Done. Next: make preflight"
 
 preflight:
@@ -107,7 +107,8 @@ index:
 	@if [ -f "data/indices/nsd_index/subject=$(SUBJECT)/index.parquet" ]; then \
 		echo "index: already present (data/indices/nsd_index/subject=$(SUBJECT)/index.parquet)"; \
 	else \
-		$(PY) scripts/build/build_full_index.py --subject $(SUBJECT); \
+		$(PY) scripts/build/build_full_index.py --subject $(SUBJECT) \
+			--output data/indices/nsd_index/subject=$(SUBJECT)/index.parquet; \
 	fi
 
 preprocess:
@@ -156,11 +157,23 @@ train:
 		--gpu $${GPU:-0} \
 		$${SUBJECT:+--subject $$SUBJECT}
 
-# Full B0-N4 ablation ladder
+# Full B0-N4 ablation ladder (training only)
 ablation:
 	bash scripts/training/run_ablation_ladder.sh \
 		--subjects "$${SUBJECTS:-subj01 subj02 subj05 subj07}" \
 		--gpu $${GPU:-0}
+
+# Full pipeline: data prep + training + reconstruction + evaluation + aggregation
+full-pipeline:
+	bash scripts/orchestration/run_full_ablation.sh \
+		--subjects "$${SUBJECTS:-subj01 subj02 subj05 subj07}" \
+		--gpu $${GPU:-0}
+
+# Aggregate ablation results into paper tables
+aggregate:
+	$(PY) scripts/evaluation/aggregate_ablation.py \
+		--results-dir experimental_results \
+		--subjects $${SUBJECTS:-subj01 subj02 subj05 subj07}
 
 # Ridge baseline
 ridge:

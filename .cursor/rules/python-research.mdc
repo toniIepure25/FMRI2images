@@ -1,0 +1,172 @@
+---
+description: Python coding standards for ML research code. Enforces type safety, documentation, numerical correctness, and PyTorch best practices.
+globs: 
+  - "**/*.py"
+alwaysApply: false
+---
+
+# Python Research Code Standards
+
+## Imports
+
+```python
+# Standard library
+import logging
+from pathlib import Path
+from typing import Optional, Tuple
+
+# Third-party
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch import Tensor
+
+# Local
+from fmri2img.models.unified_model import UnifiedModel
+```
+
+- Group: stdlib → third-party → local, separated by blank lines
+- Never use `from module import *`
+- Prefer explicit imports; alias only standard abbreviations (`np`, `nn`, `F`)
+
+## Type Hints
+
+- Required on all function and method signatures
+- Use `torch.Tensor` (not `Tensor` unless imported)
+- Use `Optional[X]` for nullable parameters
+- Use `tuple[Tensor, Tensor]` or `Tuple[Tensor, Tensor]` for return types
+- Complex types: use `TypeAlias` or dataclasses
+
+```python
+def decode(
+    self,
+    fmri: torch.Tensor,
+    roi_mask: Optional[torch.Tensor] = None,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+```
+
+## Docstrings (Google Style)
+
+Required on all public functions, classes, and methods:
+
+```python
+def compute_vmf_nce_loss(
+    mu: torch.Tensor,
+    kappa: torch.Tensor,
+    targets: torch.Tensor,
+    tau: float = 0.07,
+) -> torch.Tensor:
+    """Compute the vMF-NCE contrastive loss.
+
+    Uses vMF log-density as similarity in an InfoNCE framework.
+    The Bessel normalization cancels in the softmax ratio.
+
+    Args:
+        mu: Predicted mean directions, shape (B, D), L2-normalized.
+        kappa: Predicted concentrations, shape (B,), positive.
+        targets: Target CLIP embeddings, shape (B, D), L2-normalized.
+        tau: Temperature scaling factor.
+
+    Returns:
+        Scalar loss tensor.
+
+    Raises:
+        ValueError: If mu and targets have different embedding dimensions.
+    """
+```
+
+## PyTorch Conventions
+
+### Device Handling
+```python
+# Good: device-agnostic
+device = next(model.parameters()).device
+x = x.to(device)
+
+# Bad: hardcoded
+x = x.cuda()
+```
+
+### Mixed Precision (AMP)
+- Loss computations in float32 even under AMP context
+- Use `torch.cuda.amp.autocast` at the training loop level, not inside loss functions
+- Be careful with `log`, `exp`, `softmax` — these are numerically sensitive in float16
+
+### Numerical Stability
+```python
+# Good: log-sum-exp with stability
+log_sum_exp = torch.logsumexp(logits, dim=-1)
+
+# Good: clamped log
+safe_log = torch.log(x.clamp(min=1e-8))
+
+# Good: bounded sigmoid for kappa
+kappa = kappa_min + (kappa_max - kappa_min) * torch.sigmoid(raw)
+```
+
+### Tensor Operations
+- Prefer `F.normalize(x, p=2, dim=-1)` over manual normalization
+- Use `@` operator for matrix multiplication: `mu @ keys.T`
+- Use `torch.einsum` for complex contractions — add a comment explaining the equation
+- Named dimensions in comments when shapes are non-obvious
+
+### Reproducibility
+```python
+def set_seed(seed: int = 42) -> None:
+    """Set all random seeds for reproducibility."""
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    np.random.seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+```
+
+## Logging
+
+```python
+logger = logging.getLogger(__name__)
+
+# Levels:
+logger.info("Training epoch %d, loss=%.4f", epoch, loss)     # Progress milestones
+logger.debug("Batch shapes: fmri=%s, clip=%s", fmri.shape, clip.shape)  # Detailed debug
+logger.warning("Kappa values exceed %.0f in %d samples", threshold, count)  # Unusual but not fatal
+logger.error("NaN detected in loss at step %d", step)         # Errors
+```
+
+- Never use `print()` for logging
+- Use `%`-style formatting in logger calls (lazy evaluation)
+- Log model parameter counts at instantiation
+- Log tensor statistics (mean, std, min, max) for debugging distributions
+
+## Error Handling
+
+```python
+# Good: specific exception with context
+if mu.shape[-1] != targets.shape[-1]:
+    raise ValueError(
+        f"Embedding dimension mismatch: mu has {mu.shape[-1]}, "
+        f"targets has {targets.shape[-1]}"
+    )
+
+# Bad: bare except
+try:
+    result = compute()
+except:  # Never do this
+    pass
+```
+
+## File I/O
+
+- Use `pathlib.Path` for all file operations
+- Never hardcode absolute paths
+- Use `json.dump` with `indent=2` for human-readable output files
+- Save experiment artifacts to `outputs/` subdirectories organized by experiment name
+
+## Testing Companion
+
+For every new module `src/fmri2img/component/module.py`, create `tests/test_module.py` with:
+- Shape tests
+- Gradient flow tests
+- Mathematical property tests
+- Edge case tests

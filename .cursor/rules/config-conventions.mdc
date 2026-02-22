@@ -1,0 +1,100 @@
+---
+description: YAML configuration standards for experiment reproducibility and consistency.
+globs: configs/**/*.yaml
+alwaysApply: false
+---
+
+# Configuration Conventions
+
+## Structure
+
+Configs follow a hierarchical structure mirroring the codebase:
+
+```yaml
+# configs/experiments/exp7_vmf_nce.yaml
+
+experiment:
+  name: "exp7_vmf_nce"
+  description: "vMF-NCE loss with bounded-sigmoid kappa"
+
+model:
+  encoder:
+    type: "mlp"           # or "roi_transformer"
+    hidden_dims: [2048, 2048]
+    dropout: 0.1
+  decoder:
+    type: "vmf"           # or "deterministic", "gaussian"
+    kappa_min: 0.001
+    kappa_max: 500.0
+
+loss:
+  type: "vmf_nce"
+  tau: 0.07
+  kappa_reg_lambda: 0.01
+
+training:
+  epochs: 100
+  batch_size: 64
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  gradient_accumulation_steps: 1
+  amp: true
+
+data:
+  subject: "subj01"
+  clip_model: "ViT-L/14"
+  embedding_dim: 768
+```
+
+## Rules
+
+1. **Every hyperparameter must be in config** — no magic numbers in Python code. If you write `tau=0.07` in code, it must come from `config.loss.tau`.
+
+2. **Document non-obvious fields** with inline YAML comments:
+   ```yaml
+   kappa_max: 500.0  # Upper bound for bounded-sigmoid parameterization; prevents numerical overflow
+   ```
+
+3. **Backward-compatible defaults**: New fields must have defaults that reproduce existing behavior. Use `get()` with defaults in Python:
+   ```python
+   kappa_min = config.get("decoder", {}).get("kappa_min", 1e-3)
+   ```
+
+4. **Experiment configs inherit from base**: Use the pattern:
+   ```yaml
+   # In the training script, configs are merged: base.yaml + experiment.yaml
+   # Experiment-specific values override base defaults
+   ```
+
+5. **Naming conventions**:
+   - Experiment configs: `exp{N}_{short_name}.yaml` (e.g., `exp7_vmf_nce.yaml`)
+   - Training recipes: descriptive names (e.g., `two_stage_sota.yaml`)
+   - Inference recipes: descriptive names (e.g., `production_improved.yaml`)
+
+6. **Numeric formats**:
+   - Learning rates: scientific notation `1.0e-4`
+   - Probabilities/fractions: decimal `0.1`
+   - Counts: integer `64`
+   - Use consistent precision
+
+7. **Boolean flags**: Use `true`/`false` (YAML native), not strings
+
+8. **Paths in config**: Use relative paths from project root. Never absolute paths.
+
+## Adding a New Feature
+
+When implementing a new feature that needs configuration:
+
+1. Add config fields to the appropriate experiment YAML
+2. Add matching defaults to `configs/base.yaml` if it's a general feature
+3. Document each new field with an inline comment
+4. Update the config loading code to read the new fields with safe defaults
+5. Verify that all existing experiment configs still work unchanged
+
+## Config Validation
+
+The codebase should validate configs at startup:
+- Required fields must be present
+- Numeric ranges must be respected (e.g., `kappa_min > 0`)
+- Enum fields must be from allowed values (e.g., `decoder.type in ["deterministic", "gaussian", "vmf"]`)
+- Warn on unknown fields (possible typos)

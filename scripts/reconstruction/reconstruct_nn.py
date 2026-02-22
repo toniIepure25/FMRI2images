@@ -160,7 +160,8 @@ def extract_features_and_targets(
             
             # Get CLIP embedding
             nsd_id = int(row["nsdId"])
-            y = clip_cache.get(nsd_id)
+            y_dict = clip_cache.get([nsd_id])
+            y = y_dict.get(nsd_id)
             
             if x is not None and y is not None:
                 X_list.append(x)
@@ -200,8 +201,10 @@ def build_gallery(
     logger.info(f"Building gallery (limit={limit}, excluding {len(exclude_nsd_ids)} test samples)...")
     
     # Get all embeddings
-    all_nsd_ids = clip_cache.get_all_ids()
-    all_embeddings = clip_cache.get_batch(all_nsd_ids)
+    all_nsd_ids = np.array(clip_cache.list_cached_ids())
+    emb_dict = clip_cache.get(all_nsd_ids.tolist())
+    all_nsd_ids = np.array([k for k in all_nsd_ids if k in emb_dict])
+    all_embeddings = np.stack([emb_dict[k] for k in all_nsd_ids])
     
     # Exclude test samples
     mask = ~np.isin(all_nsd_ids, exclude_nsd_ids)

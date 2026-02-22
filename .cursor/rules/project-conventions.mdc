@@ -1,0 +1,96 @@
+---
+description: Project-wide conventions for the fMRI-to-Image neural decoding research project. Enforces research rigor, file structure awareness, and quality standards.
+globs: 
+alwaysApply: true
+---
+
+# Project Conventions — fMRI-to-Image Neural Decoding
+
+## Project Identity
+
+This is a **research project** targeting top-tier venues (NeurIPS, MICCAI). Every output — code, documentation, analysis — must meet publication-quality standards.
+
+**Core task**: Decode visual perception from fMRI brain activity into CLIP embeddings, then reconstruct perceived images via diffusion models.
+
+**Dataset**: Natural Scenes Dataset (NSD) — Allen et al., 2022. 8 subjects, 10,000 images, 3 repetitions per image at 1.8mm resolution, 7T fMRI.
+
+## Project Structure
+
+```
+src/fmri2img/           # Core library
+  models/               # UnifiedModel, VonMisesFisherDecoder, ROITransformerEncoder
+  losses/               # GaussianNCE, vMF-NCE, InfoNCE, NLL losses, kappa_regularizer
+  eval/                 # Metrics, retrieval, hubness, neuroscience analysis, kappa calibration
+  contrastive/          # Memory queue
+  training/             # KL schedule, training utilities
+  reliability/          # Noise ceiling, NCSNR
+  generation/           # Diffusion utilities (SD 1.5 / 2.1)
+  inference/            # Probabilistic inference pipeline
+  data/                 # Data loading and preprocessing
+  embedding_preproc.py  # PCR, whitening
+
+scripts/
+  training/             # train_unified.py
+  reconstruction/       # decode_diffusion.py (UA-CFG, UA-Steps)
+
+configs/
+  base.yaml             # Global defaults
+  experiments/          # Per-experiment configs (exp0–exp8, vMF, probabilistic/)
+  training/             # Training recipe configs
+  inference/            # Inference recipe configs
+
+tests/                  # pytest suite (test_vmf.py, etc.)
+docs/
+  paper/                # Paper outline, ablation plan
+  guides/               # Technical guides
+  research/             # Multi-agent research workspace
+
+outputs/                # Experimental outputs (reports, eval, recon)
+RaportPaper3/           # Formal experimental report (Phase 1 results)
+```
+
+## Research Phases
+
+**Phase 1** (completed — results in `RaportPaper3/`):
+- Soft Reliability Weighting, InfoNCE Contrastive Loss, MC Dropout Uncertainty
+- CLIP ViT-B/32 (512-D), evaluated across 4 NSD subjects
+- Statistically validated with paired t-tests, Cohen's d
+
+**Phase 2** (code-complete, experiments pending):
+- vMF-NCE loss (Bessel-free), bounded-sigmoid kappa
+- ROI-Tokenized Transformer Encoder
+- Uncertainty-Aware CFG & Steps
+- CLIP ViT-L/14 (768-D) target
+
+## Absolute Rules
+
+1. **NEVER fabricate experimental numbers.** All reported metrics must trace to a source JSON/CSV file in `outputs/` or `RaportPaper3/`. If results don't exist yet, say "pending experiment."
+2. **Always cite papers** with Author et al., Year format. Key references:
+   - Allen et al., 2022 (NSD)
+   - Scotti et al., 2024 (MindEye2)
+   - Banerjee et al., 2005 (vMF distributions)
+   - Davidson et al., 2018 (Hyperspherical VAE)
+   - Ozcelik & VanRullen, 2023 (Brain Diffuser)
+   - Naselaris et al., 2011 (Encoding/decoding review)
+3. **Mathematical notation** uses LaTeX conventions: `\mu`, `\kappa`, `\mathcal{L}`, `\mathbb{R}^d`.
+4. **Every new module** must have: type hints, a docstring, and a corresponding test in `tests/`.
+5. **Git discipline**: Atomic commits with descriptive messages. Never commit secrets, large binaries, or checkpoint files.
+6. **Reproducibility**: All experiments must be fully specified by a YAML config. No magic numbers in code — parameterize everything.
+7. **Backward compatibility**: Never break existing configs or APIs without an explicit migration flag.
+
+## Key Metrics (for reference)
+
+- **Retrieval**: R@1, R@5, MRR, Median Rank (with and without CSLS)
+- **Embedding quality**: Cosine similarity, MSE
+- **Reconstruction**: PixCorr, SSIM, AlexNet(2), AlexNet(5), LPIPS, CLIPScore
+- **Uncertainty**: Kappa statistics (mean, std, min, max), calibration curves
+- **Hubness**: k-occurrence skewness, hub fraction, antihub fraction
+- **Neuroscience**: ROI attention importance, category-level breakdown, uncertainty-reliability correlation
+
+## SOTA Benchmarks (published)
+
+| Method         | PixCorr | SSIM  | Alex(2) | Alex(5) | LPIPS↓ |
+|----------------|---------|-------|---------|---------|--------|
+| MindEye        | 0.309   | 0.323 | 0.947   | 0.978   | —      |
+| MindEye2       | 0.320   | 0.341 | 0.960   | 0.983   | —      |
+| Brain Diffuser | 0.254   | 0.356 | 0.942   | 0.962   | —      |

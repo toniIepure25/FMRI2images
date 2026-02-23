@@ -11,6 +11,7 @@ Usage:
 
 import argparse
 import logging
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -81,8 +82,15 @@ def build_full_index(subject: str, output_path: Path, max_sessions: int = None):
         session_trials = session_trials.sort_values(['run', 'trial_in_run'])
         session_trials['trial_in_session'] = range(len(session_trials))
         
-        # Beta file path for this session
-        beta_path = f"s3://natural-scenes-dataset/nsddata_betas/ppdata/{subject}/func1pt8mm/betas_fithrf_GLMdenoise_RR/betas_session{session_num:02d}.nii.gz"
+        # Beta file path for this session — prefer local if NSD_DATA_ROOT is set
+        nsd_root = os.environ.get("NSD_DATA_ROOT", "")
+        local_beta = os.path.join(nsd_root, "nsddata_betas", "ppdata", subject,
+                                  "func1pt8mm", "betas_fithrf_GLMdenoise_RR",
+                                  f"betas_session{session_num:02d}.nii.gz") if nsd_root else ""
+        if nsd_root and os.path.isfile(local_beta):
+            beta_path = local_beta
+        else:
+            beta_path = f"s3://natural-scenes-dataset/nsddata_betas/ppdata/{subject}/func1pt8mm/betas_fithrf_GLMdenoise_RR/betas_session{session_num:02d}.nii.gz"
         
         for idx, row in session_trials.iterrows():
             nsd_id = int(row['nsdId'])

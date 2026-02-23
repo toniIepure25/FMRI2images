@@ -132,16 +132,39 @@ def main():
             out_dir=args.output_dir
         )
         
-        # Create loader factory
-        from fmri2img.io.s3 import NIfTILoader, get_s3_filesystem
+        # Create loader factory with caching to avoid re-reading the same file
+        import nibabel as nib
+
+        class CachingBetaLoader:
+            """Caches the last loaded NIfTI file to avoid redundant reads."""
+            def __init__(self):
+                self._cached_path = None
+                self._cached_data = None
+                self._s3_loader = None
+
+            def _get_s3_loader(self):
+                if self._s3_loader is None:
+                    from fmri2img.io.s3 import NIfTILoader, get_s3_filesystem
+                    self._s3_loader = NIfTILoader(get_s3_filesystem())
+                return self._s3_loader
+
+            def load(self, beta_path: str):
+                if beta_path == self._cached_path and self._cached_data is not None:
+                    return self._cached_data
+                if beta_path.startswith("s3://"):
+                    img = self._get_s3_loader().load(beta_path)
+                else:
+                    img = nib.load(beta_path)
+                self._cached_data = img.get_fdata()
+                self._cached_path = beta_path
+                logger.info(f"  Loaded beta file: {Path(beta_path).name} "
+                            f"({self._cached_data.shape})")
+                return self._cached_data
+
         def loader_factory():
-            s3_fs = get_s3_filesystem()
-            loader = NIfTILoader(s3_fs)
+            loader = CachingBetaLoader()
             def get_volume(loader, row):
-                # Load the NIfTI file and extract the specific volume
-                img = loader.load(row['beta_path'])
-                data = img.get_fdata()
-                # Extract the specific beta volume using beta_index
+                data = loader.load(row['beta_path'])
                 return data[..., row['beta_index']]
             return loader, get_volume
         

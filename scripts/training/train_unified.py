@@ -312,7 +312,18 @@ def resolve_index_path(subject: str) -> Path:
 
 
 def resolve_roi_mask_path(subject: str) -> Path:
-    return Path(f"data/nsd/ppdata/{subject}/func1pt8mm/roi_nsdgeneral.nii.gz")
+    nsd_root = os.environ.get("NSD_DATA_ROOT", "data/nsd")
+    candidates = [
+        Path(nsd_root) / "nsddata" / "ppdata" / subject / "func1pt8mm" / "roi" / "nsdgeneral.nii.gz",
+        Path(nsd_root) / "nsddata" / "ppdata" / subject / "func1pt8mm" / "nsdgeneral.nii.gz",
+        Path(nsd_root) / "ppdata" / subject / "func1pt8mm" / "roi" / "nsdgeneral.nii.gz",
+        Path(nsd_root) / "ppdata" / subject / "func1pt8mm" / "nsdgeneral.nii.gz",
+        Path("data") / "nsd" / "ppdata" / subject / "func1pt8mm" / "roi" / "nsdgeneral.nii.gz",
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return candidates[0]
 
 
 def resolve_preproc_artifact(subject: str, config: Dict[str, Any]) -> str:

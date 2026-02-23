@@ -245,13 +245,22 @@ class NSDPreprocessor:
         mean = None
         M2 = None  # Sum of squared differences from current mean
         
-        # Track volumes and nsdIds for split-half reliability
-        volumes_list = []  # All volumes in order
-        nsd_ids_list = []  # Corresponding nsdIds
-        
-        # Add progress logging
+        # Pre-scan for repeated nsdIds so we only store volumes needed for
+        # split-half reliability (avoids storing all 24k volumes in RAM).
+        from collections import Counter
+        nsd_id_col = train_df["nsdId"] if "nsdId" in train_df.columns else pd.Series(dtype=int)
+        id_counts = Counter(nsd_id_col)
+        repeated_nsd_ids = {nid for nid, c in id_counts.items() if c >= 2}
+        max_reliability_vols = 8000
+        logger.info(f"Found {len(repeated_nsd_ids)} repeated nsdIds for reliability "
+                     f"(capping stored volumes at {max_reliability_vols})")
+
+        volumes_list = []
+        nsd_ids_list = []
+        reliability_budget_remaining = max_reliability_vols
+
         total_samples = len(train_df)
-        log_interval = max(1000, total_samples // 20)  # Log every 5%
+        log_interval = max(1000, total_samples // 20)
         
         for idx, row in train_df.iterrows():
             try:
@@ -261,7 +270,7 @@ class NSDPreprocessor:
                     
                 vol = vol.astype(np.float32)
                 
-                # Welford's online update
+                # Welford's online update (always — uses O(1) extra memory)
                 count += 1
                 if mean is None:
                     mean = np.zeros_like(vol)
@@ -272,14 +281,13 @@ class NSDPreprocessor:
                 delta2 = vol - mean
                 M2 += delta * delta2
                 
-                # Store volume and nsdId for reliability computation
-                volumes_list.append(vol.copy())
-                if "nsdId" in row:
-                    nsd_ids_list.append(int(row["nsdId"]))
-                else:
-                    nsd_ids_list.append(-1)  # Placeholder for missing nsdId
+                # Only store volumes for repeated nsdIds (for reliability)
+                nsd_id = int(row["nsdId"]) if "nsdId" in row else -1
+                if nsd_id in repeated_nsd_ids and reliability_budget_remaining > 0:
+                    volumes_list.append(vol.copy())
+                    nsd_ids_list.append(nsd_id)
+                    reliability_budget_remaining -= 1
                 
-                # Log progress
                 if count % log_interval == 0:
                     progress_pct = 100 * count / total_samples
                     logger.info(f"  Progress: {count}/{total_samples} volumes ({progress_pct:.1f}%)")
@@ -292,7 +300,8 @@ class NSDPreprocessor:
             raise ValueError("No valid volumes loaded for fitting")
         
         self.meta_["n_train_samples"] = count
-        logger.info(f"Processed {count} train volumes")
+        logger.info(f"Processed {count} train volumes "
+                     f"(stored {len(volumes_list)} for reliability)")
         
         # Compute variance and std (Bessel's correction)
         variance = M2 / (count - 1) if count > 1 else M2
@@ -310,6 +319,11 @@ class NSDPreprocessor:
             min_variance, min_repeat_ids, seed, reliability_mode,
             reliability_curve, reliability_temperature
         )
+        
+        # Free the volume cache immediately to reclaim memory before PCA
+        del volumes_list, nsd_ids_list
+        import gc; gc.collect()
+        logger.info("Freed reliability volume cache")
         
         # Save reliability metadata
         reliability_meta_path = self.out_dir / "reliability_meta.json"

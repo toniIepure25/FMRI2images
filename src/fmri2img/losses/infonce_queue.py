@@ -82,12 +82,13 @@ class InfoNCEQueueLoss(nn.Module):
         """
         B, D = query_embeddings.size()
         
-        # L2 normalize
-        query_norm = F.normalize(query_embeddings, dim=1, p=2)
-        key_norm = F.normalize(key_embeddings, dim=1, p=2)
+        # Cast to float32 for numerical stability under AMP
+        dtype = query_embeddings.dtype
+        query_norm = F.normalize(query_embeddings.float(), dim=1, p=2)
+        key_norm = F.normalize(key_embeddings.float(), dim=1, p=2)
         
         # Clamp logit scale to prevent instability
-        logit_scale = torch.clamp(self.logit_scale, max=4.6052)  # log(100)
+        logit_scale = torch.clamp(self.logit_scale.float(), max=4.6052)  # log(100)
         
         # Compute similarity matrix
         # query → key direction
@@ -95,7 +96,7 @@ class InfoNCEQueueLoss(nn.Module):
         
         # Add queue negatives if available
         if self.use_queue and queue is not None and queue.is_ready():
-            queue_embeddings = queue.get_queue()  # (Q, D)
+            queue_embeddings = queue.get_queue().float()  # (Q, D)
             queue_norm = F.normalize(queue_embeddings, dim=1, p=2)
             
             # Additional similarities with queue

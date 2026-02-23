@@ -552,8 +552,8 @@ def train_epoch(
     pbar = tqdm(dataloader, desc="Training")
     for step_in_epoch, batch in enumerate(pbar):
         fmri, gt_embedding = batch
-        fmri = fmri.to(device)
-        gt_embedding = gt_embedding.to(device)
+        fmri = fmri.to(device, dtype=torch.float32)
+        gt_embedding = gt_embedding.to(device, dtype=torch.float32)
 
         if preprocessor is not None:
             gt_embedding_np = gt_embedding.cpu().numpy()
@@ -712,8 +712,8 @@ def validate(
     with torch.no_grad():
         for batch in dataloader:
             fmri, gt_embedding = batch
-            fmri = fmri.to(device)
-            gt_embedding = gt_embedding.to(device)
+            fmri = fmri.to(device, dtype=torch.float32)
+            gt_embedding = gt_embedding.to(device, dtype=torch.float32)
 
             if preprocessor is not None:
                 gt_embedding_np = gt_embedding.cpu().numpy()

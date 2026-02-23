@@ -5,6 +5,8 @@ Unified Model Factory for Research-Grade Experiments
 Creates models based on experiment configuration:
 - Deterministic models (single output)
 - Gaussian models (mu + logvar outputs)
+- vMF models (mu + kappa on the unit hypersphere)
+- vMF-DCF models (per-ROI vMF experts with spherical consensus fusion)
 
 Supports modular architecture with encoder + decoder.
 """
@@ -14,6 +16,10 @@ import torch.nn as nn
 from typing import Dict, Any, Optional, Literal, Tuple
 import logging
 from pathlib import Path
+
+from fmri2img.models.vmf_decoder import VonMisesFisherDecoder
+from fmri2img.models.roi_transformer import ROITransformerEncoder
+from fmri2img.models.roi_dcf import ROIDCFDecoder
 
 logger = logging.getLogger(__name__)
 
@@ -220,51 +226,124 @@ class GaussianDecoder(nn.Module):
         return mu, logvar
 
 
+class VonMisesFisherDecoderLegacy(nn.Module):
+    """
+    Legacy vMF decoder that outputs LOG kappa (clamped).
+
+    Used when config specifies log_kappa_min / log_kappa_max instead of
+    kappa_min / kappa_max. The training loop must exponentiate kappa
+    before passing it to losses that expect linear-scale concentration.
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        output_dim: int,
+        hidden_dims: Optional[list[int]] = None,
+        activation: str = "gelu",
+        dropout: float = 0.1,
+        log_kappa_min: float = -2.0,
+        log_kappa_max: float = 8.0,
+    ):
+        super().__init__()
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.log_kappa_min = log_kappa_min
+        self.log_kappa_max = log_kappa_max
+
+        if hidden_dims is None or len(hidden_dims) == 0:
+            self.shared_backbone = nn.Identity()
+            backbone_out_dim = input_dim
+        else:
+            layers: list[nn.Module] = []
+            in_dim = input_dim
+            for hidden_dim in hidden_dims:
+                layers.extend([
+                    nn.Linear(in_dim, hidden_dim),
+                    nn.GELU() if activation == "gelu" else nn.ReLU(),
+                    nn.Dropout(dropout),
+                ])
+                in_dim = hidden_dim
+            self.shared_backbone = nn.Sequential(*layers)
+            backbone_out_dim = hidden_dims[-1]
+
+        self.mu_head = nn.Linear(backbone_out_dim, output_dim)
+        self.kappa_head = nn.Linear(backbone_out_dim, 1)
+
+        logger.info(
+            f"VonMisesFisherDecoderLegacy: {input_dim} -> (mu, log_kappa) {output_dim} "
+            f"(hidden={hidden_dims}, log_kappa=[{log_kappa_min}, {log_kappa_max}])"
+        )
+
+    def forward(self, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        features = self.shared_backbone(h)
+        mu = nn.functional.normalize(self.mu_head(features), p=2, dim=-1)
+        raw = self.kappa_head(features)
+        log_kappa = self.log_kappa_min + (self.log_kappa_max - self.log_kappa_min) * torch.sigmoid(raw)
+        return mu, log_kappa
+
+
 class UnifiedModel(nn.Module):
     """
-    Unified model supporting both deterministic and Gaussian outputs.
-    
+    Unified model supporting deterministic, Gaussian, vMF, and vMF-DCF outputs.
+
     Architecture:
-        fMRI → Encoder → Latent → Decoder → {Prediction | (mu, logvar)}
-    
-    Args:
-        config: Model configuration dict with keys:
-            - type: "deterministic" or "gaussian"
-            - encoder: encoder config (input_dim, hidden_dims, activation, dropout)
-            - decoder: decoder config (input_dim, output_dim, hidden_dims, activation, dropout)
-            - (for Gaussian) logvar_min, logvar_max
+        fMRI → Encoder → Latent → Decoder → output
+
+    Supported (type, encoder_type) combinations:
+        - deterministic + mlp
+        - gaussian + mlp
+        - vmf + mlp
+        - vmf + roi_transformer
+        - vmf_dcf + roi_transformer  (raises ValueError with mlp)
     """
     
     def __init__(self, config: Dict[str, Any]):
         super().__init__()
         self.model_type = config.get("type", "deterministic")
-        
+        self.vmf_output_is_log = False
+        self._return_per_roi = False
+        self._last_dcf_extras: Dict[str, Any] = {}
+
         encoder_cfg = config.get("encoder", {})
         decoder_cfg = config.get("decoder", {})
-        
-        # Encoder
-        input_dim = encoder_cfg.get("input_dim")
-        if input_dim is None:
-            raise ValueError("encoder.input_dim must be specified")
-        
-        self.encoder = MLPEncoder(
-            input_dim=input_dim,
-            hidden_dims=encoder_cfg.get("hidden_dims", [4096, 2048, 1024]),
-            activation=encoder_cfg.get("activation", "relu"),
-            dropout=encoder_cfg.get("dropout", 0.1)
-        )
-        
-        # Decoder
+        encoder_type = encoder_cfg.get("encoder_type", "mlp")
+
+        # --- Encoder ---
+        if encoder_type == "roi_transformer":
+            roi_dims = encoder_cfg.get("roi_dims")
+            if roi_dims is None:
+                raise ValueError("roi_transformer encoder requires roi_dims")
+            self.encoder = ROITransformerEncoder(
+                roi_dims=roi_dims,
+                d_model=encoder_cfg.get("d_model", 512),
+                nhead=encoder_cfg.get("nhead", 8),
+                num_layers=encoder_cfg.get("num_layers", 4),
+                dropout=encoder_cfg.get("dropout", 0.1),
+                activation=encoder_cfg.get("activation", "gelu"),
+            )
+        else:
+            input_dim = encoder_cfg.get("input_dim")
+            if input_dim is None:
+                raise ValueError("encoder.input_dim must be specified")
+            self.encoder = MLPEncoder(
+                input_dim=input_dim,
+                hidden_dims=encoder_cfg.get("hidden_dims", [4096, 2048, 1024]),
+                activation=encoder_cfg.get("activation", "relu"),
+                dropout=encoder_cfg.get("dropout", 0.1),
+            )
+
         latent_dim = self.encoder.output_dim
         output_dim = decoder_cfg.get("output_dim", 768)
-        
+
+        # --- Decoder ---
         if self.model_type == "deterministic":
             self.decoder = DeterministicDecoder(
                 input_dim=latent_dim,
                 output_dim=output_dim,
                 hidden_dims=decoder_cfg.get("hidden_dims", [1536]),
                 activation=decoder_cfg.get("activation", "relu"),
-                dropout=decoder_cfg.get("dropout", 0.1)
+                dropout=decoder_cfg.get("dropout", 0.1),
             )
         elif self.model_type == "gaussian":
             self.decoder = GaussianDecoder(
@@ -274,50 +353,108 @@ class UnifiedModel(nn.Module):
                 activation=decoder_cfg.get("activation", "relu"),
                 dropout=decoder_cfg.get("dropout", 0.1),
                 logvar_min=decoder_cfg.get("logvar_min", -10.0),
-                logvar_max=decoder_cfg.get("logvar_max", 5.0)
+                logvar_max=decoder_cfg.get("logvar_max", 5.0),
+            )
+        elif self.model_type == "vmf":
+            uses_log_kappa = "log_kappa_min" in decoder_cfg or "log_kappa_max" in decoder_cfg
+            if uses_log_kappa:
+                self.vmf_output_is_log = True
+                self.decoder = VonMisesFisherDecoderLegacy(
+                    input_dim=latent_dim,
+                    output_dim=output_dim,
+                    hidden_dims=decoder_cfg.get("hidden_dims", [1536]),
+                    activation=decoder_cfg.get("activation", "gelu"),
+                    dropout=decoder_cfg.get("dropout", 0.1),
+                    log_kappa_min=decoder_cfg.get("log_kappa_min", -2.0),
+                    log_kappa_max=decoder_cfg.get("log_kappa_max", 8.0),
+                )
+            else:
+                self.vmf_output_is_log = False
+                self.decoder = VonMisesFisherDecoder(
+                    input_dim=latent_dim,
+                    output_dim=output_dim,
+                    hidden_dims=decoder_cfg.get("hidden_dims", [1536]),
+                    activation=decoder_cfg.get("activation", "gelu"),
+                    dropout=decoder_cfg.get("dropout", 0.1),
+                    kappa_min=decoder_cfg.get("kappa_min", 1e-3),
+                    kappa_max=decoder_cfg.get("kappa_max", 500.0),
+                )
+        elif self.model_type == "vmf_dcf":
+            if encoder_type != "roi_transformer":
+                raise ValueError(
+                    "vmf_dcf model type requires encoder_type='roi_transformer', "
+                    f"got '{encoder_type}'"
+                )
+            self.vmf_output_is_log = False
+            dcf_cfg = decoder_cfg.get("dcf", {})
+            self._return_per_roi = dcf_cfg.get("return_per_roi", True)
+            n_rois = getattr(self.encoder, "n_rois", 1)
+            self.decoder = ROIDCFDecoder(
+                d_model=latent_dim,
+                output_dim=output_dim,
+                n_rois=n_rois,
+                shared=dcf_cfg.get("shared_heads", True),
+                hidden_dim=dcf_cfg.get("hidden_dim"),
+                kappa_min=decoder_cfg.get("kappa_min", 1e-3),
+                kappa_max=decoder_cfg.get("kappa_max", 500.0),
+                dropout=decoder_cfg.get("dropout", 0.1),
             )
         else:
             raise ValueError(f"Unknown model type: {self.model_type}")
-        
+
         logger.info(f"UnifiedModel created: type={self.model_type}")
     
     def forward(self, x: torch.Tensor, **kwargs) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         """
         Forward pass.
-        
-        Args:
-            x: Input fMRI (B, input_dim)
-            **kwargs: Additional arguments (e.g., return_normalized, clamp_logvar for Gaussian)
-        
+
         Returns:
-            For deterministic:
-                pred: (B, output_dim), logvar=None
-            For gaussian:
-                mu: (B, output_dim), logvar: (B, output_dim)
+            deterministic: (pred, None)
+            gaussian:      (mu, logvar)
+            vmf:           (mu, kappa_or_log_kappa)
+            vmf_dcf:       (mu_fused, kappa_consensus)
+                           Also stores per-ROI extras in self._last_dcf_extras.
         """
-        # Encode
+        if self.model_type == "vmf_dcf":
+            enc_out = self.encoder(x, return_roi_tokens=True)
+            if self._return_per_roi:
+                mu_fused, kappa_consensus, per_roi_mus, per_roi_kappas, delta = (
+                    self.decoder(enc_out.roi_tokens, enc_out.cls_to_roi_alpha,
+                                 return_per_roi=True)
+                )
+                self._last_dcf_extras = {
+                    "per_roi_mus": per_roi_mus,
+                    "per_roi_kappas": per_roi_kappas,
+                    "delta": delta,
+                    "cls_to_roi_alpha": enc_out.cls_to_roi_alpha,
+                }
+            else:
+                mu_fused, kappa_consensus = self.decoder(
+                    enc_out.roi_tokens, enc_out.cls_to_roi_alpha,
+                )
+            return mu_fused, kappa_consensus
+
         h = self.encoder(x)
-        
-        # Decode
+
         if self.model_type == "deterministic":
-            pred = self.decoder(h)
-            return pred, None
-        else:  # gaussian
-            mu, logvar = self.decoder(h, **kwargs)
-            return mu, logvar
+            return self.decoder(h), None
+        elif self.model_type == "gaussian":
+            return self.decoder(h, **kwargs)
+        else:  # vmf
+            return self.decoder(h)
     
     def get_config(self) -> Dict[str, Any]:
         """Return model configuration."""
         return {
             "type": self.model_type,
             "encoder": {
-                "input_dim": self.encoder.input_dim,
-                "output_dim": self.encoder.output_dim
+                "input_dim": getattr(self.encoder, "input_dim", None),
+                "output_dim": self.encoder.output_dim,
             },
             "decoder": {
-                "input_dim": self.decoder.input_dim,
-                "output_dim": self.decoder.output_dim
-            }
+                "input_dim": getattr(self.decoder, "input_dim", None),
+                "output_dim": self.decoder.output_dim,
+            },
         }
 
 

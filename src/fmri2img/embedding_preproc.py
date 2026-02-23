@@ -186,6 +186,8 @@ class EmbeddingPreprocessor:
         if is_single:
             embeddings_proc = embeddings_proc[0]
         
+        embeddings_proc = embeddings_proc.astype(np.float32)
+        
         if return_torch:
             return torch.from_numpy(embeddings_proc).float()
         return embeddings_proc
@@ -231,6 +233,10 @@ class EmbeddingPreprocessor:
             instance.artifacts = pickle.load(f)
         
         instance._is_fitted = True
+        instance.mode = instance.artifacts.mode
+        instance.k_components = instance.artifacts.k_components
+        instance.whiten_eps = 1e-5
+        instance.seed = 42
         logger.info(f"Loaded preprocessor artifacts from {path}")
         return instance
     

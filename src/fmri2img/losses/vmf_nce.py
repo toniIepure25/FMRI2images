@@ -189,7 +189,8 @@ class VonMisesFisherNCELoss(nn.Module):
             (B, M) logits
         """
         cos_sim = mu @ keys.T                          # (B, M)
-        return kappa.unsqueeze(1) * cos_sim / self.tau  # (B, M)
+        logits = kappa.unsqueeze(1) * cos_sim / self.tau
+        return logits.clamp(-80, 80)                   # (B, M)
 
     def forward(
         self,
@@ -321,14 +322,13 @@ class KappaSPCLVMFNCELoss(nn.Module):
         # Importance weights from kappa
         weights = F.softmax(kappa / self.curriculum_t, dim=0)  # (B,)
 
-        # Compute logits: kappa-scaled cosine / tau
         cos_sim = mu_query @ key_embeddings.T  # (B, B)
-        logits = kappa.unsqueeze(1) * cos_sim / self.tau
+        logits = (kappa.unsqueeze(1) * cos_sim / self.tau).clamp(-80, 80)
 
         if self.use_queue and queue is not None and queue.is_ready():
             queue_embs = queue.get_queue()
             cos_q = mu_query @ queue_embs.T  # (B, Q)
-            logits_q = kappa.unsqueeze(1) * cos_q / self.tau
+            logits_q = (kappa.unsqueeze(1) * cos_q / self.tau).clamp(-80, 80)
             logits = torch.cat([logits, logits_q], dim=1)  # (B, B+Q)
 
         labels = torch.arange(B, device=mu_query.device)

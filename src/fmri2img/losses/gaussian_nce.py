@@ -103,33 +103,19 @@ class GaussianNCELoss(nn.Module):
             (B, M) log-likelihoods if x and mu have different batch dims,
             (B,) if same batch dim
         """
-        # Clamp logvar if requested
         if self.clamp_logvar:
             logvar = torch.clamp(logvar, min=self.logvar_min, max=self.logvar_max)
         
-        # Compute log-likelihood
-        # x: (M, D), mu: (B, D), logvar: (B, D)
-        # Output: (B, M)
+        # Always compute full pairwise (B, M) matrix for contrastive use
+        x_exp = x.unsqueeze(0)           # (1, M, D)
+        mu_exp = mu.unsqueeze(1)         # (B, 1, D)
+        logvar_exp = logvar.unsqueeze(1) # (B, 1, D)
         
-        if x.size(0) == mu.size(0):
-            # Same batch size: pairwise
-            diff = x - mu  # (B, D)
-            log_prob = -0.5 * (
-                logvar + (diff ** 2) / torch.exp(logvar) + math.log(2 * math.pi)
-            )
-            return log_prob.sum(dim=1)  # (B,)
-        else:
-            # Different sizes: compute all pairs
-            # x: (M, D), mu: (B, D)
-            x_exp = x.unsqueeze(0)  # (1, M, D)
-            mu_exp = mu.unsqueeze(1)  # (B, 1, D)
-            logvar_exp = logvar.unsqueeze(1)  # (B, 1, D)
-            
-            diff = x_exp - mu_exp  # (B, M, D)
-            log_prob = -0.5 * (
-                logvar_exp + (diff ** 2) / torch.exp(logvar_exp) + math.log(2 * math.pi)
-            )
-            return log_prob.sum(dim=2)  # (B, M)
+        diff = x_exp - mu_exp            # (B, M, D)
+        log_prob = -0.5 * (
+            logvar_exp + (diff ** 2) / torch.exp(logvar_exp) + math.log(2 * math.pi)
+        )
+        return log_prob.sum(dim=2)       # (B, M)
     
     def forward(
         self,

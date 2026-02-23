@@ -160,6 +160,7 @@ class MetricsLogger:
 
     def _rewrite_csv(self) -> None:
         """Rewrite the full CSV when new columns appear."""
+        self.csv_path.parent.mkdir(parents=True, exist_ok=True)
         with open(self.csv_path, "w", newline="") as f:
             writer = csv.DictWriter(f, self._all_fields, extrasaction="ignore")
             writer.writeheader()
@@ -749,12 +750,22 @@ def train_epoch(
 
         batch_metrics["loss"] = total_loss.item() * grad_accum_steps
 
+        if not torch.isfinite(total_loss):
+            logger.warning("NaN/Inf loss at step %d — skipping gradient update", global_step)
+            optimizer.zero_grad()
+            global_step += 1
+            continue
+
         scaler.scale(total_loss).backward() if scaler is not None else total_loss.backward()
 
         if (step_in_epoch + 1) % grad_accum_steps == 0 or (step_in_epoch + 1) == len(dataloader):
             if scaler is not None:
                 scaler.unscale_(optimizer)
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            all_params = list(model.parameters())
+            for lm in losses.values():
+                if isinstance(lm, nn.Module):
+                    all_params.extend(lm.parameters())
+            torch.nn.utils.clip_grad_norm_(all_params, max_norm=1.0)
             if scaler is not None:
                 scaler.step(optimizer)
                 scaler.update()
@@ -1070,6 +1081,14 @@ def main() -> None:
         weight_decay=float(opt_cfg.get("weight_decay", 0.01)),
         betas=opt_cfg.get("betas", [0.9, 0.999]),
     )
+
+    loss_params = []
+    for loss_mod in losses.values():
+        if isinstance(loss_mod, nn.Module):
+            loss_params.extend(loss_mod.parameters())
+    if loss_params:
+        optimizer.add_param_group({"params": loss_params, "lr": float(opt_cfg.get("lr", 1e-4))})
+        logger.info("Added %d loss parameter(s) to optimizer", len(loss_params))
 
     # --- Data split ---
     train_split = config["data"]["train_split"]

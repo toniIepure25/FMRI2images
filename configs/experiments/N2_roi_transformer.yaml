@@ -60,8 +60,8 @@ model:
     hidden_dims: [1024]
     activation: "gelu"
     dropout: 0.1
-    log_kappa_min: -2.0
-    log_kappa_max: 8.0
+    log_kappa_min: 0.0
+    log_kappa_max: 4.6
 
 preprocessing:
   enabled: true

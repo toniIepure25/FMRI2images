@@ -187,7 +187,9 @@ class MetricsLogger:
 # ---------------------------------------------------------------------------
 
 class NSDDataset(Dataset):
-    """Dataset for NSD fMRI and CLIP embeddings."""
+    """Dataset for NSD fMRI and CLIP embeddings (fallback when pre-extracted features unavailable)."""
+
+    MAX_CACHED_SESSIONS = 5
 
     def __init__(
         self,
@@ -195,10 +197,12 @@ class NSDDataset(Dataset):
         embeddings_df: pd.DataFrame,
         roi_mask_path: Optional[Path] = None,
     ):
+        from collections import OrderedDict
+
         self.index_df = index_df.reset_index(drop=True)
         self.embeddings_df = embeddings_df
         self.roi_mask = None
-        self.beta_cache: Dict[str, np.ndarray] = {}
+        self.beta_cache: OrderedDict[str, np.ndarray] = OrderedDict()
 
         self._s3_fs = None
 
@@ -216,7 +220,7 @@ class NSDDataset(Dataset):
             self.roi_mask = mask_data > 0.5
             logger.info("Loaded ROI mask: %d voxels", int(self.roi_mask.sum()))
 
-        logger.info("NSDDataset created: %d trials", len(self.index_df))
+        logger.info("NSDDataset created: %d trials (LRU cache: %d sessions)", len(self.index_df), self.MAX_CACHED_SESSIONS)
 
     @property
     def s3_fs(self):
@@ -242,18 +246,24 @@ class NSDDataset(Dataset):
         beta_idx = row.get("beta_index", row.get("volume_index", 0))
 
         if beta_path not in self.beta_cache:
+            import nibabel as nib
+
             if beta_path.startswith("s3://"):
-                import tempfile, nibabel as nib
+                import tempfile
                 with tempfile.NamedTemporaryFile(suffix=".nii.gz", delete=True) as tmp:
                     with self.s3_fs.open(beta_path, "rb") as f_in:
                         tmp.write(f_in.read())
                         tmp.flush()
                     img = nib.load(tmp.name)
-                    self.beta_cache[beta_path] = img.get_fdata()
+                    self.beta_cache[beta_path] = img.get_fdata(dtype=np.float32)
             else:
-                import nibabel as nib
                 img = nib.load(beta_path)
-                self.beta_cache[beta_path] = img.get_fdata()
+                self.beta_cache[beta_path] = img.get_fdata(dtype=np.float32)
+
+            while len(self.beta_cache) > self.MAX_CACHED_SESSIONS:
+                self.beta_cache.popitem(last=False)
+        else:
+            self.beta_cache.move_to_end(beta_path)
 
         beta_vol = self.beta_cache[beta_path][..., beta_idx]
 
@@ -286,6 +296,73 @@ class NSDDataset(Dataset):
 
         fmri_tensor = torch.tensor(np.asarray(fmri, dtype=np.float32))
         emb_tensor = torch.tensor(np.asarray(embedding, dtype=np.float32))
+        return fmri_tensor, emb_tensor
+
+
+class PreextractedNSDDataset(Dataset):
+    """Fast dataset backed by pre-extracted float32 numpy arrays.
+
+    Loads the entire feature matrix into RAM (~1.8 GB for 30k x 15724)
+    so that __getitem__ is a simple array index -- no NIfTI I/O.
+    """
+
+    def __init__(
+        self,
+        features_path: Path,
+        index_df: pd.DataFrame,
+        embeddings_df: pd.DataFrame,
+    ):
+        self.features = np.load(features_path, mmap_mode=None)  # (N, V) float32
+        self.index_df = index_df.reset_index(drop=True)
+        self.embeddings_df = embeddings_df
+
+        if len(self.features) != len(self.index_df):
+            raise ValueError(
+                f"Feature rows ({len(self.features)}) != index rows ({len(self.index_df)}). "
+                "Re-run: make preextract SUBJECT=<subject>"
+            )
+
+        if "nsdId" in embeddings_df.columns:
+            self.embedding_lookup = {
+                row["nsdId"]: idx for idx, row in embeddings_df.iterrows()
+            }
+        else:
+            self.embedding_lookup = {i: i for i in range(len(embeddings_df))}
+
+        logger.info(
+            "PreextractedNSDDataset: %d trials, %d voxels (%.2f GB in RAM)",
+            *self.features.shape, self.features.nbytes / 1e9,
+        )
+
+    def __len__(self) -> int:
+        return len(self.features)
+
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        fmri = self.features[idx]
+
+        nsdId = self.index_df.iloc[idx]["nsdId"]
+        emb_idx = self.embedding_lookup.get(nsdId, nsdId % len(self.embeddings_df))
+
+        if "final" in self.embeddings_df.columns:
+            embedding = self.embeddings_df.iloc[emb_idx]["final"]
+        elif "embedding" in self.embeddings_df.columns:
+            embedding = self.embeddings_df.iloc[emb_idx]["embedding"]
+        elif "clip_embedding" in self.embeddings_df.columns:
+            embedding = self.embeddings_df.iloc[emb_idx]["clip_embedding"]
+        elif "clip512" in self.embeddings_df.columns:
+            embedding = self.embeddings_df.iloc[emb_idx]["clip512"]
+        else:
+            emb_cols = [c for c in self.embeddings_df.columns if c.startswith("emb_")]
+            if not emb_cols:
+                emb_cols = [c for c in self.embeddings_df.columns if c.startswith("embedding_")]
+            if not emb_cols:
+                raise ValueError(
+                    f"No embedding columns found. Available: {list(self.embeddings_df.columns)}"
+                )
+            embedding = self.embeddings_df.iloc[emb_idx][emb_cols].values
+
+        fmri_tensor = torch.from_numpy(np.asarray(fmri, dtype=np.float32))
+        emb_tensor = torch.from_numpy(np.asarray(embedding, dtype=np.float32))
         return fmri_tensor, emb_tensor
 
 
@@ -919,14 +996,26 @@ def main() -> None:
         embeddings_df["nsdId"] = range(len(embeddings_df))
         logger.warning("Added sequential nsdId column to embeddings")
 
-    # --- Dataset ---
-    roi_mask_path = resolve_roi_mask_path(subject)
-    if roi_mask_path.exists():
-        logger.info("ROI mask: %s", roi_mask_path)
-        full_dataset = NSDDataset(index_df, embeddings_df, roi_mask_path=roi_mask_path)
+    # --- Dataset (prefer pre-extracted features for speed) ---
+    cache_root = os.environ.get("CACHE_ROOT", "cache")
+    preextracted_path = Path(cache_root) / "preextracted" / f"subject={subject}" / "fmri_features.npy"
+
+    if preextracted_path.exists():
+        logger.info("Using pre-extracted features: %s", preextracted_path)
+        full_dataset = PreextractedNSDDataset(preextracted_path, index_df, embeddings_df)
     else:
-        logger.warning("ROI mask not found: %s — using full brain volume", roi_mask_path)
-        full_dataset = NSDDataset(index_df, embeddings_df)
+        logger.warning(
+            "Pre-extracted features not found at %s — falling back to NIfTI loading (slow). "
+            "Run: make preextract SUBJECT=%s",
+            preextracted_path, subject,
+        )
+        roi_mask_path = resolve_roi_mask_path(subject)
+        if roi_mask_path.exists():
+            logger.info("ROI mask: %s", roi_mask_path)
+            full_dataset = NSDDataset(index_df, embeddings_df, roi_mask_path=roi_mask_path)
+        else:
+            logger.warning("ROI mask not found: %s — using full brain volume", roi_mask_path)
+            full_dataset = NSDDataset(index_df, embeddings_df)
 
     sample_fmri, sample_emb = full_dataset[0]
     fmri_dim = sample_fmri.shape[0]
@@ -998,8 +1087,17 @@ def main() -> None:
         logger.info("Saved fitted preprocessor to %s", artifact_path)
 
     batch_size = config["training"]["batch_size"]
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=0)
+    use_preextracted = isinstance(full_dataset, PreextractedNSDDataset)
+    dl_workers = 2 if use_preextracted else 0
+    dl_pin = device.startswith("cuda")
+    train_loader = DataLoader(
+        train_dataset, batch_size=batch_size, shuffle=True,
+        num_workers=dl_workers, pin_memory=dl_pin, persistent_workers=(dl_workers > 0),
+    )
+    val_loader = DataLoader(
+        val_dataset, batch_size=batch_size, shuffle=False,
+        num_workers=dl_workers, pin_memory=dl_pin, persistent_workers=(dl_workers > 0),
+    )
     logger.info("Train: %d | Val: %d", len(train_dataset), len(val_dataset))
 
     # --- AMP ---

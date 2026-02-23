@@ -12,7 +12,7 @@ export
 # ============================================================================
 
 .PHONY: help setup preflight doctor smoke
-.PHONY: prepare data models index preprocess clip-cache build-clip-cache
+.PHONY: prepare data models index preprocess preextract clip-cache build-clip-cache
 .PHONY: train ablation
 .PHONY: eval-recon eval-shared1000 summarize-shared1000 compare-evals
 .PHONY: test test-quick
@@ -36,6 +36,7 @@ help:
 	@echo "Data Preparation:"
 	@echo "  make index          Build canonical NSD index"
 	@echo "  make preprocess     Fit preprocessing pipeline (scaler + reliability + PCA)"
+	@echo "  make preextract     Pre-extract ROI-masked fMRI features (fast training)"
 	@echo "  make clip-cache     Build CLIP embeddings cache"
 	@echo ""
 	@echo "Training:"
@@ -87,7 +88,7 @@ smoke:
 # Data Preparation
 # ============================================================================
 
-prepare: data models index preprocess clip-cache
+prepare: data models index preprocess preextract clip-cache
 	@echo "=== Prepare complete ==="
 
 data:
@@ -125,6 +126,19 @@ preprocess:
 	fi
 
 fit-preproc: preprocess
+
+preextract:
+	@mkdir -p $(CACHE_ROOT)/.markers
+	@if [ -f "$(CACHE_ROOT)/.markers/preextract_$(SUBJECT).ok" ]; then \
+		echo "preextract: already done ($(CACHE_ROOT)/.markers/preextract_$(SUBJECT).ok)"; \
+	else \
+		mkdir -p $(CACHE_ROOT)/preextracted && \
+		$(PY) scripts/build/preextract_fmri.py \
+			--subject $(SUBJECT) \
+			--index-file data/indices/nsd_index/subject=$(SUBJECT)/index.parquet \
+			--output-dir $(CACHE_ROOT)/preextracted/subject=$(SUBJECT) && \
+		date -Iseconds > "$(CACHE_ROOT)/.markers/preextract_$(SUBJECT).ok"; \
+	fi
 
 clip-cache: build-clip-cache
 	@mkdir -p $(CACHE_ROOT)/.markers

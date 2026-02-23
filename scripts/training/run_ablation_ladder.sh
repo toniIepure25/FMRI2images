@@ -49,13 +49,29 @@ declare -A CONFIGS=(
     [N4]="N4_full_system.yaml|Novel: Full system (all innovations)"
 )
 
-started=false
+CACHE_ROOT="${CACHE_ROOT:-cache}"
+
 echo "=============================================="
 echo "ABLATION LADDER: ${START} -> N4"
 echo "Subjects: ${SUBJECTS}"
 echo "GPU: ${GPU}"
 echo "=============================================="
 
+# --- Pre-extract fMRI features (one-time, ~5-10 min per subject) ---
+echo ""
+echo "====== Pre-extraction check ======"
+for subject in $SUBJECTS; do
+    feat_file="${CACHE_ROOT}/preextracted/subject=${subject}/fmri_features.npy"
+    if [[ -f "$feat_file" ]]; then
+        echo "  ${subject}: pre-extracted features found"
+    else
+        echo "  ${subject}: extracting features ..."
+        make preextract SUBJECT="${subject}"
+    fi
+done
+echo "====== Pre-extraction complete ======"
+
+started=false
 TOTAL_RUNS=0
 PASSED_RUNS=0
 FAILED_RUNS=0

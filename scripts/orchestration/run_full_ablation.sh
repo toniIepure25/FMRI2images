@@ -70,6 +70,9 @@ if [[ "$SKIP_DATA" != "true" ]]; then
 
         echo "  -> Preprocessing for $subject"
         make preprocess SUBJECT="$subject" 2>&1 | tail -1
+
+        echo "  -> Pre-extracting fMRI features for $subject"
+        make preextract SUBJECT="$subject" 2>&1 | tail -1
     done
 
     echo "  -> CLIP embedding cache"

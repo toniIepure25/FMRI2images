@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def load_diffusion_pipeline(
-    model_id: str = "stabilityai/stable-diffusion-2-1",
+    model_id: str = "sd2-community/stable-diffusion-2-1",
     device: str = "cuda",
     dtype: str = "float16",
     scheduler: str = "dpm"

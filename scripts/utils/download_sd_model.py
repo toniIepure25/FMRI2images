@@ -286,8 +286,8 @@ Examples:
     
     parser.add_argument(
         "--model-id",
-        default="stabilityai/stable-diffusion-2-1",
-        help="HuggingFace model ID (default: stabilityai/stable-diffusion-2-1)"
+        default="sd2-community/stable-diffusion-2-1",
+        help="HuggingFace model ID (default: sd2-community/stable-diffusion-2-1)"
     )
     
     parser.add_argument(

@@ -44,7 +44,7 @@ def main() -> int:
 
     from huggingface_hub import snapshot_download
 
-    model_id = os.environ.get("DIFFUSION_MODEL_ID", "stabilityai/stable-diffusion-2-1")
+    model_id = os.environ.get("DIFFUSION_MODEL_ID", "sd2-community/stable-diffusion-2-1")
     revision = os.environ.get("DIFFUSION_MODEL_REV") or None
     token = os.environ.get("HF_TOKEN") or None
 

@@ -271,7 +271,7 @@ check-headers:
 
 download-sd:
 	$(PY) scripts/utils/download_sd_model.py \
-		--model-id $${MODEL:-stabilityai/stable-diffusion-2-1}
+		--model-id $${MODEL:-sd2-community/stable-diffusion-2-1}
 
 paper:
 	$(PY) scripts/analysis/build_paper_artifacts.py

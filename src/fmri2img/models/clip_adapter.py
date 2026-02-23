@@ -159,8 +159,8 @@ class CLIPAdapter(nn.Module):
             repaired_fields.append("subject=unknown")
         
         if "model_id" not in metadata:
-            metadata["model_id"] = "stabilityai/stable-diffusion-2-1"
-            repaired_fields.append("model_id=stabilityai/stable-diffusion-2-1")
+            metadata["model_id"] = "sd2-community/stable-diffusion-2-1"
+            repaired_fields.append("model_id=sd2-community/stable-diffusion-2-1")
         
         if "input_dim" not in metadata:
             metadata["input_dim"] = metadata.get("in_dim", 768)

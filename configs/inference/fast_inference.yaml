@@ -22,7 +22,7 @@ model:
   dtype: float16
 
 diffusion:
-  model_id: "stabilityai/stable-diffusion-2-1"
+  model_id: "sd2-community/stable-diffusion-2-1"
   variant: fp16
   num_inference_steps: 25
   guidance_scale: 7.0

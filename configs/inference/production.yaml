@@ -31,7 +31,7 @@ model:
 
 # Diffusion generation
 diffusion:
-  model_id: "stabilityai/stable-diffusion-2-1"
+  model_id: "sd2-community/stable-diffusion-2-1"
   num_inference_steps: 50
   guidance_scale: 7.5
   scheduler: euler

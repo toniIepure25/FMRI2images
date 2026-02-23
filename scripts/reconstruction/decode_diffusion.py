@@ -31,7 +31,7 @@ Usage:
         --encoder ridge \\
         --ckpt checkpoints/ridge/subj01/ridge.pkl \\
         --clip-cache outputs/clip_cache/clip.parquet \\
-        --model-id "stabilityai/stable-diffusion-2-1" \\
+        --model-id "sd2-community/stable-diffusion-2-1" \\
         --output-dir outputs/recon/subj01/ridge_diffusion \\
         --limit 16 \\
         --guidance 7.5 \\
@@ -43,7 +43,7 @@ Usage:
         --encoder mlp \\
         --ckpt checkpoints/mlp/subj01/mlp.pt \\
         --clip-cache outputs/clip_cache/clip.parquet \\
-        --model-id "stabilityai/stable-diffusion-2-1" \\
+        --model-id "sd2-community/stable-diffusion-2-1" \\
         --output-dir outputs/recon/subj01/mlp_diffusion \\
         --limit 16 \\
         --guidance 7.5 \\
@@ -347,7 +347,7 @@ def setup_diffusion_pipeline(
     - Otherwise: shows big warning and proceeds with download (with heartbeat logs)
     
     Args:
-        model_id: HuggingFace model ID (e.g., "stabilityai/stable-diffusion-2-1")
+        model_id: HuggingFace model ID (e.g., "sd2-community/stable-diffusion-2-1")
         device: "cuda" or "cpu"
         dtype_str: "float16" or "float32"
         scheduler_name: "dpm", "euler", "pndm", or "default"
@@ -836,10 +836,10 @@ def main():
                             "will use the path from encoder checkpoint metadata.")
     
     # Diffusion model
-    parser.add_argument("--model-id", default="stabilityai/stable-diffusion-2-1",
+    parser.add_argument("--model-id", default="sd2-community/stable-diffusion-2-1",
                        help="HuggingFace model ID for Stable Diffusion. Popular options: "
-                            "stabilityai/stable-diffusion-2-1 (~5GB, best quality), "
-                            "stabilityai/stable-diffusion-2-1-base (~5GB), "
+                            "sd2-community/stable-diffusion-2-1 (~5GB, best quality), "
+                            "sd2-community/stable-diffusion-2-1-base (~5GB), "
                             "runwayml/stable-diffusion-v1-5 (~4GB, faster)")
     
     # CLIP Adapter (optional)

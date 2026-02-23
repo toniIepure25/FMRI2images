@@ -19,7 +19,7 @@ experiment:
   tags: [highres, quality, publication]
 
 diffusion:
-  model_id: "stabilityai/stable-diffusion-2-1"
+  model_id: "sd2-community/stable-diffusion-2-1"
   num_inference_steps: 200
   guidance_scale: 8.5
   scheduler: dpm

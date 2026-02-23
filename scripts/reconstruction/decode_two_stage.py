@@ -134,7 +134,7 @@ def main():
     parser = argparse.ArgumentParser(description="Reconstruct images using TwoStageEncoder")
     parser.add_argument("--subject", type=str, required=True, help="Subject ID (e.g., subj01)")
     parser.add_argument("--ckpt", type=str, required=True, help="Path to TwoStageEncoder checkpoint")
-    parser.add_argument("--model-id", type=str, default="stabilityai/stable-diffusion-2-1")
+    parser.add_argument("--model-id", type=str, default="sd2-community/stable-diffusion-2-1")
     parser.add_argument("--output-dir", type=str, required=True, help="Output directory")
     parser.add_argument("--preproc-dir", type=str, default="outputs/preproc")
     parser.add_argument("--index-root", type=str, default="data/indices/nsd_index")

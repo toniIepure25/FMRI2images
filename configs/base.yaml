@@ -194,7 +194,7 @@ inference:
 # Diffusion Model Configuration (for generation)
 # -----------------------------------------------------------------------------
 diffusion:
-  model_id: "stabilityai/stable-diffusion-2-1"  # Model identifier
+  model_id: "sd2-community/stable-diffusion-2-1"  # Model identifier
   num_inference_steps: 150          # Number of denoising steps
   guidance_scale: 7.5               # Classifier-free guidance scale
   scheduler: euler                  # Scheduler type

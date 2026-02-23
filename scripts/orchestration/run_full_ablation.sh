@@ -28,7 +28,7 @@ SKIP_TRAIN="${SKIP_TRAIN:-false}"
 SKIP_RECON="${SKIP_RECON:-false}"
 SKIP_EVAL="${SKIP_EVAL:-false}"
 RECON_LIMIT="${RECON_LIMIT:-16}"
-SD_MODEL="${SD_MODEL:-stabilityai/stable-diffusion-2-1}"
+SD_MODEL="${SD_MODEL:-sd2-community/stable-diffusion-2-1}"
 CONFIG_DIR="configs/experiments"
 RESULTS_DIR="experimental_results"
 

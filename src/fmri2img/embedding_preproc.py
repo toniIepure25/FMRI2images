@@ -221,16 +221,18 @@ class EmbeddingPreprocessor:
         
         logger.info(f"Saved preprocessor artifacts to {path}")
     
-    def load(self, path: Path | str) -> "EmbeddingPreprocessor":
+    @classmethod
+    def load(cls, path: Path | str) -> "EmbeddingPreprocessor":
         """Load fitted artifacts from disk."""
         path = Path(path)
         
+        instance = cls.__new__(cls)
         with open(path, "rb") as f:
-            self.artifacts = pickle.load(f)
+            instance.artifacts = pickle.load(f)
         
-        self._is_fitted = True
+        instance._is_fitted = True
         logger.info(f"Loaded preprocessor artifacts from {path}")
-        return self
+        return instance
     
     def compute_diagnostics(
         self,

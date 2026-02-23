@@ -298,7 +298,7 @@ class UnifiedModel(nn.Module):
         - vmf_dcf + roi_transformer  (raises ValueError with mlp)
     """
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], roi_indices: Optional[Dict[str, Any]] = None):
         super().__init__()
         self.model_type = config.get("type", "deterministic")
         self.vmf_output_is_log = False
@@ -312,15 +312,16 @@ class UnifiedModel(nn.Module):
         # --- Encoder ---
         if encoder_type == "roi_transformer":
             roi_dims = encoder_cfg.get("roi_dims")
-            if roi_dims is None:
-                raise ValueError("roi_transformer encoder requires roi_dims")
+            if roi_dims is None and roi_indices is None:
+                raise ValueError("roi_transformer encoder requires roi_dims or roi_indices")
             self.encoder = ROITransformerEncoder(
-                roi_dims=roi_dims,
+                roi_dims=roi_dims or {},
                 d_model=encoder_cfg.get("d_model", 512),
                 nhead=encoder_cfg.get("nhead", 8),
                 num_layers=encoder_cfg.get("num_layers", 4),
                 dropout=encoder_cfg.get("dropout", 0.1),
                 activation=encoder_cfg.get("activation", "gelu"),
+                roi_indices=roi_indices,
             )
         else:
             input_dim = encoder_cfg.get("input_dim")
@@ -458,12 +459,17 @@ class UnifiedModel(nn.Module):
         }
 
 
-def create_model(config: Dict[str, Any]) -> UnifiedModel:
+def create_model(
+    config: Dict[str, Any],
+    roi_indices: Optional[Dict[str, Any]] = None,
+) -> UnifiedModel:
     """
     Factory function to create model from config.
     
     Args:
         config: Model configuration dict
+        roi_indices: Per-ROI voxel index arrays for ROITransformerEncoder.
+            When provided, overrides hardcoded ``roi_dims`` from config.
     
     Returns:
         model: UnifiedModel instance
@@ -476,7 +482,7 @@ def create_model(config: Dict[str, Any]) -> UnifiedModel:
         ... }
         >>> model = create_model(config)
     """
-    return UnifiedModel(config)
+    return UnifiedModel(config, roi_indices=roi_indices)
 
 
 def load_model(checkpoint_path: Path, device: str = "cpu") -> UnifiedModel:

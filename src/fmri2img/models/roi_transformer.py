@@ -90,11 +90,24 @@ class ROITransformerEncoder(nn.Module):
         num_layers: int = 4,
         dropout: float = 0.1,
         activation: str = "gelu",
+        roi_indices: Optional[Dict[str, "torch.Tensor"]] = None,
     ):
         super().__init__()
 
-        self.roi_names: List[str] = list(roi_dims.keys())
-        self.roi_sizes: List[int] = list(roi_dims.values())
+        self._use_indices = roi_indices is not None
+
+        if self._use_indices:
+            self.roi_names = list(roi_indices.keys())
+            self.roi_sizes = [len(idx) for idx in roi_indices.values()]
+            for i, (name, idx) in enumerate(roi_indices.items()):
+                self.register_buffer(
+                    f"_roi_idx_{i}",
+                    idx if isinstance(idx, torch.Tensor) else torch.as_tensor(idx, dtype=torch.long),
+                )
+        else:
+            self.roi_names = list(roi_dims.keys())
+            self.roi_sizes = list(roi_dims.values())
+
         self.n_rois = len(self.roi_names)
         self.input_dim = sum(self.roi_sizes)
         self.output_dim = d_model
@@ -140,18 +153,29 @@ class ROITransformerEncoder(nn.Module):
     def _project_rois(self, x: torch.Tensor) -> torch.Tensor:
         """Split fMRI input by ROI and project each to a d_model token.
 
+        When ``roi_indices`` were provided at construction, voxels are
+        gathered by index (supporting non-contiguous ROI layouts such as
+        those produced by ``build_roi_index``).  Otherwise falls back to
+        the legacy contiguous-slice path.
+
         Args:
-            x: (B, V) flattened fMRI with voxels ordered by ROI.
+            x: (B, V) flattened fMRI vector.
 
         Returns:
             (B, n_rois, d_model) projected ROI tokens.
         """
         tokens = []
-        offset = 0
-        for i, n_vox in enumerate(self.roi_sizes):
-            roi_voxels = x[:, offset:offset + n_vox]
-            tokens.append(self.roi_projections[i](roi_voxels))
-            offset += n_vox
+        if self._use_indices:
+            for i in range(self.n_rois):
+                idx = getattr(self, f"_roi_idx_{i}")
+                roi_voxels = x[:, idx]
+                tokens.append(self.roi_projections[i](roi_voxels))
+        else:
+            offset = 0
+            for i, n_vox in enumerate(self.roi_sizes):
+                roi_voxels = x[:, offset:offset + n_vox]
+                tokens.append(self.roi_projections[i](roi_voxels))
+                offset += n_vox
         return torch.stack(tokens, dim=1)
 
     def _prepend_cls_and_embed(

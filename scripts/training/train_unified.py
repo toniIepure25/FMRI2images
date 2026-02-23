@@ -724,6 +724,7 @@ def train_epoch(
             if is_vmf and aux is not None:
                 with torch.no_grad():
                     kv = aux.squeeze(-1) if not vmf_is_log else aux.exp().squeeze(-1)
+                    kv = kv.float()
                     batch_metrics["kappa_mean"] = kv.mean().item()
                     batch_metrics["kappa_std"] = kv.std().item()
                     batch_metrics["kappa_min"] = kv.min().item()
@@ -999,6 +1000,7 @@ def main() -> None:
     # --- Dataset (prefer pre-extracted features for speed) ---
     cache_root = os.environ.get("CACHE_ROOT", "cache")
     preextracted_path = Path(cache_root) / "preextracted" / f"subject={subject}" / "fmri_features.npy"
+    roi_mask_path = resolve_roi_mask_path(subject)
 
     if preextracted_path.exists():
         logger.info("Using pre-extracted features: %s", preextracted_path)
@@ -1009,7 +1011,6 @@ def main() -> None:
             "Run: make preextract SUBJECT=%s",
             preextracted_path, subject,
         )
-        roi_mask_path = resolve_roi_mask_path(subject)
         if roi_mask_path.exists():
             logger.info("ROI mask: %s", roi_mask_path)
             full_dataset = NSDDataset(index_df, embeddings_df, roi_mask_path=roi_mask_path)
@@ -1026,7 +1027,18 @@ def main() -> None:
     model_config = config["model"]
     model_config["encoder"]["input_dim"] = fmri_dim
     model_config["decoder"]["output_dim"] = embedding_dim
-    model = create_model(model_config).to(device)
+
+    _roi_indices = None
+    encoder_type = model_config.get("encoder", {}).get("encoder_type", "mlp")
+    if encoder_type == "roi_transformer":
+        from fmri2img.data.roi_utils import build_roi_index
+        roi_names = list(model_config["encoder"].get("roi_dims", {}).keys())
+        if roi_names:
+            actual_dims, _roi_indices = build_roi_index(subject, roi_names)
+            model_config["encoder"]["roi_dims"] = dict(actual_dims)
+            logger.info("ROI dims overridden from NSD masks (total=%d)", sum(actual_dims.values()))
+
+    model = create_model(model_config, roi_indices=_roi_indices).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     logger.info("Model parameters: %s", f"{n_params:,}")
 
@@ -1040,6 +1052,9 @@ def main() -> None:
 
     # --- Losses ---
     losses = setup_losses(config, device, queue)
+    for _lk in losses:
+        if isinstance(losses[_lk], nn.Module):
+            losses[_lk] = losses[_lk].to(device)
     loss_weights = {
         k: v.get("weight", 1.0) for k, v in config.get("loss", {}).items()
         if isinstance(v, dict)

@@ -980,7 +980,17 @@ def main() -> None:
 
     if preprocessor is not None and preproc_needs_fit:
         logger.info("Auto-fitting embedding preprocessor on %d training samples...", n_train)
-        train_embeddings = np.stack([full_dataset[i][1].numpy() for i in indices[:n_train]])
+        # Get embeddings directly from DataFrame (avoid triggering NIfTI loading)
+        emb_col = next(
+            (c for c in ["clip_embedding", "embedding", "final", "clip512"]
+             if c in embeddings_df.columns), None
+        )
+        if emb_col is not None:
+            all_embs = np.stack(embeddings_df[emb_col].values)
+            train_embeddings = all_embs  # fit on all available embeddings
+        else:
+            logger.warning("No embedding column found, fitting on first %d samples via dataset", min(n_train, 1000))
+            train_embeddings = np.stack([full_dataset[i][1].numpy() for i in indices[:min(n_train, 1000)]])
         preprocessor.fit(train_embeddings)
         artifact_path = Path(resolve_preproc_artifact(subject, config))
         artifact_path.parent.mkdir(parents=True, exist_ok=True)

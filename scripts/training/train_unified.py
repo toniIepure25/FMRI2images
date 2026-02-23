@@ -558,7 +558,7 @@ def train_epoch(
         if preprocessor is not None:
             gt_embedding_np = gt_embedding.cpu().numpy()
             gt_embedding_proc = preprocessor.transform(gt_embedding_np)
-            gt_embedding = torch.from_numpy(gt_embedding_proc).to(device)
+            gt_embedding = torch.from_numpy(gt_embedding_proc).float().to(device)
 
         with torch.amp.autocast("cuda", enabled=use_amp):
             output = model(fmri)
@@ -567,7 +567,7 @@ def train_epoch(
             else:
                 pred, aux = output, None
 
-            total_loss = torch.tensor(0.0, device=device)
+            total_loss = torch.tensor(0.0, device=device, dtype=torch.float32)
             batch_metrics: Dict[str, float] = {}
 
             is_gaussian = model_type == "gaussian" and aux is not None
@@ -718,7 +718,7 @@ def validate(
             if preprocessor is not None:
                 gt_embedding_np = gt_embedding.cpu().numpy()
                 gt_embedding_proc = preprocessor.transform(gt_embedding_np)
-                gt_embedding = torch.from_numpy(gt_embedding_proc).to(device)
+                gt_embedding = torch.from_numpy(gt_embedding_proc).float().to(device)
 
             output = model(fmri)
             if isinstance(output, tuple):
@@ -726,7 +726,7 @@ def validate(
             else:
                 pred, aux = output, None
 
-            total_loss = torch.tensor(0.0, device=device)
+            total_loss = torch.tensor(0.0, device=device, dtype=torch.float32)
             bm: Dict[str, float] = {}
             is_gaussian = model_type == "gaussian" and aux is not None
             is_vmf = model_type in ("vmf", "vmf_dcf") and aux is not None

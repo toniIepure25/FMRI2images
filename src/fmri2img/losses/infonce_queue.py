@@ -56,11 +56,11 @@ class InfoNCEQueueLoss(nn.Module):
         # CLIP-style learnable logit scale
         # logit_scale = exp(log_scale), initialized so that 1/temperature = exp(log_scale)
         if learnable_temperature:
-            log_scale = torch.log(torch.tensor(1.0 / temperature))
+            log_scale = torch.log(torch.tensor(1.0 / temperature, dtype=torch.float32))
             self.logit_scale = nn.Parameter(log_scale)
             logger.info(f"Initialized learnable logit_scale: {self.logit_scale.item():.4f}")
         else:
-            self.register_buffer("logit_scale", torch.log(torch.tensor(1.0 / temperature)))
+            self.register_buffer("logit_scale", torch.log(torch.tensor(1.0 / temperature, dtype=torch.float32)))
             logger.info(f"Using fixed temperature: {temperature:.4f}")
     
     def forward(
@@ -82,13 +82,12 @@ class InfoNCEQueueLoss(nn.Module):
         """
         B, D = query_embeddings.size()
         
-        # Cast to float32 for numerical stability under AMP
-        dtype = query_embeddings.dtype
+        # Normalize in float32 for numerical stability under AMP
         query_norm = F.normalize(query_embeddings.float(), dim=1, p=2)
         key_norm = F.normalize(key_embeddings.float(), dim=1, p=2)
         
         # Clamp logit scale to prevent instability
-        logit_scale = torch.clamp(self.logit_scale.float(), max=4.6052)  # log(100)
+        logit_scale = torch.clamp(self.logit_scale, max=4.6052)  # log(100)
         
         # Compute similarity matrix
         # query → key direction
@@ -163,10 +162,10 @@ class HardNegativeInfoNCE(nn.Module):
         self.symmetric = symmetric
         
         if learnable_temperature:
-            log_scale = torch.log(torch.tensor(1.0 / temperature))
+            log_scale = torch.log(torch.tensor(1.0 / temperature, dtype=torch.float32))
             self.logit_scale = nn.Parameter(log_scale)
         else:
-            self.register_buffer("logit_scale", torch.log(torch.tensor(1.0 / temperature)))
+            self.register_buffer("logit_scale", torch.log(torch.tensor(1.0 / temperature, dtype=torch.float32)))
     
     def forward(
         self,
@@ -177,8 +176,9 @@ class HardNegativeInfoNCE(nn.Module):
         """Compute InfoNCE with hard negative mining."""
         B, D = query_embeddings.size()
         
-        query_norm = F.normalize(query_embeddings, dim=1, p=2)
-        key_norm = F.normalize(key_embeddings, dim=1, p=2)
+        # Normalize in float32 for numerical stability under AMP
+        query_norm = F.normalize(query_embeddings.float(), dim=1, p=2)
+        key_norm = F.normalize(key_embeddings.float(), dim=1, p=2)
         
         logit_scale = torch.clamp(self.logit_scale, max=4.6052)
         
@@ -187,7 +187,7 @@ class HardNegativeInfoNCE(nn.Module):
         
         # Mine hard negatives from queue
         if queue is not None and queue.is_ready():
-            queue_embeddings = queue.get_queue()
+            queue_embeddings = queue.get_queue().float()
             queue_norm = F.normalize(queue_embeddings, dim=1, p=2)
             
             # Compute all similarities with queue

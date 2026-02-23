@@ -7,7 +7,7 @@ Populates clip_cache.parquet with embeddings for all images in NSD index.
 Loads images from nsd_stimuli.hdf5 via nsdId, with COCO HTTP fallback.
 Supports batching, GPU, and automatic resume from existing cache.
 
-CLIP model configuration is loaded from configs/clip.yaml (single source of truth).
+CLIP model configuration is loaded from configs/system/clip.yaml (single source of truth).
 
 Usage:
     # From single index file
@@ -556,7 +556,7 @@ Examples:
         return
     
     # Load CLIP model from config
-    log.info("Loading CLIP model from configs/clip.yaml")
+    log.info("Loading CLIP model from configs/system/clip.yaml")
     model, preprocess, clip_config = load_clip_model(device=args.device)
     log.info(f"CLIP model: {clip_config['model_name']} → {clip_config['embedding_dim']}-dim embeddings")
     
@@ -627,7 +627,7 @@ Examples:
             embeddings = compute_embeddings_batch(model, preprocess, images, device=args.device)
             
             # Verify dimension matches config
-            verify_embedding_dimension(embeddings, config_path="configs/clip.yaml")
+            verify_embedding_dimension(embeddings, config_path="configs/system/clip.yaml")
             
             # Build cache rows with proper schema
             if args.include_ids:

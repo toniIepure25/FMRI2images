@@ -190,6 +190,7 @@ if [[ "$SKIP_EVAL" != "true" ]]; then
                 --recon-dir "$recon_dir" \
                 --clip-cache outputs/clip_cache/clip.parquet \
                 --out-csv "${RESULTS_DIR}/${exp_id}/${subject}/metrics/recon_eval.csv" \
+                --out-json "${RESULTS_DIR}/${exp_id}/${subject}/metrics/recon_eval.json" \
                 --out-fig "${RESULTS_DIR}/${exp_id}/${subject}/metrics/recon_grid.png" \
                 2>&1 | tail -3 || true
         done

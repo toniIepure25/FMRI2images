@@ -212,7 +212,19 @@ def load_encoder(encoder_type: str, ckpt_path: Path, device: str = "cpu"):
 
         ckpt = torch.load(str(ckpt_path), map_location=device, weights_only=False)
         model_config = ckpt.get("model_config", ckpt.get("config", {}).get("model", {}))
-        model = create_model(model_config).to(device)
+
+        encoder_cfg = model_config.get("encoder", {})
+        _roi_indices = None
+        if encoder_cfg.get("encoder_type") == "roi_transformer":
+            from fmri2img.data.roi_utils import build_roi_index
+            subject_from_ckpt = ckpt.get("subject", "")
+            roi_names = list(encoder_cfg.get("roi_dims", {}).keys())
+            if roi_names and subject_from_ckpt:
+                actual_dims, _roi_indices = build_roi_index(subject_from_ckpt, roi_names)
+                model_config["encoder"]["roi_dims"] = dict(actual_dims)
+                logger.info(f"Reconstructed ROI indices for {subject_from_ckpt}: {dict(actual_dims)}")
+
+        model = create_model(model_config, roi_indices=_roi_indices).to(device)
         model.load_state_dict(ckpt["model_state_dict"])
         model.eval()
 
@@ -1100,36 +1112,57 @@ def main():
         stats = clip_cache.stats()
         logger.info(f"✅ CLIP cache loaded: {stats['cache_size']} embeddings")
         
-        # Setup preprocessing based on resolved flag
-        preprocessor = None
-        if preproc_enabled:
-            logger.info("Loading preprocessing artifacts...")
-            preprocessor = NSDPreprocessor(subject=args.subject)
-            preprocessor.set_out_dir(str(preproc_dir))
-            success = preprocessor.load_artifacts()
-            if not success:
-                logger.error(f"ERROR: Failed to load preprocessing artifacts from {preproc_dir}")
-                return 1
-            summary = preprocessor.summary()
-            logger.info(f"✅ Preprocessing loaded: {summary}")
-            
-            if summary.get('n_voxels_kept', 0) == 0:
-                logger.error("ERROR: Preprocessing artifacts are empty or invalid!")
-                return 1
+        # --- Extract test features: prefer pre-extracted .npy, fallback to NIfTI ---
+        import os
+        cache_root = os.environ.get("CACHE_ROOT", "cache")
+        preextracted_path = Path(cache_root) / "preextracted" / f"subject={args.subject}" / "fmri_features.npy"
+
+        if preextracted_path.exists():
+            logger.info(f"Using pre-extracted features: {preextracted_path}")
+            all_features = np.load(str(preextracted_path), mmap_mode="r")
+            test_indices = test_df.index.tolist()
+            X_test = np.array(all_features[test_indices], dtype=np.float32)
+            Y_list, nsd_list = [], []
+            for _, row in test_df.iterrows():
+                nsd_id = int(row["nsdId"])
+                y = clip_cache.get([nsd_id]).get(nsd_id)
+                if y is not None:
+                    Y_list.append(y)
+                    nsd_list.append(nsd_id)
+            Y_test = np.array(Y_list)
+            test_nsd_ids = np.array(nsd_list)
+            logger.info(f"Loaded {len(X_test)} test features ({X_test.shape[1]} dims) from pre-extracted cache")
         else:
-            # No preprocessing
-            if not preproc_trained_with:
-                logger.info("No preprocessing (model trained on raw voxels)")
+            logger.warning("Pre-extracted features not found at %s — falling back to NIfTI loading", preextracted_path)
             preprocessor = None
-        
-        # Initialize NIfTI loader
-        s3_fs = get_s3_filesystem()
-        nifti_loader = NIfTILoader(s3_fs)
-        
-        # Extract test features and targets
-        X_test, Y_test, test_nsd_ids = extract_features_and_targets(
-            test_df, nifti_loader, preprocessor, clip_cache
-        )
+            if preproc_enabled:
+                logger.info("Loading preprocessing artifacts...")
+                preproc_candidates = [
+                    preproc_dir,
+                    Path(cache_root) / "preproc" / f"subject={args.subject}" / args.subject,
+                    Path(cache_root) / "preproc" / f"subject={args.subject}",
+                ] if preproc_dir else [
+                    Path(cache_root) / "preproc" / f"subject={args.subject}" / args.subject,
+                    Path(cache_root) / "preproc" / f"subject={args.subject}",
+                    Path("outputs/preproc") / args.subject,
+                ]
+                loaded = False
+                for cand in preproc_candidates:
+                    if cand and cand.exists():
+                        preprocessor = NSDPreprocessor(subject=args.subject)
+                        preprocessor.set_out_dir(str(cand))
+                        if preprocessor.load_artifacts():
+                            logger.info(f"Loaded preprocessing from {cand}")
+                            loaded = True
+                            break
+                if not loaded:
+                    logger.error("ERROR: Failed to load preprocessing artifacts from any candidate path")
+                    return 1
+            s3_fs = get_s3_filesystem()
+            nifti_loader = NIfTILoader(s3_fs)
+            X_test, Y_test, test_nsd_ids = extract_features_and_targets(
+                test_df, nifti_loader, preprocessor, clip_cache
+            )
         
         if len(X_test) == 0:
             logger.error("No valid test samples extracted!")

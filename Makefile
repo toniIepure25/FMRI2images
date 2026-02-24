@@ -223,6 +223,7 @@ eval-recon:
 		--recon-dir $${RECON_DIR:-outputs/recon/$(SUBJECT)/production_final} \
 		--clip-cache outputs/clip_cache/clip.parquet \
 		--out-csv outputs/reports/$(SUBJECT)/recon_eval.csv \
+		--out-json outputs/reports/$(SUBJECT)/recon_eval.json \
 		--out-fig outputs/reports/$(SUBJECT)/recon_grid.png
 
 SHARED1000_OUT := outputs/eval_shared1000

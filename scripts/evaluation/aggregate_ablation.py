@@ -36,6 +36,12 @@ EXPERIMENTS = [
     "N2_roi_transformer",
     "N3_roi_dcf",
     "N4_full_system",
+    "B0v2_deterministic",
+    "B1v2_gaussian",
+    "N1v2_vmf_nce",
+    "N2v2_roi_transformer",
+    "N3v2_roi_dcf",
+    "N4v2_full_system",
 ]
 
 SUBJECTS = ["subj01", "subj02", "subj05", "subj07"]
@@ -67,11 +73,13 @@ def collect_results(
                 "experiment": exp,
                 "subject": subj,
                 "best_val_loss": summary.get("best_val_loss"),
+                "best_r@1": summary.get("best_r@1", None),
                 "best_epoch": summary.get("best_epoch"),
                 "total_epochs": summary.get("total_epochs"),
                 "wall_time_min": round(summary.get("wall_time_seconds", 0) / 60, 1),
                 "final_train_loss": summary.get("final_train_loss"),
                 "final_val_loss": summary.get("final_val_loss"),
+                "final_r@1": summary.get("final_r@1", None),
             })
     return pd.DataFrame(rows)
 
@@ -80,26 +88,34 @@ def aggregate_table(df: pd.DataFrame) -> pd.DataFrame:
     """Pivot to experiment x metric with mean +/- std across subjects."""
     if df.empty:
         return df
-    grouped = df.groupby("experiment").agg(
-        val_loss_mean=("best_val_loss", "mean"),
-        val_loss_std=("best_val_loss", "std"),
-        epoch_mean=("best_epoch", "mean"),
-        wall_min_mean=("wall_time_min", "mean"),
-        n_subjects=("subject", "count"),
-    ).reindex(df["experiment"].unique())
+    agg_spec = {
+        "val_loss_mean": ("best_val_loss", "mean"),
+        "val_loss_std": ("best_val_loss", "std"),
+        "epoch_mean": ("best_epoch", "mean"),
+        "wall_min_mean": ("wall_time_min", "mean"),
+        "n_subjects": ("subject", "count"),
+    }
+    if "best_r@1" in df.columns and df["best_r@1"].notna().any():
+        agg_spec["r@1_mean"] = ("best_r@1", "mean")
+        agg_spec["r@1_std"] = ("best_r@1", "std")
+    grouped = df.groupby("experiment").agg(**agg_spec).reindex(df["experiment"].unique())
     return grouped.round(4)
 
 
 def write_latex(agg: pd.DataFrame, path: Path) -> None:
     """Write a LaTeX table suitable for a paper."""
+    has_r1 = "r@1_mean" in agg.columns
+    ncols = "lcccc" if has_r1 else "lccc"
+    header = r"Experiment & Val Loss & R@1 & Best Epoch & Wall (min) \\" if has_r1 else \
+             r"Experiment & Val Loss & Best Epoch & Wall Time (min) \\"
     lines = [
         r"\begin{table}[ht]",
         r"\centering",
-        r"\caption{Ablation study: validation loss across experiments (mean $\pm$ std over subjects).}",
+        r"\caption{Ablation study across experiments (mean $\pm$ std over subjects).}",
         r"\label{tab:ablation}",
-        r"\begin{tabular}{lccc}",
+        f"\\begin{{tabular}}{{{ncols}}}",
         r"\toprule",
-        r"Experiment & Val Loss & Best Epoch & Wall Time (min) \\",
+        header,
         r"\midrule",
     ]
     for exp, row in agg.iterrows():
@@ -107,14 +123,20 @@ def write_latex(agg: pd.DataFrame, path: Path) -> None:
         loss = f"${row['val_loss_mean']:.4f} \\pm {row['val_loss_std']:.4f}$"
         epoch = f"{row['epoch_mean']:.0f}"
         wtime = f"{row['wall_min_mean']:.0f}"
-        lines.append(f"{name} & {loss} & {epoch} & {wtime} \\\\")
+        if has_r1 and pd.notna(row.get("r@1_mean")):
+            r1 = f"${row['r@1_mean']:.4f} \\pm {row['r@1_std']:.4f}$"
+            lines.append(f"{name} & {loss} & {r1} & {epoch} & {wtime} \\\\")
+        elif has_r1:
+            lines.append(f"{name} & {loss} & --- & {epoch} & {wtime} \\\\")
+        else:
+            lines.append(f"{name} & {loss} & {epoch} & {wtime} \\\\")
     lines += [r"\bottomrule", r"\end{tabular}", r"\end{table}"]
     path.write_text("\n".join(lines))
     logger.info("Wrote LaTeX table to %s", path)
 
 
 def write_bar_chart(agg: pd.DataFrame, path: Path) -> None:
-    """Write a bar chart comparing val loss across experiments."""
+    """Write a bar chart comparing R@1 (or val loss) across experiments."""
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -123,21 +145,30 @@ def write_bar_chart(agg: pd.DataFrame, path: Path) -> None:
         logger.warning("matplotlib not available — skipping bar chart")
         return
 
-    fig, ax = plt.subplots(figsize=(10, 5))
+    has_r1 = "r@1_mean" in agg.columns and agg["r@1_mean"].notna().any()
+    palette = ["#4c72b0", "#55a868", "#c44e52", "#8172b3", "#ccb974", "#64b5cd",
+               "#4c72b0", "#55a868", "#c44e52", "#8172b3", "#ccb974", "#64b5cd"]
+
+    fig, ax = plt.subplots(figsize=(12, 5))
     x = range(len(agg))
-    ax.bar(
-        x,
-        agg["val_loss_mean"],
-        yerr=agg["val_loss_std"],
-        capsize=4,
-        color=["#4c72b0", "#55a868", "#c44e52", "#8172b3", "#ccb974", "#64b5cd"][: len(agg)],
-        edgecolor="black",
-        linewidth=0.5,
-    )
+
+    if has_r1:
+        vals = agg["r@1_mean"].fillna(0)
+        errs = agg["r@1_std"].fillna(0)
+        ylabel = "Retrieval R@1 (higher is better)"
+        title = "Ablation Ladder: Retrieval Accuracy (R@1)"
+    else:
+        vals = agg["val_loss_mean"]
+        errs = agg["val_loss_std"]
+        ylabel = "Best Validation Loss"
+        title = "Ablation Ladder: Validation Loss"
+
+    ax.bar(x, vals, yerr=errs, capsize=4,
+           color=palette[: len(agg)], edgecolor="black", linewidth=0.5)
     ax.set_xticks(list(x))
-    ax.set_xticklabels(agg.index, rotation=30, ha="right")
-    ax.set_ylabel("Best Validation Loss")
-    ax.set_title("Ablation Ladder: B0 → N4")
+    ax.set_xticklabels(agg.index, rotation=35, ha="right")
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
     ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
     fig.savefig(path, dpi=150)

@@ -55,6 +55,7 @@ from fmri2img.losses.vmf_nce import (
     kappa_regularizer,
 )
 from fmri2img.training.kl_schedule import KLScheduler
+from fmri2img.eval.embedding_eval import compute_retrieval_metrics as _compute_retrieval
 
 logging.basicConfig(
     level=logging.INFO,
@@ -168,10 +169,12 @@ class MetricsLogger:
                 writer.writerow(row)
 
     def write_summary(self, best_epoch: int, best_val_loss: float,
-                      wall_time_s: float, manifest: Dict[str, Any]) -> None:
+                      wall_time_s: float, manifest: Dict[str, Any],
+                      best_r1: float = 0.0) -> None:
         summary = {
             "best_epoch": best_epoch,
             "best_val_loss": best_val_loss,
+            "best_r@1": best_r1,
             "total_epochs": len(self._history),
             "wall_time_seconds": round(wall_time_s, 1),
             "manifest": manifest,
@@ -179,6 +182,7 @@ class MetricsLogger:
         if self._history:
             summary["final_train_loss"] = self._history[-1].get("train_loss")
             summary["final_val_loss"] = self._history[-1].get("val_loss")
+            summary["final_r@1"] = self._history[-1].get("val_r@1")
         with open(self.metrics_dir / "summary.json", "w") as f:
             json.dump(summary, f, indent=2, default=str)
 
@@ -792,11 +796,13 @@ def validate(
     preprocessor: Optional[EmbeddingPreprocessor],
     queue: Optional[nn.Module],
     vmf_is_log: bool = True,
-) -> Dict[str, float]:
-    """Validate model (no gradient, no queue update)."""
+) -> Tuple[Dict[str, float], np.ndarray, np.ndarray]:
+    """Validate model and collect embeddings for retrieval evaluation."""
     model.eval()
     epoch_metrics: Dict[str, list] = {}
     model_type = getattr(model, "model_type", "deterministic")
+    all_preds: List[np.ndarray] = []
+    all_gts: List[np.ndarray] = []
 
     with torch.no_grad():
         for batch in dataloader:
@@ -814,6 +820,9 @@ def validate(
                 pred, aux = output
             else:
                 pred, aux = output, None
+
+            all_preds.append(pred.detach().cpu().numpy())
+            all_gts.append(gt_embedding.detach().cpu().numpy())
 
             total_loss = torch.tensor(0.0, device=device, dtype=torch.float32)
             bm: Dict[str, float] = {}
@@ -877,7 +886,8 @@ def validate(
             for k, v in bm.items():
                 epoch_metrics.setdefault(k, []).append(v)
 
-    return {k: float(np.mean(v)) for k, v in epoch_metrics.items()}
+    loss_metrics = {k: float(np.mean(v)) for k, v in epoch_metrics.items()}
+    return loss_metrics, np.concatenate(all_preds), np.concatenate(all_gts)
 
 
 # ---------------------------------------------------------------------------
@@ -1159,6 +1169,7 @@ def main() -> None:
     # --- Resume ---
     start_epoch = 1
     best_val_loss = float("inf")
+    best_r1 = 0.0
     global_step = 0
     best_epoch = 0
 
@@ -1219,24 +1230,39 @@ def main() -> None:
             if kappa_upper and kq90 and kq90 > 0.99 * kappa_upper:
                 logger.warning("kappa saturating at upper bound (%.1f / %.1f)", kq90, kappa_upper)
 
-        val_metrics = validate(model, val_loader, losses, loss_weights, device, preprocessor, queue,
-                              vmf_is_log=_vmf_is_log)
+        val_metrics, val_preds, val_gts = validate(
+            model, val_loader, losses, loss_weights, device, preprocessor, queue,
+            vmf_is_log=_vmf_is_log,
+        )
         logger.info("Val:   %s", " | ".join(f"{k}={v:.4f}" for k, v in val_metrics.items()))
+
+        retrieval = _compute_retrieval(val_preds, val_gts, ks=(1, 5, 10))
+        val_metrics["r@1"] = retrieval["top1_accuracy"]
+        val_metrics["r@5"] = retrieval["top5_accuracy"]
+        val_metrics["r@10"] = retrieval["top10_accuracy"]
+        val_metrics["median_rank"] = retrieval["median_rank"]
+        val_metrics["mrr"] = retrieval["mrr"]
+        logger.info(
+            "Retrieval: R@1=%.4f  R@5=%.4f  R@10=%.4f  MedR=%.1f  MRR=%.4f  (N=%d)",
+            retrieval["top1_accuracy"], retrieval["top5_accuracy"],
+            retrieval["top10_accuracy"], retrieval["median_rank"],
+            retrieval["mrr"], len(val_preds),
+        )
 
         metrics_logger.log_epoch(epoch, optimizer.param_groups[0]["lr"], train_metrics, val_metrics)
 
-        # --- Checkpointing ---
+        # --- Checkpointing (early-stop on R@1, higher is better) ---
         val_loss = val_metrics.get("loss", val_metrics.get("mse", float("inf")))
+        val_r1 = val_metrics["r@1"]
 
-        # Always save last checkpoint
         save_checkpoint(
             output_dir / "checkpoint_last.pt", model, optimizer, lr_sched,
             scaler, epoch, val_loss, config, global_step,
             subject=subject, roi_mask_path=str(roi_mask_path),
         )
 
-        # Save best checkpoint
-        if val_loss < best_val_loss:
+        if val_r1 > best_r1:
+            best_r1 = val_r1
             best_val_loss = val_loss
             best_epoch = epoch
             patience_counter = 0
@@ -1245,7 +1271,7 @@ def main() -> None:
                 scaler, epoch, val_loss, config, global_step,
                 subject=subject, roi_mask_path=str(roi_mask_path),
             )
-            logger.info("New best: val_loss=%.4f", val_loss)
+            logger.info("New best: R@1=%.4f (val_loss=%.4f)", val_r1, val_loss)
         else:
             patience_counter += 1
             if patience_counter >= early_stop_patience:
@@ -1261,11 +1287,11 @@ def main() -> None:
             )
 
     wall_time = time.time() - wall_start
-    metrics_logger.write_summary(best_epoch, best_val_loss, wall_time, manifest)
+    metrics_logger.write_summary(best_epoch, best_val_loss, wall_time, manifest, best_r1=best_r1)
 
     logger.info("=" * 80)
     logger.info("Training complete!")
-    logger.info("Best val loss: %.4f (epoch %d)", best_val_loss, best_epoch)
+    logger.info("Best R@1: %.4f | val_loss: %.4f (epoch %d)", best_r1, best_val_loss, best_epoch)
     logger.info("Wall time: %.1f min", wall_time / 60)
     logger.info("Outputs: %s", output_dir)
     logger.info("=" * 80)

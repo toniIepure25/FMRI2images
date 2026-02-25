@@ -1,0 +1,106 @@
+# N1v2: Improved vMF-NCE
+#
+# Changes from N1:
+#   - dropout: 0.1 -> 0.3 (v1 overfits severely after epoch 7)
+#   - weight_decay: 0.01 -> 0.05
+#   - kappa_reg.lambda_kappa: 0.01 -> 0.1 (10x stronger; v1 kappa grows to 10 unchecked)
+#   - kappa_max: 100 -> 50 (prevent extreme concentration)
+#   - lr: 1e-4 -> 5e-5 (slower, extend learning phase before overfitting)
+#
+# Rationale: v1 learns well until epoch 7 (val 1.37), then kappa grows
+# and model overfits (val 3.98). Stronger kappa regularization + higher
+# dropout should extend the useful learning phase.
+
+experiment:
+  name: "N1v2_vmf_nce"
+  description: "Improved vMF-NCE: stronger kappa reg, higher dropout, lower LR"
+  tags: ["vmf", "vmf_nce", "queue", "preprocessing", "novel", "v2"]
+  parent: "B1v2_gaussian"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.80
+  val_split: 0.10
+  test_split: 0.10
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [4096, 2048, 1024]
+    activation: "gelu"
+    dropout: 0.3
+  decoder:
+    input_dim: 1024
+    output_dim: 768
+    hidden_dims: [1536]
+    activation: "gelu"
+    dropout: 0.3
+    kappa_min: 1.0
+    kappa_max: 50.0
+
+preprocessing:
+  enabled: true
+  mode: "center_pcr"
+  k_components: 8
+  artifact_path: "cache/embedding_preproc/subj01_center_pcr_k8.pkl"
+  fit_on_train: true
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 0.07
+    use_queue: true
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.1
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 8192
+
+training:
+  batch_size: 4
+  gradient_accumulation_steps: 16
+  mixed_precision: true
+  num_epochs: 100
+  optimizer:
+    type: "adamw"
+    lr: 5.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 10
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 15
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  compute_probabilistic: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/N1v2_vmf_nce"

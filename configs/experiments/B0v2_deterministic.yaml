@@ -1,0 +1,98 @@
+# B0v2: Improved Deterministic Baseline
+#
+# Changes from B0:
+#   - dropout: 0.1 -> 0.3 (reduce overfitting)
+#   - lr: 1e-4 -> 5e-5 (slower, more stable convergence)
+#   - weight_decay: 0.01 -> 0.05 (stronger L2 regularization)
+#   - mse_weight: 1.0 -> 0.1 (MSE contributes negligibly; let InfoNCE dominate)
+#   - warmup_epochs: 5 -> 10 (longer warmup for lower lr)
+#
+# Rationale: v1 overfits by epoch 2 and val_infonce never improves beyond
+# random chance with batch_size=4. Stronger regularization + R@1 early
+# stopping should select genuinely better checkpoints.
+
+experiment:
+  name: "B0v2_deterministic"
+  description: "Improved deterministic baseline: higher dropout, lower LR, R@1 stopping"
+  tags: ["baseline", "deterministic", "pcr", "queue", "v2"]
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.80
+  val_split: 0.10
+  test_split: 0.10
+  seed: 42
+
+model:
+  type: "deterministic"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [4096, 2048, 1024]
+    activation: "gelu"
+    dropout: 0.3
+  decoder:
+    input_dim: 1024
+    output_dim: 768
+    hidden_dims: [1536]
+    activation: "gelu"
+    dropout: 0.3
+
+preprocessing:
+  enabled: true
+  mode: "center_pcr"
+  k_components: 8
+  whiten_eps: 1.0e-5
+  artifact_path: "cache/embedding_preproc/subj01_center_pcr_k8.pkl"
+  fit_on_train: true
+
+loss:
+  mse:
+    enabled: true
+    weight: 0.1
+  infonce:
+    enabled: true
+    weight: 1.0
+    temperature: 0.07
+    learnable_temperature: true
+    symmetric: true
+    use_queue: true
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 8192
+
+training:
+  batch_size: 4
+  gradient_accumulation_steps: 16
+  mixed_precision: true
+  num_epochs: 100
+  optimizer:
+    type: "adamw"
+    lr: 5.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 10
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 15
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 0
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  compute_probabilistic: false
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/B0v2_deterministic"

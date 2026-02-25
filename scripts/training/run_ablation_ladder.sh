@@ -23,7 +23,7 @@ set -euo pipefail
 
 SUBJECTS="${SUBJECTS:-subj01 subj02 subj05 subj07}"
 GPU="${GPU:-0}"
-START="${START:-B0}"
+START="${START:-B0v2}"
 CONFIG_DIR="configs/experiments"
 SCRIPT="scripts/training/train_unified.py"
 
@@ -38,7 +38,7 @@ done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-EXPERIMENT_ORDER=(B0 B1 N1 N2 N3 N4)
+EXPERIMENT_ORDER=(B0v2 B1v2 N1v2 N2v2 N3v2 N4v2)
 
 declare -A CONFIGS=(
     [B0]="B0_deterministic.yaml|Strong deterministic baseline (MLP + PCR + queue + MSE + InfoNCE)"
@@ -47,6 +47,12 @@ declare -A CONFIGS=(
     [N2]="N2_roi_transformer.yaml|Novel: ROI Transformer > flat MLP"
     [N3]="N3_roi_dcf.yaml|Novel: ROI-DCF directional consensus fusion"
     [N4]="N4_full_system.yaml|Novel: Full system (all innovations)"
+    [B0v2]="B0v2_deterministic.yaml|v2: Improved deterministic (dropout 0.3, lr 5e-5, R@1 stopping)"
+    [B1v2]="B1v2_gaussian.yaml|v2: Improved Gaussian (GNCE tau 0.5, lr 3e-5)"
+    [N1v2]="N1v2_vmf_nce.yaml|v2: Improved vMF-NCE (kappa_reg 0.1, dropout 0.3)"
+    [N2v2]="N2v2_roi_transformer.yaml|v2: Improved ROI Transformer (kappa_reg added, kappa_max ~20)"
+    [N3v2]="N3v2_roi_dcf.yaml|v2: Improved ROI-DCF (dropout 0.3, wd 0.1, lr 1e-4)"
+    [N4v2]="N4v2_full_system.yaml|v2: Improved Full System (aggressive reg + faster SPCL)"
 )
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"

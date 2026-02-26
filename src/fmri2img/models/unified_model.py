@@ -24,45 +24,72 @@ from fmri2img.models.roi_dcf import ROIDCFDecoder
 logger = logging.getLogger(__name__)
 
 
+class ResidualBlock(nn.Module):
+    """Pre-norm residual block: LayerNorm -> Linear -> GELU -> Drop -> Linear -> Drop + skip."""
+
+    def __init__(self, dim: int, dropout: float = 0.15):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.LayerNorm(dim),
+            nn.Linear(dim, dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(dim, dim),
+            nn.Dropout(dropout),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x + self.net(x)
+
+
 class MLPEncoder(nn.Module):
     """
-    Multi-layer perceptron encoder with residual connections.
-    
+    Multi-layer perceptron encoder with optional residual blocks.
+
+    When ``use_residual=True``, a :class:`ResidualBlock` is inserted after
+    each projection layer, following the MindEye architecture pattern.
+
     Args:
         input_dim: Input dimensionality (fMRI voxels)
         hidden_dims: List of hidden layer dimensions
         activation: Activation function ("relu", "gelu")
         dropout: Dropout probability
+        use_residual: Insert a ResidualBlock after each projection layer
     """
-    
+
     def __init__(
         self,
         input_dim: int,
         hidden_dims: list[int],
         activation: str = "relu",
-        dropout: float = 0.1
+        dropout: float = 0.1,
+        use_residual: bool = False,
     ):
         super().__init__()
         self.input_dim = input_dim
         self.output_dim = hidden_dims[-1]
-        
-        # Build layers
-        layers = []
+
+        layers: list[nn.Module] = []
         in_dim = input_dim
-        
-        for i, hidden_dim in enumerate(hidden_dims):
+
+        for hidden_dim in hidden_dims:
             layers.extend([
                 nn.Linear(in_dim, hidden_dim),
                 nn.LayerNorm(hidden_dim),
                 nn.GELU() if activation == "gelu" else nn.ReLU(),
-                nn.Dropout(dropout)
+                nn.Dropout(dropout),
             ])
+            if use_residual:
+                layers.append(ResidualBlock(hidden_dim, dropout=dropout))
             in_dim = hidden_dim
-        
+
         self.encoder = nn.Sequential(*layers)
-        
-        logger.info(f"MLPEncoder: {input_dim} → {hidden_dims} (activation={activation}, dropout={dropout})")
-    
+
+        logger.info(
+            "MLPEncoder: %d → %s (activation=%s, dropout=%.2f, residual=%s)",
+            input_dim, hidden_dims, activation, dropout, use_residual,
+        )
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Args:
@@ -332,6 +359,7 @@ class UnifiedModel(nn.Module):
                 hidden_dims=encoder_cfg.get("hidden_dims", [4096, 2048, 1024]),
                 activation=encoder_cfg.get("activation", "relu"),
                 dropout=encoder_cfg.get("dropout", 0.1),
+                use_residual=encoder_cfg.get("use_residual", False),
             )
 
         latent_dim = self.encoder.output_dim

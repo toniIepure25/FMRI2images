@@ -23,7 +23,7 @@ set -euo pipefail
 
 SUBJECTS="${SUBJECTS:-subj01 subj02 subj05 subj07}"
 GPU="${GPU:-0}"
-START="${START:-B0v2}"
+START="${START:-B0v3}"
 CONFIG_DIR="configs/experiments"
 SCRIPT="scripts/training/train_unified.py"
 
@@ -38,7 +38,7 @@ done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-EXPERIMENT_ORDER=(B0v2 B1v2 N1v2 N2v2 N3v2 N4v2)
+EXPERIMENT_ORDER=(B0v3 B1v3 N1v3 N2v3 N3v3 N4v3)
 
 declare -A CONFIGS=(
     [B0]="B0_deterministic.yaml|Strong deterministic baseline (MLP + PCR + queue + MSE + InfoNCE)"
@@ -53,6 +53,12 @@ declare -A CONFIGS=(
     [N2v2]="N2v2_roi_transformer.yaml|v2: Improved ROI Transformer (kappa_reg added, kappa_max ~20)"
     [N3v2]="N3v2_roi_dcf.yaml|v2: Improved ROI-DCF (dropout 0.3, wd 0.1, lr 1e-4)"
     [N4v2]="N4v2_full_system.yaml|v2: Improved Full System (aggressive reg + faster SPCL)"
+    [B0v3]="B0v3_deterministic.yaml|v3: batch 64, residual MLP, image split, 300 epochs"
+    [B1v3]="B1v3_gaussian.yaml|v3: batch 64, residual MLP, GNCE tau 1.0, image split"
+    [N1v3]="N1v3_vmf_nce.yaml|v3: batch 64, residual MLP, kappa_reg 0.05, image split"
+    [N2v3]="N2v3_roi_transformer.yaml|v3: batch 64, no NLL, wider kappa, image split"
+    [N3v3]="N3v3_roi_dcf.yaml|v3: batch 64, lighter reg, image split, 300 epochs"
+    [N4v3]="N4v3_full_system.yaml|v3: batch 64, lighter reg, faster SPCL, image split"
 )
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"

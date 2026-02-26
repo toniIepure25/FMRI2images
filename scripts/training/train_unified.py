@@ -1101,29 +1101,67 @@ def main() -> None:
         logger.info("Added %d loss parameter(s) to optimizer", len(loss_params))
 
     # --- Data split ---
-    train_split = config["data"]["train_split"]
-    val_split = config["data"]["val_split"]
-    n_total = len(full_dataset)
-    n_train = int(n_total * train_split)
-    n_val = int(n_total * val_split)
+    split_by_image = config["data"].get("split_by_image", False)
+    exclude_shared1000 = config["data"].get("exclude_shared1000", False)
+    data_seed = config["data"].get("seed", 42)
 
-    indices = torch.randperm(n_total).tolist()
-    train_dataset = Subset(full_dataset, indices[:n_train])
-    val_dataset = Subset(full_dataset, indices[n_train : n_train + n_val])
+    if split_by_image and hasattr(full_dataset, "index_df"):
+        _idx_df = full_dataset.index_df
+        has_shared = "shared1000" in _idx_df.columns
+
+        if exclude_shared1000 and has_shared:
+            pool_mask = ~_idx_df["shared1000"].fillna(False).astype(bool)
+            pool_indices = _idx_df.index[pool_mask].tolist()
+            n_excluded = len(_idx_df) - len(pool_indices)
+            logger.info("Excluded %d shared1000 trials from training pool", n_excluded)
+        else:
+            pool_indices = list(range(len(_idx_df)))
+
+        pool_nsd_ids = _idx_df.iloc[pool_indices]["nsdId"].values
+        unique_images = np.unique(pool_nsd_ids)
+        rng = np.random.default_rng(data_seed)
+        rng.shuffle(unique_images)
+
+        train_ratio = config["data"]["train_split"]
+        val_ratio = config["data"]["val_split"]
+        n_val_images = max(1, int(len(unique_images) * val_ratio / (train_ratio + val_ratio)))
+        val_image_set = set(unique_images[:n_val_images])
+        train_image_set = set(unique_images[n_val_images:])
+
+        train_indices = [i for i in pool_indices if _idx_df.iloc[i]["nsdId"] in train_image_set]
+        val_indices = [i for i in pool_indices if _idx_df.iloc[i]["nsdId"] in val_image_set]
+
+        logger.info(
+            "Image-level split: %d unique images -> %d train (%d trials), %d val (%d trials)",
+            len(unique_images), len(train_image_set), len(train_indices),
+            len(val_image_set), len(val_indices),
+        )
+        train_dataset = Subset(full_dataset, train_indices)
+        val_dataset = Subset(full_dataset, val_indices)
+    else:
+        train_split = config["data"]["train_split"]
+        val_split = config["data"]["val_split"]
+        n_total = len(full_dataset)
+        n_train = int(n_total * train_split)
+        n_val = int(n_total * val_split)
+
+        indices = torch.randperm(n_total, generator=torch.Generator().manual_seed(data_seed)).tolist()
+        train_dataset = Subset(full_dataset, indices[:n_train])
+        val_dataset = Subset(full_dataset, indices[n_train : n_train + n_val])
 
     if preprocessor is not None and preproc_needs_fit:
+        n_train = len(train_dataset)
         logger.info("Auto-fitting embedding preprocessor on %d training samples...", n_train)
-        # Get embeddings directly from DataFrame (avoid triggering NIfTI loading)
         emb_col = next(
             (c for c in ["clip_embedding", "embedding", "final", "clip512"]
              if c in embeddings_df.columns), None
         )
         if emb_col is not None:
             all_embs = np.stack(embeddings_df[emb_col].values)
-            train_embeddings = all_embs  # fit on all available embeddings
+            train_embeddings = all_embs
         else:
             logger.warning("No embedding column found, fitting on first %d samples via dataset", min(n_train, 1000))
-            train_embeddings = np.stack([full_dataset[i][1].numpy() for i in indices[:min(n_train, 1000)]])
+            train_embeddings = np.stack([full_dataset[i][1].numpy() for i in range(min(n_train, 1000))])
         preprocessor.fit(train_embeddings)
         artifact_path = Path(resolve_preproc_artifact(subject, config))
         artifact_path.parent.mkdir(parents=True, exist_ok=True)

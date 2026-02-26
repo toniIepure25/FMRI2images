@@ -1,0 +1,116 @@
+# B1v3: Probabilistic Gaussian — v3 systemic fixes
+#
+# Changes from B1v2:
+#   - batch_size: 4 -> 64, grad_accum: 16 -> 1
+#   - use_residual: true
+#   - split_by_image + exclude_shared1000
+#   - num_epochs: 100 -> 300, patience: 15 -> 40
+#   - dropout: 0.3 -> 0.15
+#   - gnce.temperature: 0.5 -> 1.0 (v2 tau=0.5 caused severe divergence)
+#   - lr: 3e-5 -> 5e-5
+#   - weight_decay: 0.05 -> 0.01
+#   - k_components: 8 -> 4
+#   - queue: 8192 -> 16384
+#   - add mse loss (weight 0.1) to anchor Gaussian mean
+
+experiment:
+  name: "B1v3_gaussian"
+  description: "v3 Gaussian baseline: batch 64, residual MLP, GNCE tau 1.0, image split"
+  tags: ["baseline", "gaussian", "probabilistic", "pcr", "queue", "v3"]
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  seed: 42
+
+model:
+  type: "gaussian"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [4096, 2048, 1024]
+    activation: "gelu"
+    dropout: 0.15
+    use_residual: true
+  decoder:
+    input_dim: 1024
+    output_dim: 768
+    hidden_dims: [1536]
+    activation: "gelu"
+    dropout: 0.15
+    output_logvar: true
+
+preprocessing:
+  enabled: true
+  mode: "center_pcr"
+  k_components: 4
+  whiten_eps: 1.0e-5
+  artifact_path: "cache/embedding_preproc/subj01_center_pcr_k4.pkl"
+  fit_on_train: true
+
+loss:
+  mse:
+    enabled: true
+    weight: 0.1
+  gaussian_nll:
+    enabled: true
+    weight: 1.0
+    logvar_min: -10.0
+    logvar_max: 5.0
+    reduction: "mean"
+  gaussian_nce:
+    enabled: true
+    weight: 2.0
+    temperature: 1.0
+    use_queue: true
+    symmetric: false
+    clamp_logvar: true
+    logvar_min: -10.0
+    logvar_max: 5.0
+  kl:
+    enabled: true
+    weight_start: 0.0
+    weight_end: 0.001
+    anneal_steps: 10000
+    anneal_type: "linear"
+    free_bits: 0.5
+    free_bits_type: "dimension"
+  infonce:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 1
+  mixed_precision: true
+  num_epochs: 300
+  optimizer:
+    type: "adamw"
+    lr: 5.0e-5
+    weight_decay: 0.01
+    betas: [0.9, 0.999]
+  warmup_epochs: 10
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 40
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  compute_probabilistic: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/B1v3_gaussian"

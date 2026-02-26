@@ -1,0 +1,110 @@
+# N1v3: vMF-NCE — v3 systemic fixes
+#
+# Changes from N1v2:
+#   - batch_size: 4 -> 64, grad_accum: 16 -> 1
+#   - use_residual: true
+#   - split_by_image + exclude_shared1000
+#   - num_epochs: 100 -> 300, patience: 15 -> 40
+#   - dropout: 0.3 -> 0.15
+#   - lr: 5e-5 -> 1e-4
+#   - weight_decay: 0.05 -> 0.01
+#   - kappa_reg: 0.1 -> 0.05 (less aggressive; larger batch stabilizes kappa)
+#   - k_components: 8 -> 4
+#   - queue: 8192 -> 16384
+
+experiment:
+  name: "N1v3_vmf_nce"
+  description: "v3 vMF-NCE: batch 64, residual MLP, image split, 300 epochs"
+  tags: ["vmf", "vmf_nce", "queue", "preprocessing", "novel", "v3"]
+  parent: "B1v3_gaussian"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [4096, 2048, 1024]
+    activation: "gelu"
+    dropout: 0.15
+    use_residual: true
+  decoder:
+    input_dim: 1024
+    output_dim: 768
+    hidden_dims: [1536]
+    activation: "gelu"
+    dropout: 0.15
+    kappa_min: 1.0
+    kappa_max: 50.0
+
+preprocessing:
+  enabled: true
+  mode: "center_pcr"
+  k_components: 4
+  artifact_path: "cache/embedding_preproc/subj01_center_pcr_k4.pkl"
+  fit_on_train: true
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 0.07
+    use_queue: true
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.05
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 1
+  mixed_precision: true
+  num_epochs: 300
+  optimizer:
+    type: "adamw"
+    lr: 1.0e-4
+    weight_decay: 0.01
+    betas: [0.9, 0.999]
+  warmup_epochs: 10
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 40
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  compute_probabilistic: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/N1v3_vmf_nce"

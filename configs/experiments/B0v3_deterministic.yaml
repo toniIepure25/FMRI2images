@@ -1,0 +1,100 @@
+# B0v3: Deterministic Baseline — v3 systemic fixes
+#
+# Changes from B0v2:
+#   - batch_size: 4 -> 64, grad_accum: 16 -> 1 (16x better contrastive gradients)
+#   - use_residual: true (MindEye-style residual blocks in MLP)
+#   - split_by_image + exclude_shared1000 (proper NSD evaluation protocol)
+#   - num_epochs: 100 -> 300, patience: 15 -> 40 (allow full convergence)
+#   - dropout: 0.3 -> 0.15 (model is underfitting, not overfitting)
+#   - lr: 5e-5 -> 1e-4, weight_decay: 0.05 -> 0.01 (less regularization)
+#   - k_components: 8 -> 4 (preserve more CLIP variance)
+#   - queue: 8192 -> 16384
+
+experiment:
+  name: "B0v3_deterministic"
+  description: "v3 deterministic baseline: batch 64, residual MLP, image-level split, 300 epochs"
+  tags: ["baseline", "deterministic", "pcr", "queue", "v3"]
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  seed: 42
+
+model:
+  type: "deterministic"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [4096, 2048, 1024]
+    activation: "gelu"
+    dropout: 0.15
+    use_residual: true
+  decoder:
+    input_dim: 1024
+    output_dim: 768
+    hidden_dims: [1536]
+    activation: "gelu"
+    dropout: 0.15
+
+preprocessing:
+  enabled: true
+  mode: "center_pcr"
+  k_components: 4
+  whiten_eps: 1.0e-5
+  artifact_path: "cache/embedding_preproc/subj01_center_pcr_k4.pkl"
+  fit_on_train: true
+
+loss:
+  mse:
+    enabled: true
+    weight: 0.1
+  infonce:
+    enabled: true
+    weight: 1.0
+    temperature: 0.07
+    learnable_temperature: true
+    symmetric: true
+    use_queue: true
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 1
+  mixed_precision: true
+  num_epochs: 300
+  optimizer:
+    type: "adamw"
+    lr: 1.0e-4
+    weight_decay: 0.01
+    betas: [0.9, 0.999]
+  warmup_epochs: 10
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 40
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 0
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  compute_probabilistic: false
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/B0v3_deterministic"

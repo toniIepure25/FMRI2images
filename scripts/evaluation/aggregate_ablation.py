@@ -42,6 +42,12 @@ EXPERIMENTS = [
     "N2v2_roi_transformer",
     "N3v2_roi_dcf",
     "N4v2_full_system",
+    "B0v3_deterministic",
+    "B1v3_gaussian",
+    "N1v3_vmf_nce",
+    "N2v3_roi_transformer",
+    "N3v3_roi_dcf",
+    "N4v3_full_system",
 ]
 
 SUBJECTS = ["subj01", "subj02", "subj05", "subj07"]

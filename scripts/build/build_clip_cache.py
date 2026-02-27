@@ -334,51 +334,6 @@ def compute_embeddings_batch(
     device: str = "cuda"
 ) -> np.ndarray:
     """
-    Compute CLIP embeddings for a batch of images.
-    
-    Args:
-        model: CLIP model
-        preprocess: CLIP preprocessing function
-        images: List of PIL Images
-        device: Device for computation
-    
-    Returns:
-        (N, 512) float32 array, L2 normalized
-    """
-    # Preprocess images
-    imgs_tensor = torch.stack([preprocess(img) for img in images]).to(device)
-    
-    # Extract embeddings with autocast
-    with torch.no_grad(), autocast_ctx(device):
-        features = model.encode_image(imgs_tensor)
-        # L2 normalize
-        features = features / features.norm(dim=-1, keepdim=True)
-    
-    return features.cpu().numpy().astype(np.float32)
-
-
-def autocast_ctx(device: str):
-    """
-    Get appropriate autocast context for device.
-    
-    Args:
-        device: Device string ("cuda" or "cpu")
-        
-    Returns:
-        Context manager for autocast or nullcontext
-    """
-    if device == "cuda" and torch.cuda.is_available():
-        return torch.amp.autocast("cuda")
-    return nullcontext()
-
-
-def compute_embeddings_batch(
-    model,
-    preprocess,
-    images: List[Image.Image],
-    device: str = "cuda"
-) -> np.ndarray:
-    """
     Compute CLIP embeddings for batch of PIL images.
     
     Args:
@@ -388,7 +343,7 @@ def compute_embeddings_batch(
         device: Device for computation
     
     Returns:
-        (N, 512) float32 array, L2 normalized
+        (N, D) float32 array, L2 normalized
     """
     # Preprocess images
     imgs_tensor = torch.stack([preprocess(img) for img in images]).to(device)
@@ -642,8 +597,8 @@ Examples:
                     "embedding": [emb.astype(np.float32).tolist() for emb in embeddings]
                 })
             
-            # Also keep legacy "clip512" column name for CLIPCache compatibility
-            rows["clip512"] = rows.get("embedding", [emb.astype(np.float32).tolist() for emb in embeddings])
+            # Legacy "clip512" alias for CLIPCache backward compatibility
+            rows["clip512"] = rows["embedding"]
             if args.include_ids and "nsd_id" in rows.columns:
                 rows["nsdId"] = rows["nsd_id"]  # Legacy column name
             
@@ -710,7 +665,8 @@ Examples:
     
     log.info(f"✓ Wrote {len(final_df)} rows to {cache_path}")
     if "nsd_id" in final_df.columns and "embedding" in final_df.columns:
-        log.info(f"  Schema: nsd_id (int), embedding (512-D float32 list)")
+        edim = clip_config.get("embedding_dim", "?")
+        log.info(f"  Schema: nsd_id (int), embedding ({edim}-D float32 list)")
     else:
         log.info(f"  Columns: {list(final_df.columns)}")
 

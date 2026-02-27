@@ -31,9 +31,6 @@ import nibabel as nib
 import numpy as np
 import pandas as pd
 
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -158,12 +155,9 @@ def main():
     np.save(features_path, features)
     logger.info("Saved features: %s (%.2f GB)", features_path, features.nbytes / 1e9)
 
-    # --- Save trial metadata (preserves row alignment) ---
-    meta_df = index_df[["nsdId"]].copy()
-    if "session" in index_df.columns:
-        meta_df["session"] = index_df["session"]
-    meta_df.to_parquet(output_dir / "trial_meta.parquet", index=True)
-    logger.info("Saved trial metadata: %s", output_dir / "trial_meta.parquet")
+    # --- Save trial metadata (all columns for full traceability) ---
+    index_df.to_parquet(output_dir / "trial_meta.parquet", index=False)
+    logger.info("Saved trial metadata (%d cols): %s", len(index_df.columns), output_dir / "trial_meta.parquet")
 
     # --- Save meta.json ---
     meta = {

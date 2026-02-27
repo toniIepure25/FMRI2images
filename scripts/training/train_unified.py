@@ -55,6 +55,7 @@ from fmri2img.losses.vmf_nce import (
     kappa_regularizer,
 )
 from fmri2img.training.kl_schedule import KLScheduler
+from fmri2img.losses.mixco import mixco_augment, mixco_nce_loss
 from fmri2img.eval.embedding_eval import compute_retrieval_metrics as _compute_retrieval
 
 logging.basicConfig(
@@ -316,6 +317,7 @@ class PreextractedNSDDataset(Dataset):
         features_path: Path,
         index_df: pd.DataFrame,
         embeddings_df: pd.DataFrame,
+        average_repetitions: bool = False,
     ):
         self.features = np.load(features_path, mmap_mode=None)  # (N, V) float32
         self.index_df = index_df.reset_index(drop=True)
@@ -325,6 +327,23 @@ class PreextractedNSDDataset(Dataset):
             raise ValueError(
                 f"Feature rows ({len(self.features)}) != index rows ({len(self.index_df)}). "
                 "Re-run: make preextract SUBJECT=<subject>"
+            )
+
+        if average_repetitions and "nsdId" in self.index_df.columns:
+            n_raw = len(self.index_df)
+            unique_ids = self.index_df["nsdId"].unique()
+            avg_features = np.zeros((len(unique_ids), self.features.shape[1]), dtype=np.float32)
+            new_rows = []
+            nsd_vals = self.index_df["nsdId"].values
+            for i, nsd_id in enumerate(unique_ids):
+                mask = nsd_vals == nsd_id
+                avg_features[i] = self.features[mask].mean(axis=0)
+                new_rows.append(self.index_df[mask].iloc[0].to_dict())
+            self.features = avg_features
+            self.index_df = pd.DataFrame(new_rows).reset_index(drop=True)
+            logger.info(
+                "Repetition averaging: %d trials -> %d unique images (SNR ~%.2fx)",
+                n_raw, len(unique_ids), np.sqrt(n_raw / len(unique_ids)),
             )
 
         if "nsdId" in embeddings_df.columns:
@@ -542,14 +561,21 @@ def setup_losses(config: Dict[str, Any], device: str,
     # --- N3/N4: MultiTask vMF-NCE ---
     if loss_cfg.get("vmf_nce_multitask", {}).get("enabled", False):
         c = loss_cfg["vmf_nce_multitask"]
-        use_q = loss_cfg.get("vmf_nce", {}).get("use_queue", False) and queue is not None
+        vmf_active_cfg = (
+            loss_cfg.get("vmf_nce_spcl", {})
+            if loss_cfg.get("vmf_nce_spcl", {}).get("enabled")
+            else loss_cfg.get("vmf_nce", {})
+        )
+        mt_use_q = vmf_active_cfg.get("use_queue", False) and queue is not None
+        mt_tau = vmf_active_cfg.get("tau", 0.07)
         losses["vmf_nce_multitask"] = MultiTaskVMFNCELoss(
-            tau=loss_cfg.get("vmf_nce", {}).get("tau", 0.07),
-            use_queue=use_q,
+            tau=mt_tau,
+            use_queue=mt_use_q,
             lambda_aux=c.get("lambda_aux", 0.5),
             kappa_is_log=vmf_kappa_is_log,
         )
-        logger.info("MultiTask vMF-NCE loss enabled (lambda_aux=%.2f)", c.get("lambda_aux", 0.5))
+        logger.info("MultiTask vMF-NCE loss enabled (lambda_aux=%.2f, tau=%.3f, queue=%s)",
+                     c.get("lambda_aux", 0.5), mt_tau, mt_use_q)
 
     return losses
 
@@ -623,6 +649,7 @@ def train_epoch(
     lr_scheduler: Optional[torch.optim.lr_scheduler.LambdaLR] = None,
     config_ref: Optional[Dict[str, Any]] = None,
     vmf_is_log: bool = True,
+    mixco_cfg: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Dict[str, float], int]:
     """Train for one epoch with gradient accumulation and optional AMP."""
     model.train()
@@ -665,8 +692,6 @@ def train_epoch(
                 l = losses["infonce"](pred, gt_embedding, queue=queue)
                 total_loss = total_loss + loss_weights.get("infonce", 1.0) * l
                 batch_metrics["infonce"] = l.item()
-                if queue is not None:
-                    queue.enqueue(gt_embedding)
 
             # --- Gaussian losses ---
             if "gaussian_nll" in losses and is_gaussian:
@@ -678,8 +703,6 @@ def train_epoch(
                 l = losses["gaussian_nce"](pred, aux, gt_embedding, queue=queue)
                 total_loss = total_loss + loss_weights.get("gaussian_nce", 1.0) * l
                 batch_metrics["gnce"] = l.item()
-                if queue is not None:
-                    queue.enqueue(gt_embedding)
 
             # --- vMF losses ---
             if "vmf_nll" in losses and is_vmf:
@@ -691,16 +714,12 @@ def train_epoch(
                 l = losses["vmf_nce"](pred, aux, gt_embedding, queue=queue)
                 total_loss = total_loss + loss_weights.get("vmf_nce", 1.0) * l
                 batch_metrics["vmf_nce"] = l.item()
-                if queue is not None:
-                    queue.enqueue(gt_embedding)
 
             # --- vMF-NCE-SPCL (N4) ---
             if "vmf_nce_spcl" in losses and is_vmf:
                 l = losses["vmf_nce_spcl"](pred, aux, gt_embedding, queue=queue)
                 total_loss = total_loss + loss_weights.get("vmf_nce_spcl", 1.0) * l
                 batch_metrics["vmf_nce_spcl"] = l.item()
-                if queue is not None:
-                    queue.enqueue(gt_embedding)
 
             # --- MultiTask vMF-NCE (N3/N4) ---
             if "vmf_nce_multitask" in losses and is_vmf:
@@ -714,8 +733,10 @@ def train_epoch(
                 total_loss = total_loss + loss_weights.get("vmf_nce_multitask", 1.0) * mt_total
                 batch_metrics["mt_fused"] = mt_fused.item()
                 batch_metrics["mt_aux"] = mt_aux.item()
-                if queue is not None:
-                    queue.enqueue(gt_embedding)
+
+            # --- Single queue enqueue (after all contrastive losses read the queue) ---
+            if queue is not None:
+                queue.enqueue(gt_embedding.detach())
 
             # --- Kappa regularizer ---
             kappa_reg_cfg = config_ref.get("loss", {}).get("kappa_reg", {}) if config_ref else {}
@@ -749,6 +770,21 @@ def train_epoch(
                 kl_weight = kl_scheduler.step()
                 total_loss = total_loss + kl_weight * kl_raw
                 batch_metrics["kl"] = (kl_weight * kl_raw).item()
+
+            # --- MixCo augmentation (second forward pass with soft labels) ---
+            if mixco_cfg is not None and mixco_cfg.get("enabled", False):
+                fmri_mix, gt_mix, soft_labels = mixco_augment(
+                    fmri, gt_embedding, alpha=mixco_cfg.get("alpha", 0.2),
+                )
+                pred_mix = model(fmri_mix)
+                if isinstance(pred_mix, tuple):
+                    pred_mix = pred_mix[0]
+                mc_loss = mixco_nce_loss(
+                    pred_mix, gt_mix, soft_labels,
+                    temperature=mixco_cfg.get("temperature", 0.006),
+                )
+                total_loss = total_loss + mixco_cfg.get("weight", 1.0) * mc_loss
+                batch_metrics["mixco"] = mc_loss.item()
 
             total_loss = total_loss / grad_accum_steps
 
@@ -906,7 +942,14 @@ def save_checkpoint(
     global_step: int,
     subject: str = "",
     roi_mask_path: str = "",
+    losses: Optional[Dict[str, nn.Module]] = None,
+    meta: Optional[Dict[str, Any]] = None,
 ) -> None:
+    loss_states = {}
+    if losses:
+        for k, v in losses.items():
+            if isinstance(v, nn.Module):
+                loss_states[k] = v.state_dict()
     torch.save(
         {
             "epoch": epoch,
@@ -915,11 +958,13 @@ def save_checkpoint(
             "optimizer_state_dict": optimizer.state_dict(),
             "lr_scheduler_state_dict": lr_scheduler.state_dict() if lr_scheduler else None,
             "scaler_state_dict": scaler.state_dict() if scaler else None,
+            "loss_states": loss_states,
             "val_loss": val_loss,
             "config": config,
             "model_config": config.get("model", {}),
             "subject": subject,
             "roi_mask_path": roi_mask_path,
+            "_meta": meta or {},
         },
         path,
     )
@@ -927,7 +972,8 @@ def save_checkpoint(
 
 def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimizer,
                     lr_scheduler: Any, scaler: Optional[torch.amp.GradScaler],
-                    device: str) -> Tuple[int, float, int]:
+                    device: str,
+                    losses: Optional[Dict[str, nn.Module]] = None) -> Tuple[int, float, int]:
     """Load checkpoint and restore state. Returns (start_epoch, best_val_loss, global_step)."""
     ckpt = torch.load(path, map_location=device, weights_only=False)
     model.load_state_dict(ckpt["model_state_dict"])
@@ -936,6 +982,11 @@ def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimiz
         lr_scheduler.load_state_dict(ckpt["lr_scheduler_state_dict"])
     if scaler and ckpt.get("scaler_state_dict"):
         scaler.load_state_dict(ckpt["scaler_state_dict"])
+    if losses and ckpt.get("loss_states"):
+        for k, state in ckpt["loss_states"].items():
+            if k in losses and isinstance(losses[k], nn.Module):
+                losses[k].load_state_dict(state)
+                logger.info("Restored loss state: %s", k)
     logger.info("Resumed from checkpoint %s (epoch %d, val_loss=%.4f)",
                 path, ckpt["epoch"], ckpt["val_loss"])
     return ckpt["epoch"] + 1, ckpt["val_loss"], ckpt.get("global_step", 0)
@@ -1024,8 +1075,12 @@ def main() -> None:
     roi_mask_path = resolve_roi_mask_path(subject)
 
     if preextracted_path.exists():
-        logger.info("Using pre-extracted features: %s", preextracted_path)
-        full_dataset = PreextractedNSDDataset(preextracted_path, index_df, embeddings_df)
+        avg_reps = config["data"].get("average_repetitions", False)
+        logger.info("Using pre-extracted features: %s (avg_reps=%s)", preextracted_path, avg_reps)
+        full_dataset = PreextractedNSDDataset(
+            preextracted_path, index_df, embeddings_df,
+            average_repetitions=avg_reps,
+        )
     else:
         logger.warning(
             "Pre-extracted features not found at %s — falling back to NIfTI loading (slow). "
@@ -1149,6 +1204,28 @@ def main() -> None:
         train_dataset = Subset(full_dataset, indices[:n_train])
         val_dataset = Subset(full_dataset, indices[n_train : n_train + n_val])
 
+    # --- fMRI per-voxel z-scoring (computed on training split only) ---
+    normalize_fmri = config["data"].get("normalize_fmri", False)
+    _zscore_stats_path = None
+    if normalize_fmri and isinstance(full_dataset, PreextractedNSDDataset):
+        _train_idx = train_dataset.indices if hasattr(train_dataset, "indices") else list(range(len(train_dataset)))
+        _train_feat = full_dataset.features[_train_idx]
+        _voxel_mean = _train_feat.mean(axis=0, keepdims=True)
+        _voxel_std = _train_feat.std(axis=0, keepdims=True)
+        _voxel_std[_voxel_std < 1e-6] = 1.0
+        full_dataset.features = ((full_dataset.features - _voxel_mean) / _voxel_std).astype(np.float32)
+        logger.info(
+            "Applied per-voxel z-scoring (%d train trials, %d voxels)",
+            len(_train_idx), full_dataset.features.shape[1],
+        )
+        zscore_dir = output_dir / "zscore_stats"
+        zscore_dir.mkdir(parents=True, exist_ok=True)
+        np.save(zscore_dir / "voxel_mean.npy", _voxel_mean.astype(np.float32))
+        np.save(zscore_dir / "voxel_std.npy", _voxel_std.astype(np.float32))
+        _zscore_stats_path = str(zscore_dir)
+        logger.info("Saved z-scoring stats to %s", zscore_dir)
+        del _train_feat, _voxel_mean, _voxel_std
+
     if preprocessor is not None and preproc_needs_fit:
         n_train = len(train_dataset)
         logger.info("Auto-fitting embedding preprocessor on %d training samples...", n_train)
@@ -1157,8 +1234,15 @@ def main() -> None:
              if c in embeddings_df.columns), None
         )
         if emb_col is not None:
-            all_embs = np.stack(embeddings_df[emb_col].values)
-            train_embeddings = all_embs
+            _train_idx_fit = train_dataset.indices if hasattr(train_dataset, "indices") else list(range(len(train_dataset)))
+            if hasattr(full_dataset, "index_df") and "nsdId" in full_dataset.index_df.columns:
+                train_nsd_ids = set(full_dataset.index_df.iloc[_train_idx_fit]["nsdId"].values)
+                train_emb_mask = embeddings_df["nsdId"].isin(train_nsd_ids)
+                train_embeddings = np.stack(embeddings_df.loc[train_emb_mask, emb_col].values)
+                logger.info("Fitting preprocessor on %d train-only embeddings (not all %d)",
+                            len(train_embeddings), len(embeddings_df))
+            else:
+                train_embeddings = np.stack(embeddings_df[emb_col].values)
         else:
             logger.warning("No embedding column found, fitting on first %d samples via dataset", min(n_train, 1000))
             train_embeddings = np.stack([full_dataset[i][1].numpy() for i in range(min(n_train, 1000))])
@@ -1215,7 +1299,8 @@ def main() -> None:
         resume_path = Path(args.resume)
         if resume_path.exists():
             start_epoch, best_val_loss, global_step = load_checkpoint(
-                resume_path, model, optimizer, lr_sched, scaler, device
+                resume_path, model, optimizer, lr_sched, scaler, device,
+                losses=losses,
             )
         else:
             logger.warning("Resume path not found: %s — training from scratch", resume_path)
@@ -1232,11 +1317,27 @@ def main() -> None:
 
     _vmf_is_log = getattr(model, "vmf_output_is_log", True)
 
+    # --- MixCo config ---
+    _mixco_cfg = config.get("training", {}).get("mixco", {})
+    if _mixco_cfg.get("enabled", False):
+        logger.info("MixCo enabled: alpha=%.2f, temp=%.4f, weight=%.2f",
+                     _mixco_cfg.get("alpha", 0.2),
+                     _mixco_cfg.get("temperature", 0.006),
+                     _mixco_cfg.get("weight", 1.0))
+
     # --- SPCL curriculum schedule ---
     spcl_cfg = config.get("loss", {}).get("vmf_nce_spcl", {})
     spcl_t_start = spcl_cfg.get("initial_curriculum_t", 100.0)
     spcl_t_end = spcl_cfg.get("final_curriculum_t", 1.0)
     spcl_warmup = spcl_cfg.get("warmup_epochs", 10)
+
+    _ckpt_meta = {
+        "normalize_fmri": normalize_fmri,
+        "preprocessing_enabled": config.get("preprocessing", {}).get("enabled", False),
+        "zscore_stats_path": _zscore_stats_path,
+        "average_repetitions": config["data"].get("average_repetitions", False),
+        "split_by_image": config["data"].get("split_by_image", False),
+    }
 
     wall_start = time.time()
 
@@ -1257,6 +1358,7 @@ def main() -> None:
             device, kl_scheduler, queue, preprocessor, global_step,
             grad_accum_steps=grad_accum_steps, scaler=scaler,
             lr_scheduler=lr_sched, config_ref=config, vmf_is_log=_vmf_is_log,
+            mixco_cfg=_mixco_cfg if _mixco_cfg.get("enabled", False) else None,
         )
         logger.info("Train: %s", " | ".join(f"{k}={v:.4f}" for k, v in train_metrics.items()))
 
@@ -1297,6 +1399,7 @@ def main() -> None:
             output_dir / "checkpoint_last.pt", model, optimizer, lr_sched,
             scaler, epoch, val_loss, config, global_step,
             subject=subject, roi_mask_path=str(roi_mask_path),
+            losses=losses, meta=_ckpt_meta,
         )
 
         if val_r1 > best_r1:
@@ -1308,6 +1411,7 @@ def main() -> None:
                 output_dir / "checkpoint_best.pt", model, optimizer, lr_sched,
                 scaler, epoch, val_loss, config, global_step,
                 subject=subject, roi_mask_path=str(roi_mask_path),
+                losses=losses, meta=_ckpt_meta,
             )
             logger.info("New best: R@1=%.4f (val_loss=%.4f)", val_r1, val_loss)
         else:
@@ -1322,6 +1426,7 @@ def main() -> None:
                 output_dir / f"checkpoint_epoch_{epoch}.pt", model, optimizer,
                 lr_sched, scaler, epoch, val_loss, config, global_step,
                 subject=subject, roi_mask_path=str(roi_mask_path),
+                losses=losses, meta=_ckpt_meta,
             )
 
     wall_time = time.time() - wall_start

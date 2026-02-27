@@ -1,0 +1,113 @@
+# B1v4: Probabilistic Gaussian — v4 fundamental fixes
+#
+# Changes from B1v3:
+#   - preprocessing.enabled: false (stop center_pcr destroying CLIP signal)
+#   - data.normalize_fmri: true (per-voxel z-scoring)
+#   - data.average_repetitions: true (SNR boost)
+#   - training.mixco: enabled
+#   - encoder.hidden_dims: [8192, 4096, 2048] (wider MLP)
+#   - decoder.hidden_dims: [2048], decoder.input_dim: 2048
+
+experiment:
+  name: "B1v4_gaussian"
+  description: "v4 Gaussian: z-scored fMRI, no PCR, rep-avg, MixCo, wider MLP"
+  tags: ["baseline", "gaussian", "probabilistic", "queue", "v4"]
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: true
+  seed: 42
+
+model:
+  type: "gaussian"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.15
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.15
+    output_logvar: true
+
+preprocessing:
+  enabled: false
+
+loss:
+  mse:
+    enabled: true
+    weight: 0.1
+  gaussian_nll:
+    enabled: true
+    weight: 1.0
+    logvar_min: -10.0
+    logvar_max: 5.0
+    reduction: "mean"
+  gaussian_nce:
+    enabled: true
+    weight: 2.0
+    temperature: 1.0
+    use_queue: true
+    symmetric: false
+    clamp_logvar: true
+    logvar_min: -10.0
+    logvar_max: 5.0
+  kl:
+    enabled: true
+    weight_start: 0.0
+    weight_end: 0.001
+    anneal_steps: 10000
+    anneal_type: "linear"
+    free_bits: 0.5
+    free_bits_type: "dimension"
+  infonce:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 1
+  mixed_precision: true
+  num_epochs: 300
+  optimizer:
+    type: "adamw"
+    lr: 5.0e-5
+    weight_decay: 0.01
+    betas: [0.9, 0.999]
+  warmup_epochs: 10
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 40
+  mixco:
+    enabled: true
+    alpha: 0.2
+    temperature: 0.006
+    weight: 1.0
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  compute_probabilistic: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/B1v4_gaussian"

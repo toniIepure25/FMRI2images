@@ -1,0 +1,109 @@
+# N1v4: vMF-NCE — v4 fundamental fixes
+#
+# Changes from N1v3:
+#   - preprocessing.enabled: false (stop center_pcr destroying CLIP signal)
+#   - data.normalize_fmri: true (per-voxel z-scoring)
+#   - data.average_repetitions: true (SNR boost)
+#   - training.mixco: enabled
+#   - encoder.hidden_dims: [8192, 4096, 2048] (wider MLP)
+#   - decoder.hidden_dims: [2048], decoder.input_dim: 2048
+
+experiment:
+  name: "N1v4_vmf_nce"
+  description: "v4 vMF-NCE: z-scored fMRI, no PCR, rep-avg, MixCo, wider MLP"
+  tags: ["vmf", "vmf_nce", "queue", "novel", "v4"]
+  parent: "B1v4_gaussian"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: true
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.15
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.15
+    kappa_min: 1.0
+    kappa_max: 50.0
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 0.07
+    use_queue: true
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.05
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 1
+  mixed_precision: true
+  num_epochs: 300
+  optimizer:
+    type: "adamw"
+    lr: 1.0e-4
+    weight_decay: 0.01
+    betas: [0.9, 0.999]
+  warmup_epochs: 10
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 40
+  mixco:
+    enabled: true
+    alpha: 0.2
+    temperature: 0.006
+    weight: 1.0
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  compute_probabilistic: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/N1v4_vmf_nce"

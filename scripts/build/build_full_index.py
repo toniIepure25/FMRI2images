@@ -45,25 +45,35 @@ def build_full_index(subject: str, output_path: Path, max_sessions: int = None):
         subj_num = int(subject)
         subject = f"subj{subj_num:02d}"
     
-    # Initialize S3
-    s3_fs = get_s3_filesystem()
-    csv_loader = CSVLoader(s3_fs)
-    
-    # Load stimulus catalog
+    nsd_root = os.environ.get("NSD_DATA_ROOT", "")
+
+    # --- Load stimulus catalog (local first, S3 fallback) ---
     logger.info("Loading stimulus catalog...")
-    stim_info_path = "natural-scenes-dataset/nsddata/experiments/nsd/nsd_stim_info_merged.csv"
-    stim_catalog = csv_loader.load(stim_info_path)
-    logger.info(f"Loaded {len(stim_catalog)} stimuli")
-    
-    # Create stimulus lookup
+    local_stim = Path(nsd_root) / "nsddata" / "experiments" / "nsd" / "nsd_stim_info_merged.csv" if nsd_root else None
+    if local_stim and local_stim.exists():
+        stim_catalog = pd.read_csv(local_stim)
+        logger.info("Loaded %d stimuli from local: %s", len(stim_catalog), local_stim)
+    else:
+        s3_fs = get_s3_filesystem()
+        csv_loader = CSVLoader(s3_fs)
+        stim_info_path = "natural-scenes-dataset/nsddata/experiments/nsd/nsd_stim_info_merged.csv"
+        stim_catalog = csv_loader.load(stim_info_path)
+        logger.info("Loaded %d stimuli from S3", len(stim_catalog))
+
     stim_lookup = stim_catalog.set_index('nsdId').to_dict('index')
-    
-    # Load REAL behavioral data (responses.tsv)
+
+    # --- Load behavioral data (local first, S3 fallback) ---
     logger.info("Loading behavioral data (responses.tsv)...")
-    behav_path = f"natural-scenes-dataset/nsddata/ppdata/{subject}/behav/responses.tsv"
-    with s3_fs.open(behav_path, 'r') as f:
-        behav_data = pd.read_csv(f, sep='\t')
-    logger.info(f"Loaded {len(behav_data)} trials from behavioral data")
+    local_behav = Path(nsd_root) / "nsddata" / "ppdata" / subject / "behav" / "responses.tsv" if nsd_root else None
+    if local_behav and local_behav.exists():
+        behav_data = pd.read_csv(local_behav, sep='\t')
+        logger.info("Loaded %d trials from local: %s", len(behav_data), local_behav)
+    else:
+        s3_fs = get_s3_filesystem()
+        behav_s3 = f"natural-scenes-dataset/nsddata/ppdata/{subject}/behav/responses.tsv"
+        with s3_fs.open(behav_s3, 'r') as f:
+            behav_data = pd.read_csv(f, sep='\t')
+        logger.info("Loaded %d trials from S3", len(behav_data))
     
     # Rename 73KID to nsdId for consistency
     behav_data = behav_data.rename(columns={'73KID': 'nsdId', 'SESSION': 'session', 'RUN': 'run', 'TRIAL': 'trial_in_run'})
@@ -83,7 +93,6 @@ def build_full_index(subject: str, output_path: Path, max_sessions: int = None):
         session_trials['trial_in_session'] = range(len(session_trials))
         
         # Beta file path for this session — prefer local if NSD_DATA_ROOT is set
-        nsd_root = os.environ.get("NSD_DATA_ROOT", "")
         local_beta = os.path.join(nsd_root, "nsddata_betas", "ppdata", subject,
                                   "func1pt8mm", "betas_fithrf_GLMdenoise_RR",
                                   f"betas_session{session_num:02d}.nii.gz") if nsd_root else ""
@@ -150,6 +159,11 @@ def build_full_index(subject: str, output_path: Path, max_sessions: int = None):
     logger.info(f"  Unique stimuli: {df['nsdId'].nunique()}")
     logger.info(f"  Unique beta files: {df['beta_path'].nunique()}")
     logger.info(f"  Beta index range: {df['beta_index'].min()}-{df['beta_index'].max()}")
+
+    n_shared = int(df.drop_duplicates("nsdId")["shared1000"].sum())
+    logger.info(f"  Shared1000 images: {n_shared}")
+    if n_shared == 0:
+        logger.warning("shared1000 column is all-False — stimulus catalog may be missing this field")
     
     # Check for issues
     max_beta_index_per_session = df.groupby('session')['beta_index'].max()

@@ -1,0 +1,129 @@
+# N2v4: ROI-Tokenized Transformer — v4 fundamental fixes
+#
+# Changes from N2v3:
+#   - preprocessing.enabled: false (stop center_pcr destroying CLIP signal)
+#   - data.normalize_fmri: true (per-voxel z-scoring)
+#   - data.average_repetitions: true (SNR boost)
+#   - training.mixco: enabled
+#   - Note: ROI transformer encoder dims unchanged (d_model=512 is appropriate)
+#   - decoder.hidden_dims: [1024] (keep lighter decoder for transformer)
+
+experiment:
+  name: "N2v4_roi_transformer"
+  description: "v4 ROI Transformer: z-scored fMRI, no PCR, rep-avg, MixCo"
+  tags: ["roi_transformer", "vmf", "vmf_nce", "interpretable", "novel", "v4"]
+  parent: "N1v4_vmf_nce"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: true
+  seed: 42
+
+model:
+  type: "vmf"
+  encoder:
+    encoder_type: "roi_transformer"
+    input_dim: null
+    roi_dims:
+      V1v: 700
+      V1d: 700
+      V2v: 600
+      V2d: 600
+      V3v: 500
+      V3d: 500
+      V3A: 350
+      V3B: 350
+      V4: 500
+      FFA1: 200
+      FFA2: 200
+      PPA: 300
+      EBA: 400
+      OFA: 200
+      OPA: 250
+      RSC: 250
+      nsdgeneral_other: 9374
+    d_model: 512
+    nhead: 8
+    num_layers: 4
+    dropout: 0.15
+    activation: "gelu"
+  decoder:
+    input_dim: 512
+    output_dim: 768
+    hidden_dims: [1024]
+    activation: "gelu"
+    dropout: 0.15
+    log_kappa_min: 0.0
+    log_kappa_max: 4.0
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    dim: 768
+    use_queue: true
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.1
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 1
+  mixed_precision: true
+  num_epochs: 300
+  optimizer:
+    type: "adamw"
+    lr: 5.0e-5
+    weight_decay: 0.01
+    betas: [0.9, 0.95]
+  warmup_epochs: 10
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 40
+  mixco:
+    enabled: true
+    alpha: 0.2
+    temperature: 0.006
+    weight: 1.0
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  compute_probabilistic: true
+  compute_attention_analysis: true
+  compute_roi_ablation: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/N2v4_roi_transformer"

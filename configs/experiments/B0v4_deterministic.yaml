@@ -1,0 +1,101 @@
+# B0v4: Deterministic Baseline — v4 fundamental fixes
+#
+# Changes from B0v3:
+#   - preprocessing.enabled: false (stop center_pcr destroying CLIP signal)
+#   - data.normalize_fmri: true (per-voxel z-scoring, CRITICAL)
+#   - data.average_repetitions: true (SNR boost sqrt(3), MindEye standard)
+#   - training.mixco: enabled with alpha=0.2 (MindEye-style augmentation)
+#   - encoder.hidden_dims: [8192, 4096, 2048] (wider MLP for more capacity)
+#   - decoder.hidden_dims: [2048] (wider decoder to match)
+#   - decoder.input_dim: 2048 (match last encoder hidden layer)
+
+experiment:
+  name: "B0v4_deterministic"
+  description: "v4 deterministic: z-scored fMRI, no PCR, rep-avg, MixCo, wider MLP"
+  tags: ["baseline", "deterministic", "queue", "v4"]
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: true
+  seed: 42
+
+model:
+  type: "deterministic"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.15
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.15
+
+preprocessing:
+  enabled: false
+
+loss:
+  mse:
+    enabled: true
+    weight: 0.1
+  infonce:
+    enabled: true
+    weight: 1.0
+    temperature: 0.07
+    learnable_temperature: true
+    symmetric: true
+    use_queue: true
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 1
+  mixed_precision: true
+  num_epochs: 300
+  optimizer:
+    type: "adamw"
+    lr: 1.0e-4
+    weight_decay: 0.01
+    betas: [0.9, 0.999]
+  warmup_epochs: 10
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 40
+  mixco:
+    enabled: true
+    alpha: 0.2
+    temperature: 0.006
+    weight: 1.0
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 0
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  compute_probabilistic: false
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/B0v4_deterministic"

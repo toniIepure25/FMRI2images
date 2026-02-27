@@ -1132,6 +1132,34 @@ def main():
             Y_test = np.array(Y_list)
             test_nsd_ids = np.array(nsd_list)
             logger.info(f"Loaded {len(X_test)} test features ({X_test.shape[1]} dims) from pre-extracted cache")
+
+            # Apply per-voxel z-scoring if stats are available from training
+            ckpt_config = {}
+            if hasattr(args, "checkpoint") and args.checkpoint:
+                _ckpt_tmp = torch.load(str(args.checkpoint), map_location="cpu", weights_only=False)
+                ckpt_config = _ckpt_tmp.get("config", {})
+                del _ckpt_tmp
+            zscore_dir_candidates = []
+            meta = ckpt_config.get("_meta", {})
+            if meta.get("zscore_stats_path"):
+                zscore_dir_candidates.append(Path(meta["zscore_stats_path"]))
+            exp_name = ckpt_config.get("experiment", {}).get("name", "")
+            if exp_name and args.subject:
+                zscore_dir_candidates.append(
+                    Path("experimental_results") / exp_name / args.subject / "zscore_stats"
+                )
+            for zdir in zscore_dir_candidates:
+                mean_path = zdir / "voxel_mean.npy"
+                std_path = zdir / "voxel_std.npy"
+                if mean_path.exists() and std_path.exists():
+                    vmean = np.load(str(mean_path))
+                    vstd = np.load(str(std_path))
+                    X_test = ((X_test - vmean) / vstd).astype(np.float32)
+                    logger.info(f"Applied per-voxel z-scoring from {zdir}")
+                    break
+            else:
+                if ckpt_config.get("data", {}).get("normalize_fmri", False):
+                    logger.warning("normalize_fmri=true but z-scoring stats not found — test features are NOT z-scored")
         else:
             logger.warning("Pre-extracted features not found at %s — falling back to NIfTI loading", preextracted_path)
             preprocessor = None

@@ -23,6 +23,7 @@ set -euo pipefail
 
 SUBJECTS="${SUBJECTS:-subj01 subj02 subj05 subj07}"
 GPU="${GPU:-0}"
+VERSION="${VERSION:-v4}"
 SKIP_DATA="${SKIP_DATA:-false}"
 SKIP_TRAIN="${SKIP_TRAIN:-false}"
 SKIP_RECON="${SKIP_RECON:-false}"
@@ -36,6 +37,7 @@ while [[ $# -gt 0 ]]; do
     case $1 in
         --subjects)     SUBJECTS="$2"; shift 2 ;;
         --gpu)          GPU="$2"; shift 2 ;;
+        --version)      VERSION="$2"; shift 2 ;;
         --skip-data)    SKIP_DATA=true; shift ;;
         --skip-train)   SKIP_TRAIN=true; shift ;;
         --skip-recon)   SKIP_RECON=true; shift ;;
@@ -47,10 +49,24 @@ done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-EXPERIMENT_ORDER=(B0_deterministic B1_gaussian N1_vmf_nce N2_roi_transformer N3_roi_dcf N4_full_system)
+declare -A VERSION_EXPERIMENTS=(
+    [v1]="B0_deterministic B1_gaussian N1_vmf_nce N2_roi_transformer N3_roi_dcf N4_full_system"
+    [v2]="B0v2_deterministic B1v2_gaussian N1v2_vmf_nce N2v2_roi_transformer N3v2_roi_dcf N4v2_full_system"
+    [v3]="B0v3_deterministic B1v3_gaussian N1v3_vmf_nce N2v3_roi_transformer N3v3_roi_dcf N4v3_full_system"
+    [v4]="B0v4_deterministic B1v4_gaussian N1v4_vmf_nce N2v4_roi_transformer N3v4_roi_dcf N4v4_full_system"
+)
+
+if [[ -z "${VERSION_EXPERIMENTS[$VERSION]+x}" ]]; then
+    echo "ERROR: Unknown version '$VERSION'. Use v1, v2, v3, or v4."
+    exit 1
+fi
+
+read -ra EXPERIMENT_ORDER <<< "${VERSION_EXPERIMENTS[$VERSION]}"
 
 echo "=============================================="
-echo "FULL ABLATION PIPELINE"
+echo "FULL ABLATION PIPELINE (${VERSION})"
+echo "  Version: ${VERSION}"
+echo "  Experiments: ${EXPERIMENT_ORDER[*]}"
 echo "  Subjects: ${SUBJECTS}"
 echo "  GPU: ${GPU}"
 echo "  Skip data: ${SKIP_DATA}"

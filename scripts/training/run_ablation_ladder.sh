@@ -23,7 +23,7 @@ set -euo pipefail
 
 SUBJECTS="${SUBJECTS:-subj01 subj02 subj05 subj07}"
 GPU="${GPU:-0}"
-START="${START:-B0v3}"
+START="${START:-B0v4}"
 CONFIG_DIR="configs/experiments"
 SCRIPT="scripts/training/train_unified.py"
 
@@ -38,7 +38,7 @@ done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-EXPERIMENT_ORDER=(B0v3 B1v3 N1v3 N2v3 N3v3 N4v3)
+EXPERIMENT_ORDER=(B0v4 B1v4 N1v4 N2v4 N3v4 N4v4)
 
 declare -A CONFIGS=(
     [B0]="B0_deterministic.yaml|Strong deterministic baseline (MLP + PCR + queue + MSE + InfoNCE)"
@@ -59,6 +59,12 @@ declare -A CONFIGS=(
     [N2v3]="N2v3_roi_transformer.yaml|v3: batch 64, no NLL, wider kappa, image split"
     [N3v3]="N3v3_roi_dcf.yaml|v3: batch 64, lighter reg, image split, 300 epochs"
     [N4v3]="N4v3_full_system.yaml|v3: batch 64, lighter reg, faster SPCL, image split"
+    [B0v4]="B0v4_deterministic.yaml|v4: z-scored fMRI, no PCR, rep-avg, MixCo, wider MLP"
+    [B1v4]="B1v4_gaussian.yaml|v4: z-scored fMRI, no PCR, rep-avg, MixCo, wider MLP"
+    [N1v4]="N1v4_vmf_nce.yaml|v4: z-scored fMRI, no PCR, rep-avg, MixCo, wider MLP"
+    [N2v4]="N2v4_roi_transformer.yaml|v4: z-scored fMRI, no PCR, rep-avg, MixCo"
+    [N3v4]="N3v4_roi_dcf.yaml|v4: z-scored fMRI, no PCR, rep-avg, MixCo"
+    [N4v4]="N4v4_full_system.yaml|v4: z-scored fMRI, no PCR, rep-avg, MixCo"
 )
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"

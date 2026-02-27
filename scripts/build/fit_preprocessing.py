@@ -11,9 +11,7 @@ import logging
 from pathlib import Path
 import sys
 
-# Add project root to path
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
+import numpy as np
 
 from fmri2img.data.preprocess import NSDPreprocessor
 
@@ -112,15 +110,22 @@ def main():
         import pandas as pd
         index_df = pd.read_parquet(args.index_file)
         
-        # Check if 'split' column exists, otherwise create simple train/val/test split
+        # Create image-level split to prevent data leakage across repetitions
         if 'split' not in index_df.columns:
-            logger.warning("Index doesn't have 'split' column, creating 80/10/10 train/val/test split")
-            n = len(index_df)
-            train_end = int(0.8 * n)
-            val_end = int(0.9 * n)
-            index_df['split'] = 'test'
-            index_df.loc[:train_end-1, 'split'] = 'train'
-            index_df.loc[train_end:val_end-1, 'split'] = 'val'
+            logger.warning("Index lacks 'split' column — creating image-level 80/10/10 split")
+            unique_ids = index_df["nsdId"].unique()
+            rng = np.random.RandomState(42)
+            rng.shuffle(unique_ids)
+            n_img = len(unique_ids)
+            train_end = int(0.8 * n_img)
+            val_end = int(0.9 * n_img)
+            train_ids = set(unique_ids[:train_end])
+            val_ids = set(unique_ids[train_end:val_end])
+            index_df["split"] = index_df["nsdId"].apply(
+                lambda x: "train" if x in train_ids else ("val" if x in val_ids else "test")
+            )
+            logger.info("Image-level split: %d train / %d val / %d test images",
+                        train_end, val_end - train_end, n_img - val_end)
         
         train_df = index_df[index_df['split'] == 'train'].copy()
         
@@ -155,7 +160,7 @@ def main():
                     img = self._get_s3_loader().load(beta_path)
                 else:
                     img = nib.load(beta_path)
-                self._cached_data = img.get_fdata()
+                self._cached_data = img.get_fdata(dtype=np.float32)
                 self._cached_path = beta_path
                 logger.info(f"  Loaded beta file: {Path(beta_path).name} "
                             f"({self._cached_data.shape})")

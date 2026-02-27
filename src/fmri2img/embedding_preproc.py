@@ -29,6 +29,8 @@ class PreprocessorArtifacts:
     whitening_matrix: Optional[np.ndarray] = None
     mode: str = "center_pcr"
     k_components: Optional[int] = None
+    whiten_eps: float = 1e-5
+    seed: int = 42
     
     def __post_init__(self):
         """Validate artifacts."""
@@ -119,6 +121,8 @@ class EmbeddingPreprocessor:
                 pca_explained_variance=pca_explained_variance,
                 mode=self.mode,
                 k_components=self.k_components,
+                whiten_eps=self.whiten_eps,
+                seed=self.seed,
             )
             
         elif self.mode == "center_whiten":
@@ -137,6 +141,8 @@ class EmbeddingPreprocessor:
                 mean=mean,
                 whitening_matrix=whitening_matrix,
                 mode=self.mode,
+                whiten_eps=self.whiten_eps,
+                seed=self.seed,
             )
         else:
             raise ValueError(f"Unknown mode: {self.mode}")
@@ -235,8 +241,8 @@ class EmbeddingPreprocessor:
         instance._is_fitted = True
         instance.mode = instance.artifacts.mode
         instance.k_components = instance.artifacts.k_components
-        instance.whiten_eps = 1e-5
-        instance.seed = 42
+        instance.whiten_eps = getattr(instance.artifacts, "whiten_eps", 1e-5)
+        instance.seed = getattr(instance.artifacts, "seed", 42)
         logger.info(f"Loaded preprocessor artifacts from {path}")
         return instance
     

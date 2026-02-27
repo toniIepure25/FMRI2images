@@ -165,14 +165,25 @@ def _save_grid(imgs: List[Path], out_fig: Path) -> None:
     grid.save(out_fig)
 
 
+_EMB_COL_CANDIDATES = ["clip_embedding", "embedding", "final", "clip512"]
+
+
 def _load_cache(cache_path: Path) -> pd.DataFrame:
     if not cache_path.exists():
         raise FileNotFoundError(f"CLIP cache not found: {cache_path}")
     df = pd.read_parquet(cache_path)
-    if "embedding" in df.columns:
-        df["clip512"] = df["embedding"]
-    if "clip512" not in df.columns:
-        raise ValueError("CLIP cache missing embedding column (clip512 or embedding)")
+    resolved = None
+    for col in _EMB_COL_CANDIDATES:
+        if col in df.columns:
+            resolved = col
+            break
+    if resolved is None:
+        raise ValueError(
+            f"CLIP cache missing embedding column. Tried: {_EMB_COL_CANDIDATES}. "
+            f"Available columns: {list(df.columns)}"
+        )
+    if resolved != "clip512":
+        df["clip512"] = df[resolved]
     return df
 
 

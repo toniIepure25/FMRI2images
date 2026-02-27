@@ -12,7 +12,7 @@ export
 # ============================================================================
 
 .PHONY: help setup preflight doctor smoke
-.PHONY: prepare data models index preprocess preextract clip-cache build-clip-cache
+.PHONY: prepare data models index preprocess preextract clip-cache
 .PHONY: train ablation
 .PHONY: eval-recon eval-shared1000 summarize-shared1000 compare-evals
 .PHONY: test test-quick
@@ -114,6 +114,9 @@ index:
 
 preprocess:
 	@mkdir -p $(CACHE_ROOT)/.markers
+	@if [ ! -f "data/indices/nsd_index/subject=$(SUBJECT)/index.parquet" ]; then \
+		echo "ERROR: index not found for $(SUBJECT). Run: make index SUBJECT=$(SUBJECT)"; exit 1; \
+	fi
 	@if [ -f "$(CACHE_ROOT)/.markers/preprocess_$(SUBJECT).ok" ]; then \
 		echo "preprocess: already prepared ($(CACHE_ROOT)/.markers/preprocess_$(SUBJECT).ok)"; \
 	else \
@@ -129,6 +132,9 @@ fit-preproc: preprocess
 
 preextract:
 	@mkdir -p $(CACHE_ROOT)/.markers
+	@if [ ! -f "data/indices/nsd_index/subject=$(SUBJECT)/index.parquet" ]; then \
+		echo "ERROR: index not found for $(SUBJECT). Run: make index SUBJECT=$(SUBJECT)"; exit 1; \
+	fi
 	@if [ -f "$(CACHE_ROOT)/.markers/preextract_$(SUBJECT).ok" ]; then \
 		echo "preextract: already done ($(CACHE_ROOT)/.markers/preextract_$(SUBJECT).ok)"; \
 	else \
@@ -140,12 +146,8 @@ preextract:
 		date -Iseconds > "$(CACHE_ROOT)/.markers/preextract_$(SUBJECT).ok"; \
 	fi
 
-clip-cache: build-clip-cache
-	@mkdir -p $(CACHE_ROOT)/.markers
-	@date -Iseconds > "$(CACHE_ROOT)/.markers/clip_cache_$(SUBJECT).ok"
-
-build-clip-cache:
-	@mkdir -p outputs/clip_cache
+clip-cache:
+	@mkdir -p outputs/clip_cache $(CACHE_ROOT)/.markers
 	@if [ -f "$${CACHE:-outputs/clip_cache/clip.parquet}" ]; then \
 		echo "clip-cache: already present ($${CACHE:-outputs/clip_cache/clip.parquet})"; \
 	else \
@@ -156,7 +158,8 @@ build-clip-cache:
 			--cache $${CACHE:-outputs/clip_cache/clip.parquet} \
 			--batch $${BATCH:-128} \
 			--device $(DEVICE) \
-			$${LIMIT:+--limit $$LIMIT}; \
+			$${LIMIT:+--limit $$LIMIT} && \
+		date -Iseconds > "$(CACHE_ROOT)/.markers/clip_cache_$(SUBJECT).ok"; \
 	fi
 
 # ============================================================================

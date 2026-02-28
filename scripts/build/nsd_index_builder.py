@@ -228,7 +228,12 @@ class NSDIndexBuilder:
 
             nsd_col = find_nsdid_col(design)
             design = design[design[nsd_col].notna()].copy()
-            design["nsdId"] = design[nsd_col].astype(int)
+            raw_ids = design[nsd_col].astype(int)
+            # 73KID in responses.tsv is 1-indexed; nsdId must be 0-indexed (0–72999)
+            if nsd_col.upper() == "73KID" or raw_ids.max() >= 73000:
+                design["nsdId"] = raw_ids - 1
+            else:
+                design["nsdId"] = raw_ids
             design["trial_in_session"] = np.arange(len(design))
 
             beta_path = self.layout.beta_path(subject_id, session, full_url=True)

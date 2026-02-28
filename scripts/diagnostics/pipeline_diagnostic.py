@@ -176,17 +176,16 @@ def check_1_2_oracle_retrieval(
     if len(val_indices) < 2:
         return CheckResult(name, "SKIP", f"Only {len(val_indices)} val trials", {})
 
-    # If average_repetitions is set, average per unique nsdId
-    avg_reps = data_cfg.get("average_repetitions", False)
-
-    # Collect GT embeddings for val set
+    # Oracle test must use unique images (one embedding per nsdId) regardless
+    # of average_repetitions config, because duplicate identical embeddings
+    # create ties that make R@1 = 1/num_repetitions instead of 100%.
     val_embeddings = []
     val_nsd_ids_used = []
     seen_nsd = set()
 
     for vi in val_indices:
         nsd_id = int(_idx.iloc[vi]["nsdId"])
-        if avg_reps and nsd_id in seen_nsd:
+        if nsd_id in seen_nsd:
             continue
         seen_nsd.add(nsd_id)
 

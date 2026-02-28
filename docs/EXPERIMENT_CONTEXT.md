@@ -486,9 +486,15 @@ Key paths on JupyterHub:
 
 ## 11. Key Observations and Open Questions
 
-### 11.1 The Core Problem
+### 11.1 The Core Problem — ROOT CAUSE FOUND (2026-02-28)
 
-Across v1, v2, v3, and early v4 results, **all models achieve R@1 barely above chance** (0.03-0.6% on galleries where chance is 0.03-0.10%). MindEye achieves 93%+ R@1 on the same data with a simpler architecture (MLP + InfoNCE + MSE). Something fundamental is preventing the model from learning the fMRI -> CLIP mapping.
+**Root cause: off-by-one in `build_full_index.py`.** The NSD behavioral file `responses.tsv` uses `73KID` (1-indexed, 1–73000), but the index builder renamed it directly to `nsdId` without subtracting 1. Since `nsdId` is 0-indexed (0–72999) everywhere else (imgBrick, stim_info_merged.csv), every fMRI trial was paired with the CLIP embedding of the WRONG image (shifted by +1 in imgBrick). Adjacent NSD images are unrelated COCO images, so this created effectively random fMRI-CLIP pairings.
+
+**Evidence**: `pipeline_diagnostic.py` check 1.2 showed Oracle R@1 = 33.33% (not 100%); training crashed on `nsdId=73000` (out of range, max valid = 72999).
+
+**Fix applied**: `behav_data['nsdId'] = behav_data['73KID'] - 1` in `build_full_index.py` + range validation. Same fix in `nsd_index_builder.py`. Index and CLIP cache must be rebuilt on JupyterHub.
+
+Previous diagnosis (before root cause found): Across v1, v2, v3, and early v4 results, all models achieved R@1 barely above chance (0.03-0.6% on galleries where chance is 0.03-0.10%). MindEye achieves 93%+ R@1 on the same data with a simpler architecture (MLP + InfoNCE + MSE).
 
 ### 11.2 What We've Ruled Out
 

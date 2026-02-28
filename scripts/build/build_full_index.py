@@ -75,8 +75,10 @@ def build_full_index(subject: str, output_path: Path, max_sessions: int = None):
             behav_data = pd.read_csv(f, sep='\t')
         logger.info("Loaded %d trials from S3", len(behav_data))
     
-    # Rename 73KID to nsdId for consistency
-    behav_data = behav_data.rename(columns={'73KID': 'nsdId', 'SESSION': 'session', 'RUN': 'run', 'TRIAL': 'trial_in_run'})
+    # 73KID in responses.tsv is 1-indexed (1–73000).
+    # nsdId throughout the codebase (imgBrick, stim_info_merged.csv) is 0-indexed (0–72999).
+    behav_data['nsdId'] = behav_data['73KID'] - 1
+    behav_data = behav_data.rename(columns={'SESSION': 'session', 'RUN': 'run', 'TRIAL': 'trial_in_run'})
     
     # Filter to requested sessions
     if max_sessions:
@@ -165,6 +167,15 @@ def build_full_index(subject: str, output_path: Path, max_sessions: int = None):
     if n_shared == 0:
         logger.warning("shared1000 column is all-False — stimulus catalog may be missing this field")
     
+    # Validate nsdId range (must be 0-indexed: 0–72999)
+    nsd_min, nsd_max = df['nsdId'].min(), df['nsdId'].max()
+    logger.info(f"  nsdId range: {nsd_min}-{nsd_max}")
+    if nsd_min < 0 or nsd_max >= 73000:
+        raise ValueError(
+            f"nsdId out of range [{nsd_min}, {nsd_max}] — must be 0–72999. "
+            f"Check that 73KID (1-indexed) was converted to nsdId (0-indexed)."
+        )
+
     # Check for issues
     max_beta_index_per_session = df.groupby('session')['beta_index'].max()
     if (max_beta_index_per_session >= 750).any():

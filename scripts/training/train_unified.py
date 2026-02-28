@@ -1374,6 +1374,11 @@ def main() -> None:
     )
     logger.info("Train: %d | Val: %d", len(train_dataset), len(val_dataset))
 
+    # Build val nsdId array for image-level retrieval (dedup across repetitions)
+    _val_nsd_ids = None
+    if hasattr(val_dataset, "indices") and hasattr(full_dataset, "index_df"):
+        _val_nsd_ids = full_dataset.index_df.iloc[list(val_dataset.indices)]["nsdId"].values
+
     # --- AMP ---
     grad_accum_steps = config["training"].get("gradient_accumulation_steps", 16)
     use_amp = config["training"].get("mixed_precision", False) and device.startswith("cuda")
@@ -1518,17 +1523,44 @@ def main() -> None:
         logger.info("Val:   %s", " | ".join(f"{k}={v:.4f}" for k, v in val_metrics.items()))
 
         retrieval = _compute_retrieval(val_preds, val_gts, ks=(1, 5, 10))
-        val_metrics["r@1"] = retrieval["top1_accuracy"]
-        val_metrics["r@5"] = retrieval["top5_accuracy"]
-        val_metrics["r@10"] = retrieval["top10_accuracy"]
-        val_metrics["median_rank"] = retrieval["median_rank"]
-        val_metrics["mrr"] = retrieval["mrr"]
-        logger.info(
-            "Retrieval: R@1=%.4f  R@5=%.4f  R@10=%.4f  MedR=%.1f  MRR=%.4f  (N=%d)",
-            retrieval["top1_accuracy"], retrieval["top5_accuracy"],
-            retrieval["top10_accuracy"], retrieval["median_rank"],
-            retrieval["mrr"], len(val_preds),
-        )
+        val_metrics["r@1_trial"] = retrieval["top1_accuracy"]
+        val_metrics["r@5_trial"] = retrieval["top5_accuracy"]
+        val_metrics["r@10_trial"] = retrieval["top10_accuracy"]
+
+        # Image-level retrieval: average predictions per unique nsdId to remove
+        # repetition-induced ties and produce metrics comparable to MindEye.
+        if _val_nsd_ids is not None:
+            unique_ids = np.unique(_val_nsd_ids)
+            img_preds = np.zeros((len(unique_ids), val_preds.shape[1]), dtype=np.float32)
+            img_gts = np.zeros((len(unique_ids), val_gts.shape[1]), dtype=np.float32)
+            for i, uid in enumerate(unique_ids):
+                mask = _val_nsd_ids == uid
+                img_preds[i] = val_preds[mask].mean(axis=0)
+                img_gts[i] = val_gts[mask][0]
+            img_retrieval = _compute_retrieval(img_preds, img_gts, ks=(1, 5, 10))
+            val_metrics["r@1"] = img_retrieval["top1_accuracy"]
+            val_metrics["r@5"] = img_retrieval["top5_accuracy"]
+            val_metrics["r@10"] = img_retrieval["top10_accuracy"]
+            val_metrics["median_rank"] = img_retrieval["median_rank"]
+            val_metrics["mrr"] = img_retrieval["mrr"]
+            logger.info(
+                "Retrieval: R@1=%.4f  R@5=%.4f  R@10=%.4f  MedR=%.1f  MRR=%.4f  (N=%d img, %d trial)",
+                img_retrieval["top1_accuracy"], img_retrieval["top5_accuracy"],
+                img_retrieval["top10_accuracy"], img_retrieval["median_rank"],
+                img_retrieval["mrr"], len(unique_ids), len(val_preds),
+            )
+        else:
+            val_metrics["r@1"] = retrieval["top1_accuracy"]
+            val_metrics["r@5"] = retrieval["top5_accuracy"]
+            val_metrics["r@10"] = retrieval["top10_accuracy"]
+            val_metrics["median_rank"] = retrieval["median_rank"]
+            val_metrics["mrr"] = retrieval["mrr"]
+            logger.info(
+                "Retrieval: R@1=%.4f  R@5=%.4f  R@10=%.4f  MedR=%.1f  MRR=%.4f  (N=%d)",
+                retrieval["top1_accuracy"], retrieval["top5_accuracy"],
+                retrieval["top10_accuracy"], retrieval["median_rank"],
+                retrieval["mrr"], len(val_preds),
+            )
 
         metrics_logger.log_epoch(epoch, optimizer.param_groups[0]["lr"], train_metrics, val_metrics)
 

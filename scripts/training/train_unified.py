@@ -214,7 +214,7 @@ class NSDDataset(Dataset):
 
         if "nsdId" in embeddings_df.columns:
             self.embedding_lookup = {
-                row["nsdId"]: idx for idx, row in embeddings_df.iterrows()
+                row["nsdId"]: i for i, (_, row) in enumerate(embeddings_df.iterrows())
             }
         else:
             self.embedding_lookup = {i: i for i in range(len(embeddings_df))}
@@ -279,7 +279,12 @@ class NSDDataset(Dataset):
             fmri = beta_vol.flatten()
 
         nsdId = row["nsdId"]
-        emb_idx = self.embedding_lookup.get(nsdId, nsdId % len(self.embeddings_df))
+        emb_idx = self.embedding_lookup.get(nsdId)
+        if emb_idx is None:
+            raise KeyError(
+                f"nsdId={nsdId} not found in CLIP cache "
+                f"({len(self.embedding_lookup)} entries)"
+            )
 
         if "final" in self.embeddings_df.columns:
             embedding = self.embeddings_df.iloc[emb_idx]["final"]
@@ -348,7 +353,7 @@ class PreextractedNSDDataset(Dataset):
 
         if "nsdId" in embeddings_df.columns:
             self.embedding_lookup = {
-                row["nsdId"]: idx for idx, row in embeddings_df.iterrows()
+                row["nsdId"]: i for i, (_, row) in enumerate(embeddings_df.iterrows())
             }
         else:
             self.embedding_lookup = {i: i for i in range(len(embeddings_df))}
@@ -365,7 +370,12 @@ class PreextractedNSDDataset(Dataset):
         fmri = self.features[idx]
 
         nsdId = self.index_df.iloc[idx]["nsdId"]
-        emb_idx = self.embedding_lookup.get(nsdId, nsdId % len(self.embeddings_df))
+        emb_idx = self.embedding_lookup.get(nsdId)
+        if emb_idx is None:
+            raise KeyError(
+                f"nsdId={nsdId} not found in CLIP cache "
+                f"({len(self.embedding_lookup)} entries)"
+            )
 
         if "final" in self.embeddings_df.columns:
             embedding = self.embeddings_df.iloc[emb_idx]["final"]

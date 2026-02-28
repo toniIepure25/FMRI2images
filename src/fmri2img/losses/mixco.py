@@ -61,7 +61,7 @@ def mixco_nce_loss(
     pred: torch.Tensor,
     target: torch.Tensor,
     soft_labels: torch.Tensor,
-    temperature: float = 0.006,
+    temperature: float = 0.07,
 ) -> torch.Tensor:
     """Compute soft contrastive loss with MixCo labels.
 
@@ -69,7 +69,7 @@ def mixco_nce_loss(
         pred: (B, D) predicted CLIP embeddings from model
         target: (B, D) mixed CLIP target embeddings
         soft_labels: (B, B) soft target matrix
-        temperature: Contrastive temperature (MindEye uses 0.006)
+        temperature: Contrastive temperature (aligned with InfoNCE default)
 
     Returns:
         Scalar loss value

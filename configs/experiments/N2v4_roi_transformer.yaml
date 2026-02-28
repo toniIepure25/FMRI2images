@@ -110,7 +110,7 @@ training:
   mixco:
     enabled: true
     alpha: 0.2
-    temperature: 0.006
+    temperature: 0.07
     weight: 1.0
 
 inference:

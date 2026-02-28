@@ -3,7 +3,7 @@
 # Changes from B0v3:
 #   - preprocessing.enabled: false (stop center_pcr destroying CLIP signal)
 #   - data.normalize_fmri: true (per-voxel z-scoring, CRITICAL)
-#   - data.average_repetitions: true (SNR boost sqrt(3), MindEye standard)
+#   - data.average_repetitions: false (train on individual trials, 3x more samples)
 #   - training.mixco: enabled with alpha=0.2 (MindEye-style augmentation)
 #   - encoder.hidden_dims: [8192, 4096, 2048] (wider MLP for more capacity)
 #   - decoder.hidden_dims: [2048] (wider decoder to match)
@@ -11,7 +11,7 @@
 
 experiment:
   name: "B0v4_deterministic"
-  description: "v4 deterministic: z-scored fMRI, no PCR, rep-avg, MixCo, wider MLP"
+  description: "v4 deterministic: z-scored fMRI, no PCR, individual trials, MixCo, wider MLP"
   tags: ["baseline", "deterministic", "queue", "v4"]
 
 data:
@@ -23,7 +23,8 @@ data:
   split_by_image: true
   exclude_shared1000: true
   normalize_fmri: true
-  average_repetitions: true
+  average_repetitions: false
+  zscore_mode: "per_session"
   seed: 42
 
 model:
@@ -56,6 +57,12 @@ loss:
     learnable_temperature: true
     symmetric: true
     use_queue: true
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.07
+    use_queue: true
+    symmetric: true
   gaussian_nll:
     enabled: false
   gaussian_nce:

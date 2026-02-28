@@ -3,12 +3,12 @@
 # Changes from N3v3:
 #   - preprocessing.enabled: false (stop center_pcr destroying CLIP signal)
 #   - data.normalize_fmri: true (per-voxel z-scoring)
-#   - data.average_repetitions: true (SNR boost)
+#   - data.average_repetitions: false (train on individual trials, 3x more samples)
 #   - training.mixco: enabled
 
 experiment:
   name: "N3v4_roi_dcf"
-  description: "v4 ROI-DCF: z-scored fMRI, no PCR, rep-avg, MixCo"
+  description: "v4 ROI-DCF: z-scored fMRI, no PCR, individual trials, MixCo"
   tags: ["roi_dcf", "vmf", "vmf_nce", "multi_task", "interpretable", "novel", "v4"]
   parent: "N2v4_roi_transformer"
 
@@ -21,7 +21,8 @@ data:
   split_by_image: true
   exclude_shared1000: true
   normalize_fmri: true
-  average_repetitions: true
+  average_repetitions: false
+  zscore_mode: "per_session"
   seed: 42
 
 model:
@@ -77,6 +78,13 @@ loss:
   vmf_nce_multitask:
     enabled: true
     lambda_aux: 0.5
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.07
+    use_queue: true
+    symmetric: true
 
   vmf_nll:
     enabled: false

@@ -56,6 +56,7 @@ from fmri2img.losses.vmf_nce import (
 )
 from fmri2img.training.kl_schedule import KLScheduler
 from fmri2img.losses.mixco import mixco_augment, mixco_nce_loss
+from fmri2img.losses.softclip import SoftCLIPLoss
 from fmri2img.eval.embedding_eval import compute_retrieval_metrics as _compute_retrieval
 
 logging.basicConfig(
@@ -568,6 +569,18 @@ def setup_losses(config: Dict[str, Any], device: str,
         )
         logger.info("vMF-NCE-SPCL loss enabled (curriculum_t=%.1f)", c.get("initial_curriculum_t", 100.0))
 
+    # --- SoftCLIP knowledge distillation ---
+    if loss_cfg.get("softclip", {}).get("enabled", False):
+        c = loss_cfg["softclip"]
+        use_q = c.get("use_queue", False) and queue is not None
+        losses["softclip"] = SoftCLIPLoss(
+            tau=c.get("tau", 0.07),
+            use_queue=use_q,
+            symmetric=c.get("symmetric", True),
+        )
+        logger.info("SoftCLIP loss enabled (tau=%.3f, queue=%s, symmetric=%s)",
+                     c.get("tau", 0.07), use_q, c.get("symmetric", True))
+
     # --- N3/N4: MultiTask vMF-NCE ---
     if loss_cfg.get("vmf_nce_multitask", {}).get("enabled", False):
         c = loss_cfg["vmf_nce_multitask"]
@@ -702,6 +715,12 @@ def train_epoch(
                 l = losses["infonce"](pred, gt_embedding, queue=queue)
                 total_loss = total_loss + loss_weights.get("infonce", 1.0) * l
                 batch_metrics["infonce"] = l.item()
+
+            # --- SoftCLIP knowledge distillation (works for all model types) ---
+            if "softclip" in losses:
+                l = losses["softclip"](pred, gt_embedding, queue=queue)
+                total_loss = total_loss + loss_weights.get("softclip", 1.0) * l
+                batch_metrics["softclip"] = l.item()
 
             # --- Gaussian losses ---
             if "gaussian_nll" in losses and is_gaussian:
@@ -884,6 +903,11 @@ def validate(
                 l = losses["infonce"](pred, gt_embedding, queue=None)
                 total_loss = total_loss + loss_weights.get("infonce", 1.0) * l
                 bm["infonce"] = l.item()
+
+            if "softclip" in losses:
+                l = losses["softclip"](pred, gt_embedding, queue=None)
+                total_loss = total_loss + loss_weights.get("softclip", 1.0) * l
+                bm["softclip"] = l.item()
 
             if "gaussian_nll" in losses and is_gaussian:
                 l = losses["gaussian_nll"](pred, aux, gt_embedding)
@@ -1216,25 +1240,79 @@ def main() -> None:
 
     # --- fMRI per-voxel z-scoring (computed on training split only) ---
     normalize_fmri = config["data"].get("normalize_fmri", False)
+    zscore_mode = config["data"].get("zscore_mode", "global")
     _zscore_stats_path = None
     if normalize_fmri and isinstance(full_dataset, PreextractedNSDDataset):
         _train_idx = train_dataset.indices if hasattr(train_dataset, "indices") else list(range(len(train_dataset)))
-        _train_feat = full_dataset.features[_train_idx]
-        _voxel_mean = _train_feat.mean(axis=0, keepdims=True)
-        _voxel_std = _train_feat.std(axis=0, keepdims=True)
-        _voxel_std[_voxel_std < 1e-6] = 1.0
-        full_dataset.features = ((full_dataset.features - _voxel_mean) / _voxel_std).astype(np.float32)
-        logger.info(
-            "Applied per-voxel z-scoring (%d train trials, %d voxels)",
-            len(_train_idx), full_dataset.features.shape[1],
-        )
         zscore_dir = output_dir / "zscore_stats"
         zscore_dir.mkdir(parents=True, exist_ok=True)
-        np.save(zscore_dir / "voxel_mean.npy", _voxel_mean.astype(np.float32))
-        np.save(zscore_dir / "voxel_std.npy", _voxel_std.astype(np.float32))
+
+        if zscore_mode == "per_session" and "session" in full_dataset.index_df.columns:
+            # Per-session z-scoring: remove session-level drift (scanner drift,
+            # head position changes) that spans ~1 year of data collection.
+            # Stats are computed from training samples within each session only.
+            sessions = full_dataset.index_df["session"].values
+            unique_sessions = np.unique(sessions)
+            train_set = set(_train_idx)
+
+            # Pre-compute global training stats as fallback
+            _all_train_feat = full_dataset.features[_train_idx]
+            _global_mean = _all_train_feat.mean(axis=0, keepdims=True)
+            _global_std = _all_train_feat.std(axis=0, keepdims=True)
+            _global_std[_global_std < 1e-6] = 1.0
+            del _all_train_feat
+
+            n_fallback = 0
+            for sess in unique_sessions:
+                sess_mask = sessions == sess
+                sess_indices = np.where(sess_mask)[0]
+                sess_train_indices = [i for i in sess_indices if i in train_set]
+
+                if len(sess_train_indices) >= 2:
+                    sess_train_feat = full_dataset.features[sess_train_indices]
+                    sess_mean = sess_train_feat.mean(axis=0, keepdims=True)
+                    sess_std = sess_train_feat.std(axis=0, keepdims=True)
+                    sess_std[sess_std < 1e-6] = 1.0
+                else:
+                    sess_mean = _global_mean
+                    sess_std = _global_std
+                    n_fallback += 1
+
+                full_dataset.features[sess_mask] = (
+                    (full_dataset.features[sess_mask] - sess_mean) / sess_std
+                ).astype(np.float32)
+
+                np.save(zscore_dir / f"session_{int(sess)}_mean.npy", sess_mean.astype(np.float32))
+                np.save(zscore_dir / f"session_{int(sess)}_std.npy", sess_std.astype(np.float32))
+
+            np.save(zscore_dir / "global_fallback_mean.npy", _global_mean.astype(np.float32))
+            np.save(zscore_dir / "global_fallback_std.npy", _global_std.astype(np.float32))
+            logger.info(
+                "Applied per-session z-scoring (%d sessions, %d fallback, %d train trials, %d voxels)",
+                len(unique_sessions), n_fallback, len(_train_idx), full_dataset.features.shape[1],
+            )
+            del _global_mean, _global_std
+        else:
+            if zscore_mode == "per_session":
+                logger.warning(
+                    "zscore_mode='per_session' requested but no 'session' column in index_df — "
+                    "falling back to global z-scoring"
+                )
+            _train_feat = full_dataset.features[_train_idx]
+            _voxel_mean = _train_feat.mean(axis=0, keepdims=True)
+            _voxel_std = _train_feat.std(axis=0, keepdims=True)
+            _voxel_std[_voxel_std < 1e-6] = 1.0
+            full_dataset.features = ((full_dataset.features - _voxel_mean) / _voxel_std).astype(np.float32)
+            logger.info(
+                "Applied global per-voxel z-scoring (%d train trials, %d voxels)",
+                len(_train_idx), full_dataset.features.shape[1],
+            )
+            np.save(zscore_dir / "voxel_mean.npy", _voxel_mean.astype(np.float32))
+            np.save(zscore_dir / "voxel_std.npy", _voxel_std.astype(np.float32))
+            del _train_feat, _voxel_mean, _voxel_std
+
         _zscore_stats_path = str(zscore_dir)
         logger.info("Saved z-scoring stats to %s", zscore_dir)
-        del _train_feat, _voxel_mean, _voxel_std
 
     if preprocessor is not None and preproc_needs_fit:
         n_train = len(train_dataset)
@@ -1335,6 +1413,21 @@ def main() -> None:
                      _mixco_cfg.get("temperature", 0.006),
                      _mixco_cfg.get("weight", 1.0))
 
+    # --- SoftCLIP / MixCo phase schedule ---
+    # If both MixCo and SoftCLIP are active, MixCo runs for the first 1/3 of
+    # epochs (warmup augmentation), then SoftCLIP takes over for the remaining
+    # 2/3 (knowledge distillation).
+    _softclip_cfg = config.get("loss", {}).get("softclip", {})
+    _has_softclip = "softclip" in losses
+    _has_mixco = _mixco_cfg.get("enabled", False)
+    _softclip_transition_epoch = int(num_epochs / 3) + 1
+    if _has_softclip and _has_mixco:
+        logger.info(
+            "SoftCLIP + MixCo schedule: MixCo epochs 1-%d, SoftCLIP epochs %d-%d",
+            _softclip_transition_epoch - 1, _softclip_transition_epoch, num_epochs,
+        )
+    _softclip_loss_obj = losses.pop("softclip", None)
+
     # --- SPCL curriculum schedule ---
     spcl_cfg = config.get("loss", {}).get("vmf_nce_spcl", {})
     spcl_t_start = spcl_cfg.get("initial_curriculum_t", 100.0)
@@ -1343,6 +1436,7 @@ def main() -> None:
 
     _ckpt_meta = {
         "normalize_fmri": normalize_fmri,
+        "zscore_mode": zscore_mode,
         "preprocessing_enabled": config.get("preprocessing", {}).get("enabled", False),
         "zscore_stats_path": _zscore_stats_path,
         "average_repetitions": config["data"].get("average_repetitions", False),
@@ -1353,6 +1447,23 @@ def main() -> None:
 
     for epoch in range(start_epoch, num_epochs + 1):
         logger.info("\nEpoch %d/%d | lr=%.2e", epoch, num_epochs, optimizer.param_groups[0]["lr"])
+
+        # Phase-switch: MixCo warmup -> SoftCLIP distillation
+        if _softclip_loss_obj is not None and _has_mixco:
+            if epoch < _softclip_transition_epoch:
+                losses.pop("softclip", None)
+                _epoch_mixco = _mixco_cfg
+            else:
+                if "softclip" not in losses:
+                    losses["softclip"] = _softclip_loss_obj
+                    logger.info("Epoch %d: switching from MixCo to SoftCLIP", epoch)
+                _epoch_mixco = None
+        elif _softclip_loss_obj is not None:
+            if "softclip" not in losses:
+                losses["softclip"] = _softclip_loss_obj
+            _epoch_mixco = None
+        else:
+            _epoch_mixco = _mixco_cfg if _has_mixco else None
 
         # Update SPCL curriculum temperature
         if "vmf_nce_spcl" in losses:
@@ -1368,7 +1479,7 @@ def main() -> None:
             device, kl_scheduler, queue, preprocessor, global_step,
             grad_accum_steps=grad_accum_steps, scaler=scaler,
             lr_scheduler=lr_sched, config_ref=config, vmf_is_log=_vmf_is_log,
-            mixco_cfg=_mixco_cfg if _mixco_cfg.get("enabled", False) else None,
+            mixco_cfg=_epoch_mixco if _epoch_mixco and _epoch_mixco.get("enabled", False) else None,
         )
         logger.info("Train: %s", " | ".join(f"{k}={v:.4f}" for k, v in train_metrics.items()))
 

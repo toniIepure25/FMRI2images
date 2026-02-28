@@ -3,14 +3,14 @@
 # Changes from B1v3:
 #   - preprocessing.enabled: false (stop center_pcr destroying CLIP signal)
 #   - data.normalize_fmri: true (per-voxel z-scoring)
-#   - data.average_repetitions: true (SNR boost)
+#   - data.average_repetitions: false (train on individual trials, 3x more samples)
 #   - training.mixco: enabled
 #   - encoder.hidden_dims: [8192, 4096, 2048] (wider MLP)
 #   - decoder.hidden_dims: [2048], decoder.input_dim: 2048
 
 experiment:
   name: "B1v4_gaussian"
-  description: "v4 Gaussian: z-scored fMRI, no PCR, rep-avg, MixCo, wider MLP"
+  description: "v4 Gaussian: z-scored fMRI, no PCR, individual trials, MixCo, wider MLP"
   tags: ["baseline", "gaussian", "probabilistic", "queue", "v4"]
 
 data:
@@ -22,7 +22,8 @@ data:
   split_by_image: true
   exclude_shared1000: true
   normalize_fmri: true
-  average_repetitions: true
+  average_repetitions: false
+  zscore_mode: "per_session"
   seed: 42
 
 model:
@@ -72,6 +73,12 @@ loss:
     anneal_type: "linear"
     free_bits: 0.5
     free_bits_type: "dimension"
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.07
+    use_queue: true
+    symmetric: true
   infonce:
     enabled: false
 

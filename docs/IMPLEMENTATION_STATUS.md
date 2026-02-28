@@ -39,6 +39,7 @@
 | Frequency-ROI Module | `src/fmri2img/models/freq_roi.py` | `tests/test_freq_roi.py` |
 | Cross-Subject Alignment | `src/fmri2img/models/cross_subject.py` | `tests/test_cross_subject.py` |
 | Kappa Calibration | `src/fmri2img/eval/kappa_calibration.py` | in `tests/test_vmf.py` |
+| SoftCLIP Loss | `src/fmri2img/losses/softclip.py` | `tests/test_softclip.py` |
 
 ### Experiment Configurations (6/6)
 
@@ -46,12 +47,12 @@ All configs in `configs/experiments/`:
 
 | Config | Type | Status |
 |--------|------|--------|
-| `B0_deterministic.yaml` | Strong deterministic baseline | Ready |
-| `B1_gaussian.yaml` | Probabilistic Gaussian baseline | Ready |
-| `N1_vmf_nce.yaml` | vMF-NCE (novel distribution) | Ready |
-| `N2_roi_transformer.yaml` | ROI Transformer (novel architecture) | Ready |
-| `N3_roi_dcf.yaml` | ROI-DCF consensus (novel fusion) | Ready |
-| `N4_full_system.yaml` | Full system (flagship) | Ready |
+| `B0v4_deterministic.yaml` | Strong deterministic baseline | Ready (v5 fixes applied) |
+| `B1v4_gaussian.yaml` | Probabilistic Gaussian baseline | Ready (v5 fixes applied) |
+| `N1v4_vmf_nce.yaml` | vMF-NCE (novel distribution) | Ready (v5 fixes applied) |
+| `N2v4_roi_transformer.yaml` | ROI Transformer (novel architecture) | Ready (v5 fixes applied) |
+| `N3v4_roi_dcf.yaml` | ROI-DCF consensus (novel fusion) | Ready (v5 fixes applied) |
+| `N4v4_full_system.yaml` | Full system (flagship) | Ready (v5 fixes applied) |
 
 ---
 
@@ -90,6 +91,7 @@ Results archived in `experimental_results/exp001_baseline_ultimate/` and `Raport
 | Gaussian-NCE | `src/fmri2img/losses/gaussian_nce.py` | B1 |
 | vMF-NCE | `src/fmri2img/losses/vmf_nce.py` | N1-N4 |
 | Kappa Regularizer | `src/fmri2img/losses/vmf_nce.py` | N1-N4 |
+| SoftCLIP KD | `src/fmri2img/losses/softclip.py` | All (B0-N4) |
 
 ### Preprocessing
 
@@ -118,6 +120,8 @@ Results archived in `experimental_results/exp001_baseline_ultimate/` and `Raport
 | Early stopping | Implemented |
 | LR scheduling (cosine + warmup) | Implemented |
 | Gradient clipping | Implemented |
+| Per-session z-scoring | Implemented (`zscore_mode: per_session`) |
+| MixCo -> SoftCLIP phase schedule | Implemented (1/3 MixCo, 2/3 SoftCLIP) |
 | TensorBoard logging | Implemented |
 
 ### Scripts
@@ -143,7 +147,7 @@ bash scripts/training/run_ablation_ladder.sh \
 
 # Or individual experiments
 python3 scripts/training/train_unified.py \
-    --config configs/experiments/N1_vmf_nce.yaml --gpu 0
+    --config configs/experiments/N1v4_vmf_nce.yaml --gpu 0
 ```
 
 ### After Training
@@ -151,11 +155,11 @@ python3 scripts/training/train_unified.py \
 ```bash
 # Evaluate
 python3 scripts/evaluation/evaluate_experiment.py \
-    --config configs/experiments/N1_vmf_nce.yaml \
-    --checkpoint experimental_results/N1_vmf_nce/best_model.pt
+    --config configs/experiments/N1v4_vmf_nce.yaml \
+    --checkpoint experimental_results/N1v4_vmf_nce/subj01/checkpoint_best.pt
 
 # Generate reconstructions
 python3 scripts/reconstruction/decode_diffusion.py \
     --config configs/inference/production.yaml \
-    --checkpoint experimental_results/N4_full_system/best_model.pt
+    --checkpoint experimental_results/N4v4_full_system/subj01/checkpoint_best.pt
 ```

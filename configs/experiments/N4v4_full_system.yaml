@@ -3,7 +3,7 @@
 # Changes from N4v3:
 #   - preprocessing.enabled: false (stop center_pcr destroying CLIP signal)
 #   - data.normalize_fmri: true (per-voxel z-scoring)
-#   - data.average_repetitions: true (SNR boost)
+#   - data.average_repetitions: false (train on individual trials, 3x more samples)
 #   - training.mixco: enabled (MixCo augmentation)
 #   - lr: 2e-4 (MindEye2-aligned), warmup: 15 epochs
 #   - kappa_max: 100 (wider dynamic range)
@@ -13,7 +13,7 @@
 
 experiment:
   name: "N4v4_full_system"
-  description: "v4 flagship: z-scored fMRI, no PCR, rep-avg, MixCo, optimized HP"
+  description: "v4 flagship: z-scored fMRI, no PCR, individual trials, MixCo, optimized HP"
   tags: ["roi_dcf", "vmf", "mixture", "dual_ua_cfg", "ceiling", "spcl", "full_system", "flagship", "v4"]
   parent: "N3v4_roi_dcf"
 
@@ -26,7 +26,8 @@ data:
   split_by_image: true
   exclude_shared1000: true
   normalize_fmri: true
-  average_repetitions: true
+  average_repetitions: false
+  zscore_mode: "per_session"
   seed: 42
 
 model:
@@ -87,6 +88,12 @@ loss:
   kappa_reg:
     enabled: true
     lambda_kappa: 0.02
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
   vmf_nce:
     enabled: false
   vmf_nll:

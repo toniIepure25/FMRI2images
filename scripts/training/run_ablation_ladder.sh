@@ -122,6 +122,14 @@ for exp_id in "${EXPERIMENT_ORDER[@]}"; do
 
         echo "  -> ${subject} ... "
 
+        result_dir="experimental_results/${config_file%.yaml}/${subject}"
+        if [[ -f "${result_dir}/checkpoint_best.pt" ]]; then
+            echo "    [SKIP] Already completed"
+            PASSED_RUNS=$((PASSED_RUNS + 1))
+            TOTAL_RUNS=$((TOTAL_RUNS - 1))
+            continue
+        fi
+
         if python3 "$SCRIPT" \
             --config "$config_path" \
             --subject "$subject" \

@@ -15,6 +15,8 @@
 #   bash scripts/training/run_ablation_ladder.sh
 #   bash scripts/training/run_ablation_ladder.sh --subjects "subj01 subj02" --gpu 0
 #   bash scripts/training/run_ablation_ladder.sh --start B1
+#   bash scripts/training/run_ablation_ladder.sh --only N    # run only N-series experiments
+#   make ablation SUBJECTS="subj01" GPU=0 ONLY=N             # same via Make
 #
 # Results are saved to experimental_results/<experiment_name>/
 # =============================================================================
@@ -24,6 +26,7 @@ set -euo pipefail
 SUBJECTS="${SUBJECTS:-subj01 subj02 subj05 subj07}"
 GPU="${GPU:-0}"
 START="${START:-B0v4}"
+ONLY="${ONLY:-all}"
 CONFIG_DIR="configs/experiments"
 SCRIPT="scripts/training/train_unified.py"
 
@@ -32,6 +35,7 @@ while [[ $# -gt 0 ]]; do
         --subjects) SUBJECTS="$2"; shift 2 ;;
         --gpu) GPU="$2"; shift 2 ;;
         --start) START="$2"; shift 2 ;;
+        --only) ONLY="$2"; shift 2 ;;
         *) echo "Unknown arg: $1"; exit 1 ;;
     esac
 done
@@ -73,8 +77,20 @@ declare -A CONFIGS=(
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"
 
+# Filter experiment order by series prefix (B, N, or all)
+if [[ "$ONLY" != "all" ]]; then
+    FILTERED=()
+    for exp_id in "${EXPERIMENT_ORDER[@]}"; do
+        if [[ "$exp_id" == ${ONLY}* ]]; then
+            FILTERED+=("$exp_id")
+        fi
+    done
+    EXPERIMENT_ORDER=("${FILTERED[@]}")
+fi
+
 echo "=============================================="
-echo "ABLATION LADDER: ${START} -> N4"
+echo "ABLATION LADDER"
+echo "Experiments: ${EXPERIMENT_ORDER[*]}"
 echo "Subjects: ${SUBJECTS}"
 echo "GPU: ${GPU}"
 echo "=============================================="

@@ -175,10 +175,12 @@ train:
 		$${SUBJECT:+--subject $$SUBJECT}
 
 # Full B0-N4 ablation ladder (training only)
+# Optional: ONLY=N to run only N-series, ONLY=B for only B-series
 ablation:
 	bash scripts/training/run_ablation_ladder.sh \
 		--subjects "$${SUBJECTS:-subj01 subj02 subj05 subj07}" \
-		--gpu $${GPU:-0}
+		--gpu $${GPU:-0} \
+		$${ONLY:+--only $$ONLY}
 
 # Full pipeline: data prep + training + reconstruction + evaluation + aggregation
 full-pipeline:

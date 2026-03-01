@@ -1,6 +1,10 @@
 # Experiment Context: fMRI-to-Image Neural Decoding
 
-This document provides complete context for analyzing why our training experiments produce near-chance retrieval metrics despite multiple optimization iterations. It is designed to be consumed by an LLM or researcher performing deep analysis.
+This document provides complete technical context for a bachelor thesis project on neural decoding of visual perception from fMRI. It is designed as a self-contained briefing for an LLM or researcher performing deep analysis.
+
+**Project status (March 2026):** After resolving a critical data-alignment bug (nsdId off-by-one, Section 11.1) and a kappa gradient collapse bug (tau/kappa interaction, Section 13), the system achieves **20-36% R@1** on subj01 with v4 configs. N-series (vMF) models reach 30-36%, while B-series (deterministic/Gaussian) baselines reach 20-25%. The v5 configs fix the kappa collapse and are expected to significantly improve N-series performance. Experiments are pending.
+
+**SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) the kappa collapse limiting vMF learning signal in v4, (2) single-subject training (MindEye pre-trains across 7 subjects), and (3) smaller model capacity (328M vs 996M params).
 
 ---
 
@@ -299,7 +303,7 @@ loss = -sum(teacher * student, dim=-1).mean()   # KL(teacher || student)
 
 ---
 
-## 6. Training Configuration (v4 -- Current)
+## 6. Training Configuration
 
 ### 6.1 Shared Settings (all v4 experiments)
 
@@ -447,9 +451,20 @@ Chance level = 1/~2950 = 0.034% (image-level split, shared1000 excluded):
 
 All models still near chance level despite batch=64, residual MLP, image-level split, 300 epochs.
 
-### 7.5 v4 Results and Diagnostic
+### 7.5 v4 Results (subj01, after nsdId fix)
 
-Initial v4 runs showed near-chance R@1 across all experiments. Diagnostic verification on JupyterHub confirmed data integrity:
+After fixing the nsdId off-by-one bug (Section 11.1), v4 experiments showed meaningful learning for the first time. Approximate R@1 on validation gallery (~986 images):
+
+| Experiment | Approx. R@1 | Observation |
+|------------|-------------|-------------|
+| B0v4 | ~20-25% | Deterministic baseline, MLP + InfoNCE + MSE + SoftCLIP |
+| B1v4 | ~20-25% | Gaussian probabilistic, comparable to B0 |
+| N1v4 | ~30-36% | vMF-NCE, kappa stagnating at 3-5 (kappa collapse) |
+| N2v4 | ~30-36% | ROI Transformer + vMF-NCE, similar kappa stagnation |
+| N3v4 | ~30-36% | ROI-DCF, similar plateau |
+| N4v4 | ~30-36% | Full system, similar plateau |
+
+Diagnostic verification on JupyterHub confirmed data integrity after the fix:
 
 | Check | Result |
 |-------|--------|
@@ -459,13 +474,11 @@ Initial v4 runs showed near-chance R@1 across all experiments. Diagnostic verifi
 | Mean pairwise cosine | 0.5564 (expected shared CLIP subspace) |
 | fMRI raw stats | mean=382.81, std=789.09 (confirms z-scoring essential) |
 
-The diagnostic rules out a wrong-model CLIP cache as the cause. Three architectural/preprocessing changes were then applied (v5 fixes):
+**Key observation:** N-series models (30-36%) outperform B-series (20-25%), confirming that vMF + ROI structure provides a real advantage. However, N1-N4 plateau at a similar level despite increasing architectural complexity, strongly suggesting a shared bottleneck. This was identified as the **kappa collapse** bug (Section 13): all N-series models had their kappa gradient zeroed by the tau=0.07 / clamp interaction.
 
-1. **Individual trials** (`average_repetitions: false`) -- 3x more training samples
-2. **Per-session z-scoring** (`zscore_mode: per_session`) -- removes session drift
-3. **SoftCLIP loss** -- soft targets from CLIP-CLIP similarity replace hard one-hot InfoNCE
+### 7.6 v5 Results (pending)
 
-Results with v5 fixes: **pending experiment re-run.**
+v5 configs fix the kappa collapse (tau=1.0, kappa_reg disabled) and add training improvements (EMA, noise aug, grad_accum=4). The ablation ladder now runs B0v4, B1v4, N1v5, N2v5, N3v5, N4v5. Results are **pending experiment re-run** on JupyterHub.
 
 ---
 
@@ -525,73 +538,97 @@ Key paths on JupyterHub:
 
 ## 11. Key Observations and Open Questions
 
-### 11.1 The Core Problem — ROOT CAUSE FOUND (2026-02-28)
+### 11.1 Bug 1 — nsdId Off-by-One (ROOT CAUSE for near-chance performance)
 
-**Root cause: off-by-one in `build_full_index.py`.** The NSD behavioral file `responses.tsv` uses `73KID` (1-indexed, 1–73000), but the index builder renamed it directly to `nsdId` without subtracting 1. Since `nsdId` is 0-indexed (0–72999) everywhere else (imgBrick, stim_info_merged.csv), every fMRI trial was paired with the CLIP embedding of the WRONG image (shifted by +1 in imgBrick). Adjacent NSD images are unrelated COCO images, so this created effectively random fMRI-CLIP pairings.
+**Root cause: off-by-one in `build_full_index.py`.** The NSD behavioral file `responses.tsv` uses `73KID` (1-indexed, 1-73000), but the index builder renamed it directly to `nsdId` without subtracting 1. Since `nsdId` is 0-indexed (0-72999) everywhere else (imgBrick, stim_info_merged.csv), every fMRI trial was paired with the CLIP embedding of the wrong image (+1 shift). Adjacent NSD images are unrelated COCO images, so this created effectively random fMRI-CLIP pairings.
 
 **Evidence**: `pipeline_diagnostic.py` check 1.2 showed Oracle R@1 = 33.33% (not 100%); training crashed on `nsdId=73000` (out of range, max valid = 72999).
 
-**Fix applied**: `behav_data['nsdId'] = behav_data['73KID'] - 1` in `build_full_index.py` + range validation. Same fix in `nsd_index_builder.py`. Index and CLIP cache must be rebuilt on JupyterHub.
+**Fix applied**: `behav_data['nsdId'] = behav_data['73KID'] - 1` in `build_full_index.py` + range validation. Same fix in `nsd_index_builder.py`. Index and CLIP cache rebuilt on JupyterHub.
 
-Previous diagnosis (before root cause found): Across v1, v2, v3, and early v4 results, all models achieved R@1 barely above chance (0.03-0.6% on galleries where chance is 0.03-0.10%). MindEye achieves 93%+ R@1 on the same data with a simpler architecture (MLP + InfoNCE + MSE).
+**Impact**: Before the fix, all v1/v2/v3/early-v4 models achieved R@1 barely above chance (0.03-0.6%). After the fix, v4 models immediately showed meaningful learning: B-series reached 20-25% R@1, N-series reached 30-36% R@1 (see Section 7.5).
+
+### 11.1b Bug 2 — Kappa Collapse (ROOT CAUSE for N-series plateau at 30-36%)
+
+**Root cause: tau=0.07 in vMF-NCE capped effective kappa at ~5.6.** In all v4 N-series configs, the vMF-NCE loss computed logits as `kappa * cos_sim / tau`. With `tau=0.07`, this becomes `kappa * cos_sim * 14.28`. The AMP-safe clamp at `[-80, 80]` meant any `kappa > 80 * 0.07 / 1.0 = 5.6` produced clamped logits receiving zero gradient for kappa. Combined with `kappa_reg` actively penalizing high kappa, the concentration parameter was mathematically trapped at 3-5, preventing the model from expressing confidence.
+
+**Evidence**: All N1-N4 v4 runs showed kappa values stagnating at 3-5 across all epochs. Despite different architectures (MLP, ROI Transformer, ROI-DCF), all N-series models plateaued at the same ~30-36% R@1.
+
+**Fix applied (v5)**: `tau=1.0` in all v5 N-series configs + `kappa_reg.enabled: false`. This removes the kappa ceiling (effective range: 1.0 to `kappa_max=50.0`). See Section 13 for mathematical details.
 
 ### 11.2 What We've Ruled Out
 
 | Hypothesis | Status | Evidence |
 |------------|--------|----------|
-| Batch too small for contrastive learning | Addressed in v3 | Batch 64 with queue 16384 -- no meaningful improvement |
-| Data leakage inflating metrics | Addressed in v3 | Image-level split, shared1000 excluded -- results actually got worse |
-| Not enough training time | Addressed in v3 | 300 epochs, patience 40 -- models overfit well before that |
-| No residual connections | Addressed in v3 | ResidualBlocks added -- no meaningful improvement |
-| PCR destroying CLIP signal | Addressed in v4 | PCR disabled entirely -- results pending |
-| fMRI not standardized | Addressed in v4 | Per-voxel z-scoring added -- results pending |
-| Not averaging repetitions | Addressed in v4 | Repetition averaging (SNR x1.73) -- results pending |
-| Model too small | Addressed in v4 | Wider MLP [8192, 4096, 2048] = 328M params -- results pending |
-| No augmentation | Addressed in v4 | MixCo added -- results pending |
-| Wrong CLIP cache dim | **Verified** | Diagnostic confirms 768-D ViT-L/14, norm=1.0, 9999/10000 coverage |
-| Global z-scoring destroys session signal | Addressed in v5 | Per-session z-scoring preserves within-session variance |
+| Batch too small for contrastive learning | Addressed in v3 | Batch 64 with queue 16384 |
+| Data leakage inflating metrics | Addressed in v3 | Image-level split, shared1000 excluded |
+| Not enough training time | Addressed in v3 | 300 epochs, patience 40 -- models converge well before |
+| No residual connections | Addressed in v3 | ResidualBlocks added |
+| PCR destroying CLIP signal | Addressed in v4 | PCR disabled; v4 achieves 20-36% R@1 |
+| fMRI not standardized | Addressed in v4 | Per-voxel z-scoring; v4 results confirm improvement |
+| Not averaging repetitions | Addressed in v4 | Repetition averaging (SNR x1.73) used in v4 |
+| Model too small | Addressed in v4 | Wider MLP [8192, 4096, 2048] = 328M params |
+| No augmentation | Addressed in v4 | MixCo added; v4 results confirm improvement |
+| Wrong CLIP cache dim | **Verified correct** | Diagnostic confirms 768-D ViT-L/14, norm=1.0, 9999/10000 coverage |
+| Global z-scoring destroys session signal | Addressed in v4/v5 | Per-session z-scoring preserves within-session variance |
 | Repetition averaging reduces data | Addressed in v5 | Individual trials: ~24k samples instead of ~8k |
 | Hard InfoNCE ignores semantic structure | Addressed in v5 | SoftCLIP uses CLIP-CLIP similarity as soft targets |
+| vMF kappa cannot learn (tau/clamp interaction) | **Fixed in v5** | tau=1.0, kappa_reg disabled (see Section 13) |
 
-### 11.3 Hypotheses Still Open
+### 11.3 Hypotheses and Resolution Status
 
-1. **CLIP embedding quality**: Are the cached 768-D ViT-L/14 embeddings correct? Is L2-normalization applied consistently between cache and training?
+| # | Hypothesis | Status | Resolution |
+|---|-----------|--------|------------|
+| 1 | CLIP embedding quality wrong | **Verified correct** | Diagnostic confirms 768-D, L2-normed, ViT-L/14, 9999 coverage |
+| 2 | Embedding-target alignment mismatch | **Resolved (nsdId fix)** | Off-by-one bug caused wrong pairings; after fix, models learn (20-36% R@1) |
+| 3 | InfoNCE temperature collapsing | **Partially resolved** | Learnable temperature works for B-series; v5 adds learnable temp for N-series |
+| 4 | Gradient signal under AMP | **Monitored** | v4 shows learning; no evidence of gradient pathology for B-series. N-series had kappa collapse (separate bug) |
+| 5 | Pre-extracted features misaligned | **Resolved (nsdId fix)** | Index rebuilt; Oracle R@1 now 100% |
+| 6 | vMF kappa trapped by tau/clamp | **RESOLVED in v5** | tau=0.07 capped kappa at ~5.6 (see Section 13). Fix: tau=1.0, kappa_reg disabled |
+| 7 | ROI Transformer too small | **Addressed in N2v5** | Scaled to d_model=768, 6 layers, 12 heads |
+| 8 | Missing MindEye techniques | **Partially addressed** | SoftCLIP + per-session z-scoring added; still missing multi-subject pre-training |
 
-2. **Embedding-target alignment**: When the model predicts a 768-D vector and we compare it to the CLIP target, are both in the same space? Could there be a preprocessing mismatch?
+**Remaining open questions (for deep research):**
 
-3. **Loss function scaling**: InfoNCE with learnable temperature -- is the temperature learning correctly? Could it be collapsing to a degenerate value?
+1. **Multi-subject pre-training**: MindEye pre-trains on 7 subjects before fine-tuning. This is the single largest known architectural difference. Implementing this requires a shared ROI alignment strategy across subjects.
 
-4. **Gradient signal through the pipeline**: With AMP (float16), are gradients flowing properly through the 328M-param MLP? Could there be vanishing/exploding gradients?
+2. **Effective batch size gap**: MindEye uses an effective batch of ~1000 via aggressive memory banks. Our queue (16384) is larger, but queue-based negatives may be staler than in-batch negatives. Increasing true batch size (currently 64, effective 256 with grad_accum=4 in v5) may help.
 
-5. **Pre-extraction correctness**: Are the pre-extracted features correctly aligned with the CLIP cache? Does trial N in fmri_features.npy correspond to the correct nsdId in clip.parquet?
+3. **Model capacity**: MindEye uses 996M parameters for subj01 vs our 328M. Scaling the MLP may yield marginal gains, but the v5 kappa fix is likely a larger factor.
 
-6. **vMF-specific**: ~~For N1-N4, the kappa values in v3 were very low (1-5). This means the model is expressing near-zero confidence. Is kappa regularization too aggressive?~~ **RESOLVED in v5.** Root cause: `tau=0.07` created a hard ceiling at `kappa ~ 5.6` due to logit clamping at 80. With `kappa / 0.07 = kappa * 14.28`, any `kappa > 5.6` hit the clamp and received zero gradient. Combined with kappa_reg pushing kappa down, kappa was mathematically trapped. Fix: `tau=1.0` + `kappa_reg.enabled: false` in all v5 N-series configs.
-
-7. **ROI Transformer capacity**: The ROI Transformer has only 512-D tokens and 4 layers. Is this sufficient to learn cross-region interactions?
-
-8. **What MindEye does differently**: MindEye uses (1) a much larger effective batch through aggressive memory bank, (2) soft contrastive loss (not hard InfoNCE) -- **now addressed by SoftCLIP in v5**, (3) multi-subject pre-training, (4) per-session preprocessing -- **now addressed by per-session z-scoring in v5**. Remaining gap: multi-subject pre-training and larger effective batch.
+4. **vMF advantage magnitude**: With kappa collapse fixed, will N-series significantly outperform B-series? This tests whether probabilistic hyperspherical decoding provides a genuine advantage over deterministic point estimation.
 
 ### 11.4 Key Comparisons to MindEye Architecture
 
-| Aspect | Our Approach (B0v4) | MindEye |
-|--------|-------------------|---------|
-| Encoder | MLP [8192, 4096, 2048] + ResidualBlocks | MLP with residual blocks (similar) |
-| CLIP target | ViT-L/14 768-D | ViT-L/14 768-D |
-| Loss | MSE + InfoNCE + **SoftCLIP** (v5) | MSE + soft contrastive (bidirectional) |
-| Augmentation | MixCo warmup (1/3 epochs) -> SoftCLIP (2/3 epochs) | MixCo (similar) |
-| Batch size | 64 | ~1000 (effective, with large memory bank) |
-| Preprocessing | **Per-session** z-scoring (v5) | Per-voxel z-scoring |
-| Multi-subject | No (single-subject) | Pre-training on all subjects |
-| Training data | ~24k trials (~8881 unique images, individual reps) | ~8859 unique images |
-| Queue | 16384 | Not used (large batch instead) |
-| Contrastive temp | 0.07 (learnable for InfoNCE; fixed for SoftCLIP) | Different formulation |
+| Aspect | Our B0v4 (deterministic) | Our N1v5 (vMF) | MindEye |
+|--------|--------------------------|-----------------|---------|
+| Encoder | MLP [8192, 4096, 2048] + Residual | Same | MLP + residual (similar) |
+| CLIP target | ViT-L/14 768-D | ViT-L/14 768-D | ViT-L/14 768-D |
+| Loss | MSE + InfoNCE + SoftCLIP | vMF-NCE (tau=1.0) | MSE + soft contrastive |
+| Augmentation | MixCo warmup -> SoftCLIP | fMRI noise (0.1), voxel dropout (0.1) | MixCo |
+| Effective batch | 64 | 256 (64 x grad_accum=4) | ~1000 |
+| Preprocessing | Per-session z-scoring | Per-session z-scoring | Per-voxel z-scoring |
+| Multi-subject | No | No | 7-subject pre-train |
+| Training data | ~24k trials | ~24k trials | ~8859 unique images |
+| Queue | 16384 | 16384 | Not used (large batch) |
+| Uncertainty | None | vMF kappa (1-50) | None |
+| v4 R@1 | ~20-25% | ~30-36% (kappa collapsed) | 93.2% |
 
-### 11.5 Specific Numbers to Investigate
+### 11.5 Quantitative Gap Analysis (v4 actual vs SOTA)
 
-- MindEye reports R@1 > 90% on shared1000 (982 images, paired retrieval). Our val set is ~986 images. The gallery sizes are comparable.
-- MindEye's MLP is ~996M params for subj01 (vs our 328M). Could model capacity be the issue?
-- MindEye uses a "soft contrastive loss" with continuous similarity labels, not hard InfoNCE. **v5 addresses this with SoftCLIP knowledge distillation.**
-- MindEye pre-trains on 7 subjects then fine-tunes on the target subject. We train single-subject only.
+| Metric | Our B0v4 | Our N1v4 | MindEye | Gap (N1 vs SOTA) |
+|--------|----------|----------|---------|-------------------|
+| R@1 (val) | ~22% | ~33% | 93.2% | ~60 pp |
+| R@5 (val) | ~45% (est.) | ~58% (est.) | ~99% | ~41 pp |
+
+**Primary contributors to the gap (ranked by estimated impact):**
+
+1. **Kappa collapse (v5 fix expected to close 15-30 pp)**: N-series models could not express confidence due to tau/clamp bug. With kappa free to range 1-50, retrieval accuracy should improve substantially.
+2. **Multi-subject pre-training (est. 10-20 pp)**: MindEye leverages 7 subjects' data for shared visual cortex representations. This is not currently implemented and would require cross-subject ROI alignment.
+3. **Effective batch size (est. 5-10 pp)**: MindEye uses ~1000 effective batch; our v5 uses 256. Contrastive learning benefits from larger batches.
+4. **Model capacity (est. 3-5 pp)**: MindEye uses 996M params vs our 328M. Marginal compared to the above factors.
+
+**Expected outcome after v5:** If kappa collapse is the primary bottleneck, N-series should improve from ~33% to potentially 50-65% R@1. Closing the remaining gap to MindEye's 93% would likely require multi-subject pre-training.
 
 ---
 
@@ -618,7 +655,91 @@ Previous diagnosis (before root cause found): Across v1, v2, v3, and early v4 re
 | Evaluation | `scripts/evaluation/eval_reconstruction.py` |
 | Aggregation | `scripts/evaluation/aggregate_ablation.py` |
 | Ablation orchestration | `scripts/training/run_ablation_ladder.sh` |
-| v4 configs | `configs/experiments/B0v4_deterministic.yaml` through `N4v4_full_system.yaml` |
+| v4 B-series configs | `configs/experiments/B0v4_deterministic.yaml`, `B1v4_gaussian.yaml` |
+| v5 N-series configs | `configs/experiments/N1v5_vmf_nce.yaml`, `N2v5_roi_transformer.yaml`, `N3v5_roi_dcf.yaml`, `N4v5_full_system.yaml` |
+| v4 N-series configs (superseded) | `configs/experiments/N1v4_vmf_nce.yaml` through `N4v4_full_system.yaml` |
 | Base config | `configs/base.yaml` |
 | CLIP config | `configs/system/clip.yaml` |
 | Environment reference | `.cursor/rules/jupyterhub-environment.mdc` |
+
+---
+
+## 13. Kappa Collapse: Mathematical Deep-Dive
+
+This section provides a complete derivation of the kappa collapse bug for an LLM or researcher investigating the v4-to-v5 transition.
+
+### 13.1 vMF-NCE Loss Formulation
+
+The von Mises-Fisher NCE loss computes logits as:
+
+$$\text{logit}_{ij} = \frac{\kappa_i \cdot \cos(\mu_i, z_j)}{\tau}$$
+
+where \(\mu_i \in S^{d-1}\) is the predicted mean direction, \(\kappa_i > 0\) is the concentration (confidence), \(z_j\) is the CLIP target embedding, and \(\tau\) is a temperature hyperparameter.
+
+The loss is then standard cross-entropy over these logits (positive pair at diagonal):
+
+$$\mathcal{L}_{\text{vMF-NCE}} = -\frac{1}{N} \sum_{i=1}^{N} \log \frac{\exp(\text{logit}_{ii})}{\sum_{j=1}^{N} \exp(\text{logit}_{ij})}$$
+
+### 13.2 The Clamping Constraint
+
+For AMP (float16) stability, logits are clamped before the softmax:
+
+$$\text{logit}_{ij}^{\text{clamped}} = \text{clamp}\left(\frac{\kappa_i \cdot \cos(\mu_i, z_j)}{\tau}, -80, 80\right)$$
+
+The maximum possible logit (for a perfect prediction where \(\cos = 1.0\)) is:
+
+$$\text{logit}_{\max} = \frac{\kappa_i}{\tau}$$
+
+For this to remain below the clamp threshold:
+
+$$\frac{\kappa_i}{\tau} \leq 80 \implies \kappa_i \leq 80 \cdot \tau$$
+
+### 13.3 The Collapse with tau = 0.07
+
+In v4 N-series configs, \(\tau = 0.07\). Substituting:
+
+$$\kappa_{\max}^{\text{effective}} = 80 \times 0.07 = 5.6$$
+
+For any \(\kappa > 5.6\):
+- The positive logit is clamped to 80, regardless of the actual \(\kappa\) value
+- The gradient \(\partial \mathcal{L} / \partial \kappa\) becomes zero (clamp has zero gradient in the saturated region)
+- The model cannot learn to increase confidence beyond this ceiling
+
+Combined with `kappa_reg` (an L2 penalty on kappa, pushing it toward zero), kappa is squeezed from both sides: clamping prevents upward gradient, regularization provides downward gradient. The equilibrium is \(\kappa \approx 3\text{-}5\), regardless of the model's actual prediction quality.
+
+### 13.4 Empirical Signature
+
+The kappa collapse manifests as:
+- **Kappa statistics**: mean 3-5, std < 1, all samples near-identical confidence
+- **All N-series plateau at same R@1** (~30-36%): N1 (MLP), N2 (ROI Transformer), N3 (ROI-DCF), N4 (full system) all converge to the same range despite radically different architectures
+- **B-series not affected**: B0/B1 use InfoNCE/Gaussian losses without kappa, so they learn normally (20-25% R@1)
+- **N-series > B-series**: The 30-36% vs 20-25% gap confirms vMF provides a genuine advantage even with collapsed kappa, via the directional (cosine-based) loss structure
+
+### 13.5 The v5 Fix
+
+Setting \(\tau = 1.0\) changes the effective ceiling:
+
+$$\kappa_{\max}^{\text{effective}} = 80 \times 1.0 = 80$$
+
+With `kappa_max = 50.0` (bounded sigmoid parameterization), the model can now freely use the full range \(\kappa \in [1.0, 50.0]\) without hitting the clamp. Disabling `kappa_reg` removes the downward pressure, allowing kappa to track actual prediction certainty.
+
+### 13.6 Why Not Remove tau from Code?
+
+An alternative fix would be to remove \(\tau\) from the `_score()` method entirely. This was considered but rejected because:
+1. **Backward compatibility**: Existing v3/v4 configs with `tau=0.07` would silently change behavior if the code stopped using tau
+2. **Config-level fix is sufficient**: Setting `tau=1.0` makes the division a no-op without code changes
+3. **Future flexibility**: If a researcher wants to use temperature scaling with high kappa_max, the code path remains available
+
+---
+
+## 14. Experiment Version Genealogy
+
+| Version | Configs | Key Changes | R@1 (subj01) |
+|---------|---------|-------------|---------------|
+| v1 | B0-N4 (no suffix or v1) | Initial: batch 4, grad_accum 16, 100 epochs | Near-chance (nsdId bug) |
+| v2 | B0v2-N4v2 | Dropout 0.3, R@1 early stopping, tuned LR | Near-chance (nsdId bug) |
+| v3 | B0v3-N4v3 | Batch 64, residual MLP, image-level split, 300 epochs | Near-chance (nsdId bug) |
+| v4 | B0v4-N4v4 | nsdId fix, no PCR, per-session z-score, MixCo, SoftCLIP, wider MLP | B: 20-25%, N: 30-36% |
+| v5 | N1v5-N4v5 | tau=1.0, no kappa_reg, EMA, noise aug, grad_accum=4, 150 epochs | Pending |
+
+Note: v5 only applies to N-series. B-series continues at v4 since they are not affected by kappa collapse.

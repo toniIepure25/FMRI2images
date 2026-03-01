@@ -86,6 +86,8 @@ if [[ "$ONLY" != "all" ]]; then
         fi
     done
     EXPERIMENT_ORDER=("${FILTERED[@]}")
+    # When filtering, start from the first matched experiment
+    START="${EXPERIMENT_ORDER[0]}"
 fi
 
 echo "=============================================="

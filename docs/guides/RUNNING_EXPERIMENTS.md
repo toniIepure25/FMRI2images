@@ -9,35 +9,35 @@ Complete guide for training, evaluating, and analyzing Phase 2 experiments.
 ### Single Experiment
 
 ```bash
-source .venv/bin/activate
-
 python3 scripts/training/train_unified.py \
-    --config configs/experiments/N1_vmf_nce.yaml --gpu 0
+    --config configs/experiments/N1v5_vmf_nce.yaml --gpu 0
 ```
 
-### Full Ablation Ladder
+### Full Ablation Ladder (B v4 + N v5)
 
 ```bash
-bash scripts/training/run_ablation_ladder.sh \
-    --subjects "subj01 subj02 subj05 subj07" --gpu 0
+nohup make ablation SUBJECTS="subj01" GPU=0 > ablation_v5.log 2>&1 &
+tail -f ablation_v5.log
 ```
 
-Results are saved to `experimental_results/{B0,B1,N1,N2,N3,N4}_*/`.
+The ladder runs: B0v4, B1v4, N1v5, N2v5, N3v5, N4v5 (in order). Each experiment is skipped if `checkpoint_best.pt` already exists.
+
+Results are saved to `experimental_results/{experiment_name}/{subject}/`.
 
 ---
 
 ## Experiment Configurations
 
-### Ablation Ladder (6 Experiments)
+### Current Ablation Ladder (B v4 + N v5)
 
 | ID | Config | Description | Novel? |
 |----|--------|-------------|--------|
-| **B0** | `B0_deterministic.yaml` | MLP + PCR + queue + MSE + InfoNCE | No |
-| **B1** | `B1_gaussian.yaml` | MLP + PCR + queue + Gaussian-NCE + KL | No |
-| **N1** | `N1_vmf_nce.yaml` | MLP + vMF-NCE (replaces Gaussian) | Yes |
-| **N2** | `N2_roi_transformer.yaml` | ROI Transformer + vMF-NCE | Yes |
-| **N3** | `N3_roi_dcf.yaml` | Per-ROI vMF experts + consensus fusion | Yes |
-| **N4** | `N4_full_system.yaml` | N3 + DUA-CFG + mixture + ceiling-temp + SPCL | Yes |
+| **B0v4** | `B0v4_deterministic.yaml` | MLP + MSE + InfoNCE + SoftCLIP + MixCo | No |
+| **B1v4** | `B1v4_gaussian.yaml` | MLP + Gaussian-NCE + KL + SoftCLIP + MixCo | No |
+| **N1v5** | `N1v5_vmf_nce.yaml` | MLP + vMF-NCE (tau=1.0) + SoftCLIP + MixCo + EMA | Yes |
+| **N2v5** | `N2v5_roi_transformer.yaml` | ROI Transformer (d=768, 6L) + vMF-NCE + EMA | Yes |
+| **N3v5** | `N3v5_roi_dcf.yaml` | Per-ROI vMF experts + consensus fusion + EMA | Yes |
+| **N4v5** | `N4v5_full_system.yaml` | N3 + SPCL curriculum + DUA-CFG + EMA | Yes |
 
 Consecutive row differences isolate each innovation:
 
@@ -46,7 +46,7 @@ Consecutive row differences isolate each innovation:
 - **N2 vs N3** = Single-head vs ROI-DCF (fusion strategy)
 - **N3 vs N4** = Base system vs full innovations (generation stack)
 
-All configs are in `configs/experiments/`.
+All configs are in `configs/experiments/`. Previous versions (v1-v4) are preserved for reproducibility.
 
 ---
 
@@ -76,21 +76,20 @@ Required once per subject.
 
 ```bash
 python3 scripts/training/train_unified.py \
-    --config configs/experiments/N1_vmf_nce.yaml \
+    --config configs/experiments/N1v5_vmf_nce.yaml \
     --gpu 0
 ```
 
-**Option B: Full ablation ladder (all 6 experiments x 4 subjects)**
+**Option B: Full ablation ladder (B v4 + N v5)**
 
 ```bash
-bash scripts/training/run_ablation_ladder.sh \
-    --subjects "subj01 subj02 subj05 subj07" --gpu 0
+nohup make ablation SUBJECTS="subj01 subj02 subj05 subj07" GPU=0 > ablation_v5.log 2>&1 &
 ```
 
 **Option C: Resume from a specific experiment**
 
 ```bash
-bash scripts/training/run_ablation_ladder.sh --start N2 --gpu 0
+bash scripts/training/run_ablation_ladder.sh --start N1v5 --gpu 0
 ```
 
 ### Step 4: Monitor Training
@@ -103,37 +102,41 @@ tensorboard --logdir experimental_results/ --port 6006
 
 ## Training Parameters
 
-All experiments share a common schema. Key parameters:
+All v5 N-series experiments share these settings (B-series at v4 differ slightly):
 
 ```yaml
 model:
   encoder:
-    hidden_dims: [4096, 2048, 1024]    # MLP layers (B0/B1/N1)
+    hidden_dims: [8192, 4096, 2048]    # MLP layers (B0/B1/N1); N2-N4 use ROI Transformer
     activation: "gelu"
-    dropout: 0.1
+    dropout: 0.2                        # v5 (was 0.15 in v4)
+    use_residual: true
   decoder:
     output_dim: 768                     # CLIP ViT-L/14
 
 training:
-  batch_size: 4
-  gradient_accumulation_steps: 16       # Effective batch size = 64
+  batch_size: 64
+  gradient_accumulation_steps: 4        # Effective batch size = 256 (v5)
   mixed_precision: true
-  num_epochs: 100
+  num_epochs: 150                       # v5 (was 300 in v4)
+  fmri_noise_std: 0.1                   # v5: Gaussian noise augmentation
+  voxel_dropout: 0.1                    # v5: random voxel masking
   optimizer:
     type: "adamw"
-    lr: 1.0e-4                          # 3e-4 for Transformer (N2-N4)
-    weight_decay: 0.01
+    lr: 7.0e-5                          # v5 (varies per experiment)
+    weight_decay: 0.05                  # v5 (was 0.01 in v4)
   gradient_clip: 1.0
-  early_stop_patience: 15               # 20 for Transformer (N2-N4)
+  early_stop_patience: 25              # v5 (was 40 in v4)
+  ema:
+    enabled: true                       # v5: model averaging
+    decay: 0.999
 ```
 
 ### GPU Memory Guide
 
 | GPU | Batch Size | Grad Accum | Effective Batch | Approx. Time/Epoch |
 |-----|-----------|-----------|----------------|-------------------|
-| 16GB (V100) | 4 | 16 | 64 | ~15 min |
-| 24GB (A100) | 4 | 16 | 64 | ~10 min |
-| 40GB+ (A100) | 8 | 8 | 64 | ~7 min |
+| 40GB (A100) | 64 | 4 | 256 | ~2-5 min (MLP), ~5-10 min (Transformer) |
 
 Out of memory? Reduce `batch_size` and increase `gradient_accumulation_steps`
 to maintain the same effective batch size.
@@ -151,9 +154,9 @@ Results saved to `experimental_results/<exp_name>/training_info.json`.
 
 ```bash
 python3 scripts/evaluation/evaluate_experiment.py \
-    --config configs/experiments/N1_vmf_nce.yaml \
-    --checkpoint experimental_results/N1_vmf_nce/best_model.pt \
-    --output experimental_results/N1_vmf_nce/evaluation/
+    --config configs/experiments/N1v5_vmf_nce.yaml \
+    --checkpoint experimental_results/N1v5_vmf_nce/subj01/checkpoint_best.pt \
+    --output experimental_results/N1v5_vmf_nce/subj01/evaluation/
 ```
 
 ### Metrics by Experiment Type
@@ -177,9 +180,9 @@ python3 scripts/evaluation/evaluate_experiment.py \
 
 ```bash
 python3 scripts/evaluation/compare_experiments.py \
-    --exp-dirs experimental_results/B0_deterministic \
-              experimental_results/N1_vmf_nce \
-              experimental_results/N4_full_system \
+    --exp-dirs experimental_results/B0v4_deterministic \
+              experimental_results/N1v5_vmf_nce \
+              experimental_results/N4v5_full_system \
     --output experimental_results/comparison_report.md \
     --paired-test
 ```
@@ -222,11 +225,9 @@ experimental_results/N1_vmf_nce/
 **Out of GPU memory:** Reduce `batch_size` in config, increase
 `gradient_accumulation_steps` proportionally.
 
-**NaN losses:** Check `gradient_clip: 1.0` is set. For vMF models, verify
-`kappa_reg.enabled: true` to prevent unbounded kappa growth.
+**NaN losses:** Check `gradient_clip: 1.0` is set. For vMF models in v5, `kappa_reg` is intentionally disabled -- kappa is bounded by a sigmoid to `[kappa_min, kappa_max]` and the contrastive loss naturally constrains it. If NaN occurs, check that `kappa_max` keeps max logits below 80 (with `tau=1.0`, max logit = kappa_max).
 
-**Training not converging:** For Transformer models (N2-N4), ensure
-`warmup_epochs: 10` and `lr: 3e-4`. MLP models (B0-N1) use `lr: 1e-4`.
+**Training not converging:** For Transformer models (N2-N4 v5), ensure `warmup_epochs: 15` and an appropriate LR (5e-5 to 7e-5). MLP models (B0/B1/N1) use `lr: 7e-5` to `1e-4`.
 
 **Data not found:** Run `python3 scripts/utils/preflight_check.py` to verify
 NSD data files and paths.

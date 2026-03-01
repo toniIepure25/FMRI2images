@@ -228,17 +228,22 @@ loss = CrossEntropy(logits, diag_labels)
 ```
 
 - The log-normalizer `log C_d(kappa)` cancels in the softmax -- NO Bessel functions needed
-- `tau = 0.07`
-- Logits clamped to [-80, 80] for float16 stability
+- **v4**: `tau = 0.07` -- this caused **kappa collapse** (see below)
+- **v5**: `tau = 1.0` with `learnable_temperature: true` -- kappa IS the inverse temperature by definition; a separate tau is redundant and destructive
+- Logits clamped to [-80, 80] for float16 stability (with tau=1.0 and kappa_max=50, max logit is 50 -- clamp never triggers)
 - Memory queue: 16384 entries
 
-### 5.6 Kappa Regularizer (used by N1, N2, N3, N4)
+**Kappa collapse (v4 bug, fixed in v5):** With `tau=0.07`, effective logit scaling was `kappa / 0.07 = kappa * 14.28`. For a positive pair with cos_sim near 1.0, any `kappa > 5.6` produced a logit above 80 that was clamped, zeroing the gradient w.r.t. kappa. Combined with the kappa regularizer applying constant downward pressure, kappa was mathematically trapped at ~3-5 in 768-D space -- a near-uniform distribution with no useful confidence signal. Setting `tau=1.0` restores full gradient flow up to `kappa_max`.
+
+### 5.6 Kappa Regularizer (used by N1-N4 in v4; disabled in v5)
 
 ```
 L_reg = lambda_kappa * mean(kappa)
 ```
 
-Prevents unbounded kappa growth. `lambda_kappa` varies: 0.05 (N1), 0.1 (N2), 0.05 (N3), 0.02 (N4).
+**v4**: Enabled to prevent unbounded kappa growth. `lambda_kappa` varies: 0.05 (N1), 0.1 (N2), 0.05 (N3), 0.02 (N4).
+
+**v5**: **Disabled** (`kappa_reg.enabled: false`). With `tau=1.0` the contrastive NLL naturally constrains kappa through the softmax denominator -- explicit penalization is unnecessary and was contributing to the kappa collapse by applying constant downward pressure on an already-trapped parameter.
 
 ### 5.7 KappaSPCL (used by N4)
 
@@ -350,6 +355,40 @@ loss = -sum(teacher * student, dim=-1).mean()   # KL(teacher || student)
 | SoftCLIP (tau=0.07) | Y | Y | Y | Y | Y | Y (tau=0.05) |
 | MixCo (w=1.0, first 1/3 epochs) | Y | Y | Y | Y | Y | Y |
 
+### 6.4 v5 N-Series Configs (Current Active)
+
+The ablation ladder now runs **B0v4, B1v4, N1v5, N2v5, N3v5, N4v5**. B-series remain at v4. N-series upgraded to v5 to fix the kappa collapse and add training improvements.
+
+**Key v5 changes from v4 (N-series only):**
+
+| Parameter | v4 | v5 |
+|-----------|----|----|
+| vMF-NCE tau | 0.07 (N1-N3) / 0.05 (N4) | **1.0** (all) |
+| Kappa regularizer | Enabled | **Disabled** |
+| Learnable temperature | N/A | **True** (logit_scale starts at 0 with tau=1.0) |
+| Gradient accumulation | 1 (N1-N3) / 2 (N4) | **4** (effective batch 256) |
+| fMRI noise augmentation | None | **0.1** (Gaussian noise std) |
+| Voxel dropout | None | **0.1** (random voxel masking) |
+| EMA | None | **Enabled** (decay=0.999) |
+| SoftCLIP schedule | After 1/3 epochs | **From start** (simultaneous with MixCo) |
+| MixCo weight | 1.0 | **0.5** (reduced since running alongside SoftCLIP) |
+| Max epochs | 300 | **150** (models peak early, 300 wastes compute) |
+| Patience | 40-60 | **25** |
+| Dropout | 0.15 | **0.2** |
+| Weight decay | 0.01 | **0.05** |
+| N2 Transformer | d_model=512, 4 layers, 8 heads | **d_model=768, 6 layers, 12 heads** |
+
+**v5 loss configuration (N-series):**
+
+| Loss | N1v5 | N2v5 | N3v5 | N4v5 |
+|------|------|------|------|------|
+| vMF-NCE (tau=1.0, learnable) | Y | Y | Y | -- |
+| vMF-NCE-SPCL (tau=1.0) | -- | -- | -- | Y |
+| MultiTask (lambda_aux) | -- | -- | Y (0.5) | Y (0.3) |
+| Kappa reg | **Disabled** | **Disabled** | **Disabled** | **Disabled** |
+| SoftCLIP (tau=0.05) | Y (from start) | Y (from start) | Y (from start) | Y (from start) |
+| MixCo (w=0.5) | Y | Y | Y | Y |
+
 ---
 
 ## 7. Experimental History and Results
@@ -362,7 +401,7 @@ loss = -sum(teacher * student, dim=-1).mean()   # KL(teacher || student)
 | **v2** | dropout=0.3, R@1 early stopping, tuned LR/WD per experiment | Address overfitting, track retrieval |
 | **v3** | batch=64, residual MLP, image-level split, exclude_shared1000, 300 epochs, patience=40, queue=16384, PCR k=4 | Fix gradient signal, data leakage, underfitting |
 | **v4** | Per-voxel z-scoring, disable PCR, repetition averaging, MixCo augmentation, wider MLP [8192,4096,2048] | Fix fundamental data pipeline issues, add augmentation |
-| **v5** | Individual trials (no rep-avg), per-session z-scoring, SoftCLIP knowledge distillation, MixCo->SoftCLIP phase schedule | Deep research analysis: 3x more data, remove session drift, preserve semantic similarity structure |
+| **v5** | **N-series only.** tau=1.0 (fix kappa collapse), kappa_reg disabled, learnable temperature, grad_accum=4 (eff. batch 256), fMRI noise aug (0.1), voxel dropout (0.1), EMA (0.999), SoftCLIP from start, 150 epochs, patience 25. N2: d_model=768, 6 layers, 12 heads. | Fix kappa collapse (tau=0.07 capped kappa gradient at ~5.6 in 768-D), stronger regularization via noise/dropout, model averaging, simultaneous SoftCLIP+MixCo |
 
 ### 7.2 v1 Results (subj01, 4 subjects total)
 
@@ -526,7 +565,7 @@ Previous diagnosis (before root cause found): Across v1, v2, v3, and early v4 re
 
 5. **Pre-extraction correctness**: Are the pre-extracted features correctly aligned with the CLIP cache? Does trial N in fmri_features.npy correspond to the correct nsdId in clip.parquet?
 
-6. **vMF-specific**: For N1-N4, the kappa values in v3 were very low (1-5). This means the model is expressing near-zero confidence. Is kappa regularization too aggressive?
+6. **vMF-specific**: ~~For N1-N4, the kappa values in v3 were very low (1-5). This means the model is expressing near-zero confidence. Is kappa regularization too aggressive?~~ **RESOLVED in v5.** Root cause: `tau=0.07` created a hard ceiling at `kappa ~ 5.6` due to logit clamping at 80. With `kappa / 0.07 = kappa * 14.28`, any `kappa > 5.6` hit the clamp and received zero gradient. Combined with kappa_reg pushing kappa down, kappa was mathematically trapped. Fix: `tau=1.0` + `kappa_reg.enabled: false` in all v5 N-series configs.
 
 7. **ROI Transformer capacity**: The ROI Transformer has only 512-D tokens and 4 layers. Is this sufficient to learn cross-region interactions?
 

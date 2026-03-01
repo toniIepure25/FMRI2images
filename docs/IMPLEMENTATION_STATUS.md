@@ -1,6 +1,6 @@
 # Implementation Status
 
-**Last Updated:** February 2026
+**Last Updated:** March 2026
 **Current Phase:** Phase 2 (ViT-L/14, 768-D, vMF-NCE, ROI-DCF)
 
 ---
@@ -41,18 +41,20 @@
 | Kappa Calibration | `src/fmri2img/eval/kappa_calibration.py` | in `tests/test_vmf.py` |
 | SoftCLIP Loss | `src/fmri2img/losses/softclip.py` | `tests/test_softclip.py` |
 
-### Experiment Configurations (6/6)
+### Experiment Configurations
 
-All configs in `configs/experiments/`:
+The ablation ladder runs **B v4 + N v5** (`run_ablation_ladder.sh`):
 
 | Config | Type | Status |
 |--------|------|--------|
-| `B0v4_deterministic.yaml` | Strong deterministic baseline | Ready (v5 fixes applied) |
-| `B1v4_gaussian.yaml` | Probabilistic Gaussian baseline | Ready (v5 fixes applied) |
-| `N1v4_vmf_nce.yaml` | vMF-NCE (novel distribution) | Ready (v5 fixes applied) |
-| `N2v4_roi_transformer.yaml` | ROI Transformer (novel architecture) | Ready (v5 fixes applied) |
-| `N3v4_roi_dcf.yaml` | ROI-DCF consensus (novel fusion) | Ready (v5 fixes applied) |
-| `N4v4_full_system.yaml` | Full system (flagship) | Ready (v5 fixes applied) |
+| `B0v4_deterministic.yaml` | Strong deterministic baseline | Ready |
+| `B1v4_gaussian.yaml` | Probabilistic Gaussian baseline | Ready |
+| `N1v5_vmf_nce.yaml` | vMF-NCE (novel distribution) | **v5: tau=1.0, kappa collapse fix** |
+| `N2v5_roi_transformer.yaml` | ROI Transformer (novel architecture) | **v5: tau=1.0, d_model=768, 6 layers** |
+| `N3v5_roi_dcf.yaml` | ROI-DCF consensus (novel fusion) | **v5: tau=1.0, kappa collapse fix** |
+| `N4v5_full_system.yaml` | Full system (flagship) | **v5: tau=1.0, kappa collapse fix** |
+
+Previous configs (v1-v4) remain in `configs/experiments/` for reproducibility. N-series v4 configs have a known kappa collapse bug (`tau=0.07` caps kappa gradient at ~5.6).
 
 ---
 
@@ -89,9 +91,10 @@ Results archived in `experimental_results/exp001_baseline_ultimate/` and `Raport
 | InfoNCE | `src/fmri2img/losses/contrastive.py` | B0 |
 | Gaussian NLL | `src/fmri2img/losses/gaussian.py` | B1 |
 | Gaussian-NCE | `src/fmri2img/losses/gaussian_nce.py` | B1 |
-| vMF-NCE | `src/fmri2img/losses/vmf_nce.py` | N1-N4 |
-| Kappa Regularizer | `src/fmri2img/losses/vmf_nce.py` | N1-N4 |
+| vMF-NCE | `src/fmri2img/losses/vmf_nce.py` | N1-N4 (tau=1.0 in v5) |
+| Kappa Regularizer | `src/fmri2img/losses/vmf_nce.py` | N1-N4 v4 only (disabled in v5) |
 | SoftCLIP KD | `src/fmri2img/losses/softclip.py` | All (B0-N4) |
+| MixCo Augmentation | `src/fmri2img/losses/mixco.py` | All (B0-N4) |
 
 ### Preprocessing
 
@@ -121,7 +124,10 @@ Results archived in `experimental_results/exp001_baseline_ultimate/` and `Raport
 | LR scheduling (cosine + warmup) | Implemented |
 | Gradient clipping | Implemented |
 | Per-session z-scoring | Implemented (`zscore_mode: per_session`) |
-| MixCo -> SoftCLIP phase schedule | Implemented (1/3 MixCo, 2/3 SoftCLIP) |
+| MixCo -> SoftCLIP phase schedule | Implemented (1/3 MixCo, 2/3 SoftCLIP; or simultaneous in v5) |
+| EMA (Exponential Moving Average) | Implemented (`ema.enabled: true, decay: 0.999`) |
+| fMRI noise augmentation | Implemented (`fmri_noise_std: 0.1`) |
+| Voxel dropout | Implemented (`voxel_dropout: 0.1`) |
 | TensorBoard logging | Implemented |
 
 ### Scripts
@@ -141,13 +147,13 @@ Results archived in `experimental_results/exp001_baseline_ultimate/` and `Raport
 ### Immediate (Phase 2 Experiments)
 
 ```bash
-# Full ablation ladder
-bash scripts/training/run_ablation_ladder.sh \
-    --subjects "subj01 subj02 subj05 subj07" --gpu 0
+# Full ablation ladder (B0v4, B1v4, N1v5, N2v5, N3v5, N4v5)
+nohup make ablation SUBJECTS="subj01" GPU=0 > ablation_v5.log 2>&1 &
+tail -f ablation_v5.log
 
 # Or individual experiments
 python3 scripts/training/train_unified.py \
-    --config configs/experiments/N1v4_vmf_nce.yaml --gpu 0
+    --config configs/experiments/N1v5_vmf_nce.yaml --gpu 0
 ```
 
 ### After Training
@@ -155,11 +161,16 @@ python3 scripts/training/train_unified.py \
 ```bash
 # Evaluate
 python3 scripts/evaluation/evaluate_experiment.py \
-    --config configs/experiments/N1v4_vmf_nce.yaml \
-    --checkpoint experimental_results/N1v4_vmf_nce/subj01/checkpoint_best.pt
+    --config configs/experiments/N1v5_vmf_nce.yaml \
+    --checkpoint experimental_results/N1v5_vmf_nce/subj01/checkpoint_best.pt
+
+# Aggregate ablation results
+python3 scripts/evaluation/aggregate_ablation.py \
+    --results-dir experimental_results \
+    --subjects subj01
 
 # Generate reconstructions
 python3 scripts/reconstruction/decode_diffusion.py \
     --config configs/inference/production.yaml \
-    --checkpoint experimental_results/N4v4_full_system/subj01/checkpoint_best.pt
+    --checkpoint experimental_results/N4v5_full_system/subj01/checkpoint_best.pt
 ```

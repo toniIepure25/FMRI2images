@@ -30,35 +30,46 @@ hallucination.
 
 ```bash
 python3 scripts/training/train_unified.py \
-    --config configs/experiments/B1_gaussian.yaml
+    --config configs/experiments/B1v4_gaussian.yaml
 ```
 
 ### vMF (N1)
 
 ```bash
 python3 scripts/training/train_unified.py \
-    --config configs/experiments/N1_vmf_nce.yaml
+    --config configs/experiments/N1v5_vmf_nce.yaml
 ```
 
-Key config differences in `N1_vmf_nce.yaml`:
+Key config differences in `N1v5_vmf_nce.yaml`:
 
 ```yaml
 model:
   type: "vmf"
   posterior: "vmf"
   decoder:
-    kappa_min: 0.001
-    kappa_max: 500.0
+    kappa_min: 1.0
+    kappa_max: 50.0
 
 loss:
   vmf_nce:
     enabled: true
-    tau: 0.07
+    tau: 1.0                    # kappa IS the inverse temperature
     use_queue: true
+    learnable_temperature: true # logit_scale starts at 0 with tau=1.0
   kappa_reg:
-    enabled: true
-    lambda_kappa: 0.01
+    enabled: false              # contrastive NLL naturally constrains kappa
 ```
+
+**Why tau=1.0 (kappa collapse fix):** In the vMF-NCE loss, the logit is
+`kappa * cos_sim / tau`. The vMF concentration kappa is by definition
+the inverse temperature. Setting a separate `tau=0.07` (as in v1-v4)
+created an artificial scaling of `kappa * 14.28`, which meant any
+`kappa > 5.6` hit the float16 safety clamp at 80, zeroing the gradient.
+Combined with the kappa regularizer applying constant downward pressure,
+kappa was trapped at ~3-5 in 768-D space -- a near-uniform distribution.
+With `tau=1.0`, max logit = `kappa_max = 50`, well below the clamp.
+Full gradient flow through kappa is restored, and the `kappa_reg` penalty
+is no longer needed since the softmax denominator naturally balances kappa.
 
 During training, kappa statistics are logged every epoch:
 
@@ -79,7 +90,7 @@ The full system (N3/N4) produces **two uncertainty signals**:
 
 ```bash
 python3 scripts/training/train_unified.py \
-    --config configs/experiments/N4_full_system.yaml
+    --config configs/experiments/N4v5_full_system.yaml
 ```
 
 These are used by the Decomposed UA-CFG (see Section 4).
@@ -97,7 +108,7 @@ from fmri2img.eval.kappa_calibration import (
 )
 
 cal = compute_kappa_calibration(model, val_loader, device)
-save_calibration(cal, "experimental_results/N1_vmf_nce/kappa_calibration.json")
+save_calibration(cal, "experimental_results/N1v5_vmf_nce/subj01/kappa_calibration.json")
 ```
 
 This produces a JSON file:
@@ -124,7 +135,7 @@ This produces a JSON file:
 ```bash
 python3 scripts/reconstruction/decode_diffusion.py \
     --config configs/inference/production.yaml \
-    --checkpoint experimental_results/N1_vmf_nce/best_model.pt \
+    --checkpoint experimental_results/N1v5_vmf_nce/subj01/checkpoint_best.pt \
     --subject subj01
 ```
 
@@ -133,7 +144,7 @@ python3 scripts/reconstruction/decode_diffusion.py \
 ```bash
 python3 scripts/reconstruction/decode_diffusion.py \
     --config configs/inference/production.yaml \
-    --checkpoint experimental_results/N4_full_system/best_model.pt \
+    --checkpoint experimental_results/N4v5_full_system/subj01/checkpoint_best.pt \
     --subject subj01 \
     --override "ua_cfg.enabled=true"
 ```

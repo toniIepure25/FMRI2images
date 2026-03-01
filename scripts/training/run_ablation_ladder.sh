@@ -73,6 +73,10 @@ declare -A CONFIGS=(
     [N2v5]="N2v5_roi_transformer.yaml|v5: tau=1.0, d_model=768, 6 layers, noise aug, EMA"
     [N3v5]="N3v5_roi_dcf.yaml|v5: tau=1.0, no kappa_reg, noise aug, EMA, SoftCLIP from start"
     [N4v5]="N4v5_full_system.yaml|v5: tau=1.0, no kappa_reg, noise aug, EMA, flagship"
+    [N1v6]="N1v6_vmf_nce.yaml|v6: vMF-SoftCLIP, Slerp MixCo"
+    [N2v6]="N2v6_roi_transformer.yaml|v6: vMF-SoftCLIP, Slerp MixCo"
+    [N3v6]="N3v6_roi_dcf.yaml|v6: vMF-SoftCLIP, Slerp MixCo"
+    [N4v6]="N4v6_full_system.yaml|v6: Delta-SPCL, vMF-SoftCLIP, Slerp MixCo, flagship"
 )
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"

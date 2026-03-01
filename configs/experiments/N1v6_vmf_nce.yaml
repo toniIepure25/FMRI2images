@@ -1,0 +1,123 @@
+# N1v6: vMF-NCE -- v6 novel loss improvements
+#
+# Changes from N1v5:
+#   - softclip.vmf_mode: true (vMF-SoftCLIP: kappa as dynamic student temperature)
+#   - softclip.teacher_tau: 0.05 (explicit teacher temperature)
+#   - mixco.use_slerp: true (spherical interpolation for CLIP targets)
+
+experiment:
+  name: "N1v6_vmf_nce"
+  description: "v6 vMF-NCE: vMF-SoftCLIP + Slerp MixCo"
+  tags: ["vmf", "vmf_nce", "queue", "novel", "v6"]
+  parent: "N1v5_vmf_nce"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.2
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_min: 1.0
+    kappa_max: 50.0
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: false
+    lambda_kappa: 0.05
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    vmf_mode: true
+    teacher_tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 4
+  mixed_precision: true
+  num_epochs: 150
+  optimizer:
+    type: "adamw"
+    lr: 7.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 15
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 25
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+    use_slerp: true
+  ema:
+    enabled: true
+    decay: 0.999
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  compute_probabilistic: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/N1v6_vmf_nce"

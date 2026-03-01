@@ -359,6 +359,112 @@ class KappaSPCLVMFNCELoss(nn.Module):
 
 
 # ---------------------------------------------------------------------------
+# Delta-SPCL: Disagreement-Aware Self-Paced Contrastive Learning
+# ---------------------------------------------------------------------------
+
+class DeltaSPCLVMFNCELoss(nn.Module):
+    """
+    Disagreement-Aware Self-Paced Contrastive Learning (Delta-SPCL).
+
+    Extends kappa-SPCL by incorporating the directional disagreement
+    score (delta) from SphericalConsensusFusion.  Samples are weighted
+    by high confidence (kappa) AND low inter-ROI disagreement (delta):
+
+        scoring_i = kappa_i - delta_weight * delta_i
+        w_i       = softmax(scoring_i / T_curriculum)
+        L         = sum_i w_i * CE_i
+
+    When ROIs disagree (high delta), the fMRI signal is likely corrupted
+    by noise, inattention, or mind-wandering.  The curriculum begins with
+    high-agreement, high-confidence samples and gradually admits noisier
+    trials as T_curriculum decreases.
+
+    When delta is not provided (non-DCF models), falls back to pure
+    kappa-SPCL weighting.
+
+    Args:
+        tau:                   Contrastive temperature.
+        use_queue:             Whether to use memory-queue negatives.
+        kappa_is_log:          Whether kappa inputs are in log space.
+        initial_curriculum_t:  Starting curriculum temperature.
+        delta_weight:          Scaling factor for delta penalty in the
+                               scoring metric (higher = stronger penalty
+                               for inter-ROI disagreement).
+    """
+
+    def __init__(
+        self,
+        tau: float = 1.0,
+        use_queue: bool = True,
+        kappa_is_log: bool = False,
+        initial_curriculum_t: float = 50.0,
+        delta_weight: float = 10.0,
+    ):
+        super().__init__()
+        self.tau = tau
+        self.use_queue = use_queue
+        self.kappa_is_log = kappa_is_log
+        self.curriculum_t = initial_curriculum_t
+        self.delta_weight = delta_weight
+        logger.info(
+            "DeltaSPCLVMFNCELoss: tau=%s, use_queue=%s, curriculum_t=%s, "
+            "delta_weight=%s",
+            tau, use_queue, initial_curriculum_t, delta_weight,
+        )
+
+    def set_curriculum_temperature(self, t: float) -> None:
+        """Update the curriculum temperature (call once per epoch)."""
+        self.curriculum_t = max(t, 1e-6)
+
+    def forward(
+        self,
+        mu_query: torch.Tensor,
+        kappa_or_log_kappa_query: torch.Tensor,
+        key_embeddings: torch.Tensor,
+        queue: Optional[nn.Module] = None,
+        delta: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """
+        Args:
+            mu_query:                 (B, D) unit-norm query means.
+            kappa_or_log_kappa_query: (B, 1) concentration or log-concentration.
+            key_embeddings:           (B, D) unit-norm GT keys.
+            queue:                    optional MemoryQueue for extra negatives.
+            delta:                    (B, 1) directional disagreement from DCF.
+                                      If None, falls back to kappa-only weighting.
+
+        Returns:
+            Scalar weighted contrastive loss.
+        """
+        if self.kappa_is_log:
+            kappa = kappa_or_log_kappa_query.exp().squeeze(-1)
+        else:
+            kappa = kappa_or_log_kappa_query.squeeze(-1)
+
+        B = mu_query.size(0)
+
+        scoring = kappa
+        if delta is not None:
+            delta_val = delta.squeeze(-1)
+            scoring = kappa - self.delta_weight * delta_val
+
+        weights = F.softmax(scoring / self.curriculum_t, dim=0)  # (B,)
+
+        cos_sim = mu_query @ key_embeddings.T  # (B, B)
+        logits = (kappa.unsqueeze(1) * cos_sim / self.tau).clamp(-80, 80)
+
+        if self.use_queue and queue is not None and queue.is_ready():
+            queue_embs = queue.get_queue()
+            cos_q = mu_query @ queue_embs.T  # (B, Q)
+            logits_q = (kappa.unsqueeze(1) * cos_q / self.tau).clamp(-80, 80)
+            logits = torch.cat([logits, logits_q], dim=1)  # (B, B+Q)
+
+        labels = torch.arange(B, device=mu_query.device)
+        per_sample_loss = F.cross_entropy(logits, labels, reduction="none")  # (B,)
+        return (weights * per_sample_loss).sum()
+
+
+# ---------------------------------------------------------------------------
 # Multi-task vMF-NCE for ROI-DCF
 # ---------------------------------------------------------------------------
 

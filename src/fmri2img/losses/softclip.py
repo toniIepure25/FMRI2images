@@ -96,3 +96,92 @@ class SoftCLIPLoss(nn.Module):
             return (loss_fwd + loss_rev) / 2.0
 
         return loss_fwd
+
+
+class VMFSoftCLIPLoss(nn.Module):
+    """Probabilistic SoftCLIP for von Mises-Fisher embeddings.
+
+    Uses the model's predicted kappa as the student's per-sample inverse
+    temperature, replacing the fixed tau used in standard SoftCLIP.  The
+    CLIP teacher distribution remains fixed-temperature.
+
+    When the brain signal is clear (high kappa), the student makes a sharp
+    prediction.  When the signal is noisy (low kappa), the student's
+    distribution is naturally flatter, preventing the network from being
+    penalized for uncertainty on ambiguous trials.
+
+    Teacher:  P_t = softmax(gt @ keys^T / teacher_tau)
+    Student:  P_s = log_softmax(kappa_i * mu_i @ keys^T)
+
+    Args:
+        teacher_tau: Fixed temperature for the CLIP teacher distribution.
+        use_queue: Whether to incorporate memory queue negatives.
+        symmetric: If True, compute loss in both directions and average.
+    """
+
+    def __init__(
+        self,
+        teacher_tau: float = 0.05,
+        use_queue: bool = True,
+        symmetric: bool = True,
+    ):
+        super().__init__()
+        self.teacher_tau = teacher_tau
+        self.use_queue = use_queue
+        self.symmetric = symmetric
+        logger.info(
+            "VMFSoftCLIPLoss: teacher_tau=%s, use_queue=%s, symmetric=%s",
+            teacher_tau, use_queue, symmetric,
+        )
+
+    def forward(
+        self,
+        mu: torch.Tensor,
+        kappa: torch.Tensor,
+        gt_embeddings: torch.Tensor,
+        queue: Optional[nn.Module] = None,
+    ) -> torch.Tensor:
+        """Compute vMF-SoftCLIP loss.
+
+        Args:
+            mu: (B, D) predicted mean directions (unit norm).
+            kappa: (B, 1) predicted concentration parameters.
+            gt_embeddings: (B, D) ground-truth CLIP embeddings.
+            queue: Optional MemoryQueue with additional negatives.
+
+        Returns:
+            Scalar loss.
+        """
+        mu_norm = F.normalize(mu.float(), dim=1, p=2)
+        gt_norm = F.normalize(gt_embeddings.float(), dim=1, p=2)
+        kappa_flat = kappa.float().squeeze(-1)  # (B,)
+
+        all_keys = gt_norm
+        if self.use_queue and queue is not None and queue.is_ready():
+            queue_embs = F.normalize(queue.get_queue().float(), dim=1, p=2)
+            all_keys = torch.cat([gt_norm, queue_embs], dim=0)
+
+        # Teacher: fixed-temperature CLIP-CLIP similarity
+        teacher_logits = torch.matmul(gt_norm, all_keys.T) / self.teacher_tau
+        teacher_dist = F.softmax(teacher_logits, dim=-1)
+
+        # Student: kappa-scaled cosine similarity (per-sample temperature)
+        cos_sim = torch.matmul(mu_norm, all_keys.T)  # (B, M)
+        student_logits = kappa_flat.unsqueeze(1) * cos_sim  # (B, M)
+        student_log_dist = F.log_softmax(student_logits, dim=-1)
+
+        loss_fwd = -(teacher_dist * student_log_dist).sum(dim=-1).mean()
+
+        if self.symmetric:
+            # Reverse: keys-to-batch (use mean kappa for reverse direction)
+            mean_kappa = kappa_flat.mean()
+            teacher_logits_rev = torch.matmul(all_keys, gt_norm.T) / self.teacher_tau
+            teacher_dist_rev = F.softmax(teacher_logits_rev, dim=-1)
+
+            student_logits_rev = mean_kappa * torch.matmul(all_keys, mu_norm.T)
+            student_log_dist_rev = F.log_softmax(student_logits_rev, dim=-1)
+
+            loss_rev = -(teacher_dist_rev * student_log_dist_rev).sum(dim=-1).mean()
+            return (loss_fwd + loss_rev) / 2.0
+
+        return loss_fwd

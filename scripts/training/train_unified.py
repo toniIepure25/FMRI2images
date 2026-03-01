@@ -51,12 +51,13 @@ from fmri2img.losses.vmf_nce import (
     VonMisesFisherNCELoss,
     VonMisesFisherNLLLoss,
     KappaSPCLVMFNCELoss,
+    DeltaSPCLVMFNCELoss,
     MultiTaskVMFNCELoss,
     kappa_regularizer,
 )
 from fmri2img.training.kl_schedule import KLScheduler
 from fmri2img.losses.mixco import mixco_augment, mixco_nce_loss
-from fmri2img.losses.softclip import SoftCLIPLoss
+from fmri2img.losses.softclip import SoftCLIPLoss, VMFSoftCLIPLoss
 from fmri2img.eval.embedding_eval import compute_retrieval_metrics as _compute_retrieval
 
 logging.basicConfig(
@@ -599,29 +600,49 @@ def setup_losses(config: Dict[str, Any], device: str,
         logger.info("vMF-NCE loss enabled (queue=%s, tau=%s, learnable_tau=%s)",
                      use_q, c.get("tau", 0.07), _learnable_tau)
 
-    # --- N4: kappa-SPCL ---
+    # --- N4: kappa-SPCL (or Delta-SPCL) ---
     if loss_cfg.get("vmf_nce_spcl", {}).get("enabled", False):
         c = loss_cfg["vmf_nce_spcl"]
         use_q = c.get("use_queue", False) and queue is not None
-        losses["vmf_nce_spcl"] = KappaSPCLVMFNCELoss(
-            tau=c.get("tau", 0.07),
-            use_queue=use_q,
-            kappa_is_log=vmf_kappa_is_log,
-            initial_curriculum_t=c.get("initial_curriculum_t", 100.0),
-        )
-        logger.info("vMF-NCE-SPCL loss enabled (curriculum_t=%.1f)", c.get("initial_curriculum_t", 100.0))
+        if c.get("use_delta", False):
+            losses["vmf_nce_spcl"] = DeltaSPCLVMFNCELoss(
+                tau=c.get("tau", 0.07),
+                use_queue=use_q,
+                kappa_is_log=vmf_kappa_is_log,
+                initial_curriculum_t=c.get("initial_curriculum_t", 100.0),
+                delta_weight=c.get("delta_weight", 10.0),
+            )
+            logger.info("Delta-SPCL loss enabled (curriculum_t=%.1f, delta_weight=%.1f)",
+                         c.get("initial_curriculum_t", 100.0), c.get("delta_weight", 10.0))
+        else:
+            losses["vmf_nce_spcl"] = KappaSPCLVMFNCELoss(
+                tau=c.get("tau", 0.07),
+                use_queue=use_q,
+                kappa_is_log=vmf_kappa_is_log,
+                initial_curriculum_t=c.get("initial_curriculum_t", 100.0),
+            )
+            logger.info("vMF-NCE-SPCL loss enabled (curriculum_t=%.1f)", c.get("initial_curriculum_t", 100.0))
 
     # --- SoftCLIP knowledge distillation ---
     if loss_cfg.get("softclip", {}).get("enabled", False):
         c = loss_cfg["softclip"]
         use_q = c.get("use_queue", False) and queue is not None
-        losses["softclip"] = SoftCLIPLoss(
-            tau=c.get("tau", 0.07),
-            use_queue=use_q,
-            symmetric=c.get("symmetric", True),
-        )
-        logger.info("SoftCLIP loss enabled (tau=%.3f, queue=%s, symmetric=%s)",
-                     c.get("tau", 0.07), use_q, c.get("symmetric", True))
+        if c.get("vmf_mode", False):
+            losses["softclip"] = VMFSoftCLIPLoss(
+                teacher_tau=c.get("teacher_tau", c.get("tau", 0.05)),
+                use_queue=use_q,
+                symmetric=c.get("symmetric", True),
+            )
+            logger.info("vMF-SoftCLIP loss enabled (teacher_tau=%.3f, queue=%s, symmetric=%s)",
+                         c.get("teacher_tau", c.get("tau", 0.05)), use_q, c.get("symmetric", True))
+        else:
+            losses["softclip"] = SoftCLIPLoss(
+                tau=c.get("tau", 0.07),
+                use_queue=use_q,
+                symmetric=c.get("symmetric", True),
+            )
+            logger.info("SoftCLIP loss enabled (tau=%.3f, queue=%s, symmetric=%s)",
+                         c.get("tau", 0.07), use_q, c.get("symmetric", True))
 
     # --- N3/N4: MultiTask vMF-NCE ---
     if loss_cfg.get("vmf_nce_multitask", {}).get("enabled", False):
@@ -772,7 +793,10 @@ def train_epoch(
 
             # --- SoftCLIP knowledge distillation (works for all model types) ---
             if "softclip" in losses:
-                l = losses["softclip"](pred, gt_embedding, queue=queue)
+                if isinstance(losses["softclip"], VMFSoftCLIPLoss) and is_vmf:
+                    l = losses["softclip"](pred, aux, gt_embedding, queue=queue)
+                else:
+                    l = losses["softclip"](pred, gt_embedding, queue=queue)
                 total_loss = total_loss + loss_weights.get("softclip", 1.0) * l
                 batch_metrics["softclip"] = l.item()
 
@@ -798,9 +822,13 @@ def train_epoch(
                 total_loss = total_loss + loss_weights.get("vmf_nce", 1.0) * l
                 batch_metrics["vmf_nce"] = l.item()
 
-            # --- vMF-NCE-SPCL (N4) ---
+            # --- vMF-NCE-SPCL (N4) or Delta-SPCL ---
             if "vmf_nce_spcl" in losses and is_vmf:
-                l = losses["vmf_nce_spcl"](pred, aux, gt_embedding, queue=queue)
+                spcl_kwargs = dict(queue=queue)
+                if isinstance(losses["vmf_nce_spcl"], DeltaSPCLVMFNCELoss):
+                    dcf_ex = getattr(model, "_last_dcf_extras", {})
+                    spcl_kwargs["delta"] = dcf_ex.get("delta")
+                l = losses["vmf_nce_spcl"](pred, aux, gt_embedding, **spcl_kwargs)
                 total_loss = total_loss + loss_weights.get("vmf_nce_spcl", 1.0) * l
                 batch_metrics["vmf_nce_spcl"] = l.item()
 
@@ -858,6 +886,7 @@ def train_epoch(
             if mixco_cfg is not None and mixco_cfg.get("enabled", False):
                 fmri_mix, gt_mix, soft_labels = mixco_augment(
                     fmri, gt_embedding, alpha=mixco_cfg.get("alpha", 0.2),
+                    use_slerp=mixco_cfg.get("use_slerp", False),
                 )
                 pred_mix = model(fmri_mix)
                 if isinstance(pred_mix, tuple):
@@ -963,7 +992,10 @@ def validate(
                 bm["infonce"] = l.item()
 
             if "softclip" in losses:
-                l = losses["softclip"](pred, gt_embedding, queue=None)
+                if isinstance(losses["softclip"], VMFSoftCLIPLoss) and is_vmf:
+                    l = losses["softclip"](pred, aux, gt_embedding, queue=None)
+                else:
+                    l = losses["softclip"](pred, gt_embedding, queue=None)
                 total_loss = total_loss + loss_weights.get("softclip", 1.0) * l
                 bm["softclip"] = l.item()
 
@@ -988,7 +1020,11 @@ def validate(
                 bm["vmf_nce"] = l.item()
 
             if "vmf_nce_spcl" in losses and is_vmf:
-                l = losses["vmf_nce_spcl"](pred, aux, gt_embedding, queue=None)
+                spcl_kwargs = dict(queue=None)
+                if isinstance(losses["vmf_nce_spcl"], DeltaSPCLVMFNCELoss):
+                    dcf_ex = getattr(model, "_last_dcf_extras", {})
+                    spcl_kwargs["delta"] = dcf_ex.get("delta")
+                l = losses["vmf_nce_spcl"](pred, aux, gt_embedding, **spcl_kwargs)
                 total_loss = total_loss + loss_weights.get("vmf_nce_spcl", 1.0) * l
                 bm["vmf_nce_spcl"] = l.item()
 

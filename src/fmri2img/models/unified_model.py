@@ -349,6 +349,7 @@ class UnifiedModel(nn.Module):
                 dropout=encoder_cfg.get("dropout", 0.1),
                 activation=encoder_cfg.get("activation", "gelu"),
                 roi_indices=roi_indices,
+                dim_feedforward=encoder_cfg.get("dim_feedforward"),
             )
         else:
             input_dim = encoder_cfg.get("input_dim")

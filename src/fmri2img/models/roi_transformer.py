@@ -91,10 +91,12 @@ class ROITransformerEncoder(nn.Module):
         dropout: float = 0.1,
         activation: str = "gelu",
         roi_indices: Optional[Dict[str, "torch.Tensor"]] = None,
+        dim_feedforward: Optional[int] = None,
     ):
         super().__init__()
 
         self._use_indices = roi_indices is not None
+        _ff_dim = dim_feedforward if dim_feedforward is not None else d_model * 4
 
         if self._use_indices:
             self.roi_names = list(roi_indices.keys())
@@ -131,11 +133,11 @@ class ROITransformerEncoder(nn.Module):
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=d_model,
             nhead=nhead,
-            dim_feedforward=d_model * 4,
+            dim_feedforward=_ff_dim,
             dropout=dropout,
             activation=activation,
             batch_first=True,
-            norm_first=True,  # Pre-norm (more stable)
+            norm_first=True,
         )
         self.transformer = nn.TransformerEncoder(
             encoder_layer, num_layers=num_layers
@@ -147,7 +149,8 @@ class ROITransformerEncoder(nn.Module):
         logger.info(
             f"ROITransformerEncoder: {self.n_rois} ROIs "
             f"({self.input_dim} voxels) -> d_model={d_model}, "
-            f"layers={num_layers}, heads={nhead}, params={n_params:,}"
+            f"ff_dim={_ff_dim}, layers={num_layers}, heads={nhead}, "
+            f"params={n_params:,}"
         )
 
     def _project_rois(self, x: torch.Tensor) -> torch.Tensor:

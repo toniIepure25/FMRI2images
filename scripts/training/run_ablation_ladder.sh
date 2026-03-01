@@ -38,7 +38,7 @@ done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-EXPERIMENT_ORDER=(B0v4 B1v4 N1v4 N2v4 N3v4 N4v4)
+EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5)
 
 declare -A CONFIGS=(
     [B0]="B0_deterministic.yaml|Strong deterministic baseline (MLP + PCR + queue + MSE + InfoNCE)"
@@ -65,6 +65,10 @@ declare -A CONFIGS=(
     [N2v4]="N2v4_roi_transformer.yaml|v4: z-scored fMRI, no PCR, rep-avg, MixCo"
     [N3v4]="N3v4_roi_dcf.yaml|v4: z-scored fMRI, no PCR, rep-avg, MixCo"
     [N4v4]="N4v4_full_system.yaml|v4: z-scored fMRI, no PCR, rep-avg, MixCo"
+    [N1v5]="N1v5_vmf_nce.yaml|v5: tau=1.0, no kappa_reg, noise aug, EMA, SoftCLIP from start"
+    [N2v5]="N2v5_roi_transformer.yaml|v5: tau=1.0, d_model=768, 6 layers, noise aug, EMA"
+    [N3v5]="N3v5_roi_dcf.yaml|v5: tau=1.0, no kappa_reg, noise aug, EMA, SoftCLIP from start"
+    [N4v5]="N4v5_full_system.yaml|v5: tau=1.0, no kappa_reg, noise aug, EMA, flagship"
 )
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"

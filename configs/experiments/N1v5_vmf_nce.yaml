@@ -1,0 +1,135 @@
+# N1v5: vMF-NCE -- v5 training recipe improvements
+#
+# Changes from N1v4:
+#   - gradient_accumulation_steps: 4 (effective batch 256 vs 64)
+#   - lr: 7e-5 (reduced from 1e-4 to reduce oscillation after convergence)
+#   - warmup_epochs: 15 (prevents kappa instability in early training)
+#   - weight_decay: 0.05 (stronger regularization, was 0.01)
+#   - dropout: 0.2 (was 0.15)
+#   - num_epochs: 150 (models peak at epoch 15-30, 300 is wasteful)
+#   - early_stop_patience: 25 (stop sooner to avoid wasting compute)
+#   - softclip_from_start: true (run SoftCLIP + MixCo simultaneously)
+#   - mixco.alpha: 0.15 (slightly stronger mixing)
+#   - mixco.weight: 0.5 (reduced since running alongside SoftCLIP)
+#   - softclip.tau: 0.05 (sharper teacher targets)
+#   - fmri_noise_std: 0.1 (Gaussian noise regularization)
+#   - voxel_dropout: 0.1 (random voxel masking)
+#   - ema.enabled: true, ema.decay: 0.999
+#   - vmf_nce.learnable_temperature: true
+#   - vmf_nce.tau: 1.0 (kappa IS the inverse temperature; tau=0.07 caps kappa gradient at ~5.6)
+#   - kappa_reg: disabled (contrastive loss naturally balances kappa)
+
+experiment:
+  name: "N1v5_vmf_nce"
+  description: "v5 vMF-NCE: larger batch, tuned LR, noise aug, EMA, SoftCLIP from start"
+  tags: ["vmf", "vmf_nce", "queue", "novel", "v5"]
+  parent: "N1v4_vmf_nce"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.2
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_min: 1.0
+    kappa_max: 50.0
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: false
+    lambda_kappa: 0.05
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 4
+  mixed_precision: true
+  num_epochs: 150
+  optimizer:
+    type: "adamw"
+    lr: 7.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 15
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 25
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  compute_probabilistic: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/N1v5_vmf_nce"

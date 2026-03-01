@@ -68,6 +68,45 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Exponential Moving Average (EMA) for model weights
+# ---------------------------------------------------------------------------
+
+class ModelEMA:
+    """Maintains exponential moving average of model parameters for smoother
+    validation metrics and better generalization."""
+
+    def __init__(self, model: nn.Module, decay: float = 0.999):
+        self.decay = decay
+        self.shadow = {}
+        self.backup = {}
+        for name, param in model.named_parameters():
+            if param.requires_grad:
+                self.shadow[name] = param.data.clone()
+
+    @torch.no_grad()
+    def update(self, model: nn.Module) -> None:
+        for name, param in model.named_parameters():
+            if param.requires_grad and name in self.shadow:
+                self.shadow[name].mul_(self.decay).add_(
+                    param.data, alpha=1.0 - self.decay
+                )
+
+    def apply_shadow(self, model: nn.Module) -> None:
+        """Swap model weights with EMA shadow weights for evaluation."""
+        for name, param in model.named_parameters():
+            if param.requires_grad and name in self.shadow:
+                self.backup[name] = param.data.clone()
+                param.data.copy_(self.shadow[name])
+
+    def restore(self, model: nn.Module) -> None:
+        """Restore original model weights after evaluation."""
+        for name, param in model.named_parameters():
+            if name in self.backup:
+                param.data.copy_(self.backup[name])
+        self.backup = {}
+
+
+# ---------------------------------------------------------------------------
 # Reproducibility
 # ---------------------------------------------------------------------------
 
@@ -552,10 +591,13 @@ def setup_losses(config: Dict[str, Any], device: str,
     if loss_cfg.get("vmf_nce", {}).get("enabled", False):
         c = loss_cfg["vmf_nce"]
         use_q = c.get("use_queue", False) and queue is not None
+        _learnable_tau = c.get("learnable_temperature", False)
         losses["vmf_nce"] = VonMisesFisherNCELoss(
             tau=c.get("tau", 0.07), use_queue=use_q, kappa_is_log=vmf_kappa_is_log,
+            learnable_temperature=_learnable_tau,
         )
-        logger.info("vMF-NCE loss enabled (queue=%s, tau=%s)", use_q, c.get("tau", 0.07))
+        logger.info("vMF-NCE loss enabled (queue=%s, tau=%s, learnable_tau=%s)",
+                     use_q, c.get("tau", 0.07), _learnable_tau)
 
     # --- N4: kappa-SPCL ---
     if loss_cfg.get("vmf_nce_spcl", {}).get("enabled", False):
@@ -673,6 +715,7 @@ def train_epoch(
     config_ref: Optional[Dict[str, Any]] = None,
     vmf_is_log: bool = True,
     mixco_cfg: Optional[Dict[str, Any]] = None,
+    ema: Optional[ModelEMA] = None,
 ) -> Tuple[Dict[str, float], int]:
     """Train for one epoch with gradient accumulation and optional AMP."""
     model.train()
@@ -686,6 +729,17 @@ def train_epoch(
         fmri, gt_embedding = batch
         fmri = fmri.to(device, dtype=torch.float32)
         gt_embedding = gt_embedding.to(device, dtype=torch.float32)
+
+        # fMRI noise augmentation: Gaussian noise to reduce overfitting
+        _noise_std = (config_ref or {}).get("training", {}).get("fmri_noise_std", 0)
+        if _noise_std > 0:
+            fmri = fmri + torch.randn_like(fmri) * _noise_std
+
+        # Voxel dropout: randomly zero voxels, scaled to preserve magnitude
+        _voxel_drop = (config_ref or {}).get("training", {}).get("voxel_dropout", 0)
+        if _voxel_drop > 0:
+            mask = torch.bernoulli(torch.full_like(fmri, 1.0 - _voxel_drop))
+            fmri = fmri * mask / (1.0 - _voxel_drop)
 
         if preprocessor is not None:
             gt_embedding_np = gt_embedding.cpu().numpy()
@@ -844,6 +898,10 @@ def train_epoch(
             if lr_scheduler is not None:
                 lr_scheduler.step()
 
+        # EMA update after each optimizer step
+        if ema is not None and ((step_in_epoch + 1) % grad_accum_steps == 0 or (step_in_epoch + 1) == len(dataloader)):
+            ema.update(model)
+
         pbar.set_postfix({k: f"{v:.4f}" for k, v in batch_metrics.items()})
         for k, v in batch_metrics.items():
             epoch_metrics.setdefault(k, []).append(v)
@@ -978,36 +1036,38 @@ def save_checkpoint(
     roi_mask_path: str = "",
     losses: Optional[Dict[str, nn.Module]] = None,
     meta: Optional[Dict[str, Any]] = None,
+    ema: Optional["ModelEMA"] = None,
 ) -> None:
     loss_states = {}
     if losses:
         for k, v in losses.items():
             if isinstance(v, nn.Module):
                 loss_states[k] = v.state_dict()
-    torch.save(
-        {
-            "epoch": epoch,
-            "global_step": global_step,
-            "model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-            "lr_scheduler_state_dict": lr_scheduler.state_dict() if lr_scheduler else None,
-            "scaler_state_dict": scaler.state_dict() if scaler else None,
-            "loss_states": loss_states,
-            "val_loss": val_loss,
-            "config": config,
-            "model_config": config.get("model", {}),
-            "subject": subject,
-            "roi_mask_path": roi_mask_path,
-            "_meta": meta or {},
-        },
-        path,
-    )
+    payload = {
+        "epoch": epoch,
+        "global_step": global_step,
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+        "lr_scheduler_state_dict": lr_scheduler.state_dict() if lr_scheduler else None,
+        "scaler_state_dict": scaler.state_dict() if scaler else None,
+        "loss_states": loss_states,
+        "val_loss": val_loss,
+        "config": config,
+        "model_config": config.get("model", {}),
+        "subject": subject,
+        "roi_mask_path": roi_mask_path,
+        "_meta": meta or {},
+    }
+    if ema is not None:
+        payload["ema_shadow"] = {k: v.cpu() for k, v in ema.shadow.items()}
+    torch.save(payload, path)
 
 
 def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimizer,
                     lr_scheduler: Any, scaler: Optional[torch.amp.GradScaler],
                     device: str,
-                    losses: Optional[Dict[str, nn.Module]] = None) -> Tuple[int, float, int]:
+                    losses: Optional[Dict[str, nn.Module]] = None,
+                    ema: Optional["ModelEMA"] = None) -> Tuple[int, float, int]:
     """Load checkpoint and restore state. Returns (start_epoch, best_val_loss, global_step)."""
     ckpt = torch.load(path, map_location=device, weights_only=False)
     model.load_state_dict(ckpt["model_state_dict"])
@@ -1021,6 +1081,11 @@ def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimiz
             if k in losses and isinstance(losses[k], nn.Module):
                 losses[k].load_state_dict(state)
                 logger.info("Restored loss state: %s", k)
+    if ema is not None and ckpt.get("ema_shadow"):
+        for name, val in ckpt["ema_shadow"].items():
+            if name in ema.shadow:
+                ema.shadow[name] = val.to(device)
+        logger.info("Restored EMA shadow state (%d params)", len(ckpt["ema_shadow"]))
     logger.info("Resumed from checkpoint %s (epoch %d, val_loss=%.4f)",
                 path, ckpt["epoch"], ckpt["val_loss"])
     return ckpt["epoch"] + 1, ckpt["val_loss"], ckpt.get("global_step", 0)
@@ -1171,6 +1236,13 @@ def main() -> None:
     model = create_model(model_config, roi_indices=_roi_indices).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     logger.info("Model parameters: %s", f"{n_params:,}")
+
+    # --- EMA ---
+    _ema_cfg = config.get("training", {}).get("ema", {})
+    ema = None
+    if _ema_cfg.get("enabled", False):
+        ema = ModelEMA(model, decay=_ema_cfg.get("decay", 0.999))
+        logger.info("EMA enabled: decay=%.4f", _ema_cfg.get("decay", 0.999))
 
     # --- Memory queue ---
     queue = None
@@ -1413,7 +1485,7 @@ def main() -> None:
         if resume_path.exists():
             start_epoch, best_val_loss, global_step = load_checkpoint(
                 resume_path, model, optimizer, lr_sched, scaler, device,
-                losses=losses,
+                losses=losses, ema=ema,
             )
         else:
             logger.warning("Resume path not found: %s — training from scratch", resume_path)
@@ -1439,14 +1511,16 @@ def main() -> None:
                      _mixco_cfg.get("weight", 1.0))
 
     # --- SoftCLIP / MixCo phase schedule ---
-    # If both MixCo and SoftCLIP are active, MixCo runs for the first 1/3 of
-    # epochs (warmup augmentation), then SoftCLIP takes over for the remaining
-    # 2/3 (knowledge distillation).
     _softclip_cfg = config.get("loss", {}).get("softclip", {})
     _has_softclip = "softclip" in losses
     _has_mixco = _mixco_cfg.get("enabled", False)
+    _softclip_from_start = config.get("training", {}).get("softclip_from_start", False)
     _softclip_transition_epoch = int(num_epochs / 3) + 1
-    if _has_softclip and _has_mixco:
+    if _softclip_from_start and _has_softclip and _has_mixco:
+        logger.info(
+            "SoftCLIP + MixCo: both active from epoch 1 (softclip_from_start=true)",
+        )
+    elif _has_softclip and _has_mixco:
         logger.info(
             "SoftCLIP + MixCo schedule: MixCo epochs 1-%d, SoftCLIP epochs %d-%d",
             _softclip_transition_epoch - 1, _softclip_transition_epoch, num_epochs,
@@ -1474,7 +1548,11 @@ def main() -> None:
         logger.info("\nEpoch %d/%d | lr=%.2e", epoch, num_epochs, optimizer.param_groups[0]["lr"])
 
         # Phase-switch: MixCo warmup -> SoftCLIP distillation
-        if _softclip_loss_obj is not None and _has_mixco:
+        if _softclip_from_start and _softclip_loss_obj is not None:
+            if "softclip" not in losses:
+                losses["softclip"] = _softclip_loss_obj
+            _epoch_mixco = _mixco_cfg if _has_mixco else None
+        elif _softclip_loss_obj is not None and _has_mixco:
             if epoch < _softclip_transition_epoch:
                 losses.pop("softclip", None)
                 _epoch_mixco = _mixco_cfg
@@ -1505,6 +1583,7 @@ def main() -> None:
             grad_accum_steps=grad_accum_steps, scaler=scaler,
             lr_scheduler=lr_sched, config_ref=config, vmf_is_log=_vmf_is_log,
             mixco_cfg=_epoch_mixco if _epoch_mixco and _epoch_mixco.get("enabled", False) else None,
+            ema=ema,
         )
         logger.info("Train: %s", " | ".join(f"{k}={v:.4f}" for k, v in train_metrics.items()))
 
@@ -1516,10 +1595,14 @@ def main() -> None:
             if kappa_upper and kq90 and kq90 > 0.99 * kappa_upper:
                 logger.warning("kappa saturating at upper bound (%.1f / %.1f)", kq90, kappa_upper)
 
+        if ema is not None:
+            ema.apply_shadow(model)
         val_metrics, val_preds, val_gts = validate(
             model, val_loader, losses, loss_weights, device, preprocessor, queue,
             vmf_is_log=_vmf_is_log,
         )
+        if ema is not None:
+            ema.restore(model)
         logger.info("Val:   %s", " | ".join(f"{k}={v:.4f}" for k, v in val_metrics.items()))
 
         retrieval = _compute_retrieval(val_preds, val_gts, ks=(1, 5, 10))
@@ -1572,7 +1655,7 @@ def main() -> None:
             output_dir / "checkpoint_last.pt", model, optimizer, lr_sched,
             scaler, epoch, val_loss, config, global_step,
             subject=subject, roi_mask_path=str(roi_mask_path),
-            losses=losses, meta=_ckpt_meta,
+            losses=losses, meta=_ckpt_meta, ema=ema,
         )
 
         if val_r1 > best_r1:
@@ -1580,12 +1663,16 @@ def main() -> None:
             best_val_loss = val_loss
             best_epoch = epoch
             patience_counter = 0
+            if ema is not None:
+                ema.apply_shadow(model)
             save_checkpoint(
                 output_dir / "checkpoint_best.pt", model, optimizer, lr_sched,
                 scaler, epoch, val_loss, config, global_step,
                 subject=subject, roi_mask_path=str(roi_mask_path),
-                losses=losses, meta=_ckpt_meta,
+                losses=losses, meta=_ckpt_meta, ema=ema,
             )
+            if ema is not None:
+                ema.restore(model)
             logger.info("New best: R@1=%.4f (val_loss=%.4f)", val_r1, val_loss)
         else:
             patience_counter += 1
@@ -1599,7 +1686,7 @@ def main() -> None:
                 output_dir / f"checkpoint_epoch_{epoch}.pt", model, optimizer,
                 lr_sched, scaler, epoch, val_loss, config, global_step,
                 subject=subject, roi_mask_path=str(roi_mask_path),
-                losses=losses, meta=_ckpt_meta,
+                losses=losses, meta=_ckpt_meta, ema=ema,
             )
 
     wall_time = time.time() - wall_start

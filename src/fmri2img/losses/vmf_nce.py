@@ -160,16 +160,37 @@ class VonMisesFisherNCELoss(nn.Module):
 
     def __init__(self, tau: float = 0.07, use_queue: bool = True,
                  kappa_is_log: bool = False,
+                 learnable_temperature: bool = False,
                  # Legacy kwargs accepted but ignored
                  dim: int = 768):
         super().__init__()
-        self.tau = tau
         self.use_queue = use_queue
         self.kappa_is_log = kappa_is_log
-        logger.info(
-            f"VonMisesFisherNCELoss: tau={tau}, use_queue={use_queue}, "
-            f"kappa_is_log={kappa_is_log}"
-        )
+        self.learnable_temperature = learnable_temperature
+
+        if learnable_temperature:
+            self.logit_scale = nn.Parameter(
+                torch.tensor(math.log(1.0 / tau))
+            )
+            self.tau = None
+            logger.info(
+                "VonMisesFisherNCELoss: learnable_temperature=True (init tau=%.4f), "
+                "use_queue=%s, kappa_is_log=%s",
+                tau, use_queue, kappa_is_log,
+            )
+        else:
+            self.tau = tau
+            logger.info(
+                "VonMisesFisherNCELoss: tau=%s, use_queue=%s, kappa_is_log=%s",
+                tau, use_queue, kappa_is_log,
+            )
+
+    @property
+    def effective_tau(self) -> torch.Tensor:
+        """Current temperature (scalar), clamped for stability."""
+        if self.learnable_temperature:
+            return torch.exp(-self.logit_scale.clamp(max=4.6052))
+        return self.tau
 
     def _score(
         self,
@@ -189,7 +210,8 @@ class VonMisesFisherNCELoss(nn.Module):
             (B, M) logits
         """
         cos_sim = mu @ keys.T                          # (B, M)
-        logits = kappa.unsqueeze(1) * cos_sim / self.tau
+        tau = self.effective_tau
+        logits = kappa.unsqueeze(1) * cos_sim / tau
         return logits.clamp(-80, 80)                   # (B, M)
 
     def forward(

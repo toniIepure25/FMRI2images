@@ -175,7 +175,7 @@ train:
 		$${SUBJECT:+--subject $$SUBJECT}
 
 # Full B0-N4 ablation ladder (training only)
-# Optional: ONLY=N to run only N-series, ONLY=B for only B-series
+# Optional: ONLY=N (all N-series), ONLY=N6 (N v6 only), ONLY=N5 (N v5 only), ONLY=B (B-series)
 ablation:
 	bash scripts/training/run_ablation_ladder.sh \
 		--subjects "$${SUBJECTS:-subj01 subj02 subj05 subj07}" \

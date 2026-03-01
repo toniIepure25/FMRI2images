@@ -4,22 +4,22 @@ overview: Add three vMF-native loss/augmentation improvements (Delta-SPCL, vMF-S
 todos:
   - id: delta-spcl
     content: "Add DeltaSPCLVMFNCELoss to vmf_nce.py: extends KappaSPCL with optional delta-based sample weighting, configurable delta_weight"
-    status: pending
+    status: completed
   - id: vmf-softclip
     content: "Add VMFSoftCLIPLoss to softclip.py: uses kappa as dynamic student temperature, supports queue + symmetric mode, teacher_tau=0.05"
-    status: pending
+    status: completed
   - id: slerp-mixco
     content: "Add slerp() to mixco.py and use_slerp parameter to mixco_augment: spherical interpolation for CLIP targets with proper edge-case handling"
-    status: pending
+    status: completed
   - id: wire-training-loop
     content: "Wire new losses into train_unified.py: pass delta to SPCL, route kappa to VMFSoftCLIP, pass use_slerp to mixco_augment"
-    status: pending
+    status: completed
   - id: v6-configs
     content: Create N1v6-N4v6 configs based on v5 + new features. Add v6 entries to ablation ladder and aggregation scripts
-    status: pending
+    status: completed
   - id: tests
     content: Add tests for DeltaSPCLVMFNCELoss, VMFSoftCLIPLoss, and slerp()
-    status: pending
+    status: completed
 isProject: false
 ---
 

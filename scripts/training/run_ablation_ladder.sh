@@ -15,8 +15,10 @@
 #   bash scripts/training/run_ablation_ladder.sh
 #   bash scripts/training/run_ablation_ladder.sh --subjects "subj01 subj02" --gpu 0
 #   bash scripts/training/run_ablation_ladder.sh --start B1
-#   bash scripts/training/run_ablation_ladder.sh --only N    # run only N-series experiments
-#   make ablation SUBJECTS="subj01" GPU=0 ONLY=N             # same via Make
+#   bash scripts/training/run_ablation_ladder.sh --only N    # all N-series (v5+v6)
+#   bash scripts/training/run_ablation_ladder.sh --only N6   # only N v6
+#   bash scripts/training/run_ablation_ladder.sh --only N5   # only N v5
+#   make ablation SUBJECTS="subj01" GPU=0 ONLY=N6            # same via Make
 #
 # Results are saved to experimental_results/<experiment_name>/
 # =============================================================================
@@ -42,7 +44,7 @@ done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5)
+EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6)
 
 declare -A CONFIGS=(
     [B0]="B0_deterministic.yaml|Strong deterministic baseline (MLP + PCR + queue + MSE + InfoNCE)"
@@ -81,16 +83,23 @@ declare -A CONFIGS=(
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"
 
-# Filter experiment order by series prefix (B, N, or all)
+# Filter experiment order by series prefix and optional version number
+#   ONLY=N   -> all N-series (v5+v6)
+#   ONLY=N6  -> only N v6
+#   ONLY=N5  -> only N v5
+#   ONLY=B   -> all B-series
 if [[ "$ONLY" != "all" ]]; then
+    SERIES="${ONLY:0:1}"
+    VERSION="${ONLY:1}"
     FILTERED=()
     for exp_id in "${EXPERIMENT_ORDER[@]}"; do
-        if [[ "$exp_id" == ${ONLY}* ]]; then
-            FILTERED+=("$exp_id")
+        if [[ "$exp_id" == ${SERIES}* ]]; then
+            if [[ -z "$VERSION" ]] || [[ "$exp_id" == *v${VERSION}* ]]; then
+                FILTERED+=("$exp_id")
+            fi
         fi
     done
     EXPERIMENT_ORDER=("${FILTERED[@]}")
-    # When filtering, start from the first matched experiment
     START="${EXPERIMENT_ORDER[0]}"
 fi
 

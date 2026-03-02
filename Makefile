@@ -176,11 +176,13 @@ train:
 
 # Full B0-N4 ablation ladder (training only)
 # Optional: ONLY=N (all N-series), ONLY=N6 (N v6 only), ONLY=N5 (N v5 only), ONLY=B (B-series)
+# Optional: SAVE_CKPT=0 to skip saving checkpoints (saves ~400-800 MB per run)
 ablation:
 	bash scripts/training/run_ablation_ladder.sh \
 		--subjects "$${SUBJECTS:-subj01 subj02 subj05 subj07}" \
 		--gpu $${GPU:-0} \
-		$${ONLY:+--only $$ONLY}
+		$${ONLY:+--only $$ONLY} \
+		$$([ "$${SAVE_CKPT}" = "0" ] && echo "--no-checkpoints")
 
 # Full pipeline: data prep + training + reconstruction + evaluation + aggregation
 full-pipeline:

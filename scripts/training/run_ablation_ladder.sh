@@ -19,7 +19,9 @@
 #   bash scripts/training/run_ablation_ladder.sh --only N7   # only N v7
 #   bash scripts/training/run_ablation_ladder.sh --only N6   # only N v6
 #   bash scripts/training/run_ablation_ladder.sh --only N5   # only N v5
+#   bash scripts/training/run_ablation_ladder.sh --no-checkpoints  # skip saving checkpoints
 #   make ablation SUBJECTS="subj01" GPU=0 ONLY=N7            # same via Make
+#   make ablation SUBJECTS="subj01" GPU=0 ONLY=N7 SAVE_CKPT=0  # no checkpoints
 #
 # Results are saved to experimental_results/<experiment_name>/
 # =============================================================================
@@ -30,6 +32,7 @@ SUBJECTS="${SUBJECTS:-subj01 subj02 subj05 subj07}"
 GPU="${GPU:-0}"
 START="${START:-B0v4}"
 ONLY="${ONLY:-all}"
+SAVE_CKPT="${SAVE_CKPT:-1}"
 CONFIG_DIR="configs/experiments"
 SCRIPT="scripts/training/train_unified.py"
 
@@ -39,6 +42,7 @@ while [[ $# -gt 0 ]]; do
         --gpu) GPU="$2"; shift 2 ;;
         --start) START="$2"; shift 2 ;;
         --only) ONLY="$2"; shift 2 ;;
+        --no-checkpoints) SAVE_CKPT=0; shift ;;
         *) echo "Unknown arg: $1"; exit 1 ;;
     esac
 done
@@ -113,6 +117,7 @@ echo "ABLATION LADDER"
 echo "Experiments: ${EXPERIMENT_ORDER[*]}"
 echo "Subjects: ${SUBJECTS}"
 echo "GPU: ${GPU}"
+echo "Save checkpoints: $( [[ "$SAVE_CKPT" == "0" ]] && echo "NO" || echo "YES" )"
 echo "=============================================="
 
 # --- Pre-extract fMRI features (one-time, ~5-10 min per subject) ---
@@ -163,17 +168,24 @@ for exp_id in "${EXPERIMENT_ORDER[@]}"; do
         echo "  -> ${subject} ... "
 
         result_dir="experimental_results/${config_file%.yaml}/${subject}"
-        if [[ -f "${result_dir}/checkpoint_best.pt" ]]; then
+        if [[ -f "${result_dir}/checkpoints/checkpoint_best.pt" ]] || \
+           [[ -f "${result_dir}/metrics/summary.json" ]]; then
             echo "    [SKIP] Already completed"
             PASSED_RUNS=$((PASSED_RUNS + 1))
             TOTAL_RUNS=$((TOTAL_RUNS - 1))
             continue
         fi
 
+        EXTRA_ARGS=""
+        if [[ "$SAVE_CKPT" == "0" ]]; then
+            EXTRA_ARGS="--no-checkpoints"
+        fi
+
         if python3 "$SCRIPT" \
             --config "$config_path" \
             --subject "$subject" \
             --gpu 0 \
+            $EXTRA_ARGS \
             > "$log_file" 2>&1; then
             echo "    PASSED"
             PASSED_RUNS=$((PASSED_RUNS + 1))

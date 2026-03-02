@@ -58,6 +58,8 @@ from fmri2img.losses.vmf_nce import (
 from fmri2img.training.kl_schedule import KLScheduler
 from fmri2img.losses.mixco import mixco_augment, mixco_nce_loss
 from fmri2img.losses.softclip import SoftCLIPLoss, VMFSoftCLIPLoss
+from fmri2img.losses.hierarchical_clip_loss import HierarchicalCLIPLoss
+from fmri2img.losses.cka_loss import CKALoss
 from fmri2img.eval.embedding_eval import compute_retrieval_metrics as _compute_retrieval
 
 logging.basicConfig(
@@ -677,6 +679,22 @@ def setup_losses(config: Dict[str, Any], device: str,
         logger.info("MultiTask vMF-NCE loss enabled (lambda_aux=%.2f, tau=%.3f, queue=%s)",
                      c.get("lambda_aux", 0.5), mt_tau, mt_use_q)
 
+    # --- Hierarchical CLIP alignment (v8) ---
+    if loss_cfg.get("hierarchical_clip", {}).get("enabled", False):
+        c = loss_cfg["hierarchical_clip"]
+        losses["hierarchical_clip"] = HierarchicalCLIPLoss(
+            tier_indices=c.get("tier_indices"),
+            tier_clip_columns=c.get("tier_clip_columns"),
+        )
+        logger.info("Hierarchical CLIP loss enabled (weight=%.3f)",
+                     c.get("weight", 0.5))
+
+    # --- CKA representational alignment (v8) ---
+    if loss_cfg.get("cka", {}).get("enabled", False):
+        c = loss_cfg["cka"]
+        losses["cka"] = CKALoss(eps=c.get("eps", 1e-8))
+        logger.info("CKA loss enabled (weight=%.3f)", c.get("weight", 0.5))
+
     return losses
 
 
@@ -761,7 +779,11 @@ def train_epoch(
     optimizer.zero_grad()
     pbar = tqdm(dataloader, desc="Training")
     for step_in_epoch, batch in enumerate(pbar):
-        if len(batch) == 3:
+        hier_targets = None
+        if len(batch) == 4:
+            fmri, gt_embedding, subject_ids, hier_targets = batch
+            subject_ids = subject_ids.to(device)
+        elif len(batch) == 3:
             fmri, gt_embedding, subject_ids = batch
             subject_ids = subject_ids.to(device)
         else:
@@ -769,6 +791,9 @@ def train_epoch(
             subject_ids = None
         fmri = fmri.to(device, dtype=torch.float32)
         gt_embedding = gt_embedding.to(device, dtype=torch.float32)
+        if hier_targets is not None:
+            hier_targets = {k: v.to(device, dtype=torch.float32)
+                           for k, v in hier_targets.items()}
 
         # fMRI noise augmentation: Gaussian noise to reduce overfitting
         _noise_std = (config_ref or {}).get("training", {}).get("fmri_noise_std", 0)
@@ -863,6 +888,32 @@ def train_epoch(
                 total_loss = total_loss + loss_weights.get("vmf_nce_multitask", 1.0) * mt_total
                 batch_metrics["mt_fused"] = mt_fused.item()
                 batch_metrics["mt_aux"] = mt_aux.item()
+
+            # --- Hierarchical CLIP alignment (v8) ---
+            if "hierarchical_clip" in losses and is_vmf and hier_targets is not None:
+                dcf_extras = getattr(model, "_last_dcf_extras", {})
+                pr_mus = dcf_extras.get("per_roi_mus")
+                alphas = dcf_extras.get("cls_to_roi_alpha")
+                if pr_mus is not None and alphas is not None:
+                    # Map column names to tier names
+                    from fmri2img.losses.hierarchical_clip_loss import DEFAULT_TIER_CLIP_COLUMNS
+                    col_to_tier = {v: k for k, v in DEFAULT_TIER_CLIP_COLUMNS.items()}
+                    tier_tgts = {}
+                    for col, tgt in hier_targets.items():
+                        tier_name = col_to_tier.get(col)
+                        if tier_name is not None:
+                            tier_tgts[tier_name] = F.normalize(tgt.float(), p=2, dim=-1)
+                    h_loss, h_details = losses["hierarchical_clip"](pr_mus, alphas, tier_tgts)
+                    total_loss = total_loss + loss_weights.get("hierarchical_clip", 0.5) * h_loss
+                    batch_metrics["hier_clip"] = h_loss.item()
+                    for k, v in h_details.items():
+                        batch_metrics[k] = v
+
+            # --- CKA representational alignment (v8) ---
+            if "cka" in losses:
+                cka_loss = losses["cka"](pred, gt_embedding)
+                total_loss = total_loss + loss_weights.get("cka", 0.5) * cka_loss
+                batch_metrics["cka"] = cka_loss.item()
 
             # --- Single queue enqueue (after all contrastive losses read the queue) ---
             if queue is not None:
@@ -1562,14 +1613,30 @@ def main() -> None:
         import torch.nn.functional as F
 
         def _multi_subject_collate(batch):
-            fmri_list, emb_list, subj_ids = zip(*batch)
+            # Handles both 3-element (fmri, emb, subj_id) and
+            # 4-element (fmri, emb, subj_id, hier_targets) tuples
+            has_hier = len(batch[0]) == 4
+            if has_hier:
+                fmri_list, emb_list, subj_ids, hier_list = zip(*batch)
+            else:
+                fmri_list, emb_list, subj_ids = zip(*batch)
+                hier_list = None
             max_v = max(f.shape[0] for f in fmri_list)
             padded = [F.pad(f, (0, max_v - f.shape[0])) for f in fmri_list]
-            return (
+            result = (
                 torch.stack(padded),
                 torch.stack(emb_list),
                 torch.tensor(subj_ids, dtype=torch.long),
             )
+            if has_hier and hier_list:
+                # Stack each hierarchical column across the batch
+                keys = hier_list[0].keys()
+                hier_stacked = {
+                    k: torch.stack([h[k] for h in hier_list])
+                    for k in keys
+                }
+                result = result + (hier_stacked,)
+            return result
 
         _collate_fn = _multi_subject_collate
 

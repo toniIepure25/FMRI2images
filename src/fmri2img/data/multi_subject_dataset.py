@@ -53,6 +53,9 @@ class MultiSubjectPreextractedDataset(Dataset):
 
     SUBJECT_TO_INT: Dict[str, int] = {}
 
+    # Multi-layer CLIP columns used for hierarchical alignment
+    HIER_COLUMNS: List[str] = ["layer_12_proj", "layer_18_proj", "final"]
+
     def __init__(
         self,
         subjects: List[str],
@@ -75,6 +78,15 @@ class MultiSubjectPreextractedDataset(Dataset):
         from fmri2img.data.multi_subject_dataset import _resolve_emb_col
         self._emb_col = _resolve_emb_col(embeddings_df, embedding_column)
         logger.info("Embedding column: %s", self._emb_col)
+
+        # Detect available hierarchical CLIP columns
+        self._hier_cols = [
+            c for c in self.HIER_COLUMNS if c in embeddings_df.columns
+        ]
+        if self._hier_cols:
+            logger.info("Hierarchical CLIP columns available: %s", self._hier_cols)
+        else:
+            logger.info("No hierarchical CLIP columns found — hierarchical loss disabled")
 
         self.embedding_lookup: Dict[int, int] = {}
         if "nsdId" in embeddings_df.columns:
@@ -199,8 +211,10 @@ class MultiSubjectPreextractedDataset(Dataset):
     def __len__(self) -> int:
         return len(self.index_df)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, int]:
-        """Returns (fmri, clip_embedding, subject_int)."""
+    def __getitem__(self, idx: int):
+        """Returns (fmri, clip_embedding, subject_int) or
+        (fmri, clip_embedding, subject_int, hier_targets_dict) when
+        hierarchical CLIP columns are available."""
         subj_int = int(self._feat_subj[idx])
         local_idx = int(self._feat_local_idx[idx])
 
@@ -210,10 +224,20 @@ class MultiSubjectPreextractedDataset(Dataset):
         emb_idx = self.embedding_lookup.get(nsd_id)
         if emb_idx is None:
             raise KeyError(f"nsdId={nsd_id} not in CLIP cache")
-        embedding = self.embeddings_df.iloc[emb_idx][self._emb_col]
+        row = self.embeddings_df.iloc[emb_idx]
+        embedding = row[self._emb_col]
 
         fmri_t = torch.from_numpy(np.asarray(fmri, dtype=np.float32))
         emb_t = torch.from_numpy(np.asarray(embedding, dtype=np.float32))
+
+        if self._hier_cols:
+            hier = {}
+            for col in self._hier_cols:
+                hier[col] = torch.from_numpy(
+                    np.asarray(row[col], dtype=np.float32)
+                )
+            return fmri_t, emb_t, subj_int, hier
+
         return fmri_t, emb_t, subj_int
 
     @property

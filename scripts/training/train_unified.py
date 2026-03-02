@@ -1051,7 +1051,10 @@ def validate(
 
     with torch.no_grad():
         for batch in dataloader:
-            if len(batch) == 3:
+            if len(batch) == 4:
+                fmri, gt_embedding, subject_ids, _ = batch
+                subject_ids = subject_ids.to(device)
+            elif len(batch) == 3:
                 fmri, gt_embedding, subject_ids = batch
                 subject_ids = subject_ids.to(device)
             else:

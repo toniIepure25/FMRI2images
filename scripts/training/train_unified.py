@@ -761,7 +761,12 @@ def train_epoch(
     optimizer.zero_grad()
     pbar = tqdm(dataloader, desc="Training")
     for step_in_epoch, batch in enumerate(pbar):
-        fmri, gt_embedding = batch
+        if len(batch) == 3:
+            fmri, gt_embedding, subject_ids = batch
+            subject_ids = subject_ids.to(device)
+        else:
+            fmri, gt_embedding = batch
+            subject_ids = None
         fmri = fmri.to(device, dtype=torch.float32)
         gt_embedding = gt_embedding.to(device, dtype=torch.float32)
 
@@ -782,7 +787,7 @@ def train_epoch(
             gt_embedding = torch.from_numpy(gt_embedding_proc).float().to(device)
 
         with torch.amp.autocast("cuda", enabled=use_amp):
-            output = model(fmri)
+            output = model(fmri, subject_ids=subject_ids) if subject_ids is not None else model(fmri)
             if isinstance(output, tuple):
                 pred, aux = output
             else:
@@ -972,7 +977,12 @@ def validate(
 
     with torch.no_grad():
         for batch in dataloader:
-            fmri, gt_embedding = batch
+            if len(batch) == 3:
+                fmri, gt_embedding, subject_ids = batch
+                subject_ids = subject_ids.to(device)
+            else:
+                fmri, gt_embedding = batch
+                subject_ids = None
             fmri = fmri.to(device, dtype=torch.float32)
             gt_embedding = gt_embedding.to(device, dtype=torch.float32)
 
@@ -981,7 +991,7 @@ def validate(
                 gt_embedding_proc = preprocessor.transform(gt_embedding_np)
                 gt_embedding = torch.from_numpy(gt_embedding_proc).float().to(device)
 
-            output = model(fmri)
+            output = model(fmri, subject_ids=subject_ids) if subject_ids is not None else model(fmri)
             if isinstance(output, tuple):
                 pred, aux = output
             else:
@@ -1251,7 +1261,33 @@ def main() -> None:
     preextracted_path = Path(cache_root) / "preextracted" / f"subject={subject}" / "fmri_features.npy"
     roi_mask_path = resolve_roi_mask_path(subject)
 
-    if preextracted_path.exists():
+    _encoder_type_check = config.get("model", {}).get("encoder", {}).get("encoder_type", "mlp")
+    _multi_subjects = config.get("data", {}).get("subjects", [])
+
+    if _encoder_type_check == "multi_subject_roi_transformer" and len(_multi_subjects) > 1:
+        from fmri2img.data.multi_subject_dataset import MultiSubjectPreextractedDataset
+
+        _emb_col_override = config.get("data", {}).get("embedding_column")
+        _exclude_s1000 = config["data"].get("exclude_shared1000", True)
+        _split_img = config["data"].get("split_by_image", True)
+        _val_ratio = config["data"].get("val_split", 0.10)
+        _data_seed = config["data"].get("seed", 42)
+
+        full_dataset = MultiSubjectPreextractedDataset(
+            subjects=_multi_subjects,
+            cache_root=Path(cache_root) / "preextracted",
+            index_root=Path("data/indices/nsd_index"),
+            embeddings_df=embeddings_df,
+            embedding_column=_emb_col_override,
+            exclude_shared1000=_exclude_s1000,
+            split_by_image=_split_img,
+            val_ratio=_val_ratio,
+            seed=_data_seed,
+        )
+        logger.info("Multi-subject dataset: %d subjects, %d total trials",
+                     full_dataset.n_subjects, len(full_dataset))
+
+    elif preextracted_path.exists():
         avg_reps = config["data"].get("average_repetitions", False)
         logger.info("Using pre-extracted features: %s (avg_reps=%s)", preextracted_path, avg_reps)
         full_dataset = PreextractedNSDDataset(
@@ -1271,7 +1307,9 @@ def main() -> None:
             logger.warning("ROI mask not found: %s — using full brain volume", roi_mask_path)
             full_dataset = NSDDataset(index_df, embeddings_df)
 
-    sample_fmri, sample_emb = full_dataset[0]
+    sample = full_dataset[0]
+    sample_fmri = sample[0]
+    sample_emb = sample[1]
     fmri_dim = sample_fmri.shape[0]
     embedding_dim = sample_emb.shape[0]
     logger.info("Dimensions: fMRI=%d, Embedding=%d", fmri_dim, embedding_dim)
@@ -1283,6 +1321,7 @@ def main() -> None:
 
     _roi_indices = None
     encoder_type = model_config.get("encoder", {}).get("encoder_type", "mlp")
+    _is_multi_subject = encoder_type == "multi_subject_roi_transformer"
     if encoder_type == "roi_transformer":
         from fmri2img.data.roi_utils import build_roi_index
         roi_names = list(model_config["encoder"].get("roi_dims", {}).keys())
@@ -1290,6 +1329,20 @@ def main() -> None:
             actual_dims, _roi_indices = build_roi_index(subject, roi_names)
             model_config["encoder"]["roi_dims"] = dict(actual_dims)
             logger.info("ROI dims overridden from NSD masks (total=%d)", sum(actual_dims.values()))
+    elif _is_multi_subject:
+        from fmri2img.data.roi_utils import build_roi_index
+        roi_names = list(model_config["encoder"].get("roi_dims", {}).keys())
+        subjects_list = config.get("data", {}).get("subjects", [subject])
+        if roi_names and subjects_list:
+            subject_roi_dims = {}
+            subject_roi_indices = {}
+            for subj in subjects_list:
+                dims, indices = build_roi_index(subj, roi_names)
+                subject_roi_dims[subj] = dict(dims)
+                subject_roi_indices[subj] = indices
+                logger.info("ROI dims for %s: total=%d", subj, sum(dims.values()))
+            model_config["encoder"]["subject_roi_dims"] = subject_roi_dims
+            _roi_indices = subject_roi_indices
 
     model = create_model(model_config, roi_indices=_roi_indices).to(device)
     n_params = sum(p.numel() for p in model.parameters())
@@ -1344,7 +1397,16 @@ def main() -> None:
     exclude_shared1000 = config["data"].get("exclude_shared1000", False)
     data_seed = config["data"].get("seed", 42)
 
-    if split_by_image and hasattr(full_dataset, "index_df"):
+    if hasattr(full_dataset, "train_indices") and full_dataset.train_indices is not None:
+        train_indices = full_dataset.train_indices.tolist()
+        val_indices = full_dataset.val_indices.tolist()
+        logger.info(
+            "Using dataset's built-in split: %d train, %d val trials",
+            len(train_indices), len(val_indices),
+        )
+        train_dataset = Subset(full_dataset, train_indices)
+        val_dataset = Subset(full_dataset, val_indices)
+    elif split_by_image and hasattr(full_dataset, "index_df"):
         _idx_df = full_dataset.index_df
         has_shared = "shared1000" in _idx_df.columns
 
@@ -1491,16 +1553,37 @@ def main() -> None:
         logger.info("Saved fitted preprocessor to %s", artifact_path)
 
     batch_size = config["training"]["batch_size"]
-    use_preextracted = isinstance(full_dataset, PreextractedNSDDataset)
+    use_preextracted = isinstance(full_dataset, PreextractedNSDDataset) or _is_multi_subject
     dl_workers = 2 if use_preextracted else 0
     dl_pin = device.startswith("cuda")
+
+    _collate_fn = None
+    if _is_multi_subject:
+        import torch.nn.functional as F
+
+        def _multi_subject_collate(batch):
+            fmri_list, emb_list, subj_ids = zip(*batch)
+            max_v = max(f.shape[0] for f in fmri_list)
+            padded = [F.pad(f, (0, max_v - f.shape[0])) for f in fmri_list]
+            return (
+                torch.stack(padded),
+                torch.stack(emb_list),
+                torch.tensor(subj_ids, dtype=torch.long),
+            )
+
+        _collate_fn = _multi_subject_collate
+
     train_loader = DataLoader(
         train_dataset, batch_size=batch_size, shuffle=True,
-        num_workers=dl_workers, pin_memory=dl_pin, persistent_workers=(dl_workers > 0),
+        num_workers=dl_workers, pin_memory=dl_pin,
+        persistent_workers=(dl_workers > 0),
+        collate_fn=_collate_fn,
     )
     val_loader = DataLoader(
         val_dataset, batch_size=batch_size, shuffle=False,
-        num_workers=dl_workers, pin_memory=dl_pin, persistent_workers=(dl_workers > 0),
+        num_workers=dl_workers, pin_memory=dl_pin,
+        persistent_workers=(dl_workers > 0),
+        collate_fn=_collate_fn,
     )
     logger.info("Train: %d | Val: %d", len(train_dataset), len(val_dataset))
 

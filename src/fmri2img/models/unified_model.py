@@ -431,10 +431,10 @@ class UnifiedModel(nn.Module):
                     kappa_mode=kappa_mode,
                 )
         elif self.model_type == "vmf_dcf":
-            if encoder_type != "roi_transformer":
+            if encoder_type not in ("roi_transformer", "multi_subject_roi_transformer"):
                 raise ValueError(
-                    "vmf_dcf model type requires encoder_type='roi_transformer', "
-                    f"got '{encoder_type}'"
+                    "vmf_dcf model type requires encoder_type='roi_transformer' or "
+                    f"'multi_subject_roi_transformer', got '{encoder_type}'"
                 )
             self.vmf_output_is_log = False
             dcf_cfg = decoder_cfg.get("dcf", {})

@@ -214,3 +214,144 @@ class TestKappaActivationModes:
         h = encoder(torch.randn(2, n_vox), subject_ids=0)
         _, kappa = decoder(h)
         assert (kappa >= 1.0).all()
+
+
+class TestCreateModelWiring:
+    """Verify that create_model correctly builds multi-subject models."""
+
+    def test_create_model_with_subject_roi_dims(self):
+        from fmri2img.models.unified_model import create_model
+
+        config = {
+            "type": "vmf",
+            "encoder": {
+                "encoder_type": "multi_subject_roi_transformer",
+                "input_dim": 300,
+                "subject_roi_dims": SUBJECT_ROI_DIMS,
+                "d_model": 64,
+                "nhead": 4,
+                "num_layers": 2,
+                "dropout": 0.0,
+            },
+            "decoder": {
+                "output_dim": 128,
+                "hidden_dims": [64],
+                "kappa_mode": "softplus",
+            },
+        }
+        model = create_model(config)
+        assert isinstance(model.encoder, MultiSubjectROITransformer)
+
+        n_vox = sum(SUBJECT_ROI_DIMS["subj01"].values())
+        out = model(torch.randn(2, n_vox), subject_ids=0)
+        assert out[0].shape == (2, 128)
+
+    def test_create_model_with_roi_indices(self):
+        from fmri2img.models.unified_model import create_model
+
+        subject_roi_indices = {}
+        for subj, dims in SUBJECT_ROI_DIMS.items():
+            offset = 0
+            indices = {}
+            for roi, n_vox in dims.items():
+                indices[roi] = torch.arange(offset, offset + n_vox)
+                offset += n_vox
+            subject_roi_indices[subj] = indices
+
+        config = {
+            "type": "vmf",
+            "encoder": {
+                "encoder_type": "multi_subject_roi_transformer",
+                "input_dim": 300,
+                "subject_roi_dims": SUBJECT_ROI_DIMS,
+                "d_model": 64,
+                "nhead": 4,
+                "num_layers": 2,
+            },
+            "decoder": {
+                "output_dim": 128,
+                "hidden_dims": [64],
+                "kappa_mode": "softplus",
+            },
+        }
+        model = create_model(config, roi_indices=subject_roi_indices)
+
+        n_vox_s01 = sum(SUBJECT_ROI_DIMS["subj01"].values())
+        out = model(torch.randn(2, n_vox_s01), subject_ids=0)
+        mu, kappa = out
+        assert mu.shape == (2, 128)
+        assert kappa.shape == (2, 1)
+
+    def test_create_model_vmf_dcf_multi_subject(self):
+        from fmri2img.models.unified_model import create_model
+
+        config = {
+            "type": "vmf_dcf",
+            "encoder": {
+                "encoder_type": "multi_subject_roi_transformer",
+                "input_dim": 300,
+                "subject_roi_dims": SUBJECT_ROI_DIMS,
+                "d_model": 64,
+                "nhead": 4,
+                "num_layers": 2,
+            },
+            "decoder": {
+                "output_dim": 128,
+                "kappa_mode": "softplus",
+                "dcf": {
+                    "shared_heads": True,
+                    "return_per_roi": True,
+                },
+            },
+        }
+        model = create_model(config)
+        n_vox = sum(SUBJECT_ROI_DIMS["subj01"].values())
+        mu, kappa = model(torch.randn(2, n_vox), subject_ids=0)
+        assert mu.shape == (2, 128)
+
+
+class TestMixedBatchPadding:
+    """Verify that padded mixed-subject batches work correctly."""
+
+    def test_padded_mixed_batch_forward(self):
+        encoder = MultiSubjectROITransformer(
+            subject_roi_dims=SUBJECT_ROI_DIMS,
+            d_model=64,
+            nhead=4,
+            num_layers=2,
+            dropout=0.0,
+        )
+        n_vox_s01 = sum(SUBJECT_ROI_DIMS["subj01"].values())
+        n_vox_s02 = sum(SUBJECT_ROI_DIMS["subj02"].values())
+        max_v = max(n_vox_s01, n_vox_s02)
+
+        x_s01 = torch.randn(2, n_vox_s01)
+        x_s02 = torch.randn(2, n_vox_s02)
+        x_padded = torch.cat([
+            F.pad(x_s01, (0, max_v - n_vox_s01)),
+            F.pad(x_s02, (0, max_v - n_vox_s02)),
+        ], dim=0)
+        subject_ids = torch.tensor([0, 0, 1, 1])
+
+        out = encoder(x_padded, subject_ids=subject_ids)
+        assert out.shape == (4, 64)
+
+    def test_collate_function(self):
+        """Verify the collate logic used in train_unified.py."""
+        fmri_a = torch.randn(300)
+        fmri_b = torch.randn(370)
+        emb_a = torch.randn(128)
+        emb_b = torch.randn(128)
+        batch = [(fmri_a, emb_a, 0), (fmri_b, emb_b, 1)]
+
+        fmri_list, emb_list, subj_ids = zip(*batch)
+        max_v = max(f.shape[0] for f in fmri_list)
+        padded = [F.pad(f, (0, max_v - f.shape[0])) for f in fmri_list]
+        fmri_t = torch.stack(padded)
+        emb_t = torch.stack(emb_list)
+        sid_t = torch.tensor(subj_ids, dtype=torch.long)
+
+        assert fmri_t.shape == (2, 370)
+        assert emb_t.shape == (2, 128)
+        assert sid_t.shape == (2,)
+        assert fmri_t[0, 300:].sum() == 0.0

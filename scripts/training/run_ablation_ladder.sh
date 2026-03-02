@@ -49,7 +49,7 @@ done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7)
+EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8)
 
 declare -A CONFIGS=(
     [B0]="B0_deterministic.yaml|Strong deterministic baseline (MLP + PCR + queue + MSE + InfoNCE)"
@@ -88,6 +88,8 @@ declare -A CONFIGS=(
     [N2v7]="N2v7_roi_transformer.yaml|v7: multi-subject, softplus kappa, fused targets"
     [N3v7]="N3v7_roi_dcf.yaml|v7: multi-subject ROI-DCF, softplus kappa, fused targets"
     [N4v7]="N4v7_full_system.yaml|v7: multi-subject flagship, softplus kappa, fused targets, SPCL"
+    [N3v8]="N3v8_roi_dcf.yaml|v8: hierarchical CLIP + CKA + arctanh + kappa-margin"
+    [N4v8]="N4v8_full_system.yaml|v8: flagship + hierarchical CLIP + per-subject CKA"
 )
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"

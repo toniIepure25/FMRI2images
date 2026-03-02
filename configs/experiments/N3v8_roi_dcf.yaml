@@ -78,6 +78,9 @@ loss:
     tau: 1.0
     use_queue: true
     learnable_temperature: true
+    use_arctanh: true
+    margin_base: 0.2
+    margin_kappa_ref: 50.0
 
   vmf_nce_multitask:
     enabled: true
@@ -97,6 +100,7 @@ loss:
   cka:
     enabled: true
     weight: 0.5
+    per_subject: true
 
   vmf_nll:
     enabled: false

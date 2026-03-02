@@ -612,9 +612,13 @@ def setup_losses(config: Dict[str, Any], device: str,
         losses["vmf_nce"] = VonMisesFisherNCELoss(
             tau=c.get("tau", 0.07), use_queue=use_q, kappa_is_log=vmf_kappa_is_log,
             learnable_temperature=_learnable_tau,
+            use_arctanh=c.get("use_arctanh", False),
+            margin_base=c.get("margin_base", 0.0),
+            margin_kappa_ref=c.get("margin_kappa_ref", 50.0),
         )
-        logger.info("vMF-NCE loss enabled (queue=%s, tau=%s, learnable_tau=%s)",
-                     use_q, c.get("tau", 0.07), _learnable_tau)
+        logger.info("vMF-NCE loss enabled (queue=%s, tau=%s, learnable_tau=%s, arctanh=%s, margin=%.2f)",
+                     use_q, c.get("tau", 0.07), _learnable_tau,
+                     c.get("use_arctanh", False), c.get("margin_base", 0.0))
 
     # --- N4: kappa-SPCL (or Delta-SPCL) ---
     if loss_cfg.get("vmf_nce_spcl", {}).get("enabled", False):
@@ -693,7 +697,9 @@ def setup_losses(config: Dict[str, Any], device: str,
     if loss_cfg.get("cka", {}).get("enabled", False):
         c = loss_cfg["cka"]
         losses["cka"] = CKALoss(eps=c.get("eps", 1e-8))
-        logger.info("CKA loss enabled (weight=%.3f)", c.get("weight", 0.5))
+        _per_subj = c.get("per_subject", False)
+        logger.info("CKA loss enabled (weight=%.3f, per_subject=%s)",
+                     c.get("weight", 0.5), _per_subj)
 
     return losses
 
@@ -911,7 +917,24 @@ def train_epoch(
 
             # --- CKA representational alignment (v8) ---
             if "cka" in losses:
-                cka_loss = losses["cka"](pred, gt_embedding)
+                _cka_per_subj = (config_ref or {}).get("loss", {}).get(
+                    "cka", {}).get("per_subject", False)
+                if _cka_per_subj and subject_ids is not None:
+                    # Per-subject CKA: align each subject's manifold
+                    # structure to CLIP independently
+                    _cka_parts = []
+                    for sid in subject_ids.unique():
+                        mask = subject_ids == sid
+                        if mask.sum() >= 4:  # need >=4 for meaningful CKA
+                            _cka_parts.append(
+                                losses["cka"](pred[mask], gt_embedding[mask])
+                            )
+                    if _cka_parts:
+                        cka_loss = torch.stack(_cka_parts).mean()
+                    else:
+                        cka_loss = losses["cka"](pred, gt_embedding)
+                else:
+                    cka_loss = losses["cka"](pred, gt_embedding)
                 total_loss = total_loss + loss_weights.get("cka", 0.5) * cka_loss
                 batch_metrics["cka"] = cka_loss.item()
 

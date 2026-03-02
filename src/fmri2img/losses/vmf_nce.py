@@ -141,7 +141,10 @@ class VonMisesFisherNCELoss(nn.Module):
 
     For query vMF(mu_q, kappa_q) and deterministic key z_k the logit is:
 
-        logit(q, k) = kappa_q * cos(mu_q, z_k) / tau
+        logit(q, k) = kappa_q * sim(mu_q, z_k) / tau
+
+    where sim is either cos (default) or arctanh(cos) for improved
+    gradient dynamics near the poles.
 
     The log-normaliser log C_d(kappa_q) cancels in the cross-entropy
     softmax (it is constant across all keys for a fixed query), so we
@@ -151,22 +154,38 @@ class VonMisesFisherNCELoss(nn.Module):
     score similarly -> the model abstains.  High kappa -> peaked
     density -> only the correct key scores high.
 
+    Optional kappa-adaptive additive margin (CosFace-style):
+        Subtracts a margin from the positive-pair logit, scaled by
+        kappa so that confident predictions are held to a stricter
+        separation standard.
+
     Args:
         tau:       Temperature (scales logits; default 0.07)
         use_queue: Whether to use memory-queue negatives
         kappa_is_log: If True, the input is log(kappa) and will be
                       exponentiated.  If False, it is kappa directly.
+        use_arctanh:  If True, apply arctanh to cosine similarities
+                      before kappa scaling.
+        margin_base:  Base additive margin for positive pairs (0 = disabled).
+        margin_kappa_ref: Reference kappa for margin scaling.
+                          margin_i = margin_base * kappa_i / (kappa_i + ref).
     """
 
     def __init__(self, tau: float = 0.07, use_queue: bool = True,
                  kappa_is_log: bool = False,
                  learnable_temperature: bool = False,
+                 use_arctanh: bool = False,
+                 margin_base: float = 0.0,
+                 margin_kappa_ref: float = 50.0,
                  # Legacy kwargs accepted but ignored
                  dim: int = 768):
         super().__init__()
         self.use_queue = use_queue
         self.kappa_is_log = kappa_is_log
         self.learnable_temperature = learnable_temperature
+        self.use_arctanh = use_arctanh
+        self.margin_base = margin_base
+        self.margin_kappa_ref = margin_kappa_ref
 
         if learnable_temperature:
             self.logit_scale = nn.Parameter(
@@ -175,14 +194,15 @@ class VonMisesFisherNCELoss(nn.Module):
             self.tau = None
             logger.info(
                 "VonMisesFisherNCELoss: learnable_temperature=True (init tau=%.4f), "
-                "use_queue=%s, kappa_is_log=%s",
-                tau, use_queue, kappa_is_log,
+                "use_queue=%s, kappa_is_log=%s, arctanh=%s, margin=%.2f",
+                tau, use_queue, kappa_is_log, use_arctanh, margin_base,
             )
         else:
             self.tau = tau
             logger.info(
-                "VonMisesFisherNCELoss: tau=%s, use_queue=%s, kappa_is_log=%s",
-                tau, use_queue, kappa_is_log,
+                "VonMisesFisherNCELoss: tau=%s, use_queue=%s, kappa_is_log=%s, "
+                "arctanh=%s, margin=%.2f",
+                tau, use_queue, kappa_is_log, use_arctanh, margin_base,
             )
 
     @property
@@ -199,7 +219,7 @@ class VonMisesFisherNCELoss(nn.Module):
         keys: torch.Tensor,
     ) -> torch.Tensor:
         """
-        Compute kappa-scaled cosine logits (no Bessel functions).
+        Compute kappa-scaled similarity logits.
 
         Args:
             mu:    (B, D) query mean directions (unit norm)
@@ -210,6 +230,9 @@ class VonMisesFisherNCELoss(nn.Module):
             (B, M) logits
         """
         cos_sim = mu @ keys.T                          # (B, M)
+        if self.use_arctanh:
+            # arctanh amplifies gradients near ±1 poles
+            cos_sim = torch.atanh(cos_sim.clamp(-1 + 1e-7, 1 - 1e-7))
         tau = self.effective_tau
         logits = kappa.unsqueeze(1) * cos_sim / tau
         return logits.clamp(-80, 80)                   # (B, M)
@@ -236,6 +259,15 @@ class VonMisesFisherNCELoss(nn.Module):
         B = mu_query.size(0)
 
         logits = self._score(mu_query, kappa, key_embeddings)   # (B, B)
+
+        # Kappa-adaptive additive margin on positive pairs (CosFace-style)
+        if self.margin_base > 0:
+            # margin_i = margin_base * kappa_i / (kappa_i + ref)
+            # High kappa → strict margin; low kappa → near-zero margin
+            adaptive_margin = self.margin_base * kappa / (
+                kappa + self.margin_kappa_ref
+            )  # (B,)
+            logits = logits - torch.diag(adaptive_margin)
 
         if self.use_queue and queue is not None and queue.is_ready():
             queue_embs = queue.get_queue()

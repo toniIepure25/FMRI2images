@@ -110,9 +110,7 @@ class MultiSubjectPreextractedDataset(Dataset):
 
             idx_df["_subject"] = subj
             idx_df["_subject_int"] = self.subject_to_int[subj]
-            idx_df["_global_feat_offset"] = (
-                sum(len(f) for f in all_features)
-            )
+            idx_df["_local_feat_idx"] = np.arange(len(idx_df), dtype=np.int64)
 
             all_features.append(feats)
             all_rows.append(idx_df)
@@ -133,6 +131,16 @@ class MultiSubjectPreextractedDataset(Dataset):
             n_before = len(combined_df)
             combined_df = combined_df[~combined_df["shared1000"]].reset_index(drop=True)
             logger.info("Excluded shared1000: %d -> %d trials", n_before, len(combined_df))
+
+        cached_nsd_ids = set(self.embedding_lookup.keys())
+        n_before_filter = len(combined_df)
+        combined_df = combined_df[combined_df["nsdId"].isin(cached_nsd_ids)].reset_index(drop=True)
+        n_filtered = n_before_filter - len(combined_df)
+        if n_filtered > 0:
+            logger.warning(
+                "Filtered %d trials with nsdIds not in CLIP cache (%d -> %d)",
+                n_filtered, n_before_filter, len(combined_df),
+            )
 
         self.index_df = combined_df
         self._build_feature_index()
@@ -155,21 +163,14 @@ class MultiSubjectPreextractedDataset(Dataset):
         )
 
     def _build_feature_index(self) -> None:
-        """Build per-row pointers into the per-subject feature arrays."""
-        self._feat_subj: List[int] = []
-        self._feat_local_idx: List[int] = []
+        """Build per-row pointers into the per-subject feature arrays.
 
-        subj_counters = {s: 0 for s in self.subjects}
-        for _, row in self.index_df.iterrows():
-            subj = row["_subject"]
-            subj_int = self.subject_to_int[subj]
-            local_idx = subj_counters[subj]
-            subj_counters[subj] += 1
-            self._feat_subj.append(subj_int)
-            self._feat_local_idx.append(local_idx)
-
-        self._feat_subj = np.array(self._feat_subj, dtype=np.int32)
-        self._feat_local_idx = np.array(self._feat_local_idx, dtype=np.int64)
+        Uses the ``_local_feat_idx`` column stored at load time so that
+        pointers remain correct even after rows have been filtered out
+        (e.g. shared1000 exclusion, missing CLIP cache entries).
+        """
+        self._feat_subj = self.index_df["_subject_int"].values.astype(np.int32)
+        self._feat_local_idx = self.index_df["_local_feat_idx"].values.astype(np.int64)
 
     def _split_by_image(self) -> None:
         """Image-level train/val split (no stimulus leakage)."""

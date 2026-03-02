@@ -8,15 +8,17 @@ supervision training.  Extracts CLS-token features from specified
 intermediate layers plus the final projected output.
 
 Usage:
-    # Build multi-layer cache for ViT-L/14 (layers 12+18, with fused target)
+    # Build multi-layer cache for a single subject
     python scripts/build/build_multilayer_clip_cache.py \\
-        --index-root data/indices/nsd_index \\
         --subject subj01 \\
         --cache outputs/clip_cache/clip_multilayer.parquet \\
-        --layers 12 18 \\
-        --fuse-alpha 0.3 \\
-        --batch-size 128 \\
-        --device cuda
+        --layers 12 18 --fuse-alpha 0.3 --device cuda
+
+    # Build cache covering ALL subjects (union of unique nsdIds)
+    python scripts/build/build_multilayer_clip_cache.py \\
+        --subjects subj01 subj02 subj05 subj07 \\
+        --cache outputs/clip_cache/clip_multilayer.parquet \\
+        --layers 12 18 --fuse-alpha 0.3 --device cuda
 
     # Resume from existing cache
     python scripts/build/build_multilayer_clip_cache.py \\
@@ -294,8 +296,10 @@ def main():
     # Data arguments
     parser.add_argument("--index-root", default="data/indices/nsd_index",
                        help="Root directory containing subject indices")
-    parser.add_argument("--subject", default="subj01",
-                       help="Subject ID (e.g., subj01)")
+    parser.add_argument("--subjects", nargs="+", default=None,
+                       help="Subject IDs (e.g., subj01 subj02 subj05 subj07)")
+    parser.add_argument("--subject", default=None,
+                       help="Single subject ID (backward compat; prefer --subjects)")
     parser.add_argument("--hdf5-path", default="cache/nsd_hdf5/nsd_stimuli.hdf5",
                        help="Path to NSD HDF5 stimulus file")
     
@@ -319,35 +323,37 @@ def main():
     
     args = parser.parse_args()
     
+    subjects = args.subjects or ([args.subject] if args.subject else ["subj01"])
+
     logger.info("=" * 70)
     logger.info("Multi-Layer CLIP Cache Builder")
     logger.info("=" * 70)
-    logger.info(f"Subject: {args.subject}")
+    logger.info(f"Subjects: {subjects}")
     logger.info(f"Layers: {args.layers}")
     logger.info(f"Output: {args.cache}")
     logger.info(f"Device: {args.device}")
     
-    # Create output directory
     cache_path = Path(args.cache)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     
-    # Load existing cache if resuming
     existing_cache = None
     if args.resume and cache_path.exists():
         logger.info(f"\nResuming from existing cache: {cache_path}")
         existing_cache = pd.read_parquet(cache_path)
         logger.info(f"  Existing entries: {len(existing_cache)}")
     
-    # Load CLIP model
     logger.info("\n1. Loading CLIP model...")
     model, preprocess, config = load_clip_model(device=args.device)
     logger.info(f"   Model: {config['model_name']}")
     
-    # Load subject index
-    logger.info("\n2. Loading subject index...")
-    index_df = read_subject_index(args.index_root, args.subject)
-    logger.info(f"   Trials: {len(index_df)}")
-    logger.info(f"   Unique stimuli: {index_df['nsdId'].nunique()}")
+    logger.info("\n2. Loading subject indices...")
+    all_dfs = []
+    for subj in subjects:
+        subj_df = read_subject_index(args.index_root, subj)
+        logger.info(f"   {subj}: {len(subj_df)} trials, {subj_df['nsdId'].nunique()} unique stimuli")
+        all_dfs.append(subj_df)
+    index_df = pd.concat(all_dfs, ignore_index=True)
+    logger.info(f"   Combined: {len(index_df)} trials, {index_df['nsdId'].nunique()} unique stimuli")
     
     # Build cache
     logger.info("\n3. Building multi-layer cache...")

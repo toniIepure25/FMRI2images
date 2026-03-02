@@ -907,7 +907,7 @@ def train_epoch(
                     fmri, gt_embedding, alpha=mixco_cfg.get("alpha", 0.2),
                     use_slerp=mixco_cfg.get("use_slerp", False),
                 )
-                pred_mix = model(fmri_mix)
+                pred_mix = model(fmri_mix, subject_ids=subject_ids)
                 if isinstance(pred_mix, tuple):
                     pred_mix = pred_mix[0]
                 mc_loss = mixco_nce_loss(

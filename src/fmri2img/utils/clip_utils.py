@@ -166,97 +166,121 @@ def encode_images_multilayer(
     images: list,
     layers: list[int] = [4, 8, 12],
     device: str = "cuda",
-    normalize: bool = True
+    normalize: bool = True,
+    project_intermediate: bool = False,
+    fuse_alpha: float = 0.0,
 ) -> dict[str, np.ndarray]:
     """
     Encode images to multi-layer CLIP features.
-    
-    Extracts intermediate features from Vision Transformer (ViT) layers
-    for multi-level supervision. Returns features from specified layers
-    plus the final output.
-    
+
+    Extracts intermediate CLS-token features from Vision Transformer layers
+    for multi-level supervision, plus the final projected output.
+
     Args:
-        model: CLIP model (must be ViT-based)
-        preprocess: CLIP preprocessing function
-        images: List of PIL Images
-        layers: Layer indices to extract (e.g., [4, 8, 12] for ViT-B/32; [6, 12, 18] for ViT-L/14)
-        device: Device for computation
-        normalize: If True, L2-normalize all embeddings
-        
+        model: CLIP model (must be ViT-based).
+        preprocess: CLIP preprocessing function.
+        images: List of PIL Images.
+        layers: Layer indices to extract.
+            ViT-B/32 (12 blocks): [4, 8, 12]
+            ViT-L/14 (24 blocks): [12, 18] recommended for semantic + detail.
+        device: Device for computation.
+        normalize: If True, L2-normalize all embeddings.
+        project_intermediate: If True, also project intermediate 1024-D features
+            through CLIP's projection head to produce 768-D ``layer_X_proj``
+            columns.  Only meaningful when the model has a projection matrix
+            (i.e., ViT-L/14 with 1024-D hidden, 768-D output).
+        fuse_alpha: If > 0, create a ``fused`` column that blends the
+            *projected* intermediate features with the final features:
+            ``fused = alpha * intermed_proj + (1-alpha) * final``, L2-normed.
+            Uses the *last* layer in ``layers`` for the intermediate input.
+            Requires ``project_intermediate=True`` (set automatically).
+
     Returns:
-        Dictionary mapping layer names to (N, D) float32 arrays:
-        - 'layer_4': Features from 4th transformer block
-        - 'layer_8': Features from 8th transformer block  
-        - 'layer_12': Features from 12th transformer block
-        - 'final': Final CLIP embeddings (after projection head)
-        
+        Dictionary mapping layer names to (N, D) float32 arrays.
+        Always includes ``final`` (projected CLIP dim, e.g. 768-D).
+        Intermediate keys are ``layer_X`` (hidden dim, e.g. 1024-D).
+        If ``project_intermediate``, also ``layer_X_proj`` (768-D).
+        If ``fuse_alpha > 0``, also ``fused`` (768-D).
+
     Note:
-        ViT-B/32 has 12 transformer blocks; ViT-L/14 has 24. Common choices:
-        - ViT-B/32: Early 4, mid 8, late 12
-        - ViT-L/14: Early 6, mid 12, late 18 (or 4, 8, 12 for compatibility)
-        - Final: projection head output (512-D ViT-B/32, 768-D ViT-L/14)
+        Intermediate CLS tokens are in the ViT hidden dimension:
+        - ViT-B/32: 768-D
+        - ViT-L/14: 1024-D
+        The ``final`` output is the projected CLIP embedding (768-D for ViT-L/14).
     """
     if not CLIP_AVAILABLE:
         raise ImportError("CLIP libraries not available")
-    
+
     import torch
     from contextlib import nullcontext
-    
-    # Preprocess images
+
+    if fuse_alpha > 0:
+        project_intermediate = True
+
     imgs_tensor = torch.stack([preprocess(img) for img in images]).to(device)
-    
-    # Autocast context
+
     if device == "cuda" and torch.cuda.is_available():
         autocast_ctx = torch.amp.autocast("cuda")
     else:
         autocast_ctx = nullcontext()
-    
-    # Extract multi-layer features
+
     features_dict = {}
-    
+
     with torch.no_grad(), autocast_ctx:
-        # Access visual encoder (ViT)
         visual = model.visual
-        
-        # Patch embedding + position embedding
-        x = visual.conv1(imgs_tensor)  # (B, D, H, W)
-        x = x.reshape(x.shape[0], x.shape[1], -1)  # (B, D, N)
-        x = x.permute(0, 2, 1)  # (B, N, D)
-        
-        # Add class token
-        class_token = visual.class_embedding.unsqueeze(0).unsqueeze(0).expand(x.shape[0], -1, -1)  # (B, 1, D)
-        x = torch.cat([class_token, x], dim=1)  # (B, N+1, D)
+
+        x = visual.conv1(imgs_tensor)
+        x = x.reshape(x.shape[0], x.shape[1], -1)
+        x = x.permute(0, 2, 1)
+
+        class_token = visual.class_embedding.unsqueeze(0).unsqueeze(0).expand(
+            x.shape[0], -1, -1
+        )
+        x = torch.cat([class_token, x], dim=1)
         x = x + visual.positional_embedding
-        
-        # Pre-LayerNorm
+
         x = visual.ln_pre(x)
-        
-        # Transformer blocks with intermediate extraction
+
+        last_intermed_proj = None
         for i, block in enumerate(visual.transformer.resblocks):
             x = block(x)
-            
-            # Extract features from specified layers
-            if i + 1 in layers:  # +1 because i is 0-indexed
-                # Take CLS token (first token)
-                layer_feat = x[:, 0, :]  # (B, D)
-                
-                # Normalize if requested
+
+            if i + 1 in layers:
+                layer_feat = x[:, 0, :].float()  # (B, hidden_dim)
+
                 if normalize:
                     layer_feat = layer_feat / layer_feat.norm(dim=-1, keepdim=True)
-                
-                features_dict[f'layer_{i+1}'] = layer_feat.cpu().numpy().astype(np.float32)
-        
-        # Final projection head
-        x = visual.ln_post(x[:, 0, :])
+
+                features_dict[f'layer_{i+1}'] = (
+                    layer_feat.cpu().numpy().astype(np.float32)
+                )
+
+                if project_intermediate and visual.proj is not None:
+                    projected = layer_feat @ visual.proj.float()
+                    if normalize:
+                        projected = projected / projected.norm(
+                            dim=-1, keepdim=True
+                        )
+                    features_dict[f'layer_{i+1}_proj'] = (
+                        projected.cpu().numpy().astype(np.float32)
+                    )
+                    last_intermed_proj = projected
+
+        x = visual.ln_post(x[:, 0, :]).float()
         if visual.proj is not None:
-            x = x @ visual.proj
-        
-        # Normalize final output if requested
+            x = x @ visual.proj.float()
+
         if normalize:
             x = x / x.norm(dim=-1, keepdim=True)
-        
-        features_dict['final'] = x.cpu().numpy().astype(np.float32)
-    
+
+        final_np = x.cpu().numpy().astype(np.float32)
+        features_dict['final'] = final_np
+
+        if fuse_alpha > 0 and last_intermed_proj is not None:
+            fused = fuse_alpha * last_intermed_proj + (1.0 - fuse_alpha) * x
+            fused = fused / fused.norm(dim=-1, keepdim=True)
+            features_dict['fused'] = fused.cpu().numpy().astype(np.float32)
+
     return features_dict
 
 

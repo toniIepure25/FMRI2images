@@ -20,6 +20,7 @@ from pathlib import Path
 from fmri2img.models.vmf_decoder import VonMisesFisherDecoder
 from fmri2img.models.roi_transformer import ROITransformerEncoder
 from fmri2img.models.roi_dcf import ROIDCFDecoder
+from fmri2img.models.multi_subject_encoder import MultiSubjectROITransformer
 
 logger = logging.getLogger(__name__)
 
@@ -337,7 +338,25 @@ class UnifiedModel(nn.Module):
         encoder_type = encoder_cfg.get("encoder_type", "mlp")
 
         # --- Encoder ---
-        if encoder_type == "roi_transformer":
+        if encoder_type == "multi_subject_roi_transformer":
+            subject_roi_dims = encoder_cfg.get("subject_roi_dims", {})
+            subject_roi_indices = roi_indices  # dict-of-dicts when multi-subject
+            if not subject_roi_dims and not subject_roi_indices:
+                raise ValueError(
+                    "multi_subject_roi_transformer requires "
+                    "encoder.subject_roi_dims or roi_indices"
+                )
+            self.encoder = MultiSubjectROITransformer(
+                subject_roi_dims=subject_roi_dims,
+                subject_roi_indices=subject_roi_indices,
+                d_model=encoder_cfg.get("d_model", 768),
+                nhead=encoder_cfg.get("nhead", 12),
+                num_layers=encoder_cfg.get("num_layers", 6),
+                dim_feedforward=encoder_cfg.get("dim_feedforward"),
+                dropout=encoder_cfg.get("dropout", 0.1),
+                activation=encoder_cfg.get("activation", "gelu"),
+            )
+        elif encoder_type == "roi_transformer":
             roi_dims = encoder_cfg.get("roi_dims")
             if roi_dims is None and roi_indices is None:
                 raise ValueError("roi_transformer encoder requires roi_dims or roi_indices")
@@ -400,6 +419,7 @@ class UnifiedModel(nn.Module):
                 )
             else:
                 self.vmf_output_is_log = False
+                kappa_mode = decoder_cfg.get("kappa_mode", "bounded_sigmoid")
                 self.decoder = VonMisesFisherDecoder(
                     input_dim=latent_dim,
                     output_dim=output_dim,
@@ -408,6 +428,7 @@ class UnifiedModel(nn.Module):
                     dropout=decoder_cfg.get("dropout", 0.1),
                     kappa_min=decoder_cfg.get("kappa_min", 1e-3),
                     kappa_max=decoder_cfg.get("kappa_max", 500.0),
+                    kappa_mode=kappa_mode,
                 )
         elif self.model_type == "vmf_dcf":
             if encoder_type != "roi_transformer":
@@ -418,6 +439,7 @@ class UnifiedModel(nn.Module):
             self.vmf_output_is_log = False
             dcf_cfg = decoder_cfg.get("dcf", {})
             self._return_per_roi = dcf_cfg.get("return_per_roi", True)
+            kappa_mode = decoder_cfg.get("kappa_mode", "bounded_sigmoid")
             n_rois = getattr(self.encoder, "n_rois", 1)
             self.decoder = ROIDCFDecoder(
                 d_model=latent_dim,
@@ -427,6 +449,7 @@ class UnifiedModel(nn.Module):
                 hidden_dim=dcf_cfg.get("hidden_dim"),
                 kappa_min=decoder_cfg.get("kappa_min", 1e-3),
                 kappa_max=decoder_cfg.get("kappa_max", 500.0),
+                kappa_mode=kappa_mode,
                 dropout=decoder_cfg.get("dropout", 0.1),
             )
         else:
@@ -438,6 +461,10 @@ class UnifiedModel(nn.Module):
         """
         Forward pass.
 
+        Keyword Args:
+            subject_ids: Required when encoder is ``MultiSubjectROITransformer``.
+                         Integer tensor or scalar identifying each sample's subject.
+
         Returns:
             deterministic: (pred, None)
             gaussian:      (mu, logvar)
@@ -445,8 +472,14 @@ class UnifiedModel(nn.Module):
             vmf_dcf:       (mu_fused, kappa_consensus)
                            Also stores per-ROI extras in self._last_dcf_extras.
         """
+        subject_ids = kwargs.pop("subject_ids", None)
+        _is_multi = isinstance(self.encoder, MultiSubjectROITransformer)
+
         if self.model_type == "vmf_dcf":
-            enc_out = self.encoder(x, return_roi_tokens=True)
+            if _is_multi:
+                enc_out = self.encoder(x, subject_ids, return_roi_tokens=True)
+            else:
+                enc_out = self.encoder(x, return_roi_tokens=True)
             if self._return_per_roi:
                 mu_fused, kappa_consensus, per_roi_mus, per_roi_kappas, delta = (
                     self.decoder(enc_out.roi_tokens, enc_out.cls_to_roi_alpha,
@@ -464,7 +497,10 @@ class UnifiedModel(nn.Module):
                 )
             return mu_fused, kappa_consensus
 
-        h = self.encoder(x)
+        if _is_multi:
+            h = self.encoder(x, subject_ids)
+        else:
+            h = self.encoder(x)
 
         if self.model_type == "deterministic":
             return self.decoder(h), None

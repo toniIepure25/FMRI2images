@@ -15,10 +15,11 @@
 #   bash scripts/training/run_ablation_ladder.sh
 #   bash scripts/training/run_ablation_ladder.sh --subjects "subj01 subj02" --gpu 0
 #   bash scripts/training/run_ablation_ladder.sh --start B1
-#   bash scripts/training/run_ablation_ladder.sh --only N    # all N-series (v5+v6)
+#   bash scripts/training/run_ablation_ladder.sh --only N    # all N-series (v5+v6+v7)
+#   bash scripts/training/run_ablation_ladder.sh --only N7   # only N v7
 #   bash scripts/training/run_ablation_ladder.sh --only N6   # only N v6
 #   bash scripts/training/run_ablation_ladder.sh --only N5   # only N v5
-#   make ablation SUBJECTS="subj01" GPU=0 ONLY=N6            # same via Make
+#   make ablation SUBJECTS="subj01" GPU=0 ONLY=N7            # same via Make
 #
 # Results are saved to experimental_results/<experiment_name>/
 # =============================================================================
@@ -44,7 +45,7 @@ done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6)
+EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7)
 
 declare -A CONFIGS=(
     [B0]="B0_deterministic.yaml|Strong deterministic baseline (MLP + PCR + queue + MSE + InfoNCE)"
@@ -79,6 +80,10 @@ declare -A CONFIGS=(
     [N2v6]="N2v6_roi_transformer.yaml|v6: vMF-SoftCLIP, Slerp MixCo"
     [N3v6]="N3v6_roi_dcf.yaml|v6: vMF-SoftCLIP, Slerp MixCo"
     [N4v6]="N4v6_full_system.yaml|v6: Delta-SPCL, vMF-SoftCLIP, Slerp MixCo, flagship"
+    [N1v7]="N1v7_vmf_nce.yaml|v7: softplus kappa, fused CLIP targets"
+    [N2v7]="N2v7_roi_transformer.yaml|v7: multi-subject, softplus kappa, fused targets"
+    [N3v7]="N3v7_roi_dcf.yaml|v7: multi-subject ROI-DCF, softplus kappa, fused targets"
+    [N4v7]="N4v7_full_system.yaml|v7: multi-subject flagship, softplus kappa, fused targets, SPCL"
 )
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"

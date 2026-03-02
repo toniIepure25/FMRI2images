@@ -30,6 +30,8 @@ import torch.nn.functional as F
 from typing import Optional, Tuple, Union
 import logging
 
+from fmri2img.models.vmf_decoder import kappa_activation
+
 logger = logging.getLogger(__name__)
 
 
@@ -47,6 +49,7 @@ class PerROIVMFHeads(nn.Module):
         hidden_dim:  Optional hidden layer between token and prediction heads.
         kappa_min:   Lower bound for bounded-sigmoid kappa.
         kappa_max:   Upper bound for bounded-sigmoid kappa.
+        kappa_mode:  ``"bounded_sigmoid"`` (default) or ``"softplus"``.
         dropout:     Dropout probability.
     """
 
@@ -59,6 +62,7 @@ class PerROIVMFHeads(nn.Module):
         hidden_dim: Optional[int] = None,
         kappa_min: float = 1e-3,
         kappa_max: float = 500.0,
+        kappa_mode: str = "bounded_sigmoid",
         dropout: float = 0.1,
     ):
         super().__init__()
@@ -68,6 +72,7 @@ class PerROIVMFHeads(nn.Module):
         self.shared = shared
         self.kappa_min = kappa_min
         self.kappa_max = kappa_max
+        self.kappa_mode = kappa_mode
 
         def _make_head() -> nn.Module:
             if hidden_dim is not None:
@@ -94,9 +99,9 @@ class PerROIVMFHeads(nn.Module):
         n_params = sum(p.numel() for p in self.parameters())
         logger.info(
             "PerROIVMFHeads: d_model=%d -> output_dim=%d, n_rois=%d, "
-            "shared=%s, hidden=%s, kappa=[%s, %s], params=%s",
+            "shared=%s, hidden=%s, kappa_mode=%s, kappa=[%s, %s], params=%s",
             d_model, output_dim, n_rois, shared, hidden_dim,
-            kappa_min, kappa_max, f"{n_params:,}",
+            kappa_mode, kappa_min, kappa_max, f"{n_params:,}",
         )
 
     def _forward_single(
@@ -106,7 +111,12 @@ class PerROIVMFHeads(nn.Module):
         features = head["backbone"](token)
         mu = F.normalize(head["mu"](features), p=2, dim=-1)
         raw_kappa = head["kappa"](features)
-        kappa = self.kappa_min + (self.kappa_max - self.kappa_min) * torch.sigmoid(raw_kappa)
+        kappa = kappa_activation(
+            raw_kappa,
+            mode=self.kappa_mode,
+            kappa_min=self.kappa_min,
+            kappa_max=self.kappa_max,
+        )
         return mu, kappa
 
     def forward(
@@ -199,6 +209,7 @@ class ROIDCFDecoder(nn.Module):
         hidden_dim:  Optional hidden dim for per-ROI heads.
         kappa_min:   Lower kappa bound.
         kappa_max:   Upper kappa bound.
+        kappa_mode:  ``"bounded_sigmoid"`` (default) or ``"softplus"``.
         dropout:     Dropout rate.
     """
 
@@ -211,6 +222,7 @@ class ROIDCFDecoder(nn.Module):
         hidden_dim: Optional[int] = None,
         kappa_min: float = 1e-3,
         kappa_max: float = 500.0,
+        kappa_mode: str = "bounded_sigmoid",
         dropout: float = 0.1,
     ):
         super().__init__()
@@ -226,6 +238,7 @@ class ROIDCFDecoder(nn.Module):
             hidden_dim=hidden_dim,
             kappa_min=kappa_min,
             kappa_max=kappa_max,
+            kappa_mode=kappa_mode,
             dropout=dropout,
         )
         self.fusion = SphericalConsensusFusion()

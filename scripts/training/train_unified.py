@@ -230,6 +230,50 @@ class MetricsLogger:
 
 
 # ---------------------------------------------------------------------------
+# Embedding column resolution
+# ---------------------------------------------------------------------------
+
+_EMBEDDING_COL_PRIORITY = [
+    "fused", "final", "embedding", "clip_embedding", "clip512",
+]
+
+
+def resolve_embedding_column(
+    df: pd.DataFrame,
+    override: Optional[str] = None,
+) -> str:
+    """Pick the best embedding column from a DataFrame.
+
+    Args:
+        df:       Embeddings DataFrame.
+        override: Explicit column name from config (``data.embedding_column``).
+                  Takes precedence when set and present in *df*.
+
+    Returns:
+        The selected column name.
+
+    Raises:
+        ValueError: If no suitable column can be found.
+    """
+    if override and override in df.columns:
+        return override
+    for col in _EMBEDDING_COL_PRIORITY:
+        if col in df.columns:
+            return col
+    emb_cols = [c for c in df.columns if c.startswith("emb_")]
+    if not emb_cols:
+        emb_cols = [c for c in df.columns if c.startswith("embedding_")]
+    if emb_cols:
+        return emb_cols[0]
+    raise ValueError(
+        f"No embedding column found. Available: {list(df.columns)}"
+    )
+
+
+# Global that will be set by main() after config is loaded
+_EMBEDDING_COLUMN_OVERRIDE: Optional[str] = None
+
+# ---------------------------------------------------------------------------
 # Dataset
 # ---------------------------------------------------------------------------
 
@@ -327,24 +371,8 @@ class NSDDataset(Dataset):
                 f"({len(self.embedding_lookup)} entries)"
             )
 
-        if "final" in self.embeddings_df.columns:
-            embedding = self.embeddings_df.iloc[emb_idx]["final"]
-        elif "embedding" in self.embeddings_df.columns:
-            embedding = self.embeddings_df.iloc[emb_idx]["embedding"]
-        elif "clip_embedding" in self.embeddings_df.columns:
-            embedding = self.embeddings_df.iloc[emb_idx]["clip_embedding"]
-        elif "clip512" in self.embeddings_df.columns:
-            embedding = self.embeddings_df.iloc[emb_idx]["clip512"]
-        else:
-            emb_cols = [c for c in self.embeddings_df.columns if c.startswith("emb_")]
-            if not emb_cols:
-                emb_cols = [c for c in self.embeddings_df.columns if c.startswith("embedding_")]
-            if not emb_cols:
-                raise ValueError(
-                    f"No embedding columns found in DataFrame. "
-                    f"Available: {list(self.embeddings_df.columns)}"
-                )
-            embedding = self.embeddings_df.iloc[emb_idx][emb_cols].values
+        col = resolve_embedding_column(self.embeddings_df, _EMBEDDING_COLUMN_OVERRIDE)
+        embedding = self.embeddings_df.iloc[emb_idx][col]
 
         fmri_tensor = torch.tensor(np.asarray(fmri, dtype=np.float32))
         emb_tensor = torch.tensor(np.asarray(embedding, dtype=np.float32))
@@ -418,23 +446,8 @@ class PreextractedNSDDataset(Dataset):
                 f"({len(self.embedding_lookup)} entries)"
             )
 
-        if "final" in self.embeddings_df.columns:
-            embedding = self.embeddings_df.iloc[emb_idx]["final"]
-        elif "embedding" in self.embeddings_df.columns:
-            embedding = self.embeddings_df.iloc[emb_idx]["embedding"]
-        elif "clip_embedding" in self.embeddings_df.columns:
-            embedding = self.embeddings_df.iloc[emb_idx]["clip_embedding"]
-        elif "clip512" in self.embeddings_df.columns:
-            embedding = self.embeddings_df.iloc[emb_idx]["clip512"]
-        else:
-            emb_cols = [c for c in self.embeddings_df.columns if c.startswith("emb_")]
-            if not emb_cols:
-                emb_cols = [c for c in self.embeddings_df.columns if c.startswith("embedding_")]
-            if not emb_cols:
-                raise ValueError(
-                    f"No embedding columns found. Available: {list(self.embeddings_df.columns)}"
-                )
-            embedding = self.embeddings_df.iloc[emb_idx][emb_cols].values
+        col = resolve_embedding_column(self.embeddings_df, _EMBEDDING_COLUMN_OVERRIDE)
+        embedding = self.embeddings_df.iloc[emb_idx][col]
 
         fmri_tensor = torch.from_numpy(np.asarray(fmri, dtype=np.float32))
         emb_tensor = torch.from_numpy(np.asarray(embedding, dtype=np.float32))
@@ -489,6 +502,7 @@ def resolve_preproc_artifact(subject: str, config: Dict[str, Any]) -> str:
 
 def find_embeddings_path() -> Optional[Path]:
     candidates = [
+        Path("outputs/clip_cache/clip_multilayer.parquet"),
         Path("cache/clip_embeddings/nsd_clipcache_multilayer.parquet"),
         Path("cache/clip_embeddings/nsd_clipvitl14.parquet"),
         Path("cache/clip_embeddings/embeddings_ViT-B-32.parquet"),
@@ -1137,6 +1151,8 @@ def main() -> None:
     parser.add_argument("--gpu", type=int, default=0, help="GPU device ID")
     parser.add_argument("--resume", type=str, default=None, help="Resume from checkpoint path")
     parser.add_argument("--subject", type=str, default=None, help="Override subject (e.g. subj02)")
+    parser.add_argument("--no-checkpoints", action="store_true",
+                        help="Skip saving checkpoint files (saves disk space)")
     args = parser.parse_args()
 
     config = load_config(Path(args.config))
@@ -1161,6 +1177,12 @@ def main() -> None:
     # Save frozen config
     with open(output_dir / "config.yaml", "w") as f:
         yaml.dump(config, f)
+
+    # --- Embedding column override from config ---
+    global _EMBEDDING_COLUMN_OVERRIDE
+    _EMBEDDING_COLUMN_OVERRIDE = config.get("data", {}).get("embedding_column")
+    if _EMBEDDING_COLUMN_OVERRIDE:
+        logger.info("Embedding column override: %s", _EMBEDDING_COLUMN_OVERRIDE)
 
     # --- Load embeddings ---
     embeddings_path = find_embeddings_path()
@@ -1445,10 +1467,10 @@ def main() -> None:
     if preprocessor is not None and preproc_needs_fit:
         n_train = len(train_dataset)
         logger.info("Auto-fitting embedding preprocessor on %d training samples...", n_train)
-        emb_col = next(
-            (c for c in ["clip_embedding", "embedding", "final", "clip512"]
-             if c in embeddings_df.columns), None
-        )
+        try:
+            emb_col = resolve_embedding_column(embeddings_df, _EMBEDDING_COLUMN_OVERRIDE)
+        except ValueError:
+            emb_col = None
         if emb_col is not None:
             _train_idx_fit = train_dataset.indices if hasattr(train_dataset, "indices") else list(range(len(train_dataset)))
             if hasattr(full_dataset, "index_df") and "nsdId" in full_dataset.index_df.columns:
@@ -1687,12 +1709,13 @@ def main() -> None:
         val_loss = val_metrics.get("loss", val_metrics.get("mse", float("inf")))
         val_r1 = val_metrics["r@1"]
 
-        save_checkpoint(
-            output_dir / "checkpoint_last.pt", model, optimizer, lr_sched,
-            scaler, epoch, val_loss, config, global_step,
-            subject=subject, roi_mask_path=str(roi_mask_path),
-            losses=losses, meta=_ckpt_meta, ema=ema,
-        )
+        if not args.no_checkpoints:
+            save_checkpoint(
+                output_dir / "checkpoint_last.pt", model, optimizer, lr_sched,
+                scaler, epoch, val_loss, config, global_step,
+                subject=subject, roi_mask_path=str(roi_mask_path),
+                losses=losses, meta=_ckpt_meta, ema=ema,
+            )
 
         if val_r1 > best_r1:
             best_r1 = val_r1
@@ -1701,12 +1724,13 @@ def main() -> None:
             patience_counter = 0
             if ema is not None:
                 ema.apply_shadow(model)
-            save_checkpoint(
-                output_dir / "checkpoint_best.pt", model, optimizer, lr_sched,
-                scaler, epoch, val_loss, config, global_step,
-                subject=subject, roi_mask_path=str(roi_mask_path),
-                losses=losses, meta=_ckpt_meta, ema=ema,
-            )
+            if not args.no_checkpoints:
+                save_checkpoint(
+                    output_dir / "checkpoint_best.pt", model, optimizer, lr_sched,
+                    scaler, epoch, val_loss, config, global_step,
+                    subject=subject, roi_mask_path=str(roi_mask_path),
+                    losses=losses, meta=_ckpt_meta, ema=ema,
+                )
             if ema is not None:
                 ema.restore(model)
             logger.info("New best: R@1=%.4f (val_loss=%.4f)", val_r1, val_loss)
@@ -1716,8 +1740,7 @@ def main() -> None:
                 logger.info("Early stopping at epoch %d (patience=%d)", epoch, early_stop_patience)
                 break
 
-        # Periodic checkpoint
-        if save_frequency > 0 and epoch % save_frequency == 0:
+        if not args.no_checkpoints and save_frequency > 0 and epoch % save_frequency == 0:
             save_checkpoint(
                 output_dir / f"checkpoint_epoch_{epoch}.pt", model, optimizer,
                 lr_sched, scaler, epoch, val_loss, config, global_step,

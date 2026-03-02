@@ -4,32 +4,33 @@ Multi-Layer CLIP Embedding Cache Builder
 =========================================
 
 Builds a cache of CLIP features from multiple ViT layers for multi-level
-supervision training. Extracts features from layers 4, 8, 12 plus final output.
+supervision training.  Extracts CLS-token features from specified
+intermediate layers plus the final projected output.
 
 Usage:
-    # Build multi-layer cache for subj01
-    python scripts/build_multilayer_clip_cache.py \\
+    # Build multi-layer cache for ViT-L/14 (layers 12+18, with fused target)
+    python scripts/build/build_multilayer_clip_cache.py \\
         --index-root data/indices/nsd_index \\
         --subject subj01 \\
         --cache outputs/clip_cache/clip_multilayer.parquet \\
-        --layers 4 8 12 \\
+        --layers 12 18 \\
+        --fuse-alpha 0.3 \\
         --batch-size 128 \\
         --device cuda
-        
+
     # Resume from existing cache
-    python scripts/build_multilayer_clip_cache.py \\
-        --index-root data/indices/nsd_index \\
-        --subject subj01 \\
+    python scripts/build/build_multilayer_clip_cache.py \\
         --cache outputs/clip_cache/clip_multilayer.parquet \\
         --resume
 
-Output Schema:
-    The cache will have columns:
-    - nsdId (int): NSD stimulus ID
-    - layer_4 (list[float]): 768-D features from layer 4
-    - layer_8 (list[float]): 768-D features from layer 8
-    - layer_12 (list[float]): 768-D features from layer 12
-    - final (list[float]): 512-D features from final projection
+Output Schema (ViT-L/14 example with --layers 12 18 --fuse-alpha 0.3):
+    - nsdId (int):            NSD stimulus ID
+    - layer_12 (list[float]): 1024-D CLS from block 12
+    - layer_18 (list[float]): 1024-D CLS from block 18
+    - layer_12_proj (list[float]): 768-D  (intermediate projected via CLIP proj)
+    - layer_18_proj (list[float]): 768-D
+    - final (list[float]):    768-D  (standard CLIP ViT-L/14 output)
+    - fused (list[float]):    768-D  (alpha * layer_18_proj + (1-alpha) * final)
 """
 
 import argparse
@@ -164,24 +165,28 @@ def build_multilayer_cache(
     batch_size: int = 128,
     device: str = "cuda",
     existing_cache: Optional[pd.DataFrame] = None,
-    num_workers: int = 8
+    num_workers: int = 8,
+    fuse_alpha: float = 0.0,
 ) -> pd.DataFrame:
     """
     Build multi-layer CLIP cache with parallel image loading.
-    
+
     Args:
-        index_df: NSD index DataFrame
-        model: CLIP model
-        preprocess: CLIP preprocessing function
-        hdf5_path: Path to nsd_stimuli.hdf5
-        layers: List of layer indices to extract (e.g., [4, 8, 12])
-        batch_size: Batch size for encoding
-        device: Device for computation
-        existing_cache: Existing cache to skip already processed
-        num_workers: Number of parallel image loading threads
-        
+        index_df: NSD index DataFrame.
+        model: CLIP model.
+        preprocess: CLIP preprocessing function.
+        hdf5_path: Path to nsd_stimuli.hdf5.
+        layers: Layer indices to extract (e.g., [12, 18] for ViT-L/14).
+        batch_size: Batch size for encoding.
+        device: Device for computation.
+        existing_cache: Existing cache to skip already processed.
+        num_workers: Number of parallel image loading threads.
+        fuse_alpha: If > 0, also produce a ``fused`` 768-D column blending
+            the last intermediate layer with the final output.
+
     Returns:
-        DataFrame with columns: nsdId, layer_4, layer_8, layer_12, final
+        DataFrame with columns: nsdId, layer_X (1024-D), final (768-D),
+        and optionally layer_X_proj (768-D) + fused (768-D).
     """
     # Get unique nsdIds
     unique_nsdids = index_df['nsdId'].unique()
@@ -245,7 +250,9 @@ def build_multilayer_cache(
                 if batch_images:
                     features_dict = encode_images_multilayer(
                         model, preprocess, batch_images,
-                        layers=layers, device=device, normalize=True
+                        layers=layers, device=device, normalize=True,
+                        project_intermediate=(fuse_alpha > 0),
+                        fuse_alpha=fuse_alpha,
                     )
                     
                     # Store results
@@ -299,8 +306,10 @@ def main():
                        help="Resume from existing cache")
     
     # Model arguments
-    parser.add_argument("--layers", type=int, nargs="+", default=[4, 8, 12],
-                       help="ViT layer indices to extract (e.g., 4 8 12)")
+    parser.add_argument("--layers", type=int, nargs="+", default=[12, 18],
+                       help="ViT layer indices to extract (default: 12 18 for ViT-L/14)")
+    parser.add_argument("--fuse-alpha", type=float, default=0.3,
+                       help="Fusion weight for intermediate features (0=disabled, 0.3=recommended)")
     parser.add_argument("--batch-size", type=int, default=128,
                        help="Batch size for encoding")
     parser.add_argument("--num-workers", type=int, default=8,
@@ -351,7 +360,8 @@ def main():
         batch_size=args.batch_size,
         device=args.device,
         existing_cache=existing_cache,
-        num_workers=args.num_workers
+        num_workers=args.num_workers,
+        fuse_alpha=args.fuse_alpha,
     )
     
     # Save cache

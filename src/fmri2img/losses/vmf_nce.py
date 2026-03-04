@@ -154,10 +154,12 @@ class VonMisesFisherNCELoss(nn.Module):
     score similarly -> the model abstains.  High kappa -> peaked
     density -> only the correct key scores high.
 
-    Optional kappa-adaptive additive margin (CosFace-style):
-        Subtracts a margin from the positive-pair logit, scaled by
-        kappa so that confident predictions are held to a stricter
-        separation standard.
+    V11 additions:
+        - CSLS-corrected logits (``use_csls_training``): applies
+          differentiable Cross-domain Similarity Local Scaling inside
+          the loss so gradients teach the encoder to avoid hub embeddings.
+        - Inverted softmax component (``isf_weight``): column-normalised
+          cross-entropy that directly penalises hub targets.
 
     Args:
         tau:       Temperature (scales logits; default 0.07)
@@ -169,6 +171,12 @@ class VonMisesFisherNCELoss(nn.Module):
         margin_base:  Base additive margin for positive pairs (0 = disabled).
         margin_kappa_ref: Reference kappa for margin scaling.
                           margin_i = margin_base * kappa_i / (kappa_i + ref).
+        use_csls_training: If True, apply differentiable CSLS correction
+                           to the logit matrix before cross-entropy.
+        csls_k: Number of nearest neighbours for CSLS hub estimation.
+        isf_weight: Weight for the inverted-softmax loss component
+                    (0 = disabled).  The final loss is
+                    (1 - isf_weight) * standard_CE + isf_weight * ISF_CE.
     """
 
     def __init__(self, tau: float = 0.07, use_queue: bool = True,
@@ -180,6 +188,9 @@ class VonMisesFisherNCELoss(nn.Module):
                  label_smoothing: float = 0.0,
                  hard_negative_weight: float = 0.0,
                  hard_neg_k: int = 16,
+                 use_csls_training: bool = False,
+                 csls_k: int = 10,
+                 isf_weight: float = 0.0,
                  # Legacy kwargs accepted but ignored
                  dim: int = 768):
         super().__init__()
@@ -192,28 +203,26 @@ class VonMisesFisherNCELoss(nn.Module):
         self.label_smoothing = label_smoothing
         self.hard_negative_weight = hard_negative_weight
         self.hard_neg_k = hard_neg_k
+        self.use_csls_training = use_csls_training
+        self.csls_k = csls_k
+        self.isf_weight = isf_weight
 
         if learnable_temperature:
             self.logit_scale = nn.Parameter(
                 torch.tensor(math.log(1.0 / tau))
             )
             self.tau = None
-            logger.info(
-                "VonMisesFisherNCELoss: learnable_temperature=True (init tau=%.4f), "
-                "use_queue=%s, kappa_is_log=%s, arctanh=%s, margin=%.2f, "
-                "label_smoothing=%.2f, hard_neg=(%.2f, k=%d)",
-                tau, use_queue, kappa_is_log, use_arctanh, margin_base,
-                label_smoothing, hard_negative_weight, hard_neg_k,
-            )
         else:
             self.tau = tau
-            logger.info(
-                "VonMisesFisherNCELoss: tau=%s, use_queue=%s, kappa_is_log=%s, "
-                "arctanh=%s, margin=%.2f, label_smoothing=%.2f, "
-                "hard_neg=(%.2f, k=%d)",
-                tau, use_queue, kappa_is_log, use_arctanh, margin_base,
-                label_smoothing, hard_negative_weight, hard_neg_k,
-            )
+
+        logger.info(
+            "VonMisesFisherNCELoss: tau=%s, use_queue=%s, kappa_is_log=%s, "
+            "arctanh=%s, margin=%.2f, label_smoothing=%.2f, "
+            "hard_neg=(%.2f, k=%d), csls_train=%s(k=%d), isf=%.2f",
+            tau, use_queue, kappa_is_log, use_arctanh, margin_base,
+            label_smoothing, hard_negative_weight, hard_neg_k,
+            use_csls_training, csls_k, isf_weight,
+        )
 
     @property
     def effective_tau(self) -> torch.Tensor:
@@ -221,6 +230,23 @@ class VonMisesFisherNCELoss(nn.Module):
         if self.learnable_temperature:
             return torch.exp(-self.logit_scale.clamp(max=4.6052))
         return self.tau
+
+    def _csls_correct(self, logits: torch.Tensor) -> torch.Tensor:
+        """Differentiable CSLS correction for contrastive logits.
+
+        CSLS(x, y) = 2*s(x,y) - r_X(x) - r_Y(y)
+        where r_X(x) = mean similarity of x to its k-NN in Y.
+
+        All operations (topk, mean, subtract) are differentiable so
+        gradients flow through the correction and teach the encoder to
+        avoid producing hub embeddings.
+        """
+        k = min(self.csls_k, logits.shape[1] - 1, logits.shape[0] - 1)
+        if k < 1:
+            return logits
+        r_x = logits.topk(k, dim=1).values.mean(dim=1)   # (B,)
+        r_y = logits.topk(k, dim=0).values.mean(dim=0)    # (M,)
+        return 2.0 * logits - r_x.unsqueeze(1) - r_y.unsqueeze(0)
 
     def _score(
         self,
@@ -259,6 +285,9 @@ class VonMisesFisherNCELoss(nn.Module):
                 boost = torch.zeros_like(logits)
                 boost.scatter_(1, hard_idx, self.hard_negative_weight)
                 logits = logits + boost
+
+        if self.use_csls_training:
+            logits = self._csls_correct(logits)
 
         return logits.clamp(-80, 80)                   # (B, M)
 
@@ -299,7 +328,14 @@ class VonMisesFisherNCELoss(nn.Module):
             )  # (B,)
             logits[torch.arange(B, device=logits.device), labels] -= adaptive_margin
 
-        return F.cross_entropy(logits, labels, label_smoothing=self.label_smoothing)
+        std_loss = F.cross_entropy(logits, labels, label_smoothing=self.label_smoothing)
+
+        if self.isf_weight > 0:
+            log_prob_isf = F.log_softmax(logits, dim=0)  # column-normalise
+            isf_loss = -log_prob_isf[labels, labels].mean()
+            return (1.0 - self.isf_weight) * std_loss + self.isf_weight * isf_loss
+
+        return std_loss
 
 
 # ---------------------------------------------------------------------------

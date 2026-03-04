@@ -61,6 +61,8 @@ from fmri2img.losses.mixco import mixco_augment, mixco_nce_loss
 from fmri2img.losses.softclip import SoftCLIPLoss, VMFSoftCLIPLoss
 from fmri2img.losses.hierarchical_clip_loss import HierarchicalCLIPLoss
 from fmri2img.losses.cka_loss import CKALoss
+from fmri2img.losses.direct_alignment import DirectAlignmentLoss
+from fmri2img.losses.uniformity import UniformityLoss
 from fmri2img.eval.embedding_eval import (
     compute_retrieval_metrics as _compute_retrieval,
     compute_retrieval_metrics_csls as _compute_retrieval_csls,
@@ -622,11 +624,16 @@ def setup_losses(config: Dict[str, Any], device: str,
             label_smoothing=c.get("label_smoothing", 0.0),
             hard_negative_weight=c.get("hard_negative_weight", 0.0),
             hard_neg_k=c.get("hard_neg_k", 16),
+            use_csls_training=c.get("use_csls_training", False),
+            csls_k=c.get("csls_k", 10),
+            isf_weight=c.get("isf_weight", 0.0),
         )
-        logger.info("vMF-NCE loss enabled (queue=%s, tau=%s, learnable_tau=%s, arctanh=%s, margin=%.2f, hard_neg=%.2f)",
+        logger.info("vMF-NCE loss enabled (queue=%s, tau=%s, learnable_tau=%s, arctanh=%s, "
+                     "margin=%.2f, hard_neg=%.2f, csls_train=%s, isf=%.2f)",
                      use_q, c.get("tau", 0.07), _learnable_tau,
                      c.get("use_arctanh", False), c.get("margin_base", 0.0),
-                     c.get("hard_negative_weight", 0.0))
+                     c.get("hard_negative_weight", 0.0),
+                     c.get("use_csls_training", False), c.get("isf_weight", 0.0))
 
     # --- N4: kappa-SPCL (or Delta-SPCL) ---
     if loss_cfg.get("vmf_nce_spcl", {}).get("enabled", False):
@@ -712,6 +719,19 @@ def setup_losses(config: Dict[str, Any], device: str,
         _per_subj = c.get("per_subject", False)
         logger.info("CKA loss enabled (weight=%.3f, per_subject=%s)",
                      c.get("weight", 0.5), _per_subj)
+
+    # --- Direct cosine alignment (V11) ---
+    if loss_cfg.get("direct_alignment", {}).get("enabled", False):
+        losses["direct_alignment"] = DirectAlignmentLoss()
+        logger.info("Direct alignment loss enabled (weight=%.3f)",
+                     loss_cfg["direct_alignment"].get("weight", 0.5))
+
+    # --- Spherical uniformity regularisation (V11) ---
+    if loss_cfg.get("uniformity", {}).get("enabled", False):
+        c = loss_cfg["uniformity"]
+        losses["uniformity"] = UniformityLoss(t=c.get("t", 2.0))
+        logger.info("Uniformity loss enabled (weight=%.3f, t=%.1f)",
+                     c.get("weight", 0.1), c.get("t", 2.0))
 
     return losses
 
@@ -970,6 +990,18 @@ def train_epoch(
                 kr = kappa_regularizer(kappa_vals, kappa_reg_cfg.get("lambda_kappa", 0.01))
                 total_loss = total_loss + kr
                 batch_metrics["kappa_reg"] = kr.item()
+
+            # --- Direct cosine alignment (V11) ---
+            if "direct_alignment" in losses and is_vmf:
+                da_loss = losses["direct_alignment"](pred_for_contrast, gt_embedding)
+                total_loss = total_loss + loss_weights.get("direct_alignment", 0.5) * da_loss
+                batch_metrics["direct_align"] = da_loss.item()
+
+            # --- Spherical uniformity regularisation (V11) ---
+            if "uniformity" in losses:
+                uni_loss = losses["uniformity"](pred_for_contrast)
+                total_loss = total_loss + loss_weights.get("uniformity", 0.1) * uni_loss
+                batch_metrics["uniformity"] = uni_loss.item()
 
             # --- R-Drop: consistency between two forward passes (V9) ---
             _rdrop_cfg = (config_ref or {}).get("loss", {}).get("r_drop", {})
@@ -1253,6 +1285,16 @@ def validate(
                 total_loss = total_loss + loss_weights.get("vmf_nce_multitask", 1.0) * mt_total
                 bm["mt_fused"] = mt_fused.item()
                 bm["mt_aux"] = mt_aux.item()
+
+            # --- V11 val losses ---
+            if "direct_alignment" in losses and is_vmf:
+                da_l = losses["direct_alignment"](pred, gt_embedding)
+                total_loss = total_loss + loss_weights.get("direct_alignment", 0.5) * da_l
+                bm["direct_align"] = da_l.item()
+            if "uniformity" in losses:
+                uni_l = losses["uniformity"](pred)
+                total_loss = total_loss + loss_weights.get("uniformity", 0.1) * uni_l
+                bm["uniformity"] = uni_l.item()
 
             if is_gaussian:
                 bm["kl"] = compute_kl_divergence(pred, aux).item()
@@ -1586,7 +1628,23 @@ def main() -> None:
             model_config["encoder"]["subject_roi_dims"] = subject_roi_dims
             _roi_indices = subject_roi_indices
 
-    model = create_model(model_config, roi_indices=_roi_indices).to(device)
+    # --- Optional NCSNR loading for voxel attention (V11) ---
+    _ncsnr_array = None
+    if model_config.get("ncsnr_attention", {}).get("enabled", False):
+        try:
+            from fmri2img.reliability.noise_ceiling import load_ncsnr
+            _ncsnr_subject = config.get("data", {}).get("subject", "subj01")
+            _ncsnr_root = os.environ.get("NSD_DATA_ROOT", "data")
+            _ncsnr_array = load_ncsnr(_ncsnr_subject, data_root=_ncsnr_root)
+            if _ncsnr_array is not None:
+                logger.info("Loaded NCSNR for %s: %d voxels, mean=%.2f",
+                            _ncsnr_subject, len(_ncsnr_array), _ncsnr_array.mean())
+            else:
+                logger.warning("NCSNR not found — NCSnrAttention will use uniform init")
+        except Exception as e:
+            logger.warning("Failed to load NCSNR: %s — using uniform init", e)
+
+    model = create_model(model_config, roi_indices=_roi_indices, ncsnr=_ncsnr_array).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     logger.info("Model parameters: %s", f"{n_params:,}")
 

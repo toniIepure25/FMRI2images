@@ -22,6 +22,7 @@ from fmri2img.models.roi_transformer import ROITransformerEncoder
 from fmri2img.models.roi_dcf import ROIDCFDecoder
 from fmri2img.models.multi_subject_encoder import MultiSubjectROITransformer
 from fmri2img.models.projection_head import ContrastiveProjectionHead
+from fmri2img.models.ncsnr_attention import NCSnrAttention
 
 logger = logging.getLogger(__name__)
 
@@ -327,7 +328,8 @@ class UnifiedModel(nn.Module):
         - vmf_dcf + roi_transformer  (raises ValueError with mlp)
     """
     
-    def __init__(self, config: Dict[str, Any], roi_indices: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Dict[str, Any], roi_indices: Optional[Dict[str, Any]] = None,
+                 ncsnr: Optional[Any] = None):
         super().__init__()
         self.model_type = config.get("type", "deterministic")
         self.vmf_output_is_log = False
@@ -384,6 +386,17 @@ class UnifiedModel(nn.Module):
                 dropout=encoder_cfg.get("dropout", 0.1),
                 use_residual=encoder_cfg.get("use_residual", False),
             )
+
+        # --- Optional NCSNR voxel attention (V11) ---
+        ncsnr_cfg = config.get("ncsnr_attention", {})
+        if ncsnr_cfg.get("enabled", False) and encoder_type == "mlp":
+            input_dim_for_ncsnr = encoder_cfg.get("input_dim")
+            self.ncsnr_attention = NCSnrAttention(
+                n_voxels=input_dim_for_ncsnr or 0,
+                ncsnr=ncsnr,
+            )
+        else:
+            self.ncsnr_attention = None
 
         latent_dim = self.encoder.output_dim
         output_dim = decoder_cfg.get("output_dim", 768)
@@ -490,6 +503,9 @@ class UnifiedModel(nn.Module):
         subject_ids = kwargs.pop("subject_ids", None)
         _is_multi = isinstance(self.encoder, MultiSubjectROITransformer)
 
+        if self.ncsnr_attention is not None:
+            x = self.ncsnr_attention(x)
+
         if self.model_type == "vmf_dcf":
             if _is_multi:
                 enc_out = self.encoder(x, subject_ids, return_roi_tokens=True)
@@ -542,6 +558,7 @@ class UnifiedModel(nn.Module):
 def create_model(
     config: Dict[str, Any],
     roi_indices: Optional[Dict[str, Any]] = None,
+    ncsnr: Optional[Any] = None,
 ) -> UnifiedModel:
     """
     Factory function to create model from config.
@@ -550,6 +567,7 @@ def create_model(
         config: Model configuration dict
         roi_indices: Per-ROI voxel index arrays for ROITransformerEncoder.
             When provided, overrides hardcoded ``roi_dims`` from config.
+        ncsnr: Per-voxel NCSNR array for NCSnrAttention (V11).
     
     Returns:
         model: UnifiedModel instance
@@ -562,7 +580,7 @@ def create_model(
         ... }
         >>> model = create_model(config)
     """
-    return UnifiedModel(config, roi_indices=roi_indices)
+    return UnifiedModel(config, roi_indices=roi_indices, ncsnr=ncsnr)
 
 
 def load_model(checkpoint_path: Path, device: str = "cpu") -> UnifiedModel:

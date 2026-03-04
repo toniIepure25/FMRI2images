@@ -124,6 +124,10 @@ if [[ "$ONLY" != "all" ]]; then
         fi
     done
     EXPERIMENT_ORDER=("${FILTERED[@]}")
+    if [[ ${#EXPERIMENT_ORDER[@]} -eq 0 ]]; then
+        echo "ERROR: --only '$ONLY' matched zero experiments. Available: ${!CONFIGS[*]}"
+        exit 1
+    fi
     START="${EXPERIMENT_ORDER[0]}"
 fi
 

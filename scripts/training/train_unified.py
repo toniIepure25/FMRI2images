@@ -2035,6 +2035,8 @@ def main() -> None:
         )
         _log_sigmas = _log_sigmas.to(device)
         optimizer.add_param_group({"params": list(_log_sigmas.parameters()), "lr": 1e-3})
+        lr_sched.base_lrs.append(1e-3)
+        lr_sched.lr_lambdas.append(lambda _: 1.0)
         logger.info("Homoscedastic auto-weighting enabled for: %s", _weightable)
 
     wall_start = time.time()

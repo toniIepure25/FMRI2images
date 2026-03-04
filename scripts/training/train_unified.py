@@ -809,6 +809,7 @@ def train_epoch(
     ema: Optional[ModelEMA] = None,
     amp_dtype: Optional[torch.dtype] = None,
     current_epoch: int = 0,
+    log_sigmas: Optional[nn.ParameterDict] = None,
 ) -> Tuple[Dict[str, float], int]:
     """Train for one epoch with gradient accumulation and optional AMP."""
     model.train()
@@ -1058,6 +1059,11 @@ def train_epoch(
                 )
                 total_loss = total_loss + mixco_cfg.get("weight", 1.0) * mc_loss
                 batch_metrics["mixco"] = mc_loss.item()
+
+            # Homoscedastic uncertainty regularization (Kendall et al., 2018)
+            if log_sigmas is not None:
+                for _aw_name, _aw_ls in log_sigmas.items():
+                    total_loss = total_loss + 0.5 * _aw_ls.squeeze()
 
             total_loss = total_loss / grad_accum_steps
 
@@ -2004,10 +2010,66 @@ def main() -> None:
         "split_by_image": config["data"].get("split_by_image", False),
     }
 
+    # --- Two-stage training (V12): contrastive -> NLL fine-tuning ---
+    _stage2_cfg = config.get("training", {}).get("stage2", {})
+    _stage2_enabled = _stage2_cfg.get("enabled", False)
+    _stage2_start = _stage2_cfg.get("start_epoch", 150)
+    _stage2_activated = False
+    _stage1_loss_weights = dict(loss_weights)
+
+    if _stage2_enabled:
+        logger.info(
+            "Two-stage training ENABLED: Stage 1 (contrastive) epochs 1-%d, "
+            "Stage 2 (NLL fine-tuning) epochs %d+",
+            _stage2_start - 1, _stage2_start,
+        )
+
+    # --- Homoscedastic uncertainty weighting (Kendall et al., 2018) ---
+    _auto_weight_cfg = config.get("loss", {}).get("auto_weight", {})
+    _auto_weight_enabled = _auto_weight_cfg.get("enabled", False)
+    _log_sigmas = None
+    if _auto_weight_enabled:
+        _weightable = [k for k in losses if k != "kappa_reg"]
+        _log_sigmas = nn.ParameterDict(
+            {k: nn.Parameter(torch.zeros(1, device=device)) for k in _weightable}
+        )
+        _log_sigmas = _log_sigmas.to(device)
+        optimizer.add_param_group({"params": list(_log_sigmas.parameters()), "lr": 1e-3})
+        logger.info("Homoscedastic auto-weighting enabled for: %s", _weightable)
+
     wall_start = time.time()
 
     for epoch in range(start_epoch, num_epochs + 1):
-        logger.info("\nEpoch %d/%d | lr=%.2e", epoch, num_epochs, optimizer.param_groups[0]["lr"])
+        # --- Two-stage transition (V12) ---
+        if _stage2_enabled and epoch >= _stage2_start and not _stage2_activated:
+            _stage2_activated = True
+            _s2_lr_factor = _stage2_cfg.get("lr_factor", 0.1)
+            for pg in optimizer.param_groups:
+                pg["lr"] = pg["lr"] * _s2_lr_factor
+            _s2_nll_w = _stage2_cfg.get("vmf_nll_weight", 2.0)
+            _s2_sc_w = _stage2_cfg.get("softclip_weight", 0.3)
+            _s2_nce_w = _stage2_cfg.get("vmf_nce_weight", 0.0)
+            _s2_spcl_w = _stage2_cfg.get("vmf_nce_spcl_weight", 0.0)
+            loss_weights["vmf_nll"] = _s2_nll_w
+            loss_weights["softclip"] = _s2_sc_w
+            loss_weights["vmf_nce"] = _s2_nce_w
+            loss_weights["vmf_nce_spcl"] = _s2_spcl_w
+            loss_weights["vmf_nce_multitask"] = 0.0
+            if not _stage2_cfg.get("mixco_enabled", False):
+                _has_mixco = False
+            patience_counter = 0
+            best_r1 = 0.0
+            early_stop_patience = _stage2_cfg.get("patience", 20)
+            logger.info(
+                "[STAGE 2] Activated at epoch %d: LR *= %.2f, "
+                "vmf_nll=%.1f, softclip=%.1f, vmf_nce=%.1f, spcl=%.1f, "
+                "mixco=%s, patience=%d",
+                epoch, _s2_lr_factor, _s2_nll_w, _s2_sc_w, _s2_nce_w,
+                _s2_spcl_w, _has_mixco, early_stop_patience,
+            )
+
+        _stage_prefix = "[STAGE 2] " if _stage2_activated else ""
+        logger.info("\n%sEpoch %d/%d | lr=%.2e", _stage_prefix, epoch, num_epochs, optimizer.param_groups[0]["lr"])
 
         # Phase-switch: MixCo warmup -> SoftCLIP distillation
         if _softclip_from_start and _softclip_loss_obj is not None:
@@ -2039,6 +2101,16 @@ def main() -> None:
                 cur_t = spcl_t_start + (spcl_t_end - spcl_t_start) * 0.5 * (1 + math.cos(math.pi * (1 - progress)))
             losses["vmf_nce_spcl"].set_curriculum_temperature(cur_t)
 
+        # Update auto-weights from log_sigmas for this epoch
+        if _log_sigmas is not None:
+            import math as _m
+            for _aw_n, _aw_p in _log_sigmas.items():
+                _prec = _m.exp(-_aw_p.item())
+                loss_weights[_aw_n] = max(0.05, min(10.0, 0.5 * _prec))
+            if epoch % 10 == 1:
+                logger.info("Auto-weights: %s",
+                            {k: f"{loss_weights[k]:.3f}" for k in _log_sigmas})
+
         train_metrics, global_step = train_epoch(
             model, train_loader, optimizer, losses, loss_weights,
             device, kl_scheduler, queue, preprocessor, global_step,
@@ -2046,6 +2118,7 @@ def main() -> None:
             lr_scheduler=lr_sched, config_ref=config, vmf_is_log=_vmf_is_log,
             mixco_cfg=_epoch_mixco if _epoch_mixco and _epoch_mixco.get("enabled", False) else None,
             ema=ema, amp_dtype=_amp_dtype, current_epoch=epoch,
+            log_sigmas=_log_sigmas,
         )
         logger.info("Train: %s", " | ".join(f"{k}={v:.4f}" for k, v in train_metrics.items()))
 

@@ -735,27 +735,33 @@ Key paths on JupyterHub:
 | Multi-subject | No | 4-subject joint training | 7-subject pre-train + fine-tune |
 | Uncertainty | vMF kappa (softplus, unbounded) | kappa + delta (DCF disagreement) | None |
 | Retrieval post-hoc | CSLS + MC-TTA + kappa-weighted avg | CSLS + MC-TTA + kappa-weighted avg | 300-candidate shortlist |
-| Best R@1 | v7: 49% (v9 pending) | v8: 50.8% (v9 pending) | 93.0% |
+| Best R@1 | v10: ~48% | v10: ~51% | 93.0% |
 
-### 11.5 Quantitative Gap Analysis (v8 actual vs SOTA)
+### 11.5 Quantitative Gap Analysis (v10 actual vs SOTA)
 
-| Metric | Our B0v4 | Our best (N4v8) | MindEye2 | Gap |
-|--------|----------|-----------------|----------|-----|
-| R@1 (val) | ~22% | 50.8% | 93.0% | ~42 pp |
+| Metric | Our B0v4 | Our best (N4v10) | MindEye2 | Gap |
+|--------|----------|------------------|----------|-----|
+| R@1 (val) | ~22% | ~51% | 93.0% | ~42 pp |
 
-**Progress from v4 to v8:** +28.8 pp (from 22% to 50.8%). Gains attributed to:
+**Progress from v4 to v10:** +29 pp (from 22% to 51%). Gains attributed to:
 1. **Kappa collapse fix (v5)**: +7-14 pp (freed vMF concentration parameter)
 2. **Softplus kappa (v7)**: +9 pp (removed sigmoid saturation)
 3. **Multi-subject + multi-layer CLIP (v7-v8)**: +1-2 pp (more data, richer targets)
-4. **Hierarchical alignment + CKA (v8)**: +1 pp (diminishing returns, overfitting)
+4. **Hierarchical alignment + CKA (v8)**: +1 pp (then plateau due to gradient dilution)
+
+**V9-V11 yielded no meaningful improvement** due to:
+- V9: Over-regularization (DropPath, R-Drop, label smoothing, projection head) hurt more than helped
+- V10: Kappa explosion (softplus ignoring kappa_max cap) causing overconfidence
+- V11: `average_repetitions: true` reducing training data 3x; 7+ competing losses
 
 **Primary contributors to remaining gap (ranked by estimated impact):**
-1. **CLIP embedding gap (est. 15-20 pp)**: MindEye2 uses OpenCLIP ViT-bigG/14 (256 tokens x 1664-D) vs our ViT-L/14 (768-D single vector)
-2. **Functional alignment (est. 10-15 pp)**: MindEye2 uses subject-specific ridge regression; our multi-subject approach uses learned projections
-3. **Diffusion prior (est. 5-10 pp)**: MindEye2 trains a separate diffusion prior for embedding refinement
-4. **Anti-overfitting gap (est. 5-10 pp)**: v9 interventions (DropPath, R-Drop, proj head, CSLS, TTA) target this directly
+1. **Missing regression stage (est. 10-15 pp)**: MindEye1/2 uses two-stage training (contrastive then MSE). V12 addresses this with vMF-NLL fine-tuning.
+2. **CLIP embedding gap (est. 15-20 pp)**: MindEye2 uses OpenCLIP ViT-bigG/14 (256 tokens x 1664-D) vs our ViT-L/14 (768-D single vector)
+3. **Kappa explosion (est. 2-3 pp)**: Unbounded softplus kappa >100 caused validation degradation. V12 caps at 50.
+4. **Model capacity gap (est. 3-5 pp)**: MindEye1 uses 982M params. V12 N1 scales to ~600M.
+5. **Functional alignment (est. 5-10 pp)**: MindEye2 uses subject-specific ridge regression; our approach uses learned ROI projections
 
-**Expected outcome after v9:** With comprehensive anti-overfitting and retrieval improvements, targeting 65-70% R@1. Further gains would require upgrading to OpenCLIP ViT-bigG or adding a diffusion prior.
+**Expected outcome after v12:** Two-stage training is the single most impactful proven technique not yet tried. With kappa fix, batch scaling, and loss simplification, targeting ~75% R@1. Further gains require OpenCLIP ViT-bigG or diffusion prior.
 
 ---
 
@@ -802,9 +808,9 @@ Key paths on JupyterHub:
 | Multi-layer CLIP cache | `scripts/build/build_multilayer_clip_cache.py` |
 | fMRI pre-extraction | `scripts/build/preextract_fmri.py` |
 | Reconstruction | `scripts/reconstruction/decode_diffusion.py` |
-| v9 N-series configs (current) | `configs/experiments/N1v9_vmf_nce.yaml` through `N4v9_full_system.yaml` |
+| v12 N-series configs (current) | `configs/experiments/N1v12_vmf_nce.yaml` through `N4v12_full_system.yaml` |
+| v10 N-series configs | `configs/experiments/N1v10_vmf_nce.yaml` through `N4v10_full_system.yaml` |
 | v8 N-series configs | `configs/experiments/N3v8_roi_dcf.yaml`, `N4v8_full_system.yaml` |
-| v7 N-series configs | `configs/experiments/N1v7_vmf_nce.yaml` through `N4v7_full_system.yaml` |
 | v4 B-series configs | `configs/experiments/B0v4_deterministic.yaml`, `B1v4_gaussian.yaml` |
 | Environment reference | `.cursor/rules/jupyterhub-environment.mdc` |
 
@@ -890,10 +896,63 @@ An alternative fix would be to remove \(\tau\) from the `_score()` method entire
 | v6 | N1v6-N4v6 | Delta-SPCL, vMF-SoftCLIP, Slerp MixCo | N1: ~40% |
 | v7 | N1v7-N4v7 | Softplus kappa, multi-layer CLIP, multi-subject | N1: **49%** |
 | v8 | N3v8, N4v8 | Hierarchical CLIP alignment, CKA loss | N4: **50.8%** |
-| v9 | N1v9-N4v9 | DropPath, proj head, R-Drop, CSLS, MC-TTA, bf16, 1024 eff. batch | Pending |
+| v9 | N1v9-N4v9 | Anti-overfitting (DropPath, R-Drop, label smoothing, proj head), CSLS eval, MC-TTA | N1: ~48%, N3/N4: ~51% |
+| v10 | N1v10-N4v10 | V8 recipe + V9 eval + wider models + hard neg + model soup | N1: ~48%, N4: ~50.8% |
+| v11 | N1v11-N4v11 | CSLS training loss, ISF, rep averaging, direct alignment, uniformity | ~51% (no improvement) |
+| v12 | N1v12-N4v12 | **Two-stage training** + kappa cap fix + eff. batch 512 + auto-weighting | Pending (target: 75%) |
 
 Notes:
 - B-series stays at v4 (not affected by vMF-specific changes)
-- v6-v9 only apply to N-series experiments
+- v6+ only apply to N-series experiments
 - v8 only had N3 and N4 configs (N1/N2 skipped that iteration)
-- v9 is the first version with all 4 N-series experiments and H100 optimization
+- v10 combined best of V8 (losses) and V9 (eval tricks)
+- v11 attempted hubness mitigation and denoising but failed due to `average_repetitions: true` reducing data 3x
+- v12 is the first version with two-stage training (contrastive -> NLL fine-tuning)
+
+---
+
+## 15. V12 Root Cause Analysis and Design
+
+### 15.1 Four Root Causes of the 51% Ceiling
+
+**Root Cause 1 -- Data reduction from repetition averaging:**
+V11's `average_repetitions: true` collapsed ~24K training trials to ~8K unique images.
+This was catastrophic for contrastive learning: the queue (65536) cycled through the dataset ~8x with stale negatives, and the natural data augmentation from 3 noisy repetitions per image was destroyed.
+
+**Root Cause 2 -- Kappa explosion (unbounded softplus):**
+In `vmf_decoder.py`, the softplus kappa activation path ignored `kappa_max` from config entirely, only clamping at `KAPPA_AMP_CEIL=5000`. V10 logs show kappa exploding to >100 by epoch 28-36, turning vMF-NCE's softmax into a hard argmax (training overconfidence, validation degradation). **Fixed in V12**: softplus now clamps at `min(kappa_max, 5000)`, with `kappa_max: 50` in configs.
+
+**Root Cause 3 -- Contrastive-only training (no regression stage):**
+MindEye1 achieves 93.2% R@1 via two-stage training: (1) contrastive learning to learn neighborhood structure, then (2) MSE/NLL fine-tuning to precisely place each embedding. We used only contrastive losses, which learn *relative* positioning but not *absolute* coordinates. **Fixed in V12**: Stage 2 transitions to vMF-NLL loss at epoch 120.
+
+**Root Cause 4 -- Loss gradient dilution:**
+V10/V11 N4 configs had 6-8 simultaneous loss terms competing for gradient bandwidth. Without dynamic weighting, the primary retrieval objective stagnated. **Fixed in V12**: Simplified to 4 core losses + homoscedastic uncertainty weighting (Kendall et al., 2018).
+
+### 15.2 V12 Two-Stage Training Protocol
+
+```
+Stage 1 (epochs 1-119): Contrastive manifold learning
+  Losses: vMF-NCE (w=1.0) + SoftCLIP (w=1.0) + MixCo (w=0.5) + kappa_reg (0.01)
+  LR: 1e-4 (N1) / 7e-5 (N2-N4), cosine schedule
+  Effective batch: 512 (64 x 8 grad_accum)
+
+Stage 2 (epochs 120-200): NLL coordinate fine-tuning
+  Losses: vMF-NLL (w=2.0) + SoftCLIP (w=0.3)
+  LR: reduced by 10x
+  MixCo: disabled
+  Early stopping: reset, patience=20
+```
+
+The vMF NLL loss \(\mathcal{L}_{\text{NLL}} = -\log C_d(\kappa) - \kappa \cdot \mu^T z\) provides:
+- Direct cosine alignment (the \(-\kappa \mu^T z\) term)
+- Automatic kappa calibration (the normalizing constant \(C_d(\kappa)\) penalizes extreme overconfidence)
+- Per-sample gradient independent of other batch elements (unlike contrastive losses)
+
+### 15.3 V12 Config Summary
+
+| Experiment | Encoder | Key V12 changes |
+|-----------|---------|-----------------|
+| N1v12 | MLP [8192, 8192, 4096, 4096, 2048] (~600M params) | Two-stage, kappa_max=50, eff. batch 512 |
+| N2v12 | ROI Transformer (d=1024, FFN=8192, 6L) | Two-stage, kappa_max=50, eff. batch 512 |
+| N3v12 | ROI-DCF (d=1024, FFN=8192, 6L) | Two-stage, kappa_max=50, simplified losses, auto-weighting |
+| N4v12 | ROI-DCF + SPCL (d=1024, FFN=8192, 6L) | Two-stage, kappa_max=50, simplified losses, auto-weighting |

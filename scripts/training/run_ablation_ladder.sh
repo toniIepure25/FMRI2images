@@ -50,7 +50,7 @@ done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8 N1v9 N2v9 N3v9 N4v9 N1v10 N2v10 N3v10 N4v10 N1v11 N2v11 N3v11 N4v11)
+EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8 N1v9 N2v9 N3v9 N4v9 N1v10 N2v10 N3v10 N4v10 N1v11 N2v11 N3v11 N4v11 N1v12 N2v12 N3v12 N4v12)
 
 declare -A CONFIGS=(
     [B0]="B0_deterministic.yaml|Strong deterministic baseline (MLP + PCR + queue + MSE + InfoNCE)"
@@ -103,6 +103,10 @@ declare -A CONFIGS=(
     [N2v11]="N2v11_roi_transformer.yaml|v11: ROI Transformer + CSLS training + ISF + rep avg"
     [N3v11]="N3v11_roi_dcf.yaml|v11: ROI-DCF multi-loss + CSLS training + ISF + rep avg"
     [N4v11]="N4v11_full_system.yaml|v11: flagship CSLS training + SPCL + rep avg + direct align + uniformity"
+    [N1v12]="N1v12_vmf_nce.yaml|v12: two-stage training + kappa cap 50 + scaled MLP + eff batch 512"
+    [N2v12]="N2v12_roi_transformer.yaml|v12: two-stage training + kappa cap 50 + wider FFN + eff batch 512"
+    [N3v12]="N3v12_roi_dcf.yaml|v12: two-stage + kappa cap + simplified losses + auto-weighting"
+    [N4v12]="N4v12_full_system.yaml|v12: flagship two-stage + kappa cap + simplified losses + auto-weighting + SPCL"
 )
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"

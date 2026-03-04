@@ -14,8 +14,8 @@ Kappa modes:
     bounded_sigmoid: kappa = kappa_min + (kappa_max - kappa_min) * sigmoid(raw)
                      Smooth but gradient-dead near bounds.
     softplus:        kappa = softplus(raw) + 1.0
-                     Unbounded above, no gradient saturation.
-                     Safety-clamped at 5000 for AMP float16 stability.
+                     Clamped at min(kappa_max, 5000) for stability.
+                     Set kappa_max in config to control effective cap.
 """
 
 import torch
@@ -47,7 +47,7 @@ def kappa_activation(
         kappa with the same shape, guaranteed > 0.
     """
     if mode == "softplus":
-        return (F.softplus(raw) + 1.0).clamp(max=KAPPA_AMP_CEIL)
+        return (F.softplus(raw) + 1.0).clamp(max=min(kappa_max, KAPPA_AMP_CEIL))
     # Default: bounded_sigmoid (backward-compatible)
     return kappa_min + (kappa_max - kappa_min) * torch.sigmoid(raw)
 

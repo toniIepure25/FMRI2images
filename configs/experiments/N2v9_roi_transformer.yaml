@@ -138,6 +138,7 @@ training:
   min_lr: 1.0e-6
   gradient_clip: 1.0
   early_stop_patience: 30
+  early_stop_min_delta: 0.002
   fmri_noise_std: 0.1
   voxel_dropout: 0.1
   softclip_from_start: true

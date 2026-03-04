@@ -8,6 +8,7 @@ Run:  pytest tests/test_vmf.py -v
 import pytest
 import torch
 import numpy as np
+from pathlib import Path
 
 
 # ── Decoder tests ─────────────────────────────────────────────────────────
@@ -165,6 +166,89 @@ class TestVonMisesFisherNLLLoss:
         assert torch.isfinite(loss)
 
 
+class TestHardNegativeMining:
+    """Tests for hard negative mining in vMF-NCE."""
+
+    def test_hard_neg_produces_finite_loss(self):
+        from fmri2img.losses.vmf_nce import VonMisesFisherNCELoss
+        loss_fn = VonMisesFisherNCELoss(
+            tau=1.0, use_queue=False, kappa_is_log=False,
+            hard_negative_weight=0.5, hard_neg_k=4,
+        )
+        B, D = 16, 64
+        mu = torch.nn.functional.normalize(torch.randn(B, D), dim=-1)
+        kappa = torch.rand(B, 1) * 100 + 1
+        keys = torch.nn.functional.normalize(torch.randn(B, D), dim=-1)
+        loss = loss_fn(mu, kappa, keys)
+        assert torch.isfinite(loss), f"Loss is not finite: {loss.item()}"
+
+    def test_hard_neg_increases_loss(self):
+        """Hard negative boosting makes the loss harder (higher) on average."""
+        from fmri2img.losses.vmf_nce import VonMisesFisherNCELoss
+        torch.manual_seed(42)
+        B, D = 32, 128
+        mu = torch.nn.functional.normalize(torch.randn(B, D), dim=-1)
+        kappa = torch.ones(B, 1) * 50
+        keys = torch.nn.functional.normalize(torch.randn(B, D), dim=-1)
+
+        loss_no_hn = VonMisesFisherNCELoss(
+            tau=1.0, use_queue=False, hard_negative_weight=0.0,
+        )
+        loss_with_hn = VonMisesFisherNCELoss(
+            tau=1.0, use_queue=False, hard_negative_weight=2.0, hard_neg_k=8,
+        )
+        l_base = loss_no_hn(mu, kappa, keys)
+        l_hard = loss_with_hn(mu, kappa, keys)
+        assert l_hard.item() >= l_base.item(), \
+            f"Hard neg should increase loss: {l_hard.item()} < {l_base.item()}"
+
+    def test_hard_neg_gradient_flow(self):
+        from fmri2img.losses.vmf_nce import VonMisesFisherNCELoss
+        loss_fn = VonMisesFisherNCELoss(
+            tau=1.0, use_queue=False, hard_negative_weight=0.5, hard_neg_k=4,
+        )
+        B, D = 8, 64
+        mu = torch.nn.functional.normalize(torch.randn(B, D), dim=-1).requires_grad_(True)
+        kappa = (torch.rand(B, 1) * 100 + 1).requires_grad_(True)
+        keys = torch.nn.functional.normalize(torch.randn(B, D), dim=-1)
+        loss = loss_fn(mu, kappa, keys)
+        loss.backward()
+        assert mu.grad is not None and torch.isfinite(mu.grad).all()
+        assert kappa.grad is not None and torch.isfinite(kappa.grad).all()
+
+    def test_hard_neg_disabled_by_default(self):
+        from fmri2img.losses.vmf_nce import VonMisesFisherNCELoss
+        loss_fn = VonMisesFisherNCELoss(tau=1.0, use_queue=False)
+        assert loss_fn.hard_negative_weight == 0.0
+        assert loss_fn.hard_neg_k == 16
+
+    def test_hard_neg_spcl(self):
+        """Hard negatives also work with KappaSPCLVMFNCELoss."""
+        from fmri2img.losses.vmf_nce import KappaSPCLVMFNCELoss
+        loss_fn = KappaSPCLVMFNCELoss(
+            tau=1.0, use_queue=False, hard_negative_weight=0.5, hard_neg_k=4,
+        )
+        B, D = 16, 64
+        mu = torch.nn.functional.normalize(torch.randn(B, D), dim=-1)
+        kappa = torch.rand(B, 1) * 100 + 1
+        keys = torch.nn.functional.normalize(torch.randn(B, D), dim=-1)
+        loss = loss_fn(mu, kappa, keys)
+        assert torch.isfinite(loss), f"SPCL hard neg loss not finite: {loss.item()}"
+
+    def test_hard_neg_k_larger_than_negatives(self):
+        """When hard_neg_k > available negatives, should not crash."""
+        from fmri2img.losses.vmf_nce import VonMisesFisherNCELoss
+        loss_fn = VonMisesFisherNCELoss(
+            tau=1.0, use_queue=False, hard_negative_weight=0.5, hard_neg_k=1000,
+        )
+        B, D = 4, 32
+        mu = torch.nn.functional.normalize(torch.randn(B, D), dim=-1)
+        kappa = torch.ones(B, 1) * 50
+        keys = torch.nn.functional.normalize(torch.randn(B, D), dim=-1)
+        loss = loss_fn(mu, kappa, keys)
+        assert torch.isfinite(loss)
+
+
 class TestKappaRegularizer:
     def test_basic(self):
         from fmri2img.losses.vmf_nce import kappa_regularizer
@@ -313,3 +397,91 @@ class TestKappaCalibration:
         save_calibration(cal, path)
         loaded = load_calibration(path)
         assert loaded == cal
+
+
+# ── Model soup ────────────────────────────────────────────────────────────
+
+
+class TestModelSoup:
+    """Tests for model soup (checkpoint weight averaging)."""
+
+    def _make_model(self):
+        """Small model for testing."""
+        return torch.nn.Sequential(
+            torch.nn.Linear(32, 64),
+            torch.nn.ReLU(),
+            torch.nn.Linear(64, 16),
+        )
+
+    def _save_fake_checkpoint(self, path, model, val_loss):
+        torch.save({
+            "model_state_dict": model.state_dict(),
+            "val_loss": val_loss,
+        }, path)
+
+    def test_soup_averages_weights(self, tmp_path):
+        """Verify that model soup averages weights of two checkpoints."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts" / "training"))
+        from train_unified import model_soup
+
+        model_a = self._make_model()
+        model_b = self._make_model()
+        torch.manual_seed(0)
+        torch.nn.init.ones_(model_a[0].weight)
+        torch.nn.init.zeros_(model_b[0].weight)
+
+        self._save_fake_checkpoint(tmp_path / "checkpoint_epoch_10.pt", model_a, val_loss=0.5)
+        self._save_fake_checkpoint(tmp_path / "checkpoint_epoch_20.pt", model_b, val_loss=0.3)
+
+        target = self._make_model()
+        result = model_soup(tmp_path, target, top_k=5, device="cpu")
+        assert result is True
+
+        expected_weight = 0.5 * torch.ones_like(target[0].weight)
+        assert torch.allclose(target[0].weight, expected_weight, atol=1e-5), \
+            "Soup should average: 0.5 * ones + 0.5 * zeros = 0.5"
+
+    def test_soup_selects_top_k(self, tmp_path):
+        """Verify top-k selection by val_loss."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts" / "training"))
+        from train_unified import model_soup
+
+        models = []
+        for i in range(5):
+            m = self._make_model()
+            torch.nn.init.constant_(m[0].weight, float(i))
+            self._save_fake_checkpoint(
+                tmp_path / f"checkpoint_epoch_{(i+1)*10}.pt", m, val_loss=float(i),
+            )
+            models.append(m)
+
+        target = self._make_model()
+        result = model_soup(tmp_path, target, top_k=2, device="cpu")
+        assert result is True
+        expected = 0.5 * 0.0 + 0.5 * 1.0
+        assert torch.allclose(target[0].weight, torch.full_like(target[0].weight, expected), atol=1e-5)
+
+    def test_soup_skips_with_one_checkpoint(self, tmp_path):
+        """Model soup should return False with < 2 checkpoints."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts" / "training"))
+        from train_unified import model_soup
+
+        m = self._make_model()
+        self._save_fake_checkpoint(tmp_path / "checkpoint_epoch_10.pt", m, val_loss=0.5)
+
+        target = self._make_model()
+        result = model_soup(tmp_path, target, top_k=5, device="cpu")
+        assert result is False
+
+    def test_soup_skips_with_no_checkpoints(self, tmp_path):
+        """Model soup should return False with no checkpoints."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts" / "training"))
+        from train_unified import model_soup
+
+        target = self._make_model()
+        result = model_soup(tmp_path, target, top_k=5, device="cpu")
+        assert result is False

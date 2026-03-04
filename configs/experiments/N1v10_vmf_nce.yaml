@@ -1,24 +1,38 @@
-# N1v9: vMF-NCE — Anti-Overfit + Projection Head + CSLS + R-Drop + TTA
+# N1v10: vMF-NCE — Best-of-Both (V8 recipe + V9 eval + novel capacity)
 #
-# V9 targeted interventions over V7:
-#   - ContrastiveProjectionHead (768->2048->768) for SoftCLIP/MixCo only;
-#     vMF-NCE uses raw pred for proper kappa gradient flow
-#   - kappa_reg restored to 0.01 (matching V7)
-#   - Label smoothing (0.05) in vMF-NCE
-#   - R-Drop regularization (weight=0.5, delayed to epoch 15)
+# V10 strategy: combine V8's proven losses with V9's free eval wins,
+# then add genuinely novel improvements.
+#
+# From V7/V8 (restore):
+#   - softclip.weight: 1.0 (was 0.3 in V9)
+#   - batch_size: 64, grad_accum: 4 (effective 256)
+#   - lr: 7e-5 (original N1 value)
+#   - dropout: 0.2 (was 0.25 in V9)
+#
+# From V9 (keep):
 #   - CSLS-corrected retrieval evaluation
-#   - MC-Dropout TTA (8 samples) + kappa-weighted repetition averaging
-#   - SoftCLIP weight reduced to 0.3
-#   - Effective batch 512 (128 x 4 grad_accum), LR scaled 2x on H100
-#   - bf16 mixed precision (H100 native, no GradScaler needed)
-#   - Encoder dropout increased to 0.25 for stronger regularization
+#   - MC-Dropout TTA (8 samples) + kappa-weighted avg
+#   - bf16 mixed precision
+#   - early_stop_min_delta: 0.002
+#
+# From V9 (remove):
+#   - R-Drop (added regularization that hurt)
+#   - Label smoothing (same)
+#   - Projection head (not needed with SoftCLIP@1.0)
+#
+# Novel (V10):
+#   - Wider MLP: [8192, 4096, 4096, 2048] (+1 layer)
+#   - Hard negative mining in vMF-NCE (weight=0.5, k=16)
+#   - Larger memory queue: 65536
+#   - Model soup (top-5 periodic checkpoints)
+#   - save_frequency: 10 (periodic checkpoints for soup)
 
 experiment:
-  name: "N1v9_vmf_nce"
-  description: "v9 vMF-NCE: anti-overfit + projection head + CSLS + R-Drop + TTA"
-  tags: ["vmf", "vmf_nce", "queue", "novel", "v9", "softplus", "fused_targets",
-         "projection_head", "csls", "rdrop", "mc_tta"]
-  parent: "N1v7_vmf_nce"
+  name: "N1v10_vmf_nce"
+  description: "v10 vMF-NCE: V8 recipe + V9 eval + wider MLP + hard negatives + model soup"
+  tags: ["vmf", "vmf_nce", "queue", "novel", "v10", "softplus", "fused_targets",
+         "csls", "mc_tta", "hard_neg", "model_soup", "wider_mlp"]
+  parent: "N1v9_vmf_nce"
 
 data:
   subject: "subj01"
@@ -40,22 +54,17 @@ model:
   encoder:
     encoder_type: "mlp"
     input_dim: null
-    hidden_dims: [8192, 4096, 2048]
+    hidden_dims: [8192, 4096, 4096, 2048]
     activation: "gelu"
-    dropout: 0.25
+    dropout: 0.2
     use_residual: true
   decoder:
     input_dim: 2048
     output_dim: 768
     hidden_dims: [2048]
     activation: "gelu"
-    dropout: 0.25
+    dropout: 0.2
     kappa_mode: "softplus"
-  projection_head:
-    enabled: true
-    hidden_dim: 2048
-    out_dim: 768
-    dropout: 0.1
 
 preprocessing:
   enabled: false
@@ -67,11 +76,12 @@ loss:
     tau: 1.0
     use_queue: true
     learnable_temperature: true
-    label_smoothing: 0.05
+    hard_negative_weight: 0.5
+    hard_neg_k: 16
 
   softclip:
     enabled: true
-    weight: 0.3
+    weight: 1.0
     tau: 0.05
     use_queue: true
     symmetric: true
@@ -81,10 +91,7 @@ loss:
     lambda_kappa: 0.01
 
   r_drop:
-    enabled: true
-    weight: 0.5
-    start_epoch: 15
-
+    enabled: false
   vmf_nll:
     enabled: false
   gaussian_nll:
@@ -98,17 +105,17 @@ loss:
 
 queue:
   enabled: true
-  size: 16384
+  size: 65536
 
 training:
-  batch_size: 128
+  batch_size: 64
   gradient_accumulation_steps: 4
   mixed_precision: true
   mixed_precision_dtype: "bf16"
   num_epochs: 200
   optimizer:
     type: "adamw"
-    lr: 1.4e-4
+    lr: 7.0e-5
     weight_decay: 0.05
     betas: [0.9, 0.999]
   warmup_epochs: 15
@@ -116,6 +123,7 @@ training:
   gradient_clip: 1.0
   early_stop_patience: 30
   early_stop_min_delta: 0.002
+  save_frequency: 10
   fmri_noise_std: 0.1
   voxel_dropout: 0.1
   softclip_from_start: true
@@ -139,8 +147,10 @@ evaluation:
   csls_k: 10
   mc_tta_samples: 8
   kappa_weighted_avg: true
+  model_soup: true
+  soup_top_k: 5
   compute_probabilistic: true
   seed: 42
 
 paths:
-  output_dir: "experimental_results/N1v9_vmf_nce"
+  output_dir: "experimental_results/N1v10_vmf_nce"

@@ -620,10 +620,13 @@ def setup_losses(config: Dict[str, Any], device: str,
             margin_base=c.get("margin_base", 0.0),
             margin_kappa_ref=c.get("margin_kappa_ref", 50.0),
             label_smoothing=c.get("label_smoothing", 0.0),
+            hard_negative_weight=c.get("hard_negative_weight", 0.0),
+            hard_neg_k=c.get("hard_neg_k", 16),
         )
-        logger.info("vMF-NCE loss enabled (queue=%s, tau=%s, learnable_tau=%s, arctanh=%s, margin=%.2f)",
+        logger.info("vMF-NCE loss enabled (queue=%s, tau=%s, learnable_tau=%s, arctanh=%s, margin=%.2f, hard_neg=%.2f)",
                      use_q, c.get("tau", 0.07), _learnable_tau,
-                     c.get("use_arctanh", False), c.get("margin_base", 0.0))
+                     c.get("use_arctanh", False), c.get("margin_base", 0.0),
+                     c.get("hard_negative_weight", 0.0))
 
     # --- N4: kappa-SPCL (or Delta-SPCL) ---
     if loss_cfg.get("vmf_nce_spcl", {}).get("enabled", False):
@@ -645,8 +648,12 @@ def setup_losses(config: Dict[str, Any], device: str,
                 use_queue=use_q,
                 kappa_is_log=vmf_kappa_is_log,
                 initial_curriculum_t=c.get("initial_curriculum_t", 100.0),
+                hard_negative_weight=c.get("hard_negative_weight", 0.0),
+                hard_neg_k=c.get("hard_neg_k", 16),
             )
-            logger.info("vMF-NCE-SPCL loss enabled (curriculum_t=%.1f)", c.get("initial_curriculum_t", 100.0))
+            logger.info("vMF-NCE-SPCL loss enabled (curriculum_t=%.1f, hard_neg=%.2f)",
+                         c.get("initial_curriculum_t", 100.0),
+                         c.get("hard_negative_weight", 0.0))
 
     # --- SoftCLIP knowledge distillation ---
     if loss_cfg.get("softclip", {}).get("enabled", False):
@@ -1335,6 +1342,58 @@ def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimiz
 
 
 # ---------------------------------------------------------------------------
+# Model soup (Wortsman et al., NeurIPS 2022)
+# ---------------------------------------------------------------------------
+
+def model_soup(
+    checkpoint_dir: Path,
+    model: nn.Module,
+    top_k: int = 5,
+    device: str = "cpu",
+) -> bool:
+    """Average weights of periodic checkpoints, load into model.
+
+    Finds all ``checkpoint_epoch_*.pt`` files in *checkpoint_dir*, ranks
+    them by ``val_loss`` (lower is better), and averages the top-k model
+    state dicts.  The averaged weights are loaded into *model* in-place.
+
+    Returns True if soup was applied, False if not enough checkpoints.
+    """
+    import glob as _glob
+    ckpt_paths = sorted(_glob.glob(str(checkpoint_dir / "checkpoint_epoch_*.pt")))
+    if len(ckpt_paths) < 2:
+        logger.info("Model soup: fewer than 2 periodic checkpoints found, skipping")
+        return False
+
+    ranked: List[Tuple[float, str]] = []
+    for p in ckpt_paths:
+        ckpt = torch.load(p, map_location="cpu", weights_only=False)
+        val_loss = ckpt.get("val_loss", float("inf"))
+        ranked.append((val_loss, p))
+    ranked.sort(key=lambda x: x[0])
+    selected = ranked[:top_k]
+    logger.info(
+        "Model soup: averaging %d / %d checkpoints (val_loss range %.4f – %.4f)",
+        len(selected), len(ranked), selected[0][0], selected[-1][0],
+    )
+
+    avg_state: Dict[str, torch.Tensor] = {}
+    n = len(selected)
+    for _, p in selected:
+        state = torch.load(p, map_location="cpu", weights_only=False)["model_state_dict"]
+        for k, v in state.items():
+            if k in avg_state:
+                avg_state[k] = avg_state[k] + v.float() / n
+            else:
+                avg_state[k] = v.float() / n
+
+    model.load_state_dict(avg_state)
+    model.to(device)
+    logger.info("Model soup: loaded averaged weights into model")
+    return True
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -1841,6 +1900,7 @@ def main() -> None:
 
     metrics_logger = MetricsLogger(output_dir)
     early_stop_patience = config["training"].get("early_stop_patience", 15)
+    early_stop_min_delta = config["training"].get("early_stop_min_delta", 0.001)
     save_frequency = config["training"].get("save_frequency", 0)
     patience_counter = 0
 
@@ -2046,7 +2106,7 @@ def main() -> None:
                 losses=losses, meta=_ckpt_meta, ema=ema,
             )
 
-        if val_r1 > best_r1:
+        if val_r1 > best_r1 + early_stop_min_delta:
             best_r1 = val_r1
             best_val_loss = val_loss
             best_epoch = epoch
@@ -2079,6 +2139,52 @@ def main() -> None:
 
     wall_time = time.time() - wall_start
     metrics_logger.write_summary(best_epoch, best_val_loss, wall_time, manifest, best_r1=best_r1)
+
+    # --- Model soup post-training (V10) ---
+    _eval_cfg = config.get("evaluation", {})
+    if _eval_cfg.get("model_soup", False) and not args.no_checkpoints:
+        soup_top_k = _eval_cfg.get("soup_top_k", 5)
+        logger.info("Running model soup (top_k=%d)...", soup_top_k)
+        soup_applied = model_soup(output_dir, model, top_k=soup_top_k, device=device)
+        if soup_applied:
+            if ema is not None:
+                ema.apply_shadow(model)
+            val_metrics_soup, soup_preds, soup_gts = validate(
+                model, val_loader, losses, loss_weights, device, preprocessor, queue,
+                vmf_is_log=_vmf_is_log,
+            )
+            if ema is not None:
+                ema.restore(model)
+
+            soup_retrieval = _compute_retrieval(soup_preds, soup_gts, ks=(1, 5, 10))
+            soup_r1 = soup_retrieval["top1_accuracy"]
+
+            if _val_nsd_ids is not None:
+                unique_ids = np.unique(_val_nsd_ids)
+                img_preds_s = np.zeros((len(unique_ids), soup_preds.shape[1]), dtype=np.float32)
+                img_gts_s = np.zeros((len(unique_ids), soup_gts.shape[1]), dtype=np.float32)
+                for i, uid in enumerate(unique_ids):
+                    mask = _val_nsd_ids == uid
+                    img_preds_s[i] = soup_preds[mask].mean(axis=0)
+                    img_gts_s[i] = soup_gts[mask][0]
+                norms_s = np.linalg.norm(img_preds_s, axis=-1, keepdims=True)
+                img_preds_s = img_preds_s / np.maximum(norms_s, 1e-8)
+                soup_img_ret = _compute_retrieval(img_preds_s, img_gts_s, ks=(1, 5, 10))
+                soup_r1 = soup_img_ret["top1_accuracy"]
+
+            logger.info("Model soup R@1: %.4f (best single: %.4f)", soup_r1, best_r1)
+
+            if soup_r1 > best_r1:
+                logger.info("Model soup improved R@1 by +%.4f — saving as best", soup_r1 - best_r1)
+                best_r1 = soup_r1
+                save_checkpoint(
+                    output_dir / "checkpoint_soup.pt", model, optimizer, lr_sched,
+                    scaler, best_epoch, best_val_loss, config, global_step,
+                    subject=subject, roi_mask_path=str(roi_mask_path),
+                    losses=losses, meta={**_ckpt_meta, "model_soup": True}, ema=ema,
+                )
+            else:
+                logger.info("Model soup did not improve R@1 (%.4f vs %.4f)", soup_r1, best_r1)
 
     logger.info("=" * 80)
     logger.info("Training complete!")

@@ -33,6 +33,7 @@ GPU="${GPU:-0}"
 START="${START:-B0v4}"
 ONLY="${ONLY:-all}"
 SAVE_CKPT="${SAVE_CKPT:-1}"
+case "${SAVE_CKPT,,}" in no|false|off|0) SAVE_CKPT=0 ;; esac
 CONFIG_DIR="configs/experiments"
 SCRIPT="scripts/training/train_unified.py"
 
@@ -49,7 +50,7 @@ done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8 N1v9 N2v9 N3v9 N4v9)
+EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8 N1v9 N2v9 N3v9 N4v9 N1v10 N2v10 N3v10 N4v10)
 
 declare -A CONFIGS=(
     [B0]="B0_deterministic.yaml|Strong deterministic baseline (MLP + PCR + queue + MSE + InfoNCE)"
@@ -94,6 +95,10 @@ declare -A CONFIGS=(
     [N2v9]="N2v9_roi_transformer.yaml|v9: ROI Transformer + DropPath + projection head + CSLS + TTA"
     [N3v9]="N3v9_roi_dcf.yaml|v9: anti-overfit + projection head + CSLS + TTA"
     [N4v9]="N4v9_full_system.yaml|v9: flagship anti-overfit + projection head + CSLS + TTA + SPCL"
+    [N1v10]="N1v10_vmf_nce.yaml|v10: V8 recipe + V9 eval + wider MLP + hard neg + model soup"
+    [N2v10]="N2v10_roi_transformer.yaml|v10: V8 recipe + V9 eval + wider Transformer + hard neg + model soup"
+    [N3v10]="N3v10_roi_dcf.yaml|v10: V8 multi-loss + V9 eval + wider Transformer + hard neg + model soup"
+    [N4v10]="N4v10_full_system.yaml|v10: flagship V8 multi-loss + SPCL + V9 eval + wider Transformer + hard neg + soup"
 )
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"

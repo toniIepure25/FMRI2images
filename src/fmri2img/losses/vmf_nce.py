@@ -178,6 +178,8 @@ class VonMisesFisherNCELoss(nn.Module):
                  margin_base: float = 0.0,
                  margin_kappa_ref: float = 50.0,
                  label_smoothing: float = 0.0,
+                 hard_negative_weight: float = 0.0,
+                 hard_neg_k: int = 16,
                  # Legacy kwargs accepted but ignored
                  dim: int = 768):
         super().__init__()
@@ -188,6 +190,8 @@ class VonMisesFisherNCELoss(nn.Module):
         self.margin_base = margin_base
         self.margin_kappa_ref = margin_kappa_ref
         self.label_smoothing = label_smoothing
+        self.hard_negative_weight = hard_negative_weight
+        self.hard_neg_k = hard_neg_k
 
         if learnable_temperature:
             self.logit_scale = nn.Parameter(
@@ -197,17 +201,18 @@ class VonMisesFisherNCELoss(nn.Module):
             logger.info(
                 "VonMisesFisherNCELoss: learnable_temperature=True (init tau=%.4f), "
                 "use_queue=%s, kappa_is_log=%s, arctanh=%s, margin=%.2f, "
-                "label_smoothing=%.2f",
+                "label_smoothing=%.2f, hard_neg=(%.2f, k=%d)",
                 tau, use_queue, kappa_is_log, use_arctanh, margin_base,
-                label_smoothing,
+                label_smoothing, hard_negative_weight, hard_neg_k,
             )
         else:
             self.tau = tau
             logger.info(
                 "VonMisesFisherNCELoss: tau=%s, use_queue=%s, kappa_is_log=%s, "
-                "arctanh=%s, margin=%.2f, label_smoothing=%.2f",
+                "arctanh=%s, margin=%.2f, label_smoothing=%.2f, "
+                "hard_neg=(%.2f, k=%d)",
                 tau, use_queue, kappa_is_log, use_arctanh, margin_base,
-                label_smoothing,
+                label_smoothing, hard_negative_weight, hard_neg_k,
             )
 
     @property
@@ -222,24 +227,39 @@ class VonMisesFisherNCELoss(nn.Module):
         mu: torch.Tensor,
         kappa: torch.Tensor,
         keys: torch.Tensor,
+        positive_idx: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
-        Compute kappa-scaled similarity logits.
+        Compute kappa-scaled similarity logits with optional hard negative boosting.
 
         Args:
-            mu:    (B, D) query mean directions (unit norm)
-            kappa: (B,)   query concentrations (positive)
-            keys:  (M, D) key embeddings (unit norm)
+            mu:           (B, D) query mean directions (unit norm)
+            kappa:        (B,)   query concentrations (positive)
+            keys:         (M, D) key embeddings (unit norm)
+            positive_idx: (B,)   column indices of positive keys (for masking).
+                          If None, hard negative mining is skipped.
 
         Returns:
             (B, M) logits
         """
         cos_sim = mu @ keys.T                          # (B, M)
         if self.use_arctanh:
-            # arctanh amplifies gradients near ±1 poles
             cos_sim = torch.atanh(cos_sim.clamp(-1 + 1e-7, 1 - 1e-7))
         tau = self.effective_tau
         logits = kappa.unsqueeze(1) * cos_sim / tau
+
+        if self.hard_negative_weight > 0 and positive_idx is not None:
+            B, M = logits.shape
+            neg_mask = torch.ones(B, M, dtype=torch.bool, device=logits.device)
+            neg_mask[torch.arange(B, device=logits.device), positive_idx] = False
+            top_k = min(self.hard_neg_k, int(neg_mask.sum(1).min().item()))
+            if top_k > 0:
+                masked_logits = logits.masked_fill(~neg_mask, -1e9)
+                _, hard_idx = masked_logits.topk(top_k, dim=1)
+                boost = torch.zeros_like(logits)
+                boost.scatter_(1, hard_idx, self.hard_negative_weight)
+                logits = logits + boost
+
         return logits.clamp(-80, 80)                   # (B, M)
 
     def forward(
@@ -262,24 +282,23 @@ class VonMisesFisherNCELoss(nn.Module):
             kappa = kappa_or_log_kappa_query.squeeze(-1)
 
         B = mu_query.size(0)
-
-        logits = self._score(mu_query, kappa, key_embeddings)   # (B, B)
-
-        # Kappa-adaptive additive margin on positive pairs (CosFace-style)
-        if self.margin_base > 0:
-            # margin_i = margin_base * kappa_i / (kappa_i + ref)
-            # High kappa → strict margin; low kappa → near-zero margin
-            adaptive_margin = self.margin_base * kappa / (
-                kappa + self.margin_kappa_ref
-            )  # (B,)
-            logits = logits - torch.diag(adaptive_margin)
+        labels = torch.arange(B, device=mu_query.device)
 
         if self.use_queue and queue is not None and queue.is_ready():
             queue_embs = queue.get_queue()
-            logits_q = self._score(mu_query, kappa, queue_embs)  # (B, Q)
-            logits = torch.cat([logits, logits_q], dim=1)        # (B, B+Q)
+            all_keys = torch.cat([key_embeddings, queue_embs], dim=0)  # (B+Q, D)
+        else:
+            all_keys = key_embeddings  # (B, D)
 
-        labels = torch.arange(B, device=mu_query.device)
+        logits = self._score(mu_query, kappa, all_keys, positive_idx=labels)
+
+        # Kappa-adaptive additive margin on positive pairs (CosFace-style)
+        if self.margin_base > 0:
+            adaptive_margin = self.margin_base * kappa / (
+                kappa + self.margin_kappa_ref
+            )  # (B,)
+            logits[torch.arange(B, device=logits.device), labels] -= adaptive_margin
+
         return F.cross_entropy(logits, labels, label_smoothing=self.label_smoothing)
 
 
@@ -373,15 +392,21 @@ class KappaSPCLVMFNCELoss(nn.Module):
         use_queue: bool = True,
         kappa_is_log: bool = False,
         initial_curriculum_t: float = 50.0,
+        hard_negative_weight: float = 0.0,
+        hard_neg_k: int = 16,
     ):
         super().__init__()
         self.tau = tau
         self.use_queue = use_queue
         self.kappa_is_log = kappa_is_log
         self.curriculum_t = initial_curriculum_t
+        self.hard_negative_weight = hard_negative_weight
+        self.hard_neg_k = hard_neg_k
         logger.info(
-            "KappaSPCLVMFNCELoss: tau=%s, use_queue=%s, curriculum_t=%s",
+            "KappaSPCLVMFNCELoss: tau=%s, use_queue=%s, curriculum_t=%s, "
+            "hard_neg=(%.2f, k=%d)",
             tau, use_queue, initial_curriculum_t,
+            hard_negative_weight, hard_neg_k,
         )
 
     def set_curriculum_temperature(self, t: float) -> None:
@@ -411,20 +436,31 @@ class KappaSPCLVMFNCELoss(nn.Module):
             kappa = kappa_or_log_kappa_query.squeeze(-1)
 
         B = mu_query.size(0)
+        labels = torch.arange(B, device=mu_query.device)
 
         # Importance weights from kappa
         weights = F.softmax(kappa / self.curriculum_t, dim=0)  # (B,)
 
-        cos_sim = mu_query @ key_embeddings.T  # (B, B)
+        if self.use_queue and queue is not None and queue.is_ready():
+            all_keys = torch.cat([key_embeddings, queue.get_queue()], dim=0)
+        else:
+            all_keys = key_embeddings
+
+        cos_sim = mu_query @ all_keys.T
         logits = (kappa.unsqueeze(1) * cos_sim / self.tau).clamp(-80, 80)
 
-        if self.use_queue and queue is not None and queue.is_ready():
-            queue_embs = queue.get_queue()
-            cos_q = mu_query @ queue_embs.T  # (B, Q)
-            logits_q = (kappa.unsqueeze(1) * cos_q / self.tau).clamp(-80, 80)
-            logits = torch.cat([logits, logits_q], dim=1)  # (B, B+Q)
+        if self.hard_negative_weight > 0:
+            M = logits.size(1)
+            neg_mask = torch.ones(B, M, dtype=torch.bool, device=logits.device)
+            neg_mask[torch.arange(B, device=logits.device), labels] = False
+            top_k = min(self.hard_neg_k, int(neg_mask.sum(1).min().item()))
+            if top_k > 0:
+                masked_logits = logits.masked_fill(~neg_mask, -1e9)
+                _, hard_idx = masked_logits.topk(top_k, dim=1)
+                boost = torch.zeros_like(logits)
+                boost.scatter_(1, hard_idx, self.hard_negative_weight)
+                logits = logits + boost
 
-        labels = torch.arange(B, device=mu_query.device)
         per_sample_loss = F.cross_entropy(logits, labels, reduction="none")  # (B,)
         return (weights * per_sample_loss).sum()
 

@@ -1,24 +1,40 @@
-# N3v9: ROI-DCF — Anti-Overfit + Projection Head + CSLS + Larger Batch + TTA
+# N2v10: ROI Transformer — Best-of-Both (V8 recipe + V9 eval + novel capacity)
 #
-# V9 targeted interventions over V8:
-#   - Stochastic Depth (drop_path_rate=0.15) in Transformer
-#   - ContrastiveProjectionHead (768->2048->768) for SoftCLIP/MixCo only;
-#     vMF-NCE uses raw pred for proper kappa gradient flow
-#   - kappa_reg restored to 0.01 (matching V7)
-#   - Label smoothing (0.05) in vMF-NCE
-#   - R-Drop regularization (weight=0.5, delayed to epoch 15)
+# V10 strategy: combine V8's proven losses with V9's free eval wins,
+# then add genuinely novel improvements.
+#
+# From V7/V8 (restore):
+#   - softclip.weight: 1.0 (was 0.3 in V9)
+#   - batch_size: 64, grad_accum: 4 (effective 256)
+#   - lr: 5e-5 (original N2 value)
+#   - dropout: 0.2 (was 0.2 in V9 but removing DropPath)
+#
+# From V9 (keep):
 #   - CSLS-corrected retrieval evaluation
-#   - MC-Dropout TTA (8 samples) + kappa-weighted repetition averaging
-#   - Simplified loss: disable hierarchical_clip, CKA, multitask
-#   - SoftCLIP weight reduced to 0.3
-#   - Effective batch 512 (128 x 4 grad_accum), LR scaled 2x on H100
+#   - MC-Dropout TTA (8 samples) + kappa-weighted avg
+#   - bf16 mixed precision
+#   - early_stop_min_delta: 0.002
+#
+# From V9 (remove):
+#   - R-Drop (added regularization that hurt)
+#   - Label smoothing (same)
+#   - DropPath / drop_path_rate (V8 had none and reached best results)
+#   - Projection head (not needed with SoftCLIP@1.0)
+#
+# Novel (V10):
+#   - Wider Transformer: d_model=1024, nhead=16, dim_feedforward=4096
+#   - Hard negative mining in vMF-NCE (weight=0.5, k=16)
+#   - Larger memory queue: 65536
+#   - Model soup (top-5 periodic checkpoints)
+#   - save_frequency: 10 (periodic checkpoints for soup)
 
 experiment:
-  name: "N3v9_roi_dcf"
-  description: "v9 ROI-DCF: anti-overfit + projection head + CSLS + TTA"
-  tags: ["roi_dcf", "vmf", "vmf_nce", "v9", "multi_subject", "softplus",
-         "drop_path", "projection_head", "csls", "rdrop", "mc_tta"]
-  parent: "N3v8_roi_dcf"
+  name: "N2v10_roi_transformer"
+  description: "v10 ROI Transformer: V8 recipe + V9 eval + wider Transformer + hard negatives + model soup"
+  tags: ["roi_transformer", "vmf", "vmf_nce", "interpretable", "novel", "v10",
+         "multi_subject", "softplus", "csls", "mc_tta", "hard_neg", "model_soup",
+         "wider_transformer"]
+  parent: "N2v9_roi_transformer"
 
 data:
   subjects: ["subj01", "subj02", "subj05", "subj07"]
@@ -36,8 +52,7 @@ data:
   seed: 42
 
 model:
-  type: "vmf_dcf"
-  posterior: "vmf"
+  type: "vmf"
   encoder:
     encoder_type: "multi_subject_roi_transformer"
     input_dim: null
@@ -59,26 +74,19 @@ model:
       OPA: 250
       RSC: 250
       nsdgeneral_other: 9374
-    d_model: 768
-    nhead: 12
+    d_model: 1024
+    nhead: 16
     num_layers: 6
-    dim_feedforward: 3072
+    dim_feedforward: 4096
     dropout: 0.2
     activation: "gelu"
-    drop_path_rate: 0.15
   decoder:
+    input_dim: 1024
     output_dim: 768
-    kappa_mode: "softplus"
+    hidden_dims: [1024]
+    activation: "gelu"
     dropout: 0.2
-    dcf:
-      shared_heads: true
-      hidden_dim: null
-      return_per_roi: true
-  projection_head:
-    enabled: true
-    hidden_dim: 2048
-    out_dim: 768
-    dropout: 0.1
+    kappa_mode: "softplus"
 
 preprocessing:
   enabled: false
@@ -91,14 +99,12 @@ loss:
     tau: 1.0
     use_queue: true
     learnable_temperature: true
-    use_arctanh: true
-    margin_base: 0.2
-    margin_kappa_ref: 50.0
-    label_smoothing: 0.05
+    hard_negative_weight: 0.5
+    hard_neg_k: 16
 
   softclip:
     enabled: true
-    weight: 0.3
+    weight: 1.0
     tau: 0.05
     use_queue: true
     symmetric: true
@@ -108,16 +114,6 @@ loss:
     lambda_kappa: 0.01
 
   r_drop:
-    enabled: true
-    weight: 0.5
-    start_epoch: 15
-
-  # Disabled in V9 (loss surgery)
-  vmf_nce_multitask:
-    enabled: false
-  hierarchical_clip:
-    enabled: false
-  cka:
     enabled: false
   vmf_nll:
     enabled: false
@@ -132,17 +128,17 @@ loss:
 
 queue:
   enabled: true
-  size: 16384
+  size: 65536
 
 training:
-  batch_size: 128
+  batch_size: 64
   gradient_accumulation_steps: 4
   mixed_precision: true
   mixed_precision_dtype: "bf16"
   num_epochs: 200
   optimizer:
     type: "adamw"
-    lr: 1.0e-4
+    lr: 5.0e-5
     weight_decay: 0.05
     betas: [0.9, 0.95]
   warmup_epochs: 15
@@ -150,6 +146,7 @@ training:
   gradient_clip: 1.0
   early_stop_patience: 30
   early_stop_min_delta: 0.002
+  save_frequency: 10
   fmri_noise_std: 0.1
   voxel_dropout: 0.1
   softclip_from_start: true
@@ -166,14 +163,6 @@ inference:
   use_mean_for_retrieval: true
   mc_samples_prob_metrics: 64
   seed: 42
-  ua_cfg:
-    enabled: true
-    w_min: 1.5
-    w_max: 12.0
-    gamma: 1.0
-    steps_min: 10
-    steps_max: 50
-    delta_beta: 0.5
 
 evaluation:
   gallery_sizes: [2, 10, 50, 100, 500, 1000]
@@ -181,11 +170,12 @@ evaluation:
   csls_k: 10
   mc_tta_samples: 8
   kappa_weighted_avg: true
+  model_soup: true
+  soup_top_k: 5
   compute_probabilistic: true
   compute_attention_analysis: true
   compute_roi_ablation: true
-  compute_per_roi_analysis: true
   seed: 42
 
 paths:
-  output_dir: "experimental_results/N3v9_roi_dcf"
+  output_dir: "experimental_results/N2v10_roi_transformer"

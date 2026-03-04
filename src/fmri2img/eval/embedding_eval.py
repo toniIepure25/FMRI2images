@@ -206,6 +206,69 @@ def compute_retrieval_metrics(
     return results
 
 
+def csls_similarity(
+    predictions: np.ndarray,
+    ground_truth: np.ndarray,
+    k: int = 10,
+) -> np.ndarray:
+    """Cross-domain Similarity Local Scaling (Conneau et al., 2018).
+
+    Corrects for hubness by penalising embeddings that are universally
+    close to many points.  CSLS(x, y) = 2*cos(x,y) - r_X(x) - r_Y(y)
+    where r_X(x) is the mean similarity of x to its k-NN in Y.
+
+    Args:
+        predictions:  (N, D) L2-normalised predicted embeddings.
+        ground_truth: (M, D) L2-normalised gallery embeddings.
+        k: Number of nearest neighbours for hubness estimation.
+
+    Returns:
+        (N, M) CSLS-corrected similarity matrix.
+    """
+    sim = predictions @ ground_truth.T  # (N, M)
+    k = min(k, sim.shape[1] - 1, sim.shape[0] - 1)
+    if k < 1:
+        return sim
+    r_x = np.sort(sim, axis=1)[:, -k:].mean(axis=1)   # (N,)
+    r_y = np.sort(sim, axis=0)[-k:, :].mean(axis=0)    # (M,)
+    return 2.0 * sim - r_x[:, None] - r_y[None, :]
+
+
+def compute_retrieval_metrics_csls(
+    predictions: np.ndarray,
+    ground_truth: np.ndarray,
+    ks: Tuple[int, ...] = (1, 5, 10),
+    normalize: bool = True,
+    csls_k: int = 10,
+) -> Dict[str, float]:
+    """Retrieval metrics using CSLS-corrected similarity (hubness-aware).
+
+    Same interface as :func:`compute_retrieval_metrics` but replaces raw
+    cosine with CSLS similarity to mitigate the hubness problem common in
+    high-dimensional embedding spaces.
+    """
+    if normalize:
+        predictions = normalize_embeddings(predictions)
+        ground_truth = normalize_embeddings(ground_truth)
+
+    similarities = csls_similarity(predictions, ground_truth, k=csls_k)
+    ranks = np.argsort(-similarities, axis=1)
+
+    N = len(predictions)
+    correct_ranks = np.zeros(N, dtype=np.int32)
+    for i in range(N):
+        correct_ranks[i] = np.where(ranks[i] == i)[0][0]
+
+    results: Dict[str, float] = {}
+    for k in ks:
+        results[f'top{k}_accuracy'] = float((correct_ranks < k).mean())
+    results['mean_rank'] = float(correct_ranks.mean() + 1)
+    results['median_rank'] = float(np.median(correct_ranks) + 1)
+    results['mrr'] = float((1.0 / (correct_ranks + 1.0)).mean())
+    results['chance_top1'] = 1.0 / N
+    return results
+
+
 def compute_retrieval_by_gallery_size(
     predictions: np.ndarray,
     ground_truth: np.ndarray,

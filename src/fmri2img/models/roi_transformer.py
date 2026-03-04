@@ -34,6 +34,74 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class DropPath(nn.Module):
+    """Stochastic depth (Huang et al., 2016) — drops entire residual branches.
+
+    During training, each residual block is skipped with probability
+    ``drop_prob``, effectively reducing network depth on a per-sample basis.
+    At test time the module is an identity.
+    """
+
+    def __init__(self, drop_prob: float = 0.0):
+        super().__init__()
+        self.drop_prob = drop_prob
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.drop_prob == 0.0 or not self.training:
+            return x
+        keep = 1.0 - self.drop_prob
+        shape = (x.shape[0],) + (1,) * (x.ndim - 1)
+        mask = torch.bernoulli(torch.full(shape, keep, device=x.device, dtype=x.dtype))
+        return x * mask / keep
+
+    def extra_repr(self) -> str:
+        return f"drop_prob={self.drop_prob:.3f}"
+
+
+class TransformerLayerWithDropPath(nn.Module):
+    """Pre-norm Transformer encoder layer with stochastic depth on both
+    self-attention and feedforward residual branches."""
+
+    def __init__(
+        self,
+        d_model: int,
+        nhead: int,
+        dim_feedforward: int,
+        dropout: float = 0.1,
+        activation: str = "gelu",
+        drop_path: float = 0.0,
+    ):
+        super().__init__()
+        self.norm1 = nn.LayerNorm(d_model)
+        self.self_attn = nn.MultiheadAttention(
+            d_model, nhead, dropout=dropout, batch_first=True,
+        )
+        self.drop_path1 = DropPath(drop_path)
+        self.norm2 = nn.LayerNorm(d_model)
+        act = nn.GELU() if activation == "gelu" else nn.ReLU()
+        self.ff = nn.Sequential(
+            nn.Linear(d_model, dim_feedforward),
+            act,
+            nn.Dropout(dropout),
+            nn.Linear(dim_feedforward, d_model),
+            nn.Dropout(dropout),
+        )
+        self.drop_path2 = DropPath(drop_path)
+
+    def forward(
+        self,
+        src: torch.Tensor,
+        src_mask=None,
+        src_key_padding_mask=None,
+        **kwargs,
+    ) -> torch.Tensor:
+        normed = self.norm1(src)
+        attn_out, _ = self.self_attn(normed, normed, normed)
+        src = src + self.drop_path1(attn_out)
+        src = src + self.drop_path2(self.ff(self.norm2(src)))
+        return src
+
+
 @dataclass
 class ROITransformerOutput:
     """Output container when ``return_roi_tokens=True``.
@@ -92,6 +160,7 @@ class ROITransformerEncoder(nn.Module):
         activation: str = "gelu",
         roi_indices: Optional[Dict[str, "torch.Tensor"]] = None,
         dim_feedforward: Optional[int] = None,
+        drop_path_rate: float = 0.0,
     ):
         super().__init__()
 
@@ -129,19 +198,38 @@ class ROITransformerEncoder(nn.Module):
             torch.randn(1, self.n_rois + 1, d_model) * 0.02
         )
 
-        # Transformer encoder
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=d_model,
-            nhead=nhead,
-            dim_feedforward=_ff_dim,
-            dropout=dropout,
-            activation=activation,
-            batch_first=True,
-            norm_first=True,
-        )
-        self.transformer = nn.TransformerEncoder(
-            encoder_layer, num_layers=num_layers
-        )
+        # Transformer encoder with optional stochastic depth
+        if drop_path_rate > 0.0:
+            dpr = [drop_path_rate * i / max(num_layers - 1, 1) for i in range(num_layers)]
+            layers = nn.ModuleList([
+                TransformerLayerWithDropPath(
+                    d_model=d_model, nhead=nhead, dim_feedforward=_ff_dim,
+                    dropout=dropout, activation=activation, drop_path=dp,
+                )
+                for dp in dpr
+            ])
+            self.transformer = nn.TransformerEncoder(
+                nn.TransformerEncoderLayer(
+                    d_model=d_model, nhead=nhead, dim_feedforward=_ff_dim,
+                    dropout=dropout, activation=activation,
+                    batch_first=True, norm_first=True,
+                ),
+                num_layers=num_layers,
+            )
+            self.transformer.layers = layers
+        else:
+            encoder_layer = nn.TransformerEncoderLayer(
+                d_model=d_model,
+                nhead=nhead,
+                dim_feedforward=_ff_dim,
+                dropout=dropout,
+                activation=activation,
+                batch_first=True,
+                norm_first=True,
+            )
+            self.transformer = nn.TransformerEncoder(
+                encoder_layer, num_layers=num_layers,
+            )
 
         self.final_norm = nn.LayerNorm(d_model)
 
@@ -150,7 +238,7 @@ class ROITransformerEncoder(nn.Module):
             f"ROITransformerEncoder: {self.n_rois} ROIs "
             f"({self.input_dim} voxels) -> d_model={d_model}, "
             f"ff_dim={_ff_dim}, layers={num_layers}, heads={nhead}, "
-            f"params={n_params:,}"
+            f"drop_path={drop_path_rate:.2f}, params={n_params:,}"
         )
 
     def _project_rois(self, x: torch.Tensor) -> torch.Tensor:

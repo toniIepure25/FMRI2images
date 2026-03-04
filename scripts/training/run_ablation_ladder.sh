@@ -15,10 +15,10 @@
 #   bash scripts/training/run_ablation_ladder.sh
 #   bash scripts/training/run_ablation_ladder.sh --subjects "subj01 subj02" --gpu 0
 #   bash scripts/training/run_ablation_ladder.sh --start B1
-#   bash scripts/training/run_ablation_ladder.sh --only N    # all N-series (v5+v6+v7)
+#   bash scripts/training/run_ablation_ladder.sh --only N    # all N-series (v5+v6+v7+v8+v9)
+#   bash scripts/training/run_ablation_ladder.sh --only N9   # only N v9
+#   bash scripts/training/run_ablation_ladder.sh --only N8   # only N v8
 #   bash scripts/training/run_ablation_ladder.sh --only N7   # only N v7
-#   bash scripts/training/run_ablation_ladder.sh --only N6   # only N v6
-#   bash scripts/training/run_ablation_ladder.sh --only N5   # only N v5
 #   bash scripts/training/run_ablation_ladder.sh --no-checkpoints  # skip saving checkpoints
 #   make ablation SUBJECTS="subj01" GPU=0 ONLY=N7            # same via Make
 #   make ablation SUBJECTS="subj01" GPU=0 ONLY=N7 SAVE_CKPT=0  # no checkpoints
@@ -49,7 +49,7 @@ done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8)
+EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8 N1v9 N2v9 N3v9 N4v9)
 
 declare -A CONFIGS=(
     [B0]="B0_deterministic.yaml|Strong deterministic baseline (MLP + PCR + queue + MSE + InfoNCE)"
@@ -90,6 +90,10 @@ declare -A CONFIGS=(
     [N4v7]="N4v7_full_system.yaml|v7: multi-subject flagship, softplus kappa, fused targets, SPCL"
     [N3v8]="N3v8_roi_dcf.yaml|v8: hierarchical CLIP + CKA + arctanh + kappa-margin"
     [N4v8]="N4v8_full_system.yaml|v8: flagship + hierarchical CLIP + per-subject CKA"
+    [N1v9]="N1v9_vmf_nce.yaml|v9: MLP vMF-NCE + projection head + R-Drop + CSLS + TTA"
+    [N2v9]="N2v9_roi_transformer.yaml|v9: ROI Transformer + DropPath + projection head + CSLS + TTA"
+    [N3v9]="N3v9_roi_dcf.yaml|v9: anti-overfit + projection head + CSLS + TTA"
+    [N4v9]="N4v9_full_system.yaml|v9: flagship anti-overfit + projection head + CSLS + TTA + SPCL"
 )
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"

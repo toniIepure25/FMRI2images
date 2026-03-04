@@ -1,0 +1,169 @@
+# N2v9: ROI Transformer — Anti-Overfit + Projection Head + CSLS + R-Drop + TTA
+#
+# V9 targeted interventions over V7:
+#   - Stochastic Depth (drop_path_rate=0.15) in Transformer
+#   - ContrastiveProjectionHead (768->2048->768) separates contrastive
+#     from retrieval representation
+#   - Stronger kappa_reg (0.1 vs 0.01)
+#   - Label smoothing (0.1) in vMF-NCE
+#   - R-Drop regularization (weight=0.5) between two dropout passes
+#   - CSLS-corrected retrieval evaluation
+#   - MC-Dropout TTA (8 samples) + kappa-weighted repetition averaging
+#   - SoftCLIP weight reduced to 0.3
+#   - Effective batch 1024 (128 x 8 grad_accum) on H100
+#   - bf16 mixed precision (H100 native, no GradScaler needed)
+
+experiment:
+  name: "N2v9_roi_transformer"
+  description: "v9 ROI Transformer: anti-overfit + projection head + CSLS + R-Drop + TTA"
+  tags: ["roi_transformer", "vmf", "vmf_nce", "interpretable", "novel", "v9",
+         "multi_subject", "softplus", "drop_path", "projection_head", "csls",
+         "rdrop", "mc_tta"]
+  parent: "N2v7_roi_transformer"
+
+data:
+  subjects: ["subj01", "subj02", "subj05", "subj07"]
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  encoder:
+    encoder_type: "multi_subject_roi_transformer"
+    input_dim: null
+    roi_dims:
+      V1v: 700
+      V1d: 700
+      V2v: 600
+      V2d: 600
+      V3v: 500
+      V3d: 500
+      V3A: 350
+      V3B: 350
+      V4: 500
+      FFA1: 200
+      FFA2: 200
+      PPA: 300
+      EBA: 400
+      OFA: 200
+      OPA: 250
+      RSC: 250
+      nsdgeneral_other: 9374
+    d_model: 768
+    nhead: 12
+    num_layers: 6
+    dim_feedforward: 3072
+    dropout: 0.2
+    activation: "gelu"
+    drop_path_rate: 0.15
+  decoder:
+    input_dim: 768
+    output_dim: 768
+    hidden_dims: [1024]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+  projection_head:
+    enabled: true
+    hidden_dim: 2048
+    out_dim: 768
+    dropout: 0.1
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    dim: 768
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    label_smoothing: 0.1
+
+  softclip:
+    enabled: true
+    weight: 0.3
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.1
+
+  r_drop:
+    enabled: true
+    weight: 0.5
+
+  vmf_nll:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 128
+  gradient_accumulation_steps: 8
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 5.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.95]
+  warmup_epochs: 15
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  use_csls: true
+  csls_k: 10
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+  compute_probabilistic: true
+  compute_attention_analysis: true
+  compute_roi_ablation: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/N2v9_roi_transformer"

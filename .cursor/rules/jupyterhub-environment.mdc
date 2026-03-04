@@ -1,16 +1,18 @@
 ---
-description: Complete reference for the JupyterHub A100 execution environment — paths, dimensions, data layout, pipeline stages, experiment configs, and operational gotchas. Read this first in any new conversation about running experiments.
+description: Complete reference for the JupyterHub H100 execution environment — paths, dimensions, data layout, pipeline stages, experiment configs, and operational gotchas. Read this first in any new conversation about running experiments.
 globs: 
 alwaysApply: true
 ---
 
-# JupyterHub A100 Environment Reference
+# JupyterHub H100 Environment Reference
 
 ## 1. Hardware
 
 | Resource | Value |
 |----------|-------|
-| GPU | NVIDIA A100-SXM4-40GB (single, `CUDA_VISIBLE_DEVICES=0`) |
+| GPU | **NVIDIA H100 80GB HBM3** (single, `CUDA_VISIBLE_DEVICES=0`) |
+| Driver | 570.211.01 |
+| CUDA | 12.8 |
 | System RAM | ~100 GB (Kubernetes allocation) |
 | CPU cores | 32 |
 | Persistent storage | PVC at `/home/jovyan/work` (~877 GB, NFS-backed, survives pod restarts) |
@@ -18,6 +20,8 @@ alwaysApply: true
 | Python | 3.13 via `conda base` (no separate venv needed) |
 | User | `jovyan` (default JupyterHub user) |
 | Pod hostname | `orchestraiq-jupyter-*` |
+
+**H100 advantages over A100:** 2x VRAM (80GB vs 40GB), native bf16 support (same exponent range as fp32, no GradScaler needed), batch_size=128 (vs 64).
 
 ## 2. Absolute Paths on Pod
 
@@ -97,9 +101,10 @@ There are ~10,000 unique images, each shown ~3 times per subject.
 | Embedding dim | **768** |
 | Normalization | L2-normalized |
 | dtype | float32 |
-| CLIP cache location | `outputs/clip_cache/clip.parquet` |
-| CLIP cache size | 9,999 unique nsdIds |
-| Embedding column names | `final`, `embedding`, `clip_embedding`, or `emb_*` |
+| CLIP cache (standard) | `outputs/clip_cache/clip.parquet` (9,999 unique nsdIds) |
+| CLIP cache (multi-layer) | `outputs/clip_cache/clip_multilayer.parquet` (layers 12, 18, 24 + fused) |
+| Embedding column names | `final`, `fused`, `embedding`, `clip_embedding`, or `emb_*` |
+| v7+ default | `embedding_column: "fused"` (blended intermediate+final CLIP features) |
 | Phase 1 (old) | ViT-B/32, 512-D (not used in current experiments) |
 
 ## 5. Pre-extracted fMRI Features
@@ -129,38 +134,56 @@ The ablation launcher auto-runs `make preextract` if `.npy` is missing.
 | `vmf_dcf` | ROI Transformer (required) | ROIDCFDecoder | Per-ROI vMF experts + spherical consensus fusion |
 
 ### MLP Encoder
-- Hidden dims: `[4096, 2048, 1024]` (default)
+- Hidden dims: `[8192, 4096, 2048]` (v4+)
 - `use_residual: true` adds MindEye-style ResidualBlocks after each projection
-- Activation: GELU, dropout: 0.15 (v3)
+- Activation: GELU, dropout: 0.25 (v9)
 
 ### ROI Transformer Encoder
 - 17 ROI tokens: V1v, V1d, V2v, V2d, V3v, V3d, V3A, V3B, V4, FFA1, FFA2, PPA, EBA, OFA, OPA, RSC, nsdgeneral_other
-- `d_model=512`, `nhead=8`, `num_layers=4`
+- `d_model=768`, `nhead=12`, `num_layers=6` (v5+)
 - ROI indices dynamically computed by `build_roi_index()` from NSD atlas files (YAML `roi_dims` are nominal only)
-- Output: [CLS] token (512-D) or per-ROI tokens for DCF
+- Output: [CLS] token (768-D) or per-ROI tokens for DCF
+- Multi-subject variant: `MultiSubjectROITransformer` with per-subject ROI projections + subject embeddings (v7+)
+- Stochastic Depth: `drop_path_rate=0.15` (v9)
+
+### Contrastive Projection Head (v9)
+- MLP: 768 -> 2048 -> 768 with LayerNorm, GELU, Dropout
+- Separates contrastive loss optimization from retrieval representation
+- Only used during training; discarded at eval/inference
 
 ### Decoder output dim: 768 (must match CLIP embedding_dim)
+- Kappa parameterization: `softplus` (v7+), with `kappa_reg lambda=0.1` (v9)
 
 ## 7. Experiment Configs
 
-18 YAML files in `configs/experiments/`, organized in 3 generations:
+40+ YAML files in `configs/experiments/`, organized across 9 generations:
 
-### v1 (initial): batch 4, grad_accum 16, 100 epochs, patience 15
-| Config | Model | Loss |
-|--------|-------|------|
-| `B0_deterministic.yaml` | deterministic MLP | MSE + InfoNCE |
-| `B1_gaussian.yaml` | gaussian MLP | MSE + Gaussian-NCE + KL |
-| `N1_vmf_nce.yaml` | vmf MLP | vMF-NCE + kappa_reg |
-| `N2_roi_transformer.yaml` | vmf ROI Transformer | vMF-NLL + vMF-NCE |
-| `N3_roi_dcf.yaml` | vmf_dcf ROI Transformer | vMF-NCE + MultiTask |
-| `N4_full_system.yaml` | vmf_dcf ROI Transformer | vMF-NCE-SPCL + MultiTask + DUA-CFG |
+### v1-v3 (legacy): initial implementations, nsdId bug present
+Preserved for reproducibility. Not to be used for new experiments.
 
-### v2: dropout 0.3, R@1 early stopping, tuned LR/weight_decay
-Same 6 experiments with `v2` suffix (e.g., `B0v2_deterministic.yaml`).
+### v4 (baselines): nsdId fix, per-session z-score, MixCo, SoftCLIP
+- B-series (B0v4, B1v4): deterministic and Gaussian baselines, ~22% R@1
+- N-series (N1v4-N4v4): vMF models, 30-36% R@1 (kappa collapse)
 
-### v3 (current): batch 64, residual MLP, image-level split, 300 epochs, patience 40
-Same 6 experiments with `v3` suffix (e.g., `B0v3_deterministic.yaml`).
-Key changes: `split_by_image: true`, `exclude_shared1000: true`, `k_components: 4`, `queue: 16384`, `dropout: 0.15`, `weight_decay: 0.01`.
+### v5-v6 (N-series only): kappa collapse fix, novel losses
+- v5: tau=1.0, kappa_reg off, EMA, noise aug. N1: 39.9% R@1
+- v6: Delta-SPCL, vMF-SoftCLIP, Slerp MixCo. N1: ~40%
+
+### v7 (N-series only): softplus kappa, multi-subject, multi-layer CLIP
+- Softplus kappa, fused CLIP targets, multi-subject ROI Transformer. N1: **49%** R@1
+
+### v8 (N3/N4 only): hierarchical CLIP alignment, CKA loss
+- N3v8: 50.3%, N4v8: **50.8%** R@1
+
+### v9 (current, all N-series): anti-overfit + H100 optimization
+| Config | Key Features |
+|--------|-------------|
+| `N1v9_vmf_nce.yaml` | MLP + proj head + R-Drop + CSLS + TTA, dropout=0.25 |
+| `N2v9_roi_transformer.yaml` | Multi-subj ROI Trans + DropPath + proj head + CSLS |
+| `N3v9_roi_dcf.yaml` | ROI-DCF + DropPath + proj head + R-Drop + CSLS + TTA |
+| `N4v9_full_system.yaml` | N3 + SPCL + DUA-CFG (flagship) |
+
+All v9: batch=128, bf16, grad_accum=8 (eff. batch 1024), 200 epochs, patience 30.
 
 ## 8. Data Split Convention (v3)
 
@@ -238,7 +261,7 @@ Step 8: Reconstruction (optional, per experiment)
 - Preprocessing: optional `EmbeddingPreprocessor` (center_pcr, fitted on training embeddings)
 - Model: `create_model(config, roi_indices)` — `input_dim` inferred from data
 - ROI indices: computed via `build_roi_index(subject)` from NSD atlas files
-- Training: AdamW, cosine LR scheduler, warmup, gradient clipping, AMP (float16)
+- Training: AdamW, cosine LR scheduler, warmup, gradient clipping, AMP (bf16 on H100 / fp16 fallback)
 - Validation: full-set retrieval metrics (R@1, R@5, R@10, MRR, MedianRank)
 - Early stopping: on `val_r@1` (higher is better) or `val_loss` (lower is better)
 - Checkpoints: `best.pt` + `last.pt` in `experimental_results/{exp}/{subj}/checkpoints/`
@@ -272,11 +295,11 @@ Step 8: Reconstruction (optional, per experiment)
 - **ROI indices are dynamic**: `roi_dims` in YAML configs are nominal placeholders. Actual voxel counts and indices are computed at runtime by `build_roi_index()` from NSD atlas NIfTI files. Hardcoding dims causes shape mismatches.
 
 ### Training
-- **AMP dtype**: all tensors must be float32 before entering the training loop. Defensive `.float()` casts are applied to `fmri` and `gt_embedding` after moving to device.
+- **AMP dtype**: configurable via `mixed_precision_dtype: "bf16"` (H100) or `"fp16"` (A100/default). bf16 eliminates GradScaler (same exponent range as fp32). All tensors must be float32 before entering the training loop — defensive `.float()` casts are applied.
 - **Loss module parameters on GPU**: loss modules containing `nn.Parameter` (e.g., InfoNCE `logit_scale`) must be `.to(device)` and their parameters added to the optimizer.
-- **vMF kappa stability**: logits in vMF-NCE are clamped to `[-80, 80]` to prevent float16 overflow. Kappa values are bounded via sigmoid.
-- **EmbeddingPreprocessor.load()**: is a `@classmethod` that restores from pickle. It manually sets `mode`, `k_components`, `whiten_eps`, `seed` from the loaded artifacts dict.
-- **Gradient accumulation**: v3 configs use batch_size=64 with grad_accum=1 (effective batch = 64). v1/v2 used batch_size=4 with grad_accum=16 (effective batch = 64, but worse for contrastive losses).
+- **vMF kappa stability**: logits in vMF-NCE are clamped to `[-80, 80]` to prevent float16 overflow. With bf16, overflow is essentially eliminated. Kappa uses softplus (v7+) with kappa_reg=0.1 (v9).
+- **EmbeddingPreprocessor.load()**: is a `@classmethod` that restores from pickle.
+- **Gradient accumulation**: v9 configs use batch_size=128 with grad_accum=8 (effective batch = 1024). Earlier versions used smaller batches.
 
 ### Git
 - **`.gitignore` uses `/build/`** (only root `build/` dir), not `build/` — so `scripts/build/` is tracked normally
@@ -301,7 +324,15 @@ Step 8: Reconstruction (optional, per experiment)
 
 ## 16. Novel Contributions (N-series experiments)
 
-- **N1 (vMF-NCE)**: von Mises-Fisher distribution on the hypersphere instead of Gaussian in Euclidean space. Bessel-free NCE loss. Bounded-sigmoid kappa parameterization.
-- **N2 (ROI Transformer)**: brain-topology-aware tokenization — each ROI becomes a separate token with its own projection, processed by a Transformer encoder.
-- **N3 (ROI-DCF)**: Directional Consensus Fusion — per-ROI vMF expert heads whose predictions are fused via spherical weighted averaging using attention-derived alphas.
-- **N4 (Full System)**: combines all innovations + Self-Paced Curriculum Learning (SPCL) on kappa + Decomposed Uncertainty-Aware CFG for diffusion guidance.
+- **N1 (vMF-NCE)**: von Mises-Fisher distribution on the hypersphere. Bessel-free NCE loss. Softplus kappa (v7+). R-Drop regularization, label smoothing, projection head separation (v9).
+- **N2 (ROI Transformer)**: brain-topology-aware tokenization — 17 ROI tokens processed by Transformer. Multi-subject joint training (v7+). Stochastic Depth (v9).
+- **N3 (ROI-DCF)**: Directional Consensus Fusion — per-ROI vMF expert heads fused via spherical weighted averaging. Dual uncertainty: kappa + delta.
+- **N4 (Full System)**: all innovations + SPCL curriculum + DUA-CFG for diffusion.
+
+### V9-specific innovations (all N-series)
+- **ContrastiveProjectionHead**: 768->2048->768 MLP separating contrastive from retrieval representation
+- **R-Drop**: symmetric KL divergence between two vMF forward passes with different dropout masks
+- **CSLS retrieval**: Cross-domain Similarity Local Scaling corrects hubness in validation retrieval
+- **MC-Dropout TTA**: 8 forward passes with dropout at test time, averaged predictions
+- **Kappa-weighted averaging**: repetition averaging weighted by model confidence (kappa)
+- **bf16 mixed precision**: H100-native, eliminates AMP overflow risks

@@ -177,6 +177,7 @@ class VonMisesFisherNCELoss(nn.Module):
                  use_arctanh: bool = False,
                  margin_base: float = 0.0,
                  margin_kappa_ref: float = 50.0,
+                 label_smoothing: float = 0.0,
                  # Legacy kwargs accepted but ignored
                  dim: int = 768):
         super().__init__()
@@ -186,6 +187,7 @@ class VonMisesFisherNCELoss(nn.Module):
         self.use_arctanh = use_arctanh
         self.margin_base = margin_base
         self.margin_kappa_ref = margin_kappa_ref
+        self.label_smoothing = label_smoothing
 
         if learnable_temperature:
             self.logit_scale = nn.Parameter(
@@ -194,15 +196,18 @@ class VonMisesFisherNCELoss(nn.Module):
             self.tau = None
             logger.info(
                 "VonMisesFisherNCELoss: learnable_temperature=True (init tau=%.4f), "
-                "use_queue=%s, kappa_is_log=%s, arctanh=%s, margin=%.2f",
+                "use_queue=%s, kappa_is_log=%s, arctanh=%s, margin=%.2f, "
+                "label_smoothing=%.2f",
                 tau, use_queue, kappa_is_log, use_arctanh, margin_base,
+                label_smoothing,
             )
         else:
             self.tau = tau
             logger.info(
                 "VonMisesFisherNCELoss: tau=%s, use_queue=%s, kappa_is_log=%s, "
-                "arctanh=%s, margin=%.2f",
+                "arctanh=%s, margin=%.2f, label_smoothing=%.2f",
                 tau, use_queue, kappa_is_log, use_arctanh, margin_base,
+                label_smoothing,
             )
 
     @property
@@ -275,7 +280,41 @@ class VonMisesFisherNCELoss(nn.Module):
             logits = torch.cat([logits, logits_q], dim=1)        # (B, B+Q)
 
         labels = torch.arange(B, device=mu_query.device)
-        return F.cross_entropy(logits, labels)
+        return F.cross_entropy(logits, labels, label_smoothing=self.label_smoothing)
+
+
+# ---------------------------------------------------------------------------
+# R-Drop regularization for vMF outputs  (Liang et al., 2021)
+# ---------------------------------------------------------------------------
+
+def vmf_rdrop_loss(
+    mu1: torch.Tensor,
+    kappa1: torch.Tensor,
+    mu2: torch.Tensor,
+    kappa2: torch.Tensor,
+) -> torch.Tensor:
+    """Symmetric KL divergence between two vMF distributions.
+
+    Uses the closed-form approximation:
+        KL(vMF_1 || vMF_2) ≈ kappa_1 * (1 - mu_1^T mu_2) + (kappa_1 - kappa_2) * A_d(kappa_1)
+    where A_d is the ratio I_{d/2} / I_{d/2-1}.  For simplicity we use the
+    dominant cosine term and kappa difference:
+
+        D_sym ≈ (kappa_1 + kappa_2) * (1 - mu_1^T mu_2) + |kappa_1 - kappa_2|
+
+    Args:
+        mu1, mu2: (B, D) unit-norm mean directions from two forward passes.
+        kappa1, kappa2: (B,) or (B, 1) concentrations from two forward passes.
+
+    Returns:
+        Scalar mean symmetric divergence.
+    """
+    k1 = kappa1.squeeze(-1)
+    k2 = kappa2.squeeze(-1)
+    cos_sim = (mu1 * mu2).sum(dim=-1)  # (B,)
+    direction_div = (k1 + k2) * (1.0 - cos_sim)
+    kappa_div = (k1 - k2).abs()
+    return (direction_div + kappa_div).mean()
 
 
 # ---------------------------------------------------------------------------

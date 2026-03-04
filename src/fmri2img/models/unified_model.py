@@ -21,6 +21,7 @@ from fmri2img.models.vmf_decoder import VonMisesFisherDecoder
 from fmri2img.models.roi_transformer import ROITransformerEncoder
 from fmri2img.models.roi_dcf import ROIDCFDecoder
 from fmri2img.models.multi_subject_encoder import MultiSubjectROITransformer
+from fmri2img.models.projection_head import ContrastiveProjectionHead
 
 logger = logging.getLogger(__name__)
 
@@ -355,6 +356,7 @@ class UnifiedModel(nn.Module):
                 dim_feedforward=encoder_cfg.get("dim_feedforward"),
                 dropout=encoder_cfg.get("dropout", 0.1),
                 activation=encoder_cfg.get("activation", "gelu"),
+                drop_path_rate=encoder_cfg.get("drop_path_rate", 0.0),
             )
         elif encoder_type == "roi_transformer":
             roi_dims = encoder_cfg.get("roi_dims")
@@ -369,6 +371,7 @@ class UnifiedModel(nn.Module):
                 activation=encoder_cfg.get("activation", "gelu"),
                 roi_indices=roi_indices,
                 dim_feedforward=encoder_cfg.get("dim_feedforward"),
+                drop_path_rate=encoder_cfg.get("drop_path_rate", 0.0),
             )
         else:
             input_dim = encoder_cfg.get("input_dim")
@@ -454,6 +457,18 @@ class UnifiedModel(nn.Module):
             )
         else:
             raise ValueError(f"Unknown model type: {self.model_type}")
+
+        # --- Optional contrastive projection head (V9) ---
+        proj_cfg = config.get("projection_head", {})
+        if proj_cfg.get("enabled", False):
+            self.projection_head = ContrastiveProjectionHead(
+                d_model=output_dim,
+                hidden_dim=proj_cfg.get("hidden_dim", 2048),
+                out_dim=proj_cfg.get("out_dim", output_dim),
+                dropout=proj_cfg.get("dropout", 0.1),
+            )
+        else:
+            self.projection_head = None
 
         logger.info(f"UnifiedModel created: type={self.model_type}")
     

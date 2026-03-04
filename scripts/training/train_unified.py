@@ -54,13 +54,17 @@ from fmri2img.losses.vmf_nce import (
     DeltaSPCLVMFNCELoss,
     MultiTaskVMFNCELoss,
     kappa_regularizer,
+    vmf_rdrop_loss,
 )
 from fmri2img.training.kl_schedule import KLScheduler
 from fmri2img.losses.mixco import mixco_augment, mixco_nce_loss
 from fmri2img.losses.softclip import SoftCLIPLoss, VMFSoftCLIPLoss
 from fmri2img.losses.hierarchical_clip_loss import HierarchicalCLIPLoss
 from fmri2img.losses.cka_loss import CKALoss
-from fmri2img.eval.embedding_eval import compute_retrieval_metrics as _compute_retrieval
+from fmri2img.eval.embedding_eval import (
+    compute_retrieval_metrics as _compute_retrieval,
+    compute_retrieval_metrics_csls as _compute_retrieval_csls,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -615,6 +619,7 @@ def setup_losses(config: Dict[str, Any], device: str,
             use_arctanh=c.get("use_arctanh", False),
             margin_base=c.get("margin_base", 0.0),
             margin_kappa_ref=c.get("margin_kappa_ref", 50.0),
+            label_smoothing=c.get("label_smoothing", 0.0),
         )
         logger.info("vMF-NCE loss enabled (queue=%s, tau=%s, learnable_tau=%s, arctanh=%s, margin=%.2f)",
                      use_q, c.get("tau", 0.07), _learnable_tau,
@@ -775,11 +780,13 @@ def train_epoch(
     vmf_is_log: bool = True,
     mixco_cfg: Optional[Dict[str, Any]] = None,
     ema: Optional[ModelEMA] = None,
+    amp_dtype: Optional[torch.dtype] = None,
 ) -> Tuple[Dict[str, float], int]:
     """Train for one epoch with gradient accumulation and optional AMP."""
     model.train()
     epoch_metrics: Dict[str, list] = {}
-    use_amp = scaler is not None and scaler.is_enabled()
+    _amp_dtype = amp_dtype or torch.float16
+    use_amp = (scaler is not None and scaler.is_enabled()) or (_amp_dtype == torch.bfloat16)
     model_type = getattr(model, "model_type", "deterministic")
 
     optimizer.zero_grad()
@@ -817,7 +824,7 @@ def train_epoch(
             gt_embedding_proc = preprocessor.transform(gt_embedding_np)
             gt_embedding = torch.from_numpy(gt_embedding_proc).float().to(device)
 
-        with torch.amp.autocast("cuda", enabled=use_amp):
+        with torch.amp.autocast("cuda", enabled=use_amp, dtype=_amp_dtype):
             output = model(fmri, subject_ids=subject_ids) if subject_ids is not None else model(fmri)
             if isinstance(output, tuple):
                 pred, aux = output
@@ -830,6 +837,12 @@ def train_epoch(
             is_gaussian = model_type == "gaussian" and aux is not None
             is_vmf = model_type in ("vmf", "vmf_dcf") and aux is not None
 
+            # Contrastive projection: route contrastive losses through
+            # a separate projection head so the backbone representation
+            # (used for retrieval) stays clean.
+            _proj_head = getattr(model, "projection_head", None)
+            pred_for_contrast = _proj_head(pred) if _proj_head is not None else pred
+
             # --- Deterministic losses ---
             if "mse" in losses and not is_gaussian and not is_vmf:
                 l = losses["mse"](pred, gt_embedding)
@@ -837,16 +850,16 @@ def train_epoch(
                 batch_metrics["mse"] = l.item()
 
             if "infonce" in losses and not is_gaussian and not is_vmf:
-                l = losses["infonce"](pred, gt_embedding, queue=queue)
+                l = losses["infonce"](pred_for_contrast, gt_embedding, queue=queue)
                 total_loss = total_loss + loss_weights.get("infonce", 1.0) * l
                 batch_metrics["infonce"] = l.item()
 
             # --- SoftCLIP knowledge distillation (works for all model types) ---
             if "softclip" in losses:
                 if isinstance(losses["softclip"], VMFSoftCLIPLoss) and is_vmf:
-                    l = losses["softclip"](pred, aux, gt_embedding, queue=queue)
+                    l = losses["softclip"](pred_for_contrast, aux, gt_embedding, queue=queue)
                 else:
-                    l = losses["softclip"](pred, gt_embedding, queue=queue)
+                    l = losses["softclip"](pred_for_contrast, gt_embedding, queue=queue)
                 total_loss = total_loss + loss_weights.get("softclip", 1.0) * l
                 batch_metrics["softclip"] = l.item()
 
@@ -868,7 +881,7 @@ def train_epoch(
                 batch_metrics["vmf_nll"] = l.item()
 
             if "vmf_nce" in losses and is_vmf:
-                l = losses["vmf_nce"](pred, aux, gt_embedding, queue=queue)
+                l = losses["vmf_nce"](pred_for_contrast, aux, gt_embedding, queue=queue)
                 total_loss = total_loss + loss_weights.get("vmf_nce", 1.0) * l
                 batch_metrics["vmf_nce"] = l.item()
 
@@ -878,7 +891,7 @@ def train_epoch(
                 if isinstance(losses["vmf_nce_spcl"], DeltaSPCLVMFNCELoss):
                     dcf_ex = getattr(model, "_last_dcf_extras", {})
                     spcl_kwargs["delta"] = dcf_ex.get("delta")
-                l = losses["vmf_nce_spcl"](pred, aux, gt_embedding, **spcl_kwargs)
+                l = losses["vmf_nce_spcl"](pred_for_contrast, aux, gt_embedding, **spcl_kwargs)
                 total_loss = total_loss + loss_weights.get("vmf_nce_spcl", 1.0) * l
                 batch_metrics["vmf_nce_spcl"] = l.item()
 
@@ -886,7 +899,7 @@ def train_epoch(
             if "vmf_nce_multitask" in losses and is_vmf:
                 dcf_extras = getattr(model, "_last_dcf_extras", {})
                 mt_total, mt_fused, mt_aux = losses["vmf_nce_multitask"](
-                    pred, aux, gt_embedding,
+                    pred_for_contrast, aux, gt_embedding,
                     per_roi_mus=dcf_extras.get("per_roi_mus"),
                     per_roi_kappas=dcf_extras.get("per_roi_kappas"),
                     queue=queue,
@@ -950,6 +963,19 @@ def train_epoch(
                 total_loss = total_loss + kr
                 batch_metrics["kappa_reg"] = kr.item()
 
+            # --- R-Drop: consistency between two forward passes (V9) ---
+            _rdrop_cfg = (config_ref or {}).get("loss", {}).get("r_drop", {})
+            if _rdrop_cfg.get("enabled", False) and is_vmf:
+                output2 = model(fmri, subject_ids=subject_ids) if subject_ids is not None else model(fmri)
+                pred2, aux2 = (output2 if isinstance(output2, tuple) else (output2, None))
+                if aux2 is not None:
+                    k1 = aux.squeeze(-1) if not vmf_is_log else aux.exp().squeeze(-1)
+                    k2 = aux2.squeeze(-1) if not vmf_is_log else aux2.exp().squeeze(-1)
+                    rd_loss = vmf_rdrop_loss(pred, k1, pred2, k2)
+                    _rdrop_w = _rdrop_cfg.get("weight", 0.5)
+                    total_loss = total_loss + _rdrop_w * rd_loss
+                    batch_metrics["r_drop"] = rd_loss.item()
+
             # --- Kappa statistics ---
             if is_vmf and aux is not None:
                 with torch.no_grad():
@@ -984,8 +1010,9 @@ def train_epoch(
                 pred_mix = model(fmri_mix, subject_ids=subject_ids)
                 if isinstance(pred_mix, tuple):
                     pred_mix = pred_mix[0]
+                pred_mix_c = _proj_head(pred_mix) if _proj_head is not None else pred_mix
                 mc_loss = mixco_nce_loss(
-                    pred_mix, gt_mix, soft_labels,
+                    pred_mix_c, gt_mix, soft_labels,
                     temperature=mixco_cfg.get("temperature", 0.006),
                 )
                 total_loss = total_loss + mixco_cfg.get("weight", 1.0) * mc_loss
@@ -1030,6 +1057,83 @@ def train_epoch(
         global_step += 1
 
     return {k: float(np.mean(v)) for k, v in epoch_metrics.items()}, global_step
+
+
+def mc_dropout_tta(
+    model: nn.Module,
+    dataloader: DataLoader,
+    device: str,
+    preprocessor: Optional[EmbeddingPreprocessor],
+    n_samples: int = 8,
+    vmf_is_log: bool = True,
+) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
+    """MC-Dropout Test-Time Augmentation for vMF models.
+
+    Runs ``n_samples`` forward passes with dropout enabled, averages the
+    mu predictions on the sphere (mean + L2-renorm), and optionally
+    returns kappa values per trial for kappa-weighted repetition averaging.
+
+    Returns:
+        (all_preds, all_gts, all_kappas) where kappas is (N,) or None.
+    """
+    model.train()  # enable dropout
+    model_type = getattr(model, "model_type", "deterministic")
+    mu_accum: List[np.ndarray] = []
+    kappa_accum: List[np.ndarray] = []
+    all_gts: List[np.ndarray] = []
+    first_pass = True
+
+    for _ in range(n_samples):
+        batch_preds, batch_kappas = [], []
+        for batch in dataloader:
+            if len(batch) == 4:
+                fmri, gt_embedding, subject_ids, _ = batch
+                subject_ids = subject_ids.to(device)
+            elif len(batch) == 3:
+                fmri, gt_embedding, subject_ids = batch
+                subject_ids = subject_ids.to(device)
+            else:
+                fmri, gt_embedding = batch
+                subject_ids = None
+            fmri = fmri.to(device, dtype=torch.float32)
+            gt_embedding = gt_embedding.to(device, dtype=torch.float32)
+
+            if preprocessor is not None:
+                gt_np = gt_embedding.cpu().numpy()
+                gt_embedding = torch.from_numpy(
+                    preprocessor.transform(gt_np)
+                ).float().to(device)
+
+            with torch.no_grad():
+                output = (
+                    model(fmri, subject_ids=subject_ids)
+                    if subject_ids is not None else model(fmri)
+                )
+                pred, aux = (output if isinstance(output, tuple) else (output, None))
+                batch_preds.append(pred.cpu().numpy())
+                if aux is not None and model_type in ("vmf", "vmf_dcf"):
+                    k = aux.squeeze(-1)
+                    if vmf_is_log:
+                        k = k.exp()
+                    batch_kappas.append(k.cpu().numpy())
+                if first_pass:
+                    all_gts.append(gt_embedding.cpu().numpy())
+
+        mu_accum.append(np.concatenate(batch_preds, axis=0))
+        if batch_kappas:
+            kappa_accum.append(np.concatenate(batch_kappas, axis=0))
+        first_pass = False
+
+    model.eval()  # restore
+
+    mu_stack = np.stack(mu_accum, axis=0)  # (K, N, D)
+    mu_mean = mu_stack.mean(axis=0)
+    norms = np.linalg.norm(mu_mean, axis=-1, keepdims=True)
+    mu_mean = mu_mean / np.maximum(norms, 1e-8)
+
+    gts = np.concatenate(all_gts, axis=0)
+    kappas = np.stack(kappa_accum, axis=0).mean(axis=0) if kappa_accum else None
+    return mu_mean, gts, kappas
 
 
 def validate(
@@ -1688,9 +1792,13 @@ def main() -> None:
     # --- AMP ---
     grad_accum_steps = config["training"].get("gradient_accumulation_steps", 16)
     use_amp = config["training"].get("mixed_precision", False) and device.startswith("cuda")
-    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
-    logger.info("Grad accum: %d (effective batch %d) | AMP: %s",
-                grad_accum_steps, batch_size * grad_accum_steps, use_amp)
+    _amp_dtype_str = config["training"].get("mixed_precision_dtype", "fp16")
+    _amp_dtype = torch.bfloat16 if _amp_dtype_str == "bf16" else torch.float16
+    _use_grad_scaler = use_amp and _amp_dtype != torch.bfloat16
+    scaler = torch.amp.GradScaler("cuda", enabled=_use_grad_scaler)
+    logger.info("Grad accum: %d (effective batch %d) | AMP: %s (%s)",
+                grad_accum_steps, batch_size * grad_accum_steps, use_amp,
+                _amp_dtype_str if use_amp else "off")
 
     # --- LR scheduler ---
     num_epochs = config["training"]["num_epochs"]
@@ -1817,7 +1925,7 @@ def main() -> None:
             grad_accum_steps=grad_accum_steps, scaler=scaler,
             lr_scheduler=lr_sched, config_ref=config, vmf_is_log=_vmf_is_log,
             mixco_cfg=_epoch_mixco if _epoch_mixco and _epoch_mixco.get("enabled", False) else None,
-            ema=ema,
+            ema=ema, amp_dtype=_amp_dtype,
         )
         logger.info("Train: %s", " | ".join(f"{k}={v:.4f}" for k, v in train_metrics.items()))
 
@@ -1839,21 +1947,48 @@ def main() -> None:
             ema.restore(model)
         logger.info("Val:   %s", " | ".join(f"{k}={v:.4f}" for k, v in val_metrics.items()))
 
+        # --- MC-Dropout TTA (V9) ---
+        _mc_tta_cfg = config.get("evaluation", {})
+        _mc_tta_n = _mc_tta_cfg.get("mc_tta_samples", 0)
+        if _mc_tta_n > 1 and getattr(model, "model_type", "") in ("vmf", "vmf_dcf"):
+            if ema is not None:
+                ema.apply_shadow(model)
+            mc_preds, _, mc_kappas = mc_dropout_tta(
+                model, val_loader, device, preprocessor,
+                n_samples=_mc_tta_n, vmf_is_log=_vmf_is_log,
+            )
+            if ema is not None:
+                ema.restore(model)
+            val_preds = mc_preds
+            logger.info("MC-TTA: averaged %d forward passes", _mc_tta_n)
+        else:
+            mc_kappas = None
+
         retrieval = _compute_retrieval(val_preds, val_gts, ks=(1, 5, 10))
         val_metrics["r@1_trial"] = retrieval["top1_accuracy"]
         val_metrics["r@5_trial"] = retrieval["top5_accuracy"]
         val_metrics["r@10_trial"] = retrieval["top10_accuracy"]
 
-        # Image-level retrieval: average predictions per unique nsdId to remove
-        # repetition-induced ties and produce metrics comparable to MindEye.
+        # Image-level retrieval: average predictions per unique nsdId.
+        # With kappa-weighted averaging (V9), repetitions with higher
+        # confidence contribute more to the image-level prediction.
         if _val_nsd_ids is not None:
             unique_ids = np.unique(_val_nsd_ids)
             img_preds = np.zeros((len(unique_ids), val_preds.shape[1]), dtype=np.float32)
             img_gts = np.zeros((len(unique_ids), val_gts.shape[1]), dtype=np.float32)
+            _use_kappa_avg = _mc_tta_cfg.get("kappa_weighted_avg", False)
             for i, uid in enumerate(unique_ids):
                 mask = _val_nsd_ids == uid
-                img_preds[i] = val_preds[mask].mean(axis=0)
+                if _use_kappa_avg and mc_kappas is not None:
+                    k_w = mc_kappas[mask]
+                    k_w = k_w / (k_w.sum() + 1e-8)
+                    img_preds[i] = (val_preds[mask] * k_w[:, None]).sum(axis=0)
+                else:
+                    img_preds[i] = val_preds[mask].mean(axis=0)
                 img_gts[i] = val_gts[mask][0]
+            # Re-normalise after averaging
+            norms = np.linalg.norm(img_preds, axis=-1, keepdims=True)
+            img_preds = img_preds / np.maximum(norms, 1e-8)
             img_retrieval = _compute_retrieval(img_preds, img_gts, ks=(1, 5, 10))
             val_metrics["r@1"] = img_retrieval["top1_accuracy"]
             val_metrics["r@5"] = img_retrieval["top5_accuracy"]
@@ -1877,6 +2012,22 @@ def main() -> None:
                 retrieval["top1_accuracy"], retrieval["top5_accuracy"],
                 retrieval["top10_accuracy"], retrieval["median_rank"],
                 retrieval["mrr"], len(val_preds),
+            )
+
+        # --- CSLS-corrected retrieval (V9) ---
+        _use_csls = config.get("evaluation", {}).get("use_csls", False)
+        if _use_csls:
+            _csls_k = config.get("evaluation", {}).get("csls_k", 10)
+            _csls_src = img_preds if _val_nsd_ids is not None else val_preds
+            _csls_tgt = img_gts if _val_nsd_ids is not None else val_gts
+            csls_ret = _compute_retrieval_csls(_csls_src, _csls_tgt, ks=(1, 5, 10), csls_k=_csls_k)
+            val_metrics["csls_r@1"] = csls_ret["top1_accuracy"]
+            val_metrics["csls_r@5"] = csls_ret["top5_accuracy"]
+            val_metrics["csls_r@10"] = csls_ret["top10_accuracy"]
+            logger.info(
+                "CSLS Retrieval: R@1=%.4f  R@5=%.4f  R@10=%.4f",
+                csls_ret["top1_accuracy"], csls_ret["top5_accuracy"],
+                csls_ret["top10_accuracy"],
             )
 
         metrics_logger.log_epoch(epoch, optimizer.param_groups[0]["lr"], train_metrics, val_metrics)

@@ -2,9 +2,9 @@
 
 This document provides complete technical context for a bachelor thesis project on neural decoding of visual perception from fMRI. It is designed as a self-contained briefing for an LLM or researcher performing deep analysis.
 
-**Project status (March 2026):** After resolving a critical data-alignment bug (nsdId off-by-one, Section 11.1) and a kappa gradient collapse bug (tau/kappa interaction, Section 13), the system achieves **20-36% R@1** on subj01 with v4 configs. N-series (vMF) models reach 30-36%, while B-series (deterministic/Gaussian) baselines reach 20-25%. The v5 configs fix the kappa collapse and are expected to significantly improve N-series performance. Experiments are pending.
+**Project status (March 2026):** After resolving critical bugs (nsdId off-by-one, kappa collapse) and six iterative architecture versions (v4-v9), the system achieves **~50% R@1** on subj01 with v8 configs (N3v8: 50.3%, N4v8: 50.8%). The v9 iteration introduces anti-overfitting regularization (Stochastic Depth, R-Drop, label smoothing), contrastive projection head separation, CSLS retrieval correction, and MC-Dropout test-time augmentation -- targeting **65-70% R@1**. All v9 experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision and effective batch size 1024.
 
-**SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) the kappa collapse limiting vMF learning signal in v4, (2) single-subject training (MindEye pre-trains across 7 subjects), and (3) smaller model capacity (328M vs 996M params).
+**SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training, (2) smaller model capacity (328M vs 996M params), and (3) MindEye's OpenCLIP ViT-bigG/14 embeddings (256x1664-D) vs our ViT-L/14 (768-D).
 
 ---
 
@@ -143,27 +143,40 @@ Same encoder as B0. Decoder outputs `(mu, kappa)` on the unit hypersphere S^{767
 fMRI -> MLPEncoder -> (B, 2048)
   -> VonMisesFisherDecoder: backbone [2048]
      -> mu_head: Linear(2048, 768) -> L2-normalize
-     -> kappa_head: Linear(2048, 1) -> bounded sigmoid
-        kappa = kappa_min + (kappa_max - kappa_min) * sigmoid(raw)
-        kappa_min=1.0, kappa_max=50.0
-  -> output: mu (B, 768) on S^{767}, kappa (B, 1) in [1, 50]
+     -> kappa_head: Linear(2048, 1) -> activation
+  -> output: mu (B, 768) on S^{767}, kappa (B, 1)
 ```
+
+**Kappa parameterization history:**
+- **v4-v6**: Bounded sigmoid: `kappa = kappa_min + (kappa_max - kappa_min) * sigmoid(raw)`, range [1, 50]. Suffered gradient saturation at boundaries.
+- **v7+**: Softplus: `kappa = softplus(raw) + 1.0`. Unbounded, no gradient saturation, with explicit `kappa_reg` to prevent explosion.
 
 ### 4.5 N2: ROI-Tokenized Transformer
 
+**v5 (single-subject):**
 ```
 fMRI (B, 15724)
   -> ROITransformerEncoder:
-     -> 17 ROI projections: per-ROI Linear(n_voxels_r, 512) -> LayerNorm -> GELU -> Dropout
-     -> prepend learnable [CLS] token
-     -> add positional embeddings
-     -> 4-layer Transformer (d_model=512, nhead=8, dim_ff=2048, pre-norm, GELU)
-     -> output: [CLS] token (B, 512)
-  -> VonMisesFisherDecoder (legacy): backbone [1024]
-     -> mu, log_kappa with log_kappa in [0, 4] (kappa in [1, ~55])
+     -> 17 ROI projections: per-ROI Linear(n_voxels_r, d_model) -> LayerNorm -> GELU -> Dropout
+     -> prepend learnable [CLS] token + positional embeddings
+     -> Transformer (d_model=768, nhead=12, 6 layers, dim_ff=3072)
+     -> output: [CLS] token (B, 768)
+  -> VonMisesFisherDecoder: mu + kappa (softplus in v7+)
 ```
 
-Each ROI gets its own projection layer. Voxel counts per ROI vary by subject (e.g., V1v may have 700 voxels for subj01 but differ for subj02).
+**v7+ (multi-subject):**
+```
+fMRI (B, ~15724)
+  -> MultiSubjectROITransformer:
+     -> per-subject ROI projections (nn.ModuleDict)
+     -> subject embedding added to tokens
+     -> shared Transformer backbone (d=768, 12 heads, 6 layers)
+     -> [CLS] token (B, 768)
+```
+
+**v9 additions:** Stochastic Depth (`drop_path_rate=0.15`), ContrastiveProjectionHead.
+
+Each ROI gets its own projection layer. Voxel counts per ROI vary by subject (e.g., V1v may have 700 voxels for subj01 but differ for subj02). In multi-subject mode, each subject has separate `ROIProjection` modules while sharing the Transformer backbone.
 
 ### 4.6 N3: ROI-DCF (Directional Consensus Fusion)
 
@@ -239,15 +252,17 @@ loss = CrossEntropy(logits, diag_labels)
 
 **Kappa collapse (v4 bug, fixed in v5):** With `tau=0.07`, effective logit scaling was `kappa / 0.07 = kappa * 14.28`. For a positive pair with cos_sim near 1.0, any `kappa > 5.6` produced a logit above 80 that was clamped, zeroing the gradient w.r.t. kappa. Combined with the kappa regularizer applying constant downward pressure, kappa was mathematically trapped at ~3-5 in 768-D space -- a near-uniform distribution with no useful confidence signal. Setting `tau=1.0` restores full gradient flow up to `kappa_max`.
 
-### 5.6 Kappa Regularizer (used by N1-N4 in v4; disabled in v5)
+### 5.6 Kappa Regularizer (used by N1-N4 in v4; disabled in v5; re-enabled in v7+)
 
 ```
 L_reg = lambda_kappa * mean(kappa)
 ```
 
-**v4**: Enabled to prevent unbounded kappa growth. `lambda_kappa` varies: 0.05 (N1), 0.1 (N2), 0.05 (N3), 0.02 (N4).
+**v4**: Enabled. `lambda_kappa` varies: 0.05 (N1), 0.1 (N2), 0.05 (N3), 0.02 (N4).
 
-**v5**: **Disabled** (`kappa_reg.enabled: false`). With `tau=1.0` the contrastive NLL naturally constrains kappa through the softmax denominator -- explicit penalization is unnecessary and was contributing to the kappa collapse by applying constant downward pressure on an already-trapped parameter.
+**v5-v6**: **Disabled**. With `tau=1.0` and bounded sigmoid, the softmax denominator naturally constrains kappa.
+
+**v7+**: **Re-enabled** at `lambda_kappa=0.01` (v7) then `0.1` (v9). With softplus kappa (unbounded), explicit regularization is needed to prevent kappa explosion. The stronger `0.1` weight in v9 also acts as anti-overfitting regularization.
 
 ### 5.7 KappaSPCL (used by N4)
 
@@ -393,19 +408,77 @@ The ablation ladder now runs **B0v4, B1v4, N1v5, N2v5, N3v5, N4v5**. B-series re
 | SoftCLIP (tau=0.05) | Y (from start) | Y (from start) | Y (from start) | Y (from start) |
 | MixCo (w=0.5) | Y | Y | Y | Y |
 
+### 6.5 v6 N-Series Configs (Novel Losses)
+
+**Key v6 changes from v5:** Delta-SPCL loss (kappa+delta curriculum), vMF-SoftCLIP (kappa-weighted KD on hypersphere), Slerp MixCo interpolation.
+
+**Result:** N1v6 ~40% R@1 but kappa saturated at sigmoid ceiling. Kappa gradient saturation at bounded sigmoid boundaries identified as the next bottleneck.
+
+### 6.6 v7 N-Series Configs (Softplus Kappa + Multi-Subject + Multi-Layer CLIP)
+
+**Key v7 changes from v6:**
+- `kappa_mode: "softplus"` -- unbounded kappa via `softplus(raw) + 1.0`, resolving sigmoid saturation
+- `kappa_reg` re-enabled at `lambda_kappa=0.01` to prevent kappa explosion
+- `embedding_column: "fused"` -- blended intermediate+final CLIP features from multi-layer cache
+- N2/N3/N4: `encoder_type: "multi_subject_roi_transformer"` with `data.subjects: [subj01, subj02, subj05, subj07]` (4x data)
+- N2/N3/N4: d_model=768, 12 heads, 6 layers, dim_ff=3072
+
+**Result:** N1v7 achieved **49% R@1** (best single-subject result at the time).
+
+### 6.7 v8 N-Series Configs (Hierarchical CLIP + CKA)
+
+**Key v8 changes from v7 (N3/N4 only):**
+- `hierarchical_clip` loss (weight 0.3): supervises per-ROI experts with different CLIP layer features (early, mid, high)
+- `cka` loss (weight 0.5): global representational similarity (1-CKA) computed per-subject
+- `vmf_nce` with `use_arctanh`, `margin_base=0.2`, `margin_kappa_ref=50.0`
+
+**Result:** N3v8: **50.3% R@1**, N4v8: **50.8% R@1**. Clear overfitting observed after epoch 50-55.
+
+### 6.8 v9 N-Series Configs (Anti-Overfit + Projection Head + CSLS + TTA)
+
+**Key v9 changes (all 4 N-series):**
+
+| Feature | Description |
+|---------|-------------|
+| Stochastic Depth (DropPath) | `drop_path_rate=0.15` in Transformer layers (N2-N4) |
+| ContrastiveProjectionHead | 768->2048->768 MLP separates contrastive from retrieval representation |
+| R-Drop | Symmetric KL between two vMF forward passes with different dropout masks (weight=0.5) |
+| Label smoothing | 0.1 in vMF-NCE targets |
+| Stronger kappa_reg | `lambda_kappa=0.1` (10x vs v7) |
+| CSLS retrieval | Cross-domain Similarity Local Scaling corrects hubness in retrieval eval |
+| MC-Dropout TTA | 8 forward passes with dropout at test time, average predictions |
+| Kappa-weighted avg | Weight repetition averaging by model confidence (kappa) |
+| Loss surgery | SoftCLIP weight 0.3; hierarchical_clip, CKA, multitask disabled |
+| H100 optimization | batch_size=128, bf16 mixed precision, grad_accum=8 (effective batch 1024) |
+
+**v9 loss configuration:**
+
+| Loss | N1v9 | N2v9 | N3v9 | N4v9 |
+|------|------|------|------|------|
+| vMF-NCE (label_smooth=0.1) | Y | Y | Y | -- |
+| vMF-NCE-SPCL | -- | -- | -- | Y |
+| SoftCLIP (w=0.3) | Y | Y | Y | Y |
+| Kappa reg (0.1) | Y | Y | Y | Y |
+| R-Drop (w=0.5) | Y | Y | Y | Y |
+| MixCo (w=0.5) | Y | Y | Y | Y |
+
 ---
 
 ## 7. Experimental History and Results
 
 ### 7.1 Version Progression
 
-| Version | Key Changes | Rationale |
-|---------|-------------|-----------|
-| **v1** | batch=4, grad_accum=16, 100 epochs, patience=15, dropout=0.1, queue=8192 | Initial implementation |
-| **v2** | dropout=0.3, R@1 early stopping, tuned LR/WD per experiment | Address overfitting, track retrieval |
-| **v3** | batch=64, residual MLP, image-level split, exclude_shared1000, 300 epochs, patience=40, queue=16384, PCR k=4 | Fix gradient signal, data leakage, underfitting |
-| **v4** | Per-voxel z-scoring, disable PCR, repetition averaging, MixCo augmentation, wider MLP [8192,4096,2048] | Fix fundamental data pipeline issues, add augmentation |
-| **v5** | **N-series only.** tau=1.0 (fix kappa collapse), kappa_reg disabled, learnable temperature, grad_accum=4 (eff. batch 256), fMRI noise aug (0.1), voxel dropout (0.1), EMA (0.999), SoftCLIP from start, 150 epochs, patience 25. N2: d_model=768, 6 layers, 12 heads. | Fix kappa collapse (tau=0.07 capped kappa gradient at ~5.6 in 768-D), stronger regularization via noise/dropout, model averaging, simultaneous SoftCLIP+MixCo |
+| Version | Key Changes | R@1 (subj01) |
+|---------|-------------|--------------|
+| **v1** | batch=4, grad_accum=16, 100 epochs, patience=15 | Near-chance (nsdId bug) |
+| **v2** | dropout=0.3, R@1 early stopping, tuned LR | Near-chance (nsdId bug) |
+| **v3** | batch=64, residual MLP, image-level split, 300 epochs | Near-chance (nsdId bug) |
+| **v4** | nsdId fix, per-session z-score, MixCo, SoftCLIP, wider MLP | B: 20-25%, N: 30-36% |
+| **v5** | tau=1.0, kappa_reg off, EMA, noise aug, grad_accum=4 | N1: 39.9%, N2: 35.9%, N3: 36.4%, N4: 37.4% |
+| **v6** | Delta-SPCL, vMF-SoftCLIP, Slerp MixCo | N1: ~40% (kappa saturation) |
+| **v7** | Softplus kappa, multi-layer CLIP, multi-subject training | N1: **49%** |
+| **v8** | Hierarchical CLIP alignment, CKA loss (N3/N4 only) | N3: **50.3%**, N4: **50.8%** |
+| **v9** | DropPath, projection head, R-Drop, CSLS, MC-TTA, bf16, batch 1024 | Pending |
 
 ### 7.2 v1 Results (subj01, 4 subjects total)
 
@@ -476,9 +549,53 @@ Diagnostic verification on JupyterHub confirmed data integrity after the fix:
 
 **Key observation:** N-series models (30-36%) outperform B-series (20-25%), confirming that vMF + ROI structure provides a real advantage. However, N1-N4 plateau at a similar level despite increasing architectural complexity, strongly suggesting a shared bottleneck. This was identified as the **kappa collapse** bug (Section 13): all N-series models had their kappa gradient zeroed by the tau=0.07 / clamp interaction.
 
-### 7.6 v5 Results (pending)
+### 7.6 v5 Results (subj01)
 
-v5 configs fix the kappa collapse (tau=1.0, kappa_reg disabled) and add training improvements (EMA, noise aug, grad_accum=4). The ablation ladder now runs B0v4, B1v4, N1v5, N2v5, N3v5, N4v5. Results are **pending experiment re-run** on JupyterHub.
+v5 fixed kappa collapse (tau=1.0, kappa_reg disabled) and added EMA, noise aug, grad_accum=4:
+
+| Experiment | R@1 | Observation |
+|------------|-----|-------------|
+| N1v5 | 39.9% | MLP vMF-NCE, kappa now actively learning (mean ~23, range 19-27) |
+| N2v5 | 35.9% | ROI Transformer, underfitting vs N1 (data-starved) |
+| N3v5 | 36.4% | ROI-DCF, similar to N2 |
+| N4v5 | 37.4% | Full system with SPCL |
+
+### 7.7 v6 Results (subj01)
+
+v6 introduced novel losses (Delta-SPCL, vMF-SoftCLIP, Slerp MixCo):
+
+| Experiment | R@1 | Observation |
+|------------|-----|-------------|
+| N1v6 | ~40% | Modest gain; kappa saturated at bounded sigmoid ceiling |
+| N2-N4v6 | 35-38% | Kappa saturation limited all N-series uniformly |
+
+**Diagnosis:** Bounded sigmoid kappa parameterization (`kappa_min + (kappa_max - kappa_min) * sigmoid(raw)`) had vanishing gradients near the boundaries, preventing kappa from expressing strong confidence.
+
+### 7.8 v7 Results (subj01)
+
+v7 introduced softplus kappa, multi-layer CLIP targets, and multi-subject training:
+
+| Experiment | R@1 | Observation |
+|------------|-----|-------------|
+| N1v7 | **49%** | Best single-experiment result; softplus kappa healthy (mean ~23, good variance) |
+| N2v7 | -- | Multi-subject training wiring bugs (fixed mid-v7) |
+| N3v7 | -- | Multi-subject CLIP cache bugs (fixed mid-v7) |
+| N4v7 | -- | Multi-subject CLIP cache bugs (fixed mid-v7) |
+
+### 7.9 v8 Results (subj01, N3/N4 only)
+
+v8 added hierarchical CLIP alignment and CKA loss:
+
+| Experiment | R@1 | Observation |
+|------------|-----|-------------|
+| N3v8 | **50.3%** | Clear overfitting after epoch ~55 (train loss still decreasing, val R@1 declining) |
+| N4v8 | **50.8%** | Same overfitting pattern; SPCL provided slight edge |
+
+**Diagnosis:** The model memorizes training data (27k trials, 4 subjects) but fails to generalize. Key missing elements: (1) no separation between contrastive and retrieval representations, (2) insufficient regularization for the Transformer, (3) overly complex loss landscape (hierarchical + CKA + multitask).
+
+### 7.10 v9 Results (pending)
+
+v9 targets 65-70% R@1 with comprehensive anti-overfitting interventions, projection head separation, CSLS retrieval correction, and test-time ensembling. All experiments run on H100 80GB with bf16 and effective batch 1024.
 
 ---
 
@@ -518,14 +635,18 @@ UA-CFG (Uncertainty-Aware CFG) scales diffusion guidance by model confidence:
 
 | Resource | Value |
 |----------|-------|
-| GPU | NVIDIA A100-SXM4-40GB |
+| GPU | **NVIDIA H100 80GB HBM3** (single, `CUDA_VISIBLE_DEVICES=0`) |
+| Driver | 570.211.01, CUDA 12.8 |
 | RAM | ~100 GB |
 | CPU | 32 cores |
 | Storage | PVC ~877 GB (NFS, `/home/jovyan/work`) |
 | Python | 3.13 (conda base) |
 | PyTorch | >= 2.0 |
+| Mixed precision | **bf16** (H100 native; same exponent range as fp32, no GradScaler needed) |
 | CLIP | open_clip_torch ViT-L/14 (openai weights) |
 | Diffusion | SD 2.1 via diffusers (`sd2-community/stable-diffusion-2-1`) |
+
+**Note:** Previous experiments (v4-v8) ran on an NVIDIA A100-SXM4-40GB. The H100 upgrade (v9+) provides 2x VRAM (80GB vs 40GB), enabling batch_size=128 (vs 64) and native bf16 support which eliminates AMP overflow risks that previously affected kappa gradients.
 
 Key paths on JupyterHub:
 - Repo: `/home/jovyan/work/FMRI2images/` (branch: `dirbrain-vmf-uacfg`)
@@ -584,82 +705,107 @@ Key paths on JupyterHub:
 | 3 | InfoNCE temperature collapsing | **Partially resolved** | Learnable temperature works for B-series; v5 adds learnable temp for N-series |
 | 4 | Gradient signal under AMP | **Monitored** | v4 shows learning; no evidence of gradient pathology for B-series. N-series had kappa collapse (separate bug) |
 | 5 | Pre-extracted features misaligned | **Resolved (nsdId fix)** | Index rebuilt; Oracle R@1 now 100% |
-| 6 | vMF kappa trapped by tau/clamp | **RESOLVED in v5** | tau=0.07 capped kappa at ~5.6 (see Section 13). Fix: tau=1.0, kappa_reg disabled |
-| 7 | ROI Transformer too small | **Addressed in N2v5** | Scaled to d_model=768, 6 layers, 12 heads |
-| 8 | Missing MindEye techniques | **Partially addressed** | SoftCLIP + per-session z-scoring added; still missing multi-subject pre-training |
+| 6 | vMF kappa trapped by tau/clamp | **RESOLVED in v5** | tau=1.0, kappa_reg disabled |
+| 7 | ROI Transformer too small | **RESOLVED in v5** | d_model=768, 6 layers, 12 heads |
+| 8 | Missing MindEye techniques | **Partially addressed** | Multi-subject (v7), SoftCLIP, per-session z-scoring; still missing functional alignment |
+| 9 | Kappa sigmoid saturation | **RESOLVED in v7** | Softplus kappa + kappa_reg re-enabled |
+| 10 | Overfitting (Transformer) | **Addressed in v9** | DropPath, R-Drop, label smoothing, projection head separation |
+| 11 | Hubness in retrieval | **Addressed in v9** | CSLS post-hoc correction |
 
 **Remaining open questions (for deep research):**
 
-1. **Multi-subject pre-training**: MindEye pre-trains on 7 subjects before fine-tuning. This is the single largest known architectural difference. Implementing this requires a shared ROI alignment strategy across subjects.
+1. **Functional alignment**: MindEye2 uses subject-specific ridge regression to align brain data to a shared space before the main network. Our multi-subject approach uses per-subject ROI projections + subject embeddings, which is architecturally different.
 
-2. **Effective batch size gap**: MindEye uses an effective batch of ~1000 via aggressive memory banks. Our queue (16384) is larger, but queue-based negatives may be staler than in-batch negatives. Increasing true batch size (currently 64, effective 256 with grad_accum=4 in v5) may help.
+2. **CLIP embedding dimensionality**: MindEye2 uses OpenCLIP ViT-bigG/14 (256 tokens x 1664-D) with a separate retrieval submodule. Our ViT-L/14 (768-D single vector) may lack the representational bandwidth for very high retrieval accuracy.
 
-3. **Model capacity**: MindEye uses 996M parameters for subj01 vs our 328M. Scaling the MLP may yield marginal gains, but the v5 kappa fix is likely a larger factor.
+3. **Model capacity**: MindEye uses 996M parameters vs our ~328M. With v9's effective batch 1024 and anti-overfitting measures, capacity may now be a more relevant bottleneck.
 
-4. **vMF advantage magnitude**: With kappa collapse fixed, will N-series significantly outperform B-series? This tests whether probabilistic hyperspherical decoding provides a genuine advantage over deterministic point estimation.
+4. **Diffusion prior**: MindEye2 trains an explicit diffusion prior to map fMRI embeddings to CLIP-conditioned image latents. Our pipeline goes directly from predicted CLIP embedding to SD 2.1.
 
 ### 11.4 Key Comparisons to MindEye Architecture
 
-| Aspect | Our B0v4 (deterministic) | Our N1v5 (vMF) | MindEye |
-|--------|--------------------------|-----------------|---------|
-| Encoder | MLP [8192, 4096, 2048] + Residual | Same | MLP + residual (similar) |
-| CLIP target | ViT-L/14 768-D | ViT-L/14 768-D | ViT-L/14 768-D |
-| Loss | MSE + InfoNCE + SoftCLIP | vMF-NCE (tau=1.0) | MSE + soft contrastive |
-| Augmentation | MixCo warmup -> SoftCLIP | fMRI noise (0.1), voxel dropout (0.1) | MixCo |
-| Effective batch | 64 | 256 (64 x grad_accum=4) | ~1000 |
-| Preprocessing | Per-session z-scoring | Per-session z-scoring | Per-voxel z-scoring |
-| Multi-subject | No | No | 7-subject pre-train |
-| Training data | ~24k trials | ~24k trials | ~8859 unique images |
-| Queue | 16384 | 16384 | Not used (large batch) |
-| Uncertainty | None | vMF kappa (1-50) | None |
-| v4 R@1 | ~20-25% | ~30-36% (kappa collapsed) | 93.2% |
+| Aspect | Our N1v9 (best MLP) | Our N4v9 (best system) | MindEye2 |
+|--------|---------------------|------------------------|----------|
+| Encoder | MLP [8192, 4096, 2048] + Residual | Multi-Subject ROI Transformer (d=768, 6L) | MLP + residual |
+| CLIP target | ViT-L/14 768-D (fused multi-layer) | ViT-L/14 768-D (fused multi-layer) | OpenCLIP ViT-bigG/14 (256x1664-D) |
+| Loss | vMF-NCE + SoftCLIP + R-Drop + kappa_reg | vMF-NCE-SPCL + SoftCLIP + R-Drop | MSE + soft contrastive |
+| Regularization | Dropout 0.25, MixCo, label smoothing | DropPath 0.15, R-Drop, label smoothing | MixCo |
+| Effective batch | 1024 (128 x 8) | 1024 (128 x 8) | ~1000 |
+| Mixed precision | bf16 (H100) | bf16 (H100) | fp16 |
+| Multi-subject | No | 4-subject joint training | 7-subject pre-train + fine-tune |
+| Uncertainty | vMF kappa (softplus, unbounded) | kappa + delta (DCF disagreement) | None |
+| Retrieval post-hoc | CSLS + MC-TTA + kappa-weighted avg | CSLS + MC-TTA + kappa-weighted avg | 300-candidate shortlist |
+| Best R@1 | v7: 49% (v9 pending) | v8: 50.8% (v9 pending) | 93.0% |
 
-### 11.5 Quantitative Gap Analysis (v4 actual vs SOTA)
+### 11.5 Quantitative Gap Analysis (v8 actual vs SOTA)
 
-| Metric | Our B0v4 | Our N1v4 | MindEye | Gap (N1 vs SOTA) |
-|--------|----------|----------|---------|-------------------|
-| R@1 (val) | ~22% | ~33% | 93.2% | ~60 pp |
-| R@5 (val) | ~45% (est.) | ~58% (est.) | ~99% | ~41 pp |
+| Metric | Our B0v4 | Our best (N4v8) | MindEye2 | Gap |
+|--------|----------|-----------------|----------|-----|
+| R@1 (val) | ~22% | 50.8% | 93.0% | ~42 pp |
 
-**Primary contributors to the gap (ranked by estimated impact):**
+**Progress from v4 to v8:** +28.8 pp (from 22% to 50.8%). Gains attributed to:
+1. **Kappa collapse fix (v5)**: +7-14 pp (freed vMF concentration parameter)
+2. **Softplus kappa (v7)**: +9 pp (removed sigmoid saturation)
+3. **Multi-subject + multi-layer CLIP (v7-v8)**: +1-2 pp (more data, richer targets)
+4. **Hierarchical alignment + CKA (v8)**: +1 pp (diminishing returns, overfitting)
 
-1. **Kappa collapse (v5 fix expected to close 15-30 pp)**: N-series models could not express confidence due to tau/clamp bug. With kappa free to range 1-50, retrieval accuracy should improve substantially.
-2. **Multi-subject pre-training (est. 10-20 pp)**: MindEye leverages 7 subjects' data for shared visual cortex representations. This is not currently implemented and would require cross-subject ROI alignment.
-3. **Effective batch size (est. 5-10 pp)**: MindEye uses ~1000 effective batch; our v5 uses 256. Contrastive learning benefits from larger batches.
-4. **Model capacity (est. 3-5 pp)**: MindEye uses 996M params vs our 328M. Marginal compared to the above factors.
+**Primary contributors to remaining gap (ranked by estimated impact):**
+1. **CLIP embedding gap (est. 15-20 pp)**: MindEye2 uses OpenCLIP ViT-bigG/14 (256 tokens x 1664-D) vs our ViT-L/14 (768-D single vector)
+2. **Functional alignment (est. 10-15 pp)**: MindEye2 uses subject-specific ridge regression; our multi-subject approach uses learned projections
+3. **Diffusion prior (est. 5-10 pp)**: MindEye2 trains a separate diffusion prior for embedding refinement
+4. **Anti-overfitting gap (est. 5-10 pp)**: v9 interventions (DropPath, R-Drop, proj head, CSLS, TTA) target this directly
 
-**Expected outcome after v5:** If kappa collapse is the primary bottleneck, N-series should improve from ~33% to potentially 50-65% R@1. Closing the remaining gap to MindEye's 93% would likely require multi-subject pre-training.
+**Expected outcome after v9:** With comprehensive anti-overfitting and retrieval improvements, targeting 65-70% R@1. Further gains would require upgrading to OpenCLIP ViT-bigG or adding a diffusion prior.
 
 ---
 
 ## 12. File Reference
+
+### Core Components
 
 | Component | File |
 |-----------|------|
 | Training script | `scripts/training/train_unified.py` |
 | UnifiedModel | `src/fmri2img/models/unified_model.py` |
 | ROI Transformer | `src/fmri2img/models/roi_transformer.py` |
+| Multi-Subject ROI Transformer | `src/fmri2img/models/multi_subject_encoder.py` |
 | vMF Decoder | `src/fmri2img/models/vmf_decoder.py` |
 | ROI-DCF Decoder | `src/fmri2img/models/roi_dcf.py` |
-| InfoNCE loss | `src/fmri2img/losses/infonce_queue.py` |
-| Gaussian NCE loss | `src/fmri2img/losses/gaussian_nce.py` |
-| vMF-NCE/SPCL/MultiTask losses | `src/fmri2img/losses/vmf_nce.py` |
+| Contrastive Projection Head | `src/fmri2img/models/projection_head.py` |
+| Multi-Subject Dataset | `src/fmri2img/data/multi_subject_dataset.py` |
+
+### Loss Functions
+
+| Loss | File |
+|------|------|
+| InfoNCE | `src/fmri2img/losses/infonce_queue.py` |
+| Gaussian NCE | `src/fmri2img/losses/gaussian_nce.py` |
+| vMF-NCE/SPCL/MultiTask/R-Drop | `src/fmri2img/losses/vmf_nce.py` |
 | MixCo augmentation | `src/fmri2img/losses/mixco.py` |
-| SoftCLIP loss | `src/fmri2img/losses/softclip.py` |
-| Memory queue | `src/fmri2img/contrastive/queue.py` |
-| ROI index builder | `src/fmri2img/data/roi_utils.py` |
-| fMRI pre-extraction | `scripts/build/preextract_fmri.py` |
-| CLIP cache builder | `scripts/build/build_clip_cache.py` |
-| Embedding preprocessor | `src/fmri2img/embedding_preproc.py` |
-| Reconstruction | `scripts/reconstruction/decode_diffusion.py` |
-| Evaluation | `scripts/evaluation/eval_reconstruction.py` |
+| SoftCLIP / vMF-SoftCLIP | `src/fmri2img/losses/softclip.py` |
+| Hierarchical CLIP | `src/fmri2img/losses/hierarchical_clip_loss.py` |
+| CKA | `src/fmri2img/losses/cka_loss.py` |
+
+### Evaluation
+
+| Component | File |
+|-----------|------|
+| Retrieval + CSLS | `src/fmri2img/eval/embedding_eval.py` |
 | Aggregation | `scripts/evaluation/aggregate_ablation.py` |
+| Reconstruction eval | `scripts/evaluation/eval_reconstruction.py` |
+
+### Scripts and Configs
+
+| Component | File |
+|-----------|------|
 | Ablation orchestration | `scripts/training/run_ablation_ladder.sh` |
+| Multi-layer CLIP cache | `scripts/build/build_multilayer_clip_cache.py` |
+| fMRI pre-extraction | `scripts/build/preextract_fmri.py` |
+| Reconstruction | `scripts/reconstruction/decode_diffusion.py` |
+| v9 N-series configs (current) | `configs/experiments/N1v9_vmf_nce.yaml` through `N4v9_full_system.yaml` |
+| v8 N-series configs | `configs/experiments/N3v8_roi_dcf.yaml`, `N4v8_full_system.yaml` |
+| v7 N-series configs | `configs/experiments/N1v7_vmf_nce.yaml` through `N4v7_full_system.yaml` |
 | v4 B-series configs | `configs/experiments/B0v4_deterministic.yaml`, `B1v4_gaussian.yaml` |
-| v5 N-series configs | `configs/experiments/N1v5_vmf_nce.yaml`, `N2v5_roi_transformer.yaml`, `N3v5_roi_dcf.yaml`, `N4v5_full_system.yaml` |
-| v4 N-series configs (superseded) | `configs/experiments/N1v4_vmf_nce.yaml` through `N4v4_full_system.yaml` |
-| Base config | `configs/base.yaml` |
-| CLIP config | `configs/system/clip.yaml` |
 | Environment reference | `.cursor/rules/jupyterhub-environment.mdc` |
 
 ---
@@ -736,10 +882,18 @@ An alternative fix would be to remove \(\tau\) from the `_score()` method entire
 
 | Version | Configs | Key Changes | R@1 (subj01) |
 |---------|---------|-------------|---------------|
-| v1 | B0-N4 (no suffix or v1) | Initial: batch 4, grad_accum 16, 100 epochs | Near-chance (nsdId bug) |
-| v2 | B0v2-N4v2 | Dropout 0.3, R@1 early stopping, tuned LR | Near-chance (nsdId bug) |
-| v3 | B0v3-N4v3 | Batch 64, residual MLP, image-level split, 300 epochs | Near-chance (nsdId bug) |
-| v4 | B0v4-N4v4 | nsdId fix, no PCR, per-session z-score, MixCo, SoftCLIP, wider MLP | B: 20-25%, N: 30-36% |
-| v5 | N1v5-N4v5 | tau=1.0, no kappa_reg, EMA, noise aug, grad_accum=4, 150 epochs | Pending |
+| v1 | B0-N4 | Initial: batch 4, grad_accum 16, 100 epochs | Near-chance (nsdId bug) |
+| v2 | B0v2-N4v2 | Dropout 0.3, R@1 early stopping | Near-chance (nsdId bug) |
+| v3 | B0v3-N4v3 | Batch 64, residual MLP, image-level split | Near-chance (nsdId bug) |
+| v4 | B0v4-N4v4 | nsdId fix, per-session z-score, MixCo, SoftCLIP | B: 20-25%, N: 30-36% |
+| v5 | N1v5-N4v5 | tau=1.0, no kappa_reg, EMA, noise aug, 256 eff. batch | N1: 39.9% |
+| v6 | N1v6-N4v6 | Delta-SPCL, vMF-SoftCLIP, Slerp MixCo | N1: ~40% |
+| v7 | N1v7-N4v7 | Softplus kappa, multi-layer CLIP, multi-subject | N1: **49%** |
+| v8 | N3v8, N4v8 | Hierarchical CLIP alignment, CKA loss | N4: **50.8%** |
+| v9 | N1v9-N4v9 | DropPath, proj head, R-Drop, CSLS, MC-TTA, bf16, 1024 eff. batch | Pending |
 
-Note: v5 only applies to N-series. B-series continues at v4 since they are not affected by kappa collapse.
+Notes:
+- B-series stays at v4 (not affected by vMF-specific changes)
+- v6-v9 only apply to N-series experiments
+- v8 only had N3 and N4 configs (N1/N2 skipped that iteration)
+- v9 is the first version with all 4 N-series experiments and H100 optimization

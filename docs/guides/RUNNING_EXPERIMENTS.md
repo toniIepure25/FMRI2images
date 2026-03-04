@@ -1,6 +1,6 @@
 # Running Experiments Guide
 
-Complete guide for training, evaluating, and analyzing Phase 2 experiments.
+Complete guide for training, evaluating, and analyzing experiments.
 
 ---
 
@@ -10,17 +10,17 @@ Complete guide for training, evaluating, and analyzing Phase 2 experiments.
 
 ```bash
 python3 scripts/training/train_unified.py \
-    --config configs/experiments/N1v5_vmf_nce.yaml --gpu 0
+    --config configs/experiments/N1v9_vmf_nce.yaml --gpu 0
 ```
 
-### Full Ablation Ladder (B v4 + N v5)
+### Full V9 Ablation (N-series only)
 
 ```bash
-nohup make ablation SUBJECTS="subj01" GPU=0 > ablation_v5.log 2>&1 &
-tail -f ablation_v5.log
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N9 > ablation_v9.log 2>&1 &
+tail -f ablation_v9.log
 ```
 
-The ladder runs: B0v4, B1v4, N1v5, N2v5, N3v5, N4v5 (in order). Each experiment is skipped if `checkpoint_best.pt` already exists.
+The ladder runs: N1v9, N2v9, N3v9, N4v9 (in order). Each experiment is skipped if `checkpoint_best.pt` or `summary.json` already exists.
 
 Results are saved to `experimental_results/{experiment_name}/{subject}/`.
 
@@ -28,25 +28,33 @@ Results are saved to `experimental_results/{experiment_name}/{subject}/`.
 
 ## Experiment Configurations
 
-### Current Ablation Ladder (B v4 + N v5)
+### Current Ablation Ladder (V9 — Latest)
 
 | ID | Config | Description | Novel? |
 |----|--------|-------------|--------|
-| **B0v4** | `B0v4_deterministic.yaml` | MLP + MSE + InfoNCE + SoftCLIP + MixCo | No |
-| **B1v4** | `B1v4_gaussian.yaml` | MLP + Gaussian-NCE + KL + SoftCLIP + MixCo | No |
-| **N1v5** | `N1v5_vmf_nce.yaml` | MLP + vMF-NCE (tau=1.0) + SoftCLIP + MixCo + EMA | Yes |
-| **N2v5** | `N2v5_roi_transformer.yaml` | ROI Transformer (d=768, 6L) + vMF-NCE + EMA | Yes |
-| **N3v5** | `N3v5_roi_dcf.yaml` | Per-ROI vMF experts + consensus fusion + EMA | Yes |
-| **N4v5** | `N4v5_full_system.yaml` | N3 + SPCL curriculum + DUA-CFG + EMA | Yes |
+| **N1v9** | `N1v9_vmf_nce.yaml` | MLP + vMF-NCE + proj head + R-Drop + CSLS + TTA | Yes |
+| **N2v9** | `N2v9_roi_transformer.yaml` | Multi-Subj ROI Transformer + DropPath + proj head + CSLS | Yes |
+| **N3v9** | `N3v9_roi_dcf.yaml` | ROI-DCF + proj head + R-Drop + CSLS + MC-TTA | Yes |
+| **N4v9** | `N4v9_full_system.yaml` | N3 + SPCL + DUA-CFG + MC-TTA (flagship) | Yes |
 
-Consecutive row differences isolate each innovation:
+### Baseline Experiments (B-series, v4)
 
-- **B1 vs N1** = Gaussian vs vMF (distributional choice)
-- **N1 vs N2** = MLP vs ROI Transformer (architecture)
-- **N2 vs N3** = Single-head vs ROI-DCF (fusion strategy)
-- **N3 vs N4** = Base system vs full innovations (generation stack)
+| ID | Config | Description |
+|----|--------|-------------|
+| **B0v4** | `B0v4_deterministic.yaml` | MLP + MSE + InfoNCE + SoftCLIP + MixCo |
+| **B1v4** | `B1v4_gaussian.yaml` | MLP + Gaussian-NCE + KL + SoftCLIP + MixCo |
 
-All configs are in `configs/experiments/`. Previous versions (v1-v4) are preserved for reproducibility.
+### Ablation Ladder Filters
+
+```bash
+make ablation SUBJECTS="subj01" GPU=0 ONLY=N9    # V9 N-series only
+make ablation SUBJECTS="subj01" GPU=0 ONLY=N      # All N-series (v5-v9)
+make ablation SUBJECTS="subj01" GPU=0 ONLY=B      # B-series only
+make ablation SUBJECTS="subj01" GPU=0              # Everything
+make ablation SUBJECTS="subj01" GPU=0 SAVE_CKPT=0 # Skip saving checkpoints
+```
+
+All configs are in `configs/experiments/`. Previous versions (v1-v8) are preserved for reproducibility.
 
 ---
 
@@ -55,91 +63,87 @@ All configs are in `configs/experiments/`. Previous versions (v1-v4) are preserv
 ### Step 1: Prepare Environment
 
 ```bash
-python3 scripts/utils/preflight_check.py
+# On JupyterHub (H100):
+set -a && source .env && set +a
+pip install -e ".[train,diffusion]"
+make preflight
 ```
 
-Requirements: Python 3.10+, PyTorch with CUDA, 16GB+ VRAM, NSD data files.
-
-### Step 2: Build Preprocessing Cache (First Time Only)
+### Step 2: Pre-extract Features (First Time Only)
 
 ```bash
-python3 scripts/build/fit_preprocessing.py \
-    --subject subj01 --mode center_pcr --k 8
+make preextract SUBJECT=subj01
 ```
 
-Creates: `cache/embedding_preproc/subj01_center_pcr_k8.pkl` (~500MB).
-Required once per subject.
+Creates: `cache/preextracted/subject=subj01/fmri_features.npy` (~1.8 GB).
 
-### Step 3: Run Training
+### Step 3: Build CLIP Cache (First Time Only)
 
-**Option A: Single experiment**
+```bash
+# Standard single-layer cache:
+make clip-cache
+
+# Multi-layer cache (for fused targets, required by v7+ configs):
+python3 scripts/build/build_multilayer_clip_cache.py \
+    --subjects subj01 subj02 subj05 subj07 \
+    --layers 12 18 24 --fuse-alpha 0.3
+```
+
+### Step 4: Run Training
+
+**Option A: V9 ablation (recommended)**
+
+```bash
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N9 > ablation_v9.log 2>&1 &
+```
+
+**Option B: Single experiment**
 
 ```bash
 python3 scripts/training/train_unified.py \
-    --config configs/experiments/N1v5_vmf_nce.yaml \
-    --gpu 0
+    --config configs/experiments/N1v9_vmf_nce.yaml --gpu 0
 ```
 
-**Option B: Full ablation ladder (B v4 + N v5)**
+**Option C: Without saving checkpoints (saves disk space)**
 
 ```bash
-nohup make ablation SUBJECTS="subj01 subj02 subj05 subj07" GPU=0 > ablation_v5.log 2>&1 &
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N9 SAVE_CKPT=0 > ablation_v9.log 2>&1 &
 ```
 
-**Option C: Resume from a specific experiment**
+### Step 5: Monitor Training
 
 ```bash
-bash scripts/training/run_ablation_ladder.sh --start N1v5 --gpu 0
-```
-
-### Step 4: Monitor Training
-
-```bash
-tensorboard --logdir experimental_results/ --port 6006
+tail -f ablation_v9.log
 ```
 
 ---
 
-## Training Parameters
+## Training Parameters (V9)
 
-All v5 N-series experiments share these settings (B-series at v4 differ slightly):
+All V9 experiments share these H100-optimized settings:
 
 ```yaml
-model:
-  encoder:
-    hidden_dims: [8192, 4096, 2048]    # MLP layers (B0/B1/N1); N2-N4 use ROI Transformer
-    activation: "gelu"
-    dropout: 0.2                        # v5 (was 0.15 in v4)
-    use_residual: true
-  decoder:
-    output_dim: 768                     # CLIP ViT-L/14
-
 training:
-  batch_size: 64
-  gradient_accumulation_steps: 4        # Effective batch size = 256 (v5)
+  batch_size: 128                     # H100 80GB (was 64 on A100)
+  gradient_accumulation_steps: 8      # Effective batch = 1024
   mixed_precision: true
-  num_epochs: 150                       # v5 (was 300 in v4)
-  fmri_noise_std: 0.1                   # v5: Gaussian noise augmentation
-  voxel_dropout: 0.1                    # v5: random voxel masking
-  optimizer:
-    type: "adamw"
-    lr: 7.0e-5                          # v5 (varies per experiment)
-    weight_decay: 0.05                  # v5 (was 0.01 in v4)
+  mixed_precision_dtype: "bf16"       # H100 native bf16 (no GradScaler)
+  num_epochs: 200
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
   gradient_clip: 1.0
-  early_stop_patience: 25              # v5 (was 40 in v4)
+  early_stop_patience: 30
   ema:
-    enabled: true                       # v5: model averaging
+    enabled: true
     decay: 0.999
 ```
 
 ### GPU Memory Guide
 
-| GPU | Batch Size | Grad Accum | Effective Batch | Approx. Time/Epoch |
-|-----|-----------|-----------|----------------|-------------------|
-| 40GB (A100) | 64 | 4 | 256 | ~2-5 min (MLP), ~5-10 min (Transformer) |
-
-Out of memory? Reduce `batch_size` and increase `gradient_accumulation_steps`
-to maintain the same effective batch size.
+| GPU | Batch Size | Grad Accum | Effective Batch | Mixed Precision |
+|-----|-----------|-----------|----------------|-----------------|
+| H100 80GB | 128 | 8 | 1024 | bf16 (native) |
+| A100 40GB | 64 | 8 | 512 | fp16 (GradScaler) |
 
 ---
 
@@ -147,96 +151,71 @@ to maintain the same effective batch size.
 
 ### During Training (Automatic)
 
-Validation runs every epoch: R@1, R@5, MRR, loss values.
-Results saved to `experimental_results/<exp_name>/training_info.json`.
+Validation runs every epoch: R@1, R@5, MRR, loss values. V9 adds:
+- CSLS-corrected retrieval metrics (csls_r@1, csls_r@5, csls_r@10)
+- MC-Dropout TTA (8 samples, averaged predictions)
+- Kappa-weighted repetition averaging
 
 ### After Training
 
 ```bash
-python3 scripts/evaluation/evaluate_experiment.py \
-    --config configs/experiments/N1v5_vmf_nce.yaml \
-    --checkpoint experimental_results/N1v5_vmf_nce/subj01/checkpoint_best.pt \
-    --output experimental_results/N1v5_vmf_nce/subj01/evaluation/
+# Aggregate ablation results
+python3 scripts/evaluation/aggregate_ablation.py \
+    --results-dir experimental_results \
+    --subjects subj01
+
+# Compare specific experiments
+python3 scripts/evaluation/compare_experiments.py \
+    --exp-dirs experimental_results/N1v9_vmf_nce \
+              experimental_results/N4v9_full_system \
+    --output experimental_results/v9_comparison.md
 ```
 
 ### Metrics by Experiment Type
 
 **All experiments (B0-N4):**
 - Retrieval: R@1, R@5, R@10, MRR, MeanR, MedR
-- Identification: 2AFC with bootstrap CI
-- Separability: ROC AUC, Cohen's d
+- V9+: CSLS-corrected variants (csls_r@1, csls_r@5, csls_r@10)
 
-**Probabilistic experiments (B1, N1-N4):**
-- NLL, Energy Score
-- Coverage@80, Coverage@95, ECE
-- Risk-coverage curves, AURC
+**Probabilistic experiments (N1-N4):**
+- Kappa statistics: mean, std, min, max, q10, q50, q90
+- R-Drop loss (consistency penalty)
 
 **ROI experiments (N2-N4):**
-- Per-ROI attention importance (bootstrap CIs)
+- Per-ROI attention importance
 - ROI ablation study (leave-one-out)
-- Category-ROI interaction heatmaps
-
-### Cross-Experiment Comparison
-
-```bash
-python3 scripts/evaluation/compare_experiments.py \
-    --exp-dirs experimental_results/B0v4_deterministic \
-              experimental_results/N1v5_vmf_nce \
-              experimental_results/N4v5_full_system \
-    --output experimental_results/comparison_report.md \
-    --paired-test
-```
 
 ---
 
-## Output Structure
+## Version History
 
-### Training Outputs
-
-```
-experimental_results/N1_vmf_nce/
-  config.yaml              # Frozen config snapshot
-  training_info.json       # Epoch, loss curves, checkpoint path
-  notes.md                 # Per-experiment analysis (fill after run)
-  best_model.pt            # Best model checkpoint
-  evaluation/
-    embedding_metrics.json
-    probabilistic_metrics.json
-    summary_report.md
-```
-
----
-
-## Time Estimates
-
-| Task | A100 (24GB) | V100 (16GB) |
-|------|------------|-------------|
-| Preprocessing (per subject) | 30 min | 1 hour |
-| B0 or B1 (MLP, 100 epochs) | 2-3 hours | 4-5 hours |
-| N1 (MLP + vMF, 100 epochs) | 2-3 hours | 4-5 hours |
-| N2-N4 (Transformer, 100 epochs) | 4-6 hours | 8-10 hours |
-| Full ladder (6 exp x 4 subj) | 18-24 hours | 36-48 hours |
-| Evaluation (per experiment) | 15-30 min | 20-40 min |
+| Version | Experiments | Best R@1 | Key Innovation |
+|---------|------------|----------|----------------|
+| v4 | B0-N4 | N: 30-36% | nsdId fix, z-scoring, MixCo |
+| v5 | N1-N4 | N1: 39.9% | tau=1.0 (kappa collapse fix) |
+| v6 | N1-N4 | N1: ~40% | Delta-SPCL, vMF-SoftCLIP |
+| v7 | N1-N4 | N1: 49% | Softplus kappa, multi-subject, multi-layer CLIP |
+| v8 | N3-N4 | N4: 50.8% | Hierarchical CLIP, CKA |
+| v9 | N1-N4 | Pending | DropPath, proj head, R-Drop, CSLS, TTA, bf16 |
 
 ---
 
 ## Troubleshooting
 
-**Out of GPU memory:** Reduce `batch_size` in config, increase
-`gradient_accumulation_steps` proportionally.
+**Out of GPU memory:** Reduce `batch_size` in config, increase `gradient_accumulation_steps` proportionally.
 
-**NaN losses:** Check `gradient_clip: 1.0` is set. For vMF models in v5, `kappa_reg` is intentionally disabled -- kappa is bounded by a sigmoid to `[kappa_min, kappa_max]` and the contrastive loss naturally constrains it. If NaN occurs, check that `kappa_max` keeps max logits below 80 (with `tau=1.0`, max logit = kappa_max).
+**NaN losses:** Check `gradient_clip: 1.0` is set. With bf16 on H100, kappa overflow is essentially eliminated (bf16 has same exponent range as fp32).
 
-**Training not converging:** For Transformer models (N2-N4 v5), ensure `warmup_epochs: 15` and an appropriate LR (5e-5 to 7e-5). MLP models (B0/B1/N1) use `lr: 7e-5` to `1e-4`.
+**bf16 not available:** Fall back to fp16 by removing `mixed_precision_dtype: "bf16"` from config. GradScaler will be auto-enabled.
 
-**Data not found:** Run `python3 scripts/utils/preflight_check.py` to verify
-NSD data files and paths.
+**Disk space:** Use `SAVE_CKPT=0` to skip checkpoint saving. Each checkpoint is ~1.3 GB.
+
+**Module not found:** Re-run `pip install -e ".[train,diffusion]"` after pulling changes.
 
 ---
 
 ## Additional Resources
 
-- **Environment setup:** [SETUP.md](SETUP.md)
-- **Evaluation details:** [EVALUATION_SUITE_GUIDE.md](EVALUATION_SUITE_GUIDE.md)
+- **Experiment context:** [EXPERIMENT_CONTEXT.md](../EXPERIMENT_CONTEXT.md)
 - **vMF and UA-CFG:** [VMF_UACFG_GUIDE.md](VMF_UACFG_GUIDE.md)
-- **Troubleshooting:** [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+- **JupyterHub reference:** [JUPYTERHUB_REFERENCE.md](JUPYTERHUB_REFERENCE.md)

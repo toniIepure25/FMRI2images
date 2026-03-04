@@ -40,36 +40,59 @@ python3 scripts/training/train_unified.py \
     --config configs/experiments/N1v5_vmf_nce.yaml
 ```
 
-Key config differences in `N1v5_vmf_nce.yaml`:
+Key config differences in the latest `N1v9_vmf_nce.yaml`:
 
 ```yaml
 model:
   type: "vmf"
   posterior: "vmf"
   decoder:
-    kappa_min: 1.0
-    kappa_max: 50.0
+    kappa_mode: "softplus"      # unbounded kappa via softplus(raw) + 1.0
+  projection_head:
+    enabled: true               # separate contrastive from retrieval
+    hidden_dim: 2048
+    out_dim: 768
 
 loss:
   vmf_nce:
     enabled: true
     tau: 1.0                    # kappa IS the inverse temperature
     use_queue: true
-    learnable_temperature: true # logit_scale starts at 0 with tau=1.0
+    learnable_temperature: true
+    label_smoothing: 0.1        # V9: soft targets
   kappa_reg:
-    enabled: false              # contrastive NLL naturally constrains kappa
+    enabled: true
+    lambda_kappa: 0.1           # V9: needed with softplus (unbounded kappa)
+  r_drop:
+    enabled: true               # V9: consistency between two dropout passes
+    weight: 0.5
 ```
 
-**Why tau=1.0 (kappa collapse fix):** In the vMF-NCE loss, the logit is
-`kappa * cos_sim / tau`. The vMF concentration kappa is by definition
-the inverse temperature. Setting a separate `tau=0.07` (as in v1-v4)
-created an artificial scaling of `kappa * 14.28`, which meant any
-`kappa > 5.6` hit the float16 safety clamp at 80, zeroing the gradient.
-Combined with the kappa regularizer applying constant downward pressure,
-kappa was trapped at ~3-5 in 768-D space -- a near-uniform distribution.
-With `tau=1.0`, max logit = `kappa_max = 50`, well below the clamp.
-Full gradient flow through kappa is restored, and the `kappa_reg` penalty
-is no longer needed since the softmax denominator naturally balances kappa.
+### Kappa Parameterization History
+
+| Version | Kappa Mode | Range | Kappa Reg | Issue |
+|---------|-----------|-------|-----------|-------|
+| v4 | bounded sigmoid | [1, 50] | 0.05 | **Kappa collapse** (tau=0.07 capped at ~5.6) |
+| v5 | bounded sigmoid | [1, 50] | Disabled | Fixed collapse (tau=1.0), but sigmoid saturated |
+| v6 | bounded sigmoid | [1, 50] | Disabled | Kappa hit sigmoid ceiling (~50) |
+| v7+ | **softplus** | [1, inf) | 0.01 | Unbounded, healthy gradient flow |
+| v9 | **softplus** | [1, inf) | **0.1** | Stronger reg as anti-overfitting |
+
+**Why tau=1.0 (kappa collapse fix, v5):** In the vMF-NCE loss, the logit
+is `kappa * cos_sim / tau`. With `tau=0.07`, any `kappa > 5.6` hit the
+float16 clamp at 80, zeroing the gradient. Combined with kappa_reg pushing
+down, kappa was trapped at ~3-5 in 768-D space.
+
+**Why softplus (v7+):** Even with tau=1.0, the bounded sigmoid
+`kappa_min + (kappa_max - kappa_min) * sigmoid(raw)` had vanishing
+gradients at its boundaries. Softplus (`softplus(raw) + 1.0`) has
+everywhere-positive gradient, requiring explicit `kappa_reg` to prevent
+unbounded growth.
+
+**Why bf16 helps (v9):** bf16 has the same exponent range as fp32
+(8-bit exponent), eliminating the float16 overflow risks that originally
+caused the kappa collapse. The [-80, 80] clamp is essentially never
+triggered with bf16.
 
 During training, kappa statistics are logged every epoch:
 
@@ -183,14 +206,14 @@ For dual-uncertainty models (N3, N4):
 
 ## 6. Experiment Progression
 
-| Experiment | Distribution | Uncertainty | UA-CFG |
-|-----------|-------------|------------|--------|
-| B0 | Deterministic | None | Fixed |
-| B1 | Gaussian | sigma (Euclidean) | Fixed |
-| **N1** | **vMF** | **kappa** | kappa -> w |
-| **N2** | **vMF** | **kappa** | kappa -> w |
-| **N3** | **vMF-DCF** | **kappa + delta** | Decomposed |
-| **N4** | **vMF-DCF** | **kappa + delta** | Decomposed + Mixture |
+| Experiment | Distribution | Uncertainty | UA-CFG | V9 Additions |
+|-----------|-------------|------------|--------|--------------|
+| B0 | Deterministic | None | Fixed | -- |
+| B1 | Gaussian | sigma (Euclidean) | Fixed | -- |
+| **N1** | **vMF** | **kappa (softplus)** | kappa -> w | Proj head, R-Drop, CSLS, TTA |
+| **N2** | **vMF** | **kappa (softplus)** | kappa -> w | DropPath, Proj head, R-Drop, CSLS, TTA |
+| **N3** | **vMF-DCF** | **kappa + delta** | Decomposed | DropPath, Proj head, R-Drop, CSLS, TTA |
+| **N4** | **vMF-DCF** | **kappa + delta** | Decomposed + Mixture | DropPath, Proj head, R-Drop, CSLS, TTA, SPCL |
 
 ---
 

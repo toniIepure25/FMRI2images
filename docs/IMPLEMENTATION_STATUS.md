@@ -1,23 +1,26 @@
 # Implementation Status
 
 **Last Updated:** March 2026
-**Current Phase:** Phase 2 (ViT-L/14, 768-D, vMF-NCE, ROI-DCF)
+**Current Phase:** Phase 2+ (ViT-L/14, 768-D, vMF-NCE, ROI-DCF, V9 anti-overfit)
+**Hardware:** NVIDIA H100 80GB HBM3 (CUDA 12.8, bf16 mixed precision)
 
 ---
 
-## Phase 2: Novel Contributions
+## Phase 2+: Novel Contributions
 
 ### Core Innovations (4/4 Implemented)
 
 1. **vMF-NCE Loss (Bessel-Free)**
    - Geometry-correct contrastive loss on S^{d-1}
+   - Softplus kappa parameterization (v7+), label smoothing (v9)
    - Implementation: `src/fmri2img/losses/vmf_nce.py`
    - Tests: `tests/test_vmf.py`
 
 2. **ROI-Tokenized Transformer Encoder**
    - Brain-region-aware architecture with attention-based interpretability
+   - Stochastic Depth via DropPath (v9)
    - Implementation: `src/fmri2img/models/roi_transformer.py`
-   - Tests: integrated in model tests
+   - Multi-subject variant: `src/fmri2img/models/multi_subject_encoder.py`
 
 3. **ROI Directional Consensus Fusion (ROI-DCF)**
    - Per-ROI vMF experts with spherical weighted mean consensus
@@ -29,32 +32,47 @@
    - Implementation: `src/fmri2img/inference/decomposed_ua_cfg.py`
    - Tests: `tests/test_decomposed_ua_cfg.py`
 
+### V9 Innovations (New)
+
+| Module | Location | Tests |
+|--------|----------|-------|
+| Stochastic Depth (DropPath) | `src/fmri2img/models/roi_transformer.py` | `tests/test_v9_features.py` |
+| Contrastive Projection Head | `src/fmri2img/models/projection_head.py` | `tests/test_v9_features.py` |
+| R-Drop (vMF symmetric KL) | `src/fmri2img/losses/vmf_nce.py` | `tests/test_v9_features.py` |
+| CSLS Retrieval Correction | `src/fmri2img/eval/embedding_eval.py` | `tests/test_v9_features.py` |
+| MC-Dropout TTA | `scripts/training/train_unified.py` | `tests/test_v9_features.py` |
+| Kappa-Weighted Averaging | `scripts/training/train_unified.py` | `tests/test_v9_features.py` |
+| bf16 Mixed Precision | `scripts/training/train_unified.py` | -- |
+
 ### Additional Modules
 
 | Module | Location | Tests |
 |--------|----------|-------|
 | vMF Mixture Sampling | `src/fmri2img/inference/vmf_mixture.py` | `tests/test_vmf_mixture.py` |
 | Risk-Coverage Curves | `src/fmri2img/eval/vmf_risk_coverage.py` | `tests/test_vmf_risk_coverage.py` |
-| Noise-Ceiling Normalization | `src/fmri2img/eval/ceiling_normalized_eval.py` | — |
-| Frequency-ROI Module | `src/fmri2img/models/freq_roi.py` | `tests/test_freq_roi.py` |
-| Cross-Subject Alignment | `src/fmri2img/models/cross_subject.py` | `tests/test_cross_subject.py` |
-| Kappa Calibration | `src/fmri2img/eval/kappa_calibration.py` | in `tests/test_vmf.py` |
-| SoftCLIP Loss | `src/fmri2img/losses/softclip.py` | `tests/test_softclip.py` |
+| Noise-Ceiling Normalization | `src/fmri2img/eval/ceiling_normalized_eval.py` | -- |
+| SoftCLIP / vMF-SoftCLIP Loss | `src/fmri2img/losses/softclip.py` | `tests/test_softclip.py` |
+| Hierarchical CLIP Loss | `src/fmri2img/losses/hierarchical_clip_loss.py` | -- |
+| CKA Loss | `src/fmri2img/losses/cka_loss.py` | -- |
+| Multi-Subject Dataset | `src/fmri2img/data/multi_subject_dataset.py` | `tests/test_multi_subject.py` |
+| Multi-Layer CLIP Cache | `scripts/build/build_multilayer_clip_cache.py` | -- |
 
 ### Experiment Configurations
 
-The ablation ladder runs **B v4 + N v5** (`run_ablation_ladder.sh`):
+The ablation ladder runs **B v4 + N v5-v9** (`run_ablation_ladder.sh`):
 
-| Config | Type | Status |
-|--------|------|--------|
-| `B0v4_deterministic.yaml` | Strong deterministic baseline | Ready |
-| `B1v4_gaussian.yaml` | Probabilistic Gaussian baseline | Ready |
-| `N1v5_vmf_nce.yaml` | vMF-NCE (novel distribution) | **v5: tau=1.0, kappa collapse fix** |
-| `N2v5_roi_transformer.yaml` | ROI Transformer (novel architecture) | **v5: tau=1.0, d_model=768, 6 layers** |
-| `N3v5_roi_dcf.yaml` | ROI-DCF consensus (novel fusion) | **v5: tau=1.0, kappa collapse fix** |
-| `N4v5_full_system.yaml` | Full system (flagship) | **v5: tau=1.0, kappa collapse fix** |
-
-Previous configs (v1-v4) remain in `configs/experiments/` for reproducibility. N-series v4 configs have a known kappa collapse bug (`tau=0.07` caps kappa gradient at ~5.6).
+| Config | Type | Status | R@1 (subj01) |
+|--------|------|--------|--------------|
+| `B0v4_deterministic.yaml` | Strong deterministic baseline | Complete | ~22% |
+| `B1v4_gaussian.yaml` | Probabilistic Gaussian baseline | Complete | ~22% |
+| `N1v5_vmf_nce.yaml` | vMF-NCE (tau=1.0) | Complete | 39.9% |
+| `N1v7_vmf_nce.yaml` | vMF-NCE (softplus kappa, fused targets) | Complete | **49%** |
+| `N3v8_roi_dcf.yaml` | ROI-DCF + hierarchical CLIP + CKA | Complete | **50.3%** |
+| `N4v8_full_system.yaml` | Full system + SPCL | Complete | **50.8%** |
+| `N1v9_vmf_nce.yaml` | V9: proj head, R-Drop, CSLS, TTA, bf16 | **Ready** | Pending |
+| `N2v9_roi_transformer.yaml` | V9: DropPath, proj head, CSLS, TTA, bf16 | **Ready** | Pending |
+| `N3v9_roi_dcf.yaml` | V9: anti-overfit, proj head, CSLS, TTA, bf16 | **Ready** | Pending |
+| `N4v9_full_system.yaml` | V9: flagship, SPCL, CSLS, TTA, bf16 | **Ready** | Pending |
 
 ---
 
@@ -71,106 +89,45 @@ Results archived in `experimental_results/exp001_baseline_ultimate/` and `Raport
 
 ---
 
-## System Components
-
-### Models and Architecture
-
-| Component | Location | Phase |
-|-----------|----------|-------|
-| UnifiedModel (MLP + decoders) | `src/fmri2img/models/unified_model.py` | 1+2 |
-| VonMisesFisherDecoder | `src/fmri2img/models/vmf_decoder.py` | 2 |
-| ROITransformerEncoder | `src/fmri2img/models/roi_transformer.py` | 2 |
-| ROI-DCF Module | `src/fmri2img/models/roi_dcf.py` | 2 |
-| Memory Queue | `src/fmri2img/contrastive/memory_queue.py` | 1+2 |
-
-### Loss Functions
-
-| Loss | Location | Used In |
-|------|----------|---------|
-| MSE + Cosine | `src/fmri2img/losses/` | B0 |
-| InfoNCE | `src/fmri2img/losses/contrastive.py` | B0 |
-| Gaussian NLL | `src/fmri2img/losses/gaussian.py` | B1 |
-| Gaussian-NCE | `src/fmri2img/losses/gaussian_nce.py` | B1 |
-| vMF-NCE | `src/fmri2img/losses/vmf_nce.py` | N1-N4 (tau=1.0 in v5) |
-| Kappa Regularizer | `src/fmri2img/losses/vmf_nce.py` | N1-N4 v4 only (disabled in v5) |
-| SoftCLIP KD | `src/fmri2img/losses/softclip.py` | All (B0-N4) |
-| MixCo Augmentation | `src/fmri2img/losses/mixco.py` | All (B0-N4) |
-
-### Preprocessing
-
-| Component | Location |
-|-----------|----------|
-| Center + PCR (k=8) | `src/fmri2img/embedding_preproc.py` |
-| Center + Whitening | `src/fmri2img/embedding_preproc.py` |
-
-### Evaluation Suite
-
-| Metric Category | Location |
-|----------------|----------|
-| Embedding (R@K, MRR, 2AFC, hubness) | `src/fmri2img/eval/embedding_eval.py` |
-| Probabilistic (NLL, Energy Score, ECE) | `src/fmri2img/eval/probabilistic_eval.py` |
-| Risk-Coverage (AURC, selective prediction) | `src/fmri2img/eval/vmf_risk_coverage.py` |
-| Noise-Ceiling Normalization | `src/fmri2img/eval/ceiling_normalized_eval.py` |
-| Kappa Calibration | `src/fmri2img/eval/kappa_calibration.py` |
-
-### Training Infrastructure
+## Training Infrastructure
 
 | Feature | Status |
 |---------|--------|
-| Mixed precision (AMP) | Implemented |
-| Gradient accumulation | Implemented |
+| Mixed precision (AMP fp16 + bf16) | Implemented (`mixed_precision_dtype: "bf16"` for H100) |
+| Gradient accumulation | Implemented (v9: 8 steps, eff. batch 1024) |
 | Checkpoint resume | Implemented |
-| Early stopping | Implemented |
+| Early stopping | Implemented (on R@1, patience 30) |
 | LR scheduling (cosine + warmup) | Implemented |
-| Gradient clipping | Implemented |
-| Per-session z-scoring | Implemented (`zscore_mode: per_session`) |
-| MixCo -> SoftCLIP phase schedule | Implemented (1/3 MixCo, 2/3 SoftCLIP; or simultaneous in v5) |
-| EMA (Exponential Moving Average) | Implemented (`ema.enabled: true, decay: 0.999`) |
-| fMRI noise augmentation | Implemented (`fmri_noise_std: 0.1`) |
-| Voxel dropout | Implemented (`voxel_dropout: 0.1`) |
-| TensorBoard logging | Implemented |
-
-### Scripts
-
-| Script | Purpose |
-|--------|---------|
-| `scripts/training/train_unified.py` | Main training entry point |
-| `scripts/training/run_ablation_ladder.sh` | Full ablation runner |
-| `scripts/reconstruction/decode_diffusion.py` | Image reconstruction |
-| `scripts/evaluation/evaluate_experiment.py` | Post-training evaluation |
-| `scripts/evaluation/compare_experiments.py` | Cross-experiment comparison |
+| Gradient clipping | Implemented (max_norm=1.0) |
+| Per-session z-scoring | Implemented |
+| MixCo + SoftCLIP | Implemented (simultaneous from start) |
+| EMA (Exponential Moving Average) | Implemented (decay=0.999) |
+| fMRI noise augmentation | Implemented (std=0.1) |
+| Voxel dropout | Implemented (0.1) |
+| R-Drop regularization | Implemented (v9, weight=0.5) |
+| MC-Dropout TTA | Implemented (v9, 8 samples) |
+| CSLS retrieval evaluation | Implemented (v9, k=10) |
 
 ---
 
 ## What to Run
 
-### Immediate (Phase 2 Experiments)
+### V9 Ablation (H100)
 
 ```bash
-# Full ablation ladder (B0v4, B1v4, N1v5, N2v5, N3v5, N4v5)
-nohup make ablation SUBJECTS="subj01" GPU=0 > ablation_v5.log 2>&1 &
-tail -f ablation_v5.log
+# Full V9 N-series (4 experiments)
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N9 > ablation_v9.log 2>&1 &
+tail -f ablation_v9.log
 
-# Or individual experiments
-python3 scripts/training/train_unified.py \
-    --config configs/experiments/N1v5_vmf_nce.yaml --gpu 0
+# Without checkpoints (save disk space)
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N9 SAVE_CKPT=0 > ablation_v9.log 2>&1 &
 ```
 
 ### After Training
 
 ```bash
-# Evaluate
-python3 scripts/evaluation/evaluate_experiment.py \
-    --config configs/experiments/N1v5_vmf_nce.yaml \
-    --checkpoint experimental_results/N1v5_vmf_nce/subj01/checkpoint_best.pt
-
-# Aggregate ablation results
+# Aggregate results
 python3 scripts/evaluation/aggregate_ablation.py \
     --results-dir experimental_results \
     --subjects subj01
-
-# Generate reconstructions
-python3 scripts/reconstruction/decode_diffusion.py \
-    --config configs/inference/production.yaml \
-    --checkpoint experimental_results/N4v5_full_system/subj01/checkpoint_best.pt
 ```

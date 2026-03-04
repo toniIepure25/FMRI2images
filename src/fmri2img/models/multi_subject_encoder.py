@@ -40,6 +40,7 @@ import torch.nn as nn
 from fmri2img.models.roi_transformer import (
     ROIProjection,
     ROITransformerOutput,
+    TransformerLayerWithDropPath,
 )
 
 logger = logging.getLogger(__name__)
@@ -73,6 +74,7 @@ class MultiSubjectROITransformer(nn.Module):
         dim_feedforward: Optional[int] = None,
         dropout: float = 0.1,
         activation: str = "gelu",
+        drop_path_rate: float = 0.0,
     ):
         super().__init__()
         self.d_model = d_model
@@ -141,26 +143,41 @@ class MultiSubjectROITransformer(nn.Module):
             torch.randn(1, self.n_rois + 1, d_model) * 0.02
         )
 
-        encoder_layer = nn.TransformerEncoderLayer(
-            d_model=d_model,
-            nhead=nhead,
-            dim_feedforward=_ff_dim,
-            dropout=dropout,
-            activation=activation,
-            batch_first=True,
-            norm_first=True,
-        )
-        self.transformer = nn.TransformerEncoder(
-            encoder_layer, num_layers=num_layers,
-        )
+        if drop_path_rate > 0.0:
+            dpr = [drop_path_rate * i / max(num_layers - 1, 1)
+                   for i in range(num_layers)]
+            layers = nn.ModuleList([
+                TransformerLayerWithDropPath(
+                    d_model=d_model, nhead=nhead, dim_feedforward=_ff_dim,
+                    dropout=dropout, activation=activation, drop_path=dp,
+                )
+                for dp in dpr
+            ])
+            _dummy = nn.TransformerEncoderLayer(
+                d_model=d_model, nhead=nhead, dim_feedforward=_ff_dim,
+                dropout=dropout, activation=activation,
+                batch_first=True, norm_first=True,
+            )
+            self.transformer = nn.TransformerEncoder(_dummy, num_layers=num_layers)
+            self.transformer.layers = layers
+        else:
+            encoder_layer = nn.TransformerEncoderLayer(
+                d_model=d_model, nhead=nhead, dim_feedforward=_ff_dim,
+                dropout=dropout, activation=activation,
+                batch_first=True, norm_first=True,
+            )
+            self.transformer = nn.TransformerEncoder(
+                encoder_layer, num_layers=num_layers,
+            )
+
         self.final_norm = nn.LayerNorm(d_model)
 
         n_params = sum(p.numel() for p in self.parameters())
         logger.info(
             "MultiSubjectROITransformer: %d subjects, %d ROIs, "
-            "d_model=%d, ff=%d, layers=%d, heads=%d, params=%s",
+            "d_model=%d, ff=%d, layers=%d, heads=%d, drop_path=%.2f, params=%s",
             self.n_subjects, self.n_rois,
-            d_model, _ff_dim, num_layers, nhead,
+            d_model, _ff_dim, num_layers, nhead, drop_path_rate,
             f"{n_params:,}",
         )
 

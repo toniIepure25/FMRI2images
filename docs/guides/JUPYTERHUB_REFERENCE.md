@@ -4,140 +4,99 @@
 
 ---
 
-## 🚀 First Time Setup (Run Once)
+## Hardware
 
-### Option A: Local Storage (300GB download)
+| Resource | Value |
+|----------|-------|
+| GPU | **NVIDIA H100 80GB HBM3** |
+| Driver | 570.211.01 |
+| CUDA | 12.8 |
+| System RAM | ~100 GB |
+| CPU cores | 32 |
+| Storage | PVC at `/home/jovyan/work` (~877 GB, NFS-backed) |
+| Python | 3.13 via `conda base` |
+
+---
+
+## First Time Setup
+
 ```bash
 # 1. Configure environment
 cp .env.jupyterhub .env
-nano .env  # Edit USER=your_username
+nano .env  # Set HF_TOKEN, verify paths
 
-# 2. Source initialSetup.sh if required
-run=true source initialSetup.sh
+# 2. Install package
+pip install -e ".[train,diffusion]"
 
-# 3. Run automated setup
-./setup.sh
-
-# 4. Verify setup
-source .venv/bin/activate
+# 3. Verify setup
 make preflight
 
-# 5. Download NSD dataset (manual - see DATA_REQUIREMENTS.md)
-```
+# 4. Pre-extract fMRI features
+make preextract SUBJECT=subj01
 
-### Option B: MinIO Object Storage (No download!)
-```bash
-# 1. Configure for MinIO
-cp .env.minio .env
-nano .env  # Add MinIO credentials (see MINIO_SETUP_GUIDE.md)
+# 5. Build CLIP cache (if not already present)
+make clip-cache
 
-# 2-4. Same as Option A (install & verify)
-
-# 5. Test MinIO connection
-python -c "import s3fs, os; fs = s3fs.S3FileSystem(endpoint_url=os.environ['AWS_ENDPOINT_URL']); print('OK')"
-
-# 6. Verify S3 data
-python scripts/verify_dataset.py --allow-s3-only
+# 6. Build multi-layer CLIP cache (for v7+ fused targets)
+python3 scripts/build/build_multilayer_clip_cache.py \
+    --subjects subj01 subj02 subj05 subj07 \
+    --layers 12 18 24 --fuse-alpha 0.3
 ```
 
 ---
 
-## 📝 Every Session
+## Every Session
 
 ```bash
-# Activate environment
-source .venv/bin/activate
+# Source environment
+set -a && source .env && set +a
+
+# Re-install if pod restarted (editable install lost on restart)
+pip install -e ".[train,diffusion]"
 ```
 
 ---
 
-## 🧪 Running Experiments
+## Running Experiments
 
-### Quick Test
+### V9 Ablation (Current)
 
 ```bash
-python scripts/training/train_unified.py --config configs/experiments/smoke_test.yaml --max_steps 1
+# All 4 N-series V9 experiments on subj01
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N9 > ablation_v9.log 2>&1 &
+tail -f ablation_v9.log
+
+# Without checkpoints (saves ~5 GB disk)
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N9 SAVE_CKPT=0 > ablation_v9.log 2>&1 &
 ```
 
 ### Single Experiment
 
 ```bash
-python scripts/training/train_unified.py --config configs/experiments/B0_deterministic.yaml
+python3 scripts/training/train_unified.py \
+    --config configs/experiments/N1v9_vmf_nce.yaml --gpu 0
 ```
 
-### Long Run (tmux - recommended)
+### All N-series (v5 through v9)
 
 ```bash
-# Start in tmux
-tmux new -s my_session
-python scripts/training/train_unified.py --config configs/experiments/B0_deterministic.yaml
-
-# Detach: Ctrl+B, then D
-# Reattach later: tmux attach -t my_session
-```
-
-### Long Run (nohup)
-
-```bash
-nohup python scripts/training/train_unified.py --config configs/experiments/B0_deterministic.yaml &
-tail -f nohup.out
-```
-
-### All Experiments (batch)
-
-```bash
-bash scripts/training/run_ablation_ladder.sh
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N > ablation_all_n.log 2>&1 &
 ```
 
 ---
 
-## 🔧 Common Options
+## Monitoring
 
 ```bash
-# Custom name
---name my_experiment
-
-# Custom seed
---seed 42
-
-# Resume from checkpoint
---resume
-
-# Skip preflight checks
---skip-preflight
-```
-
-**Example:**
-
-```bash
-python scripts/training/train_unified.py \
-  --config configs/experiments/B0_deterministic.yaml \
-  --name ablation_lr001 \
-  --seed 42
-```
-
----
-
-## 📊 Monitoring
-
-```bash
-# Check GPU
+# GPU utilization
 nvidia-smi
-
-# Watch GPU continuously
 watch -n 1 nvidia-smi
 
-# Monitor log file
-tail -f logs/train.log
-
-# List tmux sessions
-tmux ls
-
-# Attach to tmux
-tmux attach -t session_name
+# Training log
+tail -f ablation_v9.log
 
 # Disk space
-df -h /bigdata
+df -h /home/jovyan/work
 
 # Running processes
 ps aux | grep python
@@ -145,124 +104,72 @@ ps aux | grep python
 
 ---
 
-## 🛠️ Troubleshooting
+## Key Paths
 
-### Virtual environment not active
 ```bash
-source .venv/bin/activate
+# Project
+/home/jovyan/work/FMRI2images/          # Git repo root (branch: dirbrain-vmf-uacfg)
+
+# Data
+/home/jovyan/work/data/nsd/              # NSD raw data
+cache/preextracted/subject=subj01/       # Pre-extracted fMRI (~1.8 GB)
+outputs/clip_cache/clip.parquet          # Standard CLIP cache
+outputs/clip_cache/clip_multilayer.parquet  # Multi-layer CLIP cache
+
+# Configs
+configs/experiments/N1v9_vmf_nce.yaml    # V9 configs (current)
+configs/experiments/N2v9_roi_transformer.yaml
+configs/experiments/N3v9_roi_dcf.yaml
+configs/experiments/N4v9_full_system.yaml
+
+# Results
+experimental_results/{experiment}/{subject}/
+  metrics/summary.json                   # Key metrics (R@1, loss, wall time)
+  metrics/training_log.csv               # Per-epoch training history
+  checkpoints/best.pt, last.pt           # Model checkpoints
+  logs/train.log                         # Full training log
 ```
 
-### CUDA not available
+---
+
+## Troubleshooting
+
+### Module not found (`fmri2img`)
 ```bash
-nvidia-smi  # Check GPU
-python -c "import torch; print(torch.cuda.is_available())"
-./setup.sh
+pip install -e ".[train,diffusion]"
 ```
 
-### Out of memory
-```yaml
-# In config: reduce batch_size
-batch_size: 16  # instead of 64
-```
+### Out of GPU memory
+Reduce `batch_size` in config (e.g., 64 instead of 128) and increase `gradient_accumulation_steps` proportionally.
 
 ### Disk full
 ```bash
-df -h /bigdata
-rm -rf runs/old_run_*
+# Check usage
+du -sh /home/jovyan/work/FMRI2images/experimental_results/*/subj*/checkpoints/
+
+# Remove unused subject features
+rm cache/preextracted/subject=subj02/fmri_features.npy
+rm cache/preextracted/subject=subj05/fmri_features.npy
+rm cache/preextracted/subject=subj07/fmri_features.npy
 ```
 
----
-
-## 📁 Important Paths
-
+### CUDA/Driver mismatch
 ```bash
-# Project structure
-./venv/              # Virtual environment
-./configs/           # Experiment configs
-./scripts/           # Helper scripts
-./runs/              # Experiment outputs
-./logs/              # Log files
-./checkpoints/       # Model checkpoints
-
-# After a run
-runs/<timestamp>_<name>/
-  ├── config.yaml              # Config used
-  ├── git_info.json           # Git state
-  ├── environment/            # Full snapshot
-  ├── checkpoints/            # Model files
-  ├── logs/train.log          # Training log
-  ├── metrics/metrics.jsonl   # Per-step metrics
-  └── SUCCESS or FAILED       # Status
+nvidia-smi  # Check driver version
+python3 -c "import torch; print(torch.cuda.is_available(), torch.version.cuda)"
 ```
 
 ---
 
-## 🔑 Key Commands Cheatsheet
+## Key Commands Cheatsheet
 
 | Task | Command |
 |------|---------|
-| Activate env | `source .venv/bin/activate` |
-| Check setup | `make preflight` |
-| Test MinIO | `python scripts/utils/verify_dataset.py --allow-s3-only` |
-| Run experiment | `python scripts/training/train_unified.py --config <config>` |
-| Run all experiments | `bash scripts/training/run_ablation_ladder.sh` |
-| List tmux | `tmux ls` |
-| Attach tmux | `tmux attach -t <name>` |
-| Detach tmux | `Ctrl+B, then D` |
-| Monitor log | `tail -f logs/*.log` |
+| Setup env | `set -a && source .env && set +a` |
+| Install package | `pip install -e ".[train,diffusion]"` |
 | Check GPU | `nvidia-smi` |
-| Check disk | `df -h /bigdata` |
-| Check S3 cache | `du -sh $S3_CACHE_DIR` |
-
----
-
-## 💡 Pro Tips
-
-1. **Always commit before running**: `git commit -am "Config for exp X"`
-2. **Use descriptive names**: `--name ablation_dropout02_lr001`
-3. **Test with smoke test first**: `smoke_test.yaml` (2 epochs)
-4. **Long runs = tmux**: Don't lose progress on disconnect
-5. **Check disk space first**: `df -h /bigdata`
-6. **Clean up old runs**: `rm -rf runs/failed_*`
-7. **Review snapshots**: Each run captures full environment
-8. **Monitor actively**: `watch -n 1 nvidia-smi`
-
----
-
-## Emergency Commands
-
-```bash
-# Kill tmux session
-tmux kill-session -t session_name
-
-# Kill process by PID
-kill <PID>
-
-# Kill all Python processes (careful!)
-pkill -f python
-
-# Force clean and restart
-rm -rf .venv
-./setup.sh
-source .venv/bin/activate
-make preflight
-```
-
----
-
-## ✅ Pre-Run Checklist
-
-- [ ] Environment activated: `source .venv/bin/activate`
-- [ ] Preflight passed: `make preflight`
-- [ ] Config ready: `configs/experiments/B0_deterministic.yaml`
-- [ ] Git committed: `git status` shows clean
-- [ ] Disk space OK: `df -h /bigdata` shows >50GB
-- [ ] Using tmux for long runs: `scripts/tmux_run.sh`
-
----
-
-**Ready to run? 🚀**
-
-```bash
-python scripts/training/train_unified.py --config configs/experiments/B0_deterministic.yaml
-```
+| Run V9 ablation | `make ablation SUBJECTS="subj01" GPU=0 ONLY=N9` |
+| Run single exp | `python3 scripts/training/train_unified.py --config <config>` |
+| Aggregate results | `python3 scripts/evaluation/aggregate_ablation.py --subjects subj01` |
+| Check disk | `df -h /home/jovyan/work` |
+| Monitor log | `tail -f ablation_v9.log` |

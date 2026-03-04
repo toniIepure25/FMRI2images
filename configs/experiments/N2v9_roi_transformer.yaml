@@ -2,15 +2,15 @@
 #
 # V9 targeted interventions over V7:
 #   - Stochastic Depth (drop_path_rate=0.15) in Transformer
-#   - ContrastiveProjectionHead (768->2048->768) separates contrastive
-#     from retrieval representation
-#   - Stronger kappa_reg (0.1 vs 0.01)
-#   - Label smoothing (0.1) in vMF-NCE
-#   - R-Drop regularization (weight=0.5) between two dropout passes
+#   - ContrastiveProjectionHead (768->2048->768) for SoftCLIP/MixCo only;
+#     vMF-NCE uses raw pred for proper kappa gradient flow
+#   - kappa_reg restored to 0.01 (matching V7)
+#   - Label smoothing (0.05) in vMF-NCE
+#   - R-Drop regularization (weight=0.5, delayed to epoch 15)
 #   - CSLS-corrected retrieval evaluation
 #   - MC-Dropout TTA (8 samples) + kappa-weighted repetition averaging
 #   - SoftCLIP weight reduced to 0.3
-#   - Effective batch 1024 (128 x 8 grad_accum) on H100
+#   - Effective batch 512 (128 x 4 grad_accum), LR scaled 2x on H100
 #   - bf16 mixed precision (H100 native, no GradScaler needed)
 
 experiment:
@@ -90,7 +90,7 @@ loss:
     tau: 1.0
     use_queue: true
     learnable_temperature: true
-    label_smoothing: 0.1
+    label_smoothing: 0.05
 
   softclip:
     enabled: true
@@ -101,11 +101,12 @@ loss:
 
   kappa_reg:
     enabled: true
-    lambda_kappa: 0.1
+    lambda_kappa: 0.01
 
   r_drop:
     enabled: true
     weight: 0.5
+    start_epoch: 15
 
   vmf_nll:
     enabled: false
@@ -124,13 +125,13 @@ queue:
 
 training:
   batch_size: 128
-  gradient_accumulation_steps: 8
+  gradient_accumulation_steps: 4
   mixed_precision: true
   mixed_precision_dtype: "bf16"
   num_epochs: 200
   optimizer:
     type: "adamw"
-    lr: 5.0e-5
+    lr: 1.0e-4
     weight_decay: 0.05
     betas: [0.9, 0.95]
   warmup_epochs: 15

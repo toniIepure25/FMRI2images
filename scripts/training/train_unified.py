@@ -781,6 +781,7 @@ def train_epoch(
     mixco_cfg: Optional[Dict[str, Any]] = None,
     ema: Optional[ModelEMA] = None,
     amp_dtype: Optional[torch.dtype] = None,
+    current_epoch: int = 0,
 ) -> Tuple[Dict[str, float], int]:
     """Train for one epoch with gradient accumulation and optional AMP."""
     model.train()
@@ -837,9 +838,9 @@ def train_epoch(
             is_gaussian = model_type == "gaussian" and aux is not None
             is_vmf = model_type in ("vmf", "vmf_dcf") and aux is not None
 
-            # Contrastive projection: route contrastive losses through
-            # a separate projection head so the backbone representation
-            # (used for retrieval) stays clean.
+            # Projection head for KD losses (SoftCLIP, MixCo) only.
+            # vMF-NCE uses raw pred so kappa gets proper gradient flow
+            # through cos_sim(mu, target) instead of a random projection.
             _proj_head = getattr(model, "projection_head", None)
             pred_for_contrast = _proj_head(pred) if _proj_head is not None else pred
 
@@ -881,7 +882,7 @@ def train_epoch(
                 batch_metrics["vmf_nll"] = l.item()
 
             if "vmf_nce" in losses and is_vmf:
-                l = losses["vmf_nce"](pred_for_contrast, aux, gt_embedding, queue=queue)
+                l = losses["vmf_nce"](pred, aux, gt_embedding, queue=queue)
                 total_loss = total_loss + loss_weights.get("vmf_nce", 1.0) * l
                 batch_metrics["vmf_nce"] = l.item()
 
@@ -891,7 +892,7 @@ def train_epoch(
                 if isinstance(losses["vmf_nce_spcl"], DeltaSPCLVMFNCELoss):
                     dcf_ex = getattr(model, "_last_dcf_extras", {})
                     spcl_kwargs["delta"] = dcf_ex.get("delta")
-                l = losses["vmf_nce_spcl"](pred_for_contrast, aux, gt_embedding, **spcl_kwargs)
+                l = losses["vmf_nce_spcl"](pred, aux, gt_embedding, **spcl_kwargs)
                 total_loss = total_loss + loss_weights.get("vmf_nce_spcl", 1.0) * l
                 batch_metrics["vmf_nce_spcl"] = l.item()
 
@@ -899,7 +900,7 @@ def train_epoch(
             if "vmf_nce_multitask" in losses and is_vmf:
                 dcf_extras = getattr(model, "_last_dcf_extras", {})
                 mt_total, mt_fused, mt_aux = losses["vmf_nce_multitask"](
-                    pred_for_contrast, aux, gt_embedding,
+                    pred, aux, gt_embedding,
                     per_roi_mus=dcf_extras.get("per_roi_mus"),
                     per_roi_kappas=dcf_extras.get("per_roi_kappas"),
                     queue=queue,
@@ -965,7 +966,8 @@ def train_epoch(
 
             # --- R-Drop: consistency between two forward passes (V9) ---
             _rdrop_cfg = (config_ref or {}).get("loss", {}).get("r_drop", {})
-            if _rdrop_cfg.get("enabled", False) and is_vmf:
+            _rdrop_start = _rdrop_cfg.get("start_epoch", 0)
+            if _rdrop_cfg.get("enabled", False) and is_vmf and current_epoch >= _rdrop_start:
                 output2 = model(fmri, subject_ids=subject_ids) if subject_ids is not None else model(fmri)
                 pred2, aux2 = (output2 if isinstance(output2, tuple) else (output2, None))
                 if aux2 is not None:
@@ -1925,7 +1927,7 @@ def main() -> None:
             grad_accum_steps=grad_accum_steps, scaler=scaler,
             lr_scheduler=lr_sched, config_ref=config, vmf_is_log=_vmf_is_log,
             mixco_cfg=_epoch_mixco if _epoch_mixco and _epoch_mixco.get("enabled", False) else None,
-            ema=ema, amp_dtype=_amp_dtype,
+            ema=ema, amp_dtype=_amp_dtype, current_epoch=epoch,
         )
         logger.info("Train: %s", " | ".join(f"{k}={v:.4f}" for k, v in train_metrics.items()))
 

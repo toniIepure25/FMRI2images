@@ -1,0 +1,160 @@
+# N1v15: vMF-NCE -- Fix the Fundamentals
+#
+# V15 strategy: fix three critical bottlenecks that explain the 40pp gap to MindEye:
+#   1. Re-enable CLIP embedding PCR (center_pcr k=4) to eliminate hubness at source
+#   2. Increase batch_size 64->256 for 4x more in-batch contrastive negatives
+#   3. Drop V14 anti-hubness overhead (CSLS training, ISF, direct alignment)
+#      -- PCR handles hubness more directly at the embedding level
+#
+# V14 results (subj01): R@1 ~43%, CSLS R@1 ~52-54%  (gap: ~9-11 pp)
+
+experiment:
+  name: "N1v15_vmf_nce"
+  description: "v15 vMF-NCE: PCR-cleaned CLIP targets + large batch (256) + simplified loss"
+  tags: ["vmf", "vmf_nce", "queue", "novel", "v15", "softplus", "fused_targets",
+         "csls", "mc_tta", "hard_neg", "model_soup", "two_stage", "kappa_cap",
+         "scaled_mlp", "mse_regression", "pcr", "large_batch"]
+  parent: "N1v14_vmf_nce"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.2
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+    kappa_max: 50.0
+
+preprocessing:
+  enabled: true
+  mode: "center_pcr"
+  k_components: 4
+
+loss:
+  mse:
+    enabled: true
+    weight: 1.0
+
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    hard_negative_weight: 0.5
+    hard_neg_k: 16
+    use_csls_training: false
+    isf_weight: 0.0
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  direct_alignment:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  vmf_nll:
+    enabled: false
+  r_drop:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 256
+  gradient_accumulation_steps: 2
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 1.0e-4
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 15
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  early_stop_min_delta: 0.002
+  checkpoint_metric: "r@1"
+  save_frequency: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+  stage2:
+    enabled: true
+    start_epoch: 80
+    lr_factor: 0.1
+    mse_weight: 2.0
+    vmf_nce_weight: 0.3
+    softclip_weight: 0.5
+    mixco_enabled: false
+    patience: 20
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  use_csls: true
+  csls_k: 10
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+  model_soup: true
+  soup_top_k: 5
+  compute_probabilistic: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/N1v15_vmf_nce"

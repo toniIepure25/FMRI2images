@@ -1,7 +1,7 @@
 # Implementation Status
 
 **Last Updated:** March 2026
-**Current Phase:** V14 Anti-Hubness Training + CSLS Checkpoint Selection
+**Current Phase:** V15 Fix the Fundamentals (PCR + large batch + z-scoring fix)
 **Hardware:** NVIDIA H100 80GB HBM3 (CUDA 12.8, bf16 mixed precision)
 
 ---
@@ -33,7 +33,16 @@
    - Implementation: `src/fmri2img/inference/decomposed_ua_cfg.py`
    - Tests: `tests/test_decomposed_ua_cfg.py`
 
-### V14 Innovations (Current)
+### V15 Innovations (Current)
+
+| Module | Location | Description |
+|--------|----------|-------------|
+| Multi-subject z-scoring fix | `scripts/training/train_unified.py` | Per-subject per-session z-scoring for `MultiSubjectPreextractedDataset` |
+| CLIP embedding PCR re-enabled | `preprocessing.enabled: true` | center_pcr k=4 removes dominant PCs causing hubness |
+| Large batch contrastive | `training.batch_size: 256` | 4x more in-batch negatives (was 64) |
+| Validation prediction saving | `scripts/training/train_unified.py` | Saves .npy files for `diagnose_embeddings.py` |
+
+### V14 Innovations
 
 | Module | Location | Description |
 |--------|----------|-------------|
@@ -87,10 +96,14 @@
 | `N2v13_roi_transformer.yaml` | V13: ROI Transformer + MSE | Complete | ~44% | ~51-52% |
 | `N3v13_roi_dcf.yaml` | V13: ROI-DCF + MSE + hierarchical CLIP | Complete | ~45% | **~54-55%** |
 | `N4v13_full_system.yaml` | V13: flagship + MSE + hierarchical CLIP | Complete | ~45-46% | ~53-54% |
-| `N1v14_vmf_nce.yaml` | V14: anti-hubness + CSLS checkpoint | **Ready** | Pending | Pending |
-| `N2v14_roi_transformer.yaml` | V14: anti-hubness + CSLS checkpoint | **Ready** | Pending | Pending |
-| `N3v14_roi_dcf.yaml` | V14: anti-hubness + hierarchical + CSLS ckpt | **Ready** | Pending | Pending |
-| `N4v14_full_system.yaml` | V14: flagship anti-hubness + CSLS checkpoint | **Ready** | Pending | Pending |
+| `N1v14_vmf_nce.yaml` | V14: anti-hubness + CSLS checkpoint | Complete | ~43% | ~52-54% |
+| `N2v14_roi_transformer.yaml` | V14: anti-hubness + CSLS checkpoint | Complete | ~38-40% | ~52-55% |
+| `N3v14_roi_dcf.yaml` | V14: anti-hubness + hierarchical + CSLS ckpt | Complete | ~40%+ | ~52-55% |
+| `N4v14_full_system.yaml` | V14: flagship anti-hubness + CSLS checkpoint | Complete | **~44-45%** | **~55-58%** |
+| `N1v15_vmf_nce.yaml` | V15: PCR + large batch + simplified loss | **Ready** | Pending | Pending |
+| `N2v15_roi_transformer.yaml` | V15: PCR + large batch + z-scoring fix | **Ready** | Pending | Pending |
+| `N3v15_roi_dcf.yaml` | V15: PCR + large batch + z-scoring fix + hier | **Ready** | Pending | Pending |
+| `N4v15_full_system.yaml` | V15: flagship PCR + large batch + z-scoring fix | **Ready** | Pending | Pending |
 
 ---
 
@@ -112,12 +125,12 @@ Results archived in `experimental_results/exp001_baseline_ultimate/` and `Raport
 | Feature | Status |
 |---------|--------|
 | Mixed precision (AMP fp16 + bf16) | Implemented (`mixed_precision_dtype: "bf16"` for H100) |
-| Gradient accumulation | Implemented (v12+: 8 steps, eff. batch 512) |
+| Gradient accumulation | Implemented (v15: 2 steps with batch 256, eff. batch 512) |
 | Checkpoint resume | Implemented |
 | Early stopping | Implemented (configurable metric: r@1, csls_r@1, median_rank) |
 | LR scheduling (cosine + warmup) | Implemented |
 | Gradient clipping | Implemented (max_norm=1.0) |
-| Per-session z-scoring | Implemented |
+| Per-session z-scoring | Implemented (v15: fixed for multi-subject datasets) |
 | MixCo + SoftCLIP | Implemented (simultaneous from start) |
 | EMA (Exponential Moving Average) | Implemented (decay=0.999) |
 | fMRI noise augmentation | Implemented (std=0.1) |
@@ -140,26 +153,27 @@ Results archived in `experimental_results/exp001_baseline_ultimate/` and `Raport
 |------|----------|-------------|
 | Embedding diagnostics | `scripts/evaluation/diagnose_embeddings.py` | Hubness, similarity, kappa, failure analysis |
 | Aggregation | `scripts/evaluation/aggregate_ablation.py` | Cross-experiment comparison tables |
+| Val prediction saving | `scripts/training/train_unified.py` | Saves .npy after training for diagnostics (v15) |
 
 ```bash
-# Run diagnostics on a trained model
+# Run diagnostics on a trained model (requires V15+ for auto-saved .npy files)
 python scripts/evaluation/diagnose_embeddings.py \
-    --results-dir experimental_results/N1v14_vmf_nce/subj01
+    --results-dir experimental_results/N1v15_vmf_nce/subj01
 ```
 
 ---
 
 ## What to Run
 
-### V14 Ablation (H100)
+### V15 Ablation (H100)
 
 ```bash
-# Full V14 N-series (4 experiments)
-nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N14 > ablation_v14.log 2>&1 &
-tail -f ablation_v14.log
+# Full V15 N-series (4 experiments)
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N15 > ablation_v15.log 2>&1 &
+tail -f ablation_v15.log
 
 # Without checkpoints (save disk space)
-nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N14 SAVE_CKPT=0 > ablation_v14.log 2>&1 &
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N15 SAVE_CKPT=0 > ablation_v15.log 2>&1 &
 ```
 
 ### After Training
@@ -170,8 +184,8 @@ python3 scripts/evaluation/aggregate_ablation.py \
     --results-dir experimental_results \
     --subjects subj01
 
-# Run diagnostics on each experiment
-for exp in N1v14_vmf_nce N2v14_roi_transformer N3v14_roi_dcf N4v14_full_system; do
+# Run diagnostics on each experiment (V15 auto-saves .npy files)
+for exp in N1v15_vmf_nce N2v15_roi_transformer N3v15_roi_dcf N4v15_full_system; do
     python3 scripts/evaluation/diagnose_embeddings.py \
         --results-dir experimental_results/${exp}/subj01
 done

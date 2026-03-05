@@ -901,7 +901,8 @@ An alternative fix would be to remove \(\tau\) from the `_score()` method entire
 | v11 | N1v11-N4v11 | CSLS training loss, ISF, rep averaging, direct alignment, uniformity | ~51% (no improvement) |
 | v12 | N1v12-N4v12 | Two-stage training + kappa cap fix + eff. batch 512 + auto-weighting | N1: CSLS 52%, N3/N4: 27-37% (regression) |
 | v13 | N1v13-N4v13 | MSE regression from epoch 1 (MindEye-style) + hierarchical CLIP (N3/N4) | N1: 45-46%, CSLS 54%; N3: 45%, CSLS 54-55% |
-| v14 | N1v14-N4v14 | **Anti-hubness** (CSLS training + ISF + direct alignment) + CSLS checkpoint | Pending |
+| v14 | N1v14-N4v14 | Anti-hubness (CSLS training + ISF + direct alignment) + CSLS checkpoint | N1: ~43%, CSLS ~53%; N4: ~44-45%, CSLS ~55-58% |
+| v15 | N1v15-N4v15 | **Fix fundamentals**: PCR re-enabled, batch 256, z-scoring bug fix, loss simplification | Pending |
 
 Notes:
 - B-series stays at v4 (not affected by vMF-specific changes)
@@ -912,6 +913,7 @@ Notes:
 - v12 two-stage never activated for N1/N2 (early stopping before epoch 120); auto-weighting destroyed N3/N4
 - v13 adds MSE regression (MindEye1's key ingredient) and hierarchical CLIP alignment for N3/N4
 - v14 attacks the 8-10 pp hubness gap with three training-time mechanisms + CSLS-based checkpoint selection
+- v15 fixes three fundamental bottlenecks: z-scoring bug for multi-subject, disabled CLIP PCR, small in-batch size
 
 ---
 
@@ -1131,3 +1133,79 @@ Produces `diagnostics/report.json` with:
 - **Failure cases**: top-20 hardest samples with ranks and retrieved competitors
 
 Plus two plots: `hubness_histogram.png` and `similarity_distribution.png`.
+
+---
+
+## 18. V14 Results and V15 Design
+
+### 18.1 V14 Results (subj01)
+
+| Experiment | Raw R@1 | CSLS R@1 | R@5 | R@10 | Key Observation |
+|-----------|---------|----------|-----|------|-----------------|
+| N1v14 | ~43% | ~52-54% | ~75-79% | ~92% | Early-stop ~epoch 40-45; kappa ramps hard early |
+| N2v14 | ~38-40% | ~52-55% | ~76-77% | ~91-92% | More gradual; competitive CSLS but lower raw R@1 |
+| N3v14 | ~40%+ | ~52-55% | ~73-78% | ~86-88% | Steadier ranking improvements from extra heads |
+| N4v14 | **~44-45%** | **~55-58%** | ~74-77% | ~92% | Strongest overall; CSLS gains consistently strong |
+
+**Assessment:** The V14 anti-hubness measures (CSLS training, ISF, direct alignment) did **not** improve raw R@1 compared to V13. In fact, N1v14 (43%) is slightly below N1v13 (45-46%), while N4v14 is essentially identical. The CSLS gap persists at 8-13 pp, indicating the training-time CSLS correction failed to address hubness at its source.
+
+### 18.2 V15: Fix the Fundamentals
+
+Deep analysis of the codebase reveals three critical bottlenecks that together explain most of the 40 pp gap to MindEye's 84% R@1 on NSD subj01:
+
+**Bug 1 -- Z-scoring never applied to multi-subject datasets (N2/N3/N4):**
+
+In `train_unified.py` (line 1771, pre-V15), the z-scoring block was gated by:
+```python
+if normalize_fmri and isinstance(full_dataset, PreextractedNSDDataset):
+```
+
+`MultiSubjectPreextractedDataset` (used by N2/N3/N4) fails this isinstance check, so per-session z-scoring silently does not run despite `normalize_fmri: true` and `zscore_mode: "per_session"` being set in the config. N2/N3/N4 have been training on **raw, unnormalized beta values** across all 40 sessions, including inter-session scanner drift and baseline shifts.
+
+**Fix (V15):** Added an `elif` branch in `train_unified.py` that handles `MultiSubjectPreextractedDataset` by iterating over each subject's `features_list` entry and applying per-session z-scoring using training-only statistics. Stats are saved per-subject per-session to `zscore_stats/`.
+
+**Bottleneck 2 -- CLIP embedding PCR disabled since V9:**
+
+All configs from V5 through V14 set `preprocessing.enabled: false`. The `EmbeddingPreprocessor` (center-PCR) removes the top-k dominant principal components from CLIP embeddings. These shared components are the primary cause of hubness -- they make many gallery items appear close to many queries. Removing them spreads embeddings more uniformly on the hypersphere.
+
+The 8-10 pp CSLS gap observed across all versions is a direct symptom of these shared components remaining in the target embeddings. Rather than adding complex training-time corrections (CSLS loss, ISF), V15 addresses the root cause by re-enabling PCR with \(k = 4\).
+
+**Bottleneck 3 -- Only 63 in-batch contrastive negatives:**
+
+`batch_size: 64` yields only 63 in-batch negatives per contrastive step. MindEye uses 300. The queue (65536 entries) provides additional negatives, but they are **stale** -- computed from past model states, not the current parameters. In-batch negatives produce much more informative gradients because they reflect the current model's failure modes.
+
+On the H100 (80 GB VRAM), `batch_size: 256` is feasible for all architectures, providing 255 in-batch negatives -- a 4x improvement.
+
+### 18.3 V15 Changes Summary
+
+| Change | V14 Value | V15 Value | Rationale |
+|--------|-----------|-----------|-----------|
+| `preprocessing.enabled` | false | **true** (center_pcr, k=4) | Eliminate hubness at the embedding level |
+| `training.batch_size` | 64 | **256** | 4x more in-batch contrastive negatives |
+| `training.gradient_accumulation_steps` | 8 | **2** | Effective batch remains ~512 |
+| `queue.size` | 65536 | **16384** | Sufficient with larger in-batch pool |
+| `vmf_nce.use_csls_training` | true | **false** | PCR handles hubness at source |
+| `vmf_nce.isf_weight` | 0.3 | **0.0** | Removed (didn't help in V14) |
+| `direct_alignment.enabled` | true | **false** | MSE already provides per-sample alignment |
+| `training.checkpoint_metric` | csls_r@1 | **r@1** | With PCR, raw and CSLS R@1 should converge |
+| Multi-subject z-scoring | **broken** | **fixed** | Per-subject per-session normalization |
+| Val prediction saving | absent | **implemented** | Saves .npy for `diagnose_embeddings.py` |
+
+### 18.4 V15 Config Summary
+
+| Config | Encoder | Key V15 changes |
+|--------|---------|-----------------|
+| N1v15 | MLP [8192, 8192, 4096, 4096, 2048] | PCR k=4, batch 256, drop CSLS/ISF/DA |
+| N2v15 | ROI Transformer (d=1024, FFN=8192, 6L) | PCR k=4, batch 256, z-scoring fixed, drop CSLS/ISF/DA |
+| N3v15 | ROI-DCF (d=1024, FFN=8192, 6L) | PCR k=4, batch 256, z-scoring fixed, drop CSLS/ISF/DA, keep hierarchical CLIP |
+| N4v15 | ROI-DCF + SPCL (d=1024, FFN=8192, 6L) | PCR k=4, batch 256, z-scoring fixed, drop CSLS/ISF/DA, keep hierarchical CLIP + DUA-CFG |
+
+### 18.5 Expected Impact
+
+| Fix | Expected R@1 Gain | Rationale |
+|-----|-------------------|-----------|
+| Z-scoring for N2/N3/N4 | +3-5 pp | Removes session drift noise from multi-subject training |
+| CLIP PCR (k=4) | +5-10 pp | Directly eliminates hubness at the embedding level |
+| batch_size 64 -> 256 | +3-5 pp | 4x more informative in-batch negatives |
+| Simplified loss recipe | +1-2 pp | Cleaner gradients, less interference |
+| **Combined estimate** | **+12-20 pp** | Target: 55-65% R@1 |

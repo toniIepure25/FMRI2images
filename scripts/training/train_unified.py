@@ -1840,6 +1840,106 @@ def main() -> None:
         _zscore_stats_path = str(zscore_dir)
         logger.info("Saved z-scoring stats to %s", zscore_dir)
 
+    elif normalize_fmri and _is_multi_subject:
+        _train_idx = train_dataset.indices if hasattr(train_dataset, "indices") else list(range(len(train_dataset)))
+        zscore_dir = output_dir / "zscore_stats"
+        zscore_dir.mkdir(parents=True, exist_ok=True)
+        train_set = set(_train_idx)
+
+        subj_ints = full_dataset.index_df["_subject_int"].values
+        local_idxs = full_dataset._feat_local_idx
+        has_session = "session" in full_dataset.index_df.columns
+        use_per_session = zscore_mode == "per_session" and has_session
+
+        if not use_per_session and zscore_mode == "per_session":
+            logger.warning(
+                "zscore_mode='per_session' but no 'session' column in multi-subject index_df "
+                "— falling back to global z-scoring per subject"
+            )
+
+        total_sessions_done = 0
+        total_fallback = 0
+
+        for s_idx, subj_name in enumerate(full_dataset.subjects):
+            subj_mask = subj_ints == s_idx
+            subj_rows = np.where(subj_mask)[0]
+            subj_local = local_idxs[subj_rows]
+            subj_train_rows = np.array([r for r in subj_rows if r in train_set])
+            feats = full_dataset.features_list[s_idx]
+
+            if len(subj_train_rows) == 0:
+                logger.warning("Subject %s: no training trials — skipping z-score", subj_name)
+                continue
+
+            subj_train_local = local_idxs[subj_train_rows]
+
+            if use_per_session:
+                sessions = full_dataset.index_df["session"].values
+                subj_sessions = sessions[subj_rows]
+                unique_sess = np.unique(subj_sessions)
+
+                global_train_feat = feats[subj_train_local]
+                g_mean = global_train_feat.mean(axis=0, keepdims=True)
+                g_std = global_train_feat.std(axis=0, keepdims=True)
+                g_std[g_std < 1e-6] = 1.0
+                del global_train_feat
+
+                n_fb = 0
+                for sess in unique_sess:
+                    sess_row_mask = (subj_ints == s_idx) & (sessions == sess)
+                    sess_local = local_idxs[np.where(sess_row_mask)[0]]
+                    sess_train_mask = sess_row_mask & np.isin(np.arange(len(full_dataset.index_df)), subj_train_rows)
+                    sess_train_local = local_idxs[np.where(sess_train_mask)[0]]
+
+                    if len(sess_train_local) >= 2:
+                        s_mean = feats[sess_train_local].mean(axis=0, keepdims=True)
+                        s_std = feats[sess_train_local].std(axis=0, keepdims=True)
+                        s_std[s_std < 1e-6] = 1.0
+                    else:
+                        s_mean, s_std = g_mean, g_std
+                        n_fb += 1
+
+                    feats[sess_local] = (
+                        (feats[sess_local] - s_mean) / s_std
+                    ).astype(np.float32)
+
+                    np.save(
+                        zscore_dir / f"{subj_name}_session_{int(sess)}_mean.npy",
+                        s_mean.astype(np.float32),
+                    )
+                    np.save(
+                        zscore_dir / f"{subj_name}_session_{int(sess)}_std.npy",
+                        s_std.astype(np.float32),
+                    )
+
+                total_sessions_done += len(unique_sess)
+                total_fallback += n_fb
+                del g_mean, g_std
+                logger.info(
+                    "  %s: per-session z-scored %d sessions (%d fallback), %d voxels",
+                    subj_name, len(unique_sess), n_fb, feats.shape[1],
+                )
+            else:
+                s_mean = feats[subj_train_local].mean(axis=0, keepdims=True)
+                s_std = feats[subj_train_local].std(axis=0, keepdims=True)
+                s_std[s_std < 1e-6] = 1.0
+                all_local = local_idxs[subj_rows]
+                feats[all_local] = (
+                    (feats[all_local] - s_mean) / s_std
+                ).astype(np.float32)
+                np.save(zscore_dir / f"{subj_name}_mean.npy", s_mean.astype(np.float32))
+                np.save(zscore_dir / f"{subj_name}_std.npy", s_std.astype(np.float32))
+                logger.info(
+                    "  %s: global z-scored %d train trials, %d voxels",
+                    subj_name, len(subj_train_local), feats.shape[1],
+                )
+
+        logger.info(
+            "Multi-subject z-scoring complete: %d subjects, mode=%s",
+            len(full_dataset.subjects), "per_session" if use_per_session else "global",
+        )
+        _zscore_stats_path = str(zscore_dir)
+
     if preprocessor is not None and preproc_needs_fit:
         n_train = len(train_dataset)
         logger.info("Auto-fitting embedding preprocessor on %d training samples...", n_train)
@@ -2357,6 +2457,85 @@ def main() -> None:
                 )
             else:
                 logger.info("Model soup did not improve R@1 (%.4f vs %.4f)", soup_r1, best_r1)
+
+    # --- Save validation predictions for diagnostics (V15) ---
+    _best_ckpt_path = output_dir / "checkpoint_best.pt"
+    _soup_ckpt_path = output_dir / "checkpoint_soup.pt"
+    _loaded_ckpt_for_save = False
+    if _soup_ckpt_path.exists():
+        _ckpt_data = torch.load(_soup_ckpt_path, map_location=device, weights_only=False)
+        model.load_state_dict(_ckpt_data["model_state_dict"])
+        _loaded_ckpt_for_save = True
+        logger.info("Loaded soup checkpoint for prediction saving")
+    elif _best_ckpt_path.exists():
+        _ckpt_data = torch.load(_best_ckpt_path, map_location=device, weights_only=False)
+        model.load_state_dict(_ckpt_data["model_state_dict"])
+        _loaded_ckpt_for_save = True
+        logger.info("Loaded best checkpoint (epoch %d) for prediction saving",
+                     _ckpt_data.get("epoch", -1))
+
+    if ema is not None and _loaded_ckpt_for_save:
+        ema.apply_shadow(model)
+
+    _, _save_preds, _save_gts = validate(
+        model, val_loader, losses, loss_weights, device, preprocessor, queue,
+        vmf_is_log=_vmf_is_log,
+    )
+
+    _save_model_type = getattr(model, "model_type", "deterministic")
+    _save_kappas = None
+    if _save_model_type in ("vmf", "vmf_dcf"):
+        model.eval()
+        _kappa_list: List[np.ndarray] = []
+        with torch.no_grad():
+            for _sb in val_loader:
+                _s_fmri = _sb[0].to(device, dtype=torch.float32)
+                _s_sid = _sb[2].to(device) if _is_multi_subject and len(_sb) >= 3 else None
+                _s_out = model(_s_fmri, subject_ids=_s_sid) if _s_sid is not None else model(_s_fmri)
+                if isinstance(_s_out, tuple) and len(_s_out) >= 2:
+                    _s_aux = _s_out[1]
+                    if isinstance(_s_aux, dict):
+                        _s_k = _s_aux.get("kappa", _s_aux.get("concentration"))
+                    elif torch.is_tensor(_s_aux):
+                        _s_k = _s_aux
+                    else:
+                        _s_k = None
+                    if _s_k is not None:
+                        if _vmf_is_log:
+                            _s_k = _s_k.exp()
+                        _kappa_list.append(_s_k.squeeze(-1).detach().cpu().numpy())
+        if _kappa_list:
+            _save_kappas = np.concatenate(_kappa_list)
+
+    if ema is not None and _loaded_ckpt_for_save:
+        ema.restore(model)
+
+    if _val_nsd_ids is not None:
+        _u_ids = np.unique(_val_nsd_ids)
+        _ip = np.zeros((len(_u_ids), _save_preds.shape[1]), dtype=np.float32)
+        _ig = np.zeros((len(_u_ids), _save_gts.shape[1]), dtype=np.float32)
+        _ik = np.zeros(len(_u_ids), dtype=np.float32) if _save_kappas is not None else None
+        for i, uid in enumerate(_u_ids):
+            _m = _val_nsd_ids == uid
+            _ip[i] = _save_preds[_m].mean(axis=0)
+            _ig[i] = _save_gts[_m][0]
+            if _ik is not None and _save_kappas is not None:
+                _ik[i] = _save_kappas[_m[:len(_save_kappas)]].mean()
+        _nrm = np.linalg.norm(_ip, axis=-1, keepdims=True)
+        _save_preds = _ip / np.maximum(_nrm, 1e-8)
+        _save_gts = _ig
+        if _ik is not None:
+            _save_kappas = _ik
+
+    _metrics_save_dir = output_dir / "metrics"
+    _metrics_save_dir.mkdir(parents=True, exist_ok=True)
+    np.save(_metrics_save_dir / "val_predictions.npy", _save_preds)
+    np.save(_metrics_save_dir / "val_ground_truth.npy", _save_gts)
+    logger.info("Saved val predictions %s and ground truth %s to %s",
+                _save_preds.shape, _save_gts.shape, _metrics_save_dir)
+    if _save_kappas is not None:
+        np.save(_metrics_save_dir / "val_kappas.npy", _save_kappas)
+        logger.info("Saved val kappas %s to %s", _save_kappas.shape, _metrics_save_dir)
 
     logger.info("=" * 80)
     logger.info("Training complete!")

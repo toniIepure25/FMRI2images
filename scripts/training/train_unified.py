@@ -872,8 +872,8 @@ def train_epoch(
             _proj_head = getattr(model, "projection_head", None)
             pred_for_contrast = _proj_head(pred) if _proj_head is not None else pred
 
-            # --- Deterministic losses ---
-            if "mse" in losses and not is_gaussian and not is_vmf:
+            # --- Deterministic / regression losses ---
+            if "mse" in losses and not is_gaussian:
                 l = losses["mse"](pred, gt_embedding)
                 total_loss = total_loss + loss_weights.get("mse", 1.0) * l
                 batch_metrics["mse"] = l.item()
@@ -1233,7 +1233,7 @@ def validate(
             is_gaussian = model_type == "gaussian" and aux is not None
             is_vmf = model_type in ("vmf", "vmf_dcf") and aux is not None
 
-            if "mse" in losses and not is_gaussian and not is_vmf:
+            if "mse" in losses and not is_gaussian:
                 l = losses["mse"](pred, gt_embedding)
                 total_loss = total_loss + loss_weights.get("mse", 1.0) * l
                 bm["mse"] = l.item()
@@ -2048,15 +2048,20 @@ def main() -> None:
             _s2_lr_factor = _stage2_cfg.get("lr_factor", 0.1)
             for pg in optimizer.param_groups:
                 pg["lr"] = pg["lr"] * _s2_lr_factor
-            _s2_nll_w = _stage2_cfg.get("vmf_nll_weight", 2.0)
+            _s2_mse_w = _stage2_cfg.get("mse_weight", loss_weights.get("mse", 1.0))
+            _s2_nll_w = _stage2_cfg.get("vmf_nll_weight", 0.0)
             _s2_sc_w = _stage2_cfg.get("softclip_weight", 0.3)
             _s2_nce_w = _stage2_cfg.get("vmf_nce_weight", 0.0)
             _s2_spcl_w = _stage2_cfg.get("vmf_nce_spcl_weight", 0.0)
+            loss_weights["mse"] = _s2_mse_w
             loss_weights["vmf_nll"] = _s2_nll_w
             loss_weights["softclip"] = _s2_sc_w
             loss_weights["vmf_nce"] = _s2_nce_w
             loss_weights["vmf_nce_spcl"] = _s2_spcl_w
             loss_weights["vmf_nce_multitask"] = 0.0
+            _s2_hier_w = _stage2_cfg.get("hierarchical_clip_weight",
+                                          loss_weights.get("hierarchical_clip", 0.0))
+            loss_weights["hierarchical_clip"] = _s2_hier_w
             if not _stage2_cfg.get("mixco_enabled", False):
                 _has_mixco = False
             patience_counter = 0
@@ -2064,10 +2069,10 @@ def main() -> None:
             early_stop_patience = _stage2_cfg.get("patience", 20)
             logger.info(
                 "[STAGE 2] Activated at epoch %d: LR *= %.2f, "
-                "vmf_nll=%.1f, softclip=%.1f, vmf_nce=%.1f, spcl=%.1f, "
-                "mixco=%s, patience=%d",
-                epoch, _s2_lr_factor, _s2_nll_w, _s2_sc_w, _s2_nce_w,
-                _s2_spcl_w, _has_mixco, early_stop_patience,
+                "mse=%.1f, vmf_nll=%.1f, softclip=%.1f, vmf_nce=%.1f, spcl=%.1f, "
+                "hier=%.1f, mixco=%s, patience=%d",
+                epoch, _s2_lr_factor, _s2_mse_w, _s2_nll_w, _s2_sc_w, _s2_nce_w,
+                _s2_spcl_w, _s2_hier_w, _has_mixco, early_stop_patience,
             )
 
         _stage_prefix = "[STAGE 2] " if _stage2_activated else ""

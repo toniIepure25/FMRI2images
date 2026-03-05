@@ -12,7 +12,7 @@ export
 # ============================================================================
 
 .PHONY: help setup preflight doctor smoke
-.PHONY: prepare data models index preprocess preextract clip-cache
+.PHONY: prepare data models index preprocess preextract clip-cache multilayer-clip-cache
 .PHONY: train ablation
 .PHONY: eval-recon eval-shared1000 summarize-shared1000 compare-evals
 .PHONY: test test-quick
@@ -38,6 +38,7 @@ help:
 	@echo "  make preprocess     Fit preprocessing pipeline (scaler + reliability + PCA)"
 	@echo "  make preextract     Pre-extract ROI-masked fMRI features (fast training)"
 	@echo "  make clip-cache     Build CLIP embeddings cache"
+	@echo "  make multilayer-clip-cache  Build multi-layer CLIP cache (for hierarchical alignment)"
 	@echo ""
 	@echo "Training:"
 	@echo "  make train CONFIG=configs/experiments/B0_deterministic.yaml"
@@ -160,6 +161,18 @@ clip-cache:
 			--device $(DEVICE) \
 			$${LIMIT:+--limit $$LIMIT} && \
 		date -Iseconds > "$(CACHE_ROOT)/.markers/clip_cache_$(SUBJECT).ok"; \
+	fi
+
+multilayer-clip-cache:
+	@mkdir -p outputs/clip_cache
+	@if [ -f "outputs/clip_cache/clip_multilayer.parquet" ]; then \
+		echo "multilayer-clip-cache: already present (outputs/clip_cache/clip_multilayer.parquet)"; \
+	else \
+		$(PY) scripts/build/build_multilayer_clip_cache.py \
+			--subjects $${SUBJECTS:-subj01 subj02 subj05 subj07} \
+			--cache outputs/clip_cache/clip_multilayer.parquet \
+			--batch-size $${BATCH:-128} \
+			--device $(DEVICE); \
 	fi
 
 # ============================================================================

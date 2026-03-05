@@ -652,7 +652,7 @@ Key paths on JupyterHub:
 - Repo: `/home/jovyan/work/FMRI2images/` (branch: `dirbrain-vmf-uacfg`)
 - NSD data: `/home/jovyan/work/data/nsd/`
 - Pre-extracted features: `cache/preextracted/subject={subj}/fmri_features.npy`
-- CLIP cache: `outputs/clip_cache/clip.parquet`
+- CLIP cache: `outputs/clip_cache/clip.parquet` (single-layer), `outputs/clip_cache/clip_multilayer.parquet` (multi-layer for hierarchical alignment)
 - Results: `experimental_results/{experiment}/{subject}/`
 
 ---
@@ -899,7 +899,8 @@ An alternative fix would be to remove \(\tau\) from the `_score()` method entire
 | v9 | N1v9-N4v9 | Anti-overfitting (DropPath, R-Drop, label smoothing, proj head), CSLS eval, MC-TTA | N1: ~48%, N3/N4: ~51% |
 | v10 | N1v10-N4v10 | V8 recipe + V9 eval + wider models + hard neg + model soup | N1: ~48%, N4: ~50.8% |
 | v11 | N1v11-N4v11 | CSLS training loss, ISF, rep averaging, direct alignment, uniformity | ~51% (no improvement) |
-| v12 | N1v12-N4v12 | **Two-stage training** + kappa cap fix + eff. batch 512 + auto-weighting | Pending (target: 75%) |
+| v12 | N1v12-N4v12 | Two-stage training + kappa cap fix + eff. batch 512 + auto-weighting | N1: CSLS 52%, N3/N4: 27-37% (regression) |
+| v13 | N1v13-N4v13 | **MSE regression from epoch 1** (MindEye-style) + two-stage + kappa cap | Pending (target: 65-70%) |
 
 Notes:
 - B-series stays at v4 (not affected by vMF-specific changes)
@@ -907,7 +908,8 @@ Notes:
 - v8 only had N3 and N4 configs (N1/N2 skipped that iteration)
 - v10 combined best of V8 (losses) and V9 (eval tricks)
 - v11 attempted hubness mitigation and denoising but failed due to `average_repetitions: true` reducing data 3x
-- v12 is the first version with two-stage training (contrastive -> NLL fine-tuning)
+- v12 two-stage never activated for N1/N2 (early stopping before epoch 120); auto-weighting destroyed N3/N4
+- v13 adds MSE regression (the single most impactful missing ingredient from MindEye1)
 
 ---
 
@@ -956,3 +958,82 @@ The vMF NLL loss \(\mathcal{L}_{\text{NLL}} = -\log C_d(\kappa) - \kappa \cdot \
 | N2v12 | ROI Transformer (d=1024, FFN=8192, 6L) | Two-stage, kappa_max=50, eff. batch 512 |
 | N3v12 | ROI-DCF (d=1024, FFN=8192, 6L) | Two-stage, kappa_max=50, simplified losses, auto-weighting |
 | N4v12 | ROI-DCF + SPCL (d=1024, FFN=8192, 6L) | Two-stage, kappa_max=50, simplified losses, auto-weighting |
+
+---
+
+## 16. V12 Post-Mortem and V13 Design
+
+### 16.1 V12 Results
+
+| Experiment | Raw R@1 | CSLS R@1 | Epoch | Notes |
+|-----------|---------|----------|-------|-------|
+| N1v12 | 43.3% | **52.2%** | 83 (early-stopped) | Stage 2 never activated |
+| N2v12 | 42.3% | 50.0% | 101 (early-stopped) | Stage 2 never activated |
+| N3v12 | 25.2% | 37.2% | 140 | Auto-weighting + vmf_nll destroyed training |
+| N4v12 | 27.3% | 37.1% | 60 (truncated) | Same auto-weight bug + numerical spikes |
+
+### 16.2 V12 Failure Diagnosis
+
+**Bug 1 -- Auto-weighting destroyed N3/N4:**
+The homoscedastic uncertainty weighting had two fatal flaws:
+1. `vmf_nll` (config weight=0.0) was included in the auto-weight set. The filter `[k for k in losses if k != "kappa_reg"]` doesn't check config weight. So vmf_nll got overridden to weight 0.5.
+2. The `log_sigma` regularization gradient was always `+0.5` (from the `0.5 * log_sigma` additive term), independent of loss magnitude. The actual loss weights were computed as floats from `log_sigma.item()`, NOT as differentiable tensors. The auto-weighting learned nothing.
+Result: vmf_nll at ~40,000 dominated all other losses (~4-6 range), destroying contrastive learning for N3/N4.
+
+**Bug 2 -- Stage 2 never activated for N1/N2:**
+N1 early-stopped at epoch 83 (best ~epoch 53). Stage 2 was set at epoch 120. The two-stage training -- the centerpiece of V12 -- never ran for the best-performing models.
+
+**Root cause 3 -- vmf_nll is impractical:**
+The vMF normalizing constant \(-\log C_d(\kappa)\) for d=768 adds a ~40,000 baseline. While gradients are technically correct (the constant is independent of \(\mu\)), the enormous scale makes multi-loss balancing catastrophic and loss logging meaningless.
+
+### 16.3 V13: MSE Regression + Contrastive (MindEye-style)
+
+**Key insight:** The fundamental missing piece is a **per-sample regression loss**. All previous versions used only contrastive losses (vMF-NCE, SoftCLIP), which provide *relative* positioning ("this pair closer than that pair") but never tell the model the *absolute* target location. MindEye1 achieves 93.2% R@1 by combining SoftCLIP with **MSE loss** from epoch 1.
+
+For L2-normalized vectors: \(\text{MSE}(\mu, z) = \|\mu - z\|^2 = 2(1 - \cos(\mu, z))\), bounded [0, 4], gradient \(2(\mu - z)\) per sample. This directly forces each prediction toward its target.
+
+**V13 loss recipe (all experiments):**
+
+| Loss | Stage 1 weight | Stage 2 weight (epoch 80+) | Purpose |
+|------|---------------|--------------------------|---------|
+| MSE | 1.0 | **2.0** | Per-sample regression (MindEye's key ingredient) |
+| vMF-NCE / SPCL | 1.0 | 0.3 | Contrastive positioning with kappa |
+| SoftCLIP | 1.0 | 0.5 | Knowledge distillation |
+| HierarchicalCLIP (N3/N4) | 0.5 | 0.2 | Per-tier ROI-to-CLIP-layer alignment |
+| Multitask aux (N3/N4) | lambda=0.05 | disabled | Weak global coherence signal |
+| kappa_reg | 0.01 | 0.01 | Kappa regularization |
+| MixCo | 0.5 | disabled | Augmentation |
+
+Changes vs V12: removed vmf_nll (replaced by bounded MSE), removed auto_weight (broken), lowered stage2 start to epoch 80, enabled hierarchical CLIP alignment for N3/N4 (BrainMCLIP-style, see 16.5).
+
+### 16.4 V13 Config Summary
+
+| Experiment | Encoder | Key V13 changes |
+|-----------|---------|-----------------|
+| N1v13 | MLP [8192, 8192, 4096, 4096, 2048] | MSE from epoch 1, stage2 at 80, no vmf_nll |
+| N2v13 | ROI Transformer (d=1024, FFN=8192, 6L) | MSE from epoch 1, stage2 at 80, no vmf_nll |
+| N3v13 | ROI-DCF (d=1024, FFN=8192, 6L) | MSE from epoch 1, stage2 at 80, no auto_weight, hierarchical CLIP (0.5), multitask 0.05 |
+| N4v13 | ROI-DCF + SPCL (d=1024, FFN=8192, 6L) | MSE from epoch 1, stage2 at 80, no auto_weight, hierarchical CLIP (0.5), multitask 0.05 |
+
+### 16.5 Hierarchical ROI-to-Layer Alignment (N3/N4)
+
+**Root cause addressed:** In V12 (and prior versions), the `vmf_nce_multitask` auxiliary loss forces every ROI expert to independently predict the final, global 768-D CLIP embedding. This violates the known functional hierarchy of the visual cortex. Early visual areas (V1, V2) process low-level features -- edges, orientations, spatial frequency -- while the final CLIP layer encodes high-level semantic identity ("a dog," "a beach scene"). Forcing V1 to predict abstract semantics produces near-random gradients that conflict with the meaningful gradients from higher-level ROIs (FFA, PPA), suppressing their learning signal.
+
+**Solution -- BrainMCLIP-style multi-layer alignment (Liu et al., 2023; Luo et al., 2024 MindHier):**
+Instead of one global target for all ROIs, we align each visual hierarchy tier to the CLIP layer at the corresponding level of abstraction:
+
+| Tier | ROIs | CLIP target | Neuroscience rationale |
+|------|------|-------------|----------------------|
+| Early | V1v, V1d, V2v, V2d, V3v, V3d | Layer 12 (low-level features) | V1-V3 encode edges, orientations, spatial frequency |
+| Mid | V3A, V3B, V4 | Layer 18 (mid-level features) | V3A/V3B process motion and contour, V4 handles shape and color |
+| High | FFA1, FFA2, PPA, EBA, OFA, OPA | Final layer (semantic identity) | FFA=faces, PPA=scenes, EBA=bodies, OFA=faces, OPA=scenes |
+
+This is implemented by `HierarchicalCLIPLoss` (already in the codebase since V8), which computes the attention-weighted average of per-ROI \(\mu\) predictions within each tier and measures cosine distance to the corresponding CLIP layer target. The multi-layer CLIP cache (`clip_multilayer.parquet`) stores `layer_12_proj` and `layer_18_proj` embeddings (768-D, projected via CLIP's `visual.proj`).
+
+**Weight schedule:**
+- Stage 1 (epochs 1-79): `hierarchical_clip` weight = 0.5, `lambda_aux` = 0.05
+- Stage 2 (epoch 80+): `hierarchical_clip` weight = 0.2, `lambda_aux` = 0.0
+
+The `lambda_aux` is reduced from 0.2 to 0.05 because the hierarchical loss now provides per-tier supervision, making the global auxiliary signal largely redundant. A small residual maintains weak global coherence.
+
+**Prerequisite:** Multi-layer CLIP cache must be built via `make multilayer-clip-cache` before training N3v13/N4v13.

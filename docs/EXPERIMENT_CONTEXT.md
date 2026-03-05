@@ -2,9 +2,9 @@
 
 This document provides complete technical context for a bachelor thesis project on neural decoding of visual perception from fMRI. It is designed as a self-contained briefing for an LLM or researcher performing deep analysis.
 
-**Project status (March 2026):** After resolving critical bugs (nsdId off-by-one, kappa collapse) and six iterative architecture versions (v4-v9), the system achieves **~50% R@1** on subj01 with v8 configs (N3v8: 50.3%, N4v8: 50.8%). The v9 iteration introduces anti-overfitting regularization (Stochastic Depth, R-Drop, label smoothing), contrastive projection head separation, CSLS retrieval correction, and MC-Dropout test-time augmentation -- targeting **65-70% R@1**. All v9 experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision and effective batch size 1024.
+**Project status (March 2026):** After 14 iterative versions (v4-v14), the system achieves **~45% raw R@1 / ~54% CSLS R@1** on subj01 with V13 configs. The persistent 8-10 pp gap between raw and CSLS R@1 identifies **hubness** as the primary remaining bottleneck. V14 attacks this directly via differentiable CSLS training loss, inverted softmax (ISF), direct cosine alignment, and CSLS-based checkpoint selection. All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision and effective batch size 512.
 
-**SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training, (2) smaller model capacity (328M vs 996M params), and (3) MindEye's OpenCLIP ViT-bigG/14 embeddings (256x1664-D) vs our ViT-L/14 (768-D).
+**SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training, (2) smaller model capacity (328M vs 996M params), (3) MindEye's OpenCLIP ViT-bigG/14 embeddings (256x1664-D) vs our ViT-L/14 (768-D), and (4) hubness in high-dimensional retrieval from single-trial fMRI noise.
 
 ---
 
@@ -900,7 +900,8 @@ An alternative fix would be to remove \(\tau\) from the `_score()` method entire
 | v10 | N1v10-N4v10 | V8 recipe + V9 eval + wider models + hard neg + model soup | N1: ~48%, N4: ~50.8% |
 | v11 | N1v11-N4v11 | CSLS training loss, ISF, rep averaging, direct alignment, uniformity | ~51% (no improvement) |
 | v12 | N1v12-N4v12 | Two-stage training + kappa cap fix + eff. batch 512 + auto-weighting | N1: CSLS 52%, N3/N4: 27-37% (regression) |
-| v13 | N1v13-N4v13 | **MSE regression from epoch 1** (MindEye-style) + two-stage + kappa cap | Pending (target: 65-70%) |
+| v13 | N1v13-N4v13 | MSE regression from epoch 1 (MindEye-style) + hierarchical CLIP (N3/N4) | N1: 45-46%, CSLS 54%; N3: 45%, CSLS 54-55% |
+| v14 | N1v14-N4v14 | **Anti-hubness** (CSLS training + ISF + direct alignment) + CSLS checkpoint | Pending |
 
 Notes:
 - B-series stays at v4 (not affected by vMF-specific changes)
@@ -909,7 +910,8 @@ Notes:
 - v10 combined best of V8 (losses) and V9 (eval tricks)
 - v11 attempted hubness mitigation and denoising but failed due to `average_repetitions: true` reducing data 3x
 - v12 two-stage never activated for N1/N2 (early stopping before epoch 120); auto-weighting destroyed N3/N4
-- v13 adds MSE regression (the single most impactful missing ingredient from MindEye1)
+- v13 adds MSE regression (MindEye1's key ingredient) and hierarchical CLIP alignment for N3/N4
+- v14 attacks the 8-10 pp hubness gap with three training-time mechanisms + CSLS-based checkpoint selection
 
 ---
 
@@ -1037,3 +1039,95 @@ This is implemented by `HierarchicalCLIPLoss` (already in the codebase since V8)
 The `lambda_aux` is reduced from 0.2 to 0.05 because the hierarchical loss now provides per-tier supervision, making the global auxiliary signal largely redundant. A small residual maintains weak global coherence.
 
 **Prerequisite:** Multi-layer CLIP cache must be built via `make multilayer-clip-cache` before training N3v13/N4v13.
+
+---
+
+## 17. V13 Results and V14 Design
+
+### 17.1 V13 Results (subj01)
+
+| Experiment | Raw R@1 | CSLS R@1 | R@5 | Median Rank | Key Observation |
+|-----------|---------|----------|-----|-------------|-----------------|
+| N1v13 | ~45-46% | **~54%** | ~75-79% | ~2 | kappa_mean at ceiling (~50); large CSLS uplift |
+| N2v13 | ~44% | ~51-52% | ~76-77% | ~2 | Smoothest convergence; lowest CSLS gap |
+| N3v13 | ~45% | **~54-55%** | ~73-78% | ~2-3 | Best CSLS performer; hierarchical alignment improves geometry |
+| N4v13 | ~45-46% | ~53-54% | ~74-77% | ~2 | Competitive peak; SPCL curriculum + hierarchical |
+
+**Key takeaway:** All four models converge to similar raw R@1 (~44-46%) but CSLS R@1 is consistently 8-10 pp higher. This confirms **hubness** as the dominant bottleneck -- the embedding space contains hub points that are artificially close to many queries under raw cosine similarity, penalizing raw R@1 more than the hubness-corrected CSLS metric.
+
+The hierarchical CLIP alignment in N3v13 produces the best CSLS R@1 (54-55%), validating that tier-aware supervision improves the geometry of the embedding space and reduces hub formation compared to the global auxiliary loss.
+
+### 17.2 Hubness Diagnosis
+
+Hubness manifests when a few gallery embeddings become "universally popular" nearest neighbours for many queries. In high-dimensional spaces (d=768), this is a known phenomenon (Radovanovi\'{c} et al., 2010). The 8-10 pp CSLS gap quantifies the severity: CSLS corrects for hubness by penalizing embeddings with high average similarity to their k-NN, and the gap shows that removing this bias substantially improves retrieval accuracy.
+
+Hubness is exacerbated by:
+1. **Single-trial fMRI noise**: Each fMRI repetition contains irreducible physiological noise, pushing some predictions toward the gallery mean (which becomes a hub).
+2. **Contrastive-only training**: Standard cross-entropy on cosine logits does not explicitly penalize hub formation -- it only requires the correct item to rank highest, not that the embedding space be uniformly distributed.
+3. **Kappa at ceiling**: With kappa_mean ~50 (the configured maximum), the model is maximally confident about directions that may still be noisy, concentrating predictions in tight clusters that overlap with hubs.
+
+### 17.3 V14: Three-Pronged Anti-Hubness Strategy
+
+V14 enables three mechanisms already implemented in the codebase but disabled in V13:
+
+**1. Differentiable CSLS Training Loss** (`vmf_nce.use_csls_training: true`)
+
+Applies CSLS correction directly to the contrastive logit matrix *before* the cross-entropy computation:
+
+\[\text{logits}_{\text{CSLS}}(x, y) = 2 \cdot s(x, y) - r_X(x) - r_Y(y)\]
+
+where \(r_X(x) = \frac{1}{k}\sum_{y' \in \text{kNN}(x)} s(x, y')\). All operations (topk, mean, subtract) are differentiable, so gradients teach the encoder to produce embeddings that avoid hub regions. This directly attacks the root cause during training, not just at evaluation time.
+
+**2. Inverted Softmax (ISF)** (`vmf_nce.isf_weight: 0.3`)
+
+Standard contrastive loss normalizes over keys for each query (row-wise softmax). ISF adds a column-wise softmax component that penalizes gallery items appearing as top matches for many queries:
+
+\[\mathcal{L}_{\text{ISF}} = -\log \frac{\exp(s_{ii})}{\sum_j \exp(s_{ji})}\]
+
+The final loss is \((1 - w_{\text{ISF}}) \cdot \mathcal{L}_{\text{std}} + w_{\text{ISF}} \cdot \mathcal{L}_{\text{ISF}}\) with \(w_{\text{ISF}} = 0.3\). This symmetrizes the contrastive objective and explicitly discourages hub formation on the gallery side.
+
+**3. Direct Cosine Alignment** (`direct_alignment.weight: 0.5`)
+
+Adds a per-sample absolute alignment signal independent of batch composition:
+
+\[\mathcal{L}_{\text{DA}} = 1 - \cos(\mu, z_{\text{GT}})\]
+
+While MSE provides a similar signal, direct alignment operates in angular space and is less sensitive to the embedding norm. It provides a stable gradient for positioning each prediction toward its target without interacting with the contrastive objective or batch structure.
+
+### 17.4 CSLS-Based Checkpoint Selection
+
+V14 introduces configurable `training.checkpoint_metric: "csls_r@1"`. Previous versions always selected the best checkpoint by raw R@1, which preferentially selects models at local optima that may coincidentally benefit from hub-biased rankings. By selecting on CSLS R@1, we choose the model whose embedding space has the best hubness-corrected geometry.
+
+Supported values: `"r@1"` (default, backward compatible), `"csls_r@1"`, `"median_rank"` (lower is better). The Stage 2 transition properly resets the best metric value.
+
+### 17.5 OpenCLIP ViT-bigG/14 Assessment
+
+MindEye/MindEye2 use OpenCLIP ViT-bigG/14 (2B parameters, trained on LAION-2B), which provides:
+- **Pooled 1280-D embeddings**: single vector, higher-dimensional than our ViT-L/14 768-D
+- **256 x 1664-D token embeddings**: full spatial token representation used by MindEye2 for multi-token decoding
+
+**Assessment for this project:**
+
+The 256 x 1664-D multi-token representation requires predicting 256 separate spatial tokens via a cross-attention decoder and diffusion prior -- a fundamental architecture redesign beyond the scope of this thesis.
+
+The pooled 1280-D migration is feasible (config + cache rebuild + output_dim update) but carries risks: (a) higher-dimensional target space is harder to learn with limited single-subject data (~24K trials), (b) the hierarchical loss layer mapping must be recalibrated for bigG's 48-layer architecture, and (c) SD 2.1 reconstruction would need a 1280->1024 adapter.
+
+**Recommendation:** Defer bigG migration until V14 anti-hubness results are available. If the hubness gap closes but raw R@1 still plateaus below 55%, the pooled 1280-D migration becomes the next logical step. The codebase is largely dimension-agnostic (embedding_dim inferred from data), making the migration a cache-rebuild + config change.
+
+### 17.6 Diagnostic Tooling
+
+V14 adds `scripts/evaluation/diagnose_embeddings.py` for post-training analysis:
+
+```bash
+python scripts/evaluation/diagnose_embeddings.py \
+    --results-dir experimental_results/N1v14_vmf_nce/subj01
+```
+
+Produces `diagnostics/report.json` with:
+- **Hubness metrics**: k-occurrence skewness, hub/antihub fraction, top hub indices
+- **Similarity analysis**: positive vs negative pair cosine distributions, separability, overlap fraction
+- **Retrieval gap**: raw R@1 vs CSLS R@1 with per-k breakdown
+- **Kappa analysis**: per-kappa-bin R@1 (tests uncertainty-accuracy correlation)
+- **Failure cases**: top-20 hardest samples with ranks and retrieved competitors
+
+Plus two plots: `hubness_histogram.png` and `similarity_distribution.png`.

@@ -1,7 +1,7 @@
 # Implementation Status
 
 **Last Updated:** March 2026
-**Current Phase:** Phase 2+ (ViT-L/14, 768-D, vMF-NCE, ROI-DCF, V9 anti-overfit)
+**Current Phase:** V14 Anti-Hubness Training + CSLS Checkpoint Selection
 **Hardware:** NVIDIA H100 80GB HBM3 (CUDA 12.8, bf16 mixed precision)
 
 ---
@@ -13,6 +13,7 @@
 1. **vMF-NCE Loss (Bessel-Free)**
    - Geometry-correct contrastive loss on S^{d-1}
    - Softplus kappa parameterization (v7+), label smoothing (v9)
+   - CSLS training loss + ISF anti-hubness (v14)
    - Implementation: `src/fmri2img/losses/vmf_nce.py`
    - Tests: `tests/test_vmf.py`
 
@@ -32,7 +33,25 @@
    - Implementation: `src/fmri2img/inference/decomposed_ua_cfg.py`
    - Tests: `tests/test_decomposed_ua_cfg.py`
 
-### V9 Innovations (New)
+### V14 Innovations (Current)
+
+| Module | Location | Description |
+|--------|----------|-------------|
+| Differentiable CSLS Training | `src/fmri2img/losses/vmf_nce.py` | CSLS correction on logit matrix before CE (anti-hubness) |
+| Inverted Softmax (ISF) | `src/fmri2img/losses/vmf_nce.py` | Column-normalized CE penalizing hub targets |
+| Direct Cosine Alignment | `src/fmri2img/losses/direct_alignment.py` | Per-sample absolute alignment signal |
+| Configurable Checkpoint Metric | `scripts/training/train_unified.py` | `checkpoint_metric: csls_r@1` / `r@1` / `median_rank` |
+| Embedding Diagnostics | `scripts/evaluation/diagnose_embeddings.py` | Hubness, similarity, kappa, and failure analysis |
+
+### V13 Innovations
+
+| Module | Location | Description |
+|--------|----------|-------------|
+| MSE Regression (MindEye-style) | `scripts/training/train_unified.py` | Per-sample regression from epoch 1 |
+| Hierarchical CLIP Alignment | `src/fmri2img/losses/hierarchical_clip_loss.py` | BrainMCLIP-style per-tier ROI supervision |
+| Two-Stage Training | `scripts/training/train_unified.py` | Contrastive (Stage 1) -> MSE-heavy (Stage 2) |
+
+### Additional Modules
 
 | Module | Location | Tests |
 |--------|----------|-------|
@@ -43,11 +62,6 @@
 | MC-Dropout TTA | `scripts/training/train_unified.py` | `tests/test_v9_features.py` |
 | Kappa-Weighted Averaging | `scripts/training/train_unified.py` | `tests/test_v9_features.py` |
 | bf16 Mixed Precision | `scripts/training/train_unified.py` | -- |
-
-### Additional Modules
-
-| Module | Location | Tests |
-|--------|----------|-------|
 | vMF Mixture Sampling | `src/fmri2img/inference/vmf_mixture.py` | `tests/test_vmf_mixture.py` |
 | Risk-Coverage Curves | `src/fmri2img/eval/vmf_risk_coverage.py` | `tests/test_vmf_risk_coverage.py` |
 | Noise-Ceiling Normalization | `src/fmri2img/eval/ceiling_normalized_eval.py` | -- |
@@ -57,22 +71,26 @@
 | Multi-Subject Dataset | `src/fmri2img/data/multi_subject_dataset.py` | `tests/test_multi_subject.py` |
 | Multi-Layer CLIP Cache | `scripts/build/build_multilayer_clip_cache.py` | -- |
 
-### Experiment Configurations
+### Experiment Results and Configurations
 
-The ablation ladder runs **B v4 + N v5-v9** (`run_ablation_ladder.sh`):
-
-| Config | Type | Status | R@1 (subj01) |
-|--------|------|--------|--------------|
-| `B0v4_deterministic.yaml` | Strong deterministic baseline | Complete | ~22% |
-| `B1v4_gaussian.yaml` | Probabilistic Gaussian baseline | Complete | ~22% |
-| `N1v5_vmf_nce.yaml` | vMF-NCE (tau=1.0) | Complete | 39.9% |
-| `N1v7_vmf_nce.yaml` | vMF-NCE (softplus kappa, fused targets) | Complete | **49%** |
-| `N3v8_roi_dcf.yaml` | ROI-DCF + hierarchical CLIP + CKA | Complete | **50.3%** |
-| `N4v8_full_system.yaml` | Full system + SPCL | Complete | **50.8%** |
-| `N1v9_vmf_nce.yaml` | V9: proj head, R-Drop, CSLS, TTA, bf16 | **Ready** | Pending |
-| `N2v9_roi_transformer.yaml` | V9: DropPath, proj head, CSLS, TTA, bf16 | **Ready** | Pending |
-| `N3v9_roi_dcf.yaml` | V9: anti-overfit, proj head, CSLS, TTA, bf16 | **Ready** | Pending |
-| `N4v9_full_system.yaml` | V9: flagship, SPCL, CSLS, TTA, bf16 | **Ready** | Pending |
+| Config | Type | Status | Raw R@1 | CSLS R@1 |
+|--------|------|--------|---------|----------|
+| `B0v4_deterministic.yaml` | Strong deterministic baseline | Complete | ~22% | -- |
+| `B1v4_gaussian.yaml` | Probabilistic Gaussian baseline | Complete | ~22% | -- |
+| `N1v5_vmf_nce.yaml` | vMF-NCE (tau=1.0) | Complete | 39.9% | -- |
+| `N1v7_vmf_nce.yaml` | vMF-NCE (softplus kappa, fused targets) | Complete | 49% | -- |
+| `N3v8_roi_dcf.yaml` | ROI-DCF + hierarchical CLIP + CKA | Complete | 50.3% | -- |
+| `N4v8_full_system.yaml` | Full system + SPCL | Complete | 50.8% | -- |
+| `N1v10_vmf_nce.yaml` | V10: wider MLP + hard neg + model soup | Complete | ~48% | ~54% |
+| `N4v10_full_system.yaml` | V10: wider ROI-DCF + hard neg + model soup | Complete | ~50.8% | -- |
+| `N1v13_vmf_nce.yaml` | V13: MSE regression + contrastive | Complete | **~45-46%** | **~54%** |
+| `N2v13_roi_transformer.yaml` | V13: ROI Transformer + MSE | Complete | ~44% | ~51-52% |
+| `N3v13_roi_dcf.yaml` | V13: ROI-DCF + MSE + hierarchical CLIP | Complete | ~45% | **~54-55%** |
+| `N4v13_full_system.yaml` | V13: flagship + MSE + hierarchical CLIP | Complete | ~45-46% | ~53-54% |
+| `N1v14_vmf_nce.yaml` | V14: anti-hubness + CSLS checkpoint | **Ready** | Pending | Pending |
+| `N2v14_roi_transformer.yaml` | V14: anti-hubness + CSLS checkpoint | **Ready** | Pending | Pending |
+| `N3v14_roi_dcf.yaml` | V14: anti-hubness + hierarchical + CSLS ckpt | **Ready** | Pending | Pending |
+| `N4v14_full_system.yaml` | V14: flagship anti-hubness + CSLS checkpoint | **Ready** | Pending | Pending |
 
 ---
 
@@ -94,9 +112,9 @@ Results archived in `experimental_results/exp001_baseline_ultimate/` and `Raport
 | Feature | Status |
 |---------|--------|
 | Mixed precision (AMP fp16 + bf16) | Implemented (`mixed_precision_dtype: "bf16"` for H100) |
-| Gradient accumulation | Implemented (v9: 8 steps, eff. batch 1024) |
+| Gradient accumulation | Implemented (v12+: 8 steps, eff. batch 512) |
 | Checkpoint resume | Implemented |
-| Early stopping | Implemented (on R@1, patience 30) |
+| Early stopping | Implemented (configurable metric: r@1, csls_r@1, median_rank) |
 | LR scheduling (cosine + warmup) | Implemented |
 | Gradient clipping | Implemented (max_norm=1.0) |
 | Per-session z-scoring | Implemented |
@@ -104,23 +122,44 @@ Results archived in `experimental_results/exp001_baseline_ultimate/` and `Raport
 | EMA (Exponential Moving Average) | Implemented (decay=0.999) |
 | fMRI noise augmentation | Implemented (std=0.1) |
 | Voxel dropout | Implemented (0.1) |
-| R-Drop regularization | Implemented (v9, weight=0.5) |
+| Two-stage training | Implemented (v12+: contrastive -> MSE-heavy at epoch 80) |
+| MSE regression loss | Implemented (v13+: from epoch 1, weight 1.0) |
+| CSLS training loss | Implemented (v14: differentiable CSLS on logit matrix) |
+| Inverted softmax (ISF) | Implemented (v14: column-normalized CE, weight 0.3) |
+| Direct alignment loss | Implemented (v11+: per-sample cosine alignment) |
+| Configurable checkpoint metric | Implemented (v14: csls_r@1 / r@1 / median_rank) |
 | MC-Dropout TTA | Implemented (v9, 8 samples) |
 | CSLS retrieval evaluation | Implemented (v9, k=10) |
+| Model soup | Implemented (v10, top-5 checkpoints) |
+
+---
+
+## Diagnostic Tools
+
+| Tool | Location | Description |
+|------|----------|-------------|
+| Embedding diagnostics | `scripts/evaluation/diagnose_embeddings.py` | Hubness, similarity, kappa, failure analysis |
+| Aggregation | `scripts/evaluation/aggregate_ablation.py` | Cross-experiment comparison tables |
+
+```bash
+# Run diagnostics on a trained model
+python scripts/evaluation/diagnose_embeddings.py \
+    --results-dir experimental_results/N1v14_vmf_nce/subj01
+```
 
 ---
 
 ## What to Run
 
-### V9 Ablation (H100)
+### V14 Ablation (H100)
 
 ```bash
-# Full V9 N-series (4 experiments)
-nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N9 > ablation_v9.log 2>&1 &
-tail -f ablation_v9.log
+# Full V14 N-series (4 experiments)
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N14 > ablation_v14.log 2>&1 &
+tail -f ablation_v14.log
 
 # Without checkpoints (save disk space)
-nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N9 SAVE_CKPT=0 > ablation_v9.log 2>&1 &
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N14 SAVE_CKPT=0 > ablation_v14.log 2>&1 &
 ```
 
 ### After Training
@@ -130,4 +169,10 @@ nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N9 SAVE_CKPT=0 > ablation_v9.lo
 python3 scripts/evaluation/aggregate_ablation.py \
     --results-dir experimental_results \
     --subjects subj01
+
+# Run diagnostics on each experiment
+for exp in N1v14_vmf_nce N2v14_roi_transformer N3v14_roi_dcf N4v14_full_system; do
+    python3 scripts/evaluation/diagnose_embeddings.py \
+        --results-dir experimental_results/${exp}/subj01
+done
 ```

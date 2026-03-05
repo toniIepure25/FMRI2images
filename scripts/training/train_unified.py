@@ -220,11 +220,14 @@ class MetricsLogger:
 
     def write_summary(self, best_epoch: int, best_val_loss: float,
                       wall_time_s: float, manifest: Dict[str, Any],
-                      best_r1: float = 0.0) -> None:
+                      best_r1: float = 0.0, best_metric: float = 0.0,
+                      checkpoint_metric: str = "r@1") -> None:
         summary = {
             "best_epoch": best_epoch,
             "best_val_loss": best_val_loss,
             "best_r@1": best_r1,
+            "checkpoint_metric": checkpoint_metric,
+            "best_checkpoint_metric_value": best_metric,
             "total_epochs": len(self._history),
             "wall_time_seconds": round(wall_time_s, 1),
             "manifest": manifest,
@@ -657,10 +660,15 @@ def setup_losses(config: Dict[str, Any], device: str,
                 initial_curriculum_t=c.get("initial_curriculum_t", 100.0),
                 hard_negative_weight=c.get("hard_negative_weight", 0.0),
                 hard_neg_k=c.get("hard_neg_k", 16),
+                use_csls_training=c.get("use_csls_training", False),
+                csls_k=c.get("csls_k", 10),
+                isf_weight=c.get("isf_weight", 0.0),
             )
-            logger.info("vMF-NCE-SPCL loss enabled (curriculum_t=%.1f, hard_neg=%.2f)",
+            logger.info("vMF-NCE-SPCL loss enabled (curriculum_t=%.1f, hard_neg=%.2f, csls_train=%s, isf=%.2f)",
                          c.get("initial_curriculum_t", 100.0),
-                         c.get("hard_negative_weight", 0.0))
+                         c.get("hard_negative_weight", 0.0),
+                         c.get("use_csls_training", False),
+                         c.get("isf_weight", 0.0))
 
     # --- SoftCLIP knowledge distillation ---
     if loss_cfg.get("softclip", {}).get("enabled", False):
@@ -1944,6 +1952,7 @@ def main() -> None:
     start_epoch = 1
     best_val_loss = float("inf")
     best_r1 = 0.0
+    best_metric_val = 0.0
     global_step = 0
     best_epoch = 0
 
@@ -1967,6 +1976,14 @@ def main() -> None:
     early_stop_min_delta = config["training"].get("early_stop_min_delta", 0.001)
     save_frequency = config["training"].get("save_frequency", 0)
     patience_counter = 0
+
+    _ckpt_metric_name = config["training"].get("checkpoint_metric", "r@1")
+    _ckpt_lower_is_better = _ckpt_metric_name == "median_rank"
+    if _ckpt_metric_name != "r@1":
+        logger.info("Checkpoint metric: %s (lower_is_better=%s)",
+                     _ckpt_metric_name, _ckpt_lower_is_better)
+    if _ckpt_lower_is_better:
+        best_metric_val = float("inf")
 
     _vmf_is_log = getattr(model, "vmf_output_is_log", True)
 
@@ -2062,17 +2079,21 @@ def main() -> None:
             _s2_hier_w = _stage2_cfg.get("hierarchical_clip_weight",
                                           loss_weights.get("hierarchical_clip", 0.0))
             loss_weights["hierarchical_clip"] = _s2_hier_w
+            _s2_da_w = _stage2_cfg.get("direct_alignment_weight",
+                                        loss_weights.get("direct_alignment", 0.0))
+            loss_weights["direct_alignment"] = _s2_da_w
             if not _stage2_cfg.get("mixco_enabled", False):
                 _has_mixco = False
             patience_counter = 0
             best_r1 = 0.0
+            best_metric_val = float("inf") if _ckpt_lower_is_better else 0.0
             early_stop_patience = _stage2_cfg.get("patience", 20)
             logger.info(
                 "[STAGE 2] Activated at epoch %d: LR *= %.2f, "
                 "mse=%.1f, vmf_nll=%.1f, softclip=%.1f, vmf_nce=%.1f, spcl=%.1f, "
-                "hier=%.1f, mixco=%s, patience=%d",
+                "hier=%.1f, da=%.1f, mixco=%s, patience=%d",
                 epoch, _s2_lr_factor, _s2_mse_w, _s2_nll_w, _s2_sc_w, _s2_nce_w,
-                _s2_spcl_w, _s2_hier_w, _has_mixco, early_stop_patience,
+                _s2_spcl_w, _s2_hier_w, _s2_da_w, _has_mixco, early_stop_patience,
             )
 
         _stage_prefix = "[STAGE 2] " if _stage2_activated else ""
@@ -2232,9 +2253,14 @@ def main() -> None:
 
         metrics_logger.log_epoch(epoch, optimizer.param_groups[0]["lr"], train_metrics, val_metrics)
 
-        # --- Checkpointing (early-stop on R@1, higher is better) ---
+        # --- Checkpointing (early-stop on configurable metric) ---
         val_loss = val_metrics.get("loss", val_metrics.get("mse", float("inf")))
         val_r1 = val_metrics["r@1"]
+
+        _cur_metric = val_metrics.get(_ckpt_metric_name)
+        if _cur_metric is None:
+            _cur_metric = val_r1
+        best_r1 = max(best_r1, val_r1)
 
         if not args.no_checkpoints:
             save_checkpoint(
@@ -2244,8 +2270,13 @@ def main() -> None:
                 losses=losses, meta=_ckpt_meta, ema=ema,
             )
 
-        if val_r1 > best_r1 + early_stop_min_delta:
-            best_r1 = val_r1
+        if _ckpt_lower_is_better:
+            _improved = _cur_metric < best_metric_val - early_stop_min_delta
+        else:
+            _improved = _cur_metric > best_metric_val + early_stop_min_delta
+
+        if _improved:
+            best_metric_val = _cur_metric
             best_val_loss = val_loss
             best_epoch = epoch
             patience_counter = 0
@@ -2260,7 +2291,8 @@ def main() -> None:
                 )
             if ema is not None:
                 ema.restore(model)
-            logger.info("New best: R@1=%.4f (val_loss=%.4f)", val_r1, val_loss)
+            logger.info("New best: %s=%.4f (R@1=%.4f, val_loss=%.4f)",
+                        _ckpt_metric_name, _cur_metric, val_r1, val_loss)
         else:
             patience_counter += 1
             if patience_counter >= early_stop_patience:
@@ -2276,7 +2308,9 @@ def main() -> None:
             )
 
     wall_time = time.time() - wall_start
-    metrics_logger.write_summary(best_epoch, best_val_loss, wall_time, manifest, best_r1=best_r1)
+    metrics_logger.write_summary(best_epoch, best_val_loss, wall_time, manifest,
+                                 best_r1=best_r1, best_metric=best_metric_val,
+                                 checkpoint_metric=_ckpt_metric_name)
 
     # --- Model soup post-training (V10) ---
     _eval_cfg = config.get("evaluation", {})

@@ -50,7 +50,7 @@ done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8 N1v9 N2v9 N3v9 N4v9 N1v10 N2v10 N3v10 N4v10 N1v11 N2v11 N3v11 N4v11 N1v12 N2v12 N3v12 N4v12 N1v13 N2v13 N3v13 N4v13)
+EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8 N1v9 N2v9 N3v9 N4v9 N1v10 N2v10 N3v10 N4v10 N1v11 N2v11 N3v11 N4v11 N1v12 N2v12 N3v12 N4v12 N1v13 N2v13 N3v13 N4v13 N1v14 N2v14 N3v14 N4v14)
 
 declare -A CONFIGS=(
     [B0]="B0_deterministic.yaml|Strong deterministic baseline (MLP + PCR + queue + MSE + InfoNCE)"
@@ -111,6 +111,10 @@ declare -A CONFIGS=(
     [N2v13]="N2v13_roi_transformer.yaml|v13: MSE regression + contrastive + kappa cap + wider FFN + two-stage"
     [N3v13]="N3v13_roi_dcf.yaml|v13: MSE regression + contrastive + kappa cap + wider FFN + multitask"
     [N4v13]="N4v13_full_system.yaml|v13: flagship MSE regression + SPCL + kappa cap + wider FFN + DUA-CFG"
+    [N1v14]="N1v14_vmf_nce.yaml|v14: anti-hubness (CSLS training + ISF + direct alignment) + CSLS checkpoint"
+    [N2v14]="N2v14_roi_transformer.yaml|v14: anti-hubness (CSLS training + ISF + direct alignment) + CSLS checkpoint"
+    [N3v14]="N3v14_roi_dcf.yaml|v14: anti-hubness + hierarchical CLIP + CSLS checkpoint"
+    [N4v14]="N4v14_full_system.yaml|v14: flagship anti-hubness + SPCL + hierarchical CLIP + DUA-CFG + CSLS checkpoint"
 )
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"

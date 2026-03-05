@@ -430,6 +430,9 @@ class KappaSPCLVMFNCELoss(nn.Module):
         initial_curriculum_t: float = 50.0,
         hard_negative_weight: float = 0.0,
         hard_neg_k: int = 16,
+        use_csls_training: bool = False,
+        csls_k: int = 10,
+        isf_weight: float = 0.0,
     ):
         super().__init__()
         self.tau = tau
@@ -438,11 +441,15 @@ class KappaSPCLVMFNCELoss(nn.Module):
         self.curriculum_t = initial_curriculum_t
         self.hard_negative_weight = hard_negative_weight
         self.hard_neg_k = hard_neg_k
+        self.use_csls_training = use_csls_training
+        self.csls_k = csls_k
+        self.isf_weight = isf_weight
         logger.info(
             "KappaSPCLVMFNCELoss: tau=%s, use_queue=%s, curriculum_t=%s, "
-            "hard_neg=(%.2f, k=%d)",
+            "hard_neg=(%.2f, k=%d), csls_train=%s, isf=%.2f",
             tau, use_queue, initial_curriculum_t,
             hard_negative_weight, hard_neg_k,
+            use_csls_training, isf_weight,
         )
 
     def set_curriculum_temperature(self, t: float) -> None:
@@ -497,8 +504,24 @@ class KappaSPCLVMFNCELoss(nn.Module):
                 boost.scatter_(1, hard_idx, self.hard_negative_weight)
                 logits = logits + boost
 
+        if self.use_csls_training:
+            k = min(self.csls_k, logits.shape[1] - 1, logits.shape[0] - 1)
+            if k >= 1:
+                r_x = logits.topk(k, dim=1).values.mean(dim=1)
+                r_y = logits.topk(k, dim=0).values.mean(dim=0)
+                logits = 2.0 * logits - r_x.unsqueeze(1) - r_y.unsqueeze(0)
+
+        logits = logits.clamp(-80, 80)
+
         per_sample_loss = F.cross_entropy(logits, labels, reduction="none")  # (B,)
-        return (weights * per_sample_loss).sum()
+        std_loss = (weights * per_sample_loss).sum()
+
+        if self.isf_weight > 0:
+            log_prob_isf = F.log_softmax(logits, dim=0)
+            isf_loss = -log_prob_isf[labels, labels].mean()
+            return (1.0 - self.isf_weight) * std_loss + self.isf_weight * isf_loss
+
+        return std_loss
 
 
 # ---------------------------------------------------------------------------

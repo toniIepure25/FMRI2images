@@ -1,0 +1,166 @@
+# N1v14: vMF-NCE — Anti-Hubness Training + CSLS Checkpoint Selection
+#
+# V14 strategy: attack the 8-10 pp hubness gap (raw R@1 vs CSLS R@1) via
+# three training-time mechanisms + CSLS-based checkpoint selection.
+#
+# V13 results (subj01): R@1 ~45-46%, CSLS R@1 ~54%  (gap: ~8-9 pp)
+#
+# V14 changes vs V13:
+#   - vmf_nce.use_csls_training: true (differentiable CSLS correction on logits)
+#   - vmf_nce.isf_weight: 0.3 (inverted softmax penalizing hub targets)
+#   - direct_alignment.enabled: true, weight: 0.5 (per-sample cosine alignment)
+#   - checkpoint_metric: csls_r@1 (select best model by hubness-corrected metric)
+#   - stage2.direct_alignment_weight: 0.3
+
+experiment:
+  name: "N1v14_vmf_nce"
+  description: "v14 vMF-NCE: anti-hubness (CSLS training + ISF + direct alignment) + CSLS checkpoint"
+  tags: ["vmf", "vmf_nce", "queue", "novel", "v14", "softplus", "fused_targets",
+         "csls", "mc_tta", "hard_neg", "model_soup", "two_stage", "kappa_cap",
+         "scaled_mlp", "mse_regression", "anti_hubness", "csls_training", "isf",
+         "direct_alignment"]
+  parent: "N1v13_vmf_nce"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.2
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+    kappa_max: 50.0
+
+preprocessing:
+  enabled: false
+
+loss:
+  mse:
+    enabled: true
+    weight: 1.0
+
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    hard_negative_weight: 0.5
+    hard_neg_k: 16
+    use_csls_training: true
+    csls_k: 10
+    isf_weight: 0.3
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  direct_alignment:
+    enabled: true
+    weight: 0.5
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  vmf_nll:
+    enabled: false
+  r_drop:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 65536
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 8
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 1.0e-4
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 15
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  early_stop_min_delta: 0.002
+  checkpoint_metric: "csls_r@1"
+  save_frequency: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+  stage2:
+    enabled: true
+    start_epoch: 80
+    lr_factor: 0.1
+    mse_weight: 2.0
+    vmf_nce_weight: 0.3
+    softclip_weight: 0.5
+    direct_alignment_weight: 0.3
+    mixco_enabled: false
+    patience: 20
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  use_csls: true
+  csls_k: 10
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+  model_soup: true
+  soup_top_k: 5
+  compute_probabilistic: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/N1v14_vmf_nce"

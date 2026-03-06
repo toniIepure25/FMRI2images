@@ -19,9 +19,11 @@
 #   bash scripts/training/run_ablation_ladder.sh --only N9   # only N v9
 #   bash scripts/training/run_ablation_ladder.sh --only N8   # only N v8
 #   bash scripts/training/run_ablation_ladder.sh --only N7   # only N v7
-#   bash scripts/training/run_ablation_ladder.sh --no-checkpoints  # skip saving checkpoints
+#   bash scripts/training/run_ablation_ladder.sh --no-checkpoints          # skip all checkpoints
+#   bash scripts/training/run_ablation_ladder.sh --save-checkpoints best  # save only best
 #   make ablation SUBJECTS="subj01" GPU=0 ONLY=N7            # same via Make
-#   make ablation SUBJECTS="subj01" GPU=0 ONLY=N7 SAVE_CKPT=0  # no checkpoints
+#   make ablation SUBJECTS="subj01" GPU=0 ONLY=N7 SAVE_CKPT=no    # no checkpoints
+#   make ablation SUBJECTS="subj01" GPU=0 ONLY=N7 SAVE_CKPT=best  # best checkpoint only
 #
 # Results are saved to experimental_results/<experiment_name>/
 # =============================================================================
@@ -32,8 +34,12 @@ SUBJECTS="${SUBJECTS:-subj01 subj02 subj05 subj07}"
 GPU="${GPU:-0}"
 START="${START:-B0v4}"
 ONLY="${ONLY:-all}"
-SAVE_CKPT="${SAVE_CKPT:-1}"
-case "${SAVE_CKPT,,}" in no|false|off|0) SAVE_CKPT=0 ;; esac
+SAVE_CKPT="${SAVE_CKPT:-all}"
+case "${SAVE_CKPT,,}" in
+    no|false|off|0|none) SAVE_CKPT=none ;;
+    best)                SAVE_CKPT=best ;;
+    *)                   SAVE_CKPT=all ;;
+esac
 CONFIG_DIR="configs/experiments"
 SCRIPT="scripts/training/train_unified.py"
 
@@ -43,7 +49,8 @@ while [[ $# -gt 0 ]]; do
         --gpu) GPU="$2"; shift 2 ;;
         --start) START="$2"; shift 2 ;;
         --only) ONLY="$2"; shift 2 ;;
-        --no-checkpoints) SAVE_CKPT=0; shift ;;
+        --no-checkpoints) SAVE_CKPT=none; shift ;;
+        --save-checkpoints) SAVE_CKPT="$2"; shift 2 ;;
         *) echo "Unknown arg: $1"; exit 1 ;;
     esac
 done
@@ -156,7 +163,7 @@ echo "ABLATION LADDER"
 echo "Experiments: ${EXPERIMENT_ORDER[*]}"
 echo "Subjects: ${SUBJECTS}"
 echo "GPU: ${GPU}"
-echo "Save checkpoints: $( [[ "$SAVE_CKPT" == "0" ]] && echo "NO" || echo "YES" )"
+echo "Save checkpoints: ${SAVE_CKPT}"
 echo "=============================================="
 
 # --- Pre-extract fMRI features (one-time, ~5-10 min per subject) ---
@@ -216,8 +223,8 @@ for exp_id in "${EXPERIMENT_ORDER[@]}"; do
         fi
 
         EXTRA_ARGS=""
-        if [[ "$SAVE_CKPT" == "0" ]]; then
-            EXTRA_ARGS="--no-checkpoints"
+        if [[ "$SAVE_CKPT" != "all" ]]; then
+            EXTRA_ARGS="--save-checkpoints $SAVE_CKPT"
         fi
 
         if python3 "$SCRIPT" \

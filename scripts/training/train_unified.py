@@ -1632,9 +1632,14 @@ def main() -> None:
     parser.add_argument("--gpu", type=int, default=0, help="GPU device ID")
     parser.add_argument("--resume", type=str, default=None, help="Resume from checkpoint path")
     parser.add_argument("--subject", type=str, default=None, help="Override subject (e.g. subj02)")
+    parser.add_argument("--save-checkpoints", type=str, default="all",
+                        choices=["all", "best", "none"],
+                        help="all=save last+best+periodic, best=best only, none=skip all")
     parser.add_argument("--no-checkpoints", action="store_true",
-                        help="Skip saving checkpoint files (saves disk space)")
+                        help="(deprecated) alias for --save-checkpoints none")
     args = parser.parse_args()
+    if args.no_checkpoints:
+        args.save_checkpoints = "none"
 
     config = load_config(Path(args.config))
     subject = resolve_subject(args, config)
@@ -2585,7 +2590,7 @@ def main() -> None:
             _cur_metric = val_r1
         best_r1 = max(best_r1, val_r1)
 
-        if not args.no_checkpoints:
+        if args.save_checkpoints == "all":
             save_checkpoint(
                 output_dir / "checkpoint_last.pt", model, optimizer, lr_sched,
                 scaler, epoch, val_loss, config, global_step,
@@ -2605,7 +2610,7 @@ def main() -> None:
             patience_counter = 0
             if ema is not None:
                 ema.apply_shadow(model)
-            if not args.no_checkpoints:
+            if args.save_checkpoints in ("all", "best"):
                 save_checkpoint(
                     output_dir / "checkpoint_best.pt", model, optimizer, lr_sched,
                     scaler, epoch, val_loss, config, global_step,
@@ -2622,7 +2627,7 @@ def main() -> None:
                 logger.info("Early stopping at epoch %d (patience=%d)", epoch, early_stop_patience)
                 break
 
-        if not args.no_checkpoints and save_frequency > 0 and epoch % save_frequency == 0:
+        if args.save_checkpoints == "all" and save_frequency > 0 and epoch % save_frequency == 0:
             save_checkpoint(
                 output_dir / f"checkpoint_epoch_{epoch}.pt", model, optimizer,
                 lr_sched, scaler, epoch, val_loss, config, global_step,
@@ -2637,7 +2642,7 @@ def main() -> None:
 
     # --- Model soup post-training (V10) ---
     _eval_cfg = config.get("evaluation", {})
-    if _eval_cfg.get("model_soup", False) and not args.no_checkpoints:
+    if _eval_cfg.get("model_soup", False) and args.save_checkpoints == "all":
         soup_top_k = _eval_cfg.get("soup_top_k", 5)
         logger.info("Running model soup (top_k=%d)...", soup_top_k)
         soup_applied = model_soup(output_dir, model, top_k=soup_top_k, device=device)

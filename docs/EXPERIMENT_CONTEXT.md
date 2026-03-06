@@ -1316,6 +1316,22 @@ Added periodic training R@1 computation (every 10 epochs, ~1024-sample subset). 
 
 **Risk:** With 9,000 clean training images and a 600M-param model at dropout=0.05, overfitting is possible. The training R@1 monitor will detect this. If train R@1 exceeds val R@1 by more than 20 pp, light regularization (dropout 0.10) should be restored.
 
+### 19.4b V16 Actual Results (subj01)
+
+V16 achieved **~39% R@1**, a significant regression from V8's 50.8%. The aggressive simplification went too far:
+
+| Root Cause | V8 (51%) | V16 (39%) | Impact |
+|------------|----------|-----------|--------|
+| SoftCLIP | weight 1.0 | disabled | Lost soft-label contrastive signal |
+| MixCo | weight 0.5 | disabled | Lost embedding-space augmentation |
+| kappa_reg | 0.01 | disabled | Kappa unconstrained |
+| Regularization | dropout 0.2, wd 0.05, noise 0.1 | dropout 0.05, wd 0.005, no noise | Too little for 9k samples |
+| Queue | 16384 | 8192 | Fewer negatives |
+| Rep averaging | false (~27k trials) | true (~9k) | 3x data reduction |
+| MSE loss | none | weight 2.0 | Conflicts with contrastive on unit sphere |
+
+**Conclusion:** V16's hypothesis that the model was underfitting was incorrect. The V8 loss recipe (SoftCLIP + MixCo + kappa_reg + proper regularization + all 27k trials) was essential. V17 reverts to the proven V7/V8 baseline.
+
 ### 19.5 Shared1000 Benchmark Evaluation
 
 Starting with V16, every training run automatically evaluates on the **NSD shared1000 benchmark** at the end of training. This is the community-standard test set used by MindEye, MindEye2, Brain Diffuser, and other NSD decoding papers.
@@ -1339,20 +1355,74 @@ Starting with V16, every training run automatically evaluates on the **NSD share
 |--------|----------|-------------|------------|
 | MindEye2 (Scotti et al., 2024) | shared1000 | ~982 images | OpenCLIP ViT-bigG/14 (1280-D) |
 | Brain Diffuser (Ozcelik & VanRullen, 2023) | shared1000 | ~982 images | CLIP ViT-L/14 (768-D) |
-| **Ours (V16)** | **shared1000** | **~982 images** | CLIP ViT-L/14 (768-D) |
+| **Ours (V16+)** | **shared1000** | **~982 images** | CLIP ViT-L/14 (768-D) |
 
-**Note on comparability:** Our shared1000 R@1 is directly comparable in gallery size and protocol. The CLIP model difference (ViT-L/14 vs bigG) means absolute R@1 numbers are not strictly apples-to-apples with MindEye2, but are comparable with Brain Diffuser and other ViT-L/14-based methods. Migration to OpenCLIP ViT-bigG/14 is deferred until V16 results prove the prediction quality improvements are effective.
+**Note on comparability:** Our shared1000 R@1 is directly comparable in gallery size and protocol. The CLIP model difference (ViT-L/14 vs bigG) means absolute R@1 numbers are not strictly apples-to-apples with MindEye2, but are comparable with Brain Diffuser and other ViT-L/14-based methods.
 
-**Config flag:** `evaluation.eval_shared1000: true` (default true in V16 configs). Set to `false` to skip.
+**Config flag:** `evaluation.eval_shared1000: true` (default true in V16+ configs). Set to `false` to skip.
 
 ### 19.6 Version Genealogy
 
 ```
 V4 (fix 6 bugs) -> V5 (tau=1, no kappa_reg)
-  -> V6 (novel losses) -> V7 (multi-subj, softplus)
-    -> V8 (hierarchical CLIP) -> V9 (anti-overfit, H100)
-      -> V10 (wider + hard neg + soup) -> V11 (CSLS training)
-        -> V12 (two-stage, auto-weight) -> V13 (MSE regression)
-          -> V14 (anti-hubness + diagnostics) -> V15 (PCR + batch + z-score fix)
-            -> V16 (rep-avg + low-reg + focused loss + shared1000 eval)
+  -> V6 (novel losses) -> V7 (multi-subj, softplus)  <-- N1 best: ~49%
+    -> V8 (hierarchical CLIP)                         <-- N3/N4 best: 50.3%/50.8%
+      -> V9 (anti-overfit, H100) -> V10 (wider + hard neg + soup)
+        -> V11 (CSLS training) -> V12 (two-stage, auto-weight)
+          -> V13 (MSE regression) -> V14 (anti-hubness + diagnostics)
+            -> V15 (PCR + batch + z-score fix)
+              -> V16 (rep-avg + low-reg + focused loss + shared1000 eval) = 39% REGRESSION
+    -> V17 (restore V7/V8 baseline + CSLS + shared1000 + diagnostics)  <-- CURRENT
 ```
+
+---
+
+## 20. V17: Restore V7/V8 Baseline + CSLS + Shared1000 + Diagnostics
+
+### 20.1 Rationale
+
+After V8 achieved the project's best R@1 (50.8% for N4v8), nine subsequent versions (V9-V16) attempted various improvements but none exceeded V8. V16's aggressive simplification (stripping SoftCLIP, MixCo, kappa_reg, increasing dropout to 0.05, enabling repetition averaging) caused a regression to ~39% R@1.
+
+V17 takes a fundamentally different approach: **faithfully restore the proven V7/V8 recipe** and add only non-invasive evaluation/diagnostic capabilities from later versions.
+
+### 20.2 Strategy
+
+V17 configs are near-exact copies of V7 (for N1/N2) and V8 (for N3/N4), with only evaluation and diagnostic additions:
+
+**Training recipe (unchanged from V7/V8):**
+- Losses: vMF-NCE (1.0) + SoftCLIP (1.0) + kappa_reg (0.01) + MixCo (0.5)
+- N3/N4 add: hierarchical_clip (0.3) + CKA (0.5) + vmf_nce_multitask
+- Regularization: dropout 0.2, weight_decay 0.05, fmri_noise_std 0.1, voxel_dropout 0.1
+- Queue: 16384
+- Data: average_repetitions: false (all ~27k trials)
+- No MSE, no PCR, no two-stage, no projection head, no R-Drop, no label smoothing
+
+**Evaluation additions (no impact on training):**
+- `eval_shared1000: true` -- community benchmark for SOTA comparison
+- `use_csls: true`, `csls_k: 10` -- hubness-corrected retrieval metrics
+- `mc_tta_samples: 8`, `kappa_weighted_avg: true` -- MC-Dropout TTA
+- `checkpoint_metric: "r@1"` -- early-stop on raw R@1
+- `train_r1_interval: 10` -- training R@1 monitoring for overfit detection
+- `early_stop_min_delta: 0.002` -- prevents noise from resetting patience
+- `mixed_precision_dtype: "bf16"` -- H100 optimization
+
+### 20.3 V17 Config Summary
+
+| Config | Base | Encoder | Expected R@1 |
+|--------|------|---------|-------------|
+| N1v17 | N1v7 | MLP [8192, 4096, 2048] | ~49% |
+| N2v17 | N2v7 | ROI Transformer (d=768, 6L, FFN=3072) | ~48% |
+| N3v17 | N3v8 | ROI-DCF (d=768, 6L, FFN=3072) | ~50% |
+| N4v17 | N4v8 | ROI-DCF + SPCL (d=768, 6L, FFN=3072) | ~51% |
+
+### 20.4 Diagnostic Plan
+
+After V17 reproduces V8-level results, the shared1000 and diagnostic data will reveal:
+
+1. **Shared1000 R@1** -- direct SOTA comparison (comparable with Brain Diffuser using same CLIP model)
+2. **CSLS gap** (raw R@1 vs CSLS R@1) -- quantifies hubness severity
+3. **Training R@1 vs val R@1** -- overfitting or underfitting diagnosis
+4. **Cosine similarity distributions** (via `diagnose_embeddings.py`) -- representation quality
+5. **Per-ROI attention analysis** -- which brain regions contribute most
+
+These diagnostics will inform a targeted V18 plan to break the 51% ceiling.

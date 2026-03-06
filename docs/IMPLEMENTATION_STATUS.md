@@ -1,7 +1,7 @@
 # Implementation Status
 
 **Last Updated:** March 2026
-**Current Phase:** V16 Unlock Prediction Quality (rep-avg + low-reg + focused loss)
+**Current Phase:** V17 Restore V7/V8 Baseline + CSLS + Shared1000 + Diagnostics
 **Hardware:** NVIDIA H100 80GB HBM3 (CUDA 12.8, bf16 mixed precision)
 
 ---
@@ -33,15 +33,24 @@
    - Implementation: `src/fmri2img/inference/decomposed_ua_cfg.py`
    - Tests: `tests/test_decomposed_ua_cfg.py`
 
-### V16 Innovations (Current)
+### V17 Innovations (Current)
+
+| Module | Location | Description |
+|--------|----------|-------------|
+| Restore V7/V8 proven recipe | V17 configs | Faithful copy of best-performing V7/V8 training recipe |
+| Shared1000 benchmark eval | `scripts/training/train_unified.py` | Post-training eval on community-standard ~982-image held-out set |
+| CSLS + MC-TTA evaluation | V17 configs | `use_csls: true`, `mc_tta_samples: 8`, `kappa_weighted_avg: true` |
+| Training R@1 monitoring | `scripts/training/train_unified.py` | Periodic train retrieval eval for overfit/underfit diagnosis |
+| bf16 mixed precision | V17 configs | H100 optimization (added to V7/V8 base) |
+| `SAVE_CKPT=best` option | `run_ablation_ladder.sh` | Save only best checkpoint to conserve disk space |
+
+### V16 (Regressed to ~39% R@1)
 
 | Module | Location | Description |
 |--------|----------|-------------|
 | Multi-subject repetition averaging | `src/fmri2img/data/multi_subject_dataset.py` | Per-subject per-nsdId fMRI averaging (SNR ~1.73x) |
-| Training R@1 monitoring | `scripts/training/train_unified.py` | Periodic train retrieval eval for overfit/underfit diagnosis |
-| Shared1000 benchmark evaluation | `scripts/training/train_unified.py` | Post-training eval on community-standard ~982-image held-out set |
-| Focused loss recipe | V16 configs | MSE(2.0) + vMF-NCE(0.5) only; all auxiliary losses removed |
-| Low-regularization regime | V16 configs | dropout 0.05, wd 0.005, no noise, no MixCo, no kappa_reg |
+| Focused loss recipe | V16 configs | MSE(2.0) + vMF-NCE(0.5) only; stripped too many losses |
+| Low-regularization regime | V16 configs | dropout 0.05, wd 0.005; caused regression from 51% to 39% |
 
 ### V15 Innovations
 
@@ -114,10 +123,14 @@
 | `N2v15_roi_transformer.yaml` | V15: PCR + large batch + z-scoring fix | Complete | 38.9% | 45.9% |
 | `N3v15_roi_dcf.yaml` | V15: PCR + large batch + z-scoring fix + hier | Complete | -- | -- |
 | `N4v15_full_system.yaml` | V15: flagship PCR + large batch + z-scoring fix | Complete | 42.2% | 47.2% |
-| `N1v16_vmf_nce.yaml` | V16: rep-avg + low-reg + MSE(2)+NCE(0.5) | **Ready** | Pending | Pending |
-| `N2v16_roi_transformer.yaml` | V16: ROI Transformer + rep-avg + low-reg | **Ready** | Pending | Pending |
-| `N3v16_roi_dcf.yaml` | V16: ROI-DCF + rep-avg + low-reg | **Ready** | Pending | Pending |
-| `N4v16_full_system.yaml` | V16: flagship rep-avg + low-reg + MSE+SPCL | **Ready** | Pending | Pending |
+| `N1v16_vmf_nce.yaml` | V16: rep-avg + low-reg + MSE(2)+NCE(0.5) | Complete | ~39% | -- |
+| `N2v16_roi_transformer.yaml` | V16: ROI Transformer + rep-avg + low-reg | Complete | ~39% | -- |
+| `N3v16_roi_dcf.yaml` | V16: ROI-DCF + rep-avg + low-reg | Complete | ~39% | -- |
+| `N4v16_full_system.yaml` | V16: flagship rep-avg + low-reg + MSE+SPCL | Complete | ~39% | -- |
+| `N1v17_vmf_nce.yaml` | V17: restore V7 + CSLS + shared1000 | **Ready** | Pending | Pending |
+| `N2v17_roi_transformer.yaml` | V17: restore V7 + CSLS + shared1000 | **Ready** | Pending | Pending |
+| `N3v17_roi_dcf.yaml` | V17: restore V8 + CSLS + shared1000 | **Ready** | Pending | Pending |
+| `N4v17_full_system.yaml` | V17: restore V8 flagship + CSLS + shared1000 | **Ready** | Pending | Pending |
 
 ---
 
@@ -174,22 +187,19 @@ Results archived in `experimental_results/exp001_baseline_ultimate/` and `Raport
 ```bash
 # Run diagnostics on a trained model (requires V15+ for auto-saved .npy files)
 python scripts/evaluation/diagnose_embeddings.py \
-    --results-dir experimental_results/N1v16_vmf_nce/subj01
+    --results-dir experimental_results/N1v17_vmf_nce/subj01
 ```
 
 ---
 
 ## What to Run
 
-### V16 Ablation (H100)
+### V17 Ablation (H100)
 
 ```bash
-# Full V16 N-series (4 experiments)
-nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N16 > ablation_v16.log 2>&1 &
-tail -f ablation_v16.log
-
-# Without checkpoints (save disk space)
-nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N16 SAVE_CKPT=0 > ablation_v16.log 2>&1 &
+# Full V17 N-series (4 experiments, best checkpoint only)
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N17 SAVE_CKPT=best > ablation_v17.log 2>&1 &
+tail -f ablation_v17.log
 ```
 
 ### After Training
@@ -200,15 +210,14 @@ python3 scripts/evaluation/aggregate_ablation.py \
     --results-dir experimental_results \
     --subjects subj01
 
-# Run diagnostics on each experiment (V15+ auto-saves .npy files)
-for exp in N1v16_vmf_nce N2v16_roi_transformer N3v16_roi_dcf N4v16_full_system; do
+# Run diagnostics on each experiment
+for exp in N1v17_vmf_nce N2v17_roi_transformer N3v17_roi_dcf N4v17_full_system; do
     python3 scripts/evaluation/diagnose_embeddings.py \
         --results-dir experimental_results/${exp}/subj01
 done
 
-# Shared1000 results are saved automatically during training.
-# View them with:
-for exp in N1v16_vmf_nce N2v16_roi_transformer N3v16_roi_dcf N4v16_full_system; do
+# View shared1000 benchmark results (saved automatically during training)
+for exp in N1v17_vmf_nce N2v17_roi_transformer N3v17_roi_dcf N4v17_full_system; do
     echo "=== ${exp} ==="
     cat experimental_results/${exp}/subj01/metrics/shared1000_metrics.json 2>/dev/null \
         || echo "  (not yet available)"

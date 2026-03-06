@@ -57,7 +57,7 @@ done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8 N1v9 N2v9 N3v9 N4v9 N1v10 N2v10 N3v10 N4v10 N1v11 N2v11 N3v11 N4v11 N1v12 N2v12 N3v12 N4v12 N1v13 N2v13 N3v13 N4v13 N1v14 N2v14 N3v14 N4v14 N1v15 N2v15 N3v15 N4v15 N1v16 N2v16 N3v16 N4v16)
+EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8 N1v9 N2v9 N3v9 N4v9 N1v10 N2v10 N3v10 N4v10 N1v11 N2v11 N3v11 N4v11 N1v12 N2v12 N3v12 N4v12 N1v13 N2v13 N3v13 N4v13 N1v14 N2v14 N3v14 N4v14 N1v15 N2v15 N3v15 N4v15 N1v16 N2v16 N3v16 N4v16 N1v17 N2v17 N3v17 N4v17)
 
 declare -A CONFIGS=(
     [B0]="B0_deterministic.yaml|Strong deterministic baseline (MLP + PCR + queue + MSE + InfoNCE)"
@@ -130,6 +130,10 @@ declare -A CONFIGS=(
     [N2v16]="N2v16_roi_transformer.yaml|v16: ROI Transformer + rep-avg + low-reg + focused MSE+NCE"
     [N3v16]="N3v16_roi_dcf.yaml|v16: ROI-DCF + rep-avg + low-reg + focused MSE+NCE"
     [N4v16]="N4v16_full_system.yaml|v16: flagship rep-avg + low-reg + focused MSE+SPCL"
+    [N1v17]="N1v17_vmf_nce.yaml|v17: restore V7 baseline + CSLS + shared1000 + diagnostics"
+    [N2v17]="N2v17_roi_transformer.yaml|v17: restore V7 baseline + CSLS + shared1000 + diagnostics"
+    [N3v17]="N3v17_roi_dcf.yaml|v17: restore V8 baseline + CSLS + shared1000 + diagnostics"
+    [N4v17]="N4v17_full_system.yaml|v17: restore V8 flagship + CSLS + shared1000 + diagnostics"
 )
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"

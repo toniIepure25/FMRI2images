@@ -50,7 +50,7 @@ done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8 N1v9 N2v9 N3v9 N4v9 N1v10 N2v10 N3v10 N4v10 N1v11 N2v11 N3v11 N4v11 N1v12 N2v12 N3v12 N4v12 N1v13 N2v13 N3v13 N4v13 N1v14 N2v14 N3v14 N4v14 N1v15 N2v15 N3v15 N4v15)
+EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8 N1v9 N2v9 N3v9 N4v9 N1v10 N2v10 N3v10 N4v10 N1v11 N2v11 N3v11 N4v11 N1v12 N2v12 N3v12 N4v12 N1v13 N2v13 N3v13 N4v13 N1v14 N2v14 N3v14 N4v14 N1v15 N2v15 N3v15 N4v15 N1v16 N2v16 N3v16 N4v16)
 
 declare -A CONFIGS=(
     [B0]="B0_deterministic.yaml|Strong deterministic baseline (MLP + PCR + queue + MSE + InfoNCE)"
@@ -119,6 +119,10 @@ declare -A CONFIGS=(
     [N2v15]="N2v15_roi_transformer.yaml|v15: ROI Transformer + PCR + large batch + z-scoring fix"
     [N3v15]="N3v15_roi_dcf.yaml|v15: ROI-DCF + PCR + large batch + z-scoring fix"
     [N4v15]="N4v15_full_system.yaml|v15: flagship PCR + large batch + z-scoring fix + SPCL + DUA-CFG"
+    [N1v16]="N1v16_vmf_nce.yaml|v16: rep-avg + low-reg + focused MSE+NCE"
+    [N2v16]="N2v16_roi_transformer.yaml|v16: ROI Transformer + rep-avg + low-reg + focused MSE+NCE"
+    [N3v16]="N3v16_roi_dcf.yaml|v16: ROI-DCF + rep-avg + low-reg + focused MSE+NCE"
+    [N4v16]="N4v16_full_system.yaml|v16: flagship rep-avg + low-reg + focused MSE+SPCL"
 )
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"

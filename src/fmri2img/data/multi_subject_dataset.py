@@ -49,6 +49,9 @@ class MultiSubjectPreextractedDataset(Dataset):
         split_by_image: If True, split by unique ``nsdId`` (no image leakage).
         val_ratio:    Fraction of unique images for validation.
         seed:         Random seed for reproducible splits.
+        average_repetitions: If True, average fMRI across repetitions of the
+                             same ``nsdId`` within each subject before training.
+                             Reduces noise by ~sqrt(n_reps).
     """
 
     SUBJECT_TO_INT: Dict[str, int] = {}
@@ -67,6 +70,7 @@ class MultiSubjectPreextractedDataset(Dataset):
         split_by_image: bool = True,
         val_ratio: float = 0.10,
         seed: int = 42,
+        average_repetitions: bool = False,
     ):
         super().__init__()
         self.subjects = list(subjects)
@@ -118,6 +122,26 @@ class MultiSubjectPreextractedDataset(Dataset):
                 raise ValueError(
                     f"{subj}: features ({len(feats)}) != index ({len(idx_df)}). "
                     f"Re-run: make preextract SUBJECT={subj}"
+                )
+
+            if average_repetitions and "nsdId" in idx_df.columns:
+                n_raw = len(idx_df)
+                nsd_vals = idx_df["nsdId"].values
+                unique_ids = np.unique(nsd_vals)
+                avg_feats = np.zeros(
+                    (len(unique_ids), feats.shape[1]), dtype=np.float32,
+                )
+                new_rows: List[dict] = []
+                for i, nsd_id in enumerate(unique_ids):
+                    mask = nsd_vals == nsd_id
+                    avg_feats[i] = feats[mask].mean(axis=0)
+                    new_rows.append(idx_df[mask].iloc[0].to_dict())
+                feats = avg_feats
+                idx_df = pd.DataFrame(new_rows).reset_index(drop=True)
+                logger.info(
+                    "%s: rep-averaging %d trials -> %d images (SNR ~%.2fx)",
+                    subj, n_raw, len(unique_ids),
+                    np.sqrt(n_raw / max(len(unique_ids), 1)),
                 )
 
             idx_df["_subject"] = subj

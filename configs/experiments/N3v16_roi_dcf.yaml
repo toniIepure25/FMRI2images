@@ -1,0 +1,189 @@
+# N3v16: ROI-DCF -- Unlock Prediction Quality
+#
+# V16 strategy: same core changes as N1/N2v16. The DCF architecture provides
+# per-ROI vMF expert heads with spherical consensus fusion — this structural
+# contribution is preserved while stripping away loss complexity.
+#
+# Key changes vs V15:
+#   1. Enable repetition averaging (SNR ~1.73x)
+#   2. Slash regularization (dropout 0.2->0.05, wd 0.05->0.005, no noise)
+#   3. Simplify loss to MSE(2.0) + vMF-NCE(0.5) — drop multitask, hier_clip
+#   4. Remove two-stage training, MixCo, SoftCLIP, kappa_reg
+#   5. Disable PCR
+#   6. Add training R@1 monitoring
+#
+# V15 results (subj01): N3v15 diagnostic not reported; N4v15 R@1 42.2%
+
+experiment:
+  name: "N3v16_roi_dcf"
+  description: "v16 ROI-DCF: rep-averaged + low-reg + focused MSE+NCE"
+  tags: ["roi_dcf", "vmf", "vmf_nce", "interpretable", "novel", "v16",
+         "multi_subject", "softplus", "rep_avg", "low_reg", "focused_loss",
+         "train_r1_monitor", "model_soup", "kappa_cap_200"]
+  parent: "N3v15_roi_dcf"
+
+data:
+  subjects: ["subj01", "subj02", "subj05", "subj07"]
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: true
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf_dcf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "multi_subject_roi_transformer"
+    input_dim: null
+    roi_dims:
+      V1v: 700
+      V1d: 700
+      V2v: 600
+      V2d: 600
+      V3v: 500
+      V3d: 500
+      V3A: 350
+      V3B: 350
+      V4: 500
+      FFA1: 200
+      FFA2: 200
+      PPA: 300
+      EBA: 400
+      OFA: 200
+      OPA: 250
+      RSC: 250
+      nsdgeneral_other: 9374
+    d_model: 1024
+    nhead: 16
+    num_layers: 6
+    dim_feedforward: 8192
+    dropout: 0.05
+    activation: "gelu"
+  decoder:
+    output_dim: 768
+    kappa_mode: "softplus"
+    kappa_max: 200.0
+    dropout: 0.05
+    dcf:
+      shared_heads: true
+      hidden_dim: null
+      return_per_roi: true
+
+preprocessing:
+  enabled: false
+
+loss:
+  mse:
+    enabled: true
+    weight: 2.0
+
+  vmf_nce:
+    enabled: true
+    weight: 0.5
+    dim: 768
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    hard_negative_weight: 0.0
+    hard_neg_k: 0
+    use_csls_training: false
+    isf_weight: 0.0
+
+  vmf_nce_multitask:
+    enabled: false
+
+  softclip:
+    enabled: false
+  direct_alignment:
+    enabled: false
+  kappa_reg:
+    enabled: false
+  vmf_nll:
+    enabled: false
+  hierarchical_clip:
+    enabled: false
+  cka:
+    enabled: false
+  r_drop:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 8192
+
+training:
+  batch_size: 256
+  gradient_accumulation_steps: 2
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 300
+  optimizer:
+    type: "adamw"
+    lr: 1.4e-4
+    weight_decay: 0.005
+    betas: [0.9, 0.95]
+  warmup_epochs: 20
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 40
+  early_stop_min_delta: 0.002
+  checkpoint_metric: "r@1"
+  save_frequency: 10
+  fmri_noise_std: 0.0
+  voxel_dropout: 0.0
+  train_r1_interval: 10
+  softclip_from_start: false
+  mixco:
+    enabled: false
+  ema:
+    enabled: true
+    decay: 0.999
+  stage2:
+    enabled: false
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+  ua_cfg:
+    enabled: true
+    w_min: 1.5
+    w_max: 12.0
+    gamma: 1.0
+    steps_min: 10
+    steps_max: 50
+    delta_beta: 0.5
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  use_csls: true
+  csls_k: 10
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+  model_soup: true
+  soup_top_k: 5
+  compute_probabilistic: true
+  compute_attention_analysis: true
+  compute_roi_ablation: true
+  compute_per_roi_analysis: true
+  eval_shared1000: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/N3v16_roi_dcf"

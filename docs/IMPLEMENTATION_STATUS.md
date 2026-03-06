@@ -1,7 +1,7 @@
 # Implementation Status
 
 **Last Updated:** March 2026
-**Current Phase:** V15 Fix the Fundamentals (PCR + large batch + z-scoring fix)
+**Current Phase:** V16 Unlock Prediction Quality (rep-avg + low-reg + focused loss)
 **Hardware:** NVIDIA H100 80GB HBM3 (CUDA 12.8, bf16 mixed precision)
 
 ---
@@ -33,7 +33,17 @@
    - Implementation: `src/fmri2img/inference/decomposed_ua_cfg.py`
    - Tests: `tests/test_decomposed_ua_cfg.py`
 
-### V15 Innovations (Current)
+### V16 Innovations (Current)
+
+| Module | Location | Description |
+|--------|----------|-------------|
+| Multi-subject repetition averaging | `src/fmri2img/data/multi_subject_dataset.py` | Per-subject per-nsdId fMRI averaging (SNR ~1.73x) |
+| Training R@1 monitoring | `scripts/training/train_unified.py` | Periodic train retrieval eval for overfit/underfit diagnosis |
+| Shared1000 benchmark evaluation | `scripts/training/train_unified.py` | Post-training eval on community-standard ~982-image held-out set |
+| Focused loss recipe | V16 configs | MSE(2.0) + vMF-NCE(0.5) only; all auxiliary losses removed |
+| Low-regularization regime | V16 configs | dropout 0.05, wd 0.005, no noise, no MixCo, no kappa_reg |
+
+### V15 Innovations
 
 | Module | Location | Description |
 |--------|----------|-------------|
@@ -100,10 +110,14 @@
 | `N2v14_roi_transformer.yaml` | V14: anti-hubness + CSLS checkpoint | Complete | ~38-40% | ~52-55% |
 | `N3v14_roi_dcf.yaml` | V14: anti-hubness + hierarchical + CSLS ckpt | Complete | ~40%+ | ~52-55% |
 | `N4v14_full_system.yaml` | V14: flagship anti-hubness + CSLS checkpoint | Complete | **~44-45%** | **~55-58%** |
-| `N1v15_vmf_nce.yaml` | V15: PCR + large batch + simplified loss | **Ready** | Pending | Pending |
-| `N2v15_roi_transformer.yaml` | V15: PCR + large batch + z-scoring fix | **Ready** | Pending | Pending |
-| `N3v15_roi_dcf.yaml` | V15: PCR + large batch + z-scoring fix + hier | **Ready** | Pending | Pending |
-| `N4v15_full_system.yaml` | V15: flagship PCR + large batch + z-scoring fix | **Ready** | Pending | Pending |
+| `N1v15_vmf_nce.yaml` | V15: PCR + large batch + simplified loss | Complete | 44.0% | 51.4% |
+| `N2v15_roi_transformer.yaml` | V15: PCR + large batch + z-scoring fix | Complete | 38.9% | 45.9% |
+| `N3v15_roi_dcf.yaml` | V15: PCR + large batch + z-scoring fix + hier | Complete | -- | -- |
+| `N4v15_full_system.yaml` | V15: flagship PCR + large batch + z-scoring fix | Complete | 42.2% | 47.2% |
+| `N1v16_vmf_nce.yaml` | V16: rep-avg + low-reg + MSE(2)+NCE(0.5) | **Ready** | Pending | Pending |
+| `N2v16_roi_transformer.yaml` | V16: ROI Transformer + rep-avg + low-reg | **Ready** | Pending | Pending |
+| `N3v16_roi_dcf.yaml` | V16: ROI-DCF + rep-avg + low-reg | **Ready** | Pending | Pending |
+| `N4v16_full_system.yaml` | V16: flagship rep-avg + low-reg + MSE+SPCL | **Ready** | Pending | Pending |
 
 ---
 
@@ -135,8 +149,8 @@ Results archived in `experimental_results/exp001_baseline_ultimate/` and `Raport
 | EMA (Exponential Moving Average) | Implemented (decay=0.999) |
 | fMRI noise augmentation | Implemented (std=0.1) |
 | Voxel dropout | Implemented (0.1) |
-| Two-stage training | Implemented (v12+: contrastive -> MSE-heavy at epoch 80) |
-| MSE regression loss | Implemented (v13+: from epoch 1, weight 1.0) |
+| Two-stage training | Implemented (v12-v15; disabled in v16) |
+| MSE regression loss | Implemented (v13+: from epoch 1; weight 2.0 in v16) |
 | CSLS training loss | Implemented (v14: differentiable CSLS on logit matrix) |
 | Inverted softmax (ISF) | Implemented (v14: column-normalized CE, weight 0.3) |
 | Direct alignment loss | Implemented (v11+: per-sample cosine alignment) |
@@ -153,27 +167,29 @@ Results archived in `experimental_results/exp001_baseline_ultimate/` and `Raport
 |------|----------|-------------|
 | Embedding diagnostics | `scripts/evaluation/diagnose_embeddings.py` | Hubness, similarity, kappa, failure analysis |
 | Aggregation | `scripts/evaluation/aggregate_ablation.py` | Cross-experiment comparison tables |
-| Val prediction saving | `scripts/training/train_unified.py` | Saves .npy after training for diagnostics (v15) |
+| Val prediction saving | `scripts/training/train_unified.py` | Saves .npy after training for diagnostics (v15+) |
+| Training R@1 monitor | `scripts/training/train_unified.py` | Periodic train retrieval eval (v16+, every 10 epochs) |
+| Shared1000 benchmark | `scripts/training/train_unified.py` | Auto-runs after training; saves `shared1000_metrics.json` + `.npy` files |
 
 ```bash
 # Run diagnostics on a trained model (requires V15+ for auto-saved .npy files)
 python scripts/evaluation/diagnose_embeddings.py \
-    --results-dir experimental_results/N1v15_vmf_nce/subj01
+    --results-dir experimental_results/N1v16_vmf_nce/subj01
 ```
 
 ---
 
 ## What to Run
 
-### V15 Ablation (H100)
+### V16 Ablation (H100)
 
 ```bash
-# Full V15 N-series (4 experiments)
-nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N15 > ablation_v15.log 2>&1 &
-tail -f ablation_v15.log
+# Full V16 N-series (4 experiments)
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N16 > ablation_v16.log 2>&1 &
+tail -f ablation_v16.log
 
 # Without checkpoints (save disk space)
-nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N15 SAVE_CKPT=0 > ablation_v15.log 2>&1 &
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N16 SAVE_CKPT=0 > ablation_v16.log 2>&1 &
 ```
 
 ### After Training
@@ -184,9 +200,17 @@ python3 scripts/evaluation/aggregate_ablation.py \
     --results-dir experimental_results \
     --subjects subj01
 
-# Run diagnostics on each experiment (V15 auto-saves .npy files)
-for exp in N1v15_vmf_nce N2v15_roi_transformer N3v15_roi_dcf N4v15_full_system; do
+# Run diagnostics on each experiment (V15+ auto-saves .npy files)
+for exp in N1v16_vmf_nce N2v16_roi_transformer N3v16_roi_dcf N4v16_full_system; do
     python3 scripts/evaluation/diagnose_embeddings.py \
         --results-dir experimental_results/${exp}/subj01
+done
+
+# Shared1000 results are saved automatically during training.
+# View them with:
+for exp in N1v16_vmf_nce N2v16_roi_transformer N3v16_roi_dcf N4v16_full_system; do
+    echo "=== ${exp} ==="
+    cat experimental_results/${exp}/subj01/metrics/shared1000_metrics.json 2>/dev/null \
+        || echo "  (not yet available)"
 done
 ```

@@ -1,0 +1,148 @@
+# N1v16: vMF-NCE -- Unlock Prediction Quality
+#
+# V16 strategy: the V15 diagnostics identified low positive cosine similarity
+# (0.35, needs 0.50+) as the bottleneck. The ~600M-param MLP is underfitting
+# due to 8 simultaneous regularization sources + noisy single-repetition data.
+#
+# Key changes vs V15:
+#   1. Enable repetition averaging (3 reps -> 1 averaged, SNR ~1.73x)
+#   2. Slash regularization (dropout 0.2->0.05, wd 0.05->0.005, no noise)
+#   3. Simplify loss to MSE(2.0) + vMF-NCE(0.5) only
+#   4. Remove two-stage training
+#   5. Disable PCR (V15 PCR slightly hurt R@1 vs V13)
+#   6. Add training R@1 monitoring for overfit/underfit diagnosis
+#
+# V15 results (subj01): R@1 44.0%, pos_sim 0.354, hubness_gap 7.4pp
+
+experiment:
+  name: "N1v16_vmf_nce"
+  description: "v16 vMF-NCE: rep-averaged + low-reg + focused MSE+NCE loss"
+  tags: ["vmf", "vmf_nce", "queue", "novel", "v16", "softplus",
+         "rep_avg", "low_reg", "focused_loss", "train_r1_monitor",
+         "model_soup", "kappa_cap_200", "scaled_mlp"]
+  parent: "N1v15_vmf_nce"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: true
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.05
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.05
+    kappa_mode: "softplus"
+    kappa_max: 200.0
+
+preprocessing:
+  enabled: false
+
+loss:
+  mse:
+    enabled: true
+    weight: 2.0
+
+  vmf_nce:
+    enabled: true
+    weight: 0.5
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    hard_negative_weight: 0.0
+    hard_neg_k: 0
+    use_csls_training: false
+    isf_weight: 0.0
+
+  softclip:
+    enabled: false
+  direct_alignment:
+    enabled: false
+  kappa_reg:
+    enabled: false
+  vmf_nll:
+    enabled: false
+  r_drop:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 8192
+
+training:
+  batch_size: 256
+  gradient_accumulation_steps: 2
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 300
+  optimizer:
+    type: "adamw"
+    lr: 2.0e-4
+    weight_decay: 0.005
+    betas: [0.9, 0.999]
+  warmup_epochs: 20
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 40
+  early_stop_min_delta: 0.002
+  checkpoint_metric: "r@1"
+  save_frequency: 10
+  fmri_noise_std: 0.0
+  voxel_dropout: 0.0
+  train_r1_interval: 10
+  softclip_from_start: false
+  mixco:
+    enabled: false
+  ema:
+    enabled: true
+    decay: 0.999
+  stage2:
+    enabled: false
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  use_csls: true
+  csls_k: 10
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+  model_soup: true
+  soup_top_k: 5
+  compute_probabilistic: true
+  eval_shared1000: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/N1v16_vmf_nce"

@@ -1191,6 +1191,179 @@ def mc_dropout_tta(
     return mu_mean, gts, kappas
 
 
+# ---------------------------------------------------------------------------
+# Shared1000 benchmark evaluation
+# ---------------------------------------------------------------------------
+
+def _evaluate_shared1000(
+    model: nn.Module,
+    subject: str,
+    device: str,
+    embeddings_df: pd.DataFrame,
+    preprocessor: Optional["EmbeddingPreprocessor"] = None,
+    vmf_is_log: bool = False,
+    zscore_stats_path: Optional[str] = None,
+    zscore_mode: str = "global",
+    batch_size: int = 64,
+    is_multi_subject: bool = False,
+    subject_id: int = 0,
+) -> Optional[Tuple[Dict[str, float], np.ndarray, np.ndarray]]:
+    """Evaluate on NSD shared1000 benchmark for community-standard comparison.
+
+    Loads raw pre-extracted features independently of the training dataset,
+    filters to shared1000 trials, averages 3 repetitions per image, applies
+    z-scoring with saved training stats, and computes retrieval metrics on a
+    ~982-image gallery.
+
+    Returns ``(metrics_dict, predictions, ground_truth)`` or *None* on failure.
+    """
+    cache_root = os.environ.get("CACHE_ROOT", "cache")
+    features_path = Path(cache_root) / "preextracted" / f"subject={subject}" / "fmri_features.npy"
+    index_path = Path("data/indices/nsd_index") / f"subject={subject}" / "index.parquet"
+
+    if not features_path.exists():
+        logger.warning("Shared1000 eval: features not found at %s — skipping", features_path)
+        return None
+    if not index_path.exists():
+        logger.warning("Shared1000 eval: index not found at %s — skipping", index_path)
+        return None
+
+    index_df = pd.read_parquet(index_path)
+    if "shared1000" not in index_df.columns:
+        logger.warning("Shared1000 eval: no 'shared1000' column in index — skipping")
+        return None
+
+    features = np.load(features_path, mmap_mode="r")
+    s1000_mask = index_df["shared1000"].fillna(False).astype(bool).values
+    n_raw = int(s1000_mask.sum())
+    if n_raw == 0:
+        logger.warning("Shared1000 eval: zero shared1000 trials found — skipping")
+        return None
+
+    s1000_features = np.array(features[s1000_mask], dtype=np.float32)
+    s1000_df = index_df[s1000_mask].reset_index(drop=True)
+
+    # --- Z-scoring with saved training stats ---
+    if zscore_stats_path is not None:
+        zdir = Path(zscore_stats_path)
+        if zscore_mode == "per_session" and "session" in s1000_df.columns:
+            fb_mean_path = zdir / "global_fallback_mean.npy"
+            fb_std_path = zdir / "global_fallback_std.npy"
+            fb_mean = np.load(fb_mean_path) if fb_mean_path.exists() else None
+            fb_std = np.load(fb_std_path) if fb_std_path.exists() else None
+            sessions = s1000_df["session"].values
+            for sess in np.unique(sessions):
+                m_path = zdir / f"session_{int(sess)}_mean.npy"
+                s_path = zdir / f"session_{int(sess)}_std.npy"
+                sess_mask = sessions == sess
+                if m_path.exists() and s_path.exists():
+                    s_mean = np.load(m_path)
+                    s_std = np.load(s_path)
+                elif fb_mean is not None and fb_std is not None:
+                    s_mean, s_std = fb_mean, fb_std
+                else:
+                    continue
+                s1000_features[sess_mask] = (
+                    (s1000_features[sess_mask] - s_mean) / s_std
+                ).astype(np.float32)
+        else:
+            m_path = zdir / "voxel_mean.npy"
+            s_path = zdir / "voxel_std.npy"
+            if m_path.exists() and s_path.exists():
+                v_mean = np.load(m_path)
+                v_std = np.load(s_path)
+                s1000_features = ((s1000_features - v_mean) / v_std).astype(np.float32)
+            else:
+                logger.warning("Shared1000 eval: z-score stats not found at %s — using raw features", zdir)
+
+    # --- Average repetitions per nsdId (standard protocol: 3 reps -> 1) ---
+    nsd_ids = s1000_df["nsdId"].values
+    unique_ids = np.unique(nsd_ids)
+    n_images = len(unique_ids)
+    avg_features = np.zeros((n_images, s1000_features.shape[1]), dtype=np.float32)
+    for i, uid in enumerate(unique_ids):
+        avg_features[i] = s1000_features[nsd_ids == uid].mean(axis=0)
+
+    # --- Forward pass ---
+    model.eval()
+    all_preds: List[np.ndarray] = []
+    tensor_ds = torch.utils.data.TensorDataset(torch.from_numpy(avg_features))
+    loader = DataLoader(tensor_ds, batch_size=batch_size, shuffle=False)
+    with torch.no_grad():
+        for (batch_fmri,) in loader:
+            batch_fmri = batch_fmri.to(device, dtype=torch.float32)
+            if is_multi_subject:
+                sid = torch.full((batch_fmri.shape[0],), subject_id,
+                                 dtype=torch.long, device=device)
+                out = model(batch_fmri, subject_ids=sid)
+            else:
+                out = model(batch_fmri)
+            pred = out[0] if isinstance(out, tuple) else out
+            all_preds.append(pred.cpu().numpy())
+
+    preds = np.concatenate(all_preds)
+    norms = np.linalg.norm(preds, axis=-1, keepdims=True)
+    preds = preds / np.maximum(norms, 1e-8)
+
+    # --- Ground-truth CLIP embeddings ---
+    emb_col = resolve_embedding_column(embeddings_df, _EMBEDDING_COLUMN_OVERRIDE)
+    emb_lookup: Dict[int, int] = {}
+    if "nsdId" in embeddings_df.columns:
+        for i, (_, row) in enumerate(embeddings_df.iterrows()):
+            emb_lookup[int(row["nsdId"])] = i
+
+    gts = np.zeros((n_images, preds.shape[1]), dtype=np.float32)
+    missing = 0
+    for i, uid in enumerate(unique_ids):
+        idx = emb_lookup.get(int(uid))
+        if idx is not None:
+            emb = embeddings_df.iloc[idx][emb_col]
+            gts[i] = np.asarray(emb, dtype=np.float32)
+        else:
+            missing += 1
+    if missing > 0:
+        logger.warning("Shared1000 eval: %d/%d images missing from CLIP cache", missing, n_images)
+
+    if preprocessor is not None:
+        gts = preprocessor.transform(gts)
+
+    gt_norms = np.linalg.norm(gts, axis=-1, keepdims=True)
+    gts = gts / np.maximum(gt_norms, 1e-8)
+
+    # --- Retrieval metrics ---
+    retrieval = _compute_retrieval(preds, gts, ks=(1, 5, 10))
+    csls_ret = _compute_retrieval_csls(preds, gts, ks=(1, 5, 10), csls_k=10)
+
+    diag_sim = np.sum(preds * gts, axis=-1)
+    mean_pos_sim = float(np.mean(diag_sim))
+
+    metrics: Dict[str, Any] = {
+        "benchmark": "shared1000",
+        "subject": subject,
+        "gallery_size": n_images,
+        "n_raw_trials": n_raw,
+        "clip_model": "ViT-L/14",
+        "clip_dim": int(preds.shape[1]),
+        "r@1": float(retrieval["top1_accuracy"]),
+        "r@5": float(retrieval["top5_accuracy"]),
+        "r@10": float(retrieval["top10_accuracy"]),
+        "median_rank": float(retrieval["median_rank"]),
+        "mrr": float(retrieval["mrr"]),
+        "csls_r@1": float(csls_ret["top1_accuracy"]),
+        "csls_r@5": float(csls_ret["top5_accuracy"]),
+        "csls_r@10": float(csls_ret["top10_accuracy"]),
+        "mean_pos_sim": mean_pos_sim,
+    }
+
+    logger.info(
+        "Shared1000: R@1=%.4f  R@5=%.4f  R@10=%.4f  CSLS_R@1=%.4f  "
+        "MedR=%.1f  MRR=%.4f  pos_sim=%.4f  (N=%d images, %d trials)",
+        metrics["r@1"], metrics["r@5"], metrics["r@10"], metrics["csls_r@1"],
+        metrics["median_rank"], metrics["mrr"], mean_pos_sim, n_images, n_raw,
+    )
+    return metrics, preds, gts
+
+
 def validate(
     model: nn.Module,
     dataloader: DataLoader,
@@ -1571,6 +1744,7 @@ def main() -> None:
         _val_ratio = config["data"].get("val_split", 0.10)
         _data_seed = config["data"].get("seed", 42)
 
+        _avg_reps_multi = config["data"].get("average_repetitions", False)
         full_dataset = MultiSubjectPreextractedDataset(
             subjects=_multi_subjects,
             cache_root=Path(cache_root) / "preextracted",
@@ -1581,6 +1755,7 @@ def main() -> None:
             split_by_image=_split_img,
             val_ratio=_val_ratio,
             seed=_data_seed,
+            average_repetitions=_avg_reps_multi,
         )
         logger.info("Multi-subject dataset: %d subjects, %d total trials",
                      full_dataset.n_subjects, len(full_dataset))
@@ -2258,6 +2433,54 @@ def main() -> None:
             if kappa_upper and kq90 and kq90 > 0.99 * kappa_upper:
                 logger.warning("kappa saturating at upper bound (%.1f / %.1f)", kq90, kappa_upper)
 
+        # --- Training R@1 monitoring (periodic) ---
+        _train_r1_interval = config.get("training", {}).get("train_r1_interval", 10)
+        if _train_r1_interval > 0 and epoch % _train_r1_interval == 0:
+            model.eval()
+            if ema is not None:
+                ema.apply_shadow(model)
+            _tr_preds_buf: List[np.ndarray] = []
+            _tr_gts_buf: List[np.ndarray] = []
+            _tr_max = 1024
+            _tr_n = 0
+            with torch.no_grad():
+                for _tr_b in train_loader:
+                    if _tr_n >= _tr_max:
+                        break
+                    _tr_fmri = _tr_b[0].to(device, dtype=torch.float32)
+                    _tr_gt = _tr_b[1].to(device, dtype=torch.float32)
+                    _tr_sid = (
+                        _tr_b[2].to(device)
+                        if _is_multi_subject and len(_tr_b) >= 3
+                        else None
+                    )
+                    if preprocessor is not None:
+                        _tr_gt = preprocessor.transform_batch(_tr_gt)
+                    _tr_out = (
+                        model(_tr_fmri, subject_ids=_tr_sid)
+                        if _tr_sid is not None
+                        else model(_tr_fmri)
+                    )
+                    if isinstance(_tr_out, tuple):
+                        _tr_out = _tr_out[0]
+                    _tr_preds_buf.append(_tr_out.cpu().numpy())
+                    _tr_gts_buf.append(_tr_gt.cpu().numpy())
+                    _tr_n += len(_tr_fmri)
+            if ema is not None:
+                ema.restore(model)
+            model.train()
+            if _tr_preds_buf:
+                _tr_p = np.concatenate(_tr_preds_buf)
+                _tr_g = np.concatenate(_tr_gts_buf)
+                _tr_ret = _compute_retrieval(_tr_p, _tr_g, ks=(1, 5))
+                train_metrics["train_r@1"] = _tr_ret["top1_accuracy"]
+                train_metrics["train_r@5"] = _tr_ret["top5_accuracy"]
+                logger.info(
+                    "Train retrieval: R@1=%.4f  R@5=%.4f  (N=%d)",
+                    _tr_ret["top1_accuracy"], _tr_ret["top5_accuracy"],
+                    len(_tr_p),
+                )
+
         if ema is not None:
             ema.apply_shadow(model)
         val_metrics, val_preds, val_gts = validate(
@@ -2536,6 +2759,42 @@ def main() -> None:
     if _save_kappas is not None:
         np.save(_metrics_save_dir / "val_kappas.npy", _save_kappas)
         logger.info("Saved val kappas %s to %s", _save_kappas.shape, _metrics_save_dir)
+
+    # --- Shared1000 benchmark evaluation ---
+    _do_s1000 = config.get("evaluation", {}).get("eval_shared1000", True)
+    if _do_s1000:
+        logger.info("=" * 60)
+        logger.info("Running shared1000 benchmark evaluation...")
+        _s1000_zscore_mode = config["data"].get("zscore_mode", "global")
+        _s1000_result = _evaluate_shared1000(
+            model=model,
+            subject=subject,
+            device=device,
+            embeddings_df=embeddings_df,
+            preprocessor=preprocessor,
+            vmf_is_log=_vmf_is_log,
+            zscore_stats_path=_zscore_stats_path,
+            zscore_mode=_s1000_zscore_mode,
+            batch_size=config["training"]["batch_size"],
+            is_multi_subject=_is_multi_subject,
+        )
+        if _s1000_result is not None:
+            _s1000_metrics, _s1000_preds, _s1000_gts = _s1000_result
+            _s1000_json_path = _metrics_save_dir / "shared1000_metrics.json"
+            with open(_s1000_json_path, "w") as _jf:
+                json.dump(_s1000_metrics, _jf, indent=2)
+            np.save(_metrics_save_dir / "shared1000_predictions.npy", _s1000_preds)
+            np.save(_metrics_save_dir / "shared1000_ground_truth.npy", _s1000_gts)
+            logger.info("Saved shared1000 metrics to %s", _s1000_json_path)
+            logger.info(
+                "Shared1000 benchmark:  R@1=%.1f%%  CSLS_R@1=%.1f%%  (gallery=%d)",
+                _s1000_metrics["r@1"] * 100,
+                _s1000_metrics["csls_r@1"] * 100,
+                _s1000_metrics["gallery_size"],
+            )
+        else:
+            logger.info("Shared1000 evaluation skipped (data unavailable)")
+        logger.info("=" * 60)
 
     logger.info("=" * 80)
     logger.info("Training complete!")

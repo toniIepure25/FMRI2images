@@ -1200,12 +1200,159 @@ On the H100 (80 GB VRAM), `batch_size: 256` is feasible for all architectures, p
 | N3v15 | ROI-DCF (d=1024, FFN=8192, 6L) | PCR k=4, batch 256, z-scoring fixed, drop CSLS/ISF/DA, keep hierarchical CLIP |
 | N4v15 | ROI-DCF + SPCL (d=1024, FFN=8192, 6L) | PCR k=4, batch 256, z-scoring fixed, drop CSLS/ISF/DA, keep hierarchical CLIP + DUA-CFG |
 
-### 18.5 Expected Impact
+### 18.5 V15 Actual Results (subj01)
 
-| Fix | Expected R@1 Gain | Rationale |
-|-----|-------------------|-----------|
-| Z-scoring for N2/N3/N4 | +3-5 pp | Removes session drift noise from multi-subject training |
-| CLIP PCR (k=4) | +5-10 pp | Directly eliminates hubness at the embedding level |
-| batch_size 64 -> 256 | +3-5 pp | 4x more informative in-batch negatives |
-| Simplified loss recipe | +1-2 pp | Cleaner gradients, less interference |
+V15 did NOT achieve the expected R@1 gains. Diagnostic analysis via `diagnose_embeddings.py`:
+
+| Metric | N1v15 | N2v15 | N4v15 |
+|--------|-------|-------|-------|
+| Raw R@1 | 44.0% | 38.9% | 42.2% |
+| CSLS R@1 | 51.4% | 45.9% | 47.2% |
+| Hubness gap | 7.4 pp | 7.0 pp | 5.0 pp |
+| Pos sim (mean) | 0.354 | 0.331 | 0.340 |
+| Neg sim (mean) | 0.037 | 0.014 | 0.044 |
+| Separability | 0.317 | 0.317 | 0.296 |
+| Kappa (mean/std) | 12.1/0.4 | 17.7/0.5 | 20.4/0.4 |
+| Skewness (k-occ) | 0.70 | 0.72 | 0.65 |
+
+**Key findings:**
+
+1. **Positive cosine similarity (0.33-0.35) is the primary bottleneck.** For 65% R@1, this needs to be 0.50+. The model's predictions are off by ~70 degrees from the targets on average.
+
+2. **PCR reduced hubness gap slightly** (5-7 pp in V15 vs 8-10 pp in V14), but absolute R@1 did not improve -- it slightly decreased. PCR appears to remove useful variance alongside the hubness-causing components.
+
+3. **Kappa dropped from ~50 (V14) to 12-20 (V15).** The model is appropriately less confident given the PCR-altered embedding geometry. This is a correct adaptation, not a regression.
+
+4. **Separability (~0.30) is consistent.** The contrastive loss effectively separates positives from negatives in relative terms, but the absolute alignment (positive cosine similarity) is too weak for reliable top-1 retrieval.
+
+5. **N2v15 (ROI Transformer, 38.9%) performs worst.** The ROI tokenization compresses ~15,000 voxels through 17 tokens of 1024 dimensions -- an information bottleneck that hurts prediction quality.
+
+---
+
+## 19. V16: Unlock Prediction Quality
+
+### 19.1 Root Cause Analysis
+
+The V15 diagnostics reveal that the ~600M-param N1v15 MLP is **underfitting** despite its substantial capacity. The root cause is **8 simultaneous regularization sources** that collectively prevent the model from learning precise fMRI-to-CLIP mappings:
+
+| Regularization Source | V15 Value | Effect |
+|----------------------|-----------|--------|
+| Encoder dropout | 0.2 | Randomly drops 20% of hidden units |
+| Decoder dropout | 0.2 | Same in decoder pathway |
+| Weight decay | 0.05 | Aggressive L2 penalty on all params |
+| fmri_noise_std | 0.1 | Additive Gaussian noise on input voxels |
+| voxel_dropout | 0.1 | Randomly zeros 10% of input voxels |
+| MixCo | alpha=0.15, w=0.5 | Soft-label interpolated augmentation |
+| kappa_reg | lambda=0.01 | Penalizes high concentration (confidence) |
+| SoftCLIP soft labels | tau=0.05 | Prevents hard positive/negative discrimination |
+
+Combined with training on **noisy single-repetition fMRI** (average_repetitions: false), the model receives weak, noisy signals through a heavily regularized network -- a recipe for underfitting.
+
+### 19.2 V16 Changes
+
+**Change 1 -- Slash regularization:**
+
+| Parameter | V15 | V16 | Rationale |
+|-----------|-----|-----|-----------|
+| dropout | 0.2 | **0.05** | 4x reduction; model is underfitting |
+| weight_decay | 0.05 | **0.005** | 10x reduction |
+| fmri_noise_std | 0.1 | **0.0** | Disable input noise entirely |
+| voxel_dropout | 0.1 | **0.0** | Disable voxel masking |
+| MixCo | enabled, w=0.5 | **disabled** | Remove augmentation |
+| kappa_reg | lambda=0.01 | **disabled** | Stop penalizing confidence |
+
+**Change 2 -- Enable repetition averaging:**
+
+Average fMRI across all repetitions of the same image before training (~27,000 noisy trials to ~9,000 clean images, SNR improvement \(\sqrt{3} \approx 1.73\times\)). Implemented for both `PreextractedNSDDataset` (N1) and `MultiSubjectPreextractedDataset` (N2-N4).
+
+**Change 3 -- Simplify loss to MSE + vMF-NCE:**
+
+- MSE (weight 2.0) -- primary per-sample regression signal
+- vMF-NCE (weight 0.5) -- contrastive structure + kappa training
+- All other losses disabled (SoftCLIP, MixCo, kappa_reg, hierarchical_clip, multitask)
+
+**Change 4 -- Remove two-stage training:**
+
+Stage 2 abruptly shifted loss weights at epoch 80, disrupting optimization. V16 uses a single continuous schedule throughout.
+
+**Change 5 -- Disable PCR:**
+
+V15 PCR (k=4) slightly hurt R@1 compared to V13. Disabled to preserve full CLIP embedding variance.
+
+**Change 6 -- Adjust training dynamics:**
+
+| Parameter | V15 | V16 | Rationale |
+|-----------|-----|-----|-----------|
+| LR | 1e-4 | **2e-4** | Stronger gradients with fewer samples |
+| Epochs | 200 | **300** | Compensate for fewer samples (9k vs 27k) |
+| Queue size | 16384 | **8192** | Proportional to ~8,100 training images |
+| kappa_max | 50 | **200** | Allow higher confidence with better predictions |
+| Patience | 30 | **40** | More runway before early stopping |
+| Warmup | 15 | **20** | Gentler ramp with higher peak LR |
+
+**Change 7 -- Training R@1 monitoring:**
+
+Added periodic training R@1 computation (every 10 epochs, ~1024-sample subset). This is critical for distinguishing overfitting (train R@1 >> val R@1) from underfitting (both low). Logged as `train_r@1` in training CSV.
+
+### 19.3 V16 Config Summary
+
+| Config | Encoder | Key V16 changes |
+|--------|---------|-----------------|
+| N1v16 | MLP [8192, 8192, 4096, 4096, 2048] | Rep-avg, dropout 0.05, MSE(2.0)+NCE(0.5), no PCR, no stage2 |
+| N2v16 | ROI Transformer (d=1024, 6L, FFN=8192) | Rep-avg, dropout 0.05, MSE(2.0)+NCE(0.5), no PCR, no stage2 |
+| N3v16 | ROI-DCF (d=1024, 6L, FFN=8192) | Rep-avg, dropout 0.05, MSE(2.0)+NCE(0.5), no PCR, no stage2, no multitask |
+| N4v16 | ROI-DCF + SPCL (d=1024, 6L, FFN=8192) | Rep-avg, dropout 0.05, MSE(2.0)+SPCL(0.5), no PCR, no stage2, no multitask |
+
+### 19.4 Expected Impact
+
+| Change | Expected R@1 Gain | Rationale |
+|--------|-------------------|-----------|
+| Repetition averaging | +3-5 pp | 1.73x SNR improvement on training data |
+| Reduced regularization | +5-8 pp | Unlock model capacity from underfitting |
+| Simplified loss | +2-3 pp | Cleaner optimization landscape |
+| Disabled PCR | +1-2 pp | Preserve full embedding variance |
+| Higher LR + longer training | +1-2 pp | Better convergence with cleaner data |
 | **Combined estimate** | **+12-20 pp** | Target: 55-65% R@1 |
+
+**Risk:** With 9,000 clean training images and a 600M-param model at dropout=0.05, overfitting is possible. The training R@1 monitor will detect this. If train R@1 exceeds val R@1 by more than 20 pp, light regularization (dropout 0.10) should be restored.
+
+### 19.5 Shared1000 Benchmark Evaluation
+
+Starting with V16, every training run automatically evaluates on the **NSD shared1000 benchmark** at the end of training. This is the community-standard test set used by MindEye, MindEye2, Brain Diffuser, and other NSD decoding papers.
+
+**What it does:**
+1. Loads the raw pre-extracted fMRI features for the subject (independent of training-time averaging)
+2. Filters to shared1000 trials (~3,000 trials across ~982 unique images)
+3. Averages the 3 repetitions per image (standard protocol)
+4. Applies the same z-scoring transform used during training
+5. Runs model inference on the ~982 averaged images
+6. Computes R@1, R@5, R@10, MRR, median rank (raw + CSLS) against CLIP embeddings
+
+**Output files** (in `experimental_results/{exp}/{subj}/metrics/`):
+- `shared1000_metrics.json` -- full retrieval results with metadata
+- `shared1000_predictions.npy` -- (N, 768) predicted embeddings
+- `shared1000_ground_truth.npy` -- (N, 768) CLIP GT embeddings
+
+**Gallery comparison with published methods:**
+
+| Method | Test Set | Gallery Size | CLIP Model |
+|--------|----------|-------------|------------|
+| MindEye2 (Scotti et al., 2024) | shared1000 | ~982 images | OpenCLIP ViT-bigG/14 (1280-D) |
+| Brain Diffuser (Ozcelik & VanRullen, 2023) | shared1000 | ~982 images | CLIP ViT-L/14 (768-D) |
+| **Ours (V16)** | **shared1000** | **~982 images** | CLIP ViT-L/14 (768-D) |
+
+**Note on comparability:** Our shared1000 R@1 is directly comparable in gallery size and protocol. The CLIP model difference (ViT-L/14 vs bigG) means absolute R@1 numbers are not strictly apples-to-apples with MindEye2, but are comparable with Brain Diffuser and other ViT-L/14-based methods. Migration to OpenCLIP ViT-bigG/14 is deferred until V16 results prove the prediction quality improvements are effective.
+
+**Config flag:** `evaluation.eval_shared1000: true` (default true in V16 configs). Set to `false` to skip.
+
+### 19.6 Version Genealogy
+
+```
+V4 (fix 6 bugs) -> V5 (tau=1, no kappa_reg)
+  -> V6 (novel losses) -> V7 (multi-subj, softplus)
+    -> V8 (hierarchical CLIP) -> V9 (anti-overfit, H100)
+      -> V10 (wider + hard neg + soup) -> V11 (CSLS training)
+        -> V12 (two-stage, auto-weight) -> V13 (MSE regression)
+          -> V14 (anti-hubness + diagnostics) -> V15 (PCR + batch + z-score fix)
+            -> V16 (rep-avg + low-reg + focused loss + shared1000 eval)
+```

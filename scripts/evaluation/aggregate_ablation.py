@@ -96,6 +96,10 @@ EXPERIMENTS = [
     "N2v15_roi_transformer",
     "N3v15_roi_dcf",
     "N4v15_full_system",
+    "N1v16_vmf_nce",
+    "N2v16_roi_transformer",
+    "N3v16_roi_dcf",
+    "N4v16_full_system",
 ]
 
 SUBJECTS = ["subj01", "subj02", "subj05", "subj07"]

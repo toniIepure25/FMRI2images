@@ -1252,9 +1252,15 @@ def _evaluate_shared1000(
             fb_mean = np.load(fb_mean_path) if fb_mean_path.exists() else None
             fb_std = np.load(fb_std_path) if fb_std_path.exists() else None
             sessions = s1000_df["session"].values
+            _zs_applied = 0
             for sess in np.unique(sessions):
-                m_path = zdir / f"session_{int(sess)}_mean.npy"
-                s_path = zdir / f"session_{int(sess)}_std.npy"
+                # Multi-subject saves as {subj}_session_{sess}_*.npy;
+                # single-subject saves as session_{sess}_*.npy.  Try both.
+                m_path = zdir / f"{subject}_session_{int(sess)}_mean.npy"
+                s_path = zdir / f"{subject}_session_{int(sess)}_std.npy"
+                if not m_path.exists():
+                    m_path = zdir / f"session_{int(sess)}_mean.npy"
+                    s_path = zdir / f"session_{int(sess)}_std.npy"
                 sess_mask = sessions == sess
                 if m_path.exists() and s_path.exists():
                     s_mean = np.load(m_path)
@@ -1266,13 +1272,25 @@ def _evaluate_shared1000(
                 s1000_features[sess_mask] = (
                     (s1000_features[sess_mask] - s_mean) / s_std
                 ).astype(np.float32)
+                _zs_applied += int(sess_mask.sum())
+            if _zs_applied == 0:
+                logger.warning(
+                    "Shared1000 eval: no per-session z-score stats found in %s — using raw features", zdir
+                )
+            else:
+                logger.info("Shared1000 eval: z-scored %d/%d trials (per_session)", _zs_applied, len(s1000_features))
         else:
-            m_path = zdir / "voxel_mean.npy"
-            s_path = zdir / "voxel_std.npy"
+            # Multi-subject saves as {subj}_mean.npy; single-subject as voxel_mean.npy
+            m_path = zdir / f"{subject}_mean.npy"
+            s_path = zdir / f"{subject}_std.npy"
+            if not m_path.exists():
+                m_path = zdir / "voxel_mean.npy"
+                s_path = zdir / "voxel_std.npy"
             if m_path.exists() and s_path.exists():
                 v_mean = np.load(m_path)
                 v_std = np.load(s_path)
                 s1000_features = ((s1000_features - v_mean) / v_std).astype(np.float32)
+                logger.info("Shared1000 eval: applied global z-scoring from %s", m_path.name)
             else:
                 logger.warning("Shared1000 eval: z-score stats not found at %s — using raw features", zdir)
 

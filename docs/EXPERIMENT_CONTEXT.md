@@ -1372,7 +1372,8 @@ V4 (fix 6 bugs) -> V5 (tau=1, no kappa_reg)
           -> V13 (MSE regression) -> V14 (anti-hubness + diagnostics)
             -> V15 (PCR + batch + z-score fix)
               -> V16 (rep-avg + low-reg + focused loss + shared1000 eval) = 39% REGRESSION
-    -> V17 (restore V7/V8 baseline + CSLS + shared1000 + diagnostics)  <-- CURRENT
+    -> V17 (restore V7/V8 baseline + CSLS + shared1000) = 47% N1, 40% N2-N4
+      -> V18 (fix shared1000 bug + MSE + PCR + kappa cap)  <-- CURRENT
 ```
 
 ---
@@ -1415,14 +1416,80 @@ V17 configs are near-exact copies of V7 (for N1/N2) and V8 (for N3/N4), with onl
 | N3v17 | N3v8 | ROI-DCF (d=768, 6L, FFN=3072) | ~50% |
 | N4v17 | N4v8 | ROI-DCF + SPCL (d=768, 6L, FFN=3072) | ~51% |
 
-### 20.4 Diagnostic Plan
+### 20.4 V17 Actual Results (subj01)
 
-After V17 reproduces V8-level results, the shared1000 and diagnostic data will reveal:
+V17 did NOT reproduce V8-level results. N1 was close to V7, but N2/N3/N4 were ~10pp below V8.
 
-1. **Shared1000 R@1** -- direct SOTA comparison (comparable with Brain Diffuser using same CLIP model)
-2. **CSLS gap** (raw R@1 vs CSLS R@1) -- quantifies hubness severity
-3. **Training R@1 vs val R@1** -- overfitting or underfitting diagnosis
-4. **Cosine similarity distributions** (via `diagnose_embeddings.py`) -- representation quality
-5. **Per-ROI attention analysis** -- which brain regions contribute most
+**Validation diagnostics (900-image gallery):**
 
-These diagnostics will inform a targeted V18 plan to break the 51% ceiling.
+| Metric | N1v17 | N2v17 | N3v17 | N4v17 |
+|--------|-------|-------|-------|-------|
+| Raw R@1 | 47.0% | 40.3% | 40.1% | 40.6% |
+| CSLS R@1 | 56.3% | 46.9% | 47.0% | 46.3% |
+| Hubness gap | 9.3pp | 6.6pp | 6.9pp | 5.8pp |
+| Pos sim (mean) | 0.495 | 0.388 | 0.501 | 0.529 |
+| Neg sim (mean) | 0.274 | 0.165 | 0.291 | 0.331 |
+| Separability | 0.221 | 0.223 | 0.210 | 0.198 |
+| Kappa (mean/std) | 28.2/2.6 | 41.8/4.5 | 60.3/6.5 | 54.5/5.5 |
+
+**Shared1000 benchmark (1000-image gallery):**
+
+| Metric | N1v17 | N2v17 | N3v17 | N4v17 |
+|--------|-------|-------|-------|-------|
+| R@1 | 45.2% | 6.2% | 6.1% | 6.8% |
+| CSLS R@1 | 52.1% | 13.3% | 12.6% | 12.8% |
+| Mean pos sim | 0.387 | 0.229 | 0.359 | 0.322 |
+
+### 20.5 V17 Post-Mortem: Three Root Causes
+
+**Bug: Shared1000 z-scoring filename mismatch.** Multi-subject training saves per-session z-score stats as `{subj}_session_{sess}_mean.npy`, but `_evaluate_shared1000()` looked for `session_{sess}_mean.npy` (without subject prefix). This caused N2/N3/N4 shared1000 features to be evaluated WITHOUT z-scoring, producing garbage 6% R@1. N1 (single-subject) used the non-prefixed filename and worked correctly. **Fixed in V18.**
+
+**Premature early-stopping.** `early_stop_min_delta: 0.002` (added in V17) stopped training when R@1 improvements fell below 0.2pp per patience window. Multi-subject ROI Transformer models converge slowly, and this truncated N3/N4 training prematurely. This partly explains the 40% vs V8's 50%.
+
+**Missing regression loss.** MindEye1 achieves 93.2% R@1 using 50% MSE + 50% SoftCLIP. Our models rely entirely on contrastive losses (vMF-NCE + SoftCLIP), which learn relative ordering but not absolute coordinates. This creates the "contrastive plateau" where the correct image is nearby but not rank-1. Separability of 0.20-0.22 confirms the core bottleneck.
+
+---
+
+## 21. V18: Bug Fix + MSE Loss + PCR Anti-Hubness
+
+### 21.1 Rationale
+
+V17 diagnostics revealed three actionable bottlenecks: a shared1000 evaluation bug, premature early-stopping, and the absence of a direct regression signal. V18 addresses all three while keeping the proven V7/V8 training recipe intact.
+
+### 21.2 Changes from V17
+
+| Change | Scope | Rationale |
+|--------|-------|-----------|
+| Fix shared1000 z-score filenames | Code (train_unified.py) | N2/N3/N4 shared1000 was broken |
+| Remove `early_stop_min_delta` | All V18 configs | Was 0.002, caused premature stopping |
+| Add MSE loss (weight 1.0) | All V18 configs | MindEye-proven; pushes from relative to absolute coordinate alignment |
+| Enable PCR (k=4) | All V18 configs | Reduces hubness by removing dominant PCs from CLIP space |
+| Kappa cap = 50 | N3v18, N4v18 only | V17 kappa 60.3/54.5 indicated overconfidence |
+
+### 21.3 MSE on the Unit Hypersphere
+
+MSE between L2-normalized vectors equals `2(1 - cos_sim)`, so it directly maximizes cosine similarity to the correct target while being agnostic to negatives. Combined with vMF-NCE (which pushes negatives apart), this creates both attractive and repulsive forces -- the full recipe that MindEye1 proved essential for high R@1.
+
+### 21.4 V18 Config Summary
+
+| Config | Base | Key Additions | Expected Impact |
+|--------|------|---------------|----------------|
+| N1v18 | N1v17 | MSE + PCR | 47% -> 60-65% |
+| N2v18 | N2v17 | MSE + PCR | 40% -> 50-55% |
+| N3v18 | N3v17 | MSE + PCR + kappa_max=50 | 40% -> 55-60% |
+| N4v18 | N4v17 | MSE + PCR + kappa_max=50 | 40% -> 55-65% |
+
+### 21.5 Version Genealogy (Updated)
+
+```
+V4 (fix 6 bugs) -> V5 (tau=1, no kappa_reg)
+  -> V6 (novel losses) -> V7 (multi-subj, softplus)  <-- N1 best: ~49%
+    -> V8 (hierarchical CLIP)                         <-- N3/N4 best: 50.3%/50.8%
+      -> V9 (anti-overfit, H100) -> V10 (wider + hard neg + soup)
+        -> V11 (CSLS training) -> V12 (two-stage, auto-weight)
+          -> V13 (MSE regression) -> V14 (anti-hubness + diagnostics)
+            -> V15 (PCR + batch + z-score fix)
+              -> V16 (rep-avg + low-reg + focused loss + shared1000 eval) = 39% REGRESSION
+    -> V17 (restore V7/V8 baseline + CSLS + shared1000) = 47% N1, 40% N2-N4
+      -> V18 (fix shared1000 bug + MSE + PCR + kappa cap)  <-- CURRENT
+```

@@ -1,7 +1,7 @@
 # Implementation Status
 
 **Last Updated:** March 2026
-**Current Phase:** V17 Restore V7/V8 Baseline + CSLS + Shared1000 + Diagnostics
+**Current Phase:** V18 Bug Fix + MSE Loss + PCR Anti-Hubness
 **Hardware:** NVIDIA H100 80GB HBM3 (CUDA 12.8, bf16 mixed precision)
 
 ---
@@ -33,7 +33,17 @@
    - Implementation: `src/fmri2img/inference/decomposed_ua_cfg.py`
    - Tests: `tests/test_decomposed_ua_cfg.py`
 
-### V17 Innovations (Current)
+### V18 Innovations (Current)
+
+| Module | Location | Description |
+|--------|----------|-------------|
+| Fix shared1000 z-score filenames | `scripts/training/train_unified.py` | Multi-subject stats now found correctly (was {subj}_ prefix mismatch) |
+| MSE regression loss | V18 configs | MindEye-proven: weight 1.0 alongside vMF-NCE + SoftCLIP |
+| PCR preprocessing re-enabled | V18 configs | `center_pcr` k=4 reduces hubness by removing dominant CLIP PCs |
+| Kappa cap = 50 | N3v18/N4v18 configs | Prevents overconfidence (V17 kappa was 54-60) |
+| Remove early_stop_min_delta | V18 configs | Was 0.002 in V17; caused premature stopping for multi-subject models |
+
+### V17 (47% N1, 40% N2-N4; shared1000 broken for multi-subject)
 
 | Module | Location | Description |
 |--------|----------|-------------|
@@ -127,10 +137,14 @@
 | `N2v16_roi_transformer.yaml` | V16: ROI Transformer + rep-avg + low-reg | Complete | ~39% | -- |
 | `N3v16_roi_dcf.yaml` | V16: ROI-DCF + rep-avg + low-reg | Complete | ~39% | -- |
 | `N4v16_full_system.yaml` | V16: flagship rep-avg + low-reg + MSE+SPCL | Complete | ~39% | -- |
-| `N1v17_vmf_nce.yaml` | V17: restore V7 + CSLS + shared1000 | **Ready** | Pending | Pending |
-| `N2v17_roi_transformer.yaml` | V17: restore V7 + CSLS + shared1000 | **Ready** | Pending | Pending |
-| `N3v17_roi_dcf.yaml` | V17: restore V8 + CSLS + shared1000 | **Ready** | Pending | Pending |
-| `N4v17_full_system.yaml` | V17: restore V8 flagship + CSLS + shared1000 | **Ready** | Pending | Pending |
+| `N1v17_vmf_nce.yaml` | V17: restore V7 + CSLS + shared1000 | Complete | 47.0% | 56.3% |
+| `N2v17_roi_transformer.yaml` | V17: restore V7 + CSLS + shared1000 | Complete | 40.3% | 46.9% |
+| `N3v17_roi_dcf.yaml` | V17: restore V8 + CSLS + shared1000 | Complete | 40.1% | 47.0% |
+| `N4v17_full_system.yaml` | V17: restore V8 flagship + CSLS + shared1000 | Complete | 40.6% | 46.3% |
+| `N1v18_vmf_nce.yaml` | V18: V17 + MSE + PCR | **Ready** | Pending | Pending |
+| `N2v18_roi_transformer.yaml` | V18: V17 + MSE + PCR | **Ready** | Pending | Pending |
+| `N3v18_roi_dcf.yaml` | V18: V17 + MSE + PCR + kappa cap 50 | **Ready** | Pending | Pending |
+| `N4v18_full_system.yaml` | V18: V17 flagship + MSE + PCR + kappa cap 50 | **Ready** | Pending | Pending |
 
 ---
 
@@ -187,19 +201,19 @@ Results archived in `experimental_results/exp001_baseline_ultimate/` and `Raport
 ```bash
 # Run diagnostics on a trained model (requires V15+ for auto-saved .npy files)
 python scripts/evaluation/diagnose_embeddings.py \
-    --results-dir experimental_results/N1v17_vmf_nce/subj01
+    --results-dir experimental_results/N1v18_vmf_nce/subj01
 ```
 
 ---
 
 ## What to Run
 
-### V17 Ablation (H100)
+### V18 Ablation (H100)
 
 ```bash
-# Full V17 N-series (4 experiments, best checkpoint only)
-nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N17 SAVE_CKPT=best > ablation_v17.log 2>&1 &
-tail -f ablation_v17.log
+# Full V18 N-series (4 experiments, best checkpoint only)
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N18 SAVE_CKPT=best > ablation_v18.log 2>&1 &
+tail -f ablation_v18.log
 ```
 
 ### After Training
@@ -211,13 +225,13 @@ python3 scripts/evaluation/aggregate_ablation.py \
     --subjects subj01
 
 # Run diagnostics on each experiment
-for exp in N1v17_vmf_nce N2v17_roi_transformer N3v17_roi_dcf N4v17_full_system; do
+for exp in N1v18_vmf_nce N2v18_roi_transformer N3v18_roi_dcf N4v18_full_system; do
     python3 scripts/evaluation/diagnose_embeddings.py \
         --results-dir experimental_results/${exp}/subj01
 done
 
 # View shared1000 benchmark results (saved automatically during training)
-for exp in N1v17_vmf_nce N2v17_roi_transformer N3v17_roi_dcf N4v17_full_system; do
+for exp in N1v18_vmf_nce N2v18_roi_transformer N3v18_roi_dcf N4v18_full_system; do
     echo "=== ${exp} ==="
     cat experimental_results/${exp}/subj01/metrics/shared1000_metrics.json 2>/dev/null \
         || echo "  (not yet available)"

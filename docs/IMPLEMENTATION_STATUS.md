@@ -1,7 +1,7 @@
 # Implementation Status
 
 **Last Updated:** March 2026
-**Current Phase:** V18 Bug Fix + MSE Loss + PCR Anti-Hubness
+**Current Phase:** V19 Revert V18 Regressions + Margin + DirectAlign + ROI Dropout
 **Hardware:** NVIDIA H100 80GB HBM3 (CUDA 12.8, bf16 mixed precision)
 
 ---
@@ -33,15 +33,27 @@
    - Implementation: `src/fmri2img/inference/decomposed_ua_cfg.py`
    - Tests: `tests/test_decomposed_ua_cfg.py`
 
-### V18 Innovations (Current)
+### V19 Innovations (Current)
 
 | Module | Location | Description |
 |--------|----------|-------------|
-| Fix shared1000 z-score filenames | `scripts/training/train_unified.py` | Multi-subject stats now found correctly (was {subj}_ prefix mismatch) |
-| MSE regression loss | V18 configs | MindEye-proven: weight 1.0 alongside vMF-NCE + SoftCLIP |
-| PCR preprocessing re-enabled | V18 configs | `center_pcr` k=4 reduces hubness by removing dominant CLIP PCs |
-| Kappa cap = 50 | N3v18/N4v18 configs | Prevents overconfidence (V17 kappa was 54-60) |
-| Remove early_stop_min_delta | V18 configs | Was 0.002 in V17; caused premature stopping for multi-subject models |
+| CosFace angular margin | V19 configs (`margin_base: 0.15`) | Kappa-adaptive additive margin on positive pairs; already implemented in vmf_nce.py |
+| DirectAlignmentLoss | V19 configs + `train_unified.py` | `1 - cos_sim`, range [0,2]; properly scaled regression replacing dead MSE (0.008%) |
+| ROI-Token Dropout | `roi_transformer.py`, `multi_subject_encoder.py` | 10% random ROI token zeroing during training; forces robust cross-ROI representations |
+| Kappa-weighted Frechet mean | `train_unified.py` `_evaluate_shared1000()` | Fuse 3 test repetitions using model confidence; zero training cost |
+| N3/N4 loss simplification | V19 configs | Disabled mt_aux (43% of loss), hier_clip (1%), cka (1%) |
+| Fix DirectAlign pred space | `train_unified.py` line 1005 | Changed `pred_for_contrast` to `pred` so regression operates in evaluation space |
+
+### V18 (Regressed from V17: 52.3% vs 56.3% CSLS R@1)
+
+| Module | Location | Description |
+|--------|----------|-------------|
+| Fix shared1000 z-score filenames | `scripts/training/train_unified.py` | Multi-subject stats now found correctly (kept in V19) |
+| MSE regression loss | V18 configs | Contributed 0.008% of gradient; **reverted in V19** |
+| PCR preprocessing | V18 configs | Removed useful discriminative variance; **reverted in V19** |
+| Uniformity regularization | V18 configs | Blind repulsion hurt semantic clustering; **reverted in V19** |
+| Kappa cap = 50 | N3v18/N4v18 configs | Kept in V19 for N3/N4 via kappa curriculum |
+| Remove early_stop_min_delta | V18 configs | Was 0.002 in V17; kept removed in V19 |
 
 ### V17 (47% N1, 40% N2-N4; shared1000 broken for multi-subject)
 
@@ -141,10 +153,14 @@
 | `N2v17_roi_transformer.yaml` | V17: restore V7 + CSLS + shared1000 | Complete | 40.3% | 46.9% |
 | `N3v17_roi_dcf.yaml` | V17: restore V8 + CSLS + shared1000 | Complete | 40.1% | 47.0% |
 | `N4v17_full_system.yaml` | V17: restore V8 flagship + CSLS + shared1000 | Complete | 40.6% | 46.3% |
-| `N1v18_vmf_nce.yaml` | V18: V17 + MSE + PCR | **Ready** | Pending | Pending |
-| `N2v18_roi_transformer.yaml` | V18: V17 + MSE + PCR | **Ready** | Pending | Pending |
-| `N3v18_roi_dcf.yaml` | V18: V17 + MSE + PCR + kappa cap 50 | **Ready** | Pending | Pending |
-| `N4v18_full_system.yaml` | V18: V17 flagship + MSE + PCR + kappa cap 50 | **Ready** | Pending | Pending |
+| `N1v18_vmf_nce.yaml` | V18: V17 + MSE + PCR | Complete | 46.0% | 52.3% |
+| `N2v18_roi_transformer.yaml` | V18: V17 + MSE + PCR | Complete | 40.6% | 46.0% |
+| `N3v18_roi_dcf.yaml` | V18: V17 + MSE + PCR + kappa cap 50 | Complete | 39.6% | 44.9% |
+| `N4v18_full_system.yaml` | V18: V17 + MSE + PCR + kappa cap 50 | Complete | 40.4% | 46.2% |
+| `N1v19_vmf_nce.yaml` | V19: V17 + margin + DirectAlign | **Ready** | Pending | Pending |
+| `N2v19_roi_transformer.yaml` | V19: V17 + margin + DirectAlign + ROI dropout | **Ready** | Pending | Pending |
+| `N3v19_roi_dcf.yaml` | V19: V17 + margin + DirectAlign + simplified + ROI dropout | **Ready** | Pending | Pending |
+| `N4v19_full_system.yaml` | V19: V17 + DirectAlign + simplified + ROI dropout | **Ready** | Pending | Pending |
 
 ---
 
@@ -180,7 +196,9 @@ Results archived in `experimental_results/exp001_baseline_ultimate/` and `Raport
 | MSE regression loss | Implemented (v13+: from epoch 1; weight 2.0 in v16) |
 | CSLS training loss | Implemented (v14: differentiable CSLS on logit matrix) |
 | Inverted softmax (ISF) | Implemented (v14: column-normalized CE, weight 0.3) |
-| Direct alignment loss | Implemented (v11+: per-sample cosine alignment) |
+| Direct alignment loss | Implemented (v11+: per-sample cosine alignment; v19: on raw pred, weight 2.0) |
+| ROI-Token Dropout | Implemented (v19: 10% random token masking during training) |
+| Kappa-weighted Frechet mean | Implemented (v19: shared1000 eval fuses repetitions by kappa) |
 | Configurable checkpoint metric | Implemented (v14: csls_r@1 / r@1 / median_rank) |
 | MC-Dropout TTA | Implemented (v9, 8 samples) |
 | CSLS retrieval evaluation | Implemented (v9, k=10) |
@@ -208,12 +226,12 @@ python scripts/evaluation/diagnose_embeddings.py \
 
 ## What to Run
 
-### V18 Ablation (H100)
+### V19 Ablation (H100)
 
 ```bash
-# Full V18 N-series (4 experiments, best checkpoint only)
-nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N18 SAVE_CKPT=best > ablation_v18.log 2>&1 &
-tail -f ablation_v18.log
+# Full V19 N-series (4 experiments, best checkpoint only)
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N19 SAVE_CKPT=best > ablation_v19.log 2>&1 &
+tail -f ablation_v19.log
 ```
 
 ### After Training
@@ -225,13 +243,13 @@ python3 scripts/evaluation/aggregate_ablation.py \
     --subjects subj01
 
 # Run diagnostics on each experiment
-for exp in N1v18_vmf_nce N2v18_roi_transformer N3v18_roi_dcf N4v18_full_system; do
+for exp in N1v19_vmf_nce N2v19_roi_transformer N3v19_roi_dcf N4v19_full_system; do
     python3 scripts/evaluation/diagnose_embeddings.py \
         --results-dir experimental_results/${exp}/subj01
 done
 
-# View shared1000 benchmark results (saved automatically during training)
-for exp in N1v18_vmf_nce N2v18_roi_transformer N3v18_roi_dcf N4v18_full_system; do
+# View shared1000 benchmark results (with kappa-weighted Frechet mean)
+for exp in N1v19_vmf_nce N2v19_roi_transformer N3v19_roi_dcf N4v19_full_system; do
     echo "=== ${exp} ==="
     cat experimental_results/${exp}/subj01/metrics/shared1000_metrics.json 2>/dev/null \
         || echo "  (not yet available)"

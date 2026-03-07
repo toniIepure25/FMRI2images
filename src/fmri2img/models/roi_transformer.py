@@ -161,8 +161,10 @@ class ROITransformerEncoder(nn.Module):
         roi_indices: Optional[Dict[str, "torch.Tensor"]] = None,
         dim_feedforward: Optional[int] = None,
         drop_path_rate: float = 0.0,
+        roi_token_dropout: float = 0.0,
     ):
         super().__init__()
+        self.roi_token_drop_rate = roi_token_dropout
 
         self._use_indices = roi_indices is not None
         _ff_dim = dim_feedforward if dim_feedforward is not None else d_model * 4
@@ -238,7 +240,8 @@ class ROITransformerEncoder(nn.Module):
             f"ROITransformerEncoder: {self.n_rois} ROIs "
             f"({self.input_dim} voxels) -> d_model={d_model}, "
             f"ff_dim={_ff_dim}, layers={num_layers}, heads={nhead}, "
-            f"drop_path={drop_path_rate:.2f}, params={n_params:,}"
+            f"drop_path={drop_path_rate:.2f}, "
+            f"roi_token_drop={roi_token_dropout:.2f}, params={n_params:,}"
         )
 
     def _project_rois(self, x: torch.Tensor) -> torch.Tensor:
@@ -306,6 +309,12 @@ class ROITransformerEncoder(nn.Module):
             return_roi_tokens:  ROITransformerOutput dataclass.
         """
         tokens = self._project_rois(x)
+
+        if self.training and self.roi_token_drop_rate > 0:
+            mask = (torch.rand(tokens.size(0), tokens.size(1), 1,
+                               device=tokens.device) > self.roi_token_drop_rate).float()
+            tokens = tokens * mask
+
         tokens = self._prepend_cls_and_embed(tokens)
 
         if return_roi_tokens:

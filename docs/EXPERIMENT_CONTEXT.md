@@ -1479,7 +1479,72 @@ MSE between L2-normalized vectors equals `2(1 - cos_sim)`, so it directly maximi
 | N3v18 | N3v17 | MSE + PCR + kappa_max=50 | 40% -> 55-60% |
 | N4v18 | N4v17 | MSE + PCR + kappa_max=50 | 40% -> 55-65% |
 
-### 21.5 Version Genealogy (Updated)
+### 21.5 V18 Actual Results
+
+| Metric | N1v18 | N2v18 | N3v18 | N4v18 |
+|--------|-------|-------|-------|-------|
+| Val Raw R@1 | 46.0% | 40.6% | 39.6% | 40.4% |
+| Val CSLS R@1 | 52.3% | 46.0% | 44.9% | 46.2% |
+| S1000 Raw R@1 | 39.3% | 30.9% | 33.0% | 34.9% |
+| S1000 CSLS R@1 | 46.8% | 36.0% | 40.1% | 40.7% |
+| Separability | 0.287 | 0.288 | 0.276 | 0.282 |
+| Kappa mean/std | 15.6/0.4 | 18.9/0.7 | 29.8/0.8 | 31.5/1.1 |
+| Hubness gap | 6.3pp | 5.4pp | 5.3pp | 5.8pp |
+
+### 21.6 V18 Post-Mortem: Regression from V17
+
+V18 **regressed** from V17 despite identical model capacity. N1 dropped from 56.3% to 52.3% CSLS R@1 (val), and from 52.1% to 46.8% (shared1000). The z-score fix helped N2-N4 on shared1000 (from catastrophic 6% to 36-41%), but the three new additions (MSE, PCR, uniformity) were net negative.
+
+**Root cause analysis from N3v18 loss breakdown:**
+
+| Loss | Contribution | % of Total |
+|------|-------------|------------|
+| vmf_nce_multitask | 11.3 | 43.1% |
+| vmf_nce | 7.5 | 28.6% |
+| softclip | 5.6 | 21.5% |
+| mixco | 1.5 | 5.6% |
+| hier_clip + cka | 0.5 | 2.0% |
+| MSE | 0.002 | 0.008% |
+| uniformity | -0.3 | -1.3% |
+| kappa_reg | 0.15 | 0.6% |
+
+- **MSE contributed 0.008%** of gradient. On 768-D unit-norm vectors, `nn.MSELoss(reduction='mean')` produces values ~0.002, completely drowned out by contrastive losses (~7.5). Dead weight.
+- **PCR removed useful discriminative variance.** The top principal components of CLIP embeddings carry the most discriminative semantic information.
+- **Uniformity** blindly pushed apart semantically similar embeddings.
+- **vmf_nce_multitask dominated at 43%** — mt_aux forces V1/V2 ROIs to predict global semantics, creating contradictory gradients.
+
+---
+
+## 22. V19: Revert V18 Regressions + Margin + DirectAlign + ROI Dropout
+
+### 22.1 Rationale
+
+V18 proved that MSE, PCR, and uniformity were counterproductive. V19 returns to the V17 foundation (best: 56.3% CSLS R@1) and makes three surgical additions: CosFace angular margin, DirectAlignmentLoss (properly scaled 1 - cos_sim), and ROI-Token Dropout. For N3/N4, the loss landscape is drastically simplified by disabling mt_aux, hierarchical_clip, and cka.
+
+### 22.2 Changes from V17
+
+| Change | Scope | Rationale |
+|--------|-------|-----------|
+| Add CosFace margin (0.15) | N1, N2, N3 vmf_nce | Carves strict angular boundaries on the hypersphere; already implemented in vmf_nce.py |
+| Add DirectAlignmentLoss (w=2.0) | All V19 | `1 - cos_sim`, range [0,2]; properly scaled unlike MSE (0.002). Operates on raw decoder output |
+| Add ROI-Token Dropout (10%) | N2, N3, N4 | Randomly zeros ROI tokens during training; forces Transformer robustness |
+| Disable mt_aux (lambda_aux=0.0) | N3, N4 | Contributed 43% of loss but forced V1/V2 to predict global semantics |
+| Disable hier_clip | N3, N4 | Contributed only 1% of total loss |
+| Disable cka | N3, N4 | Contributed only 1% of total loss |
+| Remove early_stop_min_delta | All V19 | Prevented convergence in V17/V18 |
+| Kappa-weighted Frechet mean | Shared1000 eval | Zero-cost: fuse 3 repetitions using model confidence |
+| Keep kappa curriculum (10->50) | N3, N4 | Prevents early overconfidence |
+
+### 22.3 V19 Loss Landscape
+
+| Config | Active Losses | Margin |
+|--------|--------------|--------|
+| N1v19 | vMF-NCE + SoftCLIP + MixCo + DirectAlign + kappa_reg | 0.15 |
+| N2v19 | same as N1 | 0.15 |
+| N3v19 | vMF-NCE + SoftCLIP + MixCo + DirectAlign + mt_fused + kappa_reg | 0.15 |
+| N4v19 | vMF-NCE-SPCL + SoftCLIP + MixCo + DirectAlign + mt_fused + kappa_reg | (SPCL, no margin) |
+
+### 22.4 Version Genealogy (Updated)
 
 ```
 V4 (fix 6 bugs) -> V5 (tau=1, no kappa_reg)
@@ -1490,6 +1555,7 @@ V4 (fix 6 bugs) -> V5 (tau=1, no kappa_reg)
           -> V13 (MSE regression) -> V14 (anti-hubness + diagnostics)
             -> V15 (PCR + batch + z-score fix)
               -> V16 (rep-avg + low-reg + focused loss + shared1000 eval) = 39% REGRESSION
-    -> V17 (restore V7/V8 baseline + CSLS + shared1000) = 47% N1, 40% N2-N4
-      -> V18 (fix shared1000 bug + MSE + PCR + kappa cap)  <-- CURRENT
+    -> V17 (restore V7/V8 baseline + CSLS + shared1000) = 56.3% N1 CSLS, 47% N2-N4 CSLS
+      -> V18 (fix s1000 bug + MSE + PCR) = 52.3% N1 CSLS (REGRESSION)
+        -> V19 (revert V18 regressions + margin + DirectAlign + ROI dropout)  <-- CURRENT
 ```

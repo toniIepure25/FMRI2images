@@ -359,6 +359,7 @@ class UnifiedModel(nn.Module):
                 dropout=encoder_cfg.get("dropout", 0.1),
                 activation=encoder_cfg.get("activation", "gelu"),
                 drop_path_rate=encoder_cfg.get("drop_path_rate", 0.0),
+                roi_token_dropout=encoder_cfg.get("roi_token_dropout", 0.0),
             )
         elif encoder_type == "roi_transformer":
             roi_dims = encoder_cfg.get("roi_dims")
@@ -374,6 +375,7 @@ class UnifiedModel(nn.Module):
                 roi_indices=roi_indices,
                 dim_feedforward=encoder_cfg.get("dim_feedforward"),
                 drop_path_rate=encoder_cfg.get("drop_path_rate", 0.0),
+                roi_token_dropout=encoder_cfg.get("roi_token_dropout", 0.0),
             )
         else:
             input_dim = encoder_cfg.get("input_dim")

@@ -75,10 +75,12 @@ class MultiSubjectROITransformer(nn.Module):
         dropout: float = 0.1,
         activation: str = "gelu",
         drop_path_rate: float = 0.0,
+        roi_token_dropout: float = 0.0,
     ):
         super().__init__()
         self.d_model = d_model
         self.output_dim = d_model
+        self.roi_token_drop_rate = roi_token_dropout
 
         _ff_dim = dim_feedforward or d_model * 4
 
@@ -274,6 +276,11 @@ class MultiSubjectROITransformer(nn.Module):
         )
         tokens = tokens + subj_emb.unsqueeze(0).unsqueeze(0)
 
+        if self.training and self.roi_token_drop_rate > 0:
+            mask = (torch.rand(B, tokens.size(1), 1,
+                               device=tokens.device) > self.roi_token_drop_rate).float()
+            tokens = tokens * mask
+
         cls_tokens = self.cls_token.expand(B, -1, -1)
         tokens = torch.cat([cls_tokens, tokens], dim=1)
         tokens = tokens + self.pos_embed
@@ -312,6 +319,11 @@ class MultiSubjectROITransformer(nn.Module):
             subj_tokens = subj_tokens + subj_emb.unsqueeze(0).unsqueeze(0)
 
             all_tokens[mask_t] = subj_tokens
+
+        if self.training and self.roi_token_drop_rate > 0:
+            drop_mask = (torch.rand(B, self.n_rois, 1,
+                                    device=x.device) > self.roi_token_drop_rate).float()
+            all_tokens = all_tokens * drop_mask
 
         cls_tokens = self.cls_token.expand(B, -1, -1)
         tokens = torch.cat([cls_tokens, all_tokens], dim=1)

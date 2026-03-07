@@ -1000,9 +1000,9 @@ def train_epoch(
                 total_loss = total_loss + kr
                 batch_metrics["kappa_reg"] = kr.item()
 
-            # --- Direct cosine alignment (V11) ---
+            # --- Direct cosine alignment (V11, fixed V19: use raw pred) ---
             if "direct_alignment" in losses and is_vmf:
-                da_loss = losses["direct_alignment"](pred_for_contrast, gt_embedding)
+                da_loss = losses["direct_alignment"](pred, gt_embedding)
                 total_loss = total_loss + loss_weights.get("direct_alignment", 0.5) * da_loss
                 batch_metrics["direct_align"] = da_loss.item()
 
@@ -1294,34 +1294,83 @@ def _evaluate_shared1000(
             else:
                 logger.warning("Shared1000 eval: z-score stats not found at %s — using raw features", zdir)
 
-    # --- Average repetitions per nsdId (standard protocol: 3 reps -> 1) ---
     nsd_ids = s1000_df["nsdId"].values
     unique_ids = np.unique(nsd_ids)
     n_images = len(unique_ids)
-    avg_features = np.zeros((n_images, s1000_features.shape[1]), dtype=np.float32)
-    for i, uid in enumerate(unique_ids):
-        avg_features[i] = s1000_features[nsd_ids == uid].mean(axis=0)
 
-    # --- Forward pass ---
+    model_type = getattr(model, "model_type", "deterministic")
+    is_vmf_model = model_type in ("vmf", "vmf_dcf")
     model.eval()
-    all_preds: List[np.ndarray] = []
-    tensor_ds = torch.utils.data.TensorDataset(torch.from_numpy(avg_features))
-    loader = DataLoader(tensor_ds, batch_size=batch_size, shuffle=False)
-    with torch.no_grad():
-        for (batch_fmri,) in loader:
-            batch_fmri = batch_fmri.to(device, dtype=torch.float32)
-            if is_multi_subject:
-                sid = torch.full((batch_fmri.shape[0],), subject_id,
-                                 dtype=torch.long, device=device)
-                out = model(batch_fmri, subject_ids=sid)
-            else:
-                out = model(batch_fmri)
-            pred = out[0] if isinstance(out, tuple) else out
-            all_preds.append(pred.cpu().numpy())
 
-    preds = np.concatenate(all_preds)
-    norms = np.linalg.norm(preds, axis=-1, keepdims=True)
-    preds = preds / np.maximum(norms, 1e-8)
+    if is_vmf_model:
+        # --- vMF path: run ALL individual trials, fuse with kappa weights ---
+        tensor_ds = torch.utils.data.TensorDataset(torch.from_numpy(s1000_features))
+        loader = DataLoader(tensor_ds, batch_size=batch_size, shuffle=False)
+        all_preds: List[np.ndarray] = []
+        all_kappas: List[np.ndarray] = []
+        with torch.no_grad():
+            for (batch_fmri,) in loader:
+                batch_fmri = batch_fmri.to(device, dtype=torch.float32)
+                if is_multi_subject:
+                    sid = torch.full((batch_fmri.shape[0],), subject_id,
+                                     dtype=torch.long, device=device)
+                    out = model(batch_fmri, subject_ids=sid)
+                else:
+                    out = model(batch_fmri)
+                pred, aux = (out if isinstance(out, tuple) else (out, None))
+                all_preds.append(pred.cpu().numpy())
+                if aux is not None:
+                    k = aux.squeeze(-1)
+                    if vmf_is_log:
+                        k = k.exp()
+                    all_kappas.append(k.cpu().numpy())
+
+        trial_preds = np.concatenate(all_preds)
+        trial_kappas = np.concatenate(all_kappas) if all_kappas else None
+
+        preds = np.zeros((n_images, trial_preds.shape[1]), dtype=np.float32)
+        preds_avg = np.zeros_like(preds)
+        for i, uid in enumerate(unique_ids):
+            mask = nsd_ids == uid
+            preds_avg[i] = trial_preds[mask].mean(axis=0)
+            if trial_kappas is not None:
+                kw = trial_kappas[mask]
+                kw = kw / (kw.sum() + 1e-8)
+                preds[i] = (trial_preds[mask] * kw[:, None]).sum(axis=0)
+            else:
+                preds[i] = preds_avg[i]
+
+        norms = np.linalg.norm(preds, axis=-1, keepdims=True)
+        preds = preds / np.maximum(norms, 1e-8)
+        norms_avg = np.linalg.norm(preds_avg, axis=-1, keepdims=True)
+        preds_avg = preds_avg / np.maximum(norms_avg, 1e-8)
+        logger.info("Shared1000: using kappa-weighted spherical Frechet mean (%d trials -> %d images)",
+                     len(trial_preds), n_images)
+    else:
+        # --- Non-vMF path: average fMRI features, single forward pass ---
+        avg_features = np.zeros((n_images, s1000_features.shape[1]), dtype=np.float32)
+        for i, uid in enumerate(unique_ids):
+            avg_features[i] = s1000_features[nsd_ids == uid].mean(axis=0)
+
+        all_preds_list: List[np.ndarray] = []
+        tensor_ds = torch.utils.data.TensorDataset(torch.from_numpy(avg_features))
+        loader = DataLoader(tensor_ds, batch_size=batch_size, shuffle=False)
+        with torch.no_grad():
+            for (batch_fmri,) in loader:
+                batch_fmri = batch_fmri.to(device, dtype=torch.float32)
+                if is_multi_subject:
+                    sid = torch.full((batch_fmri.shape[0],), subject_id,
+                                     dtype=torch.long, device=device)
+                    out = model(batch_fmri, subject_ids=sid)
+                else:
+                    out = model(batch_fmri)
+                pred = out[0] if isinstance(out, tuple) else out
+                all_preds_list.append(pred.cpu().numpy())
+
+        preds = np.concatenate(all_preds_list)
+        norms = np.linalg.norm(preds, axis=-1, keepdims=True)
+        preds = preds / np.maximum(norms, 1e-8)
+        preds_avg = None
 
     # --- Ground-truth CLIP embeddings ---
     emb_col = resolve_embedding_column(embeddings_df, _EMBEDDING_COLUMN_OVERRIDE)
@@ -1348,7 +1397,7 @@ def _evaluate_shared1000(
     gt_norms = np.linalg.norm(gts, axis=-1, keepdims=True)
     gts = gts / np.maximum(gt_norms, 1e-8)
 
-    # --- Retrieval metrics ---
+    # --- Retrieval metrics (primary: kappa-weighted for vMF, standard otherwise) ---
     retrieval = _compute_retrieval(preds, gts, ks=(1, 5, 10))
     csls_ret = _compute_retrieval_csls(preds, gts, ks=(1, 5, 10), csls_k=10)
 
@@ -1372,6 +1421,19 @@ def _evaluate_shared1000(
         "csls_r@10": float(csls_ret["top10_accuracy"]),
         "mean_pos_sim": mean_pos_sim,
     }
+
+    # Standard-average comparison for vMF models
+    if preds_avg is not None:
+        ret_avg = _compute_retrieval(preds_avg, gts, ks=(1, 5, 10))
+        csls_avg = _compute_retrieval_csls(preds_avg, gts, ks=(1, 5, 10), csls_k=10)
+        metrics["r@1_avg"] = float(ret_avg["top1_accuracy"])
+        metrics["csls_r@1_avg"] = float(csls_avg["top1_accuracy"])
+        logger.info(
+            "Shared1000 (kappa-wtd): R@1=%.4f  CSLS_R@1=%.4f  |  "
+            "(std-avg): R@1=%.4f  CSLS_R@1=%.4f",
+            metrics["r@1"], metrics["csls_r@1"],
+            metrics["r@1_avg"], metrics["csls_r@1_avg"],
+        )
 
     logger.info(
         "Shared1000: R@1=%.4f  R@5=%.4f  R@10=%.4f  CSLS_R@1=%.4f  "

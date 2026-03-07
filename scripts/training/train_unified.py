@@ -2506,7 +2506,7 @@ def main() -> None:
                         else None
                     )
                     if preprocessor is not None:
-                        _tr_gt = preprocessor.transform_batch(_tr_gt)
+                        _tr_gt = preprocessor.transform_torch(_tr_gt)
                     _tr_out = (
                         model(_tr_fmri, subject_ids=_tr_sid)
                         if _tr_sid is not None

@@ -6,13 +6,16 @@
 #   - preprocessing: center_pcr k=4 (reduces hubness via PC removal)
 #   - training.early_stop_min_delta: removed (was 0.002, caused premature stopping)
 #   - decoder.kappa_max: 50.0 (V17 kappa=60.3 indicated overconfidence)
+#   - loss.uniformity: enabled (spherical uniformity regularization, anti-hubness during training)
+#   - training.kappa_curriculum: 10->50 over 60 epochs (prevents early overconfidence)
 
 experiment:
   name: "N3v18_roi_dcf"
-  description: "v18 ROI-DCF: V17 + MSE regression + PCR anti-hubness + kappa cap"
+  description: "v18 ROI-DCF: V17 + MSE + PCR + uniformity + kappa curriculum"
   tags: ["roi_dcf", "vmf", "vmf_nce", "multi_task", "interpretable", "novel", "v18",
          "multi_subject", "softplus", "hierarchical_clip", "cka",
-         "csls", "shared1000", "mc_tta", "mse", "pcr"]
+         "csls", "shared1000", "mc_tta", "mse", "pcr", "uniformity",
+         "kappa_curriculum"]
   parent: "N3v17_roi_dcf"
 
 data:
@@ -126,6 +129,11 @@ loss:
     enabled: true
     lambda_kappa: 0.01
 
+  uniformity:
+    enabled: true
+    weight: 0.1
+    t: 2.0
+
 queue:
   enabled: true
   size: 16384
@@ -157,6 +165,11 @@ training:
   ema:
     enabled: true
     decay: 0.999
+  kappa_curriculum:
+    enabled: true
+    start: 10.0
+    end: 50.0
+    anneal_epochs: 60
 
 inference:
   use_mean_for_retrieval: true

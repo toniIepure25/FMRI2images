@@ -5,12 +5,13 @@
 #   - loss.mse: enabled (direct regression toward CLIP target, MindEye-proven)
 #   - preprocessing: center_pcr k=4 (reduces hubness via PC removal)
 #   - training.early_stop_min_delta: removed (was 0.002, caused premature stopping)
+#   - loss.uniformity: enabled (spherical uniformity regularization, anti-hubness during training)
 
 experiment:
   name: "N1v18_vmf_nce"
-  description: "v18 vMF-NCE: V17 + MSE regression + PCR anti-hubness"
+  description: "v18 vMF-NCE: V17 + MSE regression + PCR anti-hubness + uniformity"
   tags: ["vmf", "vmf_nce", "queue", "novel", "v18", "softplus", "fused_targets",
-         "csls", "shared1000", "mc_tta", "mse", "pcr"]
+         "csls", "shared1000", "mc_tta", "mse", "pcr", "uniformity"]
   parent: "N1v17_vmf_nce"
 
 data:
@@ -84,6 +85,11 @@ loss:
     enabled: false
   kl:
     enabled: false
+
+  uniformity:
+    enabled: true
+    weight: 0.1
+    t: 2.0
 
 queue:
   enabled: true

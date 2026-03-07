@@ -6,13 +6,16 @@
 #   - preprocessing: center_pcr k=4 (reduces hubness via PC removal)
 #   - training.early_stop_min_delta: removed (was 0.002, caused premature stopping)
 #   - decoder.kappa_max: 50.0 (V17 kappa=54.5 indicated overconfidence)
+#   - loss.uniformity: enabled (spherical uniformity regularization, anti-hubness during training)
+#   - training.kappa_curriculum: 10->50 over 60 epochs (prevents early overconfidence)
 
 experiment:
   name: "N4v18_full_system"
-  description: "v18 flagship: V17 + MSE regression + PCR anti-hubness + kappa cap"
+  description: "v18 flagship: V17 + MSE + PCR + uniformity + kappa curriculum"
   tags: ["roi_dcf", "vmf", "mixture", "dual_ua_cfg", "ceiling", "spcl",
          "full_system", "flagship", "v18", "multi_subject", "softplus",
-         "hierarchical_clip", "cka", "csls", "shared1000", "mc_tta", "mse", "pcr"]
+         "hierarchical_clip", "cka", "csls", "shared1000", "mc_tta", "mse", "pcr",
+         "uniformity", "kappa_curriculum"]
   parent: "N4v17_full_system"
 
 data:
@@ -124,6 +127,11 @@ loss:
   kl:
     enabled: false
 
+  uniformity:
+    enabled: true
+    weight: 0.1
+    t: 2.0
+
 queue:
   enabled: true
   size: 16384
@@ -155,6 +163,11 @@ training:
   ema:
     enabled: true
     decay: 0.999
+  kappa_curriculum:
+    enabled: true
+    start: 10.0
+    end: 50.0
+    anneal_epochs: 60
 
 inference:
   use_mean_for_retrieval: true

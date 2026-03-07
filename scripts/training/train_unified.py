@@ -2316,6 +2316,18 @@ def main() -> None:
     spcl_t_end = spcl_cfg.get("final_curriculum_t", 1.0)
     spcl_warmup = spcl_cfg.get("warmup_epochs", 10)
 
+    # --- Kappa curriculum schedule (V18) ---
+    _kappa_cur_cfg = config.get("training", {}).get("kappa_curriculum", {})
+    _kappa_cur_enabled = _kappa_cur_cfg.get("enabled", False)
+    _kappa_cur_start = _kappa_cur_cfg.get("start", 10.0)
+    _kappa_cur_end = _kappa_cur_cfg.get("end", 50.0)
+    _kappa_cur_epochs = _kappa_cur_cfg.get("anneal_epochs", 60)
+    if _kappa_cur_enabled:
+        logger.info(
+            "Kappa curriculum enabled: %.1f -> %.1f over %d epochs",
+            _kappa_cur_start, _kappa_cur_end, _kappa_cur_epochs,
+        )
+
     _ckpt_meta = {
         "normalize_fmri": normalize_fmri,
         "zscore_mode": zscore_mode,
@@ -2426,6 +2438,22 @@ def main() -> None:
                 progress = (epoch - spcl_warmup) / max(num_epochs - spcl_warmup, 1)
                 cur_t = spcl_t_start + (spcl_t_end - spcl_t_start) * 0.5 * (1 + math.cos(math.pi * (1 - progress)))
             losses["vmf_nce_spcl"].set_curriculum_temperature(cur_t)
+
+        # Update kappa_max curriculum (V18)
+        if _kappa_cur_enabled:
+            progress = min(epoch / max(_kappa_cur_epochs, 1), 1.0)
+            _cur_kappa_max = _kappa_cur_start + (_kappa_cur_end - _kappa_cur_start) * progress
+            _mt = getattr(model, "model_type", "deterministic")
+            if _mt == "vmf_dcf" and hasattr(model, "decoder"):
+                if hasattr(model.decoder, "roi_heads"):
+                    model.decoder.roi_heads.kappa_max = _cur_kappa_max
+                elif hasattr(model.decoder, "kappa_max"):
+                    model.decoder.kappa_max = _cur_kappa_max
+            elif _mt == "vmf" and hasattr(model, "decoder"):
+                model.decoder.kappa_max = _cur_kappa_max
+            if epoch % 10 == 1:
+                logger.info("Kappa curriculum: kappa_max=%.1f (epoch %d/%d)",
+                            _cur_kappa_max, epoch, _kappa_cur_epochs)
 
         # Update auto-weights from log_sigmas for this epoch
         if _log_sigmas is not None:

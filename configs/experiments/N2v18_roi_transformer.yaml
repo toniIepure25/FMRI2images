@@ -5,12 +5,14 @@
 #   - loss.mse: enabled (direct regression toward CLIP target, MindEye-proven)
 #   - preprocessing: center_pcr k=4 (reduces hubness via PC removal)
 #   - training.early_stop_min_delta: removed (was 0.002, caused premature stopping)
+#   - loss.uniformity: enabled (spherical uniformity regularization, anti-hubness during training)
 
 experiment:
   name: "N2v18_roi_transformer"
-  description: "v18 ROI Transformer: V17 + MSE regression + PCR anti-hubness"
+  description: "v18 ROI Transformer: V17 + MSE regression + PCR anti-hubness + uniformity"
   tags: ["roi_transformer", "vmf", "vmf_nce", "interpretable", "novel", "v18",
-         "multi_subject", "softplus", "csls", "shared1000", "mc_tta", "mse", "pcr"]
+         "multi_subject", "softplus", "csls", "shared1000", "mc_tta", "mse", "pcr",
+         "uniformity"]
   parent: "N2v17_roi_transformer"
 
 data:
@@ -105,6 +107,11 @@ loss:
     enabled: false
   kl:
     enabled: false
+
+  uniformity:
+    enabled: true
+    weight: 0.1
+    t: 2.0
 
 queue:
   enabled: true

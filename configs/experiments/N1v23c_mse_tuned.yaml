@@ -1,0 +1,141 @@
+# N1v23c: V17 recipe + correctly-weighted MSE regression (minor regularizer)
+#
+# Hypothesis: All previous MSE attempts failed for opposite reasons:
+#   - V13/V18: reduction='mean' → MSE ≈ 0.002 (completely negligible, 0.01% gradient)
+#   - V22:     reduction='sum'  → MSE ≈ 87    (dominates 85%+ gradient, drowns NCE)
+#   The correct zone: MSE should be ~1-3% of total loss (minor geometric regularizer,
+#   as in MindEye where it helps but does not dominate).
+#
+#   With reduction='sum': MSE(unit-norm 768-D vectors) ≈ 87 at epoch 1
+#   Target: MSE contributes ~1.5 (about 2% of vMF-NCE + SoftCLIP ≈ 80)
+#   Weight: 1.5 / 87 ≈ 0.017  →  use 0.015 (conservative)
+#
+#   At weight=0.015: effective MSE ≈ 1.3  (1.6% of total)
+#   At convergence (MSE ≈ 5-10): effective MSE ≈ 0.075-0.15 (still minor)
+#
+# Changes from V17 (N1v23d control):
+#   - loss.mse.enabled: true
+#   - loss.mse.weight: 0.015    (calibrated for ~2% gradient contribution)
+#   - loss.mse.reduction: "sum" (preserves 768-dim signal; no /768 scaling)
+# Everything else is identical to V17.
+
+experiment:
+  name: "N1v23c_mse_tuned"
+  description: "v23c: V17 + MSE(sum, w=0.015) as minor 2% geometric regularizer"
+  tags: ["vmf", "vmf_nce", "v23", "mse_regression", "csls", "shared1000"]
+  parent: "N1v17_vmf_nce"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.2
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+
+preprocessing:
+  enabled: false
+
+loss:
+  mse:
+    enabled: true
+    weight: 0.015         # calibrated: MSE(sum)≈87 × 0.015 ≈ 1.3 (~2% of total)
+    reduction: "sum"      # preserves all 768 dimensions of signal
+
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 4
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 7.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 15
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

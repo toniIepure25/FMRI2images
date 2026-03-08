@@ -1,0 +1,137 @@
+# N1v23b: V17 recipe + CSLS-aware contrastive training (anti-hubness)
+#
+# Hypothesis: V17 has a 14pp raw-vs-CSLS gap (34% raw → 56% CSLS at eval),
+#             meaning the embedding geometry suffers from hubness: some embeddings
+#             are artificially close to many gallery items. By applying the
+#             differentiable CSLS correction to logits *during training*
+#             (use_csls_training=True), the encoder is taught to spread
+#             embeddings uniformly, closing this gap at training time.
+#
+#             Expected: raw R@1 increases toward CSLS R@1 (~45-50%),
+#                       CSLS R@1 may also improve slightly.
+#
+# Changes from V17 (N1v23d control):
+#   - vmf_nce.use_csls_training: true   (differentiable CSLS logit correction)
+#   - vmf_nce.csls_k: 10                (k-NN for hub estimation)
+# Everything else is identical to V17.
+#
+# Note: V11 tested this but with 5 simultaneous changes and collapsed.
+#       This is the first clean isolated test of CSLS training.
+
+experiment:
+  name: "N1v23b_csls_training"
+  description: "v23b: V17 + differentiable CSLS training (use_csls_training=True, k=10)"
+  tags: ["vmf", "vmf_nce", "v23", "csls_training", "anti_hubness", "csls", "shared1000"]
+  parent: "N1v17_vmf_nce"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.2
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    use_csls_training: true    # THE KEY CHANGE: differentiable CSLS logit correction
+    csls_k: 10                 # k-NN for hub mass estimation
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 4
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 7.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 15
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

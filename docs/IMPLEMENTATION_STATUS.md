@@ -1,7 +1,7 @@
 # Implementation Status
 
 **Last Updated:** March 2026
-**Current Phase:** V19 Revert V18 Regressions + Margin + DirectAlign + ROI Dropout
+**Current Phase:** V20 Sequential Loss Scheduling + Larger Batch
 **Hardware:** NVIDIA H100 80GB HBM3 (CUDA 12.8, bf16 mixed precision)
 
 ---
@@ -33,16 +33,24 @@
    - Implementation: `src/fmri2img/inference/decomposed_ua_cfg.py`
    - Tests: `tests/test_decomposed_ua_cfg.py`
 
-### V19 Innovations (Current)
+### V20 (Current): Sequential Loss Scheduling + Larger Batch
 
 | Module | Location | Description |
 |--------|----------|-------------|
-| CosFace angular margin | V19 configs (`margin_base: 0.15`) | Kappa-adaptive additive margin on positive pairs; already implemented in vmf_nce.py |
-| DirectAlignmentLoss | V19 configs + `train_unified.py` | `1 - cos_sim`, range [0,2]; properly scaled regression replacing dead MSE (0.008%) |
-| ROI-Token Dropout | `roi_transformer.py`, `multi_subject_encoder.py` | 10% random ROI token zeroing during training; forces robust cross-ROI representations |
-| Kappa-weighted Frechet mean | `train_unified.py` `_evaluate_shared1000()` | Fuse 3 test repetitions using model confidence; zero training cost |
-| N3/N4 loss simplification | V19 configs | Disabled mt_aux (43% of loss), hier_clip (1%), cka (1%) |
-| Fix DirectAlign pred space | `train_unified.py` line 1005 | Changed `pred_for_contrast` to `pred` so regression operates in evaluation space |
+| Sequential MixCo->SoftCLIP scheduling | V20 configs (`softclip_from_start: false`) | MixCo Phase 1 (epochs 1-67), SoftCLIP Phase 2 (68-200); MindEye-style, never tested on clean baseline |
+| Larger in-batch size | V20 configs (`batch_size: 128, grad_accum: 2`) | 2x more fresh in-batch negatives (128 vs 64), same effective batch 256 |
+| Config-only changes on V17 | V20 configs | Zero code changes; all V18/V19 detrimental additions removed |
+| Retained bug fixes | Codebase | Shared1000 z-score fix (V18), early_stop_min_delta removal, kappa-weighted Frechet mean (V19) |
+
+### V19 (Regressed from V17: 49.1% vs 56.3% CSLS R@1)
+
+| Module | Location | Description |
+|--------|----------|-------------|
+| CosFace angular margin | V19 configs (`margin_base: 0.15`) | Kappa-adaptive additive margin on positive pairs; compounded embedding collapse |
+| DirectAlignmentLoss | V19 configs + `train_unified.py` | `1 - cos_sim` at weight 2.0; **caused embedding space collapse** (pos/neg sim both spiked) |
+| ROI-Token Dropout | `roi_transformer.py`, `multi_subject_encoder.py` | 10% random ROI token zeroing; showed no benefit |
+| Kappa-weighted Frechet mean | `train_unified.py` `_evaluate_shared1000()` | Fuse 3 test repetitions using model confidence; zero training cost (kept in V20) |
+| N3/N4 loss simplification | V19 configs | Disabled mt_aux, hier_clip, cka; **harmful**: V17 full loss set was better |
 
 ### V18 (Regressed from V17: 52.3% vs 56.3% CSLS R@1)
 
@@ -157,10 +165,14 @@
 | `N2v18_roi_transformer.yaml` | V18: V17 + MSE + PCR | Complete | 40.6% | 46.0% |
 | `N3v18_roi_dcf.yaml` | V18: V17 + MSE + PCR + kappa cap 50 | Complete | 39.6% | 44.9% |
 | `N4v18_full_system.yaml` | V18: V17 + MSE + PCR + kappa cap 50 | Complete | 40.4% | 46.2% |
-| `N1v19_vmf_nce.yaml` | V19: V17 + margin + DirectAlign | **Ready** | Pending | Pending |
-| `N2v19_roi_transformer.yaml` | V19: V17 + margin + DirectAlign + ROI dropout | **Ready** | Pending | Pending |
-| `N3v19_roi_dcf.yaml` | V19: V17 + margin + DirectAlign + simplified + ROI dropout | **Ready** | Pending | Pending |
-| `N4v19_full_system.yaml` | V19: V17 + DirectAlign + simplified + ROI dropout | **Ready** | Pending | Pending |
+| `N1v19_vmf_nce.yaml` | V19: V17 + margin + DirectAlign | Complete | 38.1% | 49.1% |
+| `N2v19_roi_transformer.yaml` | V19: V17 + margin + DirectAlign + ROI dropout | Complete | 36.8% | 44.7% |
+| `N3v19_roi_dcf.yaml` | V19: V17 + margin + DirectAlign + simplified + ROI dropout | Complete | 36.6% | 45.3% |
+| `N4v19_full_system.yaml` | V19: V17 + DirectAlign + simplified + ROI dropout | Complete | 36.9% | 44.6% |
+| `N1v20_vmf_nce.yaml` | V20: V17 + sequential MixCo->SoftCLIP + batch 128 | **Ready** | Pending | Pending |
+| `N2v20_roi_transformer.yaml` | V20: V17 + sequential MixCo->SoftCLIP + batch 128 | **Ready** | Pending | Pending |
+| `N3v20_roi_dcf.yaml` | V20: V17 + sequential MixCo->SoftCLIP + batch 128 | **Ready** | Pending | Pending |
+| `N4v20_full_system.yaml` | V20: V17 + sequential MixCo->SoftCLIP + batch 128 | **Ready** | Pending | Pending |
 
 ---
 
@@ -188,7 +200,7 @@ Results archived in `experimental_results/exp001_baseline_ultimate/` and `Raport
 | LR scheduling (cosine + warmup) | Implemented |
 | Gradient clipping | Implemented (max_norm=1.0) |
 | Per-session z-scoring | Implemented (v15: fixed for multi-subject datasets) |
-| MixCo + SoftCLIP | Implemented (simultaneous from start) |
+| MixCo + SoftCLIP | Implemented (simultaneous or sequential via `softclip_from_start`) |
 | EMA (Exponential Moving Average) | Implemented (decay=0.999) |
 | fMRI noise augmentation | Implemented (std=0.1) |
 | Voxel dropout | Implemented (0.1) |
@@ -226,12 +238,12 @@ python scripts/evaluation/diagnose_embeddings.py \
 
 ## What to Run
 
-### V19 Ablation (H100)
+### V20 Ablation (H100)
 
 ```bash
-# Full V19 N-series (4 experiments, best checkpoint only)
-nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N19 SAVE_CKPT=best > ablation_v19.log 2>&1 &
-tail -f ablation_v19.log
+# Full V20 N-series (4 experiments, best checkpoint only)
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N20 SAVE_CKPT=best > ablation_v20.log 2>&1 &
+tail -f ablation_v20.log
 ```
 
 ### After Training
@@ -243,13 +255,13 @@ python3 scripts/evaluation/aggregate_ablation.py \
     --subjects subj01
 
 # Run diagnostics on each experiment
-for exp in N1v19_vmf_nce N2v19_roi_transformer N3v19_roi_dcf N4v19_full_system; do
+for exp in N1v20_vmf_nce N2v20_roi_transformer N3v20_roi_dcf N4v20_full_system; do
     python3 scripts/evaluation/diagnose_embeddings.py \
         --results-dir experimental_results/${exp}/subj01
 done
 
 # View shared1000 benchmark results (with kappa-weighted Frechet mean)
-for exp in N1v19_vmf_nce N2v19_roi_transformer N3v19_roi_dcf N4v19_full_system; do
+for exp in N1v20_vmf_nce N2v20_roi_transformer N3v20_roi_dcf N4v20_full_system; do
     echo "=== ${exp} ==="
     cat experimental_results/${exp}/subj01/metrics/shared1000_metrics.json 2>/dev/null \
         || echo "  (not yet available)"

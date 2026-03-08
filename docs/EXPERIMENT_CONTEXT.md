@@ -2,7 +2,7 @@
 
 This document provides complete technical context for a bachelor thesis project on neural decoding of visual perception from fMRI. It is designed as a self-contained briefing for an LLM or researcher performing deep analysis.
 
-**Project status (March 2026):** After 14 iterative versions (v4-v14), the system achieves **~45% raw R@1 / ~54% CSLS R@1** on subj01 with V13 configs. The persistent 8-10 pp gap between raw and CSLS R@1 identifies **hubness** as the primary remaining bottleneck. V14 attacks this directly via differentiable CSLS training loss, inverted softmax (ISF), direct cosine alignment, and CSLS-based checkpoint selection. All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision and effective batch size 512.
+**Project status (March 2026):** After 20 iterative versions (v4-v20), the project-best is **47% raw R@1 / 56.3% CSLS R@1** on subj01 (N1v17). Versions V18-V19 attempted loss additions (MSE, DirectAlign, CosFace margin) which all regressed from V17. V20 tests the last major untested MindEye technique -- sequential MixCo->SoftCLIP loss scheduling -- on the proven V17 baseline with doubled in-batch size. All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
 
 **SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training, (2) smaller model capacity (328M vs 996M params), (3) MindEye's OpenCLIP ViT-bigG/14 embeddings (256x1664-D) vs our ViT-L/14 (768-D), and (4) hubness in high-dimensional retrieval from single-trial fMRI noise.
 
@@ -902,7 +902,12 @@ An alternative fix would be to remove \(\tau\) from the `_score()` method entire
 | v12 | N1v12-N4v12 | Two-stage training + kappa cap fix + eff. batch 512 + auto-weighting | N1: CSLS 52%, N3/N4: 27-37% (regression) |
 | v13 | N1v13-N4v13 | MSE regression from epoch 1 (MindEye-style) + hierarchical CLIP (N3/N4) | N1: 45-46%, CSLS 54%; N3: 45%, CSLS 54-55% |
 | v14 | N1v14-N4v14 | Anti-hubness (CSLS training + ISF + direct alignment) + CSLS checkpoint | N1: ~43%, CSLS ~53%; N4: ~44-45%, CSLS ~55-58% |
-| v15 | N1v15-N4v15 | **Fix fundamentals**: PCR re-enabled, batch 256, z-scoring bug fix, loss simplification | Pending |
+| v15 | N1v15-N4v15 | **Fix fundamentals**: PCR re-enabled, batch 256, z-scoring bug fix, loss simplification | N1: 44%, CSLS 51% |
+| v16 | N1v16-N4v16 | Rep-avg, low-reg, focused loss (MSE+NCE only) | ~39% REGRESSION |
+| v17 | N1v17-N4v17 | Restore V7/V8 baseline + CSLS + shared1000 + diagnostics | N1: 47%, **CSLS 56.3%** |
+| v18 | N1v18-N4v18 | V17 + MSE + PCR + shared1000 z-score fix | N1: 46%, CSLS 52.3% (regression) |
+| v19 | N1v19-N4v19 | V17 + CosFace margin + DirectAlign + ROI dropout | N1: 38%, CSLS 49.1% (regression) |
+| v20 | N1v20-N4v20 | V17 + sequential MixCo->SoftCLIP + batch 128 | Pending |
 
 Notes:
 - B-series stays at v4 (not affected by vMF-specific changes)
@@ -914,6 +919,11 @@ Notes:
 - v13 adds MSE regression (MindEye1's key ingredient) and hierarchical CLIP alignment for N3/N4
 - v14 attacks the 8-10 pp hubness gap with three training-time mechanisms + CSLS-based checkpoint selection
 - v15 fixes three fundamental bottlenecks: z-scoring bug for multi-subject, disabled CLIP PCR, small in-batch size
+- v16 stripped too many losses (SoftCLIP, MixCo, kappa_reg) and over-reduced regularization
+- v17 faithfully restored V7/V8 proven recipe; achieved **project-best 56.3% CSLS R@1** on N1
+- v18 additions (MSE, PCR, uniformity) were all net-negative; MSE only 0.008% of gradient
+- v19 DirectAlignmentLoss at weight 2.0 caused embedding space collapse (pos/neg sim both spiked)
+- v20 tests MindEye-style sequential scheduling (never tested on a clean baseline in 15 versions)
 
 ---
 
@@ -1557,5 +1567,112 @@ V4 (fix 6 bugs) -> V5 (tau=1, no kappa_reg)
               -> V16 (rep-avg + low-reg + focused loss + shared1000 eval) = 39% REGRESSION
     -> V17 (restore V7/V8 baseline + CSLS + shared1000) = 56.3% N1 CSLS, 47% N2-N4 CSLS
       -> V18 (fix s1000 bug + MSE + PCR) = 52.3% N1 CSLS (REGRESSION)
-        -> V19 (revert V18 regressions + margin + DirectAlign + ROI dropout)  <-- CURRENT
+        -> V19 (revert V18 regressions + margin + DirectAlign + ROI dropout) = 49.1% N1 CSLS (REGRESSION)
+          -> V20 (V17 base + sequential MixCo->SoftCLIP + batch 128)  <-- CURRENT
+```
+
+---
+
+## 23. V19 Actual Results and Post-Mortem
+
+### 23.1 V19 Actual Results (subj01)
+
+**Validation diagnostics (900-image gallery):**
+
+| Metric | N1v19 | N2v19 | N3v19 | N4v19 |
+|--------|-------|-------|-------|-------|
+| Raw R@1 | 38.1% | 36.8% | 36.6% | 36.9% |
+| CSLS R@1 | 49.1% | 44.7% | 45.3% | 44.6% |
+| Hubness gap | 11.0pp | 7.9pp | 8.8pp | 7.7pp |
+| Pos sim (mean) | 0.800 | 0.760 | 0.738 | 0.747 |
+| Neg sim (mean) | 0.616 | 0.573 | 0.550 | 0.564 |
+| Separability | 0.185 | 0.187 | 0.188 | 0.183 |
+| Kappa (mean/std) | 32.3/4.5 | 62.4/4.0 | 48.5/0.3 | 48.5/0.5 |
+
+**Shared1000 benchmark (1000-image gallery):**
+
+| Metric | N1v19 | N2v19 | N3v19 | N4v19 |
+|--------|-------|-------|-------|-------|
+| R@1 | 40.5% | 36.2% | 35.3% | 37.3% |
+| CSLS R@1 | 48.3% | 41.8% | 41.7% | 41.8% |
+| Mean pos sim | 0.744 | 0.732 | 0.725 | 0.678 |
+
+### 23.2 V19 Post-Mortem: Embedding Space Collapse
+
+V19 showed **severe regression** from V17 across all metrics:
+
+| Metric | V17 (best) | V18 | V19 | V19 Δ from V17 |
+|--------|-----------|-----|-----|----------------|
+| N1 Val CSLS R@1 | **56.3%** | 52.3% | 49.1% | **-7.2pp** |
+| N1 S1000 CSLS R@1 | **52.1%** | 46.8% | 48.3% | **-3.8pp** |
+| N1 Separability | 0.221 | 0.287 | 0.185 | **-0.036** |
+| N1 Pos sim | 0.495 | 0.309 | 0.800 | +0.305 |
+| N1 Neg sim | 0.274 | 0.022 | 0.616 | +0.342 |
+| N1 Hubness gap | 9.3pp | 6.3pp | 11.0pp | +1.7pp |
+
+**Root cause: DirectAlignmentLoss at weight 2.0 caused embedding space collapse.**
+
+DirectAlignmentLoss (`1 - cos_sim`) at weight 2.0 aggressively forced predictions toward targets. Both positive AND negative cosine similarities spiked (pos: 0.49 -> 0.80, neg: 0.27 -> 0.62). The net separability plummeted from 0.22 to 0.18. Instead of making the model more discriminative, DirectAlign collapsed the embedding space -- all predictions moved toward a common region, making it harder to distinguish the correct image.
+
+**Secondary cause: CosFace margin compounded the issue.** The angular margin subtracted from positive logits while the embedding space was already collapsing, further degrading discriminability.
+
+**Conclusion from V17-V19:** Every loss addition since V17 has hurt performance. The V17 contrastive-only recipe (vMF-NCE + SoftCLIP + MixCo + kappa_reg) is the proven optimal loss landscape.
+
+---
+
+## 24. V20: MindEye-Style Sequential Loss Scheduling + Larger Batch
+
+### 24.1 The Key Insight
+
+Across V5 through V19 (15 versions), `softclip_from_start: true` has been set in **every** experiment except V16 (which confounded the scheduling change with 6 other drastic changes). The MindEye1 recipe -- which achieves 84% R@1 -- uses **sequential** BiMixCo -> SoftCLIP scheduling. Our codebase already implements this scheduling when `softclip_from_start: false`, but it has **never been tested in isolation on a clean baseline**.
+
+### 24.2 V20 Strategy: Two Config-Only Changes on V17
+
+**Change 1 -- Sequential Loss Scheduling (PRIMARY):**
+
+Set `softclip_from_start: false`. This activates the existing code path in `train_unified.py`:
+- **Phase 1 (epochs 1-67):** MixCo only + vMF-NCE + kappa_reg. Builds a noise-resistant manifold via interpolated soft-label contrastive training.
+- **Phase 2 (epochs 68-200):** SoftCLIP only + vMF-NCE + kappa_reg. Refines the manifold using CLIP inter-similarity soft labels.
+
+The transition happens at `num_epochs/3 + 1 = 68` for 200-epoch training.
+
+**Why simultaneous scheduling hurts:** MixCo creates blurred interpolated samples (noise-resistant but fuzzy), while SoftCLIP uses exact CLIP similarities (sharp discrimination). Running both simultaneously means MixCo's "blur" fights SoftCLIP's "sharpen" in every batch, creating gradient conflict. Sequential scheduling lets each do its job properly.
+
+**Change 2 -- Larger In-Batch Size (SECONDARY):**
+
+Change from `batch_size: 64, gradient_accumulation_steps: 4` to `batch_size: 128, gradient_accumulation_steps: 2`.
+
+Same effective batch (256), but 2x more **fresh in-batch negatives** per contrastive step (128 vs 64). Gradient accumulation provides stale micro-batch negatives that are less informative. On H100 80GB, batch 128 is trivially feasible for all model types.
+
+### 24.3 What NOT to Change (learned from V17-V19)
+
+- NO regression loss (MSE, DirectAlign -- both proven harmful)
+- NO PCR preprocessing (removes useful variance)
+- NO uniformity regularization (blind repulsion hurts)
+- NO CosFace margin (compounds embedding collapse)
+- NO ROI-token dropout (V19 showed no benefit)
+- NO kappa curriculum (N3/N4 just saturate at cap)
+- NO encoder width changes (keep V17 architecture exact)
+- NO loss simplification for N3/N4 (V17's full loss set > V19's simplified)
+
+### 24.4 Bug Fixes Retained from V18/V19
+
+- Shared1000 z-score filename fix (already in codebase)
+- `early_stop_min_delta` removed (already in codebase)
+- Kappa-weighted Frechet mean for shared1000 eval (already in codebase from V19)
+
+### 24.5 V20 Config Summary
+
+| Config | Base | Key Changes | Expected Impact |
+|--------|------|-------------|----------------|
+| N1v20 | N1v17 | `softclip_from_start: false`, `batch_size: 128`, `grad_accum: 2` | 56% -> 60-67% CSLS R@1 |
+| N2v20 | N2v17 | Same | 47% -> 50-55% |
+| N3v20 | N3v17 | Same | 47% -> 51-58% |
+| N4v20 | N4v17 | Same | 46% -> 51-58% |
+
+### 24.6 Run Commands
+
+```bash
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N20 SAVE_CKPT=best > ablation_v20.log 2>&1 &
+tail -f ablation_v20.log
 ```

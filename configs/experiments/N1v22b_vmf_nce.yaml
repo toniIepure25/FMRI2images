@@ -1,0 +1,143 @@
+# N1v22b: vMF-NCE — V17 baseline + MSE(sum) + sequential scheduling + batch 128
+#
+# Base: N1v22_vmf_nce.yaml (V17 + MSE sum)
+# Additional V22b changes (two more MindEye techniques):
+#   1. softclip_from_start: false → sequential MixCo(ep 1-67) then SoftCLIP(ep 68-200)
+#      - MindEye uses sequential BiMixCo→SoftCLIP; never tested on clean baseline
+#      - Simultaneous scheduling causes MixCo "blur" vs SoftCLIP "sharpen" gradient conflict
+#   2. batch_size: 128, grad_accum: 2 → same effective 256, but 2× in-batch negatives
+#
+# This tests ALL remaining MindEye techniques combined. Compare against N1v22 to
+# isolate whether sequential scheduling helps beyond MSE alone.
+
+experiment:
+  name: "N1v22b_vmf_nce"
+  description: "v22b vMF-NCE: V17 + MSE(sum) + sequential MixCo→SoftCLIP + batch 128"
+  tags: ["vmf", "vmf_nce", "queue", "novel", "v22", "softplus", "fused_targets",
+         "csls", "shared1000", "mc_tta", "mse_sum", "sequential_schedule"]
+  parent: "N1v22_vmf_nce"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.2
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+
+preprocessing:
+  enabled: false
+
+loss:
+  mse:
+    enabled: true
+    weight: 1.0
+    reduction: "sum"
+
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 128
+  gradient_accumulation_steps: 2
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 7.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 15
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  # === KEY CHANGE: sequential scheduling ===
+  # Phase 1 (epochs 1-67):  MixCo + vMF-NCE + MSE + kappa_reg
+  # Phase 2 (epochs 68-200): SoftCLIP + vMF-NCE + MSE + kappa_reg
+  softclip_from_start: false
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  use_csls: true
+  csls_k: 10
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+  eval_shared1000: true
+  checkpoint_metric: "r@1"
+  compute_probabilistic: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/N1v22b_vmf_nce"

@@ -1,0 +1,149 @@
+# N1v22: vMF-NCE — V17 proven baseline + properly-scaled MSE regression
+#
+# Base: N1v17_vmf_nce.yaml (47% raw / 56.3% CSLS R@1, project best)
+# V22 changes (ONE variable: MSE with sum reduction):
+#   1. loss.mse.enabled: true, weight: 1.0, reduction: "sum"
+#      - nn.MSELoss(reduction='sum') on 768-D unit-norm vectors ≈ 1.5 per sample
+#      - vs V13/V18's reduction='mean' which gave 0.002 (0.008% of gradient)
+#      - This is the ONLY MindEye technique never properly tested
+#   2. early_stop_min_delta removed (caused premature stopping in V17 N2-N4)
+#
+# Everything else IDENTICAL to V17. No encoder changes, no new losses, no ISF,
+# no vmf_nll, no scheduling changes.
+#
+# V21 post-mortem: vmf_nll (40K loss dominance), ISF (proven useless V14),
+# disabled kappa_reg (harmful V16), 3x LR, untested encoder all regressed.
+
+experiment:
+  name: "N1v22_vmf_nce"
+  description: "v22 vMF-NCE: V17 baseline + MSE(sum) regression"
+  tags: ["vmf", "vmf_nce", "queue", "novel", "v22", "softplus", "fused_targets",
+         "csls", "shared1000", "mc_tta", "mse_sum"]
+  parent: "N1v17_vmf_nce"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.2
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+
+preprocessing:
+  enabled: false
+
+loss:
+  # === NEW: MSE regression with sum reduction ===
+  # nn.MSELoss(reduction='sum') on 768-D unit-norm vectors: ~1.5 per sample
+  # At weight 1.0: MSE≈1.5 vs vMF-NCE≈7.5 → MSE is ~17% of gradient
+  # This provides the per-sample absolute coordinate signal MindEye uses
+  mse:
+    enabled: true
+    weight: 1.0
+    reduction: "sum"
+
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 4
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 7.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 15
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  # early_stop_min_delta removed — caused premature stopping in V17
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  use_csls: true
+  csls_k: 10
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+  eval_shared1000: true
+  checkpoint_metric: "r@1"
+  compute_probabilistic: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/N1v22_vmf_nce"

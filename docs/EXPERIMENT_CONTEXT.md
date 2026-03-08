@@ -908,6 +908,8 @@ An alternative fix would be to remove \(\tau\) from the `_score()` method entire
 | v18 | N1v18-N4v18 | V17 + MSE + PCR + shared1000 z-score fix | N1: 46%, CSLS 52.3% (regression) |
 | v19 | N1v19-N4v19 | V17 + CosFace margin + DirectAlign + ROI dropout | N1: 38%, CSLS 49.1% (regression) |
 | v20 | N1v20-N4v20 | V17 + sequential MixCo->SoftCLIP + batch 128 | Pending |
+| v21 | N1v21-N4v21 | V17 + residual_mlp + vmf_nll + ISF + no kappa_reg + 3×LR | N1: 34%, CSLS 44% (regression); N2-N4: 0.1% (collapsed) |
+| v22 | N1v22-N4v22 | **V17 + MSE(sum reduction) — properly-scaled regression** | Targeting CSLS 65%+ |
 
 Notes:
 - B-series stays at v4 (not affected by vMF-specific changes)
@@ -1675,4 +1677,190 @@ Same effective batch (256), but 2x more **fresh in-batch negatives** per contras
 ```bash
 nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N20 SAVE_CKPT=best > ablation_v20.log 2>&1 &
 tail -f ablation_v20.log
+```
+
+---
+
+## 25. V21 Results and Post-Mortem
+
+### 25.1 V21 Design (Summary)
+
+V21 attempted five simultaneous changes from V17:
+1. `encoder_type: "residual_mlp"` (MindEye-style: project once + 4 residual blocks)
+2. `learnable_temperature: false` (let kappa be sole temperature)
+3. `vmf_nll` auxiliary loss (weight 0.1) for kappa calibration
+4. `isf_weight: 0.3` (inverted softmax anti-hubness)
+5. `batch_size: 128, grad_accum: 8` (effective 1024, 4× V17) + `lr: 2e-4` (3× V17)
+6. `kappa_reg: disabled`
+
+### 25.2 V21 Actual Results (subj01)
+
+**Validation diagnostics (900-image gallery):**
+
+| Metric | N1v21 | N2v21 | N3v21 | N4v21 |
+|--------|-------|-------|-------|-------|
+| Raw R@1 | 33.2% | 0.1% | 0.1% | 0.1% |
+| CSLS R@1 | 47.2% | 0.1% | 0.1% | 0.1% |
+| Hubness gap | 14.0pp | 0.0pp | — | — |
+| Pos sim (mean) | 0.821 | 0.734 | NaN | NaN |
+| Neg sim (mean) | 0.646 | 0.733 | NaN | NaN |
+| Separability | 0.175 | 0.001 | NaN | NaN |
+| Kappa (mean/std) | 50.0/0.0 | 137.4/0.2 | — | — |
+
+**Shared1000 benchmark (1000-image gallery):**
+
+| Metric | N1v21 | N2v21 | N3v21 | N4v21 |
+|--------|-------|-------|-------|-------|
+| R@1 | 34.0% | 0.1% | 0.1% | 0.1% |
+| CSLS R@1 | 44.0% | 0.1% | 0.1% | 0.1% |
+| Mean pos sim | 0.819 | -0.009 | NaN | NaN |
+
+### 25.3 V21 Root Cause Analysis
+
+**N1v21 regressed from 56.3% to 44.0% CSLS R@1 (−12.3pp):**
+
+| Root Cause | Evidence | Impact |
+|------------|----------|--------|
+| vmf_nll (weight 0.1) | $-\log C_d(\kappa)$ at $d=768$ adds ~40,000 baseline. $0.1 \times 40{,}000 = 4{,}000$ effective loss vs vMF-NCE at ~7.5. Dominated training (same failure as V12). | Critical: drowned contrastive signal |
+| ISF at 0.3 | V14 tested ISF: no R@1 improvement. Column-wise softmax adds noise without reducing hubness. | Moderate: net-negative |
+| kappa_reg disabled | V16 showed kappa becomes unconstrained without regularization. N1v21 kappa collapsed to constant 50.0±0.0 (no uncertainty signal). | Moderate: lost calibration |
+| 3× LR (2e-4 vs 7e-5) | Untested with V17 recipe. May cause overshooting with vmf_nll's enormous gradients. | Unknown (confounded) |
+| residual_mlp encoder | Never tested in isolation. Different architecture than proven V17 MLP. | Unknown (confounded) |
+
+**N2/N3/N4 collapsed to chance (0.1% R@1):**
+
+vmf_nll's ~4,000 effective loss completely overwhelmed all contrastive losses for the ROI Transformer models. N2v21 shows separability of 0.001 (positive and negative cosine similarities are identical at ~0.73) — the model learned nothing. N3v21/N4v21 produced NaN predictions, indicating numerical failure from the Bessel function computation in the vMF normalizing constant.
+
+**Critical lesson:** vmf_nll has now destroyed training in **V12** (auto-weight gave it 50% share) and **V21** (explicit 0.1 weight still produced 4,000 loss). The normalizing constant's ~40,000 baseline makes it fundamentally incompatible with multi-loss training at $d=768$.
+
+### 25.4 V21 Version Genealogy Update
+
+```
+V17 (restore V7/V8 baseline) = 56.3% N1 CSLS  <-- PROJECT BEST
+  -> V18 (MSE mean + PCR) = 52.3% (REGRESSION)
+    -> V19 (DirectAlign + margin) = 49.1% (REGRESSION)
+  -> V20 (sequential MixCo→SoftCLIP + batch 128) — pending
+  -> V21 (residual_mlp + vmf_nll + ISF + no kappa_reg + 3×LR) = 44.0% (REGRESSION)
+    N2-N4: collapsed to 0.1% (vmf_nll numerical failure)
+```
+
+---
+
+## 26. V22: Properly-Scaled MSE Regression (The One Missing Piece)
+
+### 26.1 The Core Insight: MSE Was Never Properly Tested
+
+Across V13, V18, and the entire 22-version history, MSE loss has been tested using `nn.MSELoss(reduction='mean')`. On 768-D L2-normalized vectors:
+
+$$\text{MSE}_{\text{mean}} = \frac{1}{768} \sum_{d=1}^{768} (\mu_d - z_d)^2 = \frac{2(1 - \cos(\mu, z))}{768} \approx 0.002$$
+
+This is 0.008% of the total gradient (V18 loss breakdown confirmed). **MindEye's MSE is not this.** MindEye uses a per-sample MSE loss that is comparable in magnitude to the contrastive loss.
+
+V22 uses `nn.MSELoss(reduction='sum')`:
+
+$$\text{MSE}_{\text{sum}} = \sum_{d=1}^{768} (\mu_d - z_d)^2 = 2(1 - \cos(\mu, z)) \approx 1.5$$
+
+At weight 1.0, this is 1.5 vs vMF-NCE's 7.5 — MSE contributes ~17% of the total gradient. This is a meaningful regression signal that pushes each prediction toward its absolute target coordinate, complementing the contrastive loss's relative positioning.
+
+### 26.2 Code Change
+
+In `scripts/training/train_unified.py`, the MSE loss setup was:
+```python
+losses["mse"] = nn.MSELoss()  # reduction='mean' by default → 0.002 per sample
+```
+
+Changed to:
+```python
+mse_reduction = loss_cfg["mse"].get("reduction", "mean")  # backward-compatible
+losses["mse"] = nn.MSELoss(reduction=mse_reduction)
+```
+
+The `reduction` parameter is now configurable from YAML.
+
+### 26.3 V22 Strategy: One Variable at a Time
+
+V22 creates two N1 configs to isolate effects:
+
+**N1v22 (PRIMARY): V17 + MSE(sum) only**
+- Identical to N1v17 except: `loss.mse.enabled: true, weight: 1.0, reduction: "sum"`
+- Removes `early_stop_min_delta: 0.002` (caused premature stopping)
+- No encoder changes, no scheduling changes, no ISF, no vmf_nll
+- Isolates the impact of properly-scaled MSE
+
+**N1v22b (SECONDARY): V17 + MSE(sum) + sequential scheduling + batch 128**
+- Same as N1v22 plus: `softclip_from_start: false` (sequential MixCo→SoftCLIP)
+- `batch_size: 128, grad_accum: 2` (2× in-batch negatives, same effective 256)
+- Tests all remaining MindEye techniques combined
+
+**N2v22, N3v22, N4v22:** V17 bases + MSE(sum) + `early_stop_min_delta` removed. N3/N4 additionally reduce `lambda_aux` from 0.3-0.5 to 0.05 (V18 showed mt_aux at 0.5 contributed 43% of loss with contradictory V1/V2 gradients).
+
+### 26.4 What NOT to Change (Lessons from V9-V21)
+
+| Intervention | Versions Tested | Result | V22 Status |
+|---|---|---|---|
+| vmf_nll | V12, V21 | 40K baseline destroys training | **NEVER ENABLE** |
+| ISF | V14, V21 | No R@1 improvement | Disabled |
+| PCR | V15, V18 | Removes useful variance | Disabled |
+| DirectAlignmentLoss | V19 | Embedding collapse (sep 0.22→0.18) | Disabled |
+| CosFace margin | V19 | Compounds collapse | Disabled |
+| MSE (mean reduction) | V13, V18 | 0.008% of gradient (dead weight) | **Fixed: sum reduction** |
+| Disabled kappa_reg | V5-V6, V16, V21 | Kappa unconstrained | Enabled (0.01) |
+| Disabled SoftCLIP | V16 | −11pp regression | Enabled |
+| Disabled MixCo | V16 | Part of −11pp regression | Enabled |
+| residual_mlp encoder | V21 | Confounded with other failures | Not tested (too risky) |
+| Uniformity | V18 | Negative contribution | Disabled |
+
+### 26.5 V22 Config Summary
+
+| Config | Base | Key Additions | Expected CSLS R@1 |
+|--------|------|---------------|-------------------|
+| N1v22 | N1v17 | MSE(sum, w=1.0) | 56% → 62-68% |
+| N1v22b | N1v17 | MSE(sum) + sequential + batch 128 | 56% → 64-72% |
+| N2v22 | N2v17 | MSE(sum, w=1.0) | 47% → 52-58% |
+| N3v22 | N3v17 | MSE(sum) + mt_aux 0.05 | 47% → 53-60% |
+| N4v22 | N4v17 | MSE(sum) + mt_aux 0.05 | 46% → 53-60% |
+
+### 26.6 Verification Checklist
+
+1. **Epoch 1 loss magnitude:** MSE should be ~1.0-2.0 per step (not 0.002). If still ~0.002, the `reduction: "sum"` config is not flowing through.
+2. **Loss proportion:** MSE should be 10-20% of total loss. Check with `mse / (mse + vmf_nce + softclip + mixco)`.
+3. **Val R@1 trajectory:** V17 peaked at ~epoch 70-90. V22 should show higher R@1 starting from epoch 40-50.
+4. **Diagnostics:** Run `diagnose_embeddings.py` — target pos_sim > 0.55 (vs 0.495 in V17), separability > 0.25.
+5. **Shared1000:** Target R@1 ≥ 50%, CSLS R@1 ≥ 65%.
+
+### 26.7 Contingency: MSE Weight Tuning
+
+If N1v22 overshoots (MSE dominates → CSLS gap shrinks but raw R@1 drops):
+- Create N1v22c with `mse.weight: 0.5`
+
+If N1v22 undershoots (minimal improvement):
+- Create N1v22c with `mse.weight: 2.0` or try `reduction: "sum"` divided by batch size via a custom wrapper
+
+### 26.8 Run Commands
+
+```bash
+# Primary experiment (N1v22 — isolates MSE impact)
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N1v22 SAVE_CKPT=best > ablation_v22.log 2>&1 &
+tail -f ablation_v22.log
+
+# After N1v22 completes, run N1v22b (adds sequential scheduling + batch 128)
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N1v22b SAVE_CKPT=best > ablation_v22b.log 2>&1 &
+
+# Once N1 results confirm MSE helps, run N2-N4
+for exp in N2v22 N3v22 N4v22; do
+    nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=${exp} SAVE_CKPT=best > ablation_${exp}.log 2>&1 &
+done
+
+# Diagnostics after each run
+for exp in N1v22_vmf_nce N1v22b_vmf_nce N2v22_roi_transformer N3v22_roi_dcf N4v22_full_system; do
+    python3 scripts/evaluation/diagnose_embeddings.py \
+        --results-dir experimental_results/${exp}/subj01
+done
+
+# Metrics comparison
+for exp in N1v22_vmf_nce N1v22b_vmf_nce N2v22_roi_transformer N3v22_roi_dcf N4v22_full_system; do
+    echo "=== ${exp} ==="
+    cat experimental_results/${exp}/subj01/metrics/shared1000_metrics.json 2>/dev/null \
+        || echo "  (not yet available)"
+done
 ```

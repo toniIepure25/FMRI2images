@@ -563,8 +563,9 @@ def setup_losses(config: Dict[str, Any], device: str,
     losses: Dict[str, nn.Module] = {}
 
     if loss_cfg.get("mse", {}).get("enabled", False):
-        losses["mse"] = nn.MSELoss()
-        logger.info("MSE loss enabled")
+        mse_reduction = loss_cfg["mse"].get("reduction", "mean")
+        losses["mse"] = nn.MSELoss(reduction=mse_reduction)
+        logger.info("MSE loss enabled (reduction=%s)", mse_reduction)
 
     if loss_cfg.get("infonce", {}).get("enabled", False):
         c = loss_cfg["infonce"]

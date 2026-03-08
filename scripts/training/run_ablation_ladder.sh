@@ -57,7 +57,7 @@ done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8 N1v9 N2v9 N3v9 N4v9 N1v10 N2v10 N3v10 N4v10 N1v11 N2v11 N3v11 N4v11 N1v12 N2v12 N3v12 N4v12 N1v13 N2v13 N3v13 N4v13 N1v14 N2v14 N3v14 N4v14 N1v15 N2v15 N3v15 N4v15 N1v16 N2v16 N3v16 N4v16 N1v17 N2v17 N3v17 N4v17 N1v18 N2v18 N3v18 N4v18 N1v19 N2v19 N3v19 N4v19 N1v20 N2v20 N3v20 N4v20)
+EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8 N1v9 N2v9 N3v9 N4v9 N1v10 N2v10 N3v10 N4v10 N1v11 N2v11 N3v11 N4v11 N1v12 N2v12 N3v12 N4v12 N1v13 N2v13 N3v13 N4v13 N1v14 N2v14 N3v14 N4v14 N1v15 N2v15 N3v15 N4v15 N1v16 N2v16 N3v16 N4v16 N1v17 N2v17 N3v17 N4v17 N1v18 N2v18 N3v18 N4v18 N1v19 N2v19 N3v19 N4v19 N1v20 N2v20 N3v20 N4v20 N1v21 N2v21 N3v21 N4v21)
 
 declare -A CONFIGS=(
     [B0]="B0_deterministic.yaml|Strong deterministic baseline (MLP + PCR + queue + MSE + InfoNCE)"
@@ -146,6 +146,10 @@ declare -A CONFIGS=(
     [N2v20]="N2v20_roi_transformer.yaml|v20: V17 base + sequential MixCo->SoftCLIP + batch 128"
     [N3v20]="N3v20_roi_dcf.yaml|v20: V17 base + sequential MixCo->SoftCLIP + batch 128"
     [N4v20]="N4v20_full_system.yaml|v20: V17 base + sequential MixCo->SoftCLIP + batch 128"
+    [N1v21]="N1v21_vmf_nce.yaml|v21: ResidualMLP + kappa calibration (vmf_nll) + ISF anti-hubness + batch 1024"
+    [N2v21]="N2v21_roi_transformer.yaml|v21: ROI Transformer + kappa calibration + ISF + batch 1024"
+    [N3v21]="N3v21_roi_dcf.yaml|v21: ROI-DCF + kappa calibration + ISF + batch 1024"
+    [N4v21]="N4v21_full_system.yaml|v21: flagship + kappa calibration + ISF + batch 1024"
 )
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"

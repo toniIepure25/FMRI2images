@@ -108,6 +108,7 @@ class ResidualMLPEncoder(nn.Module):
         super().__init__()
         self.input_dim = input_dim
         self.latent_dim = latent_dim
+        self.output_dim = latent_dim  # alias for UnifiedModel compatibility
         self.n_blocks = n_blocks
         self.dropout = dropout
         

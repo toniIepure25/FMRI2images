@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/tonystark/Desktop/Bachelor\\\\ V2/src/fmri2img/losses/**)"
+    ]
+  }
+}

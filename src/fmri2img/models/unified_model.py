@@ -23,6 +23,7 @@ from fmri2img.models.roi_dcf import ROIDCFDecoder
 from fmri2img.models.multi_subject_encoder import MultiSubjectROITransformer
 from fmri2img.models.projection_head import ContrastiveProjectionHead
 from fmri2img.models.ncsnr_attention import NCSnrAttention
+from fmri2img.models.encoders import ResidualMLPEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -324,6 +325,7 @@ class UnifiedModel(nn.Module):
         - deterministic + mlp
         - gaussian + mlp
         - vmf + mlp
+        - vmf + residual_mlp  (MindEye-style: project once then N residual blocks)
         - vmf + roi_transformer
         - vmf_dcf + roi_transformer  (raises ValueError with mlp)
     """
@@ -376,6 +378,16 @@ class UnifiedModel(nn.Module):
                 dim_feedforward=encoder_cfg.get("dim_feedforward"),
                 drop_path_rate=encoder_cfg.get("drop_path_rate", 0.0),
                 roi_token_dropout=encoder_cfg.get("roi_token_dropout", 0.0),
+            )
+        elif encoder_type == "residual_mlp":
+            input_dim = encoder_cfg.get("input_dim")
+            if input_dim is None:
+                raise ValueError("encoder.input_dim must be specified")
+            self.encoder = ResidualMLPEncoder(
+                input_dim=input_dim,
+                latent_dim=encoder_cfg.get("latent_dim", 2048),
+                n_blocks=encoder_cfg.get("n_blocks", 4),
+                dropout=encoder_cfg.get("dropout", 0.15),
             )
         else:
             input_dim = encoder_cfg.get("input_dim")

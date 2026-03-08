@@ -1,0 +1,136 @@
+# N1v21: vMF-NCE — ResidualMLP + kappa calibration + ISF anti-hubness + batch 1024
+#
+# Base: N1v17_vmf_nce.yaml (47% raw / 56.3% CSLS R@1, project best)
+# V21 changes:
+#   1. encoder_type: "residual_mlp" (MindEye-style: project once + 4 residual blocks)
+#   2. learnable_temperature: false (let kappa be the sole per-sample temperature)
+#   3. vmf_nll auxiliary loss (w=0.1) for principled kappa calibration
+#   4. isf_weight: 0.3 (train-time anti-hubness via inverted softmax)
+#   5. batch 128 x grad_accum 8 = effective 1024 (4x V17)
+
+experiment:
+  name: "N1v21_vmf_nce"
+  description: "v21 vMF-NCE: ResidualMLP + kappa calibration + ISF + batch 1024"
+  tags: ["vmf", "vmf_nce", "queue", "novel", "v21", "softplus", "fused_targets",
+         "csls", "shared1000", "mc_tta", "residual_mlp", "isf", "vmf_nll"]
+  parent: "N1v17_vmf_nce"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "residual_mlp"
+    input_dim: null
+    latent_dim: 2048
+    n_blocks: 4
+    activation: "gelu"
+    dropout: 0.15
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+    kappa_max: 50
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: false
+    isf_weight: 0.3
+
+  vmf_nll:
+    enabled: true
+    weight: 0.1
+
+  kappa_reg:
+    enabled: false
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 128
+  gradient_accumulation_steps: 8
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 2.0e-4
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 20
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  use_csls: true
+  csls_k: 10
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+  eval_shared1000: true
+  checkpoint_metric: "r@1"
+  compute_probabilistic: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/N1v21_vmf_nce"

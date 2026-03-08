@@ -160,21 +160,30 @@ declare -A CONFIGS=(
 CACHE_ROOT="${CACHE_ROOT:-cache}"
 
 # Filter experiment order by series prefix and optional version number
-#   ONLY=N   -> all N-series (v5+v6)
-#   ONLY=N6  -> only N v6
-#   ONLY=N5  -> only N v5
-#   ONLY=B   -> all B-series
+#   ONLY=N1v22  -> exact experiment ID match
+#   ONLY=N      -> all N-series (v5+v6+...)
+#   ONLY=N22    -> only N v22 (all N*v22* experiments)
+#   ONLY=B      -> all B-series
 if [[ "$ONLY" != "all" ]]; then
-    SERIES="${ONLY:0:1}"
-    VERSION="${ONLY:1}"
     FILTERED=()
+    # First try exact match against experiment IDs
     for exp_id in "${EXPERIMENT_ORDER[@]}"; do
-        if [[ "$exp_id" == ${SERIES}* ]]; then
-            if [[ -z "$VERSION" ]] || [[ "$exp_id" == *v${VERSION}* ]]; then
-                FILTERED+=("$exp_id")
-            fi
+        if [[ "$exp_id" == "$ONLY" ]]; then
+            FILTERED+=("$exp_id")
         fi
     done
+    # If no exact match, fall back to series+version prefix filter
+    if [[ ${#FILTERED[@]} -eq 0 ]]; then
+        SERIES="${ONLY:0:1}"
+        VERSION="${ONLY:1}"
+        for exp_id in "${EXPERIMENT_ORDER[@]}"; do
+            if [[ "$exp_id" == ${SERIES}* ]]; then
+                if [[ -z "$VERSION" ]] || [[ "$exp_id" == *v${VERSION}* ]]; then
+                    FILTERED+=("$exp_id")
+                fi
+            fi
+        done
+    fi
     EXPERIMENT_ORDER=("${FILTERED[@]}")
     if [[ ${#EXPERIMENT_ORDER[@]} -eq 0 ]]; then
         echo "ERROR: --only '$ONLY' matched zero experiments. Available: ${!CONFIGS[*]}"

@@ -1913,20 +1913,28 @@ def main() -> None:
         roi_names = list(model_config["encoder"].get("roi_dims", {}).keys())
         subjects_list = config.get("data", {}).get("subjects", [subject])
         if roi_names and subjects_list:
-            subject_roi_dims = {}
-            subject_roi_indices = {}
+            # --- Pass 1: build raw ROI indices for all subjects ---
+            raw_roi_dims = {}
+            raw_roi_indices = {}
             for subj in subjects_list:
                 dims, indices = build_roi_index(subj, roi_names)
-                # --- V25c sub-ROI patching (per subject) ---
-                if _roi_patch_size and _roi_patch_size > 0:
-                    from fmri2img.data.roi_utils import subdivide_rois
-                    dims, indices = subdivide_rois(
-                        dims, indices,
-                        max_voxels_per_token=_roi_patch_size,
-                    )
-                subject_roi_dims[subj] = dict(dims)
-                subject_roi_indices[subj] = indices
+                raw_roi_dims[subj] = dims
+                raw_roi_indices[subj] = indices
                 logger.info("ROI dims for %s: total=%d", subj, sum(dims.values()))
+
+            # --- Pass 2: harmonized sub-ROI patching ---
+            if _roi_patch_size and _roi_patch_size > 0:
+                from fmri2img.data.roi_utils import harmonize_multi_subject_subdivisions
+                h_dims, h_indices = harmonize_multi_subject_subdivisions(
+                    raw_roi_dims, raw_roi_indices,
+                    max_voxels_per_token=_roi_patch_size,
+                )
+                subject_roi_dims = {s: dict(d) for s, d in h_dims.items()}
+                subject_roi_indices = h_indices
+            else:
+                subject_roi_dims = {s: dict(d) for s, d in raw_roi_dims.items()}
+                subject_roi_indices = raw_roi_indices
+
             model_config["encoder"]["subject_roi_dims"] = subject_roi_dims
             _roi_indices = subject_roi_indices
 

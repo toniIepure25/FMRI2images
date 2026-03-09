@@ -250,3 +250,89 @@ def subdivide_rois(
         len(roi_dims), len(new_dims), max_voxels_per_token,
     )
     return new_dims, new_indices
+
+
+def harmonize_multi_subject_subdivisions(
+    all_roi_dims: Dict[str, "OrderedDict[str, int]"],
+    all_roi_indices: Dict[str, "OrderedDict[str, np.ndarray]"],
+    max_voxels_per_token: int = 250,
+) -> Tuple[Dict[str, "OrderedDict[str, int]"], Dict[str, "OrderedDict[str, np.ndarray]"]]:
+    """Subdivide ROIs for multiple subjects with *harmonized* patch counts.
+
+    When different subjects have different voxel counts per ROI,
+    :func:`subdivide_rois` produces different numbers of patches per ROI,
+    which breaks :class:`MultiSubjectROITransformer` (it requires identical
+    ROI token names across subjects).
+
+    This function forces every subject to use the **maximum** number of
+    patches observed for each ROI across all subjects, so that the resulting
+    token vocabulary is identical everywhere.
+
+    Args:
+        all_roi_dims: ``{subject: OrderedDict{roi_name: n_voxels}}`` —
+            **original** (pre-subdivision) dimensions from :func:`build_roi_index`.
+        all_roi_indices: ``{subject: OrderedDict{roi_name: ndarray}}`` —
+            **original** (pre-subdivision) voxel indices.
+        max_voxels_per_token: Maximum voxels per token (default 250).
+
+    Returns:
+        ``(harmonized_dims, harmonized_indices)`` — dicts keyed by subject,
+        each containing ``OrderedDict`` with unified token names.
+    """
+    subjects = list(all_roi_dims.keys())
+    roi_names = list(all_roi_dims[subjects[0]].keys())
+
+    # --- Pass 1: determine max patches per ROI across all subjects ---
+    max_patches: OrderedDict[str, int] = OrderedDict()
+    for roi_name in roi_names:
+        n_max = 1
+        for subj in subjects:
+            n_vox = all_roi_dims[subj].get(roi_name, 0)
+            if n_vox > max_voxels_per_token:
+                n_max = max(n_max, math.ceil(n_vox / max_voxels_per_token))
+        max_patches[roi_name] = n_max
+
+    # --- Pass 2: subdivide all subjects using harmonized patch counts ---
+    out_dims: Dict[str, OrderedDict[str, int]] = {}
+    out_indices: Dict[str, OrderedDict[str, np.ndarray]] = {}
+
+    for subj in subjects:
+        new_dims: OrderedDict[str, int] = OrderedDict()
+        new_indices: OrderedDict[str, np.ndarray] = OrderedDict()
+
+        for roi_name in roi_names:
+            indices = all_roi_indices[subj][roi_name]
+            n_patches = max_patches[roi_name]
+
+            if n_patches == 1:
+                # No subdivision needed for this ROI
+                new_dims[roi_name] = len(indices)
+                new_indices[roi_name] = indices
+            else:
+                chunks = np.array_split(indices, n_patches)
+                for i, chunk in enumerate(chunks):
+                    sub_name = f"{roi_name}_{i}"
+                    new_dims[sub_name] = len(chunk)
+                    new_indices[sub_name] = chunk
+                    if len(chunk) == 0:
+                        logger.warning(
+                            "  %s %s patch %d is empty (ROI has %d voxels, "
+                            "forced to %d patches by another subject)",
+                            subj, roi_name, i, len(indices), n_patches,
+                        )
+
+        total_orig = sum(all_roi_dims[subj].values())
+        total_new = sum(new_dims.values())
+        assert total_orig == total_new, (
+            f"harmonize sanity check failed for {subj}: {total_orig} != {total_new}"
+        )
+        out_dims[subj] = new_dims
+        out_indices[subj] = new_indices
+
+    n_tokens = sum(max_patches.values())
+    logger.info(
+        "Harmonized sub-ROI patching: %d ROIs -> %d tokens across %d subjects "
+        "(max %d vox/token)",
+        len(roi_names), n_tokens, len(subjects), max_voxels_per_token,
+    )
+    return out_dims, out_indices

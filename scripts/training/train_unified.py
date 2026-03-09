@@ -1977,6 +1977,7 @@ def main() -> None:
     # --- V25b: Load pretrained backbone + freeze for adapter warm-up ---
     _cs_freeze_epochs = 0
     _cs_backbone_lr_factor = 0.1
+    _cs_backbone_frozen = False  # tracks whether freeze actually happened
     if _cross_subject_enabled:
         _cs_ckpt_path = _cross_subject_cfg.get("pretrained_checkpoint")
         _cs_freeze_epochs = _cross_subject_cfg.get("freeze_epochs", 30)
@@ -2007,6 +2008,7 @@ def main() -> None:
                 "%d trainable (adapters) for %d epochs",
                 n_frozen, n_trainable, _cs_freeze_epochs,
             )
+            _cs_backbone_frozen = True
         elif _cs_ckpt_path:
             logger.warning(
                 "Cross-subject pretrained checkpoint not found: %s "
@@ -2563,26 +2565,39 @@ def main() -> None:
             )
 
         # --- V25b: Unfreeze backbone after adapter warm-up ---
-        if (_cross_subject_enabled and _cs_freeze_epochs > 0
+        if (_cross_subject_enabled and _cs_backbone_frozen
                 and epoch == _cs_freeze_epochs + 1):
             for name, param in model.named_parameters():
                 if name.startswith(("encoder.", "decoder.")):
                     param.requires_grad = True
-            # Add backbone params to optimizer at reduced LR
+            # Add only backbone params NOT already tracked by the optimizer
+            _existing_param_ids = {
+                id(p) for group in optimizer.param_groups for p in group["params"]
+            }
             _backbone_params = [
                 p for n, p in model.named_parameters()
                 if n.startswith(("encoder.", "decoder."))
+                and id(p) not in _existing_param_ids
             ]
-            _backbone_lr = float(opt_cfg.get("lr", 1e-4)) * _cs_backbone_lr_factor
-            optimizer.add_param_group({
-                "params": _backbone_params,
-                "lr": _backbone_lr,
-            })
-            logger.info(
-                "[CROSS-SUBJECT] Unfreezing backbone at epoch %d: "
-                "backbone_lr=%.2e (%.1f× base)",
-                epoch, _backbone_lr, _cs_backbone_lr_factor,
-            )
+            if _backbone_params:
+                _backbone_lr = float(opt_cfg.get("lr", 1e-4)) * _cs_backbone_lr_factor
+                optimizer.add_param_group({
+                    "params": _backbone_params,
+                    "lr": _backbone_lr,
+                })
+                logger.info(
+                    "[CROSS-SUBJECT] Unfreezing backbone at epoch %d: "
+                    "%d params added at lr=%.2e (%.1f× base)",
+                    epoch, len(_backbone_params), _backbone_lr,
+                    _cs_backbone_lr_factor,
+                )
+            else:
+                logger.warning(
+                    "[CROSS-SUBJECT] Unfreeze at epoch %d: all backbone params "
+                    "already in optimizer — skipping add_param_group",
+                    epoch,
+                )
+            _cs_backbone_frozen = False  # prevent re-triggering
 
         _stage_prefix = "[STAGE 2] " if _stage2_activated else ""
         logger.info("\n%sEpoch %d/%d | lr=%.2e", _stage_prefix, epoch, num_epochs, optimizer.param_groups[0]["lr"])

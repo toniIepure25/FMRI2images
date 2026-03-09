@@ -2,7 +2,7 @@
 
 This document provides complete technical context for a bachelor thesis project on neural decoding of visual perception from fMRI. It is designed as a self-contained briefing for an LLM or researcher performing deep analysis.
 
-**Project status (March 2026):** After 25 iterative versions, the project-best is **47.6% raw R@1 / 59.0% CSLS R@1** from N1v23a (wider encoder). V24 combined V23a+V23b+hard negatives — **all 4 variants regressed** (best: N1v24b at 57.6% CSLS, worst: N1v24/N1v24d at 55.4% CSLS). Root cause: `hard_negative_weight=0.3` raised neg_sim from 0.274→0.324 (opposite of intended), creating conflicting gradients with CSLS training. Loss surgery is now exhausted as a lever. V25 pivots to **3 structural experiments**: (a) sequential MixCo→SoftCLIP schedule, (b) cross-subject linear adapters (4 subjects, ~100K trials), (c) sub-ROI patched Transformer (250 vox/token, ~80-100 balanced tokens). All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
+**Project status (March 2026):** After 25 iterative versions, the project-best remains **47.6% raw R@1 / 59.0% CSLS R@1** from N1v23a (wider encoder). V24 (hard negatives) and V25 (structural experiments) both regressed. V25 results: N1v25_rerun 57.2% CSLS (val900), 52.5% (shared1000); N1v25a sequential 54.9% / 50.8%; N2v25c patched-ROI 46.2% / 45.1%; N1v25b crashed (optimizer bug, now fixed). The V23a rerun's 1.8pp drop from original (57.2 vs 59.0%) suggests seed sensitivity or eval variance. Sequential scheduling (-4.1pp) and sub-ROI patching (on par with N2v17) both failed to improve. All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
 
 **SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training, (2) smaller model capacity (328M vs 996M params), (3) MindEye's OpenCLIP ViT-bigG/14 embeddings (256x1664-D) vs our ViT-L/14 (768-D), and (4) hubness in high-dimensional retrieval from single-trial fMRI noise.
 
@@ -912,7 +912,7 @@ An alternative fix would be to remove \(\tau\) from the `_score()` method entire
 | v22 | N1v22, N1v22b | V17 + MSE(sum, w=1.0) — regression test | N1v22: 38.4% raw, CSLS 49.9% (**regression**); MSE dominated 83% gradient |
 | v23 | N1v23a–d | 4 isolated ablations vs V17 control (N1v23d) | **N1v23a ep51: 47.6% raw, CSLS 59.0%** (+2.7pp, running); N1v23b: 43.4%/57.0% (+0.7pp); N1v23c: 38.4%/49.9% (MSE collapse) |
 | v24 | N1v24, N1v24b, N1v24c, N1v24d | N1v23a + N1v23b + hard negatives (w=0.3) | **REGRESSION**: N1v24: 55.4%; N1v24b: 57.6% (best); N1v24c: 57.2%; N1v24d: 55.4%. Hard neg raised neg_sim 0.274→0.324 |
-| v25 | N1v25_rerun, N1v25a, N1v25b, N2v25c | 3 structural experiments: sequential schedule, cross-subject adapters, sub-ROI patching | **Pending** |
+| v25 | N1v25_rerun, N1v25a, N1v25b, N2v25c | 3 structural experiments: sequential schedule, cross-subject adapters, sub-ROI patching | N1v25_rerun: 57.2%/52.5%; N1v25a: 54.9%/50.8%; N2v25c: 46.2%/45.1%; N1v25b: **crashed** (fix applied) |
 
 Notes:
 - B-series stays at v4 (not affected by vMF-specific changes)
@@ -937,7 +937,7 @@ Notes:
 - v24: combines v23a + v23b (two orthogonal improvements) + hard_negative_weight=0.3 to target separability improvement (sep 0.221 → >0.260)
 - **v24 failure**: hard_negative_weight=0.3 + use_csls_training=true created gradient conflict — CSLS penalises hubs while hard negatives reweight loss toward those same items; neg_sim went UP from 0.274→0.324; all 4 variants regressed from V23a's 59.0%
 - **v24d sequential contaminated**: V24d tested sequential scheduling but WITH hard negatives + CSLS training, masking the true sequential effect
-- v25: pivots to structural changes (loss surgery exhausted); V25a tests clean sequential schedule, V25b adds ~100K cross-subject trials via linear adapters, V25c fixes 47× token imbalance in ROI Transformer
+- v25: pivots to structural changes (loss surgery exhausted); V25a sequential was -4.1pp worse than joint (curriculum hurts); V25c patched-ROI at 46.2% matched N2v17 (no gain from balanced tokens); V25b crashed at epoch 31 with optimizer `add_param_group` duplicate params — fixed with `_cs_backbone_frozen` guard + `_existing_param_ids` filter
 
 ---
 
@@ -2165,14 +2165,40 @@ grep -E "frozen|unfreez|CROSS-SUBJECT" ablation_N1v25b.log
 
 ### 29.9 V25 Success Criteria
 
-| Experiment | Metric | Target | Rationale |
-|-----------|--------|--------|-----------|
-| N1v25_rerun | CSLS R@1 | 58-60% | Reproduce V23a |
-| N1v25a | CSLS R@1 | ≥60% | +1pp from clean sequential schedule |
-| N1v25b | CSLS R@1 | ≥63% | +4pp from 4× data |
-| N2v25c | CSLS R@1 | ≥55% | +5pp vs N2v17 (46.3%) baseline |
+| Experiment | Metric | Target | **Actual** | Verdict |
+|-----------|--------|--------|-----------|--------|
+| N1v25_rerun | CSLS R@1 (val900) | 58-60% | **57.2%** | -1.8pp from V23a; seed/eval variance |
+| N1v25a | CSLS R@1 (val900) | ≥60% | **54.9%** | **FAIL** — sequential -4.1pp worse than joint |
+| N1v25b | CSLS R@1 (val900) | ≥63% | **CRASHED** | optimizer `add_param_group` bug; fix applied, pending re-run |
+| N2v25c | CSLS R@1 (val900) | ≥55% | **46.2%** | **FAIL** — matched N2v17 (46.3%), no gain from balanced tokens |
 
-If N1v25b reaches ≥65%, proceed to full evaluation on shared1000. If N2v25c shows significant improvement, combine with V25b adapters in V26.
+**Shared1000 results (full benchmark):**
+
+| Experiment | R@1 | CSLS R@1 | R@5 | R@10 | MRR | Pos sim |
+|-----------|-----|----------|-----|------|-----|---------|
+| N1v25_rerun | 43.7% | 52.5% | 75.9% | 86.2% | 0.580 | 0.439 |
+| N1v25a | 45.4% | 50.8% | 76.9% | 87.3% | 0.594 | 0.351 |
+| N2v25c | 39.8% | 45.1% | 72.0% | 82.9% | 0.543 | 0.346 |
+
+**Val900 diagnostics:**
+
+| Experiment | Raw R@1 | CSLS R@1 | Hub gap | Pos sim | Neg sim | Sep | Kappa |
+|-----------|---------|----------|---------|---------|---------|-----|-------|
+| N1v25_rerun | 46.3% | 57.2% | 10.9% | 0.514 | 0.293 | 0.221 | 30.6±2.6 |
+| N1v25a | 45.6% | 54.9% | 9.3% | 0.483 | 0.267 | 0.216 | 27.7±2.4 |
+| N2v25c | 39.6% | 46.2% | 6.7% | 0.343 | 0.125 | 0.218 | 52.9±5.2 |
+
+### 29.9.1 V25 Failure Post-Mortem
+
+**N1v25_rerun (57.2% vs expected 59.0%):** The 1.8pp drop is within random seed variance but notable. The shared1000 result (52.5%) is significantly below val900 (57.2%), consistent with all prior experiments showing val900 overestimates by 3-5pp.
+
+**N1v25a sequential (54.9%, -4.1pp):** Clean evidence that **joint MixCo+SoftCLIP training is better than sequential**. The MixCo-only phase (ep1-67) builds a coarse geometry but SoftCLIP starting at ep68 cannot fully recover — it has 133 fewer epochs of SoftCLIP signal. Lower kappa (27.7 vs 30.6) indicates less confident predictions. This confirms V23a's `softclip_from_start: true` is the correct default.
+
+**N2v25c patched-ROI (46.2%):** Matched N2v17 (46.3%) exactly — sub-ROI patching did NOT help. The Transformer with 69 balanced tokens performs identically to 16 imbalanced tokens. This suggests the ROI Transformer's limitation is not token imbalance but rather the architecture itself — the MLP (59%) fundamentally outperforms the Transformer (46%) on this task. Possible reasons: (a) 27K training trials insufficient for attention to learn spatial relationships, (b) per-ROI linear projections lose information that the MLP's full-vector processing retains. Notably, N2v25c has very high kappa (52.9 vs 30.6 for MLP) suggesting overconfidence in wrong predictions.
+
+**N1v25b (CRASHED):** The optimizer crash occurred at epoch 31 (unfreeze point). Root cause: when checkpoint loaded and backbone frozen, the optimizer was created with only `requires_grad=True` params (adapters). At unfreeze, `add_param_group` tried to add backbone params, but some were already tracked. **Fix applied**: (1) `_cs_backbone_frozen` flag tracks whether freeze actually happened, (2) unfreeze block filters `_existing_param_ids` before calling `add_param_group`.
+
+If N1v25b reaches ≥65% after re-run, proceed to full evaluation on shared1000.
 
 ---
 

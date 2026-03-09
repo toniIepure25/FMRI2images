@@ -1,0 +1,149 @@
+# N1v25b: Cross-Subject Linear Adapters on Wider MLP
+#
+# Hypothesis: subj01 alone has ~9,000 unique training images (~24K trials).
+#   By adding subj02/05/07 via lightweight linear adapters (projecting each
+#   subject's voxel space into subj01's canonical space), we effectively
+#   quadruple the training data to ~100K trials. The pretrained V23a backbone
+#   provides the learned fMRI→CLIP mapping; adapters learn the inter-subject
+#   voxel correspondence.
+#
+# Architecture:
+#   - Per non-canonical subject: nn.Linear(subj_voxels, 15724, bias=False)
+#   - Canonical (subj01): identity pass-through (slice to 15724)
+#   - Backbone: exact V23a wider MLP [8192,8192,4096,2048] + vMF decoder
+#
+# Training protocol:
+#   - Phase 1 (epochs 1-30): Backbone FROZEN, train only adapters (full LR)
+#   - Phase 2 (epochs 31-200): Unfreeze backbone at 0.1× base LR
+#
+# Pretrained checkpoint: from N1v25_v23a_rerun subj01 (must train first!)
+#
+# Expected effect: +3-8pp CSLS R@1 from 4× data volume. Linear adapters
+#   assume approximate functional correspondence across subjects (supported
+#   by neuroscience — shared representational geometry in visual cortex).
+
+experiment:
+  name: "N1v25b_cross_subject"
+  description: "v25b: V23a backbone + cross-subject linear adapters (4 subjects, 100K trials)"
+  tags: ["vmf", "vmf_nce", "v25", "wider_encoder", "residual", "cross_subject",
+         "multi_subject", "adapter", "csls", "shared1000"]
+  parent: "N1v23a_wider_encoder"
+
+data:
+  subjects: ["subj01", "subj02", "subj05", "subj07"]
+  subject: "subj01"         # canonical/primary subject
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null          # set at runtime to canonical subject's voxel count
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.15
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+
+  # --- Cross-subject adapter configuration ---
+  cross_subject:
+    enabled: true
+    canonical_subject: "subj01"
+    pretrained_checkpoint: "experimental_results/N1v25_v23a_rerun/subj01/checkpoints/checkpoint_best.pt"
+    freeze_epochs: 30           # freeze backbone for 30 epochs (adapter warm-up)
+    backbone_lr_factor: 0.1     # unfreeze backbone at 10% of base LR
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 4
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 5.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 20
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

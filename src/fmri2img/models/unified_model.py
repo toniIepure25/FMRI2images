@@ -497,6 +497,38 @@ class UnifiedModel(nn.Module):
         else:
             self.projection_head = None
 
+        # --- Cross-subject linear adapters (V25b) ---
+        cross_cfg = config.get("cross_subject", {})
+        self.subject_adapters: Optional[nn.ModuleDict] = None
+        self._canonical_subject: Optional[str] = None
+        self._canonical_voxels: int = 0
+        self._subj_int_to_id: Dict[int, str] = {}
+        self._subject_voxel_dims: Dict[str, int] = {}
+
+        if cross_cfg.get("enabled", False):
+            subject_voxel_dims = cross_cfg.get("subject_voxel_dims", {})
+            canonical = cross_cfg.get("canonical_subject", "subj01")
+            if subject_voxel_dims and canonical in subject_voxel_dims:
+                self._canonical_subject = canonical
+                self._canonical_voxels = subject_voxel_dims[canonical]
+                self._subject_voxel_dims = subject_voxel_dims
+                # Build int→id mapping (same order as MultiSubjectPreextractedDataset)
+                sorted_subjects = sorted(subject_voxel_dims.keys())
+                self._subj_int_to_id = {i: s for i, s in enumerate(sorted_subjects)}
+
+                adapters = {}
+                for subj, n_vox in subject_voxel_dims.items():
+                    if subj == canonical:
+                        continue
+                    adapters[subj] = nn.Linear(n_vox, self._canonical_voxels, bias=False)
+                self.subject_adapters = nn.ModuleDict(adapters)
+                logger.info(
+                    "Cross-subject adapters (V25b): canonical=%s (%d vox), "
+                    "adapters for %s",
+                    canonical, self._canonical_voxels,
+                    list(adapters.keys()),
+                )
+
         logger.info(f"UnifiedModel created: type={self.model_type}")
     
     def forward(self, x: torch.Tensor, **kwargs) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
@@ -516,6 +548,29 @@ class UnifiedModel(nn.Module):
         """
         subject_ids = kwargs.pop("subject_ids", None)
         _is_multi = isinstance(self.encoder, MultiSubjectROITransformer)
+
+        # --- Cross-subject adapter routing (V25b) ---
+        # Maps non-canonical subjects into canonical voxel space before encoder
+        if self.subject_adapters is not None and subject_ids is not None:
+            B = x.shape[0]
+            adapted = torch.zeros(
+                B, self._canonical_voxels, device=x.device, dtype=x.dtype,
+            )
+            for subj_int, subj_id in self._subj_int_to_id.items():
+                mask = (subject_ids == subj_int)
+                if not mask.any():
+                    continue
+                subj_x = x[mask]
+                if subj_id == self._canonical_subject:
+                    # Canonical subject: slice to canonical dim (strip padding)
+                    adapted[mask] = subj_x[:, :self._canonical_voxels]
+                else:
+                    # Non-canonical: slice to subject's voxel count, project
+                    n_vox = self._subject_voxel_dims[subj_id]
+                    adapted[mask] = self.subject_adapters[subj_id](
+                        subj_x[:, :n_vox]
+                    )
+            x = adapted
 
         if self.ncsnr_attention is not None:
             x = self.ncsnr_attention(x)

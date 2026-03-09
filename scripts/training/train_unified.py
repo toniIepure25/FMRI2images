@@ -1820,8 +1820,17 @@ def main() -> None:
 
     _encoder_type_check = config.get("model", {}).get("encoder", {}).get("encoder_type", "mlp")
     _multi_subjects = config.get("data", {}).get("subjects", [])
+    _cross_subject_cfg = config.get("model", {}).get("cross_subject", {})
+    _cross_subject_enabled = _cross_subject_cfg.get("enabled", False)
 
-    if _encoder_type_check == "multi_subject_roi_transformer" and len(_multi_subjects) > 1:
+    # Load multi-subject dataset for either multi_subject_roi_transformer
+    # OR cross-subject adapter mode (V25b — MLP with per-subject Linear adapters)
+    _use_multi_subject_dataset = (
+        (_encoder_type_check == "multi_subject_roi_transformer" and len(_multi_subjects) > 1)
+        or (_cross_subject_enabled and len(_multi_subjects) > 1)
+    )
+
+    if _use_multi_subject_dataset:
         from fmri2img.data.multi_subject_dataset import MultiSubjectPreextractedDataset
 
         _emb_col_override = config.get("data", {}).get("embedding_column")
@@ -1880,12 +1889,23 @@ def main() -> None:
 
     _roi_indices = None
     encoder_type = model_config.get("encoder", {}).get("encoder_type", "mlp")
-    _is_multi_subject = encoder_type == "multi_subject_roi_transformer"
+    _is_multi_subject = (
+        encoder_type == "multi_subject_roi_transformer"
+        or _cross_subject_enabled
+    )
+    _roi_patch_size = model_config.get("encoder", {}).get("roi_patch_size", 0)
     if encoder_type == "roi_transformer":
         from fmri2img.data.roi_utils import build_roi_index
         roi_names = list(model_config["encoder"].get("roi_dims", {}).keys())
         if roi_names:
             actual_dims, _roi_indices = build_roi_index(subject, roi_names)
+            # --- V25c sub-ROI patching ---
+            if _roi_patch_size and _roi_patch_size > 0:
+                from fmri2img.data.roi_utils import subdivide_rois
+                actual_dims, _roi_indices = subdivide_rois(
+                    actual_dims, _roi_indices,
+                    max_voxels_per_token=_roi_patch_size,
+                )
             model_config["encoder"]["roi_dims"] = dict(actual_dims)
             logger.info("ROI dims overridden from NSD masks (total=%d)", sum(actual_dims.values()))
     elif _is_multi_subject:
@@ -1897,6 +1917,13 @@ def main() -> None:
             subject_roi_indices = {}
             for subj in subjects_list:
                 dims, indices = build_roi_index(subj, roi_names)
+                # --- V25c sub-ROI patching (per subject) ---
+                if _roi_patch_size and _roi_patch_size > 0:
+                    from fmri2img.data.roi_utils import subdivide_rois
+                    dims, indices = subdivide_rois(
+                        dims, indices,
+                        max_voxels_per_token=_roi_patch_size,
+                    )
                 subject_roi_dims[subj] = dict(dims)
                 subject_roi_indices[subj] = indices
                 logger.info("ROI dims for %s: total=%d", subj, sum(dims.values()))
@@ -1919,9 +1946,65 @@ def main() -> None:
         except Exception as e:
             logger.warning("Failed to load NCSNR: %s — using uniform init", e)
 
+    # --- V25b: Populate cross-subject adapter dims from dataset ---
+    if _cross_subject_enabled and hasattr(full_dataset, "voxel_counts"):
+        _cs_canonical = _cross_subject_cfg.get("canonical_subject", "subj01")
+        _cs_voxel_dims = dict(full_dataset.voxel_counts)
+        model_config.setdefault("cross_subject", {})
+        model_config["cross_subject"]["enabled"] = True
+        model_config["cross_subject"]["canonical_subject"] = _cs_canonical
+        model_config["cross_subject"]["subject_voxel_dims"] = _cs_voxel_dims
+        # For MLP: encoder input_dim must match canonical subject's voxels
+        if encoder_type == "mlp":
+            model_config["encoder"]["input_dim"] = _cs_voxel_dims[_cs_canonical]
+        logger.info(
+            "Cross-subject adapters: canonical=%s, voxel_dims=%s",
+            _cs_canonical, _cs_voxel_dims,
+        )
+
     model = create_model(model_config, roi_indices=_roi_indices, ncsnr=_ncsnr_array).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     logger.info("Model parameters: %s", f"{n_params:,}")
+
+    # --- V25b: Load pretrained backbone + freeze for adapter warm-up ---
+    _cs_freeze_epochs = 0
+    _cs_backbone_lr_factor = 0.1
+    if _cross_subject_enabled:
+        _cs_ckpt_path = _cross_subject_cfg.get("pretrained_checkpoint")
+        _cs_freeze_epochs = _cross_subject_cfg.get("freeze_epochs", 30)
+        _cs_backbone_lr_factor = _cross_subject_cfg.get("backbone_lr_factor", 0.1)
+        if _cs_ckpt_path and os.path.isfile(_cs_ckpt_path):
+            ckpt = torch.load(_cs_ckpt_path, map_location=device)
+            _sd = ckpt.get("model_state_dict", ckpt.get("state_dict", {}))
+            # Load only encoder/decoder weights (skip subject_adapters, projection_head)
+            _backbone_keys = {
+                k: v for k, v in _sd.items()
+                if k.startswith(("encoder.", "decoder."))
+            }
+            missing, unexpected = model.load_state_dict(_backbone_keys, strict=False)
+            logger.info(
+                "Loaded pretrained backbone from %s: %d keys loaded, "
+                "%d missing (adapters), %d unexpected",
+                _cs_ckpt_path, len(_backbone_keys),
+                len(missing), len(unexpected),
+            )
+            # Freeze backbone for first _cs_freeze_epochs epochs
+            for name, param in model.named_parameters():
+                if name.startswith(("encoder.", "decoder.")):
+                    param.requires_grad = False
+            n_frozen = sum(1 for p in model.parameters() if not p.requires_grad)
+            n_trainable = sum(1 for p in model.parameters() if p.requires_grad)
+            logger.info(
+                "Cross-subject freeze: %d params frozen (encoder+decoder), "
+                "%d trainable (adapters) for %d epochs",
+                n_frozen, n_trainable, _cs_freeze_epochs,
+            )
+        elif _cs_ckpt_path:
+            logger.warning(
+                "Cross-subject pretrained checkpoint not found: %s "
+                "— training from scratch (adapters + backbone)",
+                _cs_ckpt_path,
+            )
 
     # --- EMA ---
     _ema_cfg = config.get("training", {}).get("ema", {})
@@ -1952,8 +2035,10 @@ def main() -> None:
 
     # --- Optimizer ---
     opt_cfg = config["training"]["optimizer"]
+    # When cross-subject freeze is active, only include trainable params initially
+    _opt_params = [p for p in model.parameters() if p.requires_grad]
     optimizer = torch.optim.AdamW(
-        model.parameters(),
+        _opt_params,
         lr=float(opt_cfg.get("lr", 1e-4)),
         weight_decay=float(opt_cfg.get("weight_decay", 0.01)),
         betas=opt_cfg.get("betas", [0.9, 0.999]),
@@ -2467,6 +2552,28 @@ def main() -> None:
                 "hier=%.1f, da=%.1f, mixco=%s, patience=%d",
                 epoch, _s2_lr_factor, _s2_mse_w, _s2_nll_w, _s2_sc_w, _s2_nce_w,
                 _s2_spcl_w, _s2_hier_w, _s2_da_w, _has_mixco, early_stop_patience,
+            )
+
+        # --- V25b: Unfreeze backbone after adapter warm-up ---
+        if (_cross_subject_enabled and _cs_freeze_epochs > 0
+                and epoch == _cs_freeze_epochs + 1):
+            for name, param in model.named_parameters():
+                if name.startswith(("encoder.", "decoder.")):
+                    param.requires_grad = True
+            # Add backbone params to optimizer at reduced LR
+            _backbone_params = [
+                p for n, p in model.named_parameters()
+                if n.startswith(("encoder.", "decoder."))
+            ]
+            _backbone_lr = float(opt_cfg.get("lr", 1e-4)) * _cs_backbone_lr_factor
+            optimizer.add_param_group({
+                "params": _backbone_params,
+                "lr": _backbone_lr,
+            })
+            logger.info(
+                "[CROSS-SUBJECT] Unfreezing backbone at epoch %d: "
+                "backbone_lr=%.2e (%.1f× base)",
+                epoch, _backbone_lr, _cs_backbone_lr_factor,
             )
 
         _stage_prefix = "[STAGE 2] " if _stage2_activated else ""

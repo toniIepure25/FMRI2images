@@ -6,6 +6,9 @@ Builds per-ROI voxel index arrays from NSD anatomical masks, enabling the
 ROITransformerEncoder to map a flat nsdgeneral feature vector to
 brain-region-specific tokens at runtime.
 
+Also provides ``subdivide_rois()`` to split large ROIs into uniform
+sub-patches of bounded size — used by V25c for balanced Transformer tokens.
+
 NSD atlas files referenced (Allen et al., 2022):
   - Kastner2015.nii.gz     : V1v … V3A, V3B  (retinotopic, labels 1-17)
   - prf-visualrois.nii.gz  : V1v … hV4        (retinotopic, labels 1-7)
@@ -17,6 +20,7 @@ NSD atlas files referenced (Allen et al., 2022):
 from __future__ import annotations
 
 import logging
+import math
 import os
 from collections import OrderedDict
 from pathlib import Path
@@ -186,3 +190,63 @@ def build_roi_index(
     )
     logger.info("ROI index built: %d ROIs, %d total voxels", len(roi_dims), total)
     return roi_dims, roi_indices
+
+
+# ── Sub-ROI patching ─────────────────────────────────────────────────────
+
+def subdivide_rois(
+    roi_dims: "OrderedDict[str, int]",
+    roi_indices: "OrderedDict[str, np.ndarray]",
+    max_voxels_per_token: int = 250,
+) -> Tuple["OrderedDict[str, int]", "OrderedDict[str, np.ndarray]"]:
+    """Split large ROIs into uniform sub-patches of bounded size.
+
+    Any ROI with more than *max_voxels_per_token* voxels is split into
+    ``ceil(n_voxels / max_voxels_per_token)`` contiguous chunks using
+    :func:`numpy.array_split`.  Smaller ROIs pass through unchanged.
+
+    This produces a more balanced token sequence for the Transformer
+    encoder: instead of 17 tokens (one 9 374-voxel giant), a 250-voxel
+    cap yields ~80–100 tokens of similar size.
+
+    Args:
+        roi_dims: Ordered mapping ``{roi_name: n_voxels}``.
+        roi_indices: Ordered mapping ``{roi_name: np.ndarray[int64]}``.
+        max_voxels_per_token: Maximum voxels allowed in a single token
+            (default 250).
+
+    Returns:
+        ``(new_roi_dims, new_roi_indices)`` — same format as
+        :func:`build_roi_index`, but with ``_0``, ``_1``, … suffixes on
+        any ROI that was subdivided.
+    """
+    new_dims: OrderedDict[str, int] = OrderedDict()
+    new_indices: OrderedDict[str, np.ndarray] = OrderedDict()
+
+    for name, indices in roi_indices.items():
+        n = len(indices)
+        if n <= max_voxels_per_token:
+            new_dims[name] = n
+            new_indices[name] = indices
+        else:
+            n_chunks = math.ceil(n / max_voxels_per_token)
+            chunks = np.array_split(indices, n_chunks)
+            for i, chunk in enumerate(chunks):
+                sub_name = f"{name}_{i}"
+                new_dims[sub_name] = len(chunk)
+                new_indices[sub_name] = chunk
+            logger.info(
+                "  Subdivided %-20s : %5d voxels -> %d patches (max %d)",
+                name, n, n_chunks, max_voxels_per_token,
+            )
+
+    total_orig = sum(roi_dims.values())
+    total_new = sum(new_dims.values())
+    assert total_orig == total_new, (
+        f"subdivide_rois sanity check failed: {total_orig} != {total_new}"
+    )
+    logger.info(
+        "Sub-ROI patching: %d ROIs -> %d tokens (max %d vox/token)",
+        len(roi_dims), len(new_dims), max_voxels_per_token,
+    )
+    return new_dims, new_indices

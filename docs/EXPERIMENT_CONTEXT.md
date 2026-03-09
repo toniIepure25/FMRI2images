@@ -2,7 +2,7 @@
 
 This document provides complete technical context for a bachelor thesis project on neural decoding of visual perception from fMRI. It is designed as a self-contained briefing for an LLM or researcher performing deep analysis.
 
-**Project status (March 2026):** After 24 iterative versions, the project-best in progress is **47.6% raw R@1 / 59.0% CSLS R@1** at epoch 51 of N1v23a (wider encoder, still running). Confirmed completed best: **47.0% raw / 56.3% CSLS** from N1v23d (exact V17 reproduction). V23 ran 4 isolated ablations vs a control: wider encoder (N1v23a, **+2.7pp CSLS**, new project best), differentiable CSLS training (N1v23b, **+0.7pp CSLS**), calibrated MSE (N1v23c, **regression** — pos_sim collapsed to 0.800 confirming MSE is incompatible with L2-normalized embeddings). V24 combines the two proven gains + hard negative mining (target: CSLS 65–70%). All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
+**Project status (March 2026):** After 25 iterative versions, the project-best is **47.6% raw R@1 / 59.0% CSLS R@1** from N1v23a (wider encoder). V24 combined V23a+V23b+hard negatives — **all 4 variants regressed** (best: N1v24b at 57.6% CSLS, worst: N1v24/N1v24d at 55.4% CSLS). Root cause: `hard_negative_weight=0.3` raised neg_sim from 0.274→0.324 (opposite of intended), creating conflicting gradients with CSLS training. Loss surgery is now exhausted as a lever. V25 pivots to **3 structural experiments**: (a) sequential MixCo→SoftCLIP schedule, (b) cross-subject linear adapters (4 subjects, ~100K trials), (c) sub-ROI patched Transformer (250 vox/token, ~80-100 balanced tokens). All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
 
 **SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training, (2) smaller model capacity (328M vs 996M params), (3) MindEye's OpenCLIP ViT-bigG/14 embeddings (256x1664-D) vs our ViT-L/14 (768-D), and (4) hubness in high-dimensional retrieval from single-trial fMRI noise.
 
@@ -911,7 +911,8 @@ An alternative fix would be to remove \(\tau\) from the `_score()` method entire
 | v21 | N1v21-N4v21 | V17 + residual_mlp + vmf_nll + ISF + no kappa_reg + 3×LR | N1: 34%, CSLS 44% (**regression**); N2-N4: 0.1% (collapsed) |
 | v22 | N1v22, N1v22b | V17 + MSE(sum, w=1.0) — regression test | N1v22: 38.4% raw, CSLS 49.9% (**regression**); MSE dominated 83% gradient |
 | v23 | N1v23a–d | 4 isolated ablations vs V17 control (N1v23d) | **N1v23a ep51: 47.6% raw, CSLS 59.0%** (+2.7pp, running); N1v23b: 43.4%/57.0% (+0.7pp); N1v23c: 38.4%/49.9% (MSE collapse) |
-| v24 | N1v24, N1v24b, N1v24c | N1v23a + N1v23b + hard negatives (w=0.3) | **Target: CSLS 65–70%** |
+| v24 | N1v24, N1v24b, N1v24c, N1v24d | N1v23a + N1v23b + hard negatives (w=0.3) | **REGRESSION**: N1v24: 55.4%; N1v24b: 57.6% (best); N1v24c: 57.2%; N1v24d: 55.4%. Hard neg raised neg_sim 0.274→0.324 |
+| v25 | N1v25_rerun, N1v25a, N1v25b, N2v25c | 3 structural experiments: sequential schedule, cross-subject adapters, sub-ROI patching | **Pending** |
 
 Notes:
 - B-series stays at v4 (not affected by vMF-specific changes)
@@ -934,6 +935,9 @@ Notes:
 - **v23a breakthrough**: wider [8192,8192,4096,2048] residual MLP hits 59.0% CSLS at epoch 51; first experiment to beat V17 in 6 versions
 - v23b: CSLS training (use_csls_training=True) tested cleanly in isolation for first time; kappa 28→17 (correctly expresses more uncertainty); independent of v23a
 - v24: combines v23a + v23b (two orthogonal improvements) + hard_negative_weight=0.3 to target separability improvement (sep 0.221 → >0.260)
+- **v24 failure**: hard_negative_weight=0.3 + use_csls_training=true created gradient conflict — CSLS penalises hubs while hard negatives reweight loss toward those same items; neg_sim went UP from 0.274→0.324; all 4 variants regressed from V23a's 59.0%
+- **v24d sequential contaminated**: V24d tested sequential scheduling but WITH hard negatives + CSLS training, masking the true sequential effect
+- v25: pivots to structural changes (loss surgery exhausted); V25a tests clean sequential schedule, V25b adds ~100K cross-subject trials via linear adapters, V25c fixes 47× token imbalance in ROI Transformer
 
 ---
 
@@ -1999,15 +2003,25 @@ nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N1v24c SAVE_CKPT=best > ablatio
 
 ### 28.5 Success Criteria for V24
 
-| Metric | V17 baseline | V24 target |
-|--------|-------------|------------|
-| CSLS R@1 (900-way) | 56.3% | **≥65%** |
-| CSLS R@1 (shared1000) | 53.4% | ≥62% |
-| sep | 0.221 | >0.260 |
-| neg_sim | 0.274 | <0.260 |
-| pos_sim | 0.495 | >0.510 |
-| hubness gap | ~9 pp | <6 pp |
-| kappa (mean) | 28 | 15–22 |
+| Metric | V17 baseline | V24 target | V24 actual (best: N1v24b) |
+|--------|-------------|------------|--------------------------|
+| CSLS R@1 (900-way) | 56.3% | **≥65%** | 57.6% (**MISSED**) |
+| CSLS R@1 (shared1000) | 53.4% | ≥62% | ~55% |
+| sep | 0.221 | >0.260 | 0.205 (WORSE) |
+| neg_sim | 0.274 | <0.260 | 0.324 (WORSE — opposite direction) |
+| pos_sim | 0.495 | >0.510 | 0.529 |
+| hubness gap | ~9 pp | <6 pp | ~10 pp |
+| kappa (mean) | 28 | 15–22 | 18 |
+
+**V24 Failure Post-Mortem:** All 4 variants regressed from V23a's 59.0% CSLS:
+- N1v24 (combined): 55.4% — hard negatives + CSLS training conflict raised neg_sim
+- N1v24b (label smooth): 57.6% — best V24 variant, label smoothing partially mitigated damage
+- N1v24c (larger batch): 57.2% — more negatives didn't help when neg_sim already too high
+- N1v24d (sequential): 55.4% — sequential scheduling contaminated by hard negatives
+
+**Root Cause:** `hard_negative_weight=0.3` is fundamentally incompatible with `use_csls_training=true`. CSLS training penalises hub embeddings (those with high avg similarity to many neighbors), while hard negative mining reweights loss toward the hardest negatives (which are exactly the hubs). These opposing signals cancel out, and the net effect is increased neg_sim instead of decreased.
+
+**Hard negatives permanently banned** from future experiments. Loss surgery is exhausted — V25 pivots to structural changes.
 
 If N1v24 reaches 65%+, immediately launch N2v24, N3v24, N4v24 for all-subject evaluation.
 
@@ -2031,52 +2045,140 @@ grep "MixCo\|SoftCLIP\|switching" ablation_N1v24d.log
 
 ---
 
-## Section 29: Forward Roadmap — V25 and V26
+## Section 29: V25 Structural Experiments (Pivot from Loss Surgery)
 
-### 29.1 V25: Cross-Subject Functional Alignment (Subject Adapters)
+### 29.1 V25 Motivation
 
-**Target:** Unlock ~100,000 additional training trials (subj02/05/07) for the proven N1v24 backbone without changing its architecture.
+After V24's regression, loss surgery is exhausted as a lever. The N1 MLP ceiling is ~59% CSLS (V23a). The three remaining bottlenecks are:
+1. **Training data volume**: subj01 alone has ~9,000 unique images (~24K trials). MindEye uses 7 subjects × 10K images = 70K unique.
+2. **MixCo/SoftCLIP interaction**: never tested in clean isolation (V24d was contaminated by hard negatives)
+3. **ROI token imbalance**: nsdgeneral_other (9,374 voxels) is a single token alongside FFA1 (200 voxels) — a 47× size ratio
 
-**Why now (not earlier):** V24 must confirm ≥65% CSLS first. Running an adapter training protocol on a sub-65% backbone adds training cost against an unresolved ceiling. Once V24 is confirmed, the approach is:
+V25 addresses all three with isolated structural experiments.
 
-**Infrastructure status:** `src/fmri2img/models/cross_subject.py` already implements:
-- `RidgeAligner(input_dim, output_dim)` — `Linear(subj_voxels → 15724)` with analytical ridge init, fully gradient-based during fine-tuning
-- `SubjectAdapter(d_model, bottleneck_dim)` — post-encoder `LayerNorm → Linear → GELU → Dropout → Linear` residual at dim 2048, initialized near-identity
-- `CrossSubjectModel` — `freeze_shared()` / `unfreeze_shared()` and `trainable_params(subject_id)`
+### 29.2 V25 Experiment Map
 
-**Training protocol (2-phase):**
+| ID | Config | Change from V23a | Hypothesis |
+|----|--------|-------------------|-----------|
+| N1v25_rerun | N1v25_v23a_rerun.yaml | None (exact reproduction) | Produce checkpoint_best.pt for V25b |
+| N1v25a | N1v25a_sequential.yaml | `softclip_from_start: false` | Clean sequential test: MixCo ep1-67 → SoftCLIP ep68-200 |
+| N1v25b | N1v25b_cross_subject.yaml | Cross-subject linear adapters (4 subjects) | 4× data volume → +3-8pp CSLS |
+| N2v25c | N2v25c_patched_roi.yaml | Sub-ROI patching (250 vox/token), 8 layers | Balanced tokens → +3-7pp CSLS |
 
-*Phase 1 — Adapter warm-up (freeze N1v24 backbone, train only per-subject aligner + adapter):*
+### 29.3 N1v25_v23a_rerun — Checkpoint Reproduction
+
+Exact copy of N1v23a_wider_encoder.yaml. Produces `checkpoint_best.pt` that V25b needs as pretrained backbone. Must run first.
+
+### 29.4 N1v25a — Sequential MixCo→SoftCLIP Schedule
+
+**Single change:** `softclip_from_start: false` (was `true` in V23a).
+
+This activates the hardcoded 1/3 phase boundary in `train_unified.py`:
+- **Epochs 1–67**: MixCo only — builds coarse hypersphere geometry with interpolated soft-labels
+- **Epochs 68–200**: SoftCLIP only — refines with CLIP semantic topology distillation
+
+V24d tested this but with hard_negative_weight=0.3 + use_csls_training=true contaminating the signal. V25a tests it cleanly on the proven V23a base.
+
+**Expected:** +1-3pp if curriculum helps vs joint training. Risk: SoftCLIP starting at ep68 may not converge in remaining 133 epochs.
+
+### 29.5 N1v25b — Cross-Subject Linear Adapters
+
+**Architecture:**
 ```
-for subj in subj02 subj05 subj07:
-    RidgeAligner(subj_voxels → 15724)  →  [frozen N1v24 MLP]  →  SubjectAdapter(2048)
-    Train on shared stimuli (NSD shared 982 images × 3 reps per subject)
-    30 epochs, lr 1e-3 (aligner), lr 5e-5 (adapter)
-    Loss: vmf_nce only (frozen backbone provides stable targets)
+subj02 fMRI (B, ~14000) → nn.Linear(14000, 15724, bias=False) → [V23a MLP backbone]
+subj05 fMRI (B, ~13500) → nn.Linear(13500, 15724, bias=False) → [V23a MLP backbone]
+subj07 fMRI (B, ~12800) → nn.Linear(12800, 15724, bias=False) → [V23a MLP backbone]
+subj01 fMRI (B, 15724)  → identity pass-through              → [V23a MLP backbone]
 ```
 
-*Phase 2 — Joint fine-tuning (unfreeze backbone at 10× lower LR):*
-```
-All subjects jointly: subj01 (no adapter) + subj02/05/07 (via adapters)
-LR: 5e-6 (backbone), 1e-4 (adapters)
-200 epochs, standard V24 loss recipe
-Expected: +3–8 pp CSLS from additional training data diversity
+**Training protocol:**
+- **Phase 1 (epochs 1-30):** Backbone FROZEN (encoder+decoder from V23a rerun checkpoint). Only adapter `nn.Linear` layers train at full LR (5e-5). Adapters learn inter-subject voxel correspondence.
+- **Phase 2 (epochs 31-200):** Backbone UNFROZEN at 0.1× base LR (5e-6). Adapters continue at full LR. Joint fine-tuning on all 4 subjects (~100K trials).
+
+**Code changes implemented:**
+- `UnifiedModel.__init__`: `self.subject_adapters = nn.ModuleDict({subj: nn.Linear(...)})` when `cross_subject.enabled`
+- `UnifiedModel.forward`: routes non-canonical subjects through adapters before encoder
+- `train_unified.py`: loads pretrained checkpoint, freezes backbone, creates optimizer with `requires_grad` filter only, unfreezes at `freeze_epochs+1`
+- Multi-subject dataset loading triggered by `cross_subject.enabled` (not just `multi_subject_roi_transformer`)
+
+**Adapter param count:** 3 adapters × ~15K × ~14K ≈ 634M params (bf16 = ~1.3GB, trivial on H100 80GB).
+
+**Expected:** +3-8pp CSLS from 4× data volume. Linear adapters assume approximate functional correspondence across subjects (supported by neuroscience — shared representational geometry in visual cortex).
+
+### 29.6 N2v25c — Sub-ROI Patched Transformer
+
+**Problem:** V17's ROI Transformer has 17 tokens with a 47× voxel count imbalance (nsdgeneral_other: 9,374 vs FFA1: 200). The attention mechanism cannot weight these fairly.
+
+**Solution:** `subdivide_rois(roi_dims, roi_indices, max_voxels_per_token=250)` splits any ROI > 250 voxels into uniform chunks via `np.array_split`. Result: ~80-100 balanced tokens instead of 17 imbalanced ones.
+
+**Code changes implemented:**
+- `roi_utils.py`: new `subdivide_rois()` function
+- `train_unified.py`: if `encoder.roi_patch_size` is set in config, calls `subdivide_rois()` after `build_roi_index()`
+- N2v25c config: `roi_patch_size: 250`, `num_layers: 8` (deeper for longer sequence)
+
+**Expected:** +3-7pp from balanced tokenization. The Transformer can now discover finer spatial structure within large ROIs like nsdgeneral_other.
+
+### 29.7 V25 Run Commands
+
+```bash
+# === STEP 1: V23a rerun (produces checkpoint for V25b) ===
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N1v25_rerun SAVE_CKPT=best \
+  > ablation_N1v25_rerun.log 2>&1 &
+tail -f ablation_N1v25_rerun.log
+
+# === STEP 2: V25a sequential (independent of Step 1, can run in parallel on another GPU) ===
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N1v25a SAVE_CKPT=best \
+  > ablation_N1v25a.log 2>&1 &
+
+# === STEP 3: V25c patched ROI (independent, can run in parallel on another GPU) ===
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N2v25c SAVE_CKPT=best \
+  > ablation_N2v25c.log 2>&1 &
+
+# === STEP 4: V25b cross-subject (REQUIRES Step 1 checkpoint — wait for rerun to complete) ===
+# Verify checkpoint exists first:
+ls -la experimental_results/N1v25_v23a_rerun/subj01/checkpoints/checkpoint_best.pt
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N1v25b SAVE_CKPT=best \
+  > ablation_N1v25b.log 2>&1 &
 ```
 
-**Engineering work required:**
-- New training entry point or `train_unified.py` mode: `model_type: cross_subject`
-- Config key: `cross_subject.canonical_subject: subj01`, `cross_subject.adapter_subjects: [subj02, subj05, subj07]`
-- `MultiSubjectPreextractedDataset` already supports mixed-subject batches; just need `CrossSubjectModel.forward(x, subject_id)` wired into the training loop
-- Verify subj02/05/07 `fmri_features.npy` exist: `make preextract SUBJECT=subj02`
+**Single-GPU sequential order** (if only 1 GPU available):
+```bash
+# Run all 4 experiments sequentially on one GPU
+make ablation SUBJECTS="subj01" GPU=0 ONLY=N1v25_rerun SAVE_CKPT=best \
+  && make ablation SUBJECTS="subj01" GPU=0 ONLY=N1v25a SAVE_CKPT=best \
+  && make ablation SUBJECTS="subj01" GPU=0 ONLY=N1v25b SAVE_CKPT=best \
+  && make ablation SUBJECTS="subj01" GPU=0 ONLY=N2v25c SAVE_CKPT=best
+```
 
-**Why `Linear(subj_voxels → 15724)` and not ridge regression offline:**
-- The RidgeAligner is gradient-differentiable through the backbone — the aligner learns to route *functionally relevant* voxels, not just geometrically similar ones
-- No need for the shared-1000 stimuli trick used by MindEye2; it trains on *all* trials jointly
-- Memory cost: `Linear(13685 → 15724)` for subj02 ≈ 215M params (bf16 = 430MB) — addressable on H100 80GB
+### 29.8 V25 Sanity Checks
+
+**N1v25_rerun:** Should reproduce V23a's ~59% CSLS R@1 within ±1pp. If not, seed sensitivity is a concern.
+
+**N1v25a:** Epoch 1 log must show `train_softclip: 0.0` and MixCo active. At epoch 68, log must show SoftCLIP switching on and MixCo off.
+
+**N1v25b:** Epoch 1 log must show `"Cross-subject freeze: X params frozen"` and only adapter params training. At epoch 31, log must show `"[CROSS-SUBJECT] Unfreezing backbone"`. Verify with:
+```bash
+grep -E "frozen|unfreez|CROSS-SUBJECT" ablation_N1v25b.log
+```
+
+**N2v25c:** Log must show `"Sub-ROI patching: 17 ROIs -> N tokens (max 250 vox/token)"` where N ≈ 80-100.
+
+### 29.9 V25 Success Criteria
+
+| Experiment | Metric | Target | Rationale |
+|-----------|--------|--------|-----------|
+| N1v25_rerun | CSLS R@1 | 58-60% | Reproduce V23a |
+| N1v25a | CSLS R@1 | ≥60% | +1pp from clean sequential schedule |
+| N1v25b | CSLS R@1 | ≥63% | +4pp from 4× data |
+| N2v25c | CSLS R@1 | ≥55% | +5pp vs N2v17 (46.3%) baseline |
+
+If N1v25b reaches ≥65%, proceed to full evaluation on shared1000. If N2v25c shows significant improvement, combine with V25b adapters in V26.
 
 ---
 
-### 29.2 V26: 3D Spatial Patch Tokenization (Architecture Research Track)
+### 29.10 Forward Roadmap — V26
+
+### V26: 3D Spatial Patch Tokenization (Architecture Research Track)
 
 **Target:** Replace the rigid anatomical ROI tokenization (N2–N4) with uniform 4×4×4 voxel patches, following the ViT conceptual leap from CNNs.
 

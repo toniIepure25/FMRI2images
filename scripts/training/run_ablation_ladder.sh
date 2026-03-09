@@ -57,7 +57,7 @@ done
 
 export CUDA_VISIBLE_DEVICES="$GPU"
 
-EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8 N1v9 N2v9 N3v9 N4v9 N1v10 N2v10 N3v10 N4v10 N1v11 N2v11 N3v11 N4v11 N1v12 N2v12 N3v12 N4v12 N1v13 N2v13 N3v13 N4v13 N1v14 N2v14 N3v14 N4v14 N1v15 N2v15 N3v15 N4v15 N1v16 N2v16 N3v16 N4v16 N1v17 N2v17 N3v17 N4v17 N1v18 N2v18 N3v18 N4v18 N1v19 N2v19 N3v19 N4v19 N1v20 N2v20 N3v20 N4v20 N1v21 N2v21 N3v21 N4v21 N1v22 N1v22b N2v22 N3v22 N4v22 N1v23d N1v23a N1v23b N1v23c)
+EXPERIMENT_ORDER=(B0v4 B1v4 N1v5 N2v5 N3v5 N4v5 N1v6 N2v6 N3v6 N4v6 N1v7 N2v7 N3v7 N4v7 N3v8 N4v8 N1v9 N2v9 N3v9 N4v9 N1v10 N2v10 N3v10 N4v10 N1v11 N2v11 N3v11 N4v11 N1v12 N2v12 N3v12 N4v12 N1v13 N2v13 N3v13 N4v13 N1v14 N2v14 N3v14 N4v14 N1v15 N2v15 N3v15 N4v15 N1v16 N2v16 N3v16 N4v16 N1v17 N2v17 N3v17 N4v17 N1v18 N2v18 N3v18 N4v18 N1v19 N2v19 N3v19 N4v19 N1v20 N2v20 N3v20 N4v20 N1v21 N2v21 N3v21 N4v21 N1v22 N1v22b N2v22 N3v22 N4v22 N1v23d N1v23a N1v23b N1v23c N1v24 N1v24b N1v24c N1v24d)
 
 declare -A CONFIGS=(
     [B0]="B0_deterministic.yaml|Strong deterministic baseline (MLP + PCR + queue + MSE + InfoNCE)"
@@ -159,6 +159,10 @@ declare -A CONFIGS=(
     [N1v23a]="N1v23a_wider_encoder.yaml|v23a: V17 + wider [8192,8192,4096,2048] residual MLP, dropout 0.15, lr 5e-5"
     [N1v23b]="N1v23b_csls_training.yaml|v23b: V17 + differentiable CSLS training (use_csls_training=True, k=10)"
     [N1v23c]="N1v23c_mse_tuned.yaml|v23c: V17 + MSE(sum, w=0.015) calibrated 2% geometric regularizer"
+    [N1v24]="N1v24_combined.yaml|v24: V23a+V23b combined — wider enc + CSLS train + hard neg w=0.3 k=16"
+    [N1v24b]="N1v24b_label_smooth.yaml|v24b: V24 + label_smoothing=0.05"
+    [N1v24c]="N1v24c_larger_batch.yaml|v24c: V24 + batch 128 (grad_accum 2)"
+    [N1v24d]="N1v24d_sequential.yaml|v24d: V24 + sequential MixCo->SoftCLIP (softclip_from_start=false)"
 )
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"

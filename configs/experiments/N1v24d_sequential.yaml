@@ -1,0 +1,154 @@
+# N1v24d_sequential: V24 combined recipe + sequential MixCo→SoftCLIP scheduling
+#
+# Hypothesis: Running MixCo and SoftCLIP simultaneously (softclip_from_start=true,
+#             used in V17–V23) creates a gradient conflict: MixCo produces blurred
+#             interpolated positive pairs (soft manifold building) while SoftCLIP
+#             imposes sharp CLIP semantic-similarity targets.  These forces pull
+#             the encoder in opposite directions at every step.
+#
+#             The MindEye1 recipe — which this project partially recovered in V17 —
+#             ran sequential: BiMixCo first (neighbourhood geometry), then 4× scaled
+#             SoftCLIP (semantic sharpening).  The sequential schedule was planned in
+#             V20, scrapped before evaluation, and has never been cleanly tested in
+#             24 versions.
+#
+# Scheduling (hardcoded in train_unified.py):
+#   Phase 1 epochs 1–67  : MixCo only  (int(200/3)+1 = 68 → transition at ep 68)
+#   Phase 2 epochs 68–200: SoftCLIP only, MixCo disabled
+#   Log line at transition: "Epoch 68: switching from MixCo to SoftCLIP"
+#
+# Changes from N1v24_combined:
+#   - training.softclip_from_start: true → false   (ONE key change)
+# Everything else is identical to N1v24_combined.
+#
+# Epoch-1 sanity (MixCo-only phase):
+#   train_vmf_nce:  9.0–11.0
+#   train_softclip: 0.0  (not yet active — MUST be zero until ep 68)
+#   train_mixco:    0.35–0.55
+#   pos_sim:        0.48–0.52
+#
+# Epoch-68 sanity (SoftCLIP phase):
+#   train_mixco:    0.0  (disabled)
+#   train_softclip: 2.0–3.5
+#   sep:            improving vs ep 67 (expected step-change)
+
+experiment:
+  name: "N1v24d_sequential"
+  description: "v24d: V24 combined + sequential MixCo->SoftCLIP (softclip_from_start=false)"
+  tags: ["vmf", "vmf_nce", "v24", "wider_encoder", "csls_training", "hard_negatives",
+         "sequential_schedule", "csls", "shared1000"]
+  parent: "N1v24_combined"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.15
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    use_csls_training: true
+    csls_k: 10
+    hard_negative_weight: 0.3
+    hard_neg_k: 16
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 4
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 5.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 20
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: false   # KEY CHANGE: sequential MixCo (ep1-67) → SoftCLIP (ep68-200)
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

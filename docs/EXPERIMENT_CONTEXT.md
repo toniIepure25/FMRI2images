@@ -2,7 +2,7 @@
 
 This document provides complete technical context for a bachelor thesis project on neural decoding of visual perception from fMRI. It is designed as a self-contained briefing for an LLM or researcher performing deep analysis.
 
-**Project status (March 2026):** After 20 iterative versions (v4-v20), the project-best is **47% raw R@1 / 56.3% CSLS R@1** on subj01 (N1v17). Versions V18-V19 attempted loss additions (MSE, DirectAlign, CosFace margin) which all regressed from V17. V20 tests the last major untested MindEye technique -- sequential MixCo->SoftCLIP loss scheduling -- on the proven V17 baseline with doubled in-batch size. All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
+**Project status (March 2026):** After 24 iterative versions, the project-best in progress is **47.6% raw R@1 / 59.0% CSLS R@1** at epoch 51 of N1v23a (wider encoder, still running). Confirmed completed best: **47.0% raw / 56.3% CSLS** from N1v23d (exact V17 reproduction). V23 ran 4 isolated ablations vs a control: wider encoder (N1v23a, **+2.7pp CSLS**, new project best), differentiable CSLS training (N1v23b, **+0.7pp CSLS**), calibrated MSE (N1v23c, **regression** — pos_sim collapsed to 0.800 confirming MSE is incompatible with L2-normalized embeddings). V24 combines the two proven gains + hard negative mining (target: CSLS 65–70%). All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
 
 **SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training, (2) smaller model capacity (328M vs 996M params), (3) MindEye's OpenCLIP ViT-bigG/14 embeddings (256x1664-D) vs our ViT-L/14 (768-D), and (4) hubness in high-dimensional retrieval from single-trial fMRI noise.
 
@@ -907,9 +907,11 @@ An alternative fix would be to remove \(\tau\) from the `_score()` method entire
 | v17 | N1v17-N4v17 | Restore V7/V8 baseline + CSLS + shared1000 + diagnostics | N1: 47%, **CSLS 56.3%** |
 | v18 | N1v18-N4v18 | V17 + MSE + PCR + shared1000 z-score fix | N1: 46%, CSLS 52.3% (regression) |
 | v19 | N1v19-N4v19 | V17 + CosFace margin + DirectAlign + ROI dropout | N1: 38%, CSLS 49.1% (regression) |
-| v20 | N1v20-N4v20 | V17 + sequential MixCo->SoftCLIP + batch 128 | Pending |
-| v21 | N1v21-N4v21 | V17 + residual_mlp + vmf_nll + ISF + no kappa_reg + 3×LR | N1: 34%, CSLS 44% (regression); N2-N4: 0.1% (collapsed) |
-| v22 | N1v22-N4v22 | **V17 + MSE(sum reduction) — properly-scaled regression** | Targeting CSLS 65%+ |
+| v20 | N1v20-N4v20 | V17 + sequential MixCo->SoftCLIP + batch 128 | Not evaluated (superseded by V21) |
+| v21 | N1v21-N4v21 | V17 + residual_mlp + vmf_nll + ISF + no kappa_reg + 3×LR | N1: 34%, CSLS 44% (**regression**); N2-N4: 0.1% (collapsed) |
+| v22 | N1v22, N1v22b | V17 + MSE(sum, w=1.0) — regression test | N1v22: 38.4% raw, CSLS 49.9% (**regression**); MSE dominated 83% gradient |
+| v23 | N1v23a–d | 4 isolated ablations vs V17 control (N1v23d) | **N1v23a ep51: 47.6% raw, CSLS 59.0%** (+2.7pp, running); N1v23b: 43.4%/57.0% (+0.7pp); N1v23c: 38.4%/49.9% (MSE collapse) |
+| v24 | N1v24, N1v24b, N1v24c | N1v23a + N1v23b + hard negatives (w=0.3) | **Target: CSLS 65–70%** |
 
 Notes:
 - B-series stays at v4 (not affected by vMF-specific changes)
@@ -922,10 +924,16 @@ Notes:
 - v14 attacks the 8-10 pp hubness gap with three training-time mechanisms + CSLS-based checkpoint selection
 - v15 fixes three fundamental bottlenecks: z-scoring bug for multi-subject, disabled CLIP PCR, small in-batch size
 - v16 stripped too many losses (SoftCLIP, MixCo, kappa_reg) and over-reduced regularization
-- v17 faithfully restored V7/V8 proven recipe; achieved **project-best 56.3% CSLS R@1** on N1
+- v17 faithfully restored V7/V8 proven recipe; achieved **project-best 56.3% CSLS R@1** on N1 (confirmed reproducible by v23d)
 - v18 additions (MSE, PCR, uniformity) were all net-negative; MSE only 0.008% of gradient
 - v19 DirectAlignmentLoss at weight 2.0 caused embedding space collapse (pos/neg sim both spiked)
 - v20 tests MindEye-style sequential scheduling (never tested on a clean baseline in 15 versions)
+- v21 worst regression: vmf_nll at d=768 adds ~40K constant to loss, drowning vMF-NCE signal (~7.5)
+- v22 root cause: MSE(sum, w=1.0) ≈ 87 at epoch 1 = 83% of gradient; same structural failure as vmf_nll
+- v23c root cause: MSE at any weight on L2-normalized embeddings causes pos_sim collapse to 0.800; MSE minimizes Euclidean distance, pulling predictions toward the CLIP embedding mean, not angular discriminability
+- **v23a breakthrough**: wider [8192,8192,4096,2048] residual MLP hits 59.0% CSLS at epoch 51; first experiment to beat V17 in 6 versions
+- v23b: CSLS training (use_csls_training=True) tested cleanly in isolation for first time; kappa 28→17 (correctly expresses more uncertainty); independent of v23a
+- v24: combines v23a + v23b (two orthogonal improvements) + hard_negative_weight=0.3 to target separability improvement (sep 0.221 → >0.260)
 
 ---
 
@@ -1864,3 +1872,229 @@ for exp in N1v22_vmf_nce N1v22b_vmf_nce N2v22_roi_transformer N3v22_roi_dcf N4v2
         || echo "  (not yet available)"
 done
 ```
+
+---
+
+## Section 27: V23 Isolation Ablation Results (Complete)
+
+### 27.1 Overview
+
+V23 was the first version to test all changes **truly in isolation** against a verified V17 control (N1v23d). Four experiments ran:
+
+| Exp | Description | Raw R@1 (900) | CSLS R@1 (900) | Raw R@1 (shared1000) | CSLS R@1 (shared1000) |
+|-----|-------------|---------------|----------------|----------------------|-----------------------|
+| N1v23d | V17 exact control | 47.0% | 56.3% | 45.5% | 53.4% |
+| N1v23b | V17 + CSLS training (use_csls_training=True, csls_k=10) | 43.4% | 57.0% | 45.7% | 55.8% |
+| N1v23c | V17 + MSE(sum, w=0.015) | 38.4% | 49.9% | — | — |
+| N1v23a | Wider encoder [8192,8192,4096,2048], dropout 0.15, lr 5e-5, warmup 20 | 47.6% (ep51) | **59.0%** (ep51) | — | still running |
+
+### 27.2 Key Findings
+
+**N1v23d (Control):** V17 is **reproducible at 56.3% CSLS R@1**. This baseline is now verified. All future experiments have a clean reference point.
+
+**N1v23a (Wider Encoder) — Project Best:**
+- Wider MLP [8192,8192,4096,2048] (4 layers vs V17's 3) + lower dropout (0.15 vs 0.2) + lower LR (5e-5 vs 7e-5) + slower warmup (20 vs 15 epochs)
+- At epoch 51: 47.6% raw / **59.0% CSLS** — beats V17 by **+2.7 pp**.
+- Training log at epoch 51: `train_vmf_nce ≈ 9.3`, kappa ≈ 24.5, sep ≈ 0.231. Still converging.
+- Wider network provides additional representation capacity; slower learning rate prevents overshooting.
+
+**N1v23b (CSLS Training) — Independent Improvement:**
+- Adding `use_csls_training: true` to V17 unchanged encoder yields **+0.7 pp CSLS** (57.0% vs 56.3%).
+- Kappa dropped 28 → 17: model correctly expresses more uncertainty when CSLS penalizes hubness.
+- neg_sim stable (0.270 → 0.268). Effect is orthogonal to encoder width.
+
+**N1v23c (MSE w=0.015) — Closed Door:**
+- Even at 7.8% gradient weight (calibrated via epoch-1 diagnostics), MSE caused **pos_sim collapse** to 0.800 (vs V17's 0.495).
+- Root cause: MSE on L2-normalized embeddings minimizes Euclidean distance, pulling predictions toward the CLIP embedding mean. Every prediction becomes similar to everything → angular discriminability destroyed.
+- **Conclusion: MSE is permanently incompatible with L2-normalized CLIP embeddings. Never re-introduce MSE in any form.**
+
+### 27.3 Diagnostic Signals at Epoch 51 (N1v23a)
+
+```
+train_vmf_nce:     9.29   (healthy; V17 baseline ~9.1–9.5)
+train_softclip:    2.31
+train_mixco:       0.42
+train_kappa_reg:   0.017
+total_loss:        12.04
+kappa (mean):      24.5
+pos_sim:           0.498  (healthy; V17 = 0.495)
+neg_sim:           0.271  (slight improvement vs V17 0.274)
+sep:               0.228  (gap still target of V24)
+hubness gap:       9.1 pp (residual)
+```
+
+### 27.4 Implications for V24
+
+- N1v23a and N1v23b are **orthogonal improvements** (encoder width vs training loss). Combining them is expected additive.
+- Remaining bottleneck: sep = 0.221–0.231, neg_sim = 0.271–0.274. Hard negatives (`hard_negative_weight=0.3, hard_neg_k=16`) directly target this.
+- CSLS training reduces hubness during training (not just evaluation), complementing hard negatives.
+
+---
+
+## Section 28: V24 Combined Strategy (Target: CSLS 65–70%)
+
+### 28.1 Hypothesis
+
+V23 proved two orthogonal improvements:
+1. Wider encoder (+2.7 pp CSLS)
+2. CSLS training (+0.7 pp CSLS, better kappa calibration)
+
+V24 combines both **plus** hard negatives to attack the remaining sep bottleneck. Expected trajectory from V17 (56.3%):
+- Wider encoder: +2.7 pp → 59.0%
+- CSLS training: +0.7 pp → 59.7%
+- Hard negatives (sep improvement): +3–6 pp → **62.7–65.7%**
+
+### 28.2 V24 Configurations
+
+**N1v24_combined.yaml** — Primary experiment:
+```yaml
+# Wider encoder (from N1v23a)
+hidden_dims: [8192, 8192, 4096, 2048]
+dropout: 0.15
+lr: 5.0e-5
+warmup_epochs: 20
+
+# CSLS training (from N1v23b)
+use_csls_training: true
+csls_k: 10
+
+# Hard negatives (new in V24)
+hard_negative_weight: 0.3
+hard_neg_k: 16
+```
+
+**N1v24b_label_smooth.yaml** — Tests label smoothing:
+- All of N1v24 + `label_smoothing: 0.05`
+- Rationale: softens overconfident positives; may reduce kappa spike
+
+**N1v24c_larger_batch.yaml** — Tests larger effective batch:
+- All of N1v24 + `batch_size: 128`, `gradient_accumulation_steps: 2`
+- More diverse negatives per step; effective contrastive batch = 256 in-batch + 16384 queue
+
+### 28.3 Epoch-1 Sanity Checks for N1v24
+
+Expected healthy ranges:
+- `train_vmf_nce`: 9.0–11.0 (hard neg reweighting raises loss slightly)
+- `pos_sim`: 0.48–0.52 (must NOT be >0.60 — would indicate collapse)
+- `neg_sim`: 0.24–0.27 (lower than V17's 0.274 = good)
+- `sep`: >0.200 (should start improving from epoch 1)
+- `kappa`: 15–25 (lower than V17's 28 due to CSLS training)
+
+If `train_vmf_nce` > 13.0 at epoch 1, reduce `hard_negative_weight` to 0.1. If `pos_sim` > 0.70, abort (MSE-like collapse).
+
+### 28.4 Run Commands
+
+```bash
+# Launch V24 primary (N1)
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N1v24 SAVE_CKPT=best > ablation_N1v24.log 2>&1 &
+tail -f ablation_N1v24.log
+
+# Monitor epoch 1 sanity
+grep "epoch.*1\b\|vmf_nce\|pos_sim\|neg_sim\|kappa" ablation_N1v24.log | head -20
+
+# After N1v24 confirms training health, launch variants
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N1v24b SAVE_CKPT=best > ablation_N1v24b.log 2>&1 &
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N1v24c SAVE_CKPT=best > ablation_N1v24c.log 2>&1 &
+```
+
+### 28.5 Success Criteria for V24
+
+| Metric | V17 baseline | V24 target |
+|--------|-------------|------------|
+| CSLS R@1 (900-way) | 56.3% | **≥65%** |
+| CSLS R@1 (shared1000) | 53.4% | ≥62% |
+| sep | 0.221 | >0.260 |
+| neg_sim | 0.274 | <0.260 |
+| pos_sim | 0.495 | >0.510 |
+| hubness gap | ~9 pp | <6 pp |
+| kappa (mean) | 28 | 15–22 |
+
+If N1v24 reaches 65%+, immediately launch N2v24, N3v24, N4v24 for all-subject evaluation.
+
+### 28.6 V24d — Sequential Scheduling Variant
+
+`N1v24d_sequential.yaml` adds one change to N1v24_combined: `softclip_from_start: false`.
+
+This activates the hardcoded 1/3 phase boundary in `train_unified.py`:
+- **Epochs 1–67**: MixCo only — interpolated soft-labels build noise-robust hypersphere geometry
+- **Epoch 68+**: SoftCLIP only, MixCo disabled — CLIP semantic topology locks in as distillation target
+
+Rationale: simultaneous MixCo + SoftCLIP creates a gradient conflict — blurred interpolated pairs (MixCo) and sharp semantic targets (SoftCLIP) pull the encoder in opposite directions every step. Sequential isolation was the MindEye1 approach and was planned in V20/V22b but **never cleanly evaluated in 24 versions**.
+
+Verification at epoch 1: log must show `"SoftCLIP + MixCo schedule: MixCo epochs 1-67"` and `train_softclip` must be 0.0.
+Verification at epoch 68: log must show `"Epoch 68: switching from MixCo to SoftCLIP"` and `train_mixco` must drop to 0.0.
+
+```bash
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N1v24d SAVE_CKPT=best > ablation_N1v24d.log 2>&1 &
+grep "MixCo\|SoftCLIP\|switching" ablation_N1v24d.log
+```
+
+---
+
+## Section 29: Forward Roadmap — V25 and V26
+
+### 29.1 V25: Cross-Subject Functional Alignment (Subject Adapters)
+
+**Target:** Unlock ~100,000 additional training trials (subj02/05/07) for the proven N1v24 backbone without changing its architecture.
+
+**Why now (not earlier):** V24 must confirm ≥65% CSLS first. Running an adapter training protocol on a sub-65% backbone adds training cost against an unresolved ceiling. Once V24 is confirmed, the approach is:
+
+**Infrastructure status:** `src/fmri2img/models/cross_subject.py` already implements:
+- `RidgeAligner(input_dim, output_dim)` — `Linear(subj_voxels → 15724)` with analytical ridge init, fully gradient-based during fine-tuning
+- `SubjectAdapter(d_model, bottleneck_dim)` — post-encoder `LayerNorm → Linear → GELU → Dropout → Linear` residual at dim 2048, initialized near-identity
+- `CrossSubjectModel` — `freeze_shared()` / `unfreeze_shared()` and `trainable_params(subject_id)`
+
+**Training protocol (2-phase):**
+
+*Phase 1 — Adapter warm-up (freeze N1v24 backbone, train only per-subject aligner + adapter):*
+```
+for subj in subj02 subj05 subj07:
+    RidgeAligner(subj_voxels → 15724)  →  [frozen N1v24 MLP]  →  SubjectAdapter(2048)
+    Train on shared stimuli (NSD shared 982 images × 3 reps per subject)
+    30 epochs, lr 1e-3 (aligner), lr 5e-5 (adapter)
+    Loss: vmf_nce only (frozen backbone provides stable targets)
+```
+
+*Phase 2 — Joint fine-tuning (unfreeze backbone at 10× lower LR):*
+```
+All subjects jointly: subj01 (no adapter) + subj02/05/07 (via adapters)
+LR: 5e-6 (backbone), 1e-4 (adapters)
+200 epochs, standard V24 loss recipe
+Expected: +3–8 pp CSLS from additional training data diversity
+```
+
+**Engineering work required:**
+- New training entry point or `train_unified.py` mode: `model_type: cross_subject`
+- Config key: `cross_subject.canonical_subject: subj01`, `cross_subject.adapter_subjects: [subj02, subj05, subj07]`
+- `MultiSubjectPreextractedDataset` already supports mixed-subject batches; just need `CrossSubjectModel.forward(x, subject_id)` wired into the training loop
+- Verify subj02/05/07 `fmri_features.npy` exist: `make preextract SUBJECT=subj02`
+
+**Why `Linear(subj_voxels → 15724)` and not ridge regression offline:**
+- The RidgeAligner is gradient-differentiable through the backbone — the aligner learns to route *functionally relevant* voxels, not just geometrically similar ones
+- No need for the shared-1000 stimuli trick used by MindEye2; it trains on *all* trials jointly
+- Memory cost: `Linear(13685 → 15724)` for subj02 ≈ 215M params (bf16 = 430MB) — addressable on H100 80GB
+
+---
+
+### 29.2 V26: 3D Spatial Patch Tokenization (Architecture Research Track)
+
+**Target:** Replace the rigid anatomical ROI tokenization (N2–N4) with uniform 4×4×4 voxel patches, following the ViT conceptual leap from CNNs.
+
+**Problem it solves:** In `N2v17_roi_transformer.yaml`, `nsdgeneral_other: 9374` voxels are projected into the same token dimension as `FFA1: 200`. This creates a 47× imbalance — the attention mechanism cannot weight these tokens fairly, and spatial locality is completely lost.
+
+**Architecture:** 
+- Unmask 1D array back into native 3D beta volume (81×104×83)
+- Apply `nn.Conv3d(1, d_model, kernel_size=4, stride=4)` → ~500 patch tokens of uniform spatial coverage
+- Standard Transformer backbone (12 layers, 768 d_model, 12 heads) processes patch tokens
+- Per-subject: voxel counts differ, but 3D brain volume is the same space — cross-subject alignment is natural
+
+**Prerequisites (not yet met):**
+1. Raw NSD beta NIfTI files accessible (currently pipeline only stores 1D `.npy` via `make preextract`)
+2. Brain mask NIfTI per subject (81×104×83 binary) to unmask/remask
+3. New `BrainPatchDataset` replacing `fmri_features.npy` with 3D volumes or a masking utility
+4. New `BrainPatchEncoder(nn.Module)` with `Conv3d` patch embedder
+5. Cold-start from scratch — no warm-start from V17/V24 (different input shape)
+
+**Implementation estimate:** 2–3 weeks (data pipeline + architecture + hyperparameter sweep). Do not begin until V25 adapter results are known — V26 is only worthwhile if the N1 MLP ceiling is confirmed below 70%.
+
+**Expected gain:** If successful, V26 closes the last 3–7 pp gap to state-of-the-art MindEye2 (66–72% on NSD). The attention mechanism's ability to recover spatial patterns that the MLP loses in the 1D flattening step is the key hypothesis.

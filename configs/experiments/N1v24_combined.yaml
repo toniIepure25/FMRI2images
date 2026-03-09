@@ -1,0 +1,149 @@
+# N1v24_combined: V23a (wider encoder) + V23b (CSLS training) + hard negatives
+#
+# Hypothesis: N1v23a (+2.7pp CSLS from wider enc) and N1v23b (+0.7pp from CSLS training)
+#             are orthogonal improvements — combining them should stack additively.
+#             Hard negatives (hard_negative_weight=0.3, hard_neg_k=16) target the
+#             remaining sep bottleneck (V17: sep=0.221, neg_sim=0.274).
+#             Reweighting top-16 most similar queue negatives directly penalises the
+#             highest-cosine confusors, expected to lower neg_sim and raise sep.
+#
+# Changes from V17 (N1v23d control):
+#   FROM N1v23a:
+#   - hidden_dims: [8192, 4096, 2048] → [8192, 8192, 4096, 2048]  (+1 wide layer)
+#   - dropout: 0.2 → 0.15
+#   - lr: 7e-5 → 5e-5
+#   - warmup_epochs: 15 → 20
+#   FROM N1v23b:
+#   - vmf_nce.use_csls_training: true
+#   - vmf_nce.csls_k: 10
+#   NEW in V24:
+#   - vmf_nce.hard_negative_weight: 0.3
+#   - vmf_nce.hard_neg_k: 16
+#
+# Epoch-1 sanity targets:
+#   train_vmf_nce: 9.0–11.0 (hard neg raises loss slightly vs V17 9.1–9.5)
+#   pos_sim: 0.48–0.52  (ABORT if > 0.70 — indicates collapse)
+#   neg_sim: 0.24–0.27  (lower than V17 0.274 = progress)
+#   kappa:   15–25      (lower than V17 28 due to CSLS training)
+#
+# Target: CSLS R@1 ≥ 65% on 900-way; ≥ 62% on shared1000
+
+experiment:
+  name: "N1v24_combined"
+  description: "v24: V23a+V23b combined — wider enc [8192,8192,4096,2048] + CSLS train + hard neg w=0.3 k=16"
+  tags: ["vmf", "vmf_nce", "v24", "wider_encoder", "csls_training", "hard_negatives", "csls", "shared1000"]
+  parent: "N1v23a_wider_encoder"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]   # 4-layer wider MLP (from N1v23a)
+    activation: "gelu"
+    dropout: 0.15                            # slightly less reg for depth (from N1v23a)
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    use_csls_training: true    # differentiable CSLS logit correction (from N1v23b)
+    csls_k: 10                 # k-NN for hub mass estimation (from N1v23b)
+    hard_negative_weight: 0.3  # NEW: reweight top-k most similar queue negatives
+    hard_neg_k: 16             # NEW: number of hard negatives to reweight
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 4
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 5.0e-5          # lower LR for deeper network (from N1v23a)
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 20     # longer warm-up for extra layer (from N1v23a)
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

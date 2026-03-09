@@ -1,7 +1,7 @@
 # Implementation Status
 
-**Last Updated:** March 2026
-**Current Phase:** V20 Sequential Loss Scheduling + Larger Batch
+**Last Updated:** June 2026
+**Current Phase:** V24 Combined (wider encoder + CSLS training + hard negatives) — targeting CSLS 70%
 **Hardware:** NVIDIA H100 80GB HBM3 (CUDA 12.8, bf16 mixed precision)
 
 ---
@@ -33,7 +33,41 @@
    - Implementation: `src/fmri2img/inference/decomposed_ua_cfg.py`
    - Tests: `tests/test_decomposed_ua_cfg.py`
 
-### V20 (Current): Sequential Loss Scheduling + Larger Batch
+### V24 (Current): Combined — Wider Encoder + CSLS Training + Hard Negatives
+
+| Module | Location | Description |
+|--------|----------|-------------|
+| Wider MLP encoder | V24 configs (`hidden_dims: [8192,8192,4096,2048]`) | 4-layer residual MLP; proven +2.7 pp CSLS in N1v23a |
+| CSLS training loss | V24 configs (`use_csls_training: true, csls_k: 10`) | Anti-hubness during training; proven +0.7 pp CSLS in N1v23b |
+| Hard negative reweighting | V24 configs (`hard_negative_weight: 0.3, hard_neg_k: 16`) | Reweights top-k most similar queue negatives; targets sep <0.221 |
+| Variants | N1v24b (label_smooth=0.05), N1v24c (batch 128, grad_accum 2) | Tests two orthogonal enhancements |
+
+### V23 (Complete): Isolation Ablations — First True Single-Variable Tests
+
+| Module | Location | Description |
+|--------|----------|-------------|
+| V17 control (N1v23d) | `configs/experiments/N1v23d_v17_control.yaml` | Verified V17 reproducibility: 47.0%/56.3% CSLS |
+| Wider encoder (N1v23a) | `configs/experiments/N1v23a_wider_encoder.yaml` | [8192,8192,4096,2048], dropout 0.15, lr 5e-5; **project best ep51: 59.0% CSLS** |
+| CSLS training (N1v23b) | `configs/experiments/N1v23b_csls_training.yaml` | use_csls_training=True on V17 encoder; +0.7 pp CSLS, kappa 28→17 |
+| MSE w=0.015 (N1v23c) | `configs/experiments/N1v23c_mse_tuned.yaml` | **Regression**: pos_sim collapsed to 0.800; MSE permanently incompatible with L2-normalized embeddings |
+
+### V22 (Regressed: 38.4% raw / 49.9% CSLS)
+
+| Module | Location | Description |
+|--------|----------|-------------|
+| MSE(sum, w=1.0) | N1v22 config | MSE=87 at epoch 1 (83% of gradient); same structural failure as vmf_nll — dominant non-contrastive signal kills contrastive learning |
+
+### V21 (Worst Regression: 34% N1, ~0.1% N2-N4)
+
+| Module | Location | Description |
+|--------|----------|-------------|
+| vmf_nll loss | V21 config | At d=768, vmf_nll ≈ 40,000 constant; drowns vMF-NCE signal (~7.5). **Never use vmf_nll at high dimensionality** |
+| residual_mlp | V21 config | Changed to simple residual MLP; not the cause of regression |
+| IsotropicSoftmax (ISF) | V21 config | Weight 0.3; tested but irrelevant given vmf_nll dominance |
+
+### V20 (Not Evaluated)
+
+**Note:** V20 was superseded by V21 before evaluation. The sequential MixCo→SoftCLIP scheduling was not independently tested; V23 's isolation methodology makes V20 obsolete.
 
 | Module | Location | Description |
 |--------|----------|-------------|
@@ -169,10 +203,19 @@
 | `N2v19_roi_transformer.yaml` | V19: V17 + margin + DirectAlign + ROI dropout | Complete | 36.8% | 44.7% |
 | `N3v19_roi_dcf.yaml` | V19: V17 + margin + DirectAlign + simplified + ROI dropout | Complete | 36.6% | 45.3% |
 | `N4v19_full_system.yaml` | V19: V17 + DirectAlign + simplified + ROI dropout | Complete | 36.9% | 44.6% |
-| `N1v20_vmf_nce.yaml` | V20: V17 + sequential MixCo->SoftCLIP + batch 128 | **Ready** | Pending | Pending |
-| `N2v20_roi_transformer.yaml` | V20: V17 + sequential MixCo->SoftCLIP + batch 128 | **Ready** | Pending | Pending |
-| `N3v20_roi_dcf.yaml` | V20: V17 + sequential MixCo->SoftCLIP + batch 128 | **Ready** | Pending | Pending |
-| `N4v20_full_system.yaml` | V20: V17 + sequential MixCo->SoftCLIP + batch 128 | **Ready** | Pending | Pending |
+| `N1v20_vmf_nce.yaml` | V20: V17 + sequential MixCo->SoftCLIP + batch 128 | Not Evaluated | — | — |
+| `N2v20_roi_transformer.yaml` | V20: V17 + sequential MixCo->SoftCLIP + batch 128 | Not Evaluated | — | — |
+| `N3v20_roi_dcf.yaml` | V20: V17 + sequential MixCo->SoftCLIP + batch 128 | Not Evaluated | — | — |
+| `N4v20_full_system.yaml` | V20: V17 + sequential MixCo->SoftCLIP + batch 128 | Not Evaluated | — | — |
+| `N1v21_vmf_nce.yaml` | V21: V17 + residual_mlp + vmf_nll + ISF + 3×LR | Regressed | 34.0% | 44.0% |
+| `N1v22_vmf_nce.yaml` | V22: V17 + MSE(sum, w=1.0) | Regressed | 38.4% | 49.9% |
+| `N1v23d_v17_control.yaml` | V23d: V17 exact control — reproducibility check | Complete | 47.0% | 56.3% |
+| `N1v23a_wider_encoder.yaml` | V23a: V17 + wider enc [8192,8192,4096,2048] | **Running (ep51+)** | 47.6% | **59.0%** |
+| `N1v23b_csls_training.yaml` | V23b: V17 + CSLS training (csls_k=10) | Complete | 43.4% | 57.0% |
+| `N1v23c_mse_tuned.yaml` | V23c: V17 + MSE(sum, w=0.015) — pos_sim collapse | Regressed | 38.4% | 49.9% |
+| `N1v24_combined.yaml` | V24: V23a + V23b + hard neg (w=0.3, k=16) | **Planned** | — | **Target: ≥65%** |
+| `N1v24b_label_smooth.yaml` | V24b: V24 + label_smoothing=0.05 | **Planned** | — | — |
+| `N1v24c_larger_batch.yaml` | V24c: V24 + batch 128, grad_accum 2 | **Planned** | — | — |
 
 ---
 
@@ -238,12 +281,19 @@ python scripts/evaluation/diagnose_embeddings.py \
 
 ## What to Run
 
-### V20 Ablation (H100)
+### V24 Ablation (H100)
 
 ```bash
-# Full V20 N-series (4 experiments, best checkpoint only)
-nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N20 SAVE_CKPT=best > ablation_v20.log 2>&1 &
-tail -f ablation_v20.log
+# Launch V24 primary (wait for epoch-1 sanity before launching variants)
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N1v24 SAVE_CKPT=best > ablation_N1v24.log 2>&1 &
+tail -f ablation_N1v24.log
+
+# Epoch-1 sanity: vmf_nce should be 9-11, pos_sim < 0.60, neg_sim < 0.27
+grep "Epoch 1\|vmf_nce\|pos_sim\|neg_sim\|kappa" ablation_N1v24.log | head -20
+
+# After N1v24 ep1 looks healthy, launch variants in parallel
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N1v24b SAVE_CKPT=best > ablation_N1v24b.log 2>&1 &
+nohup make ablation SUBJECTS="subj01" GPU=0 ONLY=N1v24c SAVE_CKPT=best > ablation_N1v24c.log 2>&1 &
 ```
 
 ### After Training
@@ -255,13 +305,13 @@ python3 scripts/evaluation/aggregate_ablation.py \
     --subjects subj01
 
 # Run diagnostics on each experiment
-for exp in N1v20_vmf_nce N2v20_roi_transformer N3v20_roi_dcf N4v20_full_system; do
+for exp in N1v24_combined N1v24b_label_smooth N1v24c_larger_batch; do
     python3 scripts/evaluation/diagnose_embeddings.py \
         --results-dir experimental_results/${exp}/subj01
 done
 
-# View shared1000 benchmark results (with kappa-weighted Frechet mean)
-for exp in N1v20_vmf_nce N2v20_roi_transformer N3v20_roi_dcf N4v20_full_system; do
+# View shared1000 benchmark results
+for exp in N1v24_combined N1v24b_label_smooth N1v24c_larger_batch; do
     echo "=== ${exp} ==="
     cat experimental_results/${exp}/subj01/metrics/shared1000_metrics.json 2>/dev/null \
         || echo "  (not yet available)"

@@ -450,6 +450,8 @@ class UnifiedModel(nn.Module):
             else:
                 self.vmf_output_is_log = False
                 kappa_mode = decoder_cfg.get("kappa_mode", "bounded_sigmoid")
+                _num_tokens = decoder_cfg.get("num_tokens", 0)
+                _token_dim = decoder_cfg.get("token_dim", 768)
                 self.decoder = VonMisesFisherDecoder(
                     input_dim=latent_dim,
                     output_dim=output_dim,
@@ -459,6 +461,8 @@ class UnifiedModel(nn.Module):
                     kappa_min=decoder_cfg.get("kappa_min", 1e-3),
                     kappa_max=decoder_cfg.get("kappa_max", 500.0),
                     kappa_mode=kappa_mode,
+                    num_tokens=_num_tokens,
+                    token_dim=_token_dim,
                 )
         elif self.model_type == "vmf_dcf":
             if encoder_type not in ("roi_transformer", "multi_subject_roi_transformer"):

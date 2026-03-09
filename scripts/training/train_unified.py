@@ -395,6 +395,12 @@ class PreextractedNSDDataset(Dataset):
 
     Loads the entire feature matrix into RAM (~1.8 GB for 30k x 15724)
     so that __getitem__ is a simple array index -- no NIfTI I/O.
+
+    When *token_cache* is provided the CLIP targets come from a
+    :class:`~fmri2img.data.token_clip_cache.TokenCLIPCache` HDF5 file
+    (shape ``(T, D)`` per image) and are returned **flat** ``(T*D,)``.
+    The Parquet ``embeddings_df`` is still needed for nsdId lookup but
+    the embedding column is ignored.
     """
 
     def __init__(
@@ -403,10 +409,12 @@ class PreextractedNSDDataset(Dataset):
         index_df: pd.DataFrame,
         embeddings_df: pd.DataFrame,
         average_repetitions: bool = False,
+        token_cache=None,
     ):
         self.features = np.load(features_path, mmap_mode=None)  # (N, V) float32
         self.index_df = index_df.reset_index(drop=True)
         self.embeddings_df = embeddings_df
+        self.token_cache = token_cache  # Optional[TokenCLIPCache]
 
         if len(self.features) != len(self.index_df):
             raise ValueError(
@@ -450,15 +458,20 @@ class PreextractedNSDDataset(Dataset):
         fmri = self.features[idx]
 
         nsdId = self.index_df.iloc[idx]["nsdId"]
-        emb_idx = self.embedding_lookup.get(nsdId)
-        if emb_idx is None:
-            raise KeyError(
-                f"nsdId={nsdId} not found in CLIP cache "
-                f"({len(self.embedding_lookup)} entries)"
-            )
 
-        col = resolve_embedding_column(self.embeddings_df, _EMBEDDING_COLUMN_OVERRIDE)
-        embedding = self.embeddings_df.iloc[emb_idx][col]
+        if self.token_cache is not None:
+            # Token mode — return flat (T*D,) from HDF5 cache
+            embedding = self.token_cache.get_flat(int(nsdId))
+        else:
+            emb_idx = self.embedding_lookup.get(nsdId)
+            if emb_idx is None:
+                raise KeyError(
+                    f"nsdId={nsdId} not found in CLIP cache "
+                    f"({len(self.embedding_lookup)} entries)"
+                )
+
+            col = resolve_embedding_column(self.embeddings_df, _EMBEDDING_COLUMN_OVERRIDE)
+            embedding = self.embeddings_df.iloc[emb_idx][col]
 
         fmri_tensor = torch.from_numpy(np.asarray(fmri, dtype=np.float32))
         emb_tensor = torch.from_numpy(np.asarray(embedding, dtype=np.float32))
@@ -1208,6 +1221,7 @@ def _evaluate_shared1000(
     batch_size: int = 64,
     is_multi_subject: bool = False,
     subject_id: int = 0,
+    token_cache=None,
 ) -> Optional[Tuple[Dict[str, float], np.ndarray, np.ndarray]]:
     """Evaluate on NSD shared1000 benchmark for community-standard comparison.
 
@@ -1374,23 +1388,35 @@ def _evaluate_shared1000(
         preds_avg = None
 
     # --- Ground-truth CLIP embeddings ---
-    emb_col = resolve_embedding_column(embeddings_df, _EMBEDDING_COLUMN_OVERRIDE)
-    emb_lookup: Dict[int, int] = {}
-    if "nsdId" in embeddings_df.columns:
-        for i, (_, row) in enumerate(embeddings_df.iterrows()):
-            emb_lookup[int(row["nsdId"])] = i
+    if token_cache is not None:
+        # Token mode: load flat (T*D,) vectors from HDF5 cache
+        gts = np.zeros((n_images, preds.shape[1]), dtype=np.float32)
+        missing = 0
+        for i, uid in enumerate(unique_ids):
+            if int(uid) in token_cache:
+                gts[i] = token_cache.get_flat(int(uid))
+            else:
+                missing += 1
+        if missing > 0:
+            logger.warning("Shared1000 eval (token): %d/%d images missing from token cache", missing, n_images)
+    else:
+        emb_col = resolve_embedding_column(embeddings_df, _EMBEDDING_COLUMN_OVERRIDE)
+        emb_lookup: Dict[int, int] = {}
+        if "nsdId" in embeddings_df.columns:
+            for i, (_, row) in enumerate(embeddings_df.iterrows()):
+                emb_lookup[int(row["nsdId"])] = i
 
-    gts = np.zeros((n_images, preds.shape[1]), dtype=np.float32)
-    missing = 0
-    for i, uid in enumerate(unique_ids):
-        idx = emb_lookup.get(int(uid))
-        if idx is not None:
-            emb = embeddings_df.iloc[idx][emb_col]
-            gts[i] = np.asarray(emb, dtype=np.float32)
-        else:
-            missing += 1
-    if missing > 0:
-        logger.warning("Shared1000 eval: %d/%d images missing from CLIP cache", missing, n_images)
+        gts = np.zeros((n_images, preds.shape[1]), dtype=np.float32)
+        missing = 0
+        for i, uid in enumerate(unique_ids):
+            idx = emb_lookup.get(int(uid))
+            if idx is not None:
+                emb = embeddings_df.iloc[idx][emb_col]
+                gts[i] = np.asarray(emb, dtype=np.float32)
+            else:
+                missing += 1
+        if missing > 0:
+            logger.warning("Shared1000 eval: %d/%d images missing from CLIP cache", missing, n_images)
 
     if preprocessor is not None:
         gts = preprocessor.transform(gts)
@@ -1818,6 +1844,19 @@ def main() -> None:
     preextracted_path = Path(cache_root) / "preextracted" / f"subject={subject}" / "fmri_features.npy"
     roi_mask_path = resolve_roi_mask_path(subject)
 
+    # --- Token mode: load HDF5 token-level CLIP cache (MindEye-style) ---
+    _token_cache_path = config.get("data", {}).get("token_cache_path", "")
+    _token_cache = None
+    if _token_cache_path:
+        from fmri2img.data.token_clip_cache import TokenCLIPCache
+        _token_cache = TokenCLIPCache(_token_cache_path)
+        _token_cache.load()
+        logger.info(
+            "TOKEN MODE: Loaded %d images from %s (%d tokens × %d dim)",
+            len(_token_cache), _token_cache_path,
+            _token_cache.num_tokens, _token_cache.token_dim,
+        )
+
     _encoder_type_check = config.get("model", {}).get("encoder", {}).get("encoder_type", "mlp")
     _multi_subjects = config.get("data", {}).get("subjects", [])
     _cross_subject_cfg = config.get("model", {}).get("cross_subject", {})
@@ -1861,6 +1900,7 @@ def main() -> None:
         full_dataset = PreextractedNSDDataset(
             preextracted_path, index_df, embeddings_df,
             average_repetitions=avg_reps,
+            token_cache=_token_cache,
         )
     else:
         logger.warning(
@@ -1886,6 +1926,15 @@ def main() -> None:
     model_config = config["model"]
     model_config["encoder"]["input_dim"] = fmri_dim
     model_config["decoder"]["output_dim"] = embedding_dim
+
+    # Auto-fill token decoder config from token cache
+    if _token_cache is not None:
+        model_config["decoder"]["num_tokens"] = _token_cache.num_tokens
+        model_config["decoder"]["token_dim"] = _token_cache.token_dim
+        logger.info(
+            "Token decoder config: output_dim=%d, num_tokens=%d, token_dim=%d",
+            embedding_dim, _token_cache.num_tokens, _token_cache.token_dim,
+        )
 
     _roi_indices = None
     encoder_type = model_config.get("encoder", {}).get("encoder_type", "mlp")
@@ -3021,6 +3070,7 @@ def main() -> None:
             zscore_mode=_s1000_zscore_mode,
             batch_size=config["training"]["batch_size"],
             is_multi_subject=_is_multi_subject,
+            token_cache=_token_cache,
         )
         if _s1000_result is not None:
             _s1000_metrics, _s1000_preds, _s1000_gts = _s1000_result

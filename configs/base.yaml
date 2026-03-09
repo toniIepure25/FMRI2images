@@ -67,6 +67,14 @@ clip:
     layer_18: 1024
     layer_24: 768                   # Final projection dimension
 
+  # Token-level features (MindEye-style, Phase 3)
+  # When token_cache_path is set in data config, the model predicts all
+  # 257 tokens (CLS + 256 patches) rather than a single CLS vector.
+  token_targets:
+    num_tokens: 257                 # CLS + 256 spatial patches
+    token_dim: 768                  # Per-token dimension (projected)
+    # token_dim_hidden: 1024       # Per-token dimension (hidden, pre-projection)
+
 
 # CLIP Embedding Space Configuration
 # -----------------------------------------------------------------------------

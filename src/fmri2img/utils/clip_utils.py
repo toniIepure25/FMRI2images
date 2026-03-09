@@ -284,6 +284,164 @@ def encode_images_multilayer(
     return features_dict
 
 
+def encode_images_tokens(
+    model: Any,
+    preprocess: Any,
+    images: list,
+    device: str = "cuda",
+    normalize: bool = True,
+    layer: int = -1,
+) -> np.ndarray:
+    """
+    Encode images to **full token-level** CLIP features (CLS + spatial patches).
+
+    Unlike :func:`encode_images` (which returns only the CLS token),
+    this function returns all 257 tokens (ViT-L/14) or 257 tokens
+    (ViT-bigG/14) from a specified Transformer layer.
+
+    MindEye (Scotti et al., 2024) demonstrates that predicting the full
+    token set (257×768 for ViT-L/14 or 257×1664 for bigG) dramatically
+    outperforms CLS-only prediction for retrieval.
+
+    Args:
+        model:      CLIP model (must be ViT-based via OpenCLIP).
+        preprocess: CLIP preprocessing function.
+        images:     List of PIL Images.
+        device:     Device for computation.
+        normalize:  If True, L2-normalize each token independently.
+        layer:      Transformer layer to extract from.
+                    -1 (default) = last hidden layer (pre-``ln_post``/``proj``).
+                    Positive int = specific layer index (1-based, e.g. 24 for
+                    ViT-L/14 last block, 48 for bigG last block).
+
+    Returns:
+        (N, T, D) float32 array where T = num_patches + 1 (CLS token)
+        and D = hidden_dim of the specified layer.
+        For ViT-L/14:  T=257, D=1024 (hidden) or D=768 (projected).
+        For ViT-bigG/14: T=257, D=1664 (hidden) or D=1280 (projected).
+
+    The returned tokens are from the **last hidden layer** by default
+    (i.e. after all Transformer blocks but before ``ln_post`` and ``proj``).
+    Pass ``layer=N`` to extract after block N instead.
+    """
+    if not CLIP_AVAILABLE:
+        raise ImportError("CLIP libraries not available")
+
+    import torch
+    from contextlib import nullcontext
+
+    imgs_tensor = torch.stack([preprocess(img) for img in images]).to(device)
+
+    if device == "cuda" and torch.cuda.is_available():
+        autocast_ctx = torch.amp.autocast("cuda")
+    else:
+        autocast_ctx = nullcontext()
+
+    with torch.no_grad(), autocast_ctx:
+        visual = model.visual
+
+        # Patch embedding
+        x = visual.conv1(imgs_tensor)                       # (B, C, H', W')
+        x = x.reshape(x.shape[0], x.shape[1], -1)           # (B, C, T_patch)
+        x = x.permute(0, 2, 1)                              # (B, T_patch, C)
+
+        # Prepend CLS token
+        class_token = visual.class_embedding.unsqueeze(0).unsqueeze(0).expand(
+            x.shape[0], -1, -1
+        )
+        x = torch.cat([class_token, x], dim=1)              # (B, T_patch+1, C)
+        x = x + visual.positional_embedding
+
+        x = visual.ln_pre(x)
+
+        num_blocks = len(visual.transformer.resblocks)
+        target_layer = layer if layer > 0 else num_blocks
+
+        for i, block in enumerate(visual.transformer.resblocks):
+            x = block(x)
+            if (i + 1) == target_layer:
+                break
+
+        # x is now (B, T, hidden_dim) — full token sequence
+        tokens = x.float()  # (B, 257, hidden_dim)
+
+        if normalize:
+            tokens = tokens / tokens.norm(dim=-1, keepdim=True).clamp(min=1e-8)
+
+    return tokens.cpu().numpy().astype(np.float32)
+
+
+def encode_images_tokens_projected(
+    model: Any,
+    preprocess: Any,
+    images: list,
+    device: str = "cuda",
+    normalize: bool = True,
+) -> np.ndarray:
+    """
+    Encode images to token-level CLIP features, projected through
+    ``ln_post`` and ``visual.proj`` like the standard CLS pipeline.
+
+    This applies the model's LayerNorm and projection matrix to
+    **every** token (not just CLS), producing tokens in the same
+    space as the final CLIP embedding (768-D for ViT-L/14, 1280
+    for bigG).
+
+    Args:
+        model:      CLIP model (ViT-based, OpenCLIP).
+        preprocess: CLIP preprocessing function.
+        images:     List of PIL Images.
+        device:     Device for computation.
+        normalize:  If True, L2-normalize each token independently.
+
+    Returns:
+        (N, T, D_proj) float32 array.
+        ViT-L/14: (N, 257, 768).  ViT-bigG/14: (N, 257, 1280).
+    """
+    if not CLIP_AVAILABLE:
+        raise ImportError("CLIP libraries not available")
+
+    import torch
+    from contextlib import nullcontext
+
+    imgs_tensor = torch.stack([preprocess(img) for img in images]).to(device)
+
+    if device == "cuda" and torch.cuda.is_available():
+        autocast_ctx = torch.amp.autocast("cuda")
+    else:
+        autocast_ctx = nullcontext()
+
+    with torch.no_grad(), autocast_ctx:
+        visual = model.visual
+
+        x = visual.conv1(imgs_tensor)
+        x = x.reshape(x.shape[0], x.shape[1], -1)
+        x = x.permute(0, 2, 1)
+
+        class_token = visual.class_embedding.unsqueeze(0).unsqueeze(0).expand(
+            x.shape[0], -1, -1
+        )
+        x = torch.cat([class_token, x], dim=1)
+        x = x + visual.positional_embedding
+
+        x = visual.ln_pre(x)
+
+        for block in visual.transformer.resblocks:
+            x = block(x)
+
+        # Apply ln_post to ALL tokens (not just CLS)
+        tokens = visual.ln_post(x).float()                  # (B, T, hidden_dim)
+
+        # Project through visual.proj if it exists
+        if visual.proj is not None:
+            tokens = tokens @ visual.proj.float()            # (B, T, proj_dim)
+
+        if normalize:
+            tokens = tokens / tokens.norm(dim=-1, keepdim=True).clamp(min=1e-8)
+
+    return tokens.cpu().numpy().astype(np.float32)
+
+
 def verify_embedding_dimension(
     embeddings: np.ndarray,
     config_path: str = "configs/system/clip.yaml"

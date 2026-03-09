@@ -58,13 +58,19 @@ class VonMisesFisherDecoder(nn.Module):
 
     Args:
         input_dim:   Latent dimension from encoder.
-        output_dim:  Output dimension (CLIP embedding size, e.g. 768).
+        output_dim:  Output dimension (CLIP embedding size, e.g. 768 or 197376).
         hidden_dims: Hidden layer dimensions for the shared backbone.
         activation:  Activation function ("gelu" or "relu").
         dropout:     Dropout probability.
         kappa_min:   Lower bound for concentration (bounded_sigmoid mode).
         kappa_max:   Upper bound for concentration (bounded_sigmoid mode).
         kappa_mode:  ``"bounded_sigmoid"`` (default) or ``"softplus"``.
+        num_tokens:  If > 0, enable token-level output mode.  ``output_dim``
+                     should equal ``num_tokens * token_dim``.  The mu head
+                     output is reshaped to ``(B, num_tokens, token_dim)``
+                     and L2-normalised **per-token**, then re-flattened and
+                     globally L2-normalised (MindEye-style).
+        token_dim:   Per-token dimension (e.g. 768 for ViT-L/14 projected).
     """
 
     def __init__(
@@ -77,6 +83,8 @@ class VonMisesFisherDecoder(nn.Module):
         kappa_min: float = 1e-3,
         kappa_max: float = 500.0,
         kappa_mode: str = "bounded_sigmoid",
+        num_tokens: int = 0,
+        token_dim: int = 768,
     ):
         super().__init__()
         self.input_dim = input_dim
@@ -84,6 +92,8 @@ class VonMisesFisherDecoder(nn.Module):
         self.kappa_min = kappa_min
         self.kappa_max = kappa_max
         self.kappa_mode = kappa_mode
+        self.num_tokens = num_tokens
+        self.token_dim = token_dim
 
         if hidden_dims is None or len(hidden_dims) == 0:
             self.shared_backbone = nn.Identity()
@@ -104,12 +114,24 @@ class VonMisesFisherDecoder(nn.Module):
         self.mu_head = nn.Linear(backbone_out_dim, output_dim)
         self.kappa_head = nn.Linear(backbone_out_dim, 1)
 
-        logger.info(
-            "VonMisesFisherDecoder: %d -> (mu, kappa) %d "
-            "(hidden=%s, kappa_mode=%s, kappa=[%s, %s])",
-            input_dim, output_dim, hidden_dims, kappa_mode,
-            kappa_min, kappa_max,
-        )
+        if num_tokens > 0:
+            assert output_dim == num_tokens * token_dim, (
+                f"output_dim ({output_dim}) must equal "
+                f"num_tokens * token_dim ({num_tokens} * {token_dim} = {num_tokens * token_dim})"
+            )
+            logger.info(
+                "VonMisesFisherDecoder TOKEN MODE: %d -> %d tokens × %d dim "
+                "(hidden=%s, kappa_mode=%s, kappa=[%s, %s])",
+                input_dim, num_tokens, token_dim, hidden_dims, kappa_mode,
+                kappa_min, kappa_max,
+            )
+        else:
+            logger.info(
+                "VonMisesFisherDecoder: %d -> (mu, kappa) %d "
+                "(hidden=%s, kappa_mode=%s, kappa=[%s, %s])",
+                input_dim, output_dim, hidden_dims, kappa_mode,
+                kappa_min, kappa_max,
+            )
 
     def forward(self, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
@@ -117,12 +139,24 @@ class VonMisesFisherDecoder(nn.Module):
             h: (B, input_dim) latent features
 
         Returns:
-            mu:    (B, output_dim) L2-normalised mean direction
+            mu:    (B, output_dim) L2-normalised mean direction.
+                   When ``num_tokens > 0``, each token is per-token normalised
+                   and the full vector is globally normalised (MindEye-style).
             kappa: (B, 1) positive concentration
         """
         features = self.shared_backbone(h)
 
-        mu = F.normalize(self.mu_head(features), p=2, dim=-1)
+        raw_mu = self.mu_head(features)  # (B, output_dim)
+
+        if self.num_tokens > 0:
+            # Reshape → per-token L2-norm → flatten → global L2-norm
+            B = raw_mu.shape[0]
+            tokens = raw_mu.view(B, self.num_tokens, self.token_dim)
+            tokens = F.normalize(tokens, p=2, dim=-1)       # per-token
+            mu = tokens.reshape(B, -1)                       # (B, T*D)
+            mu = F.normalize(mu, p=2, dim=-1)                # global
+        else:
+            mu = F.normalize(raw_mu, p=2, dim=-1)
 
         raw_kappa = self.kappa_head(features)
         kappa = kappa_activation(

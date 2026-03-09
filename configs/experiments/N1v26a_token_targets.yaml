@@ -1,0 +1,159 @@
+# N1v26a: MindEye-style 257×768 token-level CLIP targets (ViT-L/14)
+#
+# Hypothesis: Predicting all 257 CLIP tokens (CLS + 256 spatial patches)
+#             instead of a single 768-D CLS vector captures spatial/semantic
+#             detail that boosts retrieval substantially. MindEye1 achieves
+#             93.2% R@1 among ~982 images with this approach (vs our 52.5%).
+#
+# Architecture:
+#   - Same 4-layer residual MLP encoder as V23a [8192, 8192, 4096, 2048]
+#   - vMF decoder outputs (B, 257*768=197376) with per-token L2-norm
+#   - Flat 197376-D vectors used directly for all contrastive losses
+#   - No projection head (avoid 800M+ param explosion)
+#
+# Token targets:
+#   - ViT-L/14 (openai) projected tokens: ln_post + visual.proj applied
+#     to all 257 tokens, yielding (257, 768) per image
+#   - Stored in HDF5 via scripts/build/build_token_clip_cache.py
+#
+# Changes from V23a:
+#   - data.token_cache_path added (HDF5 token cache)
+#   - decoder output_dim 768 → 197376 (auto-detected from sample)
+#   - decoder.num_tokens=257, decoder.token_dim=768 (auto-filled from cache)
+#   - projection_head disabled (raw mu used for all losses)
+#   - LR reduced to 3e-5 (larger output space needs gentler optimisation)
+#   - batch_size reduced to 32 (more memory for large mu_head)
+#   - gradient_accumulation_steps: 8 (effective batch stays 256)
+#   - num_epochs: 300 (more epochs for larger output space)
+#
+# Build cache first:
+#   python scripts/build/build_token_clip_cache.py --mode projected
+#
+# Run:
+#   python scripts/training/train_unified.py --config configs/experiments/N1v26a_token_targets.yaml
+
+experiment:
+  name: "N1v26a_token_targets"
+  description: "v26a: MindEye-style 257×768 ViT-L/14 token targets, same V23a backbone"
+  tags: ["vmf", "vmf_nce", "v26", "token_targets", "mindeye", "csls", "shared1000"]
+  parent: "N1v23a_wider_encoder"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  # MindEye-style token cache (build with scripts/build/build_token_clip_cache.py)
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.15
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: null   # auto-filled: 257 * 768 = 197376
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+    # Token mode (auto-filled from token cache, but explicit for clarity)
+    num_tokens: 257
+    token_dim: 768
+
+  # Projection head disabled — with 197376-D output the raw mu is
+  # used directly for SoftCLIP/MixCo contrastive losses
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 4096      # reduced from 16384 (197376-D entries need ~3 GB at this size)
+
+training:
+  batch_size: 32                    # reduced from 64 (large mu_head memory)
+  gradient_accumulation_steps: 8    # effective batch = 32 * 8 = 256
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 300                   # more epochs for larger output space
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5                      # gentler LR for 197376-D output
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 30                 # longer warm-up for large output
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 40           # more patience for slower convergence
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

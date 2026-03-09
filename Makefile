@@ -12,7 +12,7 @@ export
 # ============================================================================
 
 .PHONY: help setup preflight doctor smoke
-.PHONY: prepare data models index preprocess preextract clip-cache multilayer-clip-cache
+.PHONY: prepare data models index preprocess preextract clip-cache multilayer-clip-cache token-clip-cache
 .PHONY: train ablation
 .PHONY: eval-recon eval-shared1000 summarize-shared1000 compare-evals
 .PHONY: test test-quick
@@ -39,11 +39,13 @@ help:
 	@echo "  make preextract     Pre-extract ROI-masked fMRI features (fast training)"
 	@echo "  make clip-cache     Build CLIP embeddings cache"
 	@echo "  make multilayer-clip-cache  Build multi-layer CLIP cache (for hierarchical alignment)"
+	@echo "  make token-clip-cache  Build 257x768 token-level CLIP cache (for MindEye-style targets)"
 	@echo ""
 	@echo "Training:"
 	@echo "  make train CONFIG=configs/experiments/B0_deterministic.yaml"
 	@echo "                      Train a single experiment"
 	@echo "  make ablation       Run full B0-N4 ablation ladder"
+	@echo "    ONLY=N1v26a       Run only V26a token-targets experiment"
 	@echo "  make ridge          Train Ridge baseline (fMRI -> CLIP)"
 	@echo ""
 	@echo "Evaluation:"
@@ -175,8 +177,18 @@ multilayer-clip-cache:
 			--device $(DEVICE); \
 	fi
 
-# ============================================================================
-# Training
+# Token-level CLIP cache (257×768 per image, for MindEye-style targets)
+# Usage: make token-clip-cache                          (all subjects, projected mode)
+#        make token-clip-cache SUBJECT=subj01           (single subject)
+#        make token-clip-cache MODE=raw                 (unprojected tokens)
+token-clip-cache:
+	@echo "=== Building Token-Level CLIP Cache ==="
+	$(PY) scripts/build/build_token_clip_cache.py \
+		--mode $${MODE:-projected} \
+		$${SUBJECT:+--subject $$SUBJECT} \
+		--batch-size $${BATCH:-32} \
+		--device $(DEVICE)
+	@echo "=== Token CLIP cache complete ==="
 # ============================================================================
 
 # Single experiment: make train CONFIG=configs/experiments/B0_deterministic.yaml

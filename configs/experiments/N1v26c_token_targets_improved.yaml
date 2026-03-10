@@ -1,0 +1,165 @@
+# N1v26c: Improved Single-Subject 257×768 Token-Level CLIP Targets
+#
+# Hypothesis: V26a (R@1=52.8%, CSLS R@1=69.6%) can be pushed further with
+#   regularization improvements already implemented in the training script
+#   but never activated for V26a. R-Drop, label smoothing, slerp MixCo,
+#   stronger input augmentation, and a larger negative pool should close
+#   some of the gap to MindEye's 93%.
+#
+# Architecture: Identical to V26a (no code changes needed):
+#   - 4-layer residual MLP encoder [8192, 8192, 4096, 2048]
+#   - vMF decoder: 2048 → 197376 (257×768 flat, per-token L2-norm)
+#   - ~675M parameters (fits H100 80GB single-subject)
+#   - No projection head
+#
+# Changes from V26a:
+#   + loss.vmf_nce.label_smoothing: 0.05     (soft targets, prevents overconfidence)
+#   + loss.r_drop.enabled: true               (dropout regularization via symmetric KL)
+#   + training.mixco.use_slerp: true          (spherical interpolation for L2-normed targets)
+#   + training.fmri_noise_std: 0.1 → 0.15    (stronger noise augmentation)
+#   + training.voxel_dropout: 0.1 → 0.15     (stronger voxel masking)
+#   + model.encoder.dropout: 0.15 → 0.2      (stronger encoder regularization)
+#   + model.decoder.dropout: 0.2 → 0.25      (stronger decoder regularization)
+#   + queue.size: 4096 → 8192                 (2× negatives, ~6 GB, fits H100)
+#   + num_epochs: 300 → 350                   (more room; V26a peaked epoch 134)
+#   + early_stop_patience: 40 → 50            (matched to longer training)
+#
+# Token cache: same as V26a (already built):
+#   outputs/clip_cache/tokens_ViT-L-14_projected.h5
+#
+# Run:
+#   python scripts/training/train_unified.py \
+#       --config configs/experiments/N1v26c_token_targets_improved.yaml
+
+experiment:
+  name: "N1v26c_token_targets_improved"
+  description: "v26c: V26a + R-Drop + label smoothing + slerp MixCo + stronger regularization"
+  tags: ["vmf", "vmf_nce", "v26", "token_targets", "mindeye", "csls",
+         "shared1000", "r_drop", "label_smooth", "slerp"]
+  parent: "N1v26a_token_targets"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.2            # UP from 0.15 — stronger regularization for 675M params
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: null         # auto-filled: 257 * 768 = 197376
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.25            # UP from 0.2 — stronger decoder regularization
+    kappa_mode: "softplus"
+    num_tokens: 257
+    token_dim: 768
+
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    label_smoothing: 0.05    # NEW — soft targets prevent overconfident logits on 197K-D
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01       # same as V26a
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  # R-Drop: symmetric vMF KL between two forward passes with different
+  # dropout masks.  Proven effective in v9.  Delayed start avoids
+  # interfering with early warmup learning.
+  r_drop:
+    enabled: true
+    weight: 0.3
+    start_epoch: 50          # let the model learn basics first
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 8192                 # UP from 4096 — 2× negatives (~6 GB, fits H100 80GB)
+
+training:
+  batch_size: 32
+  gradient_accumulation_steps: 8    # effective batch = 256
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 350                   # UP from 300 — V26a peaked epoch 134, more room
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5                      # same as V26a
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 30
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 50           # UP from 40 — matched to longer training
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.15              # UP from 0.1 — stronger noise augmentation
+  voxel_dropout: 0.15               # UP from 0.1 — stronger voxel masking
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+    use_slerp: true                 # NEW — spherical interpolation for L2-normed tokens
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

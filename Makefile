@@ -47,6 +47,7 @@ help:
 	@echo "  make ablation       Run full B0-N4 ablation ladder"
 	@echo "    ONLY=N1v26a       Run only V26a token-targets experiment"
 	@echo "    ONLY=N1v26b       Run only V26b cross-subject + token-targets"
+	@echo "    ONLY=N1v26c       Run only V26c improved single-subject token-targets"
 	@echo "  make ridge          Train Ridge baseline (fMRI -> CLIP)"
 	@echo ""
 	@echo "Evaluation:"

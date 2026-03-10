@@ -1847,18 +1847,21 @@ def main() -> None:
     # --- Token mode: load HDF5 token-level CLIP cache (MindEye-style) ---
     _token_cache_path = config.get("data", {}).get("token_cache_path", "")
     _token_cache = None
+    _multi_subjects = config.get("data", {}).get("subjects", [])
     if _token_cache_path:
         from fmri2img.data.token_clip_cache import TokenCLIPCache
         _token_cache = TokenCLIPCache(_token_cache_path)
-        _token_cache.load()
+        # Use mmap (lazy HDF5) for multi-subject to avoid 29+ GB RAM usage.
+        # Single-subject (~7 GB) loads into RAM for speed.
+        _use_mmap = len(_multi_subjects) > 1
+        _token_cache.load(mmap=_use_mmap)
         logger.info(
-            "TOKEN MODE: Loaded %d images from %s (%d tokens × %d dim)",
+            "TOKEN MODE: Loaded %d images from %s (%d tokens × %d dim, mmap=%s)",
             len(_token_cache), _token_cache_path,
-            _token_cache.num_tokens, _token_cache.token_dim,
+            _token_cache.num_tokens, _token_cache.token_dim, _use_mmap,
         )
 
     _encoder_type_check = config.get("model", {}).get("encoder", {}).get("encoder_type", "mlp")
-    _multi_subjects = config.get("data", {}).get("subjects", [])
     _cross_subject_cfg = config.get("model", {}).get("cross_subject", {})
     _cross_subject_enabled = _cross_subject_cfg.get("enabled", False)
 

@@ -106,14 +106,22 @@ class TokenCLIPCache:
             f.close()
 
         self._is_loaded = True
-        logger.info(
-            "TokenCLIPCache loaded: %d images, %d tokens × %d dim (%.2f GB)",
-            len(self._nsd_ids),
-            self._meta.get("num_tokens", self._tokens.shape[1]),
-            self._meta.get("token_dim", self._tokens.shape[2]),
-            self._tokens.shape[0] * self._tokens.shape[1] * self._tokens.shape[2] * 4 / 1e9
-            if isinstance(self._tokens, np.ndarray) else 0,
-        )
+        _n = len(self._nsd_ids)
+        _t = self._meta.get("num_tokens", self._tokens.shape[1])
+        _d = self._meta.get("token_dim", self._tokens.shape[2])
+        _size_gb = _n * _t * _d * 4 / 1e9
+        if mmap:
+            logger.info(
+                "TokenCLIPCache loaded (mmap/lazy): %d images, %d tokens × %d dim "
+                "(%.2f GB on disk, ~0 GB RAM)",
+                _n, _t, _d, _size_gb,
+            )
+        else:
+            logger.info(
+                "TokenCLIPCache loaded (in-memory): %d images, %d tokens × %d dim "
+                "(%.2f GB RAM)",
+                _n, _t, _d, _size_gb,
+            )
         return self
 
     def close(self):

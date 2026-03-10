@@ -131,11 +131,11 @@ loss:
 
 queue:
   enabled: true
-  size: 2048      # reduced from V26a's 4096 (memory: 4× data + 197K-D entries)
+  size: 512       # kept small: 197K-D entries × 512 ≈ 0.4 GB (was 2048 → 1.6 GB OOM)
 
 training:
-  batch_size: 16                    # reduced from V26a's 32 (4× subjects in memory)
-  gradient_accumulation_steps: 16   # effective batch = 16 * 16 = 256
+  batch_size: 8                     # halved from 16 to reduce peak GPU activation memory
+  gradient_accumulation_steps: 32   # effective batch = 8 * 32 = 256 (unchanged)
   mixed_precision: true
   mixed_precision_dtype: "bf16"
   num_epochs: 200                   # fewer than V26a's 300 (4× more data per epoch)

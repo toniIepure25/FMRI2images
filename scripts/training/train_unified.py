@@ -27,6 +27,7 @@ import platform
 import random
 import subprocess
 import sys
+import gc
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -2926,6 +2927,13 @@ def main() -> None:
                 subject=subject, roi_mask_path=str(roi_mask_path),
                 losses=losses, meta=_ckpt_meta, ema=ema,
             )
+
+        # Free fragmented GPU memory before next epoch.  Adam's
+        # _multi_tensor_adam allocates large temporaries (exp_avg_sq_sqrt)
+        # that can OOM on fragmented heaps.  gc.collect() drops Python
+        # ref-cycles so the caching allocator can reclaim blocks.
+        gc.collect()
+        torch.cuda.empty_cache()
 
     wall_time = time.time() - wall_start
     metrics_logger.write_summary(best_epoch, best_val_loss, wall_time, manifest,

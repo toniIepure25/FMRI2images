@@ -2,7 +2,7 @@
 
 This document provides complete technical context for a bachelor thesis project on neural decoding of visual perception from fMRI. It is designed as a self-contained briefing for an LLM or researcher performing deep analysis.
 
-**Project status (March 2026):** After 25 iterative versions, the project-best remains **47.6% raw R@1 / 59.0% CSLS R@1** from N1v23a (wider encoder). V24 (hard negatives) and V25 (structural experiments) both regressed. V25 results: N1v25_rerun 57.2% CSLS (val900), 52.5% (shared1000); N1v25a sequential 54.9% / 50.8%; N2v25c patched-ROI 46.2% / 45.1%; N1v25b crashed (optimizer bug, now fixed). The V23a rerun's 1.8pp drop from original (57.2 vs 59.0%) suggests seed sensitivity or eval variance. Sequential scheduling (-4.1pp) and sub-ROI patching (on par with N2v17) both failed to improve. All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
+**Project status (March 2026):** After 26 iterative versions, the project-best is **52.8% raw R@1 / 69.6% CSLS R@1** from N1v26a (MindEye-style 257×768 token targets, single-subject, 675M params). V26a delivered **+5.2pp raw / +17.1pp CSLS** over the previous best (N1v23a), proving that target quality was the primary remaining bottleneck. V24 (hard negatives) and V25 (structural experiments) both regressed. V25 results: N1v25_rerun 57.2% CSLS (val900), 52.5% (shared1000); N1v25a sequential 54.9% / 50.8%; N2v25c patched-ROI 46.2% / 45.1%; N1v25b crashed (optimizer bug, now fixed). V26b (cross-subject + token targets, 1.59B params) was abandoned after two CUDA OOM crashes at epoch 2 — a co-tenant process permanently holds ~34.5 GiB on the shared H100, leaving insufficient headroom for the larger model. V26c (V26a + R-Drop + label smoothing + slerp MixCo + stronger regularization, same 675M architecture) is **currently training**. All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
 
 **SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training, (2) smaller model capacity (328M vs 996M params), (3) MindEye's OpenCLIP ViT-bigG/14 embeddings (256x1664-D) vs our ViT-L/14 (768-D), and (4) hubness in high-dimensional retrieval from single-trial fMRI noise.
 
@@ -913,6 +913,9 @@ An alternative fix would be to remove \(\tau\) from the `_score()` method entire
 | v23 | N1v23a–d | 4 isolated ablations vs V17 control (N1v23d) | **N1v23a ep51: 47.6% raw, CSLS 59.0%** (+2.7pp, running); N1v23b: 43.4%/57.0% (+0.7pp); N1v23c: 38.4%/49.9% (MSE collapse) |
 | v24 | N1v24, N1v24b, N1v24c, N1v24d | N1v23a + N1v23b + hard negatives (w=0.3) | **REGRESSION**: N1v24: 55.4%; N1v24b: 57.6% (best); N1v24c: 57.2%; N1v24d: 55.4%. Hard neg raised neg_sim 0.274→0.324 |
 | v25 | N1v25_rerun, N1v25a, N1v25b, N2v25c | 3 structural experiments: sequential schedule, cross-subject adapters, sub-ROI patching | N1v25_rerun: 57.2%/52.5%; N1v25a: 54.9%/50.8%; N2v25c: 46.2%/45.1%; N1v25b: **crashed** (fix applied) |
+| v26a | N1v26a | MindEye-style 257×768 token targets (single-subject, 675M params) | N1v26a: **52.8%** raw, **69.6%** CSLS (+17.1pp CSLS vs V23a); best epoch 134/174 — **new project best** |
+| v26b | N1v26b | Token targets + cross-subject adapters (4 subjects, 1.59B params) | **Abandoned** — CUDA OOM at epoch 2 (shared H100, co-tenant uses ~34.5 GiB; 256 MiB `exp_avg_sq_sqrt` alloc fails) |
+| v26c | N1v26c | V26a + R-Drop (w=0.3, start ep50) + label smooth 0.05 + slerp MixCo + dropout 0.2/0.25 + queue 8192 + 350 epochs | **In progress** |
 
 Notes:
 - B-series stays at v4 (not affected by vMF-specific changes)
@@ -938,6 +941,9 @@ Notes:
 - **v24 failure**: hard_negative_weight=0.3 + use_csls_training=true created gradient conflict — CSLS penalises hubs while hard negatives reweight loss toward those same items; neg_sim went UP from 0.274→0.324; all 4 variants regressed from V23a's 59.0%
 - **v24d sequential contaminated**: V24d tested sequential scheduling but WITH hard negatives + CSLS training, masking the true sequential effect
 - v25: pivots to structural changes (loss surgery exhausted); V25a sequential was -4.1pp worse than joint (curriculum hurts); V25c patched-ROI at 46.2% matched N2v17 (no gain from balanced tokens); V25b crashed at epoch 31 with optimizer `add_param_group` duplicate params — fixed with `_cs_backbone_frozen` guard + `_existing_param_ids` filter
+- **v26a breakthrough**: pivot to MindEye-style token targets (257 tokens × 768-D ViT-L/14 patch embeddings projected to 768-D); token cache pre-built at `outputs/clip_cache/tokens_ViT-L-14_projected.h5` (37K images × 257 × 768); R@1 52.8%, CSLS 69.6% at epoch 134 — +17.1pp CSLS confirms target quality was the primary bottleneck after all loss-level exhaustion in v16–v25
+- **v26b failure**: cross-subject token-target training (4 subjects, ~100K trials, 1.59B params); two consecutive CUDA OOM crashes at `torch.optim.adam._multi_tensor_adam` epoch 2 (256 MiB `exp_avg_sq_sqrt` allocation fails); root cause is a co-tenant process permanently occupying ~34.5 GiB on the shared H100 — effective budget ~44.5 GiB is insufficient for 1.59B param Adam optimizer; abandoned; `gc.collect() + torch.cuda.empty_cache()` end-of-epoch and batch 16→8 / queue 2048→512 reductions did not resolve
+- v26c: config-only improvements on V26a (same 675M param architecture, no cross-subject adapters); R-Drop (w=0.3, active from epoch 50), label smoothing 0.05, slerp MixCo, encoder dropout 0.2 / decoder dropout 0.25, queue 8192, 350 epochs, patience 50; currently training on cluster
 
 ---
 

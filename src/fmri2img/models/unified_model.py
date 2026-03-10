@@ -570,10 +570,11 @@ class UnifiedModel(nn.Module):
                     adapted[mask] = subj_x[:, :self._canonical_voxels]
                 else:
                     # Non-canonical: slice to subject's voxel count, project
+                    # .to(adapted.dtype) ensures bf16 AMP output matches float32 dest
                     n_vox = self._subject_voxel_dims[subj_id]
                     adapted[mask] = self.subject_adapters[subj_id](
                         subj_x[:, :n_vox]
-                    )
+                    ).to(adapted.dtype)
             x = adapted
 
         if self.ncsnr_attention is not None:

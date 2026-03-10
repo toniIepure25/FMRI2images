@@ -141,6 +141,47 @@ def normalize_embeddings(embeddings: Union[np.ndarray, torch.Tensor]) -> Union[n
         return embeddings / norms
 
 
+def _get_correct_ranks_gpu(
+    predictions: np.ndarray,
+    ground_truth: np.ndarray,
+    chunk_size: int = 128,
+) -> np.ndarray:
+    """Compute correct ranks using GPU-accelerated chunked matmul.
+
+    Instead of building the full (N, N) similarity matrix, processes
+    ``chunk_size`` query rows at a time and counts how many gallery items
+    score higher than the diagonal (correct) entry.  This keeps peak GPU
+    memory at O(chunk_size * N) instead of O(N^2).
+
+    Returns:
+        correct_ranks: (N,) int32 array of 0-indexed ranks.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    N = len(predictions)
+    gt_t = torch.from_numpy(ground_truth).to(device, dtype=torch.float32)  # (N, D)
+
+    correct_ranks = np.empty(N, dtype=np.int32)
+
+    for start in range(0, N, chunk_size):
+        end = min(start + chunk_size, N)
+        pred_chunk = torch.from_numpy(predictions[start:end]).to(device, dtype=torch.float32)
+        sim_chunk = pred_chunk @ gt_t.T  # (chunk, N) — on GPU, fast
+
+        # Diagonal entries for this chunk
+        diag_sim = sim_chunk[torch.arange(end - start, device=device),
+                             torch.arange(start, end, device=device)]  # (chunk,)
+
+        # Rank = number of items with strictly higher similarity
+        ranks_chunk = (sim_chunk > diag_sim.unsqueeze(1)).sum(dim=1)
+        correct_ranks[start:end] = ranks_chunk.cpu().numpy()
+
+    del gt_t
+    if device.type == "cuda":
+        torch.cuda.empty_cache()
+
+    return correct_ranks
+
+
 def compute_retrieval_metrics(
     predictions: np.ndarray,
     ground_truth: np.ndarray,
@@ -152,6 +193,9 @@ def compute_retrieval_metrics(
     
     For each prediction, rank all ground truth embeddings by cosine similarity
     and check if the correct match appears in top-K.
+    
+    Uses GPU-accelerated chunked computation for high-dimensional embeddings
+    (e.g. 197,376-D token-level CLIP targets) to avoid CPU memory blowup.
     
     Args:
         predictions: Predicted embeddings (N, D)
@@ -171,21 +215,19 @@ def compute_retrieval_metrics(
         predictions = normalize_embeddings(predictions)
         ground_truth = normalize_embeddings(ground_truth)
     
-    # Compute similarity matrix: (N, N)
-    # similarities[i, j] = cosine(pred[i], gt[j])
-    similarities = predictions @ ground_truth.T
-    
-    # For each prediction i, rank all ground truth by similarity
-    # ranks[i] contains sorted indices of GT from most to least similar
-    ranks = np.argsort(-similarities, axis=1)  # Descending order
-    
-    # Find position of correct match for each prediction
-    # correct_ranks[i] = position of GT[i] in ranking for pred[i]
     N = len(predictions)
-    correct_ranks = np.zeros(N, dtype=np.int32)
-    for i in range(N):
-        # Find where i appears in ranks[i]
-        correct_ranks[i] = np.where(ranks[i] == i)[0][0]
+    D = predictions.shape[1]
+
+    # For high-D (token-level 197K), use GPU-accelerated chunked computation
+    if D > 2048 and torch.cuda.is_available():
+        correct_ranks = _get_correct_ranks_gpu(predictions, ground_truth, chunk_size=128)
+    else:
+        # Original CPU path for low-D embeddings
+        similarities = predictions @ ground_truth.T
+        ranks = np.argsort(-similarities, axis=1)
+        correct_ranks = np.zeros(N, dtype=np.int32)
+        for i in range(N):
+            correct_ranks[i] = np.where(ranks[i] == i)[0][0]
     
     # Compute metrics
     results = {}
@@ -225,13 +267,38 @@ def csls_similarity(
     Returns:
         (N, M) CSLS-corrected similarity matrix.
     """
-    sim = predictions @ ground_truth.T  # (N, M)
+    D = predictions.shape[1]
+    # For high-D embeddings, use GPU-accelerated chunked matmul
+    if D > 2048 and torch.cuda.is_available():
+        sim = _chunked_matmul_gpu(predictions, ground_truth, chunk_size=128)
+    else:
+        sim = predictions @ ground_truth.T  # (N, M)
     k = min(k, sim.shape[1] - 1, sim.shape[0] - 1)
     if k < 1:
         return sim
     r_x = np.sort(sim, axis=1)[:, -k:].mean(axis=1)   # (N,)
     r_y = np.sort(sim, axis=0)[-k:, :].mean(axis=0)    # (M,)
     return 2.0 * sim - r_x[:, None] - r_y[None, :]
+
+
+def _chunked_matmul_gpu(
+    a: np.ndarray,
+    b: np.ndarray,
+    chunk_size: int = 128,
+) -> np.ndarray:
+    """GPU-accelerated (A @ B.T) with row-chunking to limit memory."""
+    device = torch.device("cuda")
+    b_t = torch.from_numpy(b).to(device, dtype=torch.float32)  # (M, D)
+    N = a.shape[0]
+    M = b.shape[0]
+    result = np.empty((N, M), dtype=np.float32)
+    for start in range(0, N, chunk_size):
+        end = min(start + chunk_size, N)
+        a_chunk = torch.from_numpy(a[start:end]).to(device, dtype=torch.float32)
+        result[start:end] = (a_chunk @ b_t.T).cpu().numpy()
+    del b_t
+    torch.cuda.empty_cache()
+    return result
 
 
 def compute_retrieval_metrics_csls(
@@ -252,12 +319,23 @@ def compute_retrieval_metrics_csls(
         ground_truth = normalize_embeddings(ground_truth)
 
     similarities = csls_similarity(predictions, ground_truth, k=csls_k)
-    ranks = np.argsort(-similarities, axis=1)
 
     N = len(predictions)
-    correct_ranks = np.zeros(N, dtype=np.int32)
-    for i in range(N):
-        correct_ranks[i] = np.where(ranks[i] == i)[0][0]
+    D = predictions.shape[1]
+
+    # For high-D, use GPU-accelerated rank computation
+    if D > 2048 and torch.cuda.is_available():
+        device = torch.device("cuda")
+        sim_t = torch.from_numpy(similarities).to(device, dtype=torch.float32)
+        diag = sim_t[torch.arange(N, device=device), torch.arange(N, device=device)]
+        correct_ranks = (sim_t > diag.unsqueeze(1)).sum(dim=1).cpu().numpy().astype(np.int32)
+        del sim_t
+        torch.cuda.empty_cache()
+    else:
+        ranks = np.argsort(-similarities, axis=1)
+        correct_ranks = np.zeros(N, dtype=np.int32)
+        for i in range(N):
+            correct_ranks[i] = np.where(ranks[i] == i)[0][0]
 
     results: Dict[str, float] = {}
     for k in ks:

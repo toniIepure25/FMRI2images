@@ -1,0 +1,174 @@
+# N1v26b: Cross-Subject Linear Adapters + 257×768 Token-Level CLIP Targets
+#
+# Hypothesis: Combining V26a's MindEye-style token-level targets (CSLS R@1
+#   jumped from 52.5% → 69.6%) with V25b's multi-subject approach (4 subjects,
+#   ~100K trials) should push retrieval performance further. More training
+#   data + richer target representation = stronger learned mapping.
+#
+# Architecture:
+#   - Per non-canonical subject: nn.Linear(subj_voxels, 15724, bias=False)
+#   - Canonical (subj01): identity pass-through (slice to 15724)
+#   - Same 4-layer residual MLP encoder as V26a [8192, 8192, 4096, 2048]
+#   - vMF decoder outputs (B, 257*768=197376) with per-token L2-norm
+#   - Flat 197376-D vectors used directly for all contrastive losses
+#   - No projection head
+#
+# Changes from V26a:
+#   - data.subjects: [subj01, subj02, subj05, subj07]  (4× training data)
+#   - model.cross_subject.enabled: true
+#   - pretrained_checkpoint: V26a best checkpoint (197K-D decoder)
+#   - batch_size: 16 (4× data + 197K-D = more memory)
+#   - gradient_accumulation_steps: 16 (effective batch stays 256)
+#   - queue.size: 2048 (reduced for memory with 4× data volume)
+#   - num_epochs: 200 (4× more data → faster convergence per epoch)
+#
+# Prerequisites:
+#   1. Token cache covering all 4 subjects' images (rebuild with --subjects):
+#      python scripts/build/build_token_clip_cache.py \
+#          --mode projected --subjects subj01,subj02,subj05,subj07
+#   2. Pre-extracted features for all subjects:
+#      for s in subj02 subj05 subj07; do make preextract SUBJECT=$s; done
+#   3. Indices for all subjects:
+#      for s in subj02 subj05 subj07; do make index SUBJECT=$s; done
+#   4. V26a trained checkpoint at:
+#      experimental_results/N1v26a_token_targets/subj01/checkpoints/checkpoint_best.pt
+#
+# Run:
+#   python scripts/training/train_unified.py \
+#       --config configs/experiments/N1v26b_cross_subject_tokens.yaml
+
+experiment:
+  name: "N1v26b_cross_subject_tokens"
+  description: "v26b: V26a token targets (257×768) + cross-subject adapters (4 subjects, ~100K trials)"
+  tags: ["vmf", "vmf_nce", "v26", "token_targets", "cross_subject",
+         "multi_subject", "adapter", "mindeye", "csls", "shared1000"]
+  parent: "N1v26a_token_targets"
+
+data:
+  subjects: ["subj01", "subj02", "subj05", "subj07"]
+  subject: "subj01"           # canonical/primary subject
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  # Token cache must cover images from all 4 subjects (~30K unique images)
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null          # set at runtime to canonical subject's voxel count
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.15
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: null         # auto-filled: 257 * 768 = 197376
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+    # Token mode (auto-filled from token cache)
+    num_tokens: 257
+    token_dim: 768
+
+  # --- Cross-subject adapter configuration ---
+  cross_subject:
+    enabled: true
+    canonical_subject: "subj01"
+    # Use V26a checkpoint (same 197K-D output space)
+    pretrained_checkpoint: "experimental_results/N1v26a_token_targets/subj01/checkpoints/checkpoint_best.pt"
+    freeze_epochs: 30           # freeze backbone for 30 epochs (adapter warm-up)
+    backbone_lr_factor: 0.1     # unfreeze backbone at 10% of base LR
+
+  # Projection head disabled — raw 197K-D mu used for all contrastive losses
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 2048      # reduced from V26a's 4096 (memory: 4× data + 197K-D entries)
+
+training:
+  batch_size: 16                    # reduced from V26a's 32 (4× subjects in memory)
+  gradient_accumulation_steps: 16   # effective batch = 16 * 16 = 256
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200                   # fewer than V26a's 300 (4× more data per epoch)
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5                      # same as V26a
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 20                 # V25b-style warmup
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

@@ -71,12 +71,14 @@ class MultiSubjectPreextractedDataset(Dataset):
         val_ratio: float = 0.10,
         seed: int = 42,
         average_repetitions: bool = False,
+        token_cache=None,
     ):
         super().__init__()
         self.subjects = list(subjects)
         self.subject_to_int = {s: i for i, s in enumerate(self.subjects)}
         MultiSubjectPreextractedDataset.SUBJECT_TO_INT = self.subject_to_int
 
+        self.token_cache = token_cache
         self.embeddings_df = embeddings_df
 
         from fmri2img.data.multi_subject_dataset import _resolve_emb_col
@@ -168,7 +170,15 @@ class MultiSubjectPreextractedDataset(Dataset):
             combined_df = combined_df[~combined_df["shared1000"]].reset_index(drop=True)
             logger.info("Excluded shared1000: %d -> %d trials", n_before, len(combined_df))
 
-        cached_nsd_ids = set(self.embedding_lookup.keys())
+        # Filter to nsdIds present in embedding cache (CLS) or token cache
+        if self.token_cache is not None:
+            cached_nsd_ids = set(int(nid) for nid in self.token_cache._nsd_ids)
+            logger.info(
+                "Token cache mode: filtering to %d nsdIds in token cache",
+                len(cached_nsd_ids),
+            )
+        else:
+            cached_nsd_ids = set(self.embedding_lookup.keys())
         n_before_filter = len(combined_df)
         combined_df = combined_df[combined_df["nsdId"].isin(cached_nsd_ids)].reset_index(drop=True)
         n_filtered = n_before_filter - len(combined_df)
@@ -238,13 +248,26 @@ class MultiSubjectPreextractedDataset(Dataset):
     def __getitem__(self, idx: int):
         """Returns (fmri, clip_embedding, subject_int) or
         (fmri, clip_embedding, subject_int, hier_targets_dict) when
-        hierarchical CLIP columns are available."""
+        hierarchical CLIP columns are available.
+
+        When ``token_cache`` is provided, ``clip_embedding`` is a flat
+        (num_tokens * token_dim,) vector from the HDF5 token cache
+        instead of the 768-D CLS embedding from ``embeddings_df``.
+        """
         subj_int = int(self._feat_subj[idx])
         local_idx = int(self._feat_local_idx[idx])
 
         fmri = self.features_list[subj_int][local_idx]
 
         nsd_id = int(self.index_df.iloc[idx]["nsdId"])
+
+        # Token-level targets (197376-D) override CLS embedding (768-D)
+        if self.token_cache is not None:
+            embedding = self.token_cache.get_flat(nsd_id)  # (num_tokens * token_dim,)
+            fmri_t = torch.from_numpy(np.asarray(fmri, dtype=np.float32))
+            emb_t = torch.from_numpy(embedding)  # already float32
+            return fmri_t, emb_t, subj_int
+
         emb_idx = self.embedding_lookup.get(nsd_id)
         if emb_idx is None:
             raise KeyError(f"nsdId={nsd_id} not in CLIP cache")

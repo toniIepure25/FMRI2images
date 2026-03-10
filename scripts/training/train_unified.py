@@ -1890,6 +1890,7 @@ def main() -> None:
             val_ratio=_val_ratio,
             seed=_data_seed,
             average_repetitions=_avg_reps_multi,
+            token_cache=_token_cache,
         )
         logger.info("Multi-subject dataset: %d subjects, %d total trials",
                      full_dataset.n_subjects, len(full_dataset))

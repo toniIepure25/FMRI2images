@@ -46,6 +46,7 @@ help:
 	@echo "                      Train a single experiment"
 	@echo "  make ablation       Run full B0-N4 ablation ladder"
 	@echo "    ONLY=N1v26a       Run only V26a token-targets experiment"
+	@echo "    ONLY=N1v26b       Run only V26b cross-subject + token-targets"
 	@echo "  make ridge          Train Ridge baseline (fMRI -> CLIP)"
 	@echo ""
 	@echo "Evaluation:"
@@ -180,12 +181,14 @@ multilayer-clip-cache:
 # Token-level CLIP cache (257×768 per image, for MindEye-style targets)
 # Usage: make token-clip-cache                          (all subjects, projected mode)
 #        make token-clip-cache SUBJECT=subj01           (single subject)
+#        make token-clip-cache SUBJECTS=subj01,subj02,subj05,subj07  (multi-subject union)
 #        make token-clip-cache MODE=raw                 (unprojected tokens)
 token-clip-cache:
 	@echo "=== Building Token-Level CLIP Cache ==="
 	$(PY) scripts/build/build_token_clip_cache.py \
 		--mode $${MODE:-projected} \
 		$${SUBJECT:+--subject $$SUBJECT} \
+		$${SUBJECTS:+--subjects $$SUBJECTS} \
 		--batch-size $${BATCH:-32} \
 		--device $(DEVICE)
 	@echo "=== Token CLIP cache complete ==="

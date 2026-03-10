@@ -151,6 +151,27 @@ def get_all_nsd_ids(csv_path: str = "cache/nsd_stim_info_merged.csv") -> list[in
     return sorted(df["nsdId"].unique().tolist())
 
 
+def get_nsd_ids_for_subjects(
+    subjects: list[str],
+    index_root: str = "data/indices/nsd_index",
+) -> list[int]:
+    """Get the union of unique nsdIds across multiple subjects.
+
+    More efficient than encoding the full 73K NSD corpus when only a
+    subset of subjects is needed (e.g. subj01+02+05+07 ≈ 30K images).
+    """
+    all_ids: set[int] = set()
+    for subj in subjects:
+        ids = get_nsd_ids_for_subject(subj, index_root=index_root)
+        all_ids.update(ids)
+    result = sorted(all_ids)
+    logger.info(
+        "Union of %d subjects: %d unique images (subjects: %s)",
+        len(subjects), len(result), ", ".join(subjects),
+    )
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Main builder
 # ---------------------------------------------------------------------------
@@ -163,6 +184,7 @@ def build_token_cache(
     nsd_ids: list[int] | None = None,
     device: str = "cuda",
     subject: str | None = None,
+    subjects: list[str] | None = None,
 ):
     """Build the token-level CLIP cache.
 
@@ -174,6 +196,7 @@ def build_token_cache(
         nsd_ids: Specific nsdIds to encode (None = all in CSV)
         device: CUDA device
         subject: If provided, only encode images for this subject
+        subjects: If provided, encode union of images across these subjects
     """
     from PIL import Image
 
@@ -205,7 +228,10 @@ def build_token_cache(
 
     # Get nsdIds
     if nsd_ids is None:
-        if subject:
+        if subjects:
+            nsd_ids = get_nsd_ids_for_subjects(subjects)
+            logger.info(f"Encoding {len(nsd_ids)} unique images for {len(subjects)} subjects")
+        elif subject:
             nsd_ids = get_nsd_ids_for_subject(subject)
             logger.info(f"Encoding {len(nsd_ids)} unique images for {subject}")
         else:
@@ -359,6 +385,12 @@ def main():
         "--subject", default=None,
         help="Only encode images for this subject (default: all NSD images)",
     )
+    parser.add_argument(
+        "--subjects", default=None,
+        help="Comma-separated list of subjects to encode union of images for "
+             "(e.g. subj01,subj02,subj05,subj07). More efficient than --all "
+             "when only a subset of subjects is needed.",
+    )
     args = parser.parse_args()
 
     # Default output path
@@ -368,6 +400,11 @@ def main():
         model_tag = cfg["model_name"].replace("/", "-").replace(" ", "_")
         args.output = f"outputs/clip_cache/tokens_{model_tag}_{args.mode}.h5"
 
+    # Parse multi-subject list
+    _subjects = None
+    if args.subjects:
+        _subjects = [s.strip() for s in args.subjects.split(",") if s.strip()]
+
     build_token_cache(
         clip_config=args.clip_config,
         output_path=args.output,
@@ -375,6 +412,7 @@ def main():
         batch_size=args.batch_size,
         device=args.device,
         subject=args.subject,
+        subjects=_subjects,
     )
 
 

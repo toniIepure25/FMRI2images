@@ -2232,3 +2232,90 @@ If N1v25b reaches ≥65% after re-run, proceed to full evaluation on shared1000.
 **Implementation estimate:** 2–3 weeks (data pipeline + architecture + hyperparameter sweep). Do not begin until V25 adapter results are known — V26 is only worthwhile if the N1 MLP ceiling is confirmed below 70%.
 
 **Expected gain:** If successful, V26 closes the last 3–7 pp gap to state-of-the-art MindEye2 (66–72% on NSD). The attention mechanism's ability to recover spatial patterns that the MLP loses in the 1D flattening step is the key hypothesis.
+
+---
+
+## 30. Formal Verification Appendix (Lean 4)
+
+### 30.1 Scope and Motivation
+
+Three mathematical claims in the thesis are load-bearing enough, and crisp enough, to admit machine-checked proofs. The proofs live in `lean/FMRIDecoding/Certificates.lean` and are verified by the Lean 4 kernel against Mathlib4 v4.14.0. A Lean proof is not an informal argument — it is a type-checked term; correctness is unconditional.
+
+The scope is deliberately narrow. The Mathlib4 library (as of 2026) does not contain:
+- The modified Bessel function $I_\nu$, blocking a formal proof of the vMF density or its normalizing constant $C_d(\kappa)$.
+- The NCE mutual information bound (Poole et al., 2019), which requires measure-theoretic mutual information primitives that are sparse in Mathlib.
+- Anything about training dynamics, convergence, or gradient interaction — these are empirical phenomena outside the scope of any proof assistant.
+
+What Mathlib *does* contain, and what we exploit: `Real.exp`, `Real.log`, their derivatives and algebraic identities; `Finset.sum` and its interaction with multiplication; `InnerProductSpace` including the Cauchy-Schwarz inequality via `abs_inner_le_norm`; `EuclideanSpace ℝ (Fin d)` as the ambient space for L2-normalised CLIP embeddings.
+
+### 30.2 Certificate 1 — Kappa Collapse Arithmetic Bound
+
+**Claim (Thesis Section 13.3):** With $\tau = 0.07$ and AMP clamp $[-80, 80]$, any $\kappa > 5.6$ saturates the positive logit, zeroing $\partial \mathcal{L} / \partial \kappa$.
+
+The bound reduces to $\kappa / 0.07 > 80 \iff \kappa > 5.6$. The Lean statement:
+
+```lean
+theorem kappa_collapse_ceiling (κ : ℝ) (hκ : κ > 5.6) : κ / 0.07 > 80
+theorem kappa_ceil_tight : (5.6 : ℝ) / 0.07 = 80
+theorem kappa_fix_clears_ceiling (κ : ℝ) (hκ : κ ≤ 50) : κ / 1.0 ≤ 80
+```
+
+`kappa_collapse_ceiling` is proved by `ring`-rewriting to `(κ − 5.6) / 0.07 > 0` then `div_pos`.  
+`kappa_ceil_tight` is closed by `norm_num` (rational arithmetic decision procedure).  
+`kappa_fix_clears_ceiling` certifies that the v5 fix ($\tau = 1.0$, `kappa_max = 50`) clears the ceiling: `linarith` suffices.
+
+### 30.3 Certificate 2 — Bessel-Free Normalizer Cancellation
+
+**Claim (Thesis §2.3):** The vMF log-partition $\log C_d(\kappa_i)$ is constant across all gallery items $z_j$ (it depends only on $\kappa_i$, not $z_j$), and therefore cancels out of the NCE softmax. The implemented loss is mathematically equivalent to the full vMF-NCE loss — no Bessel function need ever be computed.
+
+Formally, for any $f : \text{Fin}\, n \to \mathbb{R}$ and constant $c$:
+
+$$\log \frac{e^{f(i) + c}}{\sum_j e^{f(j) + c}} = \log \frac{e^{f(i)}}{\sum_j e^{f(j)}}$$
+
+```lean
+theorem softmax_const_cancel {n : ℕ} (f : Fin n → ℝ) (c : ℝ) (i : Fin n) :
+    Real.log (Real.exp (f i + c) / ∑ j : Fin n, Real.exp (f j + c)) =
+    Real.log (Real.exp (f i)     / ∑ j : Fin n, Real.exp (f j))
+```
+
+Proof strategy: factor $e^c$ out of the sum via `simp_rw [Real.exp_add]` and `Finset.mul_sum`, then apply `field_simp [hec, hsum]` + `ring` where `hec : exp c ≠ 0` and `hsum : Σ_j exp(f j) ≠ 0` (positivity from `i : Fin n`).
+
+A second theorem `vmf_partition_cancels_in_nce` instantiates this with `c := log_Cd` and `f j := κ · μᵀzⱼ`, making the architectural justification explicit.
+
+### 30.4 Certificate 3 — Cosine Similarity Bound on $S^{d-1}$
+
+**Claim:** For any two L2-normalised vectors $\mu, z \in S^{d-1}$, $|\langle \mu, z \rangle| \leq 1$.
+
+This is the Cauchy-Schwarz inequality on unit vectors. It is geometrically obvious but formally certifying it pins down the premise on which the clamp analysis in §30.2 is tight.
+
+```lean
+theorem cosine_bounded {d : ℕ} (μ z : EuclideanSpace ℝ (Fin d))
+    (hμ : ‖μ‖ = 1) (hz : ‖z‖ = 1) : |⟪μ, z⟫_ℝ| ≤ 1
+```
+
+Proved in three lines via `abs_inner_le_norm` (Cauchy-Schwarz) followed by norm substitution.
+
+A directional corollary `logit_bound` establishes $|\kappa \langle \mu, z \rangle| \leq \kappa$, confirming that the raw NCE logit range is $[-\kappa, \kappa]$ and the clamp $\pm 80$ is only active when $\kappa / \tau > 80$.
+
+### 30.5 Building the Proofs
+
+```bash
+cd lean
+# First build: downloads Mathlib (~30 min, cached thereafter)
+lake exe cache get
+lake build
+```
+
+Expected output: `Build completed successfully` with no warnings. Each `theorem` is independently checkable with `#check @kappa_collapse_ceiling`.
+
+### 30.6 Mathlib Coverage Assessment
+
+| Claim | Lean status | Blocking gap |
+|---|---|---|
+| Kappa collapse bound | ✅ Fully proved | — |
+| Normalizer cancellation | ✅ Fully proved | — |
+| Cosine bound on S^{d-1} | ✅ Fully proved | — |
+| vMF density (full) | ❌ | Modified Bessel $I_\nu$ absent from Mathlib |
+| NCE ≥ mutual information | ❌ | Donsker-Varadhan variational formula sparse in Mathlib |
+| Training convergence | ❌ | Empirical; outside proof assistant scope |
+| CSLS correctness | ❌ | Empirical heuristic; no formal statement in literature |

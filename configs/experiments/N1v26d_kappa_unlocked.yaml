@@ -1,0 +1,176 @@
+# N1v26d: V26c with kappa_reg disabled (unlock kappa in 197K-D token space)
+#
+# Hypothesis: κ collapsed to ~1.54 in V26c because kappa_reg's constant
+#   downward gradient (0.01 * mean(κ)) dominates the weak upward contrastive
+#   signal in 197K-D space (pos_sim≈0.16, near-zero neg_sim for random
+#   unit vectors in d=197376). Removing the regularizer lets κ rise to
+#   match actual model confidence, potentially breaking the 69.6% CSLS
+#   ceiling that V26a and V26c both hit.
+#
+# Architecture: Identical to V26c/V26a (675M params, single-subject):
+#   - 4-layer residual MLP encoder [8192, 8192, 4096, 2048]
+#   - vMF decoder: 2048 → 197376 (257×768 flat, per-token L2-norm)
+#   - softplus kappa: floor=1.0, AMP clamp=500
+#   - No projection head
+#
+# Single change from V26c:
+#   - kappa_reg.enabled: false  (was true, lambda_kappa=0.01)
+#
+# All other V26c improvements retained:
+#   - R-Drop (w=0.3, start epoch 50), label_smoothing 0.05, slerp MixCo
+#   - encoder dropout 0.2, decoder dropout 0.25, queue 8192
+#
+# Evidence for this change:
+#   V26c kappa_mean=1.54, kappa_std=0.057, kappa_min=1.43, kappa_max=1.69
+#   — effectively zero confidence differentiation. The vMF uncertainty
+#   modelling (thesis core contribution) is dormant.
+#   kappa_reg penalty = 0.01 * 1.54 = 0.0154 per step (constant gradient)
+#   vMF-NCE kappa gradient ∝ (cos_pos - E[cos_neg]) ≈ 0.16 in 197K-D
+#   → regularizer dominates, pinning κ at softplus floor
+#
+# Monitoring:
+#   GOOD: kappa_mean rises to 5–50, kappa_std grows, CSLS > 69.6%
+#   BAD:  kappa_mean > 200 (explosion → need softer reg, e.g. 0.001)
+#   BAD:  CSLS drops below V26c (kappa_reg was actually helping)
+#
+# Token cache: same as V26a/V26c (already built):
+#   outputs/clip_cache/tokens_ViT-L-14_projected.h5
+#
+# Run:
+#   python scripts/training/train_unified.py \
+#       --config configs/experiments/N1v26d_kappa_unlocked.yaml
+
+experiment:
+  name: "N1v26d_kappa_unlocked"
+  description: "v26d: V26c + kappa_reg disabled — unlock kappa in 197K-D token space"
+  tags: ["vmf", "vmf_nce", "v26", "token_targets", "mindeye", "csls",
+         "shared1000", "r_drop", "label_smooth", "slerp", "kappa_unlocked"]
+  parent: "N1v26c_token_targets_improved"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.2
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: null         # auto-filled: 257 * 768 = 197376
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.25
+    kappa_mode: "softplus"
+    num_tokens: 257
+    token_dim: 768
+
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    label_smoothing: 0.05
+
+  vmf_nll:
+    enabled: false
+
+  # *** THE KEY CHANGE ***
+  # Disabled: in 197K-D space, kappa_reg's constant 0.01 downward gradient
+  # overwhelms the weak contrastive signal (pos_sim≈0.16). V26c kappa
+  # collapsed to 1.54 with std=0.057 — effectively zero confidence
+  # differentiation. softplus floor (1.0) + AMP clamp (500) provide
+  # sufficient bounds without explicit regularization.
+  kappa_reg:
+    enabled: false
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  r_drop:
+    enabled: true
+    weight: 0.3
+    start_epoch: 50
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 8192
+
+training:
+  batch_size: 32
+  gradient_accumulation_steps: 8    # effective batch = 256
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 350
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 30
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 50
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.15
+  voxel_dropout: 0.15
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+    use_slerp: true
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

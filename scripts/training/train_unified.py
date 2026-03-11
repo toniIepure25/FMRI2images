@@ -1145,17 +1145,22 @@ def mc_dropout_tta(
     mu predictions on the sphere (mean + L2-renorm), and optionally
     returns kappa values per trial for kappa-weighted repetition averaging.
 
+    Uses **online (incremental) averaging** to avoid stacking all K
+    forward-pass results in RAM simultaneously.  For 329K-D token targets
+    the naive stack would consume ~25 GB RAM at K=8, causing OOM-kill.
+
     Returns:
         (all_preds, all_gts, all_kappas) where kappas is (N,) or None.
     """
     model.train()  # enable dropout
     model_type = getattr(model, "model_type", "deterministic")
-    mu_accum: List[np.ndarray] = []
-    kappa_accum: List[np.ndarray] = []
-    all_gts: List[np.ndarray] = []
-    first_pass = True
 
-    for _ in range(n_samples):
+    mu_sum: Optional[np.ndarray] = None      # running sum (N, D)
+    kappa_sum: Optional[np.ndarray] = None    # running sum (N,)
+    all_gts: List[np.ndarray] = []
+    has_kappa = False
+
+    for sample_idx in range(n_samples):
         batch_preds, batch_kappas = [], []
         for batch in dataloader:
             if len(batch) == 4:
@@ -1188,23 +1193,36 @@ def mc_dropout_tta(
                     if vmf_is_log:
                         k = k.exp()
                     batch_kappas.append(k.cpu().numpy())
-                if first_pass:
+                if sample_idx == 0:
                     all_gts.append(gt_embedding.cpu().numpy())
 
-        mu_accum.append(np.concatenate(batch_preds, axis=0))
+        # Accumulate this sample's predictions into running sum
+        sample_mu = np.concatenate(batch_preds, axis=0)  # (N, D)
+        if mu_sum is None:
+            mu_sum = sample_mu
+        else:
+            mu_sum += sample_mu
+        del sample_mu, batch_preds  # free immediately
+
         if batch_kappas:
-            kappa_accum.append(np.concatenate(batch_kappas, axis=0))
-        first_pass = False
+            has_kappa = True
+            sample_k = np.concatenate(batch_kappas, axis=0)
+            if kappa_sum is None:
+                kappa_sum = sample_k
+            else:
+                kappa_sum += sample_k
+            del sample_k, batch_kappas
 
     model.eval()  # restore
 
-    mu_stack = np.stack(mu_accum, axis=0)  # (K, N, D)
-    mu_mean = mu_stack.mean(axis=0)
+    # Average + renormalise on the sphere
+    mu_mean = mu_sum / n_samples
+    del mu_sum
     norms = np.linalg.norm(mu_mean, axis=-1, keepdims=True)
     mu_mean = mu_mean / np.maximum(norms, 1e-8)
 
     gts = np.concatenate(all_gts, axis=0)
-    kappas = np.stack(kappa_accum, axis=0).mean(axis=0) if kappa_accum else None
+    kappas = (kappa_sum / n_samples) if has_kappa else None
     return mu_mean, gts, kappas
 
 
@@ -2875,6 +2893,19 @@ def main() -> None:
             )
 
         metrics_logger.log_epoch(epoch, optimizer.param_groups[0]["lr"], train_metrics, val_metrics)
+
+        # Free large val arrays before checkpoint save to reduce RAM peak.
+        # With 329K-D token targets, val_preds alone is ~3 GB RAM.
+        del val_preds, val_gts
+        try:
+            del img_preds, img_gts
+        except NameError:
+            pass
+        try:
+            del mc_kappas
+        except NameError:
+            pass
+        gc.collect()
 
         # --- Checkpointing (early-stop on configurable metric) ---
         val_loss = val_metrics.get("loss", val_metrics.get("mse", float("inf")))

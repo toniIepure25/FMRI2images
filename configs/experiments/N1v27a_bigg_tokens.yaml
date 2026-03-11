@@ -1,0 +1,170 @@
+# N1v27a: ViT-bigG/14 Token Targets — 257×1280 (LAION-2B)
+#
+# Hypothesis: Upgrading from ViT-L/14 (768-D) to ViT-bigG/14 (1280-D) breaks
+#             the 69.6% CSLS ceiling observed in V26a-d by providing richer,
+#             higher-dimensional CLIP token representations.  MindEye1 uses
+#             bigG tokens and achieves 93.2% R@1 — target quality is almost
+#             certainly the remaining bottleneck.
+#
+# Architecture:
+#   - Same 4-layer residual MLP encoder as V26a [8192, 8192, 4096, 2048]
+#   - vMF decoder outputs (B, 257*1280=328960) with per-token L2-norm
+#   - Flat 328960-D vectors for all contrastive losses (1.67× V26a)
+#   - No projection head (parameter explosion)
+#
+# Token targets:
+#   - ViT-bigG-14 (laion2b_s39b_b160k) projected tokens: ln_post + visual.proj
+#     applied to all 257 tokens, yielding (257, 1280) per image
+#   - Stored in HDF5 via:
+#       python scripts/build/build_token_clip_cache.py \
+#           --clip-config configs/system/clip_bigg.yaml --mode projected
+#
+# Changes from V26a:
+#   - CLIP backbone: ViT-L/14 (openai) → ViT-bigG-14 (laion2b_s39b_b160k)
+#   - token_dim: 768 → 1280
+#   - output_dim: 197376 → 328960  (auto-detected from cache)
+#   - token_cache_path: ViT-L-14 → ViT-bigG-14 projected cache
+#   - queue.size: 4096 → 2048  (329K-D × fp32 × 4096 = 5.2 GB — too much)
+#   - batch_size: 32 → 24  (mu_head 2048→328960 is 674M params vs 404M)
+#   - gradient_accumulation_steps: 8 → 11  (eff batch ≈ 264 ≈ 256)
+#   - num_epochs: 300 → 250  (bigG converges faster with richer features)
+#   - warmup_epochs: 30 → 25
+#
+# Memory budget estimate (H100, bf16, ~45.5 GiB usable):
+#   Model:       ~1.6 GB  (mu_head 674M + encoder 128M ≈ 825M params)
+#   Optimizer:   ~9.9 GB  (AdamW: 3 × 825M × 4B)
+#   Queue:       ~2.6 GB  (2048 × 328960 × 4B)
+#   Activations: ~5.0 GB  (batch 24, 4 layers, residual)
+#   Total:      ~19.1 GB  ← fits with margin
+#
+# Run:
+#   python scripts/training/train_unified.py \
+#       --config configs/experiments/N1v27a_bigg_tokens.yaml
+
+experiment:
+  name: "N1v27a_bigg_tokens"
+  description: "v27a: ViT-bigG/14 257×1280 token targets, V26a recipe, queue 2048"
+  tags: ["vmf", "vmf_nce", "v27", "token_targets", "bigg", "csls", "shared1000"]
+  parent: "N1v26a_token_targets"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  # bigG projected token cache — build with:
+  #   make bigg-token-cache
+  #   python scripts/build/build_token_clip_cache.py \
+  #       --clip-config configs/system/clip_bigg.yaml --mode projected
+  token_cache_path: "outputs/clip_cache/tokens_ViT-bigG-14_projected.h5"
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.15
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: null # auto-filled: 257 * 1280 = 328960
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+    # Token mode (auto-filled from token cache, but explicit for clarity)
+    num_tokens: 257
+    token_dim: 1280
+
+  # No projection head — raw 328960-D mu used for contrastive losses
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 2048 # 328960-D × fp32 × 2048 ≈ 2.6 GB (safe for 45.5 GiB budget)
+
+training:
+  batch_size: 24 # slightly smaller than V26a's 32 (larger mu_head)
+  gradient_accumulation_steps: 11 # effective batch ≈ 24 × 11 = 264 ≈ 256
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 250 # bigG features richer → converges faster
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5 # same LR as V26a (proven in token space)
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 25
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 40
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

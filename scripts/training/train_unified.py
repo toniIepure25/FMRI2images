@@ -624,8 +624,10 @@ def setup_losses(config: Dict[str, Any], device: str,
 
     if loss_cfg.get("vmf_nll", {}).get("enabled", False):
         c = loss_cfg["vmf_nll"]
+        # dim auto-detected from embedding_dim; fallback 768 for legacy configs
+        _nll_dim = c.get("dim", config.get("model", {}).get("decoder", {}).get("token_dim", 768))
         losses["vmf_nll"] = VonMisesFisherNLLLoss(
-            dim=c.get("dim", 768), kappa_is_log=vmf_kappa_is_log,
+            dim=_nll_dim, kappa_is_log=vmf_kappa_is_log,
         )
         logger.info("vMF-NLL loss enabled (kappa_is_log=%s)", vmf_kappa_is_log)
 
@@ -1437,7 +1439,7 @@ def _evaluate_shared1000(
         "subject": subject,
         "gallery_size": n_images,
         "n_raw_trials": n_raw,
-        "clip_model": "ViT-L/14",
+        "clip_model": "auto",  # detected from data, not hardcoded
         "clip_dim": int(preds.shape[1]),
         "r@1": float(retrieval["top1_accuracy"]),
         "r@5": float(retrieval["top5_accuracy"]),

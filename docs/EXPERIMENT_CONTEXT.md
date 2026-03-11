@@ -2,9 +2,9 @@
 
 This document provides complete technical context for a bachelor thesis project on neural decoding of visual perception from fMRI. It is designed as a self-contained briefing for an LLM or researcher performing deep analysis.
 
-**Project status (March 2026):** After 26 iterative versions, the project-best is **52.8% raw R@1 / 69.6% CSLS R@1** from N1v26a (MindEye-style 257×768 token targets, single-subject, 675M params). V26a delivered **+5.2pp raw / +17.1pp CSLS** over the previous best (N1v23a), proving that target quality was the primary remaining bottleneck. V24 (hard negatives) and V25 (structural experiments) both regressed. V25 results: N1v25_rerun 57.2% CSLS (val900), 52.5% (shared1000); N1v25a sequential 54.9% / 50.8%; N2v25c patched-ROI 46.2% / 45.1%; N1v25b crashed (optimizer bug, now fixed). V26b (cross-subject + token targets, 1.59B params) was abandoned after two CUDA OOM crashes at epoch 2 — a co-tenant process permanently holds ~34.5 GiB on the shared H100, leaving insufficient headroom for the larger model. V26c (V26a + R-Drop + label smoothing + slerp MixCo + stronger regularization, same 675M architecture) yielded 53.5% / 69.6% CSLS — marginal (+0.7pp raw, 0.0pp CSLS). The 69.6% CSLS ceiling appears hard for ViT-L/14 token targets. Kappa collapsed to ~1.54 (zero confidence differentiation); V26d (kappa_reg disabled) yielded 54.2% raw (+0.7pp) but **66.8% CSLS (-2.8pp)** — kappa_reg was helping CSLS, and the 69.6% ceiling is a fundamental ViT-L/14 representation limit, not a kappa issue. All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
+**Project status (March 2026):** After 26 iterative versions, the project-best is **52.8% raw R@1 / 69.6% CSLS R@1** from N1v26a (MindEye-style 257×768 token targets, single-subject, 675M params). V26a delivered **+5.2pp raw / +17.1pp CSLS** over the previous best (N1v23a), proving that target quality was the primary remaining bottleneck. V24 (hard negatives) and V25 (structural experiments) both regressed. V25 results: N1v25_rerun 57.2% CSLS (val900), 52.5% (shared1000); N1v25a sequential 54.9% / 50.8%; N2v25c patched-ROI 46.2% / 45.1%; N1v25b crashed (optimizer bug, now fixed). V26b (cross-subject + token targets, 1.59B params) was abandoned after two CUDA OOM crashes at epoch 2 — a co-tenant process permanently holds ~34.5 GiB on the shared H100, leaving insufficient headroom for the larger model. V26c (V26a + R-Drop + label smoothing + slerp MixCo + stronger regularization, same 675M architecture) yielded 53.5% / 69.6% CSLS — marginal (+0.7pp raw, 0.0pp CSLS). The 69.6% CSLS ceiling appears hard for ViT-L/14 token targets. Kappa collapsed to ~1.54 (zero confidence differentiation); V26d (kappa_reg disabled) yielded 54.2% raw (+0.7pp) but **66.8% CSLS (-2.8pp)** — kappa_reg was helping CSLS, and the 69.6% ceiling is a fundamental ViT-L/14 representation limit, not a kappa issue. **V27a** migrates to **ViT-bigG/14** (LAION-2B, 257×1280 tokens, ~825M params) to break this ceiling; cache build + training pending. All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
 
-**SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training, (2) smaller model capacity (328M vs 996M params), (3) MindEye's OpenCLIP ViT-bigG/14 embeddings (256x1664-D) vs our ViT-L/14 (768-D), and (4) hubness in high-dimensional retrieval from single-trial fMRI noise.
+**SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training, (2) smaller model capacity (328M vs 996M params), (3) MindEye's OpenCLIP ViT-bigG/14 embeddings (257×1280-D projected) vs our ViT-L/14 (257×768-D) — **V27a directly addresses this by switching to bigG**, and (4) hubness in high-dimensional retrieval from single-trial fMRI noise.
 
 ---
 
@@ -917,12 +917,14 @@ An alternative fix would be to remove \(\tau\) from the `_score()` method entire
 | v26b | N1v26b | Token targets + cross-subject adapters (4 subjects, 1.59B params) | **Abandoned** — CUDA OOM at epoch 2 (shared H100, co-tenant uses ~34.5 GiB; 256 MiB `exp_avg_sq_sqrt` alloc fails) |
 | v26c | N1v26c | V26a + R-Drop (w=0.3, start ep50) + label smooth 0.05 + slerp MixCo + dropout 0.2/0.25 + queue 8192 + 350 epochs | N1v26c: 53.5% raw, 69.6% CSLS (+0.7pp/+0.0pp vs V26a); best epoch 116/166; kappa collapsed at ~1.54 |
 | v26d | N1v26d | V26c + kappa_reg disabled (unlock kappa in 197K-D token space) | N1v26d: 54.2% raw (+0.7pp), **66.8% CSLS (-2.8pp)** vs V26c; kappa 1.54→2.5; best epoch 49/99 — **kappa_reg removal hurt CSLS** |
+| **v27a** | **N1v27a** | **ViT-bigG/14** 257×1280 token targets (LAION-2B), V26a recipe, queue 2048, ~825M params | *Pending* — cache build + training required |
 
 Notes:
 - B-series stays at v4 (not affected by vMF-specific changes)
 - v6+ only apply to N-series experiments
 - v8 only had N3 and N4 configs (N1/N2 skipped that iteration)
 - v10 combined best of V8 (losses) and V9 (eval tricks)
+- v27 switches CLIP backbone from ViT-L/14 → ViT-bigG/14 (LAION-2B); requires separate token cache
 - v11 attempted hubness mitigation and denoising but failed due to `average_repetitions: true` reducing data 3x
 - v12 two-stage never activated for N1/N2 (early stopping before epoch 120); auto-weighting destroyed N3/N4
 - v13 adds MSE regression (MindEye1's key ingredient) and hierarchical CLIP alignment for N3/N4
@@ -2321,3 +2323,62 @@ Expected output: `Build completed successfully` with no warnings. Each `theorem`
 | NCE ≥ mutual information | ❌ | Donsker-Varadhan variational formula sparse in Mathlib |
 | Training convergence | ❌ | Empirical; outside proof assistant scope |
 | CSLS correctness | ❌ | Empirical heuristic; no formal statement in literature |
+
+---
+
+## 31. V27: ViT-bigG/14 Migration
+
+### 31.1 Motivation
+
+V26a–d exhausted config-level optimization at 69.6% CSLS R@1. Three ablations (R-Drop, label smoothing, kappa_reg removal) yielded marginal or negative delta. The ceiling is a fundamental **ViT-L/14 representation limit**: 768-D projected tokens don't carry enough information for single-subject retrieval to match MindEye's 93.2%.
+
+MindEye1 uses OpenCLIP ViT-bigG/14 (LAION-2B) with 1280-D projected tokens. Switching to bigG is the single highest-leverage change remaining.
+
+### 31.2 Architecture Changes
+
+| Dimension | V26a (ViT-L/14) | V27a (ViT-bigG/14) | Ratio |
+|---|---|---|---|
+| Token dim (projected) | 768 | 1280 | 1.67× |
+| Flat output dim | 197,376 | 328,960 | 1.67× |
+| mu_head params | 404M | 674M | 1.67× |
+| Total model params | ~675M | ~825M | 1.22× |
+| Queue entry size (fp32) | 790 KB | 1.3 MB | 1.67× |
+
+### 31.3 Memory Budget (H100 80 GB, ~45.5 GiB usable)
+
+| Component | Estimate |
+|---|---|
+| Model weights (bf16) | ~1.6 GB |
+| AdamW optimizer states (fp32) | ~9.9 GB |
+| Queue (2048 × 328960 × fp32) | ~2.6 GB |
+| Activations (batch 24, 4 layers) | ~5.0 GB |
+| **Total** | **~19.1 GB** |
+
+Fits comfortably within the 45.5 GiB budget. Queue reduced from 4096 → 2048 to maintain headroom.
+
+### 31.4 Code Changes
+
+1. **`configs/system/clip_bigg.yaml`** — new CLIP system config (ViT-bigG-14, laion2b_s39b_b160k, 1280-D)
+2. **`configs/experiments/N1v27a_bigg_tokens.yaml`** — V26a recipe adapted for bigG tokens
+3. **`scripts/training/train_unified.py`** — fixed hardcoded `"ViT-L/14"` in shared1000 metrics; fixed vmf_nll dim default to auto-detect from decoder config
+4. **`scripts/training/run_ablation_ladder.sh`** — added N1v27a to experiment order and configs
+5. **`Makefile`** — added `bigg-token-cache` target and N1v27a help text
+
+All core ML components (vmf_decoder, queue, embedding_eval, clip_utils) are **dimension-agnostic** — no changes needed.
+
+### 31.5 Execution Plan
+
+```bash
+# Step 1: Build bigG token cache (~30-40 min on H100)
+make bigg-token-cache
+
+# Step 2: Train V27a
+make ablation ONLY=N1v27a SUBJECTS=subj01 GPU=0
+```
+
+### 31.6 Key Monitoring Targets
+
+- **CSLS R@1 > 69.6%** = bigG representation breaks ViT-L/14 ceiling
+- **pos_sim** will be lower in 329K-D space (~0.10-0.14 vs 0.16 for V26a)
+- **kappa** should be monitored for collapse (expect ~1.5–3.0 range)
+- **GPU memory** should peak under 25 GiB

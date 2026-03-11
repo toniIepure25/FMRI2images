@@ -12,7 +12,7 @@ export
 # ============================================================================
 
 .PHONY: help setup preflight doctor smoke
-.PHONY: prepare data models index preprocess preextract clip-cache multilayer-clip-cache token-clip-cache
+.PHONY: prepare data models index preprocess preextract clip-cache multilayer-clip-cache token-clip-cache bigg-token-cache
 .PHONY: train ablation
 .PHONY: eval-recon eval-shared1000 summarize-shared1000 compare-evals
 .PHONY: test test-quick
@@ -40,6 +40,7 @@ help:
 	@echo "  make clip-cache     Build CLIP embeddings cache"
 	@echo "  make multilayer-clip-cache  Build multi-layer CLIP cache (for hierarchical alignment)"
 	@echo "  make token-clip-cache  Build 257x768 token-level CLIP cache (for MindEye-style targets)"
+	@echo "  make bigg-token-cache  Build 257x1280 ViT-bigG/14 token cache (for V27+ experiments)"
 	@echo ""
 	@echo "Training:"
 	@echo "  make train CONFIG=configs/experiments/B0_deterministic.yaml"
@@ -49,6 +50,7 @@ help:
 	@echo "    ONLY=N1v26b       Run only V26b cross-subject + token-targets"
 	@echo "    ONLY=N1v26c       Run only V26c improved single-subject token-targets"
 	@echo "    ONLY=N1v26d       Run only V26d kappa-unlocked token-targets"
+	@echo "    ONLY=N1v27a       Run only V27a ViT-bigG/14 token-targets"
 	@echo "  make ridge          Train Ridge baseline (fMRI -> CLIP)"
 	@echo ""
 	@echo "Evaluation:"
@@ -194,6 +196,20 @@ token-clip-cache:
 		--batch-size $${BATCH:-32} \
 		--device $(DEVICE)
 	@echo "=== Token CLIP cache complete ==="
+
+# bigG token-level CLIP cache (257×1280 per image, ViT-bigG/14 LAION-2B)
+# Usage: make bigg-token-cache
+#        make bigg-token-cache BATCH=8       (reduce batch if OOM during encoding)
+bigg-token-cache:
+	@echo "=== Building ViT-bigG/14 Token Cache (257×1280) ==="
+	$(PY) scripts/build/build_token_clip_cache.py \
+		--clip-config configs/system/clip_bigg.yaml \
+		--mode $${MODE:-projected} \
+		$${SUBJECT:+--subject $$SUBJECT} \
+		$${SUBJECTS:+--subjects $$SUBJECTS} \
+		--batch-size $${BATCH:-16} \
+		--device $(DEVICE)
+	@echo "=== bigG token cache complete ==="
 # ============================================================================
 
 # Single experiment: make train CONFIG=configs/experiments/B0_deterministic.yaml

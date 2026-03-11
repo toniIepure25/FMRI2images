@@ -1,0 +1,54 @@
+# =============================================================================
+# CLIP Model Configuration — ViT-bigG/14 (OpenCLIP, LAION-2B)
+# =============================================================================
+#
+# Alternative CLIP backbone for V27+ experiments.
+# Uses OpenCLIP's ViT-bigG-14 trained on LAION-2B (laion2b_s39b_b160k).
+#
+# Dimensions:
+#   Hidden:    1664-D (transformer width)
+#   Projected: 1280-D (after visual.proj)
+#   Tokens:    257 (CLS + 256 patches at 14×14)
+#   Token cache: (N, 257, 1280) projected  →  257 × 1280 = 328,960 flat
+#
+# Memory notes:
+#   Model weight:  ~2.5 GB (bf16)
+#   Queue (2048, fp32, 329K-D):  ~2.6 GB
+#   Token cache (73K images): ~27 GB HDF5
+#
+# Build cache:
+#   python scripts/build/build_token_clip_cache.py \
+#       --clip-config configs/system/clip_bigg.yaml --mode projected
+#
+# Or via Makefile:
+#   make bigg-token-cache
+# =============================================================================
+
+# Model Selection
+# -----------------------------------------------------------------------------
+model_name: "ViT-bigG-14"
+pretrained: "laion2b_s39b_b160k"
+embedding_dim: 1280
+
+# Device Configuration
+# -----------------------------------------------------------------------------
+device: cuda
+dtype: float32
+
+# Batch Processing (reduced for ~2.5 GB model)
+# -----------------------------------------------------------------------------
+batch_size: 16
+num_workers: 4
+
+# Cache Configuration
+# -----------------------------------------------------------------------------
+cache_dir: cache/clip_embeddings
+use_cache: true
+cache_format: parquet
+
+# Feature Extraction
+# -----------------------------------------------------------------------------
+extract_features:
+  enabled: false
+  layers: [6, 12, 18, 24, 32, 40, 48]
+  pooling: cls_token

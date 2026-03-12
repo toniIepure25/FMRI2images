@@ -2537,20 +2537,36 @@ Cross-subject training was previously attempted:
 
 V29 sidesteps the OOM by splitting into two phases with different output dimensions.
 
-### 33.2 Architecture
+### 33.2 V29a First Run (from scratch) — Post-Mortem
+
+**Result:** 45% R@1, 64 epochs (best epoch 34, patience 30), checkpoint_metric defaulted to r@1.
+
+**Bugs found:**
+1. **Freeze never activated.** Config had `freeze_epochs: 30` but no `pretrained_checkpoint`. The freeze logic was gated on `pretrained_checkpoint` file existing — since V29a trained from scratch, the backbone was never frozen. All 862M params trained jointly, meaning adapters and backbone competed for gradient signal.
+2. **checkpoint_metric ignored.** Config set `evaluation.checkpoint_metric: "csls_r@1"` but the training script read from `config["training"]`, which defaulted to `"r@1"`. This was a pre-existing bug affecting all experiments since V9.
+3. **V29b NFS crash.** `torch.save` had no retry logic; intermittent NFS write failure killed the run.
+
+**Fixes applied:**
+- Decoupled freeze from `pretrained_checkpoint`: freeze now also activates when `pretrained_encoder_path` is loaded + cross_subject is enabled.
+- V29a config updated to load V28a's encoder via `pretrained_encoder_path` (adapters learn alignment against a proven encoder, not random weights).
+- `save_checkpoint` retries 3 times with 2s sleep on `RuntimeError`.
+- `checkpoint_metric` now reads from `evaluation` section first, falling back to `training`.
+
+### 33.3 Architecture (Revised)
 
 **Phase 1 (V29a):** Cross-subject pre-training on 768-D CLS targets
 ```
 fMRI (B, ~15724 per subj) x 4 subjects
   -> Per-Subject Linear Adapter: nn.Linear(subj_voxels, ~15724, bias=False)  [732M]
-  -> Shared MLP Encoder [8192, 8192, 4096, 2048]                             [128M]
+  -> Shared MLP Encoder [8192, 8192, 4096, 2048] — from V28a                [128M]
   -> vMF Decoder (2048 -> 768, CLS targets)                                  [1.6M]
   -> vMF-NCE + SoftCLIP + kappa_reg                                Total:   ~862M
 ```
 
 Training protocol:
-- Epoch 1-30: backbone frozen, adapters warm up at full LR
-- Epoch 31-200: backbone unfrozen at 0.1x base LR
+- `pretrained_encoder_path` loads V28a encoder (knows fMRI→CLIP for subj01)
+- Epoch 1-30: backbone frozen, adapters learn to align subj02/05/07 to subj01's space
+- Epoch 31-300: backbone unfrozen at 0.1x base LR, fine-tunes with 4x data
 
 **Phase 2 (V29b):** Fine-tune on subj01 with dual-head + token targets
 ```
@@ -2563,23 +2579,24 @@ fMRI (B, ~15724) — subj01 only
                                                                      Total: ~1.08B
 ```
 
-### 33.3 Memory Budget
+### 33.4 Memory Budget
 
 | Phase | Params | Adam States | Activations (bf16) | Total Est. |
 |-------|--------|-------------|--------------------|----|
 | V29a (frozen backbone, ep 1-30) | 862M (732M trainable) | ~8.8 GB | ~2 GB | ~14 GB |
-| V29a (unfrozen, ep 31-200) | 862M (all trainable) | ~10.3 GB | ~3 GB | ~17 GB |
+| V29a (unfrozen, ep 31-300) | 862M (all trainable) | ~10.3 GB | ~3 GB | ~17 GB |
 | V29b (fine-tune) | 1.08B (all trainable) | ~13 GB | ~4 GB | ~21 GB |
 
 All phases fit comfortably in H100 80GB, even with co-tenant.
 
-### 33.4 Code Changes
+### 33.5 Code Changes
 
-1. **`scripts/training/train_unified.py`** — Added `model.pretrained_encoder_path` support: loads encoder-prefixed keys from a checkpoint with `strict=False`, silently skipping decoder/adapter keys that don't match.
-2. **`configs/experiments/N1v29a_cross_subject.yaml`** — Phase 1 config: 4 subjects, 768-D CLS, cross-subject adapters, from-scratch training.
-3. **`configs/experiments/N1v29b_finetune.yaml`** — Phase 2 config: V28a dual-head recipe with `pretrained_encoder_path` pointing to V29a checkpoint.
+1. **`scripts/training/train_unified.py`** — (a) `pretrained_encoder_path` loads encoder keys with `strict=False`. (b) Freeze/unfreeze logic decoupled from `pretrained_checkpoint`: also triggers when `pretrained_encoder_path` was loaded + cross_subject enabled. (c) `save_checkpoint` retries 3x on NFS errors. (d) `checkpoint_metric` reads from `evaluation` section first.
+2. **`configs/experiments/N1v29a_cross_subject.yaml`** — Phase 1: 4 subjects, 768-D CLS, V28a encoder, adapters + freeze/unfreeze, 300 epochs.
+3. **`configs/experiments/N1v29b_finetune.yaml`** — Phase 2: V28a dual-head recipe with `pretrained_encoder_path` pointing to V29a.
+4. **`scripts/training/run_ablation_ladder.sh`** — Added N1v29a and N1v29b to experiment order and config map.
 
-### 33.5 Prerequisites (Pod)
+### 33.6 Prerequisites (Pod)
 
 ```bash
 # Ensure pre-extracted features exist for all 4 subjects:
@@ -2592,17 +2609,20 @@ done
 # tokens_ViT-L-14_projected.h5 already exists from V26a/V28a
 ```
 
-### 33.6 Run Commands
+### 33.7 Run Commands
 
 ```bash
-# Phase 1: cross-subject pre-training
-make ablation ONLY=N1v29a SUBJECTS=subj01 GPU=0
+# Delete stale V29a results from first (buggy) run
+rm -rf experimental_results/N1v29a_cross_subject/
 
-# Phase 2: fine-tune (after V29a completes)
-make ablation ONLY=N1v29b SUBJECTS=subj01 GPU=0
+# Phase 1: cross-subject pre-training with V28a encoder
+nohup make ablation ONLY=N1v29a SUBJECTS=subj01 GPU=0 > v29a_subj01.log 2>&1 &
+
+# Phase 2 (after V29a completes): fine-tune with dual-head + tokens
+nohup make ablation ONLY=N1v29b SUBJECTS=subj01 GPU=0 > v29b_subj01.log 2>&1 &
 ```
 
-### 33.7 Success Criteria
+### 33.8 Success Criteria
 
 | Metric | V28a (baseline) | V29b target |
 |--------|----------------|-------------|
@@ -2610,6 +2630,6 @@ make ablation ONLY=N1v29b SUBJECTS=subj01 GPU=0
 | CSLS R@1 | 70.3% | **≥75%** |
 | kappa | 2.31 | ≥3.0 |
 
-### 33.8 Scaling to 8 Subjects (Optional)
+### 33.9 Scaling to 8 Subjects (Optional)
 
 If V29a shows improvement, download subj03/04/06/08 and re-run with 8 subjects. With 7 additional adapters the model reaches ~1.84B params — will require 8-bit Adam (`bitsandbytes`) or gradient checkpointing to fit.

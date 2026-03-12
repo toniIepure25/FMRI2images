@@ -1692,7 +1692,19 @@ def save_checkpoint(
     }
     if ema is not None:
         payload["ema_shadow"] = {k: v.cpu() for k, v in ema.shadow.items()}
-    torch.save(payload, path)
+    for _attempt in range(3):
+        try:
+            torch.save(payload, path)
+            return
+        except RuntimeError:
+            if _attempt < 2:
+                logger.warning(
+                    "Checkpoint save to %s failed (attempt %d/3, NFS?), "
+                    "retrying in 2s …", path, _attempt + 1,
+                )
+                time.sleep(2)
+            else:
+                raise
 
 
 def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimizer,
@@ -2075,6 +2087,7 @@ def main() -> None:
 
     # --- V29b: Load pretrained encoder from a prior run (e.g. cross-subject) ---
     _pe_path = model_config.get("pretrained_encoder_path")
+    _pe_loaded_ok = False
     if _pe_path and os.path.isfile(_pe_path):
         _pe_ckpt = torch.load(_pe_path, map_location=device)
         _pe_sd = _pe_ckpt.get("model_state_dict", _pe_ckpt.get("state_dict", {}))
@@ -2087,6 +2100,7 @@ def main() -> None:
             _pe_path, len(_pe_loaded),
             len(_pe_sd) - len(_pe_keys), len(_pe_missing),
         )
+        _pe_loaded_ok = True
     elif _pe_path:
         logger.warning(
             "pretrained_encoder_path not found: %s — encoder starts random", _pe_path,
@@ -2124,6 +2138,21 @@ def main() -> None:
             logger.info(
                 "Cross-subject freeze: %d params frozen (encoder+decoder), "
                 "%d trainable (adapters) for %d epochs",
+                n_frozen, n_trainable, _cs_freeze_epochs,
+            )
+            _cs_backbone_frozen = True
+        elif _pe_loaded_ok and _cs_freeze_epochs > 0:
+            # Encoder was pre-loaded via pretrained_encoder_path (V29a);
+            # freeze backbone so adapters can learn subject alignment first.
+            for name, param in model.named_parameters():
+                if name.startswith(("encoder.", "decoder.")):
+                    param.requires_grad = False
+            n_frozen = sum(1 for p in model.parameters() if not p.requires_grad)
+            n_trainable = sum(1 for p in model.parameters() if p.requires_grad)
+            logger.info(
+                "Cross-subject freeze (encoder from pretrained_encoder_path): "
+                "%d params frozen (encoder+decoder), %d trainable (adapters) "
+                "for %d epochs",
                 n_frozen, n_trainable, _cs_freeze_epochs,
             )
             _cs_backbone_frozen = True
@@ -2551,7 +2580,10 @@ def main() -> None:
     save_frequency = config["training"].get("save_frequency", 0)
     patience_counter = 0
 
-    _ckpt_metric_name = config["training"].get("checkpoint_metric", "r@1")
+    _ckpt_metric_name = (
+        config.get("evaluation", {}).get("checkpoint_metric")
+        or config.get("training", {}).get("checkpoint_metric", "r@1")
+    )
     _ckpt_lower_is_better = _ckpt_metric_name == "median_rank"
     if _ckpt_metric_name != "r@1":
         logger.info("Checkpoint metric: %s (lower_is_better=%s)",

@@ -452,6 +452,7 @@ class UnifiedModel(nn.Module):
                 kappa_mode = decoder_cfg.get("kappa_mode", "bounded_sigmoid")
                 _num_tokens = decoder_cfg.get("num_tokens", 0)
                 _token_dim = decoder_cfg.get("token_dim", 768)
+                _regression_head = decoder_cfg.get("regression_head", False)
                 self.decoder = VonMisesFisherDecoder(
                     input_dim=latent_dim,
                     output_dim=output_dim,
@@ -463,6 +464,7 @@ class UnifiedModel(nn.Module):
                     kappa_mode=kappa_mode,
                     num_tokens=_num_tokens,
                     token_dim=_token_dim,
+                    regression_head=_regression_head,
                 )
         elif self.model_type == "vmf_dcf":
             if encoder_type not in ("roi_transformer", "multi_subject_roi_transformer"):
@@ -612,7 +614,16 @@ class UnifiedModel(nn.Module):
         elif self.model_type == "gaussian":
             return self.decoder(h, **kwargs)
         else:  # vmf
-            return self.decoder(h)
+            dec_out = self.decoder(h)
+            if len(dec_out) == 3:
+                # Dual-head: (mu, kappa, reg_pred) — store reg_pred for
+                # training loop access, return (mu, kappa) for compatibility
+                mu, kappa, reg_pred = dec_out
+                self._last_reg_pred = reg_pred
+                return mu, kappa
+            else:
+                self._last_reg_pred = None
+                return dec_out
     
     def get_config(self) -> Dict[str, Any]:
         """Return model configuration."""

@@ -1,0 +1,168 @@
+# N1v28a: Dual-Head MindEye-Style Architecture (ViT-L/14)
+#
+# Hypothesis: Adding an un-normalised regression head alongside the existing
+#             L2-normalised contrastive head allows MSE to operate in R^d
+#             instead of on S^{d-1}, avoiding the mean-collapse failure that
+#             killed MSE in V13/V22/V23c.  MindEye uses exactly this dual-head
+#             design and achieves 93.2% R@1.
+#
+# Architecture:
+#   - Same 4-layer residual MLP encoder as V26a [8192, 8192, 4096, 2048]
+#   - vMF decoder with DUAL heads:
+#     * mu_head: (2048 -> 197376) L2-normalised -> vMF-NCE + SoftCLIP + MixCo
+#     * regression_head: (2048 -> 197376) un-normalised -> MSE in R^d
+#     * kappa_head: (2048 -> 1) softplus concentration
+#   - Total params: ~675M (same mu_head) + ~404M (regression_head) ≈ 1.08B
+#     But regression_head shares backbone -> only adds mu_head-size params
+#
+# Key insight: MSE on L2-normalised vectors pulls predictions toward the
+#   hypersphere mean (all predictions become similar). MSE on un-normalised
+#   vectors preserves Euclidean distance structure. The contrastive head
+#   handles angular discriminability; the regression head handles magnitude
+#   and fine-grained token matching.
+#
+# Changes from V26a:
+#   - decoder.regression_head: true (new dual-head)
+#   - loss.regression_mse: enabled with weight 0.5
+#   - batch_size: 24 -> 16 (regression_head adds ~800MB params + grad)
+#   - gradient_accumulation_steps: 8 -> 16 (eff batch stays 256)
+#
+# Memory estimate (H100 80GB, ~45.5 GiB usable):
+#   Model weights:  ~2.4 GB  (1.08B params × bf16)
+#   Optimizer:     ~12.9 GB  (AdamW: 3 × 1.08B × 4B)
+#   Queue:          ~3.0 GB  (4096 × 197376 × 4B)
+#   Activations:    ~4.0 GB  (batch 16, 4 layers + 2 heads)
+#   Total:         ~22.3 GB  ← fits safely
+#
+# Run:
+#   make ablation ONLY=N1v28a SUBJECTS=subj01 GPU=0
+
+experiment:
+  name: "N1v28a_dual_head"
+  description: "v28a: Dual-head MindEye-style (L2-norm contrastive + un-normalised MSE)"
+  tags: ["vmf", "vmf_nce", "v28", "dual_head", "regression", "token_targets", "csls", "shared1000"]
+  parent: "N1v26a_token_targets"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  # Same ViT-L/14 token cache as V26a (isolate dual-head effect)
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.15
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: null   # auto-filled: 257 * 768 = 197376
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+    num_tokens: 257
+    token_dim: 768
+    # === V28 NEW: dual-head regression ===
+    regression_head: true
+
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  # === V28 NEW: un-normalised regression MSE ===
+  regression_mse:
+    enabled: true
+    weight: 0.5    # start conservative — contrastive still primary
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 4096      # same as V26a (197376-D entries)
+
+training:
+  batch_size: 16                    # reduced from 32 (regression head adds ~800MB)
+  gradient_accumulation_steps: 16   # effective batch = 16 × 16 = 256
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 300
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 30
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 40
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

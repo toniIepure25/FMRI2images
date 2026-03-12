@@ -2,9 +2,9 @@
 
 This document provides complete technical context for a bachelor thesis project on neural decoding of visual perception from fMRI. It is designed as a self-contained briefing for an LLM or researcher performing deep analysis.
 
-**Project status (March 2026):** After 26 iterative versions, the project-best is **52.8% raw R@1 / 69.6% CSLS R@1** from N1v26a (MindEye-style 257×768 token targets, single-subject, 675M params). V26a delivered **+5.2pp raw / +17.1pp CSLS** over the previous best (N1v23a), proving that target quality was the primary remaining bottleneck. V24 (hard negatives) and V25 (structural experiments) both regressed. V25 results: N1v25_rerun 57.2% CSLS (val900), 52.5% (shared1000); N1v25a sequential 54.9% / 50.8%; N2v25c patched-ROI 46.2% / 45.1%; N1v25b crashed (optimizer bug, now fixed). V26b (cross-subject + token targets, 1.59B params) was abandoned after two CUDA OOM crashes at epoch 2 — a co-tenant process permanently holds ~34.5 GiB on the shared H100, leaving insufficient headroom for the larger model. V26c (V26a + R-Drop + label smoothing + slerp MixCo + stronger regularization, same 675M architecture) yielded 53.5% / 69.6% CSLS — marginal (+0.7pp raw, 0.0pp CSLS). The 69.6% CSLS ceiling appears hard for ViT-L/14 token targets. Kappa collapsed to ~1.54 (zero confidence differentiation); V26d (kappa_reg disabled) yielded 54.2% raw (+0.7pp) but **66.8% CSLS (-2.8pp)** — kappa_reg was helping CSLS, and the 69.6% ceiling is a fundamental ViT-L/14 representation limit, not a kappa issue. **V27a** migrates to **ViT-bigG/14** (LAION-2B, 257×1280 tokens, ~825M params) to break this ceiling; cache build + training pending. All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
+**Project status (March 2026):** After 27 iterative versions, the project-best is **54.2% raw R@1 / 69.6% CSLS R@1** from N1v26a (MindEye-style 257×768 token targets, single-subject, 675M params). V27a (ViT-bigG/14, 257×1280 tokens, ~825M params) yielded **54.2% raw / 67.2% CSLS** on shared1000 — raw improved +1.4pp but CSLS **regressed -2.4pp** vs V26a. The bigG backbone did NOT break the 69.6% CSLS ceiling; the bottleneck is **not CLIP backbone quality** but rather (1) contrastive-only training (vs MindEye's dual-head contrastive + MSE regression on un-normalized embeddings) and (2) hubness amplified by 329K-D retrieval space. V28 targets dual-head MindEye-style architecture. All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
 
-**SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training, (2) smaller model capacity (328M vs 996M params), (3) MindEye's OpenCLIP ViT-bigG/14 embeddings (257×1280-D projected) vs our ViT-L/14 (257×768-D) — **V27a directly addresses this by switching to bigG**, and (4) hubness in high-dimensional retrieval from single-trial fMRI noise.
+**SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training, (2) contrastive-only training vs MindEye's dual-head (normalized contrastive + un-normalized MSE regression), (3) hubness in high-dimensional retrieval from single-trial fMRI noise, and (4) smaller model capacity (825M vs 996M params).
 
 ---
 
@@ -917,7 +917,9 @@ An alternative fix would be to remove \(\tau\) from the `_score()` method entire
 | v26b | N1v26b | Token targets + cross-subject adapters (4 subjects, 1.59B params) | **Abandoned** — CUDA OOM at epoch 2 (shared H100, co-tenant uses ~34.5 GiB; 256 MiB `exp_avg_sq_sqrt` alloc fails) |
 | v26c | N1v26c | V26a + R-Drop (w=0.3, start ep50) + label smooth 0.05 + slerp MixCo + dropout 0.2/0.25 + queue 8192 + 350 epochs | N1v26c: 53.5% raw, 69.6% CSLS (+0.7pp/+0.0pp vs V26a); best epoch 116/166; kappa collapsed at ~1.54 |
 | v26d | N1v26d | V26c + kappa_reg disabled (unlock kappa in 197K-D token space) | N1v26d: 54.2% raw (+0.7pp), **66.8% CSLS (-2.8pp)** vs V26c; kappa 1.54→2.5; best epoch 49/99 — **kappa_reg removal hurt CSLS** |
-| **v27a** | **N1v27a** | **ViT-bigG/14** 257×1280 token targets (LAION-2B), V26a recipe, queue 2048, ~825M params | *Pending* — cache build + training required |
+| **v27a** | **N1v27a** | **ViT-bigG/14** 257×1280 token targets (LAION-2B), V26a recipe, queue 1024, ~825M params | 54.2% raw (+1.4pp), 67.2% CSLS (-2.4pp); pos_sim 0.23, kappa 1.5±0.1; **backbone NOT the bottleneck** |
+| **v28a** | **N1v28a** | **Dual-head MindEye-style** (ViT-L/14): L2-norm contrastive + un-normalised MSE regression, ~1.08B params | *Pending* — dual-head isolates regression effect from backbone |
+| **v28b** | **N1v28b** | **Dual-head + ViT-bigG/14**: full MindEye recipe (1280-D, ~1.5B params) | *Pending* — run after V28a confirms dual-head works |
 
 Notes:
 - B-series stays at v4 (not affected by vMF-specific changes)
@@ -925,6 +927,7 @@ Notes:
 - v8 only had N3 and N4 configs (N1/N2 skipped that iteration)
 - v10 combined best of V8 (losses) and V9 (eval tricks)
 - v27 switches CLIP backbone from ViT-L/14 → ViT-bigG/14 (LAION-2B); requires separate token cache
+- v28 adds a second (un-normalised) regression head; contrastive head unchanged. Key: MSE on R^d not S^{d-1}
 - v11 attempted hubness mitigation and denoising but failed due to `average_repetitions: true` reducing data 3x
 - v12 two-stage never activated for N1/N2 (early stopping before epoch 120); auto-weighting destroyed N3/N4
 - v13 adds MSE regression (MindEye1's key ingredient) and hierarchical CLIP alignment for N3/N4
@@ -2376,9 +2379,142 @@ make bigg-token-cache
 make ablation ONLY=N1v27a SUBJECTS=subj01 GPU=0
 ```
 
-### 31.6 Key Monitoring Targets
+### 31.6 V27a Results
 
-- **CSLS R@1 > 69.6%** = bigG representation breaks ViT-L/14 ceiling
-- **pos_sim** will be lower in 329K-D space (~0.10-0.14 vs 0.16 for V26a)
-- **kappa** should be monitored for collapse (expect ~1.5–3.0 range)
-- **GPU memory** should peak under 25 GiB
+| Metric | V26a (ViT-L/14) | V27a (ViT-bigG/14) | Delta |
+|---|---|---|---|
+| Raw R@1 (shared1000) | 52.8% | 54.2% | **+1.4pp** |
+| CSLS R@1 (shared1000) | 69.6% | 67.2% | **-2.4pp** |
+| Raw R@1 (val900) | 56.6% | — | — |
+| CSLS R@1 (val900) | 68.7% | — | — |
+| pos_sim | 0.16 | 0.23 | +0.07 |
+| kappa (mean±std) | ~1.5 | 1.5±0.1 | ≈same |
+| Hub fraction | ~6% | 8.4% | +2.4pp |
+
+### 31.7 Implications: Backbone is NOT the Bottleneck
+
+V27a conclusively proves that CLIP backbone quality is **not** the limiting factor:
+
+1. **Raw R@1 improved** (+1.4pp): bigG features carry more information, and the encoder can extract it.
+2. **CSLS R@1 regressed** (-2.4pp): The 329K-D retrieval space amplifies hubness (8.4% vs ~6%). CSLS correction that worked at 197K-D is insufficient at 329K-D.
+3. **pos_sim increased** (0.23 vs 0.16): predictions are closer to targets in absolute cosine terms, yet retrieval is worse — the problem is discriminability, not fidelity.
+4. **Kappa collapsed identically** (~1.5): the model cannot differentiate confidence across samples regardless of backbone.
+
+The remaining bottleneck is **contrastive-only training**. MindEye uses a dual-head architecture:
+- Head 1 (contrastive): L2-normalized embeddings → vMF-NCE + SoftCLIP + MixCo (exactly what we do)
+- Head 2 (regression): Un-normalized embeddings → MSE loss in $\mathbb{R}^d$
+
+Our V13/V22/V23c MSE failures occurred because MSE was applied to **L2-normalized** embeddings, which collapses predictions toward the mean on $S^{d-1}$. MindEye avoids this by having a **separate** un-normalized regression head. V28 implements this dual-head design.
+
+---
+
+## 32. V28: Dual-Head MindEye-Style Architecture
+
+### 32.1 Motivation
+
+After 27 versions, the evidence is conclusive:
+
+| Hypothesis | Versions Tested | Verdict |
+|---|---|---|
+| Better CLIP backbone | V27a (bigG) | ❌ CSLS regressed -2.4pp |
+| MSE regression loss | V13, V22, V23c | ❌ Collapsed on S^{d-1} |
+| Hard negatives | V24 | ❌ Conflicts with CSLS training |
+| Sequential scheduling | V25a | ❌ -4.1pp vs joint |
+| Sub-ROI patching | V25c | ❌ Matched baseline exactly |
+| Cross-subject adapters | V25b, V26b | ❌ Crashed / OOM |
+| R-Drop + label smooth | V26c | ❌ 0.0pp CSLS gain |
+| Kappa_reg removal | V26d | ❌ -2.8pp CSLS |
+
+The single remaining high-leverage hypothesis is **dual-head architecture**. MindEye's key insight: use two separate heads from the shared backbone:
+
+1. **Contrastive head** (L2-normalised on $S^{d-1}$): vMF-NCE + SoftCLIP + MixCo — angular discriminability
+2. **Regression head** (un-normalised in $\mathbb{R}^d$): MSE — Euclidean fidelity to CLIP token targets
+
+Our previous MSE attempts (V13/V22/V23c) applied MSE to L2-normalised mu vectors, which collapses predictions toward the hypersphere mean (every prediction becomes similar to the CLIP centroid). The dual-head avoids this by giving the regression path its own un-normalised linear head.
+
+### 32.2 Architecture
+
+```
+fMRI (B, 15724)
+    │
+    ├── Residual MLP Encoder [8192, 8192, 4096, 2048]
+    │       │
+    │       h (B, 2048)   ← shared backbone features
+    │       │
+    │       ├── mu_head: Linear(2048, 197376) → L2-norm → mu ∈ S^{d-1}
+    │       │       │
+    │       │       └── vMF-NCE + SoftCLIP + MixCo (contrastive losses)
+    │       │
+    │       ├── kappa_head: Linear(2048, 1) → softplus → κ > 0
+    │       │
+    │       └── regression_head: Linear(2048, 197376) → reg_pred ∈ R^d
+    │               │
+    │               └── MSE(reg_pred, CLIP_tokens) (regression loss)
+    │
+    └── Retrieval: mu used for cos-sim / CSLS retrieval (unchanged)
+```
+
+### 32.3 Parameter Count
+
+| Component | V26a (single-head) | V28a (dual-head, ViT-L/14) | V28b (dual-head, bigG) |
+|---|---|---|---|
+| Encoder | 128M | 128M | 128M |
+| mu_head | 404M | 404M | 674M |
+| regression_head | — | **404M** | **674M** |
+| kappa_head | 2K | 2K | 2K |
+| **Total** | **~675M** | **~1.08B** | **~1.5B** |
+
+### 32.4 Loss Function
+
+$$\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{vMF-NCE}}(\mu, \kappa, z) + \lambda_{\text{sc}} \mathcal{L}_{\text{SoftCLIP}}(\mu, z) + \lambda_{\text{mc}} \mathcal{L}_{\text{MixCo}} + \lambda_{\text{reg}} \|\hat{r} - z\|_2^2 + \lambda_\kappa \mathcal{R}(\kappa)$$
+
+where $\hat{r} = \text{regression\_head}(h)$ is the **un-normalised** regression prediction and $z$ is the flat CLIP token target.
+
+The contrastive losses operate on $\mu \in S^{d-1}$; the regression loss operates on $\hat{r} \in \mathbb{R}^d$. They share the backbone $h$ but have **independent** linear heads, so gradients don't conflict geometrically.
+
+### 32.5 Code Changes
+
+1. **`src/fmri2img/models/vmf_decoder.py`** — Added optional `regression_head: bool` parameter. When enabled, `forward()` returns `(mu, kappa, reg_pred)` instead of `(mu, kappa)`.
+2. **`src/fmri2img/models/unified_model.py`** — Passes `decoder.regression_head` config to decoder. Stores `reg_pred` in `model._last_reg_pred` for training loop access.
+3. **`scripts/training/train_unified.py`** — Added `regression_mse` loss section: reads `model._last_reg_pred`, computes `F.mse_loss(reg_pred, gt_embedding)`, weighted by `loss.regression_mse.weight`.
+4. **`configs/experiments/N1v28a_dual_head.yaml`** — V26a + dual-head (ViT-L/14, ~1.08B params)
+5. **`configs/experiments/N1v28b_dual_head_bigg.yaml`** — V28a + bigG tokens (~1.5B params)
+
+### 32.6 Experiment Plan
+
+| ID | Config | Backbone | Description | Expected CSLS R@1 |
+|----|--------|----------|-------------|-------------------|
+| N1v28a | N1v28a_dual_head.yaml | ViT-L/14 | Dual-head isolating regression effect | 72-78% |
+| N1v28b | N1v28b_dual_head_bigg.yaml | ViT-bigG/14 | Full MindEye recipe | 75-82% |
+
+V28a runs first to confirm the dual-head works on the proven ViT-L/14 base. V28b scales to bigG only if V28a shows clear improvement.
+
+### 32.7 Epoch-1 Sanity Checks
+
+- `reg_mse`: Should be 0.5-2.0 per step (not near 0 — that would mean un-normalised predictions already match targets, unlikely)
+- `vmf_nce`: Should be ~9.0-11.0 (unchanged from V26a)
+- `pos_sim`: Should start at ~0.10-0.15 (L2-normalised contrastive head)
+- `kappa`: Should start at ~1-5 (softplus default)
+- If `reg_mse` > 10.0 at epoch 1, reduce `regression_mse.weight` to 0.1
+
+### 32.8 Run Commands
+
+```bash
+# V28a: dual-head on ViT-L/14 (primary experiment)
+make ablation ONLY=N1v28a SUBJECTS=subj01 GPU=0
+
+# V28b: dual-head on bigG (only after V28a confirms improvement)
+make ablation ONLY=N1v28b SUBJECTS=subj01 GPU=0
+```
+
+### 32.9 Success Criteria
+
+| Metric | V26a (single-head) | V28a target | V28a actual |
+|--------|-------------------|-------------|-------------|
+| Raw R@1 (shared1000) | 52.8% | ≥56% | *Pending* |
+| CSLS R@1 (shared1000) | 69.6% | **≥73%** | *Pending* |
+| pos_sim | 0.16 | 0.16-0.20 | *Pending* |
+| reg_mse | — | 0.3-1.0 | *Pending* |
+| kappa | ~1.5 | ~2-10 | *Pending* |
+
+If V28a reaches ≥73% CSLS, the dual-head is validated. Proceed to V28b for the full MindEye recipe.

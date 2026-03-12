@@ -21,7 +21,7 @@ Kappa modes:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Literal, Optional, Tuple
+from typing import Literal, Optional, Tuple, Union
 import logging
 
 logger = logging.getLogger(__name__)
@@ -56,6 +56,12 @@ class VonMisesFisherDecoder(nn.Module):
     """
     Geometry-correct vMF decoder with configurable concentration activation.
 
+    Supports an optional **regression head** (MindEye-style dual-head) that
+    produces un-normalised output in R^d alongside the L2-normalised mu on
+    S^{d-1}.  MSE regression on un-normalised predictions avoids the mean-
+    collapse failure observed in V13/V22/V23c (where MSE on L2-normalised
+    vectors pulled predictions toward the hypersphere mean).
+
     Args:
         input_dim:   Latent dimension from encoder.
         output_dim:  Output dimension (CLIP embedding size, e.g. 768 or 197376).
@@ -71,6 +77,10 @@ class VonMisesFisherDecoder(nn.Module):
                      and L2-normalised **per-token**, then re-flattened and
                      globally L2-normalised (MindEye-style).
         token_dim:   Per-token dimension (e.g. 768 for ViT-L/14 projected).
+        regression_head: If ``True``, adds a second linear head that outputs
+                     un-normalised predictions for MSE regression.  The
+                     forward method returns ``(mu, kappa, reg_pred)`` when
+                     enabled instead of ``(mu, kappa)``.
     """
 
     def __init__(
@@ -85,6 +95,7 @@ class VonMisesFisherDecoder(nn.Module):
         kappa_mode: str = "bounded_sigmoid",
         num_tokens: int = 0,
         token_dim: int = 768,
+        regression_head: bool = False,
     ):
         super().__init__()
         self.input_dim = input_dim
@@ -94,6 +105,7 @@ class VonMisesFisherDecoder(nn.Module):
         self.kappa_mode = kappa_mode
         self.num_tokens = num_tokens
         self.token_dim = token_dim
+        self.has_regression_head = regression_head
 
         if hidden_dims is None or len(hidden_dims) == 0:
             self.shared_backbone = nn.Identity()
@@ -114,6 +126,16 @@ class VonMisesFisherDecoder(nn.Module):
         self.mu_head = nn.Linear(backbone_out_dim, output_dim)
         self.kappa_head = nn.Linear(backbone_out_dim, 1)
 
+        # Optional regression head: un-normalised output for MSE (dual-head)
+        self.regression_head: Optional[nn.Linear] = None
+        if regression_head:
+            self.regression_head = nn.Linear(backbone_out_dim, output_dim)
+            logger.info(
+                "VonMisesFisherDecoder DUAL-HEAD: regression_head enabled "
+                "(%d -> %d, un-normalised output for MSE)",
+                backbone_out_dim, output_dim,
+            )
+
         if num_tokens > 0:
             assert output_dim == num_tokens * token_dim, (
                 f"output_dim ({output_dim}) must equal "
@@ -133,16 +155,22 @@ class VonMisesFisherDecoder(nn.Module):
                 kappa_min, kappa_max,
             )
 
-    def forward(self, h: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, h: torch.Tensor) -> Union[
+        Tuple[torch.Tensor, torch.Tensor],
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+    ]:
         """
         Args:
             h: (B, input_dim) latent features
 
         Returns:
-            mu:    (B, output_dim) L2-normalised mean direction.
-                   When ``num_tokens > 0``, each token is per-token normalised
-                   and the full vector is globally normalised (MindEye-style).
-            kappa: (B, 1) positive concentration
+            Without regression head:
+                mu:    (B, output_dim) L2-normalised mean direction.
+                kappa: (B, 1) positive concentration
+            With regression head (dual-head mode):
+                mu:       (B, output_dim) L2-normalised mean direction.
+                kappa:    (B, 1) positive concentration
+                reg_pred: (B, output_dim) un-normalised regression prediction
         """
         features = self.shared_backbone(h)
 
@@ -165,5 +193,9 @@ class VonMisesFisherDecoder(nn.Module):
             kappa_min=self.kappa_min,
             kappa_max=self.kappa_max,
         )
+
+        if self.regression_head is not None:
+            reg_pred = self.regression_head(features)  # (B, output_dim) un-normalised
+            return mu, kappa, reg_pred
 
         return mu, kappa

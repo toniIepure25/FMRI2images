@@ -758,6 +758,14 @@ def setup_losses(config: Dict[str, Any], device: str,
         logger.info("Uniformity loss enabled (weight=%.3f, t=%.1f)",
                      c.get("weight", 0.1), c.get("t", 2.0))
 
+    # Regression MSE is not a standard nn.Module loss object — it uses
+    # F.mse_loss inline on the decoder's un-normalised regression head output.
+    # Just log that it's configured.
+    if loss_cfg.get("regression_mse", {}).get("enabled", False):
+        _rm_w = loss_cfg["regression_mse"].get("weight", 1.0)
+        logger.info("Dual-head regression MSE enabled (weight=%.3f) — requires "
+                     "decoder.regression_head=true", _rm_w)
+
     return losses
 
 
@@ -1008,6 +1016,15 @@ def train_epoch(
             # --- Single queue enqueue (after all contrastive losses read the queue) ---
             if queue is not None:
                 queue.enqueue(gt_embedding.detach())
+
+            # --- Dual-head regression MSE (V28: un-normalised output) ---
+            _reg_pred = getattr(model, "_last_reg_pred", None)
+            _reg_mse_cfg = (config_ref or {}).get("loss", {}).get("regression_mse", {})
+            if _reg_mse_cfg.get("enabled", False) and _reg_pred is not None:
+                _reg_mse_w = loss_weights.get("regression_mse", _reg_mse_cfg.get("weight", 1.0))
+                _reg_loss = F.mse_loss(_reg_pred, gt_embedding, reduction="mean")
+                total_loss = total_loss + _reg_mse_w * _reg_loss
+                batch_metrics["reg_mse"] = _reg_loss.item()
 
             # --- Kappa regularizer ---
             kappa_reg_cfg = config_ref.get("loss", {}).get("kappa_reg", {}) if config_ref else {}
@@ -1600,6 +1617,14 @@ def validate(
                 total_loss = total_loss + loss_weights.get("vmf_nce_multitask", 1.0) * mt_total
                 bm["mt_fused"] = mt_fused.item()
                 bm["mt_aux"] = mt_aux.item()
+
+            # --- Dual-head regression MSE (V28) ---
+            _reg_pred_val = getattr(model, "_last_reg_pred", None)
+            if _reg_pred_val is not None:
+                _reg_mse_w = loss_weights.get("regression_mse", 1.0)
+                _reg_l = F.mse_loss(_reg_pred_val, gt_embedding, reduction="mean")
+                total_loss = total_loss + _reg_mse_w * _reg_l
+                bm["reg_mse"] = _reg_l.item()
 
             # --- V11 val losses ---
             if "direct_alignment" in losses and is_vmf:

@@ -1,0 +1,168 @@
+# N1v29a: Cross-Subject Pre-training (4 Subjects, 768-D CLS)
+#
+# Hypothesis: subj01 alone has ~9,000 unique training images (~24K trials).
+#   By adding subj02/05/07 via per-subject linear adapters, we quadruple
+#   the training data to ~100K trials. The shared backbone learns a more
+#   robust fMRI→CLIP mapping from 4× more unique visual stimuli.
+#
+# This is Phase 1 of the MindEye2-style two-phase approach:
+#   Phase 1 (this config): cross-subject pre-training on 768-D CLS targets
+#   Phase 2 (N1v29b):      fine-tune encoder on subj01 with dual-head + 197K-D tokens
+#
+# Architecture:
+#   - Per non-canonical subject: nn.Linear(subj_voxels, ~15724, bias=False)
+#   - Canonical (subj01): identity pass-through (slice to canonical dim)
+#   - Shared backbone: 4-layer residual MLP [8192, 8192, 4096, 2048]
+#   - 768-D vMF decoder (CLS targets, NOT token targets)
+#
+# Training protocol:
+#   - Phase 1 (epochs 1-30): Backbone random-init, FROZEN; train only adapters
+#   - Phase 2 (epochs 31-200): Unfreeze backbone at 0.1× base LR
+#   - No pretrained checkpoint (train from scratch)
+#
+# Memory estimate (H100 80GB):
+#   Adapters: 3 × ~15K × ~15K ≈ 732M params
+#   Encoder:  128M params
+#   Decoder:  ~1.6M params (768-D, tiny)
+#   Total:    ~862M params × bf16 + Adam → ~17 GB peak
+#
+# Key differences from V25b:
+#   - No pretrained checkpoint (V28a decoder dims don't match 768-D)
+#   - V28a-era hyperparams: dropout 0.25, queue 4096, bf16
+#   - Updated training recipe from lessons learned across V26-V28
+#
+# Run:
+#   make ablation ONLY=N1v29a SUBJECTS=subj01 GPU=0
+
+experiment:
+  name: "N1v29a_cross_subject"
+  description: "v29a: Cross-subject pre-training (4 subjects, 768-D CLS targets, ~862M params)"
+  tags: ["vmf", "vmf_nce", "v29", "cross_subject", "multi_subject", "adapter",
+         "wider_encoder", "residual", "csls", "shared1000", "phase1"]
+  parent: "N1v28a_dual_head"
+
+data:
+  subjects: ["subj01", "subj02", "subj05", "subj07"]
+  subject: "subj01"         # canonical/primary subject for eval
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null          # set at runtime to canonical subject's voxel count
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.25            # V28a-era: higher dropout for larger data
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768          # 768-D CLS targets (not token targets)
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.25
+    kappa_mode: "softplus"
+
+  projection_head:
+    enabled: false
+
+  # --- Cross-subject adapter configuration ---
+  cross_subject:
+    enabled: true
+    canonical_subject: "subj01"
+    # No pretrained_checkpoint — train from scratch; the backbone is
+    # randomly initialised and learns jointly with adapters.
+    freeze_epochs: 30           # freeze backbone for 30 epochs (adapter warm-up)
+    backbone_lr_factor: 0.1     # unfreeze backbone at 10% of base LR
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  regression_mse:
+    enabled: false             # no dual-head in Phase 1
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 4096                   # 768-D entries are much smaller than 197K-D
+
+training:
+  batch_size: 64               # 768-D targets are small; can use larger batch
+  gradient_accumulation_steps: 4   # effective batch = 64 × 4 = 256
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 5.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 20
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

@@ -2073,6 +2073,25 @@ def main() -> None:
     n_params = sum(p.numel() for p in model.parameters())
     logger.info("Model parameters: %s", f"{n_params:,}")
 
+    # --- V29b: Load pretrained encoder from a prior run (e.g. cross-subject) ---
+    _pe_path = model_config.get("pretrained_encoder_path")
+    if _pe_path and os.path.isfile(_pe_path):
+        _pe_ckpt = torch.load(_pe_path, map_location=device)
+        _pe_sd = _pe_ckpt.get("model_state_dict", _pe_ckpt.get("state_dict", {}))
+        _pe_keys = {k: v for k, v in _pe_sd.items() if k.startswith("encoder.")}
+        _pe_missing, _pe_unexpected = model.load_state_dict(_pe_keys, strict=False)
+        _pe_loaded = [k for k in _pe_keys if k not in _pe_unexpected]
+        logger.info(
+            "Loaded pretrained encoder from %s: %d keys loaded, "
+            "%d skipped (decoder/adapter), %d missing in source",
+            _pe_path, len(_pe_loaded),
+            len(_pe_sd) - len(_pe_keys), len(_pe_missing),
+        )
+    elif _pe_path:
+        logger.warning(
+            "pretrained_encoder_path not found: %s — encoder starts random", _pe_path,
+        )
+
     # --- V25b: Load pretrained backbone + freeze for adapter warm-up ---
     _cs_freeze_epochs = 0
     _cs_backbone_lr_factor = 0.1

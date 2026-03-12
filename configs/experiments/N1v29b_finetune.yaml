@@ -1,0 +1,153 @@
+# N1v29b: Fine-Tune Cross-Subject Encoder with Dual-Head + Token Targets
+#
+# Phase 2 of the MindEye2-style two-phase approach:
+#   Phase 1 (N1v29a): cross-subject pre-training on 768-D CLS targets
+#   Phase 2 (this):   fine-tune encoder on subj01 with dual-head + 197K-D tokens
+#
+# The encoder from V29a has seen 4× more unique images (~36K across 4 subjects)
+# and should provide a better initialisation than the random-init V28a encoder.
+# The decoder is randomly initialised (output_dim changes from 768 to 197376).
+#
+# Architecture: identical to V28a (dual-head MindEye-style)
+#   - Encoder: 4-layer residual MLP [8192, 8192, 4096, 2048], init from V29a
+#   - vMF decoder DUAL heads:
+#     * mu_head: (2048 -> 197376) L2-normalised -> vMF-NCE + SoftCLIP + MixCo
+#     * regression_head: (2048 -> 197376) un-normalised -> MSE in R^d
+#     * kappa_head: (2048 -> 1) softplus concentration
+#   - Total params: ~1.08B (same as V28a, proven to fit H100)
+#
+# Expected improvement over V28a: +5-8pp CSLS R@1 from pre-trained encoder
+#
+# Run (after V29a completes):
+#   make ablation ONLY=N1v29b SUBJECTS=subj01 GPU=0
+
+experiment:
+  name: "N1v29b_finetune"
+  description: "v29b: Fine-tune V29a cross-subject encoder with dual-head + 197K-D token targets"
+  tags: ["vmf", "vmf_nce", "v29", "dual_head", "regression", "token_targets",
+         "cross_subject_pretrained", "csls", "shared1000", "phase2"]
+  parent: "N1v29a_cross_subject"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  # Load encoder weights from the V29a cross-subject run; decoder keys are
+  # silently skipped because output_dim changed from 768 to 197376.
+  pretrained_encoder_path: "experimental_results/N1v29a_cross_subject/subj01/checkpoints/checkpoint_best.pt"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.25
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: null   # auto-filled: 257 * 768 = 197376
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.25
+    kappa_mode: "softplus"
+    num_tokens: 257
+    token_dim: 768
+    regression_head: true
+
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  regression_mse:
+    enabled: true
+    weight: 0.5
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 4096      # same as V28a (197376-D entries)
+
+training:
+  batch_size: 16                    # same as V28a (regression head memory)
+  gradient_accumulation_steps: 16   # effective batch = 16 × 16 = 256
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 300
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 30
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 40
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

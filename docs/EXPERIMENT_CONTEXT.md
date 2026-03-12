@@ -2,9 +2,9 @@
 
 This document provides complete technical context for a bachelor thesis project on neural decoding of visual perception from fMRI. It is designed as a self-contained briefing for an LLM or researcher performing deep analysis.
 
-**Project status (March 2026):** After 27 iterative versions, the project-best is **54.2% raw R@1 / 69.6% CSLS R@1** from N1v26a (MindEye-style 257×768 token targets, single-subject, 675M params). V27a (ViT-bigG/14, 257×1280 tokens, ~825M params) yielded **54.2% raw / 67.2% CSLS** on shared1000 — raw improved +1.4pp but CSLS **regressed -2.4pp** vs V26a. The bigG backbone did NOT break the 69.6% CSLS ceiling; the bottleneck is **not CLIP backbone quality** but rather (1) contrastive-only training (vs MindEye's dual-head contrastive + MSE regression on un-normalized embeddings) and (2) hubness amplified by 329K-D retrieval space. V28 targets dual-head MindEye-style architecture. All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
+**Project status (March 2026):** After 28 iterative versions, the project-best is **56.0% raw R@1 / 70.3% CSLS R@1** from N1v28a (dual-head MindEye-style, 1.08B params). V28a added an un-normalised regression head alongside the contrastive head, improving raw R@1 by +3.2pp over V26a but CSLS by only +0.7pp — the ~70% CSLS ceiling persists. The bottleneck is now identified as **single-subject data volume** (~9K unique images vs MindEye's ~70K across 7 subjects). V29 implements MindEye2-style two-phase cross-subject pre-training: Phase 1 trains on 4 subjects with 768-D CLS targets (~862M params), Phase 2 fine-tunes on subj01 with dual-head + 197K-D token targets (~1.08B params). All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
 
-**SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training, (2) contrastive-only training vs MindEye's dual-head (normalized contrastive + un-normalized MSE regression), (3) hubness in high-dimensional retrieval from single-trial fMRI noise, and (4) smaller model capacity (825M vs 996M params).
+**SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training (primary bottleneck after V28a), (2) hubness in 197K-D retrieval space, (3) smaller model capacity (1.08B vs 996M — now comparable), and (4) possible fine-grained architectural differences (MindEye's retrieval submodule vs flat cosine similarity).
 
 ---
 
@@ -918,8 +918,10 @@ An alternative fix would be to remove \(\tau\) from the `_score()` method entire
 | v26c | N1v26c | V26a + R-Drop (w=0.3, start ep50) + label smooth 0.05 + slerp MixCo + dropout 0.2/0.25 + queue 8192 + 350 epochs | N1v26c: 53.5% raw, 69.6% CSLS (+0.7pp/+0.0pp vs V26a); best epoch 116/166; kappa collapsed at ~1.54 |
 | v26d | N1v26d | V26c + kappa_reg disabled (unlock kappa in 197K-D token space) | N1v26d: 54.2% raw (+0.7pp), **66.8% CSLS (-2.8pp)** vs V26c; kappa 1.54→2.5; best epoch 49/99 — **kappa_reg removal hurt CSLS** |
 | **v27a** | **N1v27a** | **ViT-bigG/14** 257×1280 token targets (LAION-2B), V26a recipe, queue 1024, ~825M params | 54.2% raw (+1.4pp), 67.2% CSLS (-2.4pp); pos_sim 0.23, kappa 1.5±0.1; **backbone NOT the bottleneck** |
-| **v28a** | **N1v28a** | **Dual-head MindEye-style** (ViT-L/14): L2-norm contrastive + un-normalised MSE regression, ~1.08B params | *Pending* — dual-head isolates regression effect from backbone |
-| **v28b** | **N1v28b** | **Dual-head + ViT-bigG/14**: full MindEye recipe (1280-D, ~1.5B params) | *Pending* — run after V28a confirms dual-head works |
+| **v28a** | **N1v28a** | **Dual-head MindEye-style** (ViT-L/14): L2-norm contrastive + un-normalised MSE regression, ~1.08B params | **56.0% raw** (+3.2pp), **70.3% CSLS** (+0.7pp) vs V26a; reg_mse 0.84; kappa 2.31; best epoch 145 — raw target met, CSLS ceiling persists |
+| **v28b** | **N1v28b** | **Dual-head + ViT-bigG/14**: full MindEye recipe (1280-D, ~1.5B params) | *Deprioritised* — V28a CSLS gain marginal; data volume identified as bottleneck instead |
+| **v29a** | **N1v29a** | **Cross-subject pre-training** (4 subjects, 768-D CLS, ~862M params): Phase 1 of MindEye2-style two-phase | *Pending* — trains shared encoder on 4× data volume |
+| **v29b** | **N1v29b** | **Fine-tune V29a encoder** with dual-head + 197K-D token targets (subj01, ~1.08B params): Phase 2 | *Pending* — depends on V29a |
 
 Notes:
 - B-series stays at v4 (not affected by vMF-specific changes)
@@ -927,7 +929,8 @@ Notes:
 - v8 only had N3 and N4 configs (N1/N2 skipped that iteration)
 - v10 combined best of V8 (losses) and V9 (eval tricks)
 - v27 switches CLIP backbone from ViT-L/14 → ViT-bigG/14 (LAION-2B); requires separate token cache
-- v28 adds a second (un-normalised) regression head; contrastive head unchanged. Key: MSE on R^d not S^{d-1}
+- v28 adds a second (un-normalised) regression head; contrastive head unchanged. Key: MSE on R^d not S^{d-1}. V28a confirmed +3.2pp raw but only +0.7pp CSLS — architecture no longer the bottleneck
+- v29 implements MindEye2-style two-phase cross-subject: V29a pre-trains on 4 subjects with 768-D CLS targets (~862M); V29b fine-tunes on subj01 with dual-head + 197K-D tokens (~1.08B). Sidesteps V26b OOM by splitting memory-heavy operations
 - v11 attempted hubness mitigation and denoising but failed due to `average_repetitions: true` reducing data 3x
 - v12 two-stage never activated for N1/N2 (early stopping before epoch 120); auto-weighting destroyed N3/N4
 - v13 adds MSE regression (MindEye1's key ingredient) and hierarchical CLIP alignment for N3/N4
@@ -2511,10 +2514,102 @@ make ablation ONLY=N1v28b SUBJECTS=subj01 GPU=0
 
 | Metric | V26a (single-head) | V28a target | V28a actual |
 |--------|-------------------|-------------|-------------|
-| Raw R@1 (shared1000) | 52.8% | ≥56% | *Pending* |
-| CSLS R@1 (shared1000) | 69.6% | **≥73%** | *Pending* |
-| pos_sim | 0.16 | 0.16-0.20 | *Pending* |
-| reg_mse | — | 0.3-1.0 | *Pending* |
-| kappa | ~1.5 | ~2-10 | *Pending* |
+| Raw R@1 (shared1000) | 52.8% | ≥56% | **56.0%** (+3.2pp) |
+| CSLS R@1 (shared1000) | 69.6% | **≥73%** | **70.3%** (+0.7pp) |
+| reg_mse | — | 0.3-1.0 | **0.84** |
+| kappa | ~1.5 | ~2-10 | **2.31** |
+| val_r@5 | — | — | 85.0% |
+| val_csls_r@5 | — | — | 91.9% |
 
-If V28a reaches ≥73% CSLS, the dual-head is validated. Proceed to V28b for the full MindEye recipe.
+**V28a verdict:** Raw R@1 target met; CSLS target missed by 2.7pp. The dual-head regression head improves absolute embedding quality (raw +3.2pp) but CSLS barely moves (+0.7pp), confirming the ~70% CSLS ceiling is NOT an architecture problem. The bottleneck is single-subject data volume (~9K unique images vs MindEye's ~70K). V28b is deprioritised; V29 cross-subject pre-training is the next step.
+
+---
+
+## 33. V29: Two-Phase Cross-Subject Pre-training (MindEye2-Style)
+
+### 33.1 Motivation
+
+V28a confirmed the dual-head works (+3.2pp raw R@1) but the CSLS ceiling at ~70% persists. After eliminating architecture (V28a), backbone quality (V27a), training recipe tuning (V26c/d), and loss-level interventions (V13-V25), the primary remaining bottleneck is **data volume**: subj01 alone has ~9K unique images, while MindEye trains on ~70K across 7 subjects.
+
+Cross-subject training was previously attempted:
+- V25b (linear adapters, 768-D): crashed at epoch 31 (bug fixed but never re-run)
+- V26b (linear adapters, 197K-D tokens): OOM at 1.59B params
+
+V29 sidesteps the OOM by splitting into two phases with different output dimensions.
+
+### 33.2 Architecture
+
+**Phase 1 (V29a):** Cross-subject pre-training on 768-D CLS targets
+```
+fMRI (B, ~15724 per subj) x 4 subjects
+  -> Per-Subject Linear Adapter: nn.Linear(subj_voxels, ~15724, bias=False)  [732M]
+  -> Shared MLP Encoder [8192, 8192, 4096, 2048]                             [128M]
+  -> vMF Decoder (2048 -> 768, CLS targets)                                  [1.6M]
+  -> vMF-NCE + SoftCLIP + kappa_reg                                Total:   ~862M
+```
+
+Training protocol:
+- Epoch 1-30: backbone frozen, adapters warm up at full LR
+- Epoch 31-200: backbone unfrozen at 0.1x base LR
+
+**Phase 2 (V29b):** Fine-tune on subj01 with dual-head + token targets
+```
+fMRI (B, ~15724) — subj01 only
+  -> MLP Encoder [8192, 8192, 4096, 2048] — weights from V29a               [128M]
+  -> Dual-Head vMF Decoder:
+       mu_head (2048 -> 197376, L2-norm) -> vMF-NCE + SoftCLIP              [404M]
+       regression_head (2048 -> 197376, un-norm) -> MSE                      [404M]
+       kappa_head (2048 -> 1, softplus)                                      [2K]
+                                                                     Total: ~1.08B
+```
+
+### 33.3 Memory Budget
+
+| Phase | Params | Adam States | Activations (bf16) | Total Est. |
+|-------|--------|-------------|--------------------|----|
+| V29a (frozen backbone, ep 1-30) | 862M (732M trainable) | ~8.8 GB | ~2 GB | ~14 GB |
+| V29a (unfrozen, ep 31-200) | 862M (all trainable) | ~10.3 GB | ~3 GB | ~17 GB |
+| V29b (fine-tune) | 1.08B (all trainable) | ~13 GB | ~4 GB | ~21 GB |
+
+All phases fit comfortably in H100 80GB, even with co-tenant.
+
+### 33.4 Code Changes
+
+1. **`scripts/training/train_unified.py`** — Added `model.pretrained_encoder_path` support: loads encoder-prefixed keys from a checkpoint with `strict=False`, silently skipping decoder/adapter keys that don't match.
+2. **`configs/experiments/N1v29a_cross_subject.yaml`** — Phase 1 config: 4 subjects, 768-D CLS, cross-subject adapters, from-scratch training.
+3. **`configs/experiments/N1v29b_finetune.yaml`** — Phase 2 config: V28a dual-head recipe with `pretrained_encoder_path` pointing to V29a checkpoint.
+
+### 33.5 Prerequisites (Pod)
+
+```bash
+# Ensure pre-extracted features exist for all 4 subjects:
+for subj in subj02 subj05 subj07; do
+  make index SUBJECT=$subj
+  make preprocess SUBJECT=$subj
+  make preextract SUBJECT=$subj
+done
+# clip.parquet (768-D) already exists
+# tokens_ViT-L-14_projected.h5 already exists from V26a/V28a
+```
+
+### 33.6 Run Commands
+
+```bash
+# Phase 1: cross-subject pre-training
+make ablation ONLY=N1v29a SUBJECTS=subj01 GPU=0
+
+# Phase 2: fine-tune (after V29a completes)
+make ablation ONLY=N1v29b SUBJECTS=subj01 GPU=0
+```
+
+### 33.7 Success Criteria
+
+| Metric | V28a (baseline) | V29b target |
+|--------|----------------|-------------|
+| Raw R@1 | 56.0% | ≥60% |
+| CSLS R@1 | 70.3% | **≥75%** |
+| kappa | 2.31 | ≥3.0 |
+
+### 33.8 Scaling to 8 Subjects (Optional)
+
+If V29a shows improvement, download subj03/04/06/08 and re-run with 8 subjects. With 7 additional adapters the model reaches ~1.84B params — will require 8-bit Adam (`bitsandbytes`) or gradient checkpointing to fit.

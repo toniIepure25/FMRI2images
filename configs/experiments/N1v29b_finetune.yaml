@@ -48,7 +48,7 @@ model:
   posterior: "vmf"
   # Load encoder weights from the V29a cross-subject run; decoder keys are
   # silently skipped because output_dim changed from 768 to 197376.
-  pretrained_encoder_path: "experimental_results/N1v29a_cross_subject/subj01/checkpoints/checkpoint_best.pt"
+  pretrained_encoder_path: "experimental_results/N1v29a_cross_subject/subj01/checkpoint_best.pt"
   encoder:
     encoder_type: "mlp"
     input_dim: null

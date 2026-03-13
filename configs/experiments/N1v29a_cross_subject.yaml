@@ -59,7 +59,7 @@ data:
 model:
   type: "vmf"
   posterior: "vmf"
-  pretrained_encoder_path: "experimental_results/N1v28a_dual_head/subj01/checkpoints/checkpoint_best.pt"
+  pretrained_encoder_path: "experimental_results/N1v28a_dual_head/subj01/checkpoint_best.pt"
   encoder:
     encoder_type: "mlp"
     input_dim: null          # set at runtime to canonical subject's voxel count

@@ -470,11 +470,13 @@ class UnifiedModel(nn.Module):
             from fmri2img.models.triple_head_decoder import TripleHeadVMFDecoder
             self.vmf_output_is_log = False
             _retrieval_dim = decoder_cfg.get("retrieval_dim", 768)
-            _token_dim_total = decoder_cfg.get("token_dim")
-            if _token_dim_total is None:
-                _n_tok = decoder_cfg.get("num_tokens", 257)
-                _d_tok = decoder_cfg.get("token_dim_per", 768)
-                _token_dim_total = _n_tok * _d_tok
+            # Always compute total from num_tokens * per-token dim.
+            # decoder_cfg["token_dim"] is the per-token dim (768) set by
+            # auto-fill; "token_dim_per" is an explicit alias in V30 configs.
+            _n_tok = decoder_cfg.get("num_tokens", 257)
+            _d_tok = decoder_cfg.get("token_dim_per",
+                                     decoder_cfg.get("token_dim", 768))
+            _token_dim_total = _n_tok * _d_tok
             _perc_enabled = decoder_cfg.get("perceptual_enabled", False)
             _perc_dim = decoder_cfg.get("perceptual_dim", 768)
             self.decoder = TripleHeadVMFDecoder(

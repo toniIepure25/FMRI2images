@@ -3135,6 +3135,7 @@ def main() -> None:
             model, val_loader, losses, loss_weights, device, preprocessor, queue,
             vmf_is_log=_vmf_is_log,
         )
+        _epoch_val_extras = val_metrics.pop("_val_extras", {})
         if ema is not None:
             ema.restore(model)
         logger.info("Val:   %s", " | ".join(f"{k}={v:.4f}" for k, v in val_metrics.items()))
@@ -3142,7 +3143,7 @@ def main() -> None:
         # --- MC-Dropout TTA (V9) ---
         _mc_tta_cfg = config.get("evaluation", {})
         _mc_tta_n = _mc_tta_cfg.get("mc_tta_samples", 0)
-        if _mc_tta_n > 1 and getattr(model, "model_type", "") in ("vmf", "vmf_dcf"):
+        if _mc_tta_n > 1 and getattr(model, "model_type", "") in ("vmf", "vmf_dcf", "vmf_triple"):
             if ema is not None:
                 ema.apply_shadow(model)
             mc_preds, _, mc_kappas = mc_dropout_tta(

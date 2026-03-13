@@ -1692,6 +1692,8 @@ def save_checkpoint(
     }
     if ema is not None:
         payload["ema_shadow"] = {k: v.cpu() for k, v in ema.shadow.items()}
+    import shutil
+    import tempfile
     for _attempt in range(3):
         try:
             torch.save(payload, path)
@@ -1704,7 +1706,17 @@ def save_checkpoint(
                 )
                 time.sleep(2)
             else:
-                raise
+                logger.warning(
+                    "All direct saves failed — writing to /tmp then copying"
+                )
+                _tmp_fd, _tmp_path = tempfile.mkstemp(suffix=".pt")
+                os.close(_tmp_fd)
+                try:
+                    torch.save(payload, _tmp_path)
+                    shutil.copy2(_tmp_path, str(path))
+                finally:
+                    if os.path.exists(_tmp_path):
+                        os.remove(_tmp_path)
 
 
 def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimizer,

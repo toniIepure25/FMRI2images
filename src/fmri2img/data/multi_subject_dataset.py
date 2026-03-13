@@ -72,6 +72,7 @@ class MultiSubjectPreextractedDataset(Dataset):
         seed: int = 42,
         average_repetitions: bool = False,
         token_cache=None,
+        dual_target: bool = False,
     ):
         super().__init__()
         self.subjects = list(subjects)
@@ -79,7 +80,14 @@ class MultiSubjectPreextractedDataset(Dataset):
         MultiSubjectPreextractedDataset.SUBJECT_TO_INT = self.subject_to_int
 
         self.token_cache = token_cache
+        self.dual_target = dual_target
         self.embeddings_df = embeddings_df
+
+        if dual_target and token_cache is None:
+            raise ValueError(
+                "dual_target=True requires a token_cache (HDF5 token targets). "
+                "Set data.token_cache_path in your config."
+            )
 
         from fmri2img.data.multi_subject_dataset import _resolve_emb_col
         self._emb_col = _resolve_emb_col(embeddings_df, embedding_column)
@@ -250,14 +258,24 @@ class MultiSubjectPreextractedDataset(Dataset):
     def __len__(self) -> int:
         return len(self.index_df)
 
-    def __getitem__(self, idx: int):
-        """Returns (fmri, clip_embedding, subject_int) or
-        (fmri, clip_embedding, subject_int, hier_targets_dict) when
-        hierarchical CLIP columns are available.
+    def _get_cls_embedding(self, nsd_id: int) -> np.ndarray:
+        """Return the CLS/pooled embedding from embeddings_df."""
+        emb_idx = self.embedding_lookup.get(nsd_id)
+        if emb_idx is None:
+            raise KeyError(f"nsdId={nsd_id} not in CLIP cache")
+        return np.asarray(
+            self.embeddings_df.iloc[emb_idx][self._emb_col], dtype=np.float32
+        )
 
-        When ``token_cache`` is provided, ``clip_embedding`` is a flat
-        (num_tokens * token_dim,) vector from the HDF5 token cache
-        instead of the 768-D CLS embedding from ``embeddings_df``.
+    def __getitem__(self, idx: int):
+        """Returns a dict when ``dual_target=True``, else legacy tuples.
+
+        Dict keys (dual_target):
+            fmri, retrieval_target, rich_target, subject_id, nsd_id
+
+        Legacy tuples:
+            (fmri, clip_embedding, subject_int) or
+            (fmri, clip_embedding, subject_int, hier_targets_dict)
         """
         subj_int = int(self._feat_subj[idx])
         local_idx = int(self._feat_local_idx[idx])
@@ -266,11 +284,24 @@ class MultiSubjectPreextractedDataset(Dataset):
 
         nsd_id = int(self.index_df.iloc[idx]["nsdId"])
 
-        # Token-level targets (197376-D) override CLS embedding (768-D)
+        if self.dual_target:
+            cls_emb = self._get_cls_embedding(nsd_id)
+            token_emb = self.token_cache.get_flat(nsd_id)
+            return {
+                "fmri": torch.from_numpy(np.asarray(fmri, dtype=np.float32)),
+                "retrieval_target": torch.from_numpy(cls_emb),
+                "rich_target": torch.from_numpy(
+                    np.asarray(token_emb, dtype=np.float32)
+                ),
+                "subject_id": torch.tensor(subj_int, dtype=torch.long),
+                "nsd_id": torch.tensor(nsd_id, dtype=torch.long),
+            }
+
+        # --- Legacy tuple path ---
         if self.token_cache is not None:
-            embedding = self.token_cache.get_flat(nsd_id)  # (num_tokens * token_dim,)
+            embedding = self.token_cache.get_flat(nsd_id)
             fmri_t = torch.from_numpy(np.asarray(fmri, dtype=np.float32))
-            emb_t = torch.from_numpy(embedding)  # already float32
+            emb_t = torch.from_numpy(embedding)
             return fmri_t, emb_t, subj_int
 
         emb_idx = self.embedding_lookup.get(nsd_id)

@@ -1,0 +1,239 @@
+"""
+Two-stage retrieval pipeline for V30 triple-head architecture.
+
+Stage A (shortlist):
+    Uses compact retrieval space (e.g. 768-D L2-normed) to find the top-K
+    candidates per query.  Optionally applies CSLS correction.
+
+Stage B (rerank):
+    Reranks the shortlist using rich token-level predictions (e.g. 197376-D)
+    with cosine similarity (inputs are normalised internally).
+
+Reports:
+    - Shortlist recall at K
+    - Reranked R@1, R@5, R@10
+    - Hubness comparison between compact and rich spaces
+"""
+
+import logging
+from typing import Any, Dict, Optional, Sequence
+
+import numpy as np
+
+logger = logging.getLogger(__name__)
+
+
+def _cosine_sim(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """(N, D) x (M, D) -> (N, M) cosine similarity matrix."""
+    a_n = a / np.maximum(np.linalg.norm(a, axis=-1, keepdims=True), 1e-8)
+    b_n = b / np.maximum(np.linalg.norm(b, axis=-1, keepdims=True), 1e-8)
+    return a_n @ b_n.T
+
+
+def _csls_scores(
+    preds: np.ndarray, gallery: np.ndarray, k: int = 10,
+) -> np.ndarray:
+    """CSLS similarity: sim(p,g) - 0.5*(r_T(p) + r_S(g))."""
+    sim = _cosine_sim(preds, gallery)
+    top_k_pred = np.sort(sim, axis=1)[:, -k:].mean(axis=1, keepdims=True)
+    top_k_gal = np.sort(sim, axis=0)[-k:, :].mean(axis=0, keepdims=True)
+    return sim - 0.5 * (top_k_pred + top_k_gal)
+
+
+def shortlist_retrieval(
+    compact_preds: np.ndarray,
+    compact_gallery: np.ndarray,
+    k: int = 100,
+    use_csls: bool = True,
+    csls_k: int = 10,
+) -> np.ndarray:
+    """Stage A: build per-query shortlist from compact space.
+
+    Parameters
+    ----------
+    compact_preds : (N, D_compact) L2-normed query embeddings
+    compact_gallery : (M, D_compact) L2-normed gallery embeddings
+    k : shortlist size
+    use_csls : whether to use CSLS scoring
+    csls_k : neighbourhood size for CSLS
+
+    Returns
+    -------
+    shortlist_indices : (N, k) gallery indices per query, sorted by score desc
+    """
+    if use_csls:
+        scores = _csls_scores(compact_preds, compact_gallery, k=csls_k)
+    else:
+        scores = _cosine_sim(compact_preds, compact_gallery)
+
+    k_eff = min(k, scores.shape[1])
+    indices = np.argpartition(-scores, k_eff, axis=1)[:, :k_eff]
+    for i in range(len(indices)):
+        order = np.argsort(-scores[i, indices[i]])
+        indices[i] = indices[i, order]
+
+    return indices
+
+
+def rerank_shortlist(
+    rich_preds: np.ndarray,
+    rich_gallery: np.ndarray,
+    shortlist_indices: np.ndarray,
+    mode: str = "cosine",
+) -> np.ndarray:
+    """Stage B: rerank shortlist using rich-space similarity.
+
+    Both rich_preds and rich_gallery are normalised internally when
+    mode='cosine' (default).  mode='dot' skips normalisation.
+
+    Parameters
+    ----------
+    rich_preds : (N, D_rich) query embeddings
+    rich_gallery : (M, D_rich) gallery embeddings
+    shortlist_indices : (N, K) indices into gallery
+    mode : 'cosine' or 'dot'
+
+    Returns
+    -------
+    reranked_indices : (N, K) indices reordered by rich-space score desc
+    """
+    N, K = shortlist_indices.shape
+
+    if mode == "cosine":
+        rp = rich_preds / np.maximum(
+            np.linalg.norm(rich_preds, axis=-1, keepdims=True), 1e-8)
+        rg = rich_gallery / np.maximum(
+            np.linalg.norm(rich_gallery, axis=-1, keepdims=True), 1e-8)
+    else:
+        rp, rg = rich_preds, rich_gallery
+
+    reranked = np.zeros_like(shortlist_indices)
+    for i in range(N):
+        sl_idx = shortlist_indices[i]
+        sl_embs = rg[sl_idx]  # (K, D_rich)
+        sims = sl_embs @ rp[i]  # (K,)
+        order = np.argsort(-sims)
+        reranked[i] = sl_idx[order]
+
+    return reranked
+
+
+def _recall_at_k(
+    ranked_indices: np.ndarray,
+    ground_truth_indices: np.ndarray,
+    ks: Sequence[int],
+) -> Dict[str, float]:
+    """Compute recall@K given ranked retrieval indices.
+
+    ground_truth_indices[i] is the correct gallery index for query i.
+    Assumes identity mapping (GT index for query i is i) if
+    ground_truth_indices is None.
+    """
+    results = {}
+    N = ranked_indices.shape[0]
+    for k in ks:
+        k_eff = min(k, ranked_indices.shape[1])
+        correct = 0
+        for i in range(N):
+            gt = ground_truth_indices[i] if ground_truth_indices is not None else i
+            if gt in ranked_indices[i, :k_eff]:
+                correct += 1
+        results[f"r@{k}"] = correct / max(N, 1)
+    return results
+
+
+def _k_occurrence_stats(
+    ranked_indices: np.ndarray,
+    gallery_size: int,
+    k: int = 1,
+) -> Dict[str, float]:
+    """Hubness statistics from top-K occurrences."""
+    topk = ranked_indices[:, :k]
+    counts = np.bincount(topk.ravel(), minlength=gallery_size)
+    from scipy.stats import skew as sp_skew
+    return {
+        "skewness": float(sp_skew(counts)),
+        "hub_fraction": float((counts > (2 * k)).mean()),
+        "antihub_fraction": float((counts == 0).mean()),
+    }
+
+
+def two_stage_metrics(
+    compact_preds: np.ndarray,
+    compact_gts: np.ndarray,
+    rich_preds: np.ndarray,
+    rich_gts: np.ndarray,
+    shortlist_k: int = 100,
+    ks: Sequence[int] = (1, 5, 10),
+    use_csls_shortlist: bool = True,
+    rerank_mode: str = "cosine",
+) -> Dict[str, Any]:
+    """Full two-stage retrieval evaluation.
+
+    Assumes aligned samples: query i's ground truth is gallery index i
+    (i.e. preds and gts share the same ordering).
+
+    Returns a dict with shortlist recall, reranked recall, and hubness
+    comparison between compact and reranked results.
+    """
+    N = compact_preds.shape[0]
+    gt_indices = np.arange(N)
+
+    sl_indices = shortlist_retrieval(
+        compact_preds, compact_gts,
+        k=shortlist_k, use_csls=use_csls_shortlist,
+    )
+    sl_recall = _recall_at_k(sl_indices, gt_indices, ks=[shortlist_k])
+
+    reranked = rerank_shortlist(
+        rich_preds, rich_gts, sl_indices, mode=rerank_mode,
+    )
+    reranked_recall = _recall_at_k(reranked, gt_indices, ks=list(ks))
+
+    compact_raw_indices = shortlist_retrieval(
+        compact_preds, compact_gts,
+        k=max(ks), use_csls=False,
+    )
+    compact_recall = _recall_at_k(compact_raw_indices, gt_indices, ks=list(ks))
+
+    compact_csls_indices = shortlist_retrieval(
+        compact_preds, compact_gts,
+        k=max(ks), use_csls=True,
+    )
+    compact_csls_recall = _recall_at_k(compact_csls_indices, gt_indices, ks=list(ks))
+
+    compact_hub = _k_occurrence_stats(compact_raw_indices, N, k=1)
+    reranked_hub = _k_occurrence_stats(reranked, N, k=1)
+
+    report: Dict[str, Any] = {
+        "shortlist_k": shortlist_k,
+        "shortlist_recall": sl_recall,
+        "compact_raw": {f"compact_{k}": v for k, v in compact_recall.items()},
+        "compact_csls": {f"compact_csls_{k}": v for k, v in compact_csls_recall.items()},
+        "reranked": {f"reranked_{k}": v for k, v in reranked_recall.items()},
+        "hubness_compact": compact_hub,
+        "hubness_reranked": reranked_hub,
+        "hubness_gap_compact": round(
+            compact_csls_recall.get(f"r@{ks[0]}", 0)
+            - compact_recall.get(f"r@{ks[0]}", 0), 4),
+        "rerank_gain_over_compact_raw": round(
+            reranked_recall.get(f"r@{ks[0]}", 0)
+            - compact_recall.get(f"r@{ks[0]}", 0), 4),
+        "rerank_gain_over_csls": round(
+            reranked_recall.get(f"r@{ks[0]}", 0)
+            - compact_csls_recall.get(f"r@{ks[0]}", 0), 4),
+    }
+
+    logger.info(
+        "Two-stage retrieval: shortlist_recall@%d=%.1f%%  "
+        "reranked_R@1=%.1f%%  compact_raw_R@1=%.1f%%  "
+        "compact_csls_R@1=%.1f%%  rerank_gain=%.1f pp",
+        shortlist_k,
+        sl_recall.get(f"r@{shortlist_k}", 0) * 100,
+        reranked_recall.get("r@1", 0) * 100,
+        compact_recall.get("r@1", 0) * 100,
+        compact_csls_recall.get("r@1", 0) * 100,
+        report["rerank_gain_over_compact_raw"] * 100,
+    )
+
+    return report

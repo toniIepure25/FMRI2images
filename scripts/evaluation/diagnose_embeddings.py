@@ -333,6 +333,54 @@ def main() -> None:
     logger.info("Computing failure analysis...")
     report["failures"] = compute_failure_analysis(preds, gts)
 
+    # --- V30: kappa calibration (when kappas available) ---
+    _kappa_calib = None
+    if kappas is not None:
+        try:
+            from fmri2img.eval.kappa_diagnostics import compute_kappa_calibration_report
+            logger.info("Computing kappa calibration report...")
+            metrics_dir = results_dir / "metrics"
+            _rich_p_path = metrics_dir / "val_predictions_rich.npy"
+            _rich_g_path = metrics_dir / "val_ground_truth_rich.npy"
+            _rp = np.load(_rich_p_path) if _rich_p_path.exists() else None
+            _rg = np.load(_rich_g_path) if _rich_g_path.exists() else None
+            _kappa_calib = compute_kappa_calibration_report(
+                preds, gts, kappas, n_bins=args.kappa_bins,
+                rich_preds=_rp, rich_gts=_rg,
+            )
+            report["kappa_calibration"] = _kappa_calib
+            _kc_path = diag_dir / "kappa_calibration.json"
+            with open(_kc_path, "w") as f:
+                json.dump(_kappa_calib, f, indent=2)
+            logger.info("Saved kappa calibration to %s", _kc_path)
+        except Exception as e:
+            logger.warning("Kappa calibration failed: %s", e)
+
+    # --- V30: two-stage retrieval (when compact+rich files both exist) ---
+    _two_stage = None
+    metrics_dir = results_dir / "metrics"
+    _compact_p = metrics_dir / "val_predictions_compact.npy"
+    _compact_g = metrics_dir / "val_ground_truth_compact.npy"
+    _rich_p = metrics_dir / "val_predictions_rich.npy"
+    _rich_g = metrics_dir / "val_ground_truth_rich.npy"
+    if _compact_p.exists() and _compact_g.exists() and _rich_p.exists() and _rich_g.exists():
+        try:
+            from fmri2img.eval.two_stage_retrieval import two_stage_metrics
+            logger.info("Computing two-stage retrieval metrics...")
+            _cp = np.load(_compact_p)
+            _cg = np.load(_compact_g)
+            _rp = np.load(_rich_p)
+            _rg = np.load(_rich_g)
+            _two_stage = two_stage_metrics(_cp, _cg, _rp, _rg,
+                                           shortlist_k=100, ks=(1, 5, 10))
+            report["two_stage_retrieval"] = _two_stage
+            _ts_path = diag_dir / "two_stage_retrieval.json"
+            with open(_ts_path, "w") as f:
+                json.dump(_two_stage, f, indent=2)
+            logger.info("Saved two-stage retrieval report to %s", _ts_path)
+        except Exception as e:
+            logger.warning("Two-stage retrieval failed: %s", e)
+
     report_path = diag_dir / "report.json"
     with open(report_path, "w") as f:
         json.dump(report, f, indent=2)
@@ -357,6 +405,15 @@ def main() -> None:
     if kappas is not None:
         ka = report["kappa"]
         print(f"  Kappa (mean/std):  {ka['kappa_global_mean']:.1f} +/- {ka['kappa_global_std']:.1f}")
+    if _kappa_calib is not None:
+        print(f"  Kappa-rank rho:    {_kappa_calib['spearman_kappa_rank']['rho']:.3f}")
+        print(f"  Kappa-correct rho: {_kappa_calib['spearman_kappa_correct']['rho']:.3f}")
+    if _two_stage is not None:
+        _ts_r = _two_stage.get("reranked", {})
+        _ts_c = _two_stage.get("compact_raw", {})
+        print(f"  Compact raw R@1:   {_ts_c.get('compact_r@1', 0):.1%}")
+        print(f"  Reranked R@1:      {_ts_r.get('reranked_r@1', 0):.1%}")
+        print(f"  Rerank gain (pp):  {_two_stage.get('rerank_gain_over_compact_raw', 0)*100:.1f}")
     print(f"\n  Report: {report_path}")
     print(f"  Plots:  {diag_dir}/")
     print("=" * 60)

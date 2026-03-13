@@ -1,0 +1,156 @@
+# N1v30a: Triple-Head VMF — Compact Retrieval + Rich Regression
+#
+# V30 Wave 1 architecture: separates retrieval from reconstruction.
+#   Head A: compact vMF retrieval (768-D mu + kappa) — contrastive losses
+#   Head B: rich regression (197376-D) — MSE loss
+#   Head C: perceptual (disabled in Wave 1)
+#
+# Data: dual_target mode returns both CLS (768-D) and token (197376-D) targets.
+# Contrastive losses (vMF-NCE, SoftCLIP, MixCo) operate ONLY on compact head.
+# Regression MSE operates ONLY on rich head.
+#
+# Key change vs V29b: contrastive losses now in 768-D (was 197376-D).
+# This should reduce hubness and improve raw R@1.
+# Queue entries are 768-D (vs 197376-D), so queue can be much larger.
+#
+# Param count:
+#   Encoder: ~555M (same as V29b)
+#   Shared backbone: ~4.2M (2048->2048)
+#   Retrieval mu+kappa: ~1.6M (2048->768 + 2048->1)
+#   Regression: ~404M (2048->197376)
+#   Total: ~965M
+#
+# Run:
+#   make ablation ONLY=N1v30a SUBJECTS=subj01 GPU=0
+
+experiment:
+  name: "N1v30a_compact_retrieval"
+  description: "V30a: Triple-head vMF — compact retrieval (768-D) + rich regression (197K-D)"
+  tags: ["vmf_triple", "v30", "compact_retrieval", "regression",
+         "token_targets", "dual_target", "wave1"]
+  parent: "N1v29b_finetune"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+  dual_target: true
+
+model:
+  type: "vmf_triple"
+  posterior: "vmf"
+  pretrained_encoder_path: "experimental_results/N1v29a_cross_subject/subj01/checkpoint_best.pt"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.25
+    use_residual: true
+  decoder:
+    retrieval_dim: 768
+    num_tokens: 257
+    token_dim_per: 768
+    perceptual_enabled: false
+    perceptual_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.25
+    kappa_mode: "softplus"
+    kappa_min: 0.001
+    kappa_max: 500.0
+
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  regression_mse:
+    enabled: true
+    weight: 0.5
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384    # 768-D entries (4× larger than V29b's 4096 @ 197K-D)
+
+training:
+  batch_size: 16
+  gradient_accumulation_steps: 16
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 300
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 30
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 40
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

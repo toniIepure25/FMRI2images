@@ -466,6 +466,30 @@ class UnifiedModel(nn.Module):
                     token_dim=_token_dim,
                     regression_head=_regression_head,
                 )
+        elif self.model_type == "vmf_triple":
+            from fmri2img.models.triple_head_decoder import TripleHeadVMFDecoder
+            self.vmf_output_is_log = False
+            _retrieval_dim = decoder_cfg.get("retrieval_dim", 768)
+            _token_dim_total = decoder_cfg.get("token_dim")
+            if _token_dim_total is None:
+                _n_tok = decoder_cfg.get("num_tokens", 257)
+                _d_tok = decoder_cfg.get("token_dim_per", 768)
+                _token_dim_total = _n_tok * _d_tok
+            _perc_enabled = decoder_cfg.get("perceptual_enabled", False)
+            _perc_dim = decoder_cfg.get("perceptual_dim", 768)
+            self.decoder = TripleHeadVMFDecoder(
+                input_dim=latent_dim,
+                retrieval_dim=_retrieval_dim,
+                token_dim=_token_dim_total,
+                perceptual_dim=_perc_dim,
+                perceptual_enabled=_perc_enabled,
+                hidden_dims=decoder_cfg.get("hidden_dims", [2048]),
+                activation=decoder_cfg.get("activation", "gelu"),
+                dropout=decoder_cfg.get("dropout", 0.1),
+                kappa_min=decoder_cfg.get("kappa_min", 1e-3),
+                kappa_max=decoder_cfg.get("kappa_max", 500.0),
+                kappa_mode=decoder_cfg.get("kappa_mode", "softplus"),
+            )
         elif self.model_type == "vmf_dcf":
             if encoder_type not in ("roi_transformer", "multi_subject_roi_transformer"):
                 raise ValueError(
@@ -613,11 +637,17 @@ class UnifiedModel(nn.Module):
             return self.decoder(h), None
         elif self.model_type == "gaussian":
             return self.decoder(h, **kwargs)
-        else:  # vmf
+        elif self.model_type == "vmf_triple":
+            from fmri2img.models.triple_head_decoder import TripleHeadOutput
+            dec_out: TripleHeadOutput = self.decoder(h)
+            self._last_compact_pred = dec_out.mu
+            self._last_rich_pred = dec_out.reg_pred
+            self._last_perc_pred = dec_out.perc_pred
+            self._last_reg_pred = dec_out.reg_pred
+            return dec_out.mu, dec_out.kappa
+        else:  # vmf, vmf_dcf handled above
             dec_out = self.decoder(h)
             if len(dec_out) == 3:
-                # Dual-head: (mu, kappa, reg_pred) — store reg_pred for
-                # training loop access, return (mu, kappa) for compatibility
                 mu, kappa, reg_pred = dec_out
                 self._last_reg_pred = reg_pred
                 return mu, kappa

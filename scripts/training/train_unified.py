@@ -402,6 +402,15 @@ class PreextractedNSDDataset(Dataset):
     (shape ``(T, D)`` per image) and are returned **flat** ``(T*D,)``.
     The Parquet ``embeddings_df`` is still needed for nsdId lookup but
     the embedding column is ignored.
+
+    When *dual_target* is ``True`` **and** a *token_cache* is available,
+    each sample is returned as a **dict** with explicit keys::
+
+        {"fmri": Tensor, "retrieval_target": Tensor, "rich_target": Tensor,
+         "subject_id": Tensor(long), "nsd_id": Tensor(long)}
+
+    This replaces the fragile positional-tuple convention.  When
+    ``dual_target=False`` the legacy tuple interface is preserved.
     """
 
     def __init__(
@@ -411,11 +420,19 @@ class PreextractedNSDDataset(Dataset):
         embeddings_df: pd.DataFrame,
         average_repetitions: bool = False,
         token_cache=None,
+        dual_target: bool = False,
     ):
         self.features = np.load(features_path, mmap_mode=None)  # (N, V) float32
         self.index_df = index_df.reset_index(drop=True)
         self.embeddings_df = embeddings_df
         self.token_cache = token_cache  # Optional[TokenCLIPCache]
+        self.dual_target = dual_target
+
+        if dual_target and token_cache is None:
+            raise ValueError(
+                "dual_target=True requires a token_cache (HDF5 token targets). "
+                "Set data.token_cache_path in your config."
+            )
 
         if len(self.features) != len(self.index_df):
             raise ValueError(
@@ -448,26 +465,46 @@ class PreextractedNSDDataset(Dataset):
             self.embedding_lookup = {i: i for i in range(len(embeddings_df))}
 
         logger.info(
-            "PreextractedNSDDataset: %d trials, %d voxels (%.2f GB in RAM)",
-            *self.features.shape, self.features.nbytes / 1e9,
+            "PreextractedNSDDataset: %d trials, %d voxels (%.2f GB in RAM), dual_target=%s",
+            *self.features.shape, self.features.nbytes / 1e9, dual_target,
         )
 
     def __len__(self) -> int:
         return len(self.features)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        fmri = self.features[idx]
+    def _get_cls_embedding(self, nsd_id: int) -> np.ndarray:
+        """Return the CLS/pooled embedding (768-D) from embeddings_df."""
+        emb_idx = self.embedding_lookup.get(nsd_id)
+        if emb_idx is None:
+            raise KeyError(
+                f"nsdId={nsd_id} not found in CLIP cache "
+                f"({len(self.embedding_lookup)} entries)"
+            )
+        col = resolve_embedding_column(self.embeddings_df, _EMBEDDING_COLUMN_OVERRIDE)
+        return np.asarray(self.embeddings_df.iloc[emb_idx][col], dtype=np.float32)
 
-        nsdId = self.index_df.iloc[idx]["nsdId"]
+    def __getitem__(self, idx: int):
+        fmri = self.features[idx]
+        nsd_id = int(self.index_df.iloc[idx]["nsdId"])
+
+        if self.dual_target:
+            cls_emb = self._get_cls_embedding(nsd_id)
+            token_emb = self.token_cache.get_flat(nsd_id)
+            return {
+                "fmri": torch.from_numpy(np.asarray(fmri, dtype=np.float32)),
+                "retrieval_target": torch.from_numpy(cls_emb),
+                "rich_target": torch.from_numpy(np.asarray(token_emb, dtype=np.float32)),
+                "subject_id": torch.tensor(0, dtype=torch.long),
+                "nsd_id": torch.tensor(nsd_id, dtype=torch.long),
+            }
 
         if self.token_cache is not None:
-            # Token mode — return flat (T*D,) from HDF5 cache
-            embedding = self.token_cache.get_flat(int(nsdId))
+            embedding = self.token_cache.get_flat(nsd_id)
         else:
-            emb_idx = self.embedding_lookup.get(nsdId)
+            emb_idx = self.embedding_lookup.get(nsd_id)
             if emb_idx is None:
                 raise KeyError(
-                    f"nsdId={nsdId} not found in CLIP cache "
+                    f"nsdId={nsd_id} not found in CLIP cache "
                     f"({len(self.embedding_lookup)} entries)"
                 )
 
@@ -852,23 +889,51 @@ def train_epoch(
     model_type = getattr(model, "model_type", "deterministic")
 
     optimizer.zero_grad()
+    _is_vmf_triple = model_type == "vmf_triple"
     pbar = tqdm(dataloader, desc="Training")
     for step_in_epoch, batch in enumerate(pbar):
         hier_targets = None
-        if len(batch) == 4:
+        _rich_target = None
+        _batch_nsd_ids = None
+
+        # --- Dict-batch (dual_target mode for vmf_triple) ---
+        if isinstance(batch, dict):
+            fmri = batch["fmri"].to(device, dtype=torch.float32)
+            gt_embedding = batch["retrieval_target"].to(device, dtype=torch.float32)
+            _rich_target = batch["rich_target"].to(device, dtype=torch.float32)
+            subject_ids = batch["subject_id"].to(device)
+            _batch_nsd_ids = batch["nsd_id"]
+
+            if step_in_epoch == 0 and _is_vmf_triple:
+                _rd = gt_embedding.shape[-1]
+                _td = _rich_target.shape[-1]
+                _dec = getattr(model, "decoder", None)
+                if _dec is not None:
+                    assert _rd == _dec.retrieval_dim, (
+                        f"retrieval_target dim ({_rd}) != decoder.retrieval_dim ({_dec.retrieval_dim})"
+                    )
+                    assert _td == _dec.token_dim, (
+                        f"rich_target dim ({_td}) != decoder.token_dim ({_dec.token_dim})"
+                    )
+        # --- Legacy tuple batch ---
+        elif len(batch) == 4:
             fmri, gt_embedding, subject_ids, hier_targets = batch
             subject_ids = subject_ids.to(device)
+            fmri = fmri.to(device, dtype=torch.float32)
+            gt_embedding = gt_embedding.to(device, dtype=torch.float32)
+            if hier_targets is not None:
+                hier_targets = {k: v.to(device, dtype=torch.float32)
+                                for k, v in hier_targets.items()}
         elif len(batch) == 3:
             fmri, gt_embedding, subject_ids = batch
             subject_ids = subject_ids.to(device)
+            fmri = fmri.to(device, dtype=torch.float32)
+            gt_embedding = gt_embedding.to(device, dtype=torch.float32)
         else:
             fmri, gt_embedding = batch
             subject_ids = None
-        fmri = fmri.to(device, dtype=torch.float32)
-        gt_embedding = gt_embedding.to(device, dtype=torch.float32)
-        if hier_targets is not None:
-            hier_targets = {k: v.to(device, dtype=torch.float32)
-                           for k, v in hier_targets.items()}
+            fmri = fmri.to(device, dtype=torch.float32)
+            gt_embedding = gt_embedding.to(device, dtype=torch.float32)
 
         # fMRI noise augmentation: Gaussian noise to reduce overfitting
         _noise_std = (config_ref or {}).get("training", {}).get("fmri_noise_std", 0)
@@ -897,7 +962,7 @@ def train_epoch(
             batch_metrics: Dict[str, float] = {}
 
             is_gaussian = model_type == "gaussian" and aux is not None
-            is_vmf = model_type in ("vmf", "vmf_dcf") and aux is not None
+            is_vmf = model_type in ("vmf", "vmf_dcf", "vmf_triple") and aux is not None
 
             # Projection head for KD losses (SoftCLIP, MixCo) only.
             # vMF-NCE uses raw pred so kappa gets proper gradient flow
@@ -1017,12 +1082,13 @@ def train_epoch(
             if queue is not None:
                 queue.enqueue(gt_embedding.detach())
 
-            # --- Dual-head regression MSE (V28: un-normalised output) ---
+            # --- Dual-head / triple-head regression MSE ---
             _reg_pred = getattr(model, "_last_reg_pred", None)
             _reg_mse_cfg = (config_ref or {}).get("loss", {}).get("regression_mse", {})
             if _reg_mse_cfg.get("enabled", False) and _reg_pred is not None:
                 _reg_mse_w = loss_weights.get("regression_mse", _reg_mse_cfg.get("weight", 1.0))
-                _reg_loss = F.mse_loss(_reg_pred, gt_embedding, reduction="mean")
+                _reg_target = _rich_target if _rich_target is not None else gt_embedding
+                _reg_loss = F.mse_loss(_reg_pred, _reg_target, reduction="mean")
                 total_loss = total_loss + _reg_mse_w * _reg_loss
                 batch_metrics["reg_mse"] = _reg_loss.item()
 
@@ -1180,17 +1246,25 @@ def mc_dropout_tta(
     for sample_idx in range(n_samples):
         batch_preds, batch_kappas = [], []
         for batch in dataloader:
-            if len(batch) == 4:
+            if isinstance(batch, dict):
+                fmri = batch["fmri"].to(device, dtype=torch.float32)
+                gt_embedding = batch["retrieval_target"].to(device, dtype=torch.float32)
+                subject_ids = batch["subject_id"].to(device)
+            elif len(batch) == 4:
                 fmri, gt_embedding, subject_ids, _ = batch
                 subject_ids = subject_ids.to(device)
+                fmri = fmri.to(device, dtype=torch.float32)
+                gt_embedding = gt_embedding.to(device, dtype=torch.float32)
             elif len(batch) == 3:
                 fmri, gt_embedding, subject_ids = batch
                 subject_ids = subject_ids.to(device)
+                fmri = fmri.to(device, dtype=torch.float32)
+                gt_embedding = gt_embedding.to(device, dtype=torch.float32)
             else:
                 fmri, gt_embedding = batch
                 subject_ids = None
-            fmri = fmri.to(device, dtype=torch.float32)
-            gt_embedding = gt_embedding.to(device, dtype=torch.float32)
+                fmri = fmri.to(device, dtype=torch.float32)
+                gt_embedding = gt_embedding.to(device, dtype=torch.float32)
 
             if preprocessor is not None:
                 gt_np = gt_embedding.cpu().numpy()
@@ -1205,7 +1279,7 @@ def mc_dropout_tta(
                 )
                 pred, aux = (output if isinstance(output, tuple) else (output, None))
                 batch_preds.append(pred.cpu().numpy())
-                if aux is not None and model_type in ("vmf", "vmf_dcf"):
+                if aux is not None and model_type in ("vmf", "vmf_dcf", "vmf_triple"):
                     k = aux.squeeze(-1)
                     if vmf_is_log:
                         k = k.exp()
@@ -1352,8 +1426,11 @@ def _evaluate_shared1000(
     n_images = len(unique_ids)
 
     model_type = getattr(model, "model_type", "deterministic")
-    is_vmf_model = model_type in ("vmf", "vmf_dcf")
+    is_vmf_model = model_type in ("vmf", "vmf_dcf", "vmf_triple")
     model.eval()
+
+    _is_triple = model_type == "vmf_triple"
+    _all_rich_preds_s1000: List[np.ndarray] = []
 
     if is_vmf_model:
         # --- vMF path: run ALL individual trials, fuse with kappa weights ---
@@ -1377,6 +1454,10 @@ def _evaluate_shared1000(
                     if vmf_is_log:
                         k = k.exp()
                     all_kappas.append(k.cpu().numpy())
+                if _is_triple:
+                    _rp = getattr(model, "_last_rich_pred", None)
+                    if _rp is not None:
+                        _all_rich_preds_s1000.append(_rp.detach().cpu().numpy())
 
         trial_preds = np.concatenate(all_preds)
         trial_kappas = np.concatenate(all_kappas) if all_kappas else None
@@ -1426,8 +1507,37 @@ def _evaluate_shared1000(
         preds_avg = None
 
     # --- Ground-truth CLIP embeddings ---
-    if token_cache is not None:
-        # Token mode: load flat (T*D,) vectors from HDF5 cache
+    # vmf_triple: compact preds are in retrieval_dim space (e.g. 768-D CLS).
+    # Use CLS GTs regardless of token_cache, since retrieval is in compact space.
+    # Also build rich GTs from token_cache if available for two-stage.
+    _rich_gts_s1000: Optional[np.ndarray] = None
+    if _is_triple:
+        emb_col = resolve_embedding_column(embeddings_df, _EMBEDDING_COLUMN_OVERRIDE)
+        emb_lookup: Dict[int, int] = {}
+        if "nsdId" in embeddings_df.columns:
+            for i, (_, row) in enumerate(embeddings_df.iterrows()):
+                emb_lookup[int(row["nsdId"])] = i
+        gts = np.zeros((n_images, preds.shape[1]), dtype=np.float32)
+        missing = 0
+        for i, uid in enumerate(unique_ids):
+            idx = emb_lookup.get(int(uid))
+            if idx is not None:
+                gts[i] = np.asarray(embeddings_df.iloc[idx][emb_col], dtype=np.float32)
+            else:
+                missing += 1
+        if missing > 0:
+            logger.warning("Shared1000 eval (compact GT): %d/%d missing", missing, n_images)
+
+        if token_cache is not None and _all_rich_preds_s1000:
+            trial_rich = np.concatenate(_all_rich_preds_s1000)
+            _rich_preds_img = np.zeros((n_images, trial_rich.shape[1]), dtype=np.float32)
+            _rich_gts_s1000 = np.zeros_like(_rich_preds_img)
+            for i, uid in enumerate(unique_ids):
+                mask = nsd_ids == uid
+                _rich_preds_img[i] = trial_rich[mask].mean(axis=0)
+                if int(uid) in token_cache:
+                    _rich_gts_s1000[i] = token_cache.get_flat(int(uid))
+    elif token_cache is not None:
         gts = np.zeros((n_images, preds.shape[1]), dtype=np.float32)
         missing = 0
         for i, uid in enumerate(unique_ids):
@@ -1506,6 +1616,13 @@ def _evaluate_shared1000(
         metrics["r@1"], metrics["r@5"], metrics["r@10"], metrics["csls_r@1"],
         metrics["median_rank"], metrics["mrr"], mean_pos_sim, n_images, n_raw,
     )
+
+    if _is_triple:
+        metrics["_space"] = "compact"
+        if _rich_gts_s1000 is not None:
+            metrics["_rich_preds"] = _rich_preds_img
+            metrics["_rich_gts"] = _rich_gts_s1000
+
     return metrics, preds, gts
 
 
@@ -1525,20 +1642,34 @@ def validate(
     model_type = getattr(model, "model_type", "deterministic")
     all_preds: List[np.ndarray] = []
     all_gts: List[np.ndarray] = []
+    all_rich_preds: List[np.ndarray] = []
+    all_rich_gts: List[np.ndarray] = []
+    all_nsd_ids: List[np.ndarray] = []
 
     with torch.no_grad():
         for batch in dataloader:
-            if len(batch) == 4:
+            _rich_target = None
+            if isinstance(batch, dict):
+                fmri = batch["fmri"].to(device, dtype=torch.float32)
+                gt_embedding = batch["retrieval_target"].to(device, dtype=torch.float32)
+                _rich_target = batch["rich_target"].to(device, dtype=torch.float32)
+                subject_ids = batch["subject_id"].to(device)
+                all_nsd_ids.append(batch["nsd_id"].numpy())
+            elif len(batch) == 4:
                 fmri, gt_embedding, subject_ids, _ = batch
                 subject_ids = subject_ids.to(device)
+                fmri = fmri.to(device, dtype=torch.float32)
+                gt_embedding = gt_embedding.to(device, dtype=torch.float32)
             elif len(batch) == 3:
                 fmri, gt_embedding, subject_ids = batch
                 subject_ids = subject_ids.to(device)
+                fmri = fmri.to(device, dtype=torch.float32)
+                gt_embedding = gt_embedding.to(device, dtype=torch.float32)
             else:
                 fmri, gt_embedding = batch
                 subject_ids = None
-            fmri = fmri.to(device, dtype=torch.float32)
-            gt_embedding = gt_embedding.to(device, dtype=torch.float32)
+                fmri = fmri.to(device, dtype=torch.float32)
+                gt_embedding = gt_embedding.to(device, dtype=torch.float32)
 
             if preprocessor is not None:
                 gt_embedding_np = gt_embedding.cpu().numpy()
@@ -1554,10 +1685,17 @@ def validate(
             all_preds.append(pred.detach().cpu().numpy())
             all_gts.append(gt_embedding.detach().cpu().numpy())
 
+            # Collect rich-space predictions when triple-head active
+            _reg_pred_for_rich = getattr(model, "_last_rich_pred", None)
+            if _reg_pred_for_rich is not None:
+                all_rich_preds.append(_reg_pred_for_rich.detach().cpu().numpy())
+            if _rich_target is not None:
+                all_rich_gts.append(_rich_target.detach().cpu().numpy())
+
             total_loss = torch.tensor(0.0, device=device, dtype=torch.float32)
             bm: Dict[str, float] = {}
             is_gaussian = model_type == "gaussian" and aux is not None
-            is_vmf = model_type in ("vmf", "vmf_dcf") and aux is not None
+            is_vmf = model_type in ("vmf", "vmf_dcf", "vmf_triple") and aux is not None
 
             if "mse" in losses and not is_gaussian:
                 l = losses["mse"](pred, gt_embedding)
@@ -1618,11 +1756,12 @@ def validate(
                 bm["mt_fused"] = mt_fused.item()
                 bm["mt_aux"] = mt_aux.item()
 
-            # --- Dual-head regression MSE (V28) ---
+            # --- Dual-head / triple-head regression MSE ---
             _reg_pred_val = getattr(model, "_last_reg_pred", None)
             if _reg_pred_val is not None:
                 _reg_mse_w = loss_weights.get("regression_mse", 1.0)
-                _reg_l = F.mse_loss(_reg_pred_val, gt_embedding, reduction="mean")
+                _val_reg_target = _rich_target if _rich_target is not None else gt_embedding
+                _reg_l = F.mse_loss(_reg_pred_val, _val_reg_target, reduction="mean")
                 total_loss = total_loss + _reg_mse_w * _reg_l
                 bm["reg_mse"] = _reg_l.item()
 
@@ -1647,7 +1786,19 @@ def validate(
                 epoch_metrics.setdefault(k, []).append(v)
 
     loss_metrics = {k: float(np.mean(v)) for k, v in epoch_metrics.items()}
-    return loss_metrics, np.concatenate(all_preds), np.concatenate(all_gts)
+    val_preds = np.concatenate(all_preds)
+    val_gts = np.concatenate(all_gts)
+
+    _extras: Dict[str, np.ndarray] = {}
+    if all_rich_preds:
+        _extras["rich_preds"] = np.concatenate(all_rich_preds)
+    if all_rich_gts:
+        _extras["rich_gts"] = np.concatenate(all_rich_gts)
+    if all_nsd_ids:
+        _extras["nsd_ids"] = np.concatenate(all_nsd_ids)
+    loss_metrics["_val_extras"] = _extras
+
+    return loss_metrics, val_preds, val_gts
 
 
 # ---------------------------------------------------------------------------
@@ -1940,6 +2091,7 @@ def main() -> None:
         _data_seed = config["data"].get("seed", 42)
 
         _avg_reps_multi = config["data"].get("average_repetitions", False)
+        _dual_target = config.get("data", {}).get("dual_target", False)
         full_dataset = MultiSubjectPreextractedDataset(
             subjects=_multi_subjects,
             cache_root=Path(cache_root) / "preextracted",
@@ -1952,17 +2104,21 @@ def main() -> None:
             seed=_data_seed,
             average_repetitions=_avg_reps_multi,
             token_cache=_token_cache,
+            dual_target=_dual_target,
         )
         logger.info("Multi-subject dataset: %d subjects, %d total trials",
                      full_dataset.n_subjects, len(full_dataset))
 
     elif preextracted_path.exists():
         avg_reps = config["data"].get("average_repetitions", False)
-        logger.info("Using pre-extracted features: %s (avg_reps=%s)", preextracted_path, avg_reps)
+        _dual_target = config.get("data", {}).get("dual_target", False)
+        logger.info("Using pre-extracted features: %s (avg_reps=%s, dual_target=%s)",
+                     preextracted_path, avg_reps, _dual_target)
         full_dataset = PreextractedNSDDataset(
             preextracted_path, index_df, embeddings_df,
             average_repetitions=avg_reps,
             token_cache=_token_cache,
+            dual_target=_dual_target,
         )
     else:
         logger.warning(
@@ -1978,11 +2134,20 @@ def main() -> None:
             full_dataset = NSDDataset(index_df, embeddings_df)
 
     sample = full_dataset[0]
-    sample_fmri = sample[0]
-    sample_emb = sample[1]
-    fmri_dim = sample_fmri.shape[0]
-    embedding_dim = sample_emb.shape[0]
-    logger.info("Dimensions: fMRI=%d, Embedding=%d", fmri_dim, embedding_dim)
+    _dual_target_mode = isinstance(sample, dict)
+    if _dual_target_mode:
+        sample_fmri = sample["fmri"]
+        fmri_dim = sample_fmri.shape[0]
+        embedding_dim = sample["retrieval_target"].shape[0]
+        _rich_dim = sample["rich_target"].shape[0]
+        logger.info("Dimensions: fMRI=%d, Retrieval=%d, Rich=%d (dual_target)",
+                     fmri_dim, embedding_dim, _rich_dim)
+    else:
+        sample_fmri = sample[0]
+        sample_emb = sample[1]
+        fmri_dim = sample_fmri.shape[0]
+        embedding_dim = sample_emb.shape[0]
+        logger.info("Dimensions: fMRI=%d, Embedding=%d", fmri_dim, embedding_dim)
 
     # --- Model ---
     model_config = config["model"]
@@ -3203,20 +3368,25 @@ def main() -> None:
     if ema is not None and _loaded_ckpt_for_save:
         ema.apply_shadow(model)
 
-    _, _save_preds, _save_gts = validate(
+    _val_metrics_extra, _save_preds, _save_gts = validate(
         model, val_loader, losses, loss_weights, device, preprocessor, queue,
         vmf_is_log=_vmf_is_log,
     )
+    _val_extras = _val_metrics_extra.pop("_val_extras", {})
 
     _save_model_type = getattr(model, "model_type", "deterministic")
     _save_kappas = None
-    if _save_model_type in ("vmf", "vmf_dcf"):
+    if _save_model_type in ("vmf", "vmf_dcf", "vmf_triple"):
         model.eval()
         _kappa_list: List[np.ndarray] = []
         with torch.no_grad():
             for _sb in val_loader:
-                _s_fmri = _sb[0].to(device, dtype=torch.float32)
-                _s_sid = _sb[2].to(device) if _is_multi_subject and len(_sb) >= 3 else None
+                if isinstance(_sb, dict):
+                    _s_fmri = _sb["fmri"].to(device, dtype=torch.float32)
+                    _s_sid = _sb["subject_id"].to(device)
+                else:
+                    _s_fmri = _sb[0].to(device, dtype=torch.float32)
+                    _s_sid = _sb[2].to(device) if _is_multi_subject and len(_sb) >= 3 else None
                 _s_out = model(_s_fmri, subject_ids=_s_sid) if _s_sid is not None else model(_s_fmri)
                 if isinstance(_s_out, tuple) and len(_s_out) >= 2:
                     _s_aux = _s_out[1]
@@ -3263,6 +3433,33 @@ def main() -> None:
         np.save(_metrics_save_dir / "val_kappas.npy", _save_kappas)
         logger.info("Saved val kappas %s to %s", _save_kappas.shape, _metrics_save_dir)
 
+    # --- V30 compact/rich separated outputs for vmf_triple ---
+    if _save_model_type == "vmf_triple":
+        np.save(_metrics_save_dir / "val_predictions_compact.npy", _save_preds)
+        np.save(_metrics_save_dir / "val_ground_truth_compact.npy", _save_gts)
+        logger.info("Saved compact val predictions %s", _save_preds.shape)
+        if "rich_preds" in _val_extras and "rich_gts" in _val_extras:
+            _rp = _val_extras["rich_preds"]
+            _rg = _val_extras["rich_gts"]
+            if _val_nsd_ids is not None:
+                _u_ids_r = np.unique(_val_nsd_ids)
+                _rp_img = np.zeros((len(_u_ids_r), _rp.shape[1]), dtype=np.float32)
+                _rg_img = np.zeros((len(_u_ids_r), _rg.shape[1]), dtype=np.float32)
+                for i, uid in enumerate(_u_ids_r):
+                    _m = _val_nsd_ids == uid
+                    _rp_img[i] = _rp[_m].mean(axis=0)
+                    _rg_img[i] = _rg[_m][0]
+                _rp, _rg = _rp_img, _rg_img
+            np.save(_metrics_save_dir / "val_predictions_rich.npy", _rp)
+            np.save(_metrics_save_dir / "val_ground_truth_rich.npy", _rg)
+            logger.info("Saved rich val predictions %s", _rp.shape)
+        if "nsd_ids" in _val_extras:
+            _nids = _val_extras["nsd_ids"]
+            if _val_nsd_ids is not None:
+                _nids = np.unique(_val_nsd_ids)
+            np.save(_metrics_save_dir / "val_nsd_ids.npy", _nids)
+            logger.info("Saved val nsd_ids %s", _nids.shape)
+
     # --- Shared1000 benchmark evaluation ---
     _do_s1000 = config.get("evaluation", {}).get("eval_shared1000", True)
     if _do_s1000:
@@ -3284,6 +3481,11 @@ def main() -> None:
         )
         if _s1000_result is not None:
             _s1000_metrics, _s1000_preds, _s1000_gts = _s1000_result
+
+            _s1000_rich_preds = _s1000_metrics.pop("_rich_preds", None)
+            _s1000_rich_gts = _s1000_metrics.pop("_rich_gts", None)
+            _s1000_space = _s1000_metrics.pop("_space", None)
+
             _s1000_json_path = _metrics_save_dir / "shared1000_metrics.json"
             with open(_s1000_json_path, "w") as _jf:
                 json.dump(_s1000_metrics, _jf, indent=2)
@@ -3296,6 +3498,36 @@ def main() -> None:
                 _s1000_metrics["csls_r@1"] * 100,
                 _s1000_metrics["gallery_size"],
             )
+
+            if _s1000_space == "compact":
+                _s1000_compact_path = _metrics_save_dir / "shared1000_metrics_compact.json"
+                with open(_s1000_compact_path, "w") as _jf:
+                    json.dump(_s1000_metrics, _jf, indent=2)
+                np.save(_metrics_save_dir / "shared1000_predictions_compact.npy", _s1000_preds)
+                np.save(_metrics_save_dir / "shared1000_ground_truth_compact.npy", _s1000_gts)
+                logger.info("Saved compact shared1000 metrics to %s", _s1000_compact_path)
+                if _s1000_rich_preds is not None and _s1000_rich_gts is not None:
+                    np.save(_metrics_save_dir / "shared1000_predictions_rich.npy", _s1000_rich_preds)
+                    np.save(_metrics_save_dir / "shared1000_ground_truth_rich.npy", _s1000_rich_gts)
+                    _rich_ret = _compute_retrieval(
+                        _s1000_rich_preds / np.maximum(
+                            np.linalg.norm(_s1000_rich_preds, axis=-1, keepdims=True), 1e-8),
+                        _s1000_rich_gts / np.maximum(
+                            np.linalg.norm(_s1000_rich_gts, axis=-1, keepdims=True), 1e-8),
+                        ks=(1, 5, 10),
+                    )
+                    _rich_metrics = {
+                        "benchmark": "shared1000_rich",
+                        "gallery_size": _s1000_metrics["gallery_size"],
+                        "rich_r@1": float(_rich_ret["top1_accuracy"]),
+                        "rich_r@5": float(_rich_ret["top5_accuracy"]),
+                        "rich_r@10": float(_rich_ret["top10_accuracy"]),
+                        "rich_median_rank": float(_rich_ret["median_rank"]),
+                    }
+                    with open(_metrics_save_dir / "shared1000_metrics_rich.json", "w") as _jf:
+                        json.dump(_rich_metrics, _jf, indent=2)
+                    logger.info("Saved rich shared1000 metrics: R@1=%.1f%%",
+                                _rich_metrics["rich_r@1"] * 100)
         else:
             logger.info("Shared1000 evaluation skipped (data unavailable)")
         logger.info("=" * 60)

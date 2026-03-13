@@ -219,9 +219,14 @@ class MultiSubjectPreextractedDataset(Dataset):
         self._feat_local_idx = self.index_df["_local_feat_idx"].values.astype(np.int64)
 
     def _split_by_image(self) -> None:
-        """Image-level train/val split (no stimulus leakage)."""
-        rng = np.random.RandomState(self.seed)
-        unique_nsd = self.index_df["nsdId"].unique()
+        """Image-level train/val split (no stimulus leakage).
+
+        Uses sorted nsdIds + ``np.random.default_rng`` (PCG64) to match the
+        single-subject split path in ``train_unified.py``, ensuring identical
+        val sets across cross-subject (V29a) and fine-tune (V29b) phases.
+        """
+        rng = np.random.default_rng(self.seed)
+        unique_nsd = np.sort(self.index_df["nsdId"].unique())
         rng.shuffle(unique_nsd)
 
         n_val = max(1, int(len(unique_nsd) * self.val_ratio))

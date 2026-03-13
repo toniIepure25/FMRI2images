@@ -41,6 +41,7 @@ data:
   zscore_mode: "per_session"
   embedding_column: "fused"
   seed: 42
+  split_file: "experimental_results/N1v29a_cross_subject/subj01/split.json"
   token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
 
 model:

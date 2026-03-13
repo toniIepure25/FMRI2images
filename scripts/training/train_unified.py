@@ -1692,8 +1692,6 @@ def save_checkpoint(
     }
     if ema is not None:
         payload["ema_shadow"] = {k: v.cpu() for k, v in ema.shadow.items()}
-    import shutil
-    import tempfile
     for _attempt in range(3):
         try:
             torch.save(payload, path)
@@ -1706,17 +1704,7 @@ def save_checkpoint(
                 )
                 time.sleep(2)
             else:
-                logger.warning(
-                    "All direct saves failed — writing to /tmp then copying"
-                )
-                _tmp_fd, _tmp_path = tempfile.mkstemp(suffix=".pt")
-                os.close(_tmp_fd)
-                try:
-                    torch.save(payload, _tmp_path)
-                    shutil.copy2(_tmp_path, str(path))
-                finally:
-                    if os.path.exists(_tmp_path):
-                        os.remove(_tmp_path)
+                raise
 
 
 def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimizer,
@@ -2225,17 +2213,53 @@ def main() -> None:
     split_by_image = config["data"].get("split_by_image", False)
     exclude_shared1000 = config["data"].get("exclude_shared1000", False)
     data_seed = config["data"].get("seed", 42)
+    _split_file = config["data"].get("split_file")
+    _split_nsd_ids_used: dict | None = None
 
-    if hasattr(full_dataset, "train_indices") and full_dataset.train_indices is not None:
+    # --- Try loading a pre-computed split file (cross-phase consistency) ---
+    if _split_file and os.path.isfile(_split_file) and hasattr(full_dataset, "index_df"):
+        with open(_split_file) as _sf:
+            _loaded_split = json.load(_sf)
+        _ls_train = set(int(x) for x in _loaded_split["train_nsd_ids"])
+        _ls_val = set(int(x) for x in _loaded_split["val_nsd_ids"])
+        _idx_df = full_dataset.index_df
+        _nsd_col = _idx_df["nsdId"].values
+
+        train_indices = [i for i, nid in enumerate(_nsd_col) if int(nid) in _ls_train]
+        val_indices = [i for i, nid in enumerate(_nsd_col) if int(nid) in _ls_val]
+
+        logger.info(
+            "Loaded split from %s: %d train nsdIds (%d trials), %d val nsdIds (%d trials)",
+            _split_file, len(_ls_train), len(train_indices),
+            len(_ls_val), len(val_indices),
+        )
+        _split_nsd_ids_used = {
+            "train_nsd_ids": sorted(_ls_train),
+            "val_nsd_ids": sorted(_ls_val),
+        }
+        train_dataset = Subset(full_dataset, train_indices)
+        val_dataset = Subset(full_dataset, val_indices)
+    elif _split_file:
+        logger.warning("split_file specified but not found: %s — falling back to computed split", _split_file)
+
+    if _split_nsd_ids_used is None and hasattr(full_dataset, "train_indices") and full_dataset.train_indices is not None:
         train_indices = full_dataset.train_indices.tolist()
         val_indices = full_dataset.val_indices.tolist()
         logger.info(
             "Using dataset's built-in split: %d train, %d val trials",
             len(train_indices), len(val_indices),
         )
+        if hasattr(full_dataset, "index_df"):
+            _nsd_col = full_dataset.index_df["nsdId"].values
+            _train_nsd = set(int(_nsd_col[i]) for i in train_indices)
+            _val_nsd = set(int(_nsd_col[i]) for i in val_indices)
+            _split_nsd_ids_used = {
+                "train_nsd_ids": sorted(_train_nsd),
+                "val_nsd_ids": sorted(_val_nsd),
+            }
         train_dataset = Subset(full_dataset, train_indices)
         val_dataset = Subset(full_dataset, val_indices)
-    elif split_by_image and hasattr(full_dataset, "index_df"):
+    elif _split_nsd_ids_used is None and split_by_image and hasattr(full_dataset, "index_df"):
         _idx_df = full_dataset.index_df
         has_shared = "shared1000" in _idx_df.columns
 
@@ -2248,7 +2272,7 @@ def main() -> None:
             pool_indices = list(range(len(_idx_df)))
 
         pool_nsd_ids = _idx_df.iloc[pool_indices]["nsdId"].values
-        unique_images = np.unique(pool_nsd_ids)
+        unique_images = np.unique(pool_nsd_ids)  # sorted by np.unique
         rng = np.random.default_rng(data_seed)
         rng.shuffle(unique_images)
 
@@ -2266,9 +2290,13 @@ def main() -> None:
             len(unique_images), len(train_image_set), len(train_indices),
             len(val_image_set), len(val_indices),
         )
+        _split_nsd_ids_used = {
+            "train_nsd_ids": sorted(int(x) for x in train_image_set),
+            "val_nsd_ids": sorted(int(x) for x in val_image_set),
+        }
         train_dataset = Subset(full_dataset, train_indices)
         val_dataset = Subset(full_dataset, val_indices)
-    else:
+    elif _split_nsd_ids_used is None:
         train_split = config["data"]["train_split"]
         val_split = config["data"]["val_split"]
         n_total = len(full_dataset)
@@ -2278,6 +2306,55 @@ def main() -> None:
         indices = torch.randperm(n_total, generator=torch.Generator().manual_seed(data_seed)).tolist()
         train_dataset = Subset(full_dataset, indices[:n_train])
         val_dataset = Subset(full_dataset, indices[n_train : n_train + n_val])
+
+    # --- Persist split for cross-phase reproducibility ---
+    if _split_nsd_ids_used is not None:
+        _split_save_path = output_dir / "split.json"
+        _split_payload = {
+            "seed": data_seed,
+            "split_by_image": split_by_image,
+            "exclude_shared1000": exclude_shared1000,
+            "n_train_images": len(_split_nsd_ids_used["train_nsd_ids"]),
+            "n_val_images": len(_split_nsd_ids_used["val_nsd_ids"]),
+            **_split_nsd_ids_used,
+        }
+        if _split_file and os.path.isfile(_split_file):
+            _split_payload["loaded_from"] = _split_file
+        with open(_split_save_path, "w") as _sf:
+            json.dump(_split_payload, _sf)
+        logger.info("Saved split assignments (%d train / %d val images) to %s",
+                     len(_split_nsd_ids_used["train_nsd_ids"]),
+                     len(_split_nsd_ids_used["val_nsd_ids"]),
+                     _split_save_path)
+
+    # --- Split overlap diagnostic (detect cross-phase leakage) ---
+    if _split_nsd_ids_used is not None and _pe_path:
+        _pe_parent_dir = Path(_pe_path).parent
+        _pe_split_path = _pe_parent_dir / "split.json"
+        if _pe_split_path.exists():
+            with open(_pe_split_path) as _psf:
+                _parent_split = json.load(_psf)
+            _parent_train = set(int(x) for x in _parent_split["train_nsd_ids"])
+            _cur_val = set(_split_nsd_ids_used["val_nsd_ids"])
+            _leaked = _cur_val & _parent_train
+            _pct = 100.0 * len(_leaked) / max(len(_cur_val), 1)
+            if _leaked:
+                logger.warning(
+                    "SPLIT OVERLAP: %d / %d current val images (%.1f%%) were in "
+                    "parent encoder's train set (%s). This indicates data leakage.",
+                    len(_leaked), len(_cur_val), _pct, _pe_split_path,
+                )
+            else:
+                logger.info(
+                    "Split overlap check PASSED: 0 / %d val images overlap "
+                    "with parent train set (%s)",
+                    len(_cur_val), _pe_split_path,
+                )
+        else:
+            logger.info(
+                "No parent split.json at %s — cannot check for leakage "
+                "(re-run parent experiment to generate it)", _pe_split_path,
+            )
 
     # --- fMRI per-voxel z-scoring (computed on training split only) ---
     normalize_fmri = config["data"].get("normalize_fmri", False)

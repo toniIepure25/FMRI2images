@@ -3360,6 +3360,63 @@ def main() -> None:
                 csls_ret["top10_accuracy"],
             )
 
+        # --- V30d per-validation rerank and two-stage diagnostics ---
+        _two_stage_cfg = config.get("evaluation", {}).get("two_stage", {})
+        _two_stage_enabled = _two_stage_cfg.get("enabled", False)
+        if _two_stage_enabled and "rerank_preds" in _epoch_val_extras and "rerank_gts" in _epoch_val_extras:
+            from fmri2img.eval.two_stage_retrieval import two_stage_metrics
+
+            _rrp = _epoch_val_extras["rerank_preds"]
+            _rrg = _epoch_val_extras["rerank_gts"]
+            if _val_nsd_ids is not None:
+                _u_ids_rr = np.unique(_val_nsd_ids)
+                _rrp_img = np.zeros((len(_u_ids_rr), _rrp.shape[1]), dtype=np.float32)
+                _rrg_img = np.zeros((len(_u_ids_rr), _rrg.shape[1]), dtype=np.float32)
+                for i, uid in enumerate(_u_ids_rr):
+                    _m = _val_nsd_ids == uid
+                    _rrp_img[i] = _rrp[_m].mean(axis=0)
+                    _rrg_img[i] = _rrg[_m][0]
+                _rrp = _rrp_img
+                _rrg = _rrg_img
+            _rrp = _rrp / np.maximum(np.linalg.norm(_rrp, axis=-1, keepdims=True), 1e-8)
+
+            _compact_eval_preds = img_preds if _val_nsd_ids is not None else val_preds
+            _compact_eval_gts = img_gts if _val_nsd_ids is not None else val_gts
+            _ts_val = two_stage_metrics(
+                _compact_eval_preds,
+                _compact_eval_gts,
+                _rrp,
+                _rrg,
+                shortlist_k=100,
+                ks=(1, 5, 10),
+            )
+            _rr_only = _ts_val.get("rich_only", {})
+            _rr_oracle = _ts_val.get("oracle_rerank", {})
+            _rr_diag = _ts_val.get("rich_diagnostics", {})
+            _rr_reranked = _ts_val.get("reranked", {})
+            _rr_shortlist = _ts_val.get("shortlist_recall", {})
+
+            val_metrics["rerank_r@1"] = float(_rr_only.get("rich_r@1", 0.0))
+            val_metrics["rerank_r@5"] = float(_rr_only.get("rich_r@5", 0.0))
+            val_metrics["rerank_r@10"] = float(_rr_only.get("rich_r@10", 0.0))
+            val_metrics["oracle_rerank_r@1"] = float(_rr_oracle.get("oracle_r@1", 0.0))
+            val_metrics["rerank_separability"] = float(_rr_diag.get("separability", 0.0))
+            val_metrics["rerank_inter_pred_cosine"] = float(_rr_diag.get("inter_pred_cosine_mean", 0.0))
+            val_metrics["shortlist_r@100"] = float(_rr_shortlist.get("r@100", 0.0))
+            val_metrics["reranked_r@1"] = float(_rr_reranked.get("reranked_r@1", 0.0))
+            val_metrics["reranked_r@5"] = float(_rr_reranked.get("reranked_r@5", 0.0))
+            val_metrics["reranked_r@10"] = float(_rr_reranked.get("reranked_r@10", 0.0))
+            logger.info(
+                "Rerank val: rerank_R@1=%.4f  oracle_R@1=%.4f  "
+                "sep=%.3f  inter_pred=%.4f  shortlist@100=%.4f  reranked_R@1=%.4f",
+                val_metrics["rerank_r@1"],
+                val_metrics["oracle_rerank_r@1"],
+                val_metrics["rerank_separability"],
+                val_metrics["rerank_inter_pred_cosine"],
+                val_metrics["shortlist_r@100"],
+                val_metrics["reranked_r@1"],
+            )
+
         metrics_logger.log_epoch(epoch, optimizer.param_groups[0]["lr"], train_metrics, val_metrics)
 
         # Free large val arrays before checkpoint save to reduce RAM peak.

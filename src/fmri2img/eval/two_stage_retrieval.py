@@ -159,6 +159,21 @@ def _k_occurrence_stats(
     }
 
 
+def _mean_inter_embedding_cosine(x: np.ndarray, sample_size: int = 2000) -> float:
+    """Mean off-diagonal cosine similarity among embeddings."""
+    x_n = x / np.maximum(np.linalg.norm(x, axis=-1, keepdims=True), 1e-8)
+    n = x_n.shape[0]
+    if n <= 1:
+        return 0.0
+    if n > sample_size:
+        idx = np.random.RandomState(99).choice(n, sample_size, replace=False)
+        x_n = x_n[idx]
+        n = x_n.shape[0]
+    sim = x_n @ x_n.T
+    np.fill_diagonal(sim, 0.0)
+    return float(sim.sum() / (n * (n - 1)))
+
+
 def two_stage_metrics(
     compact_preds: np.ndarray,
     compact_gts: np.ndarray,
@@ -262,6 +277,8 @@ def two_stage_metrics(
             "rich_pred_norm_std": float(rp_norms.std()),
             "rich_gt_norm_mean": float(rg_norms.mean()),
             "rich_gt_norm_std": float(rg_norms.std()),
+            "inter_pred_cosine_mean": _mean_inter_embedding_cosine(rich_preds),
+            "inter_gt_cosine_mean": _mean_inter_embedding_cosine(rich_gts),
             "pos_cosine_mean": float(diag_sims.mean()),
             "pos_cosine_std": float(diag_sims.std()),
             "neg_cosine_mean": float(neg_sims.mean()),

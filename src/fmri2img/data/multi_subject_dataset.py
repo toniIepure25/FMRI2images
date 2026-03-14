@@ -90,6 +90,13 @@ class MultiSubjectPreextractedDataset(Dataset):
                 "dual_target=True requires a token_cache (HDF5 token targets). "
                 "Set data.token_cache_path in your config."
             )
+        if dual_target and rerank_cache is not None and not hasattr(rerank_cache, "rerank_dim"):
+            raise ValueError("dual_target rerank_cache must expose rerank_dim")
+
+        self._rich_dim = None
+        if self.token_cache is not None:
+            self._rich_dim = int(self.token_cache.shape[1] * self.token_cache.shape[2])
+        self._rerank_dim = int(self.rerank_cache.rerank_dim) if self.rerank_cache is not None else None
 
         from fmri2img.data.multi_subject_dataset import _resolve_emb_col
         self._emb_col = _resolve_emb_col(embeddings_df, embedding_column)
@@ -289,18 +296,43 @@ class MultiSubjectPreextractedDataset(Dataset):
         if self.dual_target:
             cls_emb = self._get_cls_embedding(nsd_id)
             token_emb = self.token_cache.get_flat(nsd_id)
+            cls_emb = np.asarray(cls_emb, dtype=np.float32)
+            token_emb = np.asarray(token_emb, dtype=np.float32)
+
+            if cls_emb.ndim != 1:
+                raise ValueError(f"retrieval_target for nsdId={nsd_id} must be 1D, got {cls_emb.shape}")
+            if token_emb.ndim != 1:
+                raise ValueError(f"rich_target for nsdId={nsd_id} must be 1D, got {token_emb.shape}")
+            if self._rich_dim is not None and token_emb.shape[0] != self._rich_dim:
+                raise ValueError(
+                    f"rich_target dim mismatch for nsdId={nsd_id}: "
+                    f"got {token_emb.shape[0]}, expected {self._rich_dim}"
+                )
+
             out = {
                 "fmri": torch.from_numpy(np.asarray(fmri, dtype=np.float32)),
                 "retrieval_target": torch.from_numpy(cls_emb),
-                "rich_target": torch.from_numpy(
-                    np.asarray(token_emb, dtype=np.float32)
-                ),
+                "rich_target": torch.from_numpy(token_emb),
                 "subject_id": torch.tensor(subj_int, dtype=torch.long),
                 "nsd_id": torch.tensor(nsd_id, dtype=torch.long),
             }
             if self.rerank_cache is not None:
-                rerank_emb = self.rerank_cache[nsd_id]
+                rerank_emb = np.asarray(self.rerank_cache[nsd_id], dtype=np.float32)
+                if rerank_emb.ndim != 1:
+                    raise ValueError(
+                        f"rerank_target for nsdId={nsd_id} must be 1D, got {rerank_emb.shape}"
+                    )
+                if self._rerank_dim is not None and rerank_emb.shape[0] != self._rerank_dim:
+                    raise ValueError(
+                        f"rerank_target dim mismatch for nsdId={nsd_id}: "
+                        f"got {rerank_emb.shape[0]}, expected {self._rerank_dim}"
+                    )
                 out["rerank_target"] = torch.from_numpy(rerank_emb)
+
+            required_keys = {"fmri", "retrieval_target", "rich_target", "subject_id", "nsd_id"}
+            missing = required_keys.difference(out.keys())
+            if missing:
+                raise KeyError(f"dual_target sample missing keys: {sorted(missing)}")
             return out
 
         # --- Legacy tuple path ---

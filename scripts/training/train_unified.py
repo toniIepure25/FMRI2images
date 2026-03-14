@@ -926,6 +926,7 @@ def train_epoch(
             if step_in_epoch == 0 and _is_vmf_triple:
                 _rd = gt_embedding.shape[-1]
                 _td = _rich_target.shape[-1]
+                _rrd = _rerank_target.shape[-1] if _rerank_target is not None else None
                 _dec = getattr(model, "decoder", None)
                 if _dec is not None:
                     assert _rd == _dec.retrieval_dim, (
@@ -934,6 +935,10 @@ def train_epoch(
                     assert _td == _dec.token_dim, (
                         f"rich_target dim ({_td}) != decoder.token_dim ({_dec.token_dim})"
                     )
+                    if _rrd is not None and getattr(_dec, "has_rerank", False):
+                        assert _rrd == _dec.rerank_dim, (
+                            f"rerank_target dim ({_rrd}) != decoder.rerank_dim ({_dec.rerank_dim})"
+                        )
         # --- Legacy tuple batch ---
         elif len(batch) == 4:
             fmri, gt_embedding, subject_ids, hier_targets = batch
@@ -1668,6 +1673,7 @@ def _evaluate_shared1000(
 
     if _is_triple:
         metrics["_space"] = "compact"
+        metrics["_nsd_ids"] = unique_ids.astype(np.int32)
         if _rich_gts_s1000 is not None:
             metrics["_rich_preds"] = _rich_preds_img
             metrics["_rich_gts"] = _rich_gts_s1000
@@ -1701,7 +1707,7 @@ def validate(
     all_nsd_ids: List[np.ndarray] = []
 
     with torch.no_grad():
-        for batch in dataloader:
+        for batch_idx, batch in enumerate(dataloader):
             _rich_target = None
             _rerank_target = None
             if isinstance(batch, dict):
@@ -1712,6 +1718,19 @@ def validate(
                 all_nsd_ids.append(batch["nsd_id"].numpy())
                 if "rerank_target" in batch:
                     _rerank_target = batch["rerank_target"].to(device, dtype=torch.float32)
+                if batch_idx == 0 and model_type == "vmf_triple":
+                    _dec = getattr(model, "decoder", None)
+                    if _dec is not None:
+                        assert gt_embedding.shape[-1] == _dec.retrieval_dim, (
+                            f"retrieval_target dim ({gt_embedding.shape[-1]}) != decoder.retrieval_dim ({_dec.retrieval_dim})"
+                        )
+                        assert _rich_target.shape[-1] == _dec.token_dim, (
+                            f"rich_target dim ({_rich_target.shape[-1]}) != decoder.token_dim ({_dec.token_dim})"
+                        )
+                        if _rerank_target is not None and getattr(_dec, "has_rerank", False):
+                            assert _rerank_target.shape[-1] == _dec.rerank_dim, (
+                                f"rerank_target dim ({_rerank_target.shape[-1]}) != decoder.rerank_dim ({_dec.rerank_dim})"
+                            )
             elif len(batch) == 4:
                 fmri, gt_embedding, subject_ids, _ = batch
                 subject_ids = subject_ids.to(device)
@@ -3620,6 +3639,7 @@ def main() -> None:
             _s1000_rerank_preds = _s1000_metrics.pop("_rerank_preds", None)
             _s1000_rerank_gts = _s1000_metrics.pop("_rerank_gts", None)
             _s1000_space = _s1000_metrics.pop("_space", None)
+            _s1000_nsd_ids = _s1000_metrics.pop("_nsd_ids", None)
 
             _s1000_json_path = _metrics_save_dir / "shared1000_metrics.json"
             with open(_s1000_json_path, "w") as _jf:
@@ -3640,6 +3660,8 @@ def main() -> None:
                     json.dump(_s1000_metrics, _jf, indent=2)
                 np.save(_metrics_save_dir / "shared1000_predictions_compact.npy", _s1000_preds)
                 np.save(_metrics_save_dir / "shared1000_ground_truth_compact.npy", _s1000_gts)
+                if _s1000_nsd_ids is not None:
+                    np.save(_metrics_save_dir / "shared1000_nsd_ids.npy", _s1000_nsd_ids)
                 logger.info("Saved compact shared1000 metrics to %s", _s1000_compact_path)
                 if _s1000_rich_preds is not None and _s1000_rich_gts is not None:
                     np.save(_metrics_save_dir / "shared1000_predictions_rich.npy", _s1000_rich_preds)
@@ -3668,9 +3690,6 @@ def main() -> None:
                 if _s1000_rerank_preds is not None and _s1000_rerank_gts is not None:
                     np.save(_metrics_save_dir / "shared1000_predictions_rerank.npy", _s1000_rerank_preds)
                     np.save(_metrics_save_dir / "shared1000_ground_truth_rerank.npy", _s1000_rerank_gts)
-                    # Save shared1000 NSD IDs
-                    # (unique_ids from _evaluate_shared1000 are not returned, but preds are
-                    # already per-image aligned, so we can use np.arange as gt_indices)
 
                     from fmri2img.eval.two_stage_retrieval import two_stage_metrics
                     _ts_s1000 = two_stage_metrics(

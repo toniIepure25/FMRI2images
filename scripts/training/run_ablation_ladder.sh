@@ -179,7 +179,8 @@ declare -A CONFIGS=(
     [N1v30a]="N1v30a_compact_retrieval.yaml|v30a: Triple-head vMF — compact retrieval (768-D) + rich regression (197K-D)"
     [N1v30b]="N1v30b_two_stage.yaml|v30b: V30a + two-stage retrieval evaluation"
     [N1v30c]="N1v30c_retrieval_dim_2048.yaml|v30c: V30a ablation — retrieval_dim=2048"
-    [N1v30d]="N1v30d_rerank_head_1024.yaml|v30d: Dedicated rerank head (1024-D SoftCLIP on PCA-compressed tokens)"
+    [N1v30d]="N1v30d_rerank_head_1024.yaml|v30d: Dedicated rerank head (1024-D SoftCLIP on random-projection targets)"
+    [V30d_smoke]="V30d_smoke.yaml|v30d smoke: 3-epoch rerank-head wiring and retrieval sanity check"
 )
 
 CACHE_ROOT="${CACHE_ROOT:-cache}"

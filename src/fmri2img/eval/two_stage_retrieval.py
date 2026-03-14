@@ -6,8 +6,9 @@ Stage A (shortlist):
     candidates per query.  Optionally applies CSLS correction.
 
 Stage B (rerank):
-    Reranks the shortlist using rich token-level predictions (e.g. 197376-D)
-    with cosine similarity (inputs are normalised internally).
+    Reranks the shortlist using the dedicated stage-2 embeddings
+    (e.g. rerank-head outputs) with cosine similarity
+    (inputs are normalised internally).
 
 Reports:
     - Shortlist recall at K
@@ -81,21 +82,21 @@ def rerank_shortlist(
     shortlist_indices: np.ndarray,
     mode: str = "cosine",
 ) -> np.ndarray:
-    """Stage B: rerank shortlist using rich-space similarity.
+    """Stage B: rerank shortlist using stage-2 embedding similarity.
 
     Both rich_preds and rich_gallery are normalised internally when
     mode='cosine' (default).  mode='dot' skips normalisation.
 
     Parameters
     ----------
-    rich_preds : (N, D_rich) query embeddings
-    rich_gallery : (M, D_rich) gallery embeddings
+    rich_preds : (N, D_stage2) query embeddings
+    rich_gallery : (M, D_stage2) gallery embeddings
     shortlist_indices : (N, K) indices into gallery
     mode : 'cosine' or 'dot'
 
     Returns
     -------
-    reranked_indices : (N, K) indices reordered by rich-space score desc
+    reranked_indices : (N, K) indices reordered by stage-2 score desc
     """
     N, K = shortlist_indices.shape
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Debug reranking pipeline for V30 triple-head architecture.
 
-Loads saved compact + rich predictions/GTs and runs a comprehensive set of
+Loads saved compact + stage-2 predictions/GTs and runs a comprehensive set of
 diagnostics to determine whether the reranking failure is a bug or a
 modeling issue.
 
@@ -11,12 +11,12 @@ Usage:
 
 Checks performed:
     1. Shape & alignment sanity
-    2. Norm distributions (rich preds vs rich GTs)
-    3. Rich-only full-gallery retrieval (R@1, R@5, R@10)
+    2. Norm distributions (stage-2 preds vs stage-2 GTs)
+    3. Stage-2-only full-gallery retrieval (R@1, R@5, R@10)
     4. Cosine similarity distributions (positive vs negative pairs)
     5. Two-stage retrieval with standard shortlist
     6. Oracle shortlist reranking (GT always included)
-    7. Per-query diagnostics (rank of GT in rich space)
+    7. Per-query diagnostics (rank of GT in stage-2 space)
 """
 
 import argparse
@@ -77,11 +77,22 @@ def run_diagnostics(metrics_dir: Path, split: str = "val"):
 
     compact_p_path = metrics_dir / f"{prefix}_predictions_compact.npy"
     compact_g_path = metrics_dir / f"{prefix}_ground_truth_compact.npy"
+    rerank_p_path = metrics_dir / f"{prefix}_predictions_rerank.npy"
+    rerank_g_path = metrics_dir / f"{prefix}_ground_truth_rerank.npy"
     rich_p_path = metrics_dir / f"{prefix}_predictions_rich.npy"
     rich_g_path = metrics_dir / f"{prefix}_ground_truth_rich.npy"
 
+    if rerank_p_path.exists() and rerank_g_path.exists():
+        stage2_p_path = rerank_p_path
+        stage2_g_path = rerank_g_path
+        stage2_name = "rerank"
+    else:
+        stage2_p_path = rich_p_path
+        stage2_g_path = rich_g_path
+        stage2_name = "rich"
+
     # --- Check file existence ---
-    for p in [compact_p_path, compact_g_path, rich_p_path, rich_g_path]:
+    for p in [compact_p_path, compact_g_path, stage2_p_path, stage2_g_path]:
         if not p.exists():
             logger.error("Missing: %s", p)
             return None
@@ -89,8 +100,8 @@ def run_diagnostics(metrics_dir: Path, split: str = "val"):
 
     cp = np.load(compact_p_path)
     cg = np.load(compact_g_path)
-    rp = np.load(rich_p_path)
-    rg = np.load(rich_g_path)
+    rp = np.load(stage2_p_path)
+    rg = np.load(stage2_g_path)
 
     report = {}
 
@@ -102,8 +113,8 @@ def run_diagnostics(metrics_dir: Path, split: str = "val"):
     print("=" * 70)
     print(f"  compact_preds:  {cp.shape}")
     print(f"  compact_gts:    {cg.shape}")
-    print(f"  rich_preds:     {rp.shape}")
-    print(f"  rich_gts:       {rg.shape}")
+    print(f"  {stage2_name}_preds:     {rp.shape}")
+    print(f"  {stage2_name}_gts:       {rg.shape}")
 
     N = cp.shape[0]
     assert cp.shape[0] == cg.shape[0] == rp.shape[0] == rg.shape[0], \
@@ -111,13 +122,13 @@ def run_diagnostics(metrics_dir: Path, split: str = "val"):
     assert cp.shape[1] == cg.shape[1], \
         f"Compact dim mismatch: preds {cp.shape[1]} vs gts {cg.shape[1]}"
     assert rp.shape[1] == rg.shape[1], \
-        f"Rich dim mismatch: preds {rp.shape[1]} vs gts {rg.shape[1]}"
-    print(f"  N = {N} images, compact_dim = {cp.shape[1]}, rich_dim = {rp.shape[1]}")
+        f"Stage-2 dim mismatch: preds {rp.shape[1]} vs gts {rg.shape[1]}"
+    print(f"  N = {N} images, compact_dim = {cp.shape[1]}, {stage2_name}_dim = {rp.shape[1]}")
     print("  [OK] Shapes consistent")
 
     report["n_images"] = N
     report["compact_dim"] = int(cp.shape[1])
-    report["rich_dim"] = int(rp.shape[1])
+    report[f"{stage2_name}_dim"] = int(rp.shape[1])
 
     # -----------------------------------------------------------------------
     # 2. Norm distributions
@@ -127,7 +138,7 @@ def run_diagnostics(metrics_dir: Path, split: str = "val"):
     print("=" * 70)
 
     for name, arr in [("compact_preds", cp), ("compact_gts", cg),
-                      ("rich_preds", rp), ("rich_gts", rg)]:
+                      (f"{stage2_name}_preds", rp), (f"{stage2_name}_gts", rg)]:
         norms = np.linalg.norm(arr, axis=-1)
         print(f"  {name:20s}  mean={norms.mean():.4f}  std={norms.std():.4f}  "
               f"min={norms.min():.4f}  max={norms.max():.4f}")
@@ -142,39 +153,39 @@ def run_diagnostics(metrics_dir: Path, split: str = "val"):
     n_zero_rp = int((rp_norms < 1e-6).sum())
     n_zero_rg = int((rg_norms < 1e-6).sum())
     if n_zero_rp > 0 or n_zero_rg > 0:
-        print(f"  [WARN] Near-zero norms: rich_preds={n_zero_rp}, rich_gts={n_zero_rg}")
+        print(f"  [WARN] Near-zero norms: {stage2_name}_preds={n_zero_rp}, {stage2_name}_gts={n_zero_rg}")
 
     # Norm ratio (are predictions much smaller/larger than GTs?)
     norm_ratio = rp_norms.mean() / max(rg_norms.mean(), 1e-8)
-    print(f"  Norm ratio (rich_preds / rich_gts): {norm_ratio:.4f}")
-    report["rich_norm_ratio"] = float(norm_ratio)
+    print(f"  Norm ratio ({stage2_name}_preds / {stage2_name}_gts): {norm_ratio:.4f}")
+    report[f"{stage2_name}_norm_ratio"] = float(norm_ratio)
 
     # -----------------------------------------------------------------------
     # 3. Rich-only full-gallery retrieval
     # -----------------------------------------------------------------------
     print("\n" + "=" * 70)
-    print("3. RICH-ONLY FULL-GALLERY RETRIEVAL")
+    print(f"3. {stage2_name.upper()}-ONLY FULL-GALLERY RETRIEVAL")
     print("=" * 70)
 
     rich_sim = _cosine_sim(rp, rg)  # (N, N)
     rich_ret = _retrieval_at_k(rich_sim, ks=(1, 5, 10))
     for k, v in rich_ret.items():
-        print(f"  Rich {k}: {v:.1%}")
-    report["rich_only_retrieval"] = rich_ret
+        print(f"  {stage2_name.capitalize()} {k}: {v:.1%}")
+    report[f"{stage2_name}_only_retrieval"] = rich_ret
 
     # Also compute with raw dot product (no normalization)
     rich_dot_sim = rp @ rg.T
     rich_dot_ret = _retrieval_at_k(rich_dot_sim, ks=(1, 5, 10))
     print("  (dot product, no norm):")
     for k, v in rich_dot_ret.items():
-        print(f"    Rich-dot {k}: {v:.1%}")
-    report["rich_only_dot_retrieval"] = rich_dot_ret
+        print(f"    {stage2_name.capitalize()}-dot {k}: {v:.1%}")
+    report[f"{stage2_name}_only_dot_retrieval"] = rich_dot_ret
 
     # -----------------------------------------------------------------------
     # 4. Cosine similarity distributions
     # -----------------------------------------------------------------------
     print("\n" + "=" * 70)
-    print("4. COSINE SIMILARITY DISTRIBUTIONS (RICH SPACE)")
+    print(f"4. COSINE SIMILARITY DISTRIBUTIONS ({stage2_name.upper()} SPACE)")
     print("=" * 70)
 
     diag_sims = np.diag(rich_sim)  # positive pairs
@@ -198,13 +209,13 @@ def run_diagnostics(metrics_dir: Path, split: str = "val"):
     pos_below_threshold = (diag_sims < overlap_threshold).mean()
     print(f"  Positive pairs below neg_mean+1std: {pos_below_threshold:.1%}")
 
-    report["rich_sim_positive"] = {
+    report[f"{stage2_name}_sim_positive"] = {
         "mean": float(diag_sims.mean()), "std": float(diag_sims.std()),
     }
-    report["rich_sim_negative"] = {
+    report[f"{stage2_name}_sim_negative"] = {
         "mean": float(neg_sims.mean()), "std": float(neg_sims.std()),
     }
-    report["rich_separability"] = float(separability)
+    report[f"{stage2_name}_separability"] = float(separability)
 
     # -----------------------------------------------------------------------
     # 5. Compact retrieval baseline
@@ -288,7 +299,7 @@ def run_diagnostics(metrics_dir: Path, split: str = "val"):
     # 8. GT rank distribution in rich space
     # -----------------------------------------------------------------------
     print("\n" + "=" * 70)
-    print("8. GT RANK DISTRIBUTION IN RICH SPACE")
+    print(f"8. GT RANK DISTRIBUTION IN {stage2_name.upper()} SPACE")
     print("=" * 70)
 
     gt_ranks_rich = _gt_ranks(rich_sim)
@@ -299,7 +310,7 @@ def run_diagnostics(metrics_dir: Path, split: str = "val"):
     for pct in [25, 50, 75, 90, 95]:
         print(f"  {pct}th percentile: {np.percentile(gt_ranks_rich, pct):.0f}")
 
-    report["rich_gt_rank"] = {
+    report[f"{stage2_name}_gt_rank"] = {
         "mean": float(gt_ranks_rich.mean()),
         "median": float(np.median(gt_ranks_rich)),
         "p25": float(np.percentile(gt_ranks_rich, 25)),
@@ -374,9 +385,9 @@ def run_diagnostics(metrics_dir: Path, split: str = "val"):
     issues = []
 
     if rich_ret["R@1"] < 0.05:
-        issues.append("Rich-only R@1 < 5% → regression head NOT discriminative in cosine space")
+        issues.append(f"{stage2_name.capitalize()}-only R@1 < 5% → stage-2 head not discriminative in cosine space")
     if separability < 1.0:
-        issues.append(f"Rich separability = {separability:.2f} (< 1.0) → pos/neg overlap heavily")
+        issues.append(f"{stage2_name.capitalize()} separability = {separability:.2f} (< 1.0) → pos/neg overlap heavily")
     if pred_inter_mean > 0.8:
         issues.append(f"Inter-prediction cosine = {pred_inter_mean:.3f} → predictions are COLLAPSING")
     if norm_ratio < 0.01 or norm_ratio > 100:
@@ -385,20 +396,20 @@ def run_diagnostics(metrics_dir: Path, split: str = "val"):
         issues.append(f"Oracle rerank R@1 = {oracle_r1:.1%} → reranker fundamentally broken")
 
     if not issues:
-        print("  No obvious issues detected. Rich space seems discriminative.")
+        print(f"  No obvious issues detected. {stage2_name.capitalize()} space seems discriminative.")
         print("  If two-stage still underperforms, check shortlist quality.")
     else:
         for iss in issues:
             print(f"  [!] {iss}")
 
         if rich_ret["R@1"] < 0.05 and pred_inter_mean > 0.7:
-            print("\n  CONCLUSION: Regression head outputs collapse in cosine space.")
-            print("  MSE-trained linear head → 'blurry' predictions → all look similar after L2-norm.")
-            print("  → Need dedicated rerank head trained with contrastive/ranking loss.")
+            print(f"\n  CONCLUSION: {stage2_name.capitalize()} outputs collapse in cosine space.")
+            print("  Stage-2 predictions are not separating identities after L2-normalization.")
+            print("  → Check rerank-target quality, loss routing, and saved prediction alignment.")
         elif rich_ret["R@1"] < 0.05:
-            print("\n  CONCLUSION: Rich space not discriminative for retrieval.")
-            print("  Regression head predictions carry insufficient identity signal for cosine matching.")
-            print("  → Need dedicated rerank head or auxiliary ranking loss on rich space.")
+            print(f"\n  CONCLUSION: {stage2_name.capitalize()} space is not discriminative for retrieval.")
+            print("  Stage-2 predictions carry insufficient identity signal for cosine matching.")
+            print("  → Check rerank loss behavior and cache/prediction alignment.")
 
     report["issues"] = issues
     print("=" * 70)

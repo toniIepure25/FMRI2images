@@ -479,10 +479,14 @@ class UnifiedModel(nn.Module):
             _token_dim_total = _n_tok * _d_tok
             _perc_enabled = decoder_cfg.get("perceptual_enabled", False)
             _perc_dim = decoder_cfg.get("perceptual_dim", 768)
+            _rerank_enabled = decoder_cfg.get("rerank_enabled", False)
+            _rerank_dim = decoder_cfg.get("rerank_dim", 1024)
             self.decoder = TripleHeadVMFDecoder(
                 input_dim=latent_dim,
                 retrieval_dim=_retrieval_dim,
                 token_dim=_token_dim_total,
+                rerank_dim=_rerank_dim,
+                rerank_enabled=_rerank_enabled,
                 perceptual_dim=_perc_dim,
                 perceptual_enabled=_perc_enabled,
                 hidden_dims=decoder_cfg.get("hidden_dims", [2048]),
@@ -644,6 +648,7 @@ class UnifiedModel(nn.Module):
             dec_out: TripleHeadOutput = self.decoder(h)
             self._last_compact_pred = dec_out.mu
             self._last_rich_pred = dec_out.reg_pred
+            self._last_rerank_pred = dec_out.rerank_pred
             self._last_perc_pred = dec_out.perc_pred
             self._last_reg_pred = dec_out.reg_pred
             return dec_out.mu, dec_out.kappa

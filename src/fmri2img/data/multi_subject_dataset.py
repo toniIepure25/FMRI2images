@@ -72,6 +72,7 @@ class MultiSubjectPreextractedDataset(Dataset):
         seed: int = 42,
         average_repetitions: bool = False,
         token_cache=None,
+        rerank_cache=None,
         dual_target: bool = False,
     ):
         super().__init__()
@@ -80,6 +81,7 @@ class MultiSubjectPreextractedDataset(Dataset):
         MultiSubjectPreextractedDataset.SUBJECT_TO_INT = self.subject_to_int
 
         self.token_cache = token_cache
+        self.rerank_cache = rerank_cache
         self.dual_target = dual_target
         self.embeddings_df = embeddings_df
 
@@ -287,7 +289,7 @@ class MultiSubjectPreextractedDataset(Dataset):
         if self.dual_target:
             cls_emb = self._get_cls_embedding(nsd_id)
             token_emb = self.token_cache.get_flat(nsd_id)
-            return {
+            out = {
                 "fmri": torch.from_numpy(np.asarray(fmri, dtype=np.float32)),
                 "retrieval_target": torch.from_numpy(cls_emb),
                 "rich_target": torch.from_numpy(
@@ -296,6 +298,10 @@ class MultiSubjectPreextractedDataset(Dataset):
                 "subject_id": torch.tensor(subj_int, dtype=torch.long),
                 "nsd_id": torch.tensor(nsd_id, dtype=torch.long),
             }
+            if self.rerank_cache is not None:
+                rerank_emb = self.rerank_cache[nsd_id]
+                out["rerank_target"] = torch.from_numpy(rerank_emb)
+            return out
 
         # --- Legacy tuple path ---
         if self.token_cache is not None:

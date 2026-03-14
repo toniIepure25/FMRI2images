@@ -1,21 +1,26 @@
 """
 Triple-head vMF decoder for V30 architecture.
 
-Separates retrieval, regression, and (optional) perceptual objectives into
-independent heads so that contrastive losses on the compact hypersphere
-do not interfere with Euclidean regression of rich token targets.
+Separates retrieval, regression, reranking, and (optional) perceptual
+objectives into independent heads so that contrastive losses on the compact
+hypersphere do not interfere with Euclidean regression of rich token targets.
 
 Architecture
 ------------
 shared_backbone(input_dim -> hidden_dims)
     |
-    +-- retrieval_mu_head  -> (B, retrieval_dim) L2-normalised
+    +-- retrieval_mu_head   -> (B, retrieval_dim) L2-normalised
     +-- retrieval_kappa_head -> (B, 1) positive concentration
-    +-- regression_head    -> (B, token_dim) un-normalised
-    +-- [perceptual_head]  -> (B, perceptual_dim) un-normalised (optional)
+    +-- [rerank_head]       -> (B, rerank_dim) L2-normalised (optional, V30d+)
+    +-- regression_head     -> (B, token_dim) un-normalised
+    +-- [perceptual_head]   -> (B, perceptual_dim) un-normalised (optional)
 
 ``retrieval_dim`` is configurable (768, 1024, 2048) and need not equal the
 backbone's hidden dimension nor the regression output dimension.
+
+``rerank_dim`` is configurable (1024, 2048) and targets PCA-compressed token
+embeddings for cosine-discriminative reranking. The rerank head is trained
+with a ranking-friendly loss (SoftCLIP / InfoNCE), NOT MSE.
 """
 
 import logging
@@ -35,11 +40,12 @@ class TripleHeadOutput(NamedTuple):
     kappa: torch.Tensor                     # (B, 1) positive
     reg_pred: torch.Tensor                  # (B, token_dim) un-normalised
     perc_pred: Optional[torch.Tensor]       # (B, perceptual_dim) or None
+    rerank_pred: Optional[torch.Tensor]     # (B, rerank_dim) L2-normalised or None
 
 
 class TripleHeadVMFDecoder(nn.Module):
-    """Decoder with compact vMF retrieval head, rich regression head, and
-    optional perceptual head.
+    """Decoder with compact vMF retrieval head, dedicated rerank head,
+    rich regression head, and optional perceptual head.
 
     Parameters
     ----------
@@ -49,6 +55,10 @@ class TripleHeadVMFDecoder(nn.Module):
         Compact retrieval space dimension (e.g. 768, 1024, 2048).
     token_dim : int
         Rich regression target dimension (e.g. 197376 = 257 * 768).
+    rerank_dim : int
+        Dedicated rerank head output dimension (e.g. 1024, 2048).
+    rerank_enabled : bool
+        Whether to instantiate the rerank head (V30d+).
     perceptual_dim : int
         Perceptual head output dimension (e.g. 768).
     perceptual_enabled : bool
@@ -70,6 +80,8 @@ class TripleHeadVMFDecoder(nn.Module):
         input_dim: int,
         retrieval_dim: int = 768,
         token_dim: int = 197376,
+        rerank_dim: int = 1024,
+        rerank_enabled: bool = False,
         perceptual_dim: int = 768,
         perceptual_enabled: bool = False,
         hidden_dims: Optional[list[int]] = None,
@@ -84,6 +96,8 @@ class TripleHeadVMFDecoder(nn.Module):
         self.input_dim = input_dim
         self.retrieval_dim = retrieval_dim
         self.token_dim = token_dim
+        self.rerank_dim = rerank_dim
+        self.has_rerank = rerank_enabled
         self.perceptual_dim = perceptual_dim
         self.has_perceptual = perceptual_enabled
         self.kappa_min = kappa_min
@@ -114,6 +128,11 @@ class TripleHeadVMFDecoder(nn.Module):
         # --- Head B: rich regression (un-normalised, Euclidean) ---
         self.regression_head = nn.Linear(backbone_out, token_dim)
 
+        # --- Head D: dedicated rerank (L2-normalised, cosine-discriminative) ---
+        self.rerank_head: Optional[nn.Linear] = None
+        if rerank_enabled:
+            self.rerank_head = nn.Linear(backbone_out, rerank_dim)
+
         # --- Head C: perceptual (optional, disabled by default) ---
         self.perceptual_head: Optional[nn.Linear] = None
         if perceptual_enabled:
@@ -133,19 +152,25 @@ class TripleHeadVMFDecoder(nn.Module):
                        + self.retrieval_kappa_head.bias.numel())
         n_regression = (self.regression_head.weight.numel()
                         + self.regression_head.bias.numel())
+        n_rerank = 0
+        if self.rerank_head is not None:
+            n_rerank = (self.rerank_head.weight.numel()
+                        + self.rerank_head.bias.numel())
         n_perceptual = 0
         if self.perceptual_head is not None:
             n_perceptual = (self.perceptual_head.weight.numel()
                             + self.perceptual_head.bias.numel())
 
-        total = n_backbone + n_retrieval + n_regression + n_perceptual
+        total = n_backbone + n_retrieval + n_regression + n_rerank + n_perceptual
         logger.info(
             "TripleHeadVMFDecoder: %d -> backbone(%s, %d) -> "
-            "retrieval(%d, %d params) + regression(%d, %d params) "
+            "retrieval(%d, %d params) + rerank(%s, %d params) "
+            "+ regression(%d, %d params) "
             "+ perceptual(%s, %d params) = %.2fM total",
             self.input_dim,
             hidden_dims, backbone_out,
             self.retrieval_dim, n_retrieval,
+            self.rerank_dim if self.has_rerank else "off", n_rerank,
             self.token_dim, n_regression,
             self.perceptual_dim if self.has_perceptual else "off",
             n_perceptual,
@@ -158,7 +183,8 @@ class TripleHeadVMFDecoder(nn.Module):
             h: (B, input_dim) latent features from encoder.
 
         Returns:
-            TripleHeadOutput namedtuple with mu, kappa, reg_pred, perc_pred.
+            TripleHeadOutput namedtuple with mu, kappa, reg_pred, perc_pred,
+            rerank_pred.
         """
         features = self.shared_backbone(h)
 
@@ -174,10 +200,16 @@ class TripleHeadVMFDecoder(nn.Module):
         # Head B: rich regression (un-normalised)
         reg_pred = self.regression_head(features)
 
+        # Head D: dedicated rerank (L2-normalised)
+        rerank_pred = None
+        if self.rerank_head is not None:
+            rerank_pred = F.normalize(self.rerank_head(features), p=2, dim=-1)
+
         # Head C: perceptual (optional)
         perc_pred = None
         if self.perceptual_head is not None:
             perc_pred = self.perceptual_head(features)
 
         return TripleHeadOutput(mu=mu, kappa=kappa,
-                                reg_pred=reg_pred, perc_pred=perc_pred)
+                                reg_pred=reg_pred, perc_pred=perc_pred,
+                                rerank_pred=rerank_pred)

@@ -420,12 +420,14 @@ class PreextractedNSDDataset(Dataset):
         embeddings_df: pd.DataFrame,
         average_repetitions: bool = False,
         token_cache=None,
+        rerank_cache=None,
         dual_target: bool = False,
     ):
         self.features = np.load(features_path, mmap_mode=None)  # (N, V) float32
         self.index_df = index_df.reset_index(drop=True)
         self.embeddings_df = embeddings_df
         self.token_cache = token_cache  # Optional[TokenCLIPCache]
+        self.rerank_cache = rerank_cache  # Optional[CompressedTargetCache]
         self.dual_target = dual_target
 
         if dual_target and token_cache is None:
@@ -490,13 +492,16 @@ class PreextractedNSDDataset(Dataset):
         if self.dual_target:
             cls_emb = self._get_cls_embedding(nsd_id)
             token_emb = self.token_cache.get_flat(nsd_id)
-            return {
+            out = {
                 "fmri": torch.from_numpy(np.asarray(fmri, dtype=np.float32)),
                 "retrieval_target": torch.from_numpy(cls_emb),
                 "rich_target": torch.from_numpy(np.asarray(token_emb, dtype=np.float32)),
                 "subject_id": torch.tensor(0, dtype=torch.long),
                 "nsd_id": torch.tensor(nsd_id, dtype=torch.long),
             }
+            if self.rerank_cache is not None:
+                out["rerank_target"] = torch.from_numpy(self.rerank_cache[nsd_id])
+            return out
 
         if self.token_cache is not None:
             embedding = self.token_cache.get_flat(nsd_id)
@@ -745,6 +750,17 @@ def setup_losses(config: Dict[str, Any], device: str,
             logger.info("SoftCLIP loss enabled (tau=%.3f, queue=%s, symmetric=%s)",
                          c.get("tau", 0.07), use_q, c.get("symmetric", True))
 
+    # --- V30d: Rerank SoftCLIP (on PCA-compressed targets) ---
+    if loss_cfg.get("rerank_softclip", {}).get("enabled", False):
+        c = loss_cfg["rerank_softclip"]
+        losses["rerank_softclip"] = SoftCLIPLoss(
+            tau=c.get("tau", 0.07),
+            use_queue=False,  # rerank head has its own space, no shared queue
+            symmetric=c.get("symmetric", True),
+        )
+        logger.info("Rerank SoftCLIP loss enabled (tau=%.3f, symmetric=%s)",
+                     c.get("tau", 0.07), c.get("symmetric", True))
+
     # --- N3/N4: MultiTask vMF-NCE ---
     if loss_cfg.get("vmf_nce_multitask", {}).get("enabled", False):
         c = loss_cfg["vmf_nce_multitask"]
@@ -894,6 +910,7 @@ def train_epoch(
     for step_in_epoch, batch in enumerate(pbar):
         hier_targets = None
         _rich_target = None
+        _rerank_target = None
         _batch_nsd_ids = None
 
         # --- Dict-batch (dual_target mode for vmf_triple) ---
@@ -903,6 +920,8 @@ def train_epoch(
             _rich_target = batch["rich_target"].to(device, dtype=torch.float32)
             subject_ids = batch["subject_id"].to(device)
             _batch_nsd_ids = batch["nsd_id"]
+            if "rerank_target" in batch:
+                _rerank_target = batch["rerank_target"].to(device, dtype=torch.float32)
 
             if step_in_epoch == 0 and _is_vmf_triple:
                 _rd = gt_embedding.shape[-1]
@@ -1091,6 +1110,14 @@ def train_epoch(
                 _reg_loss = F.mse_loss(_reg_pred, _reg_target, reduction="mean")
                 total_loss = total_loss + _reg_mse_w * _reg_loss
                 batch_metrics["reg_mse"] = _reg_loss.item()
+
+            # --- V30d: Rerank head SoftCLIP ---
+            _rerank_pred = getattr(model, "_last_rerank_pred", None)
+            if "rerank_softclip" in losses and _rerank_pred is not None and _rerank_target is not None:
+                _rerank_w = loss_weights.get("rerank_softclip", 1.0)
+                _rerank_loss = losses["rerank_softclip"](_rerank_pred, _rerank_target, queue=None)
+                total_loss = total_loss + _rerank_w * _rerank_loss
+                batch_metrics["rerank_softclip"] = _rerank_loss.item()
 
             # --- Kappa regularizer ---
             kappa_reg_cfg = config_ref.get("loss", {}).get("kappa_reg", {}) if config_ref else {}
@@ -1334,6 +1361,7 @@ def _evaluate_shared1000(
     is_multi_subject: bool = False,
     subject_id: int = 0,
     token_cache=None,
+    rerank_cache=None,
 ) -> Optional[Tuple[Dict[str, float], np.ndarray, np.ndarray]]:
     """Evaluate on NSD shared1000 benchmark for community-standard comparison.
 
@@ -1431,6 +1459,7 @@ def _evaluate_shared1000(
 
     _is_triple = model_type == "vmf_triple"
     _all_rich_preds_s1000: List[np.ndarray] = []
+    _all_rerank_preds_s1000: List[np.ndarray] = []
 
     if is_vmf_model:
         # --- vMF path: run ALL individual trials, fuse with kappa weights ---
@@ -1458,6 +1487,9 @@ def _evaluate_shared1000(
                     _rp = getattr(model, "_last_rich_pred", None)
                     if _rp is not None:
                         _all_rich_preds_s1000.append(_rp.detach().cpu().numpy())
+                    _rrp = getattr(model, "_last_rerank_pred", None)
+                    if _rrp is not None:
+                        _all_rerank_preds_s1000.append(_rrp.detach().cpu().numpy())
 
         trial_preds = np.concatenate(all_preds)
         trial_kappas = np.concatenate(all_kappas) if all_kappas else None
@@ -1537,6 +1569,23 @@ def _evaluate_shared1000(
                 _rich_preds_img[i] = trial_rich[mask].mean(axis=0)
                 if int(uid) in token_cache:
                     _rich_gts_s1000[i] = token_cache.get_flat(int(uid))
+
+        # V30d: aggregate rerank predictions per image
+        _rerank_preds_img: Optional[np.ndarray] = None
+        _rerank_gts_s1000: Optional[np.ndarray] = None
+        if _all_rerank_preds_s1000 and rerank_cache is not None:
+            trial_rerank = np.concatenate(_all_rerank_preds_s1000)
+            _rerank_preds_img = np.zeros((n_images, trial_rerank.shape[1]), dtype=np.float32)
+            _rerank_gts_s1000 = np.zeros((n_images, trial_rerank.shape[1]), dtype=np.float32)
+            for i, uid in enumerate(unique_ids):
+                mask = nsd_ids == uid
+                _rerank_preds_img[i] = trial_rerank[mask].mean(axis=0)
+                if int(uid) in rerank_cache:
+                    _rerank_gts_s1000[i] = rerank_cache[int(uid)]
+            # Re-normalise after averaging
+            _rerank_preds_img = _rerank_preds_img / np.maximum(
+                np.linalg.norm(_rerank_preds_img, axis=-1, keepdims=True), 1e-8)
+
     elif token_cache is not None:
         gts = np.zeros((n_images, preds.shape[1]), dtype=np.float32)
         missing = 0
@@ -1622,6 +1671,9 @@ def _evaluate_shared1000(
         if _rich_gts_s1000 is not None:
             metrics["_rich_preds"] = _rich_preds_img
             metrics["_rich_gts"] = _rich_gts_s1000
+        if _rerank_preds_img is not None and _rerank_gts_s1000 is not None:
+            metrics["_rerank_preds"] = _rerank_preds_img
+            metrics["_rerank_gts"] = _rerank_gts_s1000
 
     return metrics, preds, gts
 
@@ -1644,17 +1696,22 @@ def validate(
     all_gts: List[np.ndarray] = []
     all_rich_preds: List[np.ndarray] = []
     all_rich_gts: List[np.ndarray] = []
+    all_rerank_preds: List[np.ndarray] = []
+    all_rerank_gts: List[np.ndarray] = []
     all_nsd_ids: List[np.ndarray] = []
 
     with torch.no_grad():
         for batch in dataloader:
             _rich_target = None
+            _rerank_target = None
             if isinstance(batch, dict):
                 fmri = batch["fmri"].to(device, dtype=torch.float32)
                 gt_embedding = batch["retrieval_target"].to(device, dtype=torch.float32)
                 _rich_target = batch["rich_target"].to(device, dtype=torch.float32)
                 subject_ids = batch["subject_id"].to(device)
                 all_nsd_ids.append(batch["nsd_id"].numpy())
+                if "rerank_target" in batch:
+                    _rerank_target = batch["rerank_target"].to(device, dtype=torch.float32)
             elif len(batch) == 4:
                 fmri, gt_embedding, subject_ids, _ = batch
                 subject_ids = subject_ids.to(device)
@@ -1691,6 +1748,13 @@ def validate(
                 all_rich_preds.append(_reg_pred_for_rich.detach().cpu().numpy())
             if _rich_target is not None:
                 all_rich_gts.append(_rich_target.detach().cpu().numpy())
+
+            # Collect rerank-head predictions (V30d+)
+            _rerank_pred_val = getattr(model, "_last_rerank_pred", None)
+            if _rerank_pred_val is not None:
+                all_rerank_preds.append(_rerank_pred_val.detach().cpu().numpy())
+            if _rerank_target is not None:
+                all_rerank_gts.append(_rerank_target.detach().cpu().numpy())
 
             total_loss = torch.tensor(0.0, device=device, dtype=torch.float32)
             bm: Dict[str, float] = {}
@@ -1765,6 +1829,13 @@ def validate(
                 total_loss = total_loss + _reg_mse_w * _reg_l
                 bm["reg_mse"] = _reg_l.item()
 
+            # --- V30d: Rerank SoftCLIP val loss ---
+            _rerank_pred_val2 = getattr(model, "_last_rerank_pred", None)
+            if "rerank_softclip" in losses and _rerank_pred_val2 is not None and _rerank_target is not None:
+                _rr_l = losses["rerank_softclip"](_rerank_pred_val2, _rerank_target, queue=None)
+                total_loss = total_loss + loss_weights.get("rerank_softclip", 1.0) * _rr_l
+                bm["rerank_softclip"] = _rr_l.item()
+
             # --- V11 val losses ---
             if "direct_alignment" in losses and is_vmf:
                 da_l = losses["direct_alignment"](pred, gt_embedding)
@@ -1794,6 +1865,10 @@ def validate(
         _extras["rich_preds"] = np.concatenate(all_rich_preds)
     if all_rich_gts:
         _extras["rich_gts"] = np.concatenate(all_rich_gts)
+    if all_rerank_preds:
+        _extras["rerank_preds"] = np.concatenate(all_rerank_preds)
+    if all_rerank_gts:
+        _extras["rerank_gts"] = np.concatenate(all_rerank_gts)
     if all_nsd_ids:
         _extras["nsd_ids"] = np.concatenate(all_nsd_ids)
     loss_metrics["_val_extras"] = _extras
@@ -2070,6 +2145,19 @@ def main() -> None:
             _token_cache.num_tokens, _token_cache.token_dim, _use_mmap,
         )
 
+    # --- Rerank cache (V30d+): PCA-compressed token targets ---
+    _rerank_cache_path = config.get("data", {}).get("rerank_cache_path", "")
+    _rerank_cache = None
+    if _rerank_cache_path:
+        from fmri2img.data.compressed_target_cache import CompressedTargetCache
+        _rerank_cache = CompressedTargetCache(_rerank_cache_path)
+        logger.info(
+            "RERANK CACHE: %d images, rerank_dim=%d, variance=%.4f, from %s",
+            _rerank_cache.n_images, _rerank_cache.rerank_dim,
+            _rerank_cache.explained_variance or -1,
+            _rerank_cache_path,
+        )
+
     _encoder_type_check = config.get("model", {}).get("encoder", {}).get("encoder_type", "mlp")
     _cross_subject_cfg = config.get("model", {}).get("cross_subject", {})
     _cross_subject_enabled = _cross_subject_cfg.get("enabled", False)
@@ -2104,6 +2192,7 @@ def main() -> None:
             seed=_data_seed,
             average_repetitions=_avg_reps_multi,
             token_cache=_token_cache,
+            rerank_cache=_rerank_cache,
             dual_target=_dual_target,
         )
         logger.info("Multi-subject dataset: %d subjects, %d total trials",
@@ -2118,6 +2207,7 @@ def main() -> None:
             preextracted_path, index_df, embeddings_df,
             average_repetitions=avg_reps,
             token_cache=_token_cache,
+            rerank_cache=_rerank_cache,
             dual_target=_dual_target,
         )
     else:
@@ -2140,8 +2230,9 @@ def main() -> None:
         fmri_dim = sample_fmri.shape[0]
         embedding_dim = sample["retrieval_target"].shape[0]
         _rich_dim = sample["rich_target"].shape[0]
-        logger.info("Dimensions: fMRI=%d, Retrieval=%d, Rich=%d (dual_target)",
-                     fmri_dim, embedding_dim, _rich_dim)
+        _rerank_dim_sample = sample["rerank_target"].shape[0] if "rerank_target" in sample else 0
+        logger.info("Dimensions: fMRI=%d, Retrieval=%d, Rich=%d, Rerank=%d (dual_target)",
+                     fmri_dim, embedding_dim, _rich_dim, _rerank_dim_sample)
     else:
         sample_fmri = sample[0]
         sample_emb = sample[1]
@@ -3460,6 +3551,40 @@ def main() -> None:
             np.save(_metrics_save_dir / "val_predictions_rich.npy", _rp)
             np.save(_metrics_save_dir / "val_ground_truth_rich.npy", _rg)
             logger.info("Saved rich val predictions %s", _rp.shape)
+        # --- V30d: Save rerank head predictions ---
+        if "rerank_preds" in _val_extras and "rerank_gts" in _val_extras:
+            _rrp = _val_extras["rerank_preds"]
+            _rrg = _val_extras["rerank_gts"]
+            if _val_nsd_ids is not None:
+                _u_ids_rr = np.unique(_val_nsd_ids)
+                _rrp_img = np.zeros((len(_u_ids_rr), _rrp.shape[1]), dtype=np.float32)
+                _rrg_img = np.zeros((len(_u_ids_rr), _rrg.shape[1]), dtype=np.float32)
+                for i, uid in enumerate(_u_ids_rr):
+                    _m = _val_nsd_ids == uid
+                    _rrp_img[i] = _rrp[_m].mean(axis=0)
+                    _rrg_img[i] = _rrg[_m][0]
+                _rrp, _rrg = _rrp_img, _rrg_img
+            # L2-normalise after averaging (rerank head outputs are L2-normed per-sample,
+            # but averaging denormalises them)
+            _rrp = _rrp / np.maximum(np.linalg.norm(_rrp, axis=-1, keepdims=True), 1e-8)
+            np.save(_metrics_save_dir / "val_predictions_rerank.npy", _rrp)
+            np.save(_metrics_save_dir / "val_ground_truth_rerank.npy", _rrg)
+            logger.info("Saved rerank val predictions %s", _rrp.shape)
+
+            # Two-stage retrieval using rerank head instead of regression head
+            from fmri2img.eval.two_stage_retrieval import two_stage_metrics
+            _ts = two_stage_metrics(_save_preds, _save_gts, _rrp, _rrg,
+                                     shortlist_k=100, ks=(1, 5, 10))
+            _ts_path = _metrics_save_dir / "val_two_stage_rerank.json"
+            with open(_ts_path, "w") as _jf:
+                json.dump(_ts, _jf, indent=2, default=str)
+            logger.info(
+                "Val two-stage (rerank head): reranked_R@1=%.1f%%  compact_R@1=%.1f%%  gain=%.1f pp",
+                _ts["reranked"].get("reranked_r@1", 0) * 100,
+                _ts["compact_raw"].get("compact_r@1", 0) * 100,
+                _ts.get("rerank_gain_over_compact_raw", 0) * 100,
+            )
+
         if "nsd_ids" in _val_extras:
             _nids = _val_extras["nsd_ids"]
             if _val_nsd_ids is not None:
@@ -3485,12 +3610,15 @@ def main() -> None:
             batch_size=config["training"]["batch_size"],
             is_multi_subject=_is_multi_subject,
             token_cache=_token_cache,
+            rerank_cache=_rerank_cache,
         )
         if _s1000_result is not None:
             _s1000_metrics, _s1000_preds, _s1000_gts = _s1000_result
 
             _s1000_rich_preds = _s1000_metrics.pop("_rich_preds", None)
             _s1000_rich_gts = _s1000_metrics.pop("_rich_gts", None)
+            _s1000_rerank_preds = _s1000_metrics.pop("_rerank_preds", None)
+            _s1000_rerank_gts = _s1000_metrics.pop("_rerank_gts", None)
             _s1000_space = _s1000_metrics.pop("_space", None)
 
             _s1000_json_path = _metrics_save_dir / "shared1000_metrics.json"
@@ -3535,6 +3663,31 @@ def main() -> None:
                         json.dump(_rich_metrics, _jf, indent=2)
                     logger.info("Saved rich shared1000 metrics: R@1=%.1f%%",
                                 _rich_metrics["rich_r@1"] * 100)
+
+                # V30d: save rerank shared1000 predictions and compute two-stage
+                if _s1000_rerank_preds is not None and _s1000_rerank_gts is not None:
+                    np.save(_metrics_save_dir / "shared1000_predictions_rerank.npy", _s1000_rerank_preds)
+                    np.save(_metrics_save_dir / "shared1000_ground_truth_rerank.npy", _s1000_rerank_gts)
+                    # Save shared1000 NSD IDs
+                    # (unique_ids from _evaluate_shared1000 are not returned, but preds are
+                    # already per-image aligned, so we can use np.arange as gt_indices)
+
+                    from fmri2img.eval.two_stage_retrieval import two_stage_metrics
+                    _ts_s1000 = two_stage_metrics(
+                        _s1000_preds, _s1000_gts,
+                        _s1000_rerank_preds, _s1000_rerank_gts,
+                        shortlist_k=100, ks=(1, 5, 10),
+                    )
+                    _ts_s1000_path = _metrics_save_dir / "shared1000_two_stage_rerank.json"
+                    with open(_ts_s1000_path, "w") as _jf:
+                        json.dump(_ts_s1000, _jf, indent=2, default=str)
+                    logger.info(
+                        "Shared1000 two-stage (rerank head): reranked_R@1=%.1f%%  "
+                        "compact_R@1=%.1f%%  gain=%.1f pp",
+                        _ts_s1000["reranked"].get("reranked_r@1", 0) * 100,
+                        _ts_s1000["compact_raw"].get("compact_r@1", 0) * 100,
+                        _ts_s1000.get("rerank_gain_over_compact_raw", 0) * 100,
+                    )
         else:
             logger.info("Shared1000 evaluation skipped (data unavailable)")
         logger.info("=" * 60)

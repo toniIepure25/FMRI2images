@@ -356,30 +356,46 @@ def main() -> None:
         except Exception as e:
             logger.warning("Kappa calibration failed: %s", e)
 
-    # --- V30: two-stage retrieval (when compact+rich files both exist) ---
+    # --- V30: two-stage retrieval (prefer rerank head, fall back to rich/regression) ---
     _two_stage = None
     metrics_dir = results_dir / "metrics"
     _compact_p = metrics_dir / "val_predictions_compact.npy"
     _compact_g = metrics_dir / "val_ground_truth_compact.npy"
+    # V30d+: prefer rerank head outputs over regression head
+    _rerank_p = metrics_dir / "val_predictions_rerank.npy"
+    _rerank_g = metrics_dir / "val_ground_truth_rerank.npy"
     _rich_p = metrics_dir / "val_predictions_rich.npy"
     _rich_g = metrics_dir / "val_ground_truth_rich.npy"
-    if _compact_p.exists() and _compact_g.exists() and _rich_p.exists() and _rich_g.exists():
-        try:
-            from fmri2img.eval.two_stage_retrieval import two_stage_metrics
-            logger.info("Computing two-stage retrieval metrics...")
-            _cp = np.load(_compact_p)
-            _cg = np.load(_compact_g)
-            _rp = np.load(_rich_p)
-            _rg = np.load(_rich_g)
-            _two_stage = two_stage_metrics(_cp, _cg, _rp, _rg,
-                                           shortlist_k=100, ks=(1, 5, 10))
-            report["two_stage_retrieval"] = _two_stage
-            _ts_path = diag_dir / "two_stage_retrieval.json"
-            with open(_ts_path, "w") as f:
-                json.dump(_two_stage, f, indent=2)
-            logger.info("Saved two-stage retrieval report to %s", _ts_path)
-        except Exception as e:
-            logger.warning("Two-stage retrieval failed: %s", e)
+    if _compact_p.exists() and _compact_g.exists():
+        # Choose rerank files if available, else fall back to rich
+        if _rerank_p.exists() and _rerank_g.exists():
+            _stage2_p, _stage2_g = _rerank_p, _rerank_g
+            _stage2_source = "rerank_head"
+        elif _rich_p.exists() and _rich_g.exists():
+            _stage2_p, _stage2_g = _rich_p, _rich_g
+            _stage2_source = "regression_head"
+        else:
+            _stage2_p, _stage2_g = None, None
+            _stage2_source = None
+
+        if _stage2_p is not None:
+            try:
+                from fmri2img.eval.two_stage_retrieval import two_stage_metrics
+                logger.info("Computing two-stage retrieval metrics (source: %s)...", _stage2_source)
+                _cp = np.load(_compact_p)
+                _cg = np.load(_compact_g)
+                _rp = np.load(_stage2_p)
+                _rg = np.load(_stage2_g)
+                _two_stage = two_stage_metrics(_cp, _cg, _rp, _rg,
+                                               shortlist_k=100, ks=(1, 5, 10))
+                _two_stage["stage2_source"] = _stage2_source
+                report["two_stage_retrieval"] = _two_stage
+                _ts_path = diag_dir / "two_stage_retrieval.json"
+                with open(_ts_path, "w") as f:
+                    json.dump(_two_stage, f, indent=2)
+                logger.info("Saved two-stage retrieval report to %s", _ts_path)
+            except Exception as e:
+                logger.warning("Two-stage retrieval failed: %s", e)
 
     report_path = diag_dir / "report.json"
     with open(report_path, "w") as f:

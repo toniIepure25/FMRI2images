@@ -114,6 +114,7 @@ def build_cache(
     val_ratio: float,
     exclude_shared1000: bool,
     output_dir: Path,
+    pca_batch_size: int,
 ):
     from fmri2img.data.token_clip_cache import TokenCLIPCache
 
@@ -151,12 +152,44 @@ def build_cache(
     # Fit IncrementalPCA in chunks to avoid OOM
     from sklearn.decomposition import IncrementalPCA
 
-    chunk_size = 512  # ~512 × 197376 × 4 bytes ≈ 380 MB per chunk
-    pca = IncrementalPCA(n_components=rerank_dim)
-
     n_train = len(train_indices)
-    for start in range(0, n_train, chunk_size):
-        end = min(start + chunk_size, n_train)
+    rerank_dim_eff = int(min(rerank_dim, flat_dim, n_train))
+    if rerank_dim_eff < rerank_dim:
+        logger.warning(
+            "Auto-capping rerank_dim: requested=%d, using=%d "
+            "(limited by n_train=%d, flat_dim=%d)",
+            rerank_dim,
+            rerank_dim_eff,
+            n_train,
+            flat_dim,
+        )
+    if rerank_dim_eff < 1:
+        raise ValueError(
+            f"Cannot fit PCA with rerank_dim={rerank_dim}: "
+            f"need at least one training sample, got n_train={n_train}"
+        )
+
+    # sklearn IncrementalPCA requires the first partial_fit batch to have at
+    # least n_components samples, so ensure the effective batch size respects it.
+    chunk_size = max(int(pca_batch_size), rerank_dim_eff)
+    logger.info(
+        "PCA fit settings: rerank_dim=%d, batch_size=%d",
+        rerank_dim_eff,
+        chunk_size,
+    )
+    pca = IncrementalPCA(n_components=rerank_dim_eff, batch_size=chunk_size)
+
+    batch_starts = list(range(0, n_train, chunk_size))
+    if len(batch_starts) >= 2:
+        last_start = batch_starts[-1]
+        if n_train - last_start < rerank_dim_eff:
+            batch_starts.pop()
+
+    for batch_idx, start in enumerate(batch_starts):
+        if batch_idx + 1 < len(batch_starts):
+            end = batch_starts[batch_idx + 1]
+        else:
+            end = n_train
         chunk_idx = train_indices[start:end]
         chunk = np.array(
             [tc._tokens[i].reshape(-1) for i in chunk_idx], dtype=np.float32)
@@ -170,7 +203,7 @@ def build_cache(
 
     # Project ALL images in chunks
     logger.info("Projecting all %d images (chunked) ...", n_total)
-    compressed = np.zeros((n_total, rerank_dim), dtype=np.float32)
+    compressed = np.zeros((n_total, rerank_dim_eff), dtype=np.float32)
     for start in range(0, n_total, chunk_size):
         end = min(start + chunk_size, n_total)
         chunk = np.array(
@@ -192,7 +225,8 @@ def build_cache(
 
     metadata = {
         "split_seed": seed,
-        "rerank_dim": rerank_dim,
+        "rerank_dim": rerank_dim_eff,
+        "requested_rerank_dim": rerank_dim,
         "val_ratio": val_ratio,
         "n_train_images": len(train_ids),
         "n_val_images": len(val_ids),
@@ -203,6 +237,7 @@ def build_cache(
         "token_cache_source": str(token_cache_path),
         "token_shape_per_image": list(tc._tokens.shape[1:]),
         "flat_dim": flat_dim,
+        "pca_batch_size": chunk_size,
         "cumulative_variance": cumulative_var,
         "subject": subject,
         "created": datetime.now().isoformat(),
@@ -210,7 +245,7 @@ def build_cache(
 
     # Save
     output_dir.mkdir(parents=True, exist_ok=True)
-    out_name = f"compressed_targets_seed{seed}_trainonly_dim{rerank_dim}.npz"
+    out_name = f"compressed_targets_seed{seed}_trainonly_dim{rerank_dim_eff}.npz"
     out_path = output_dir / out_name
 
     # Save targets (compact) — PCA components are large (~760 MB for 1024×197376)
@@ -224,7 +259,7 @@ def build_cache(
     )
 
     # Save PCA basis separately (for re-projection of new images if needed)
-    pca_path = output_dir / f"pca_basis_seed{seed}_dim{rerank_dim}.npz"
+    pca_path = output_dir / f"pca_basis_seed{seed}_dim{rerank_dim_eff}.npz"
     np.savez_compressed(
         pca_path,
         components=pca.components_.astype(np.float32),
@@ -238,7 +273,7 @@ def build_cache(
     print("RERANK CACHE SUMMARY")
     print("=" * 60)
     print(f"  Output:             {out_path}")
-    print(f"  Rerank dim:         {rerank_dim}")
+    print(f"  Rerank dim:         {rerank_dim_eff}")
     print(f"  Train images:       {len(train_ids)}")
     print(f"  Total images:       {n_total}")
     print(f"  Cumulative var:     {cumulative_var:.4f} ({cumulative_var*100:.1f}%)")
@@ -263,6 +298,8 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--val-ratio", type=float, default=0.10)
     parser.add_argument("--exclude-shared1000", action="store_true", default=True)
+    parser.add_argument("--pca-batch-size", type=int, default=512,
+                        help="Base IncrementalPCA batch size; auto-raised to >= rerank-dim")
     parser.add_argument("--output-dir", type=str, default="outputs/rerank_cache")
 
     args = parser.parse_args()
@@ -298,6 +335,7 @@ def main():
         val_ratio=args.val_ratio,
         exclude_shared1000=args.exclude_shared1000,
         output_dir=Path(args.output_dir),
+        pca_batch_size=args.pca_batch_size,
     )
 
 

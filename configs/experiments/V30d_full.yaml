@@ -15,8 +15,18 @@
 experiment:
   name: "V30d_full"
   description: "V30d full: triple-head vMF with dedicated rerank head (full training schedule)"
-  tags: ["vmf_triple", "v30", "rerank_head", "compact_retrieval", "regression",
-         "token_targets", "dual_target", "wave2", "full"]
+  tags:
+    [
+      "vmf_triple",
+      "v30",
+      "rerank_head",
+      "compact_retrieval",
+      "regression",
+      "token_targets",
+      "dual_target",
+      "wave2",
+      "full",
+    ]
   parent: "V30d_short"
 
 data:
@@ -128,7 +138,7 @@ training:
   min_lr: 1.0e-6
   gradient_clip: 1.0
   early_stop_patience: 25
-  early_stop_min_delta: 0.002
+  early_stop_min_delta: 0.001
   train_r1_interval: 10
   fmri_noise_std: 0.1
   voxel_dropout: 0.1
@@ -145,7 +155,7 @@ training:
 evaluation:
   use_csls: true
   csls_k: 10
-  eval_shared1000: true
+  eval_shared1000: false
   checkpoint_metric: "csls_r@1"
   mc_tta_samples: 1
   kappa_weighted_avg: true

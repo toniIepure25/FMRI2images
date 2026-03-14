@@ -2367,14 +2367,36 @@ def main() -> None:
         _pe_ckpt = torch.load(_pe_path, map_location=device)
         _pe_sd = _pe_ckpt.get("model_state_dict", _pe_ckpt.get("state_dict", {}))
         _pe_keys = {k: v for k, v in _pe_sd.items() if k.startswith("encoder.")}
+        _model_sd = model.state_dict()
+        _model_encoder_keys = {k for k in _model_sd if k.startswith("encoder.")}
+        _matched_encoder_keys = sorted(_model_encoder_keys.intersection(_pe_keys))
+        _missing_encoder_keys = sorted(_model_encoder_keys.difference(_pe_keys))
+        _extra_source_encoder_keys = sorted(set(_pe_keys).difference(_model_encoder_keys))
         _pe_missing, _pe_unexpected = model.load_state_dict(_pe_keys, strict=False)
-        _pe_loaded = [k for k in _pe_keys if k not in _pe_unexpected]
         logger.info(
-            "Loaded pretrained encoder from %s: %d keys loaded, "
-            "%d skipped (decoder/adapter), %d missing in source",
-            _pe_path, len(_pe_loaded),
-            len(_pe_sd) - len(_pe_keys), len(_pe_missing),
+            "Pretrained encoder transfer from %s: source_encoder_keys=%d, "
+            "model_encoder_keys=%d, matched=%d, missing_in_source=%d, extra_in_source=%d",
+            _pe_path,
+            len(_pe_keys),
+            len(_model_encoder_keys),
+            len(_matched_encoder_keys),
+            len(_missing_encoder_keys),
+            len(_extra_source_encoder_keys),
         )
+        if _missing_encoder_keys:
+            logger.info("Encoder keys missing from source (first 8): %s", _missing_encoder_keys[:8])
+        if _extra_source_encoder_keys:
+            logger.info("Extra source encoder keys ignored (first 8): %s", _extra_source_encoder_keys[:8])
+        logger.info(
+            "Decoder remains randomly initialized after encoder transfer: "
+            "decoder.shared_backbone + retrieval/regression/rerank/perceptual heads"
+        )
+        if _pe_missing or _pe_unexpected:
+            logger.info(
+                "load_state_dict(strict=False) summary: missing=%d unexpected=%d",
+                len(_pe_missing),
+                len(_pe_unexpected),
+            )
         _pe_loaded_ok = True
     elif _pe_path:
         logger.warning(

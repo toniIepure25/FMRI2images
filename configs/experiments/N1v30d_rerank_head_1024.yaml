@@ -1,12 +1,12 @@
 # N1v30d: Triple-Head VMF — Compact Retrieval + Dedicated Rerank Head + Rich Regression
 #
-# V30d adds a dedicated rerank head trained with SoftCLIP on PCA-compressed
+# V30d adds a dedicated rerank head trained with SoftCLIP on random-projection
 # token targets (1024-D). The regression head (197376-D MSE) is retained for
 # generative reconstruction but is excluded from retrieval metrics.
 #
 # Architecture:
 #   Head A: compact vMF retrieval (768-D mu + kappa) — contrastive losses
-#   Head D: dedicated rerank (1024-D, L2-normed) — SoftCLIP on PCA-compressed targets
+#   Head D: dedicated rerank (1024-D, L2-normed) — SoftCLIP on random-projection targets
 #   Head B: rich regression (197376-D) — MSE loss (generative only)
 #   Head C: perceptual (disabled)
 #
@@ -15,7 +15,7 @@
 #   Stage B: rerank head reranks shortlist (cosine similarity)
 #
 # Prerequisite:
-#   Build PCA-compressed rerank targets first:
+#   Build deterministic random-projection rerank targets first:
 #     python scripts/preprocessing/build_rerank_cache.py \
 #       --config configs/experiments/N1v30d_rerank_head_1024.yaml
 #
@@ -43,7 +43,7 @@ data:
   embedding_column: "fused"
   seed: 42
   token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
-  rerank_cache_path: "outputs/rerank_cache/compressed_targets_seed42_trainonly_dim1024.npz"
+  rerank_cache_path: "outputs/rerank_cache/randomproj_dim1024_seed42.npz"
   dual_target: true
 
 model:

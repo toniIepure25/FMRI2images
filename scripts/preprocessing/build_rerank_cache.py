@@ -1,35 +1,27 @@
 #!/usr/bin/env python3
-"""Build PCA-compressed rerank target cache for V30d.
+"""Build deterministic random-projection rerank target cache for V30d.
 
-Fits PCA on train-split-only token embeddings, then projects ALL images
-(train + val + shared1000) into the compressed space. Outputs are
-L2-normalised for cosine retrieval.
-
-The train/val split is reproduced exactly from the experiment config
-(same seed, same exclude_shared1000 logic, same val_ratio).
+This version intentionally avoids any train-fit compression stage. It applies
+the same fixed random projection to every flattened token target, then
+L2-normalizes the result for cosine-based reranking.
 
 Usage:
     python scripts/preprocessing/build_rerank_cache.py \
-        --config configs/experiments/N1v30d_rerank_head_1024.yaml \
-        --rerank-dim 1024
+        --config configs/experiments/N1v30d_rerank_head_1024.yaml
 
-    # Or specify split params directly:
     python scripts/preprocessing/build_rerank_cache.py \
         --token-cache outputs/clip_cache/tokens_ViT-L-14_projected.h5 \
-        --index-root outputs/preproc/subj01 \
-        --rerank-dim 1024 \
-        --seed 42 \
-        --val-ratio 0.10 \
-        --subject subj01
+        --output-dim 1024 \
+        --seed 42
 
 Output:
-    outputs/rerank_cache/compressed_targets_seed42_trainonly_dim1024.npz
+    outputs/rerank_cache/randomproj_dim1024_seed42.npz
 """
 
 import argparse
-import hashlib
 import json
 import logging
+import math
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -46,296 +38,228 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+METADATA_VERSION = 2
 
-def _reproduce_train_split(
-    all_nsd_ids: np.ndarray,
+
+def _next_power_of_two(n: int) -> int:
+    if n < 1:
+        raise ValueError(f"input_dim must be positive, got {n}")
+    return 1 << (n - 1).bit_length()
+
+
+def _fwht_inplace(x: np.ndarray) -> np.ndarray:
+    """In-place fast Walsh-Hadamard transform over the last dimension."""
+    n = x.shape[1]
+    h = 1
+    while h < n:
+        x_view = x.reshape(x.shape[0], -1, 2, h)
+        a = x_view[:, :, 0, :].copy()
+        b = x_view[:, :, 1, :].copy()
+        x_view[:, :, 0, :] = a + b
+        x_view[:, :, 1, :] = a - b
+        h *= 2
+    return x
+
+
+def _build_projection_params(
+    input_dim: int,
+    output_dim: int,
     seed: int,
-    val_ratio: float,
-    exclude_nsd_ids: set[int] | None = None,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Reproduce the exact train/val image split from the dataset.
-
-    Mirrors ``MultiSubjectDataset._split_by_image``:
-    sorted nsdIds → PCG64 shuffle → first n_val are val, rest are train.
-
-    Parameters
-    ----------
-    all_nsd_ids : all unique NSD IDs in the dataset
-    seed : split seed
-    val_ratio : fraction for validation
-    exclude_nsd_ids : NSD IDs to exclude before splitting (e.g. shared1000)
-
-    Returns
-    -------
-    train_nsd_ids, val_nsd_ids : sorted arrays
-    """
-    unique_nsd = np.sort(np.unique(all_nsd_ids))
-
-    if exclude_nsd_ids:
-        unique_nsd = np.array(
-            [nid for nid in unique_nsd if int(nid) not in exclude_nsd_ids],
-            dtype=unique_nsd.dtype,
+) -> tuple[int, np.ndarray, np.ndarray]:
+    padded_dim = _next_power_of_two(input_dim)
+    if output_dim < 1:
+        raise ValueError(f"output_dim must be positive, got {output_dim}")
+    if output_dim > padded_dim:
+        raise ValueError(
+            f"output_dim={output_dim} exceeds padded_dim={padded_dim} "
+            f"for input_dim={input_dim}"
         )
 
     rng = np.random.default_rng(seed)
-    rng.shuffle(unique_nsd)
-
-    n_val = max(1, int(len(unique_nsd) * val_ratio))
-    val_ids = np.sort(unique_nsd[:n_val])
-    train_ids = np.sort(unique_nsd[n_val:])
-
-    return train_ids, val_ids
+    signs = rng.choice(np.array([-1.0, 1.0], dtype=np.float32), size=padded_dim)
+    output_indices = np.sort(
+        rng.choice(padded_dim, size=output_dim, replace=False).astype(np.int32)
+    )
+    return padded_dim, signs, output_indices
 
 
-def _load_shared1000_nsd_ids(index_root: Path, subject: str) -> set[int]:
-    """Load shared1000 NSD IDs from the index."""
-    import pandas as pd
+def _project_batch_srht(
+    flat_batch: np.ndarray,
+    padded_dim: int,
+    signs: np.ndarray,
+    output_indices: np.ndarray,
+) -> np.ndarray:
+    batch_size, input_dim = flat_batch.shape
+    work = np.zeros((batch_size, padded_dim), dtype=np.float32)
+    work[:, :input_dim] = flat_batch
+    work *= signs[None, :]
+    _fwht_inplace(work)
 
-    subj_dir = index_root
-    if not (subj_dir / "index.parquet").exists():
-        subj_dir = index_root / subject
-    idx_path = subj_dir / "index.parquet"
-    if not idx_path.exists():
-        logger.warning("No index.parquet found at %s, cannot exclude shared1000", idx_path)
-        return set()
-
-    df = pd.read_parquet(idx_path)
-    if "shared1000" in df.columns:
-        return set(int(nid) for nid in df[df["shared1000"]]["nsdId"].unique())
-    return set()
+    # For unnormalized Hadamard H, PHD / sqrt(output_dim) gives the desired
+    # scale up to a constant factor, and we L2-normalize afterwards anyway.
+    projected = work[:, output_indices] / math.sqrt(output_indices.shape[0])
+    norms = np.linalg.norm(projected, axis=-1, keepdims=True)
+    return projected / np.maximum(norms, 1e-8)
 
 
 def build_cache(
     token_cache_path: str,
-    index_root: Path,
-    subject: str,
-    rerank_dim: int,
+    output_dim: int,
     seed: int,
-    val_ratio: float,
-    exclude_shared1000: bool,
     output_dir: Path,
-    pca_batch_size: int,
+    batch_size: int,
 ):
     from fmri2img.data.token_clip_cache import TokenCLIPCache
 
-    # Load token cache
     logger.info("Loading token cache from %s ...", token_cache_path)
     tc = TokenCLIPCache(token_cache_path)
-    tc.load()
-    all_nsd_ids = np.array(tc._nsd_ids, dtype=np.int32)
-    n_total = len(all_nsd_ids)
-    logger.info("Token cache: %d images, tokens shape per image: %s",
-                n_total, tc._tokens.shape[1:])
+    tc.load(mmap=True)
 
-    # Determine shared1000 exclusion
-    shared1000_ids: set[int] = set()
-    if exclude_shared1000:
-        shared1000_ids = _load_shared1000_nsd_ids(index_root, subject)
-        logger.info("Shared1000: %d images to exclude from PCA fit", len(shared1000_ids))
-
-    # Reproduce train/val split
-    train_ids, val_ids = _reproduce_train_split(
-        all_nsd_ids, seed=seed, val_ratio=val_ratio,
-        exclude_nsd_ids=shared1000_ids if exclude_shared1000 else None,
-    )
-    logger.info("Split: %d train images, %d val images (seed=%d, val_ratio=%.2f)",
-                len(train_ids), len(val_ids), seed, val_ratio)
-
-    # Build index mapping
-    id_to_idx = {int(nid): i for i, nid in enumerate(all_nsd_ids)}
-    train_indices = np.array([id_to_idx[int(nid)] for nid in train_ids
-                              if int(nid) in id_to_idx])
-    flat_dim = tc._tokens.shape[1] * tc._tokens.shape[2]
-    logger.info("PCA training data: %d images × %d dims (chunked, never fully in RAM)",
-                len(train_indices), flat_dim)
-
-    # Fit IncrementalPCA in chunks to avoid OOM
-    from sklearn.decomposition import IncrementalPCA
-
-    n_train = len(train_indices)
-    rerank_dim_eff = int(min(rerank_dim, flat_dim, n_train))
-    if rerank_dim_eff < rerank_dim:
-        logger.warning(
-            "Auto-capping rerank_dim: requested=%d, using=%d "
-            "(limited by n_train=%d, flat_dim=%d)",
-            rerank_dim,
-            rerank_dim_eff,
-            n_train,
-            flat_dim,
-        )
-    if rerank_dim_eff < 1:
-        raise ValueError(
-            f"Cannot fit PCA with rerank_dim={rerank_dim}: "
-            f"need at least one training sample, got n_train={n_train}"
+    try:
+        all_nsd_ids = np.array(tc._nsd_ids, dtype=np.int32)
+        n_total = len(all_nsd_ids)
+        token_shape = tuple(int(x) for x in tc._tokens.shape[1:])
+        input_dim = int(np.prod(token_shape))
+        logger.info(
+            "Token cache: %d images, tokens shape per image: %s, flattened_dim=%d",
+            n_total,
+            token_shape,
+            input_dim,
         )
 
-    # sklearn IncrementalPCA requires the first partial_fit batch to have at
-    # least n_components samples, so ensure the effective batch size respects it.
-    chunk_size = max(int(pca_batch_size), rerank_dim_eff)
-    logger.info(
-        "PCA fit settings: rerank_dim=%d, batch_size=%d",
-        rerank_dim_eff,
-        chunk_size,
-    )
-    pca = IncrementalPCA(n_components=rerank_dim_eff, batch_size=chunk_size)
+        padded_dim, signs, output_indices = _build_projection_params(
+            input_dim=input_dim,
+            output_dim=output_dim,
+            seed=seed,
+        )
+        logger.info(
+            "Projection method=random_projection (SRHT), seed=%d, padded_dim=%d, output_dim=%d",
+            seed,
+            padded_dim,
+            output_dim,
+        )
 
-    batch_starts = list(range(0, n_train, chunk_size))
-    if len(batch_starts) >= 2:
-        last_start = batch_starts[-1]
-        if n_train - last_start < rerank_dim_eff:
-            batch_starts.pop()
+        compressed = np.zeros((n_total, output_dim), dtype=np.float32)
+        for start in range(0, n_total, batch_size):
+            end = min(start + batch_size, n_total)
+            flat_batch = np.array(tc._tokens[start:end], dtype=np.float32).reshape(end - start, -1)
+            compressed[start:end] = _project_batch_srht(
+                flat_batch=flat_batch,
+                padded_dim=padded_dim,
+                signs=signs,
+                output_indices=output_indices,
+            )
+            if end % 1000 < batch_size or end == n_total:
+                logger.info("  Projected %d/%d images", end, n_total)
 
-    for batch_idx, start in enumerate(batch_starts):
-        if batch_idx + 1 < len(batch_starts):
-            end = batch_starts[batch_idx + 1]
-        else:
-            end = n_train
-        chunk_idx = train_indices[start:end]
-        chunk = np.array(
-            [tc._tokens[i].reshape(-1) for i in chunk_idx], dtype=np.float32)
-        pca.partial_fit(chunk)
-        logger.info("  PCA partial_fit: %d/%d train images", end, n_train)
-        del chunk
+        metadata = {
+            "method": "random_projection",
+            "seed": int(seed),
+            "input_dim": input_dim,
+            "output_dim": int(output_dim),
+            "token_cache_source": str(token_cache_path),
+            "created": datetime.now().isoformat(),
+            "metadata_version": METADATA_VERSION,
+        }
 
-    cumulative_var = float(pca.explained_variance_ratio_.sum())
-    logger.info("PCA fit complete. Cumulative explained variance: %.4f (%.1f%%)",
-                cumulative_var, cumulative_var * 100)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        out_path = output_dir / f"randomproj_dim{output_dim}_seed{seed}.npz"
+        np.savez_compressed(
+            out_path,
+            targets=compressed.astype(np.float32),
+            nsd_ids=all_nsd_ids.astype(np.int32),
+            metadata=json.dumps(metadata),
+        )
 
-    # Project ALL images in chunks
-    logger.info("Projecting all %d images (chunked) ...", n_total)
-    compressed = np.zeros((n_total, rerank_dim_eff), dtype=np.float32)
-    for start in range(0, n_total, chunk_size):
-        end = min(start + chunk_size, n_total)
-        chunk = np.array(
-            [tc._tokens[i].reshape(-1) for i in range(start, end)], dtype=np.float32)
-        compressed[start:end] = pca.transform(chunk)
-        del chunk
-        if end % 2000 < chunk_size:
-            logger.info("  Projected %d/%d images", end, n_total)
+        logger.info(
+            "Saved random-projection rerank cache to %s (%.1f MB)",
+            out_path,
+            out_path.stat().st_size / 1e6,
+        )
 
-    # L2-normalise
-    norms = np.linalg.norm(compressed, axis=-1, keepdims=True)
-    compressed = compressed / np.maximum(norms, 1e-8)
-    logger.info("Compressed targets: %s, L2-normalised", compressed.shape)
-
-    # Build metadata
-    train_ids_hash = hashlib.sha256(
-        np.sort(train_ids).tobytes()
-    ).hexdigest()[:16]
-
-    metadata = {
-        "split_seed": seed,
-        "rerank_dim": rerank_dim_eff,
-        "requested_rerank_dim": rerank_dim,
-        "val_ratio": val_ratio,
-        "n_train_images": len(train_ids),
-        "n_val_images": len(val_ids),
-        "n_total_images": n_total,
-        "train_nsd_ids_hash": f"sha256:{train_ids_hash}",
-        "shared1000_excluded_from_fit": exclude_shared1000,
-        "n_shared1000_excluded": len(shared1000_ids),
-        "token_cache_source": str(token_cache_path),
-        "token_shape_per_image": list(tc._tokens.shape[1:]),
-        "flat_dim": flat_dim,
-        "pca_batch_size": chunk_size,
-        "cumulative_variance": cumulative_var,
-        "subject": subject,
-        "created": datetime.now().isoformat(),
-    }
-
-    # Save
-    output_dir.mkdir(parents=True, exist_ok=True)
-    out_name = f"compressed_targets_seed{seed}_trainonly_dim{rerank_dim_eff}.npz"
-    out_path = output_dir / out_name
-
-    # Save targets (compact) — PCA components are large (~760 MB for 1024×197376)
-    # so we save them in a separate file only if needed for re-projection
-    np.savez_compressed(
-        out_path,
-        targets=compressed.astype(np.float32),
-        nsd_ids=all_nsd_ids.astype(np.int32),
-        explained_variance_ratio=pca.explained_variance_ratio_.astype(np.float32),
-        metadata=json.dumps(metadata),
-    )
-
-    # Save PCA basis separately (for re-projection of new images if needed)
-    pca_path = output_dir / f"pca_basis_seed{seed}_dim{rerank_dim_eff}.npz"
-    np.savez_compressed(
-        pca_path,
-        components=pca.components_.astype(np.float32),
-        mean=pca.mean_.astype(np.float32),
-    )
-    logger.info("Saved compressed target cache to %s (%.1f MB)", out_path, out_path.stat().st_size / 1e6)
-    logger.info("Saved PCA basis to %s (%.1f MB)", pca_path, pca_path.stat().st_size / 1e6)
-
-    # Print summary
-    print("\n" + "=" * 60)
-    print("RERANK CACHE SUMMARY")
-    print("=" * 60)
-    print(f"  Output:             {out_path}")
-    print(f"  Rerank dim:         {rerank_dim_eff}")
-    print(f"  Train images:       {len(train_ids)}")
-    print(f"  Total images:       {n_total}")
-    print(f"  Cumulative var:     {cumulative_var:.4f} ({cumulative_var*100:.1f}%)")
-    print(f"  Split seed:         {seed}")
-    print(f"  Shared1000 excl:    {exclude_shared1000} ({len(shared1000_ids)} images)")
-    print(f"  Train IDs hash:     sha256:{train_ids_hash}")
-    print("=" * 60)
+        print("\n" + "=" * 60)
+        print("RERANK CACHE SUMMARY")
+        print("=" * 60)
+        print(f"  Output:             {out_path}")
+        print(f"  Method:             random_projection")
+        print(f"  Seed:               {seed}")
+        print(f"  Input dim:          {input_dim}")
+        print(f"  Output dim:         {output_dim}")
+        print(f"  Total images:       {n_total}")
+        print(f"  L2-normalised:      True")
+        print("=" * 60)
+    finally:
+        tc.close()
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Build PCA-compressed rerank target cache for V30d")
+        description="Build deterministic random-projection rerank target cache for V30d"
+    )
 
-    parser.add_argument("--config", type=str, default=None,
-                        help="Experiment config YAML (extracts all params automatically)")
-    parser.add_argument("--token-cache", type=str, default=None,
-                        help="Path to token CLIP cache HDF5")
-    parser.add_argument("--index-root", type=str, default=None,
-                        help="Path to preprocessed index root (for shared1000 detection)")
-    parser.add_argument("--subject", type=str, default="subj01")
-    parser.add_argument("--rerank-dim", type=int, default=1024)
+    parser.add_argument(
+        "--config",
+        type=str,
+        default=None,
+        help="Experiment config YAML (extracts token-cache path, seed, and output dim)",
+    )
+    parser.add_argument(
+        "--method",
+        type=str,
+        default="random_projection",
+        choices=["random_projection"],
+        help="Compression method for rerank targets",
+    )
+    parser.add_argument(
+        "--token-cache",
+        type=str,
+        default=None,
+        help="Path to token CLIP cache HDF5",
+    )
+    parser.add_argument(
+        "--output-dim",
+        "--rerank-dim",
+        dest="output_dim",
+        type=int,
+        default=1024,
+        help="Compressed rerank target dimension",
+    )
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--val-ratio", type=float, default=0.10)
-    parser.add_argument("--exclude-shared1000", action="store_true", default=True)
-    parser.add_argument("--pca-batch-size", type=int, default=512,
-                        help="Base IncrementalPCA batch size; auto-raised to >= rerank-dim")
-    parser.add_argument("--output-dir", type=str, default="outputs/rerank_cache")
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=64,
+        help="Images per projection batch",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default="outputs/rerank_cache",
+    )
 
     args = parser.parse_args()
 
-    # If config provided, extract params from it
     if args.config:
         import yaml
+
         with open(args.config) as f:
             cfg = yaml.safe_load(f)
         data_cfg = cfg.get("data", {})
         decoder_cfg = cfg.get("model", {}).get("decoder", {})
 
         args.token_cache = args.token_cache or data_cfg.get("token_cache_path")
-        args.subject = data_cfg.get("subject", args.subject)
         args.seed = data_cfg.get("seed", args.seed)
-        args.val_ratio = data_cfg.get("val_split", args.val_ratio)
-        args.exclude_shared1000 = data_cfg.get("exclude_shared1000", args.exclude_shared1000)
-        args.rerank_dim = decoder_cfg.get("rerank_dim", args.rerank_dim)
-        if args.index_root is None:
-            args.index_root = f"outputs/preproc/{args.subject}"
+        args.output_dim = decoder_cfg.get("rerank_dim", args.output_dim)
 
     if not args.token_cache:
         parser.error("--token-cache is required (or provide --config)")
-    if not args.index_root:
-        args.index_root = f"outputs/preproc/{args.subject}"
 
     build_cache(
         token_cache_path=args.token_cache,
-        index_root=Path(args.index_root),
-        subject=args.subject,
-        rerank_dim=args.rerank_dim,
+        output_dim=args.output_dim,
         seed=args.seed,
-        val_ratio=args.val_ratio,
-        exclude_shared1000=args.exclude_shared1000,
         output_dir=Path(args.output_dir),
-        pca_batch_size=args.pca_batch_size,
+        batch_size=args.batch_size,
     )
 
 

@@ -1,10 +1,8 @@
 """Compressed rerank target cache.
 
-Loads PCA-compressed token embeddings for the dedicated rerank head.
-Targets are L2-normalized and indexed by NSD stimulus ID.
-
-The cache is produced by ``scripts/preprocessing/build_rerank_cache.py``
-which fits PCA on train-split-only images, then projects all images.
+Loads rerank targets produced by ``scripts/preprocessing/build_rerank_cache.py``.
+Caches may be legacy PCA-compressed targets or deterministic random-projection
+targets. Stored targets are L2-normalized and indexed by NSD stimulus ID.
 """
 
 import json
@@ -18,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class CompressedTargetCache:
-    """Provides PCA-compressed, L2-normalised rerank targets by NSD ID.
+    """Provides compressed, L2-normalised rerank targets by NSD ID.
 
     Parameters
     ----------
@@ -48,7 +46,10 @@ class CompressedTargetCache:
                 raw = str(raw)
             self._metadata = json.loads(raw)
 
-        self.rerank_dim = int(self._targets.shape[1])
+        self.method = str(self._metadata.get("method", "pca"))
+        self.rerank_dim = int(
+            self._metadata.get("output_dim", self._targets.shape[1])
+        )
         self.n_images = len(self._nsd_ids)
 
         # Validate L2 normalization
@@ -63,9 +64,10 @@ class CompressedTargetCache:
                 norms[:, None], 1e-8)
 
         logger.info(
-            "CompressedTargetCache: %d images, rerank_dim=%d, "
+            "CompressedTargetCache: %d images, rerank_dim=%d, method=%s, "
             "cumulative_variance=%.4f, cache=%s",
             self.n_images, self.rerank_dim,
+            self.method,
             self._metadata.get("cumulative_variance", -1),
             self.cache_path.name,
         )

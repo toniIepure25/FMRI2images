@@ -3095,13 +3095,18 @@ def main() -> None:
                 for _tr_b in train_loader:
                     if _tr_n >= _tr_max:
                         break
-                    _tr_fmri = _tr_b[0].to(device, dtype=torch.float32)
-                    _tr_gt = _tr_b[1].to(device, dtype=torch.float32)
-                    _tr_sid = (
-                        _tr_b[2].to(device)
-                        if _is_multi_subject and len(_tr_b) >= 3
-                        else None
-                    )
+                    if isinstance(_tr_b, dict):
+                        _tr_fmri = _tr_b["fmri"].to(device, dtype=torch.float32)
+                        _tr_gt = _tr_b["retrieval_target"].to(device, dtype=torch.float32)
+                        _tr_sid = _tr_b["subject_id"].to(device)
+                    else:
+                        _tr_fmri = _tr_b[0].to(device, dtype=torch.float32)
+                        _tr_gt = _tr_b[1].to(device, dtype=torch.float32)
+                        _tr_sid = (
+                            _tr_b[2].to(device)
+                            if _is_multi_subject and len(_tr_b) >= 3
+                            else None
+                        )
                     if preprocessor is not None:
                         _tr_gt = preprocessor.transform_torch(_tr_gt)
                     _tr_out = (
@@ -3317,6 +3322,7 @@ def main() -> None:
                 model, val_loader, losses, loss_weights, device, preprocessor, queue,
                 vmf_is_log=_vmf_is_log,
             )
+            val_metrics_soup.pop("_val_extras", None)
             if ema is not None:
                 ema.restore(model)
 

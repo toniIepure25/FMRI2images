@@ -205,12 +205,46 @@ def two_stage_metrics(
     compact_hub = _k_occurrence_stats(compact_raw_indices, N, k=1)
     reranked_hub = _k_occurrence_stats(reranked, N, k=1)
 
+    # --- Rich-only full-gallery retrieval ---
+    rich_sim = _cosine_sim(rich_preds, rich_gts)
+    rich_ranks = np.argsort(-rich_sim, axis=1)
+    rich_recall = _recall_at_k(rich_ranks, gt_indices, ks=list(ks))
+
+    # --- Rich-space diagnostics ---
+    rp_norms = np.linalg.norm(rich_preds, axis=-1)
+    rg_norms = np.linalg.norm(rich_gts, axis=-1)
+    diag_sims = np.array([rich_sim[i, i] for i in range(N)])
+    # Sample off-diagonal negatives
+    _rng = np.random.RandomState(42)
+    _n_neg = min(50000, N * (N - 1))
+    _ni = _rng.randint(0, N, _n_neg)
+    _nj = _rng.randint(0, N - 1, _n_neg)
+    _nj[_nj >= _ni] += 1
+    neg_sims = rich_sim[_ni, _nj]
+    rich_separability = float(
+        (diag_sims.mean() - neg_sims.mean()) / max(neg_sims.std(), 1e-8))
+
+    # --- Oracle shortlist reranking ---
+    oracle_k = min(shortlist_k, N - 1)
+    oracle_sl = np.zeros((N, oracle_k), dtype=int)
+    _rng2 = np.random.RandomState(123)
+    for i in range(N):
+        candidates = np.delete(np.arange(N), i)
+        chosen = _rng2.choice(candidates, oracle_k - 1, replace=False)
+        gt_pos = _rng2.randint(0, oracle_k)
+        oracle_sl[i] = np.insert(chosen, gt_pos, i)[:oracle_k]
+    oracle_reranked = rerank_shortlist(
+        rich_preds, rich_gts, oracle_sl, mode=rerank_mode)
+    oracle_recall = _recall_at_k(oracle_reranked, gt_indices, ks=list(ks))
+
     report: Dict[str, Any] = {
         "shortlist_k": shortlist_k,
         "shortlist_recall": sl_recall,
         "compact_raw": {f"compact_{k}": v for k, v in compact_recall.items()},
         "compact_csls": {f"compact_csls_{k}": v for k, v in compact_csls_recall.items()},
         "reranked": {f"reranked_{k}": v for k, v in reranked_recall.items()},
+        "rich_only": {f"rich_{k}": v for k, v in rich_recall.items()},
+        "oracle_rerank": {f"oracle_{k}": v for k, v in oracle_recall.items()},
         "hubness_compact": compact_hub,
         "hubness_reranked": reranked_hub,
         "hubness_gap_compact": round(
@@ -222,6 +256,17 @@ def two_stage_metrics(
         "rerank_gain_over_csls": round(
             reranked_recall.get(f"r@{ks[0]}", 0)
             - compact_csls_recall.get(f"r@{ks[0]}", 0), 4),
+        "rich_diagnostics": {
+            "rich_pred_norm_mean": float(rp_norms.mean()),
+            "rich_pred_norm_std": float(rp_norms.std()),
+            "rich_gt_norm_mean": float(rg_norms.mean()),
+            "rich_gt_norm_std": float(rg_norms.std()),
+            "pos_cosine_mean": float(diag_sims.mean()),
+            "pos_cosine_std": float(diag_sims.std()),
+            "neg_cosine_mean": float(neg_sims.mean()),
+            "neg_cosine_std": float(neg_sims.std()),
+            "separability": rich_separability,
+        },
     }
 
     logger.info(
@@ -234,6 +279,14 @@ def two_stage_metrics(
         compact_recall.get("r@1", 0) * 100,
         compact_csls_recall.get("r@1", 0) * 100,
         report["rerank_gain_over_compact_raw"] * 100,
+    )
+    logger.info(
+        "Rich-only R@1=%.1f%%  oracle_rerank_R@1=%.1f%%  "
+        "rich_separability=%.2f  pos_cos=%.4f  neg_cos=%.4f",
+        rich_recall.get("r@1", 0) * 100,
+        oracle_recall.get("r@1", 0) * 100,
+        rich_separability,
+        diag_sims.mean(), neg_sims.mean(),
     )
 
     return report

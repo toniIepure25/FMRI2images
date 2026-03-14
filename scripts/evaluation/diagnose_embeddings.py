@@ -411,9 +411,18 @@ def main() -> None:
     if _two_stage is not None:
         _ts_r = _two_stage.get("reranked", {})
         _ts_c = _two_stage.get("compact_raw", {})
+        _ts_rich = _two_stage.get("rich_only", {})
+        _ts_oracle = _two_stage.get("oracle_rerank", {})
+        _ts_diag = _two_stage.get("rich_diagnostics", {})
         print(f"  Compact raw R@1:   {_ts_c.get('compact_r@1', 0):.1%}")
         print(f"  Reranked R@1:      {_ts_r.get('reranked_r@1', 0):.1%}")
+        print(f"  Rich-only R@1:     {_ts_rich.get('rich_r@1', 0):.1%}")
+        print(f"  Oracle rerank R@1: {_ts_oracle.get('oracle_r@1', 0):.1%}")
         print(f"  Rerank gain (pp):  {_two_stage.get('rerank_gain_over_compact_raw', 0)*100:.1f}")
+        if _ts_diag:
+            print(f"  Rich separability: {_ts_diag.get('separability', 0):.2f}")
+            print(f"  Rich pos/neg cos:  {_ts_diag.get('pos_cosine_mean', 0):.4f} / "
+                  f"{_ts_diag.get('neg_cosine_mean', 0):.4f}")
     print(f"\n  Report: {report_path}")
     print(f"  Plots:  {diag_dir}/")
     print("=" * 60)

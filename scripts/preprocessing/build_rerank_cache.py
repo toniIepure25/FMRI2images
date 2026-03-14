@@ -140,34 +140,45 @@ def build_cache(
     logger.info("Split: %d train images, %d val images (seed=%d, val_ratio=%.2f)",
                 len(train_ids), len(val_ids), seed, val_ratio)
 
-    # Flatten all token embeddings
-    logger.info("Flattening token embeddings ...")
-    all_flat = np.zeros((n_total, tc._tokens.shape[1] * tc._tokens.shape[2]),
-                        dtype=np.float32)
+    # Build index mapping
     id_to_idx = {int(nid): i for i, nid in enumerate(all_nsd_ids)}
-    for i in range(n_total):
-        all_flat[i] = tc._tokens[i].reshape(-1)
-
-    # Extract train-only subset for PCA fitting
     train_indices = np.array([id_to_idx[int(nid)] for nid in train_ids
                               if int(nid) in id_to_idx])
-    train_flat = all_flat[train_indices]
-    logger.info("PCA training data: %d images × %d dims", *train_flat.shape)
+    flat_dim = tc._tokens.shape[1] * tc._tokens.shape[2]
+    logger.info("PCA training data: %d images × %d dims (chunked, never fully in RAM)",
+                len(train_indices), flat_dim)
 
-    # Fit PCA (randomized solver handles N << D efficiently)
-    from sklearn.decomposition import PCA
+    # Fit IncrementalPCA in chunks to avoid OOM
+    from sklearn.decomposition import IncrementalPCA
 
-    logger.info("Fitting PCA with %d components (randomized solver) ...", rerank_dim)
-    pca = PCA(n_components=rerank_dim, svd_solver="randomized", random_state=seed)
-    pca.fit(train_flat)
+    chunk_size = 512  # ~512 × 197376 × 4 bytes ≈ 380 MB per chunk
+    pca = IncrementalPCA(n_components=rerank_dim)
+
+    n_train = len(train_indices)
+    for start in range(0, n_train, chunk_size):
+        end = min(start + chunk_size, n_train)
+        chunk_idx = train_indices[start:end]
+        chunk = np.array(
+            [tc._tokens[i].reshape(-1) for i in chunk_idx], dtype=np.float32)
+        pca.partial_fit(chunk)
+        logger.info("  PCA partial_fit: %d/%d train images", end, n_train)
+        del chunk
 
     cumulative_var = float(pca.explained_variance_ratio_.sum())
     logger.info("PCA fit complete. Cumulative explained variance: %.4f (%.1f%%)",
                 cumulative_var, cumulative_var * 100)
 
-    # Project ALL images
-    logger.info("Projecting all %d images ...", n_total)
-    compressed = pca.transform(all_flat)  # (N, rerank_dim)
+    # Project ALL images in chunks
+    logger.info("Projecting all %d images (chunked) ...", n_total)
+    compressed = np.zeros((n_total, rerank_dim), dtype=np.float32)
+    for start in range(0, n_total, chunk_size):
+        end = min(start + chunk_size, n_total)
+        chunk = np.array(
+            [tc._tokens[i].reshape(-1) for i in range(start, end)], dtype=np.float32)
+        compressed[start:end] = pca.transform(chunk)
+        del chunk
+        if end % 2000 < chunk_size:
+            logger.info("  Projected %d/%d images", end, n_total)
 
     # L2-normalise
     norms = np.linalg.norm(compressed, axis=-1, keepdims=True)
@@ -191,7 +202,7 @@ def build_cache(
         "n_shared1000_excluded": len(shared1000_ids),
         "token_cache_source": str(token_cache_path),
         "token_shape_per_image": list(tc._tokens.shape[1:]),
-        "flat_dim": int(all_flat.shape[1]),
+        "flat_dim": flat_dim,
         "cumulative_variance": cumulative_var,
         "subject": subject,
         "created": datetime.now().isoformat(),
@@ -202,17 +213,25 @@ def build_cache(
     out_name = f"compressed_targets_seed{seed}_trainonly_dim{rerank_dim}.npz"
     out_path = output_dir / out_name
 
-    np.savez(
+    # Save targets (compact) — PCA components are large (~760 MB for 1024×197376)
+    # so we save them in a separate file only if needed for re-projection
+    np.savez_compressed(
         out_path,
         targets=compressed.astype(np.float32),
         nsd_ids=all_nsd_ids.astype(np.int32),
-        pca_components=pca.components_.astype(np.float32),
-        pca_mean=pca.mean_.astype(np.float32),
         explained_variance_ratio=pca.explained_variance_ratio_.astype(np.float32),
         metadata=json.dumps(metadata),
     )
-    logger.info("Saved compressed target cache to %s", out_path)
-    logger.info("  Size: %.1f MB", out_path.stat().st_size / 1e6)
+
+    # Save PCA basis separately (for re-projection of new images if needed)
+    pca_path = output_dir / f"pca_basis_seed{seed}_dim{rerank_dim}.npz"
+    np.savez_compressed(
+        pca_path,
+        components=pca.components_.astype(np.float32),
+        mean=pca.mean_.astype(np.float32),
+    )
+    logger.info("Saved compressed target cache to %s (%.1f MB)", out_path, out_path.stat().st_size / 1e6)
+    logger.info("Saved PCA basis to %s (%.1f MB)", pca_path, pca_path.stat().st_size / 1e6)
 
     # Print summary
     print("\n" + "=" * 60)

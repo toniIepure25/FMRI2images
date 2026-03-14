@@ -53,6 +53,7 @@ help:
 	@echo "    ONLY=N1v27a       Run only V27a ViT-bigG/14 token-targets"
 	@echo "    ONLY=N1v28a       Run only V28a dual-head MindEye-style (ViT-L/14)"
 	@echo "    ONLY=N1v28b       Run only V28b dual-head + ViT-bigG/14"
+	@echo "    ONLY=N1v30d       Run only V30d rerank head (1024-D SoftCLIP)"
 	@echo "  make ridge          Train Ridge baseline (fMRI -> CLIP)"
 	@echo ""
 	@echo "Evaluation:"

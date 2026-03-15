@@ -1895,6 +1895,60 @@ def validate(
     return loss_metrics, val_preds, val_gts
 
 
+def _get_eval_fusion_cfg(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Resolve optional fixed fusion evaluation config."""
+    from fmri2img.eval.two_stage_retrieval import DEFAULT_FUSION_CONFIG
+
+    fusion_cfg = config.get("evaluation", {}).get("fusion", {})
+    if not fusion_cfg.get("enabled", False):
+        return None
+    resolved = dict(DEFAULT_FUSION_CONFIG)
+    resolved.update(fusion_cfg)
+    return resolved
+
+
+def _compute_fusion_report(
+    compact_preds: np.ndarray,
+    compact_gts: np.ndarray,
+    rerank_preds: np.ndarray,
+    rerank_gts: np.ndarray,
+    fusion_cfg: Optional[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Compute fused shortlist metrics when the config enables them."""
+    if fusion_cfg is None:
+        return None
+    from fmri2img.eval.two_stage_retrieval import fusion_metrics
+
+    return fusion_metrics(
+        compact_preds,
+        compact_gts,
+        rerank_preds,
+        rerank_gts,
+        shortlist_k=int(fusion_cfg.get("shortlist_k", 50)),
+        ks=(1, 5, 10),
+        compact_score=str(fusion_cfg.get("compact_score", "csls")),
+        family=str(fusion_cfg.get("family", "normalized_weighted")),
+        normalization=str(fusion_cfg.get("normalization", "zscore")),
+        alpha=float(fusion_cfg.get("alpha", 0.8)),
+        csls_k=int(fusion_cfg.get("csls_k", 10)),
+        rerank_mode="cosine",
+    )
+
+
+def _fusion_scalar_metrics(report: Optional[Dict[str, Any]]) -> Dict[str, float]:
+    """Flatten fused retrieval metrics for CSV logging and checkpointing."""
+    if report is None:
+        return {}
+    fused = report.get("fused", {})
+    return {
+        "fused_r@1": float(fused.get("fused_r@1", 0.0)),
+        "fused_r@5": float(fused.get("fused_r@5", 0.0)),
+        "fused_r@10": float(fused.get("fused_r@10", 0.0)),
+        "fused_median_rank": float(fused.get("fused_median_rank", 0.0)),
+        "fused_mrr": float(fused.get("fused_mrr", 0.0)),
+    }
+
+
 def _run_post_training_shared1000_eval(
     output_dir: Path,
     model: nn.Module,
@@ -2010,6 +2064,29 @@ def _run_post_training_shared1000_eval(
                 _ts_s1000["compact_raw"].get("compact_r@1", 0) * 100,
                 _ts_s1000.get("rerank_gain_over_compact_raw", 0) * 100,
             )
+
+            _fusion_cfg = _get_eval_fusion_cfg(config)
+            _fusion_report = _compute_fusion_report(
+                _s1000_preds,
+                _s1000_gts,
+                _s1000_rerank_preds,
+                _s1000_rerank_gts,
+                _fusion_cfg,
+            )
+            if _fusion_report is not None:
+                _fusion_path = _metrics_save_dir / "shared1000_fused_metrics.json"
+                with open(_fusion_path, "w") as _jf:
+                    json.dump(_fusion_report, _jf, indent=2, default=str)
+                _fused = _fusion_report.get("fused", {})
+                logger.info(
+                    "Shared1000 fused retrieval: fused_R@1=%.1f%%  R@5=%.1f%%  "
+                    "R@10=%.1f%%  MedR=%.1f  MRR=%.4f",
+                    _fused.get("fused_r@1", 0.0) * 100,
+                    _fused.get("fused_r@5", 0.0) * 100,
+                    _fused.get("fused_r@10", 0.0) * 100,
+                    _fused.get("fused_median_rank", 0.0),
+                    _fused.get("fused_mrr", 0.0),
+                )
 
     logger.info("=" * 60)
     return True
@@ -3100,6 +3177,16 @@ def main() -> None:
         best_metric_val = float("inf")
 
     _vmf_is_log = getattr(model, "vmf_output_is_log", True)
+    _fusion_eval_cfg = _get_eval_fusion_cfg(config)
+    if _fusion_eval_cfg is not None:
+        logger.info(
+            "Fusion eval enabled: compact=%s family=%s norm=%s shortlist_k=%d alpha=%.2f",
+            _fusion_eval_cfg.get("compact_score", "csls"),
+            _fusion_eval_cfg.get("family", "normalized_weighted"),
+            _fusion_eval_cfg.get("normalization", "zscore"),
+            int(_fusion_eval_cfg.get("shortlist_k", 50)),
+            float(_fusion_eval_cfg.get("alpha", 0.8)),
+        )
 
     if args.post_eval_shared1000_only:
         _eval_ckpt_path = Path(args.resume) if args.resume else (output_dir / "checkpoint_best.pt")
@@ -3557,6 +3644,14 @@ def main() -> None:
             val_metrics["reranked_r@1"] = float(_rr_reranked.get("reranked_r@1", 0.0))
             val_metrics["reranked_r@5"] = float(_rr_reranked.get("reranked_r@5", 0.0))
             val_metrics["reranked_r@10"] = float(_rr_reranked.get("reranked_r@10", 0.0))
+            _fusion_report_val = _compute_fusion_report(
+                _compact_eval_preds,
+                _compact_eval_gts,
+                _rrp,
+                _rrg,
+                _fusion_eval_cfg,
+            )
+            val_metrics.update(_fusion_scalar_metrics(_fusion_report_val))
             logger.info(
                 "Rerank val: rerank_R@1=%.4f  oracle_R@1=%.4f  "
                 "sep=%.3f  inter_pred=%.4f  shortlist@100=%.4f  reranked_R@1=%.4f",
@@ -3567,6 +3662,16 @@ def main() -> None:
                 val_metrics["shortlist_r@100"],
                 val_metrics["reranked_r@1"],
             )
+            if _fusion_report_val is not None:
+                logger.info(
+                    "Fused val: fused_R@1=%.4f  fused_R@5=%.4f  fused_R@10=%.4f  "
+                    "MedR=%.1f  MRR=%.4f",
+                    val_metrics.get("fused_r@1", 0.0),
+                    val_metrics.get("fused_r@5", 0.0),
+                    val_metrics.get("fused_r@10", 0.0),
+                    val_metrics.get("fused_median_rank", 0.0),
+                    val_metrics.get("fused_mrr", 0.0),
+                )
 
         metrics_logger.log_epoch(epoch, optimizer.param_groups[0]["lr"], train_metrics, val_metrics)
 
@@ -3833,6 +3938,27 @@ def main() -> None:
                 _ts["compact_raw"].get("compact_r@1", 0) * 100,
                 _ts.get("rerank_gain_over_compact_raw", 0) * 100,
             )
+            _fusion_report = _compute_fusion_report(
+                _save_preds,
+                _save_gts,
+                _rrp,
+                _rrg,
+                _fusion_eval_cfg,
+            )
+            if _fusion_report is not None:
+                _fusion_path = _metrics_save_dir / "val_fused_metrics.json"
+                with open(_fusion_path, "w") as _jf:
+                    json.dump(_fusion_report, _jf, indent=2, default=str)
+                _fused = _fusion_report.get("fused", {})
+                logger.info(
+                    "Saved val fused metrics: fused_R@1=%.1f%%  fused_R@5=%.1f%%  "
+                    "fused_R@10=%.1f%%  MedR=%.1f  MRR=%.4f",
+                    _fused.get("fused_r@1", 0.0) * 100,
+                    _fused.get("fused_r@5", 0.0) * 100,
+                    _fused.get("fused_r@10", 0.0) * 100,
+                    _fused.get("fused_median_rank", 0.0),
+                    _fused.get("fused_mrr", 0.0),
+                )
 
         if "nsd_ids" in _val_extras:
             _nids = _val_extras["nsd_ids"]

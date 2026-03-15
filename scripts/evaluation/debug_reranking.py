@@ -20,17 +20,20 @@ Checks performed:
 """
 
 import argparse
+import importlib.util
 import json
 import logging
 from pathlib import Path
 
 import numpy as np
+import yaml
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
 )
 logger = logging.getLogger(__name__)
+_TWO_STAGE_MODULE = None
 
 
 # ---------------------------------------------------------------------------
@@ -68,11 +71,62 @@ def _gt_ranks(sim: np.ndarray) -> np.ndarray:
     return gt_rank
 
 
+def _load_two_stage_module():
+    """Load the retrieval utility module without importing heavy eval extras."""
+    global _TWO_STAGE_MODULE
+    if _TWO_STAGE_MODULE is not None:
+        return _TWO_STAGE_MODULE
+
+    module_path = (
+        Path(__file__).resolve().parents[2]
+        / "src"
+        / "fmri2img"
+        / "eval"
+        / "two_stage_retrieval.py"
+    )
+    spec = importlib.util.spec_from_file_location("two_stage_retrieval_local", module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Could not load retrieval helpers from {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    _TWO_STAGE_MODULE = module
+    return module
+
+
+def _load_fusion_config(results_dir: Path, metrics_dir: Path) -> dict | None:
+    """Load fixed fusion config from the experiment config referenced in summary."""
+    summary_path = metrics_dir / "summary.json"
+    if not summary_path.exists():
+        return None
+    try:
+        with open(summary_path, "r") as f:
+            summary = json.load(f)
+        config_path = summary.get("manifest", {}).get("config_path")
+        if not config_path:
+            return None
+        cfg_path = Path(config_path)
+        if not cfg_path.exists():
+            cfg_path = results_dir.parent.parent / config_path
+        if not cfg_path.exists():
+            return None
+        with open(cfg_path, "r") as f:
+            config = yaml.safe_load(f)
+        fusion_cfg = config.get("evaluation", {}).get("fusion", {})
+        if not fusion_cfg.get("enabled", False):
+            return None
+        resolved = dict(_load_two_stage_module().DEFAULT_FUSION_CONFIG)
+        resolved.update(fusion_cfg)
+        return resolved
+    except Exception as exc:
+        logger.warning("Could not load fusion config from summary: %s", exc)
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Main diagnostics
 # ---------------------------------------------------------------------------
 
-def run_diagnostics(metrics_dir: Path, split: str = "val"):
+def run_diagnostics(results_dir: Path, metrics_dir: Path, split: str = "val"):
     prefix = "shared1000" if split == "shared1000" else "val"
 
     compact_p_path = metrics_dir / f"{prefix}_predictions_compact.npy"
@@ -237,9 +291,10 @@ def run_diagnostics(metrics_dir: Path, split: str = "val"):
     print("6. TWO-STAGE: SHORTLIST(100) + RERANK")
     print("=" * 70)
 
-    from fmri2img.eval.two_stage_retrieval import (
-        shortlist_retrieval, rerank_shortlist, two_stage_metrics,
-    )
+    _ts_module = _load_two_stage_module()
+    shortlist_retrieval = _ts_module.shortlist_retrieval
+    rerank_shortlist = _ts_module.rerank_shortlist
+    two_stage_metrics = _ts_module.two_stage_metrics
     ts = two_stage_metrics(cp, cg, rp, rg, shortlist_k=100, ks=(1, 5, 10))
     sl_recall = ts["shortlist_recall"]
     print(f"  Shortlist recall@100:  {sl_recall.get('r@100', 0):.1%}")
@@ -249,6 +304,42 @@ def run_diagnostics(metrics_dir: Path, split: str = "val"):
         print(f"  {k}: {v:.1%}")
     print(f"  Rerank gain (pp):     {ts['rerank_gain_over_compact_raw'] * 100:.1f}")
     report["two_stage"] = ts
+
+    # -----------------------------------------------------------------------
+    # 6b. Fixed score fusion
+    # -----------------------------------------------------------------------
+    fusion_cfg = _load_fusion_config(results_dir, metrics_dir)
+    if fusion_cfg is not None and stage2_name == "rerank":
+        print("\n" + "=" * 70)
+        print("6B. FIXED SCORE FUSION")
+        print("=" * 70)
+        fusion_report = _ts_module.fusion_metrics(
+            cp,
+            cg,
+            rp,
+            rg,
+            shortlist_k=int(fusion_cfg.get("shortlist_k", 50)),
+            ks=(1, 5, 10),
+            compact_score=str(fusion_cfg.get("compact_score", "csls")),
+            family=str(fusion_cfg.get("family", "normalized_weighted")),
+            normalization=str(fusion_cfg.get("normalization", "zscore")),
+            alpha=float(fusion_cfg.get("alpha", 0.8)),
+            csls_k=int(fusion_cfg.get("csls_k", 10)),
+            rerank_mode="cosine",
+        )
+        fused = fusion_report["fused"]
+        print(f"  Compact score:          {fusion_cfg['compact_score']}")
+        print(f"  Fusion family:          {fusion_cfg['family']}")
+        print(f"  Normalization:          {fusion_cfg['normalization']}")
+        print(f"  Shortlist k:            {fusion_cfg['shortlist_k']}")
+        print(f"  Alpha:                  {fusion_cfg['alpha']}")
+        print(f"  Fused R@1:              {fused.get('fused_r@1', 0):.1%}")
+        print(f"  Fused R@5:              {fused.get('fused_r@5', 0):.1%}")
+        print(f"  Fused R@10:             {fused.get('fused_r@10', 0):.1%}")
+        print(f"  Fused MedR / MRR:       {fused.get('fused_median_rank', 0):.1f} / {fused.get('fused_mrr', 0):.4f}")
+        print(f"  Gain over compact CSLS: {fusion_report.get('fused_gain_over_compact_csls', 0) * 100:.1f} pp")
+        print(f"  Gain over rerank repl.: {fusion_report.get('fused_gain_over_rerank_replacement', 0) * 100:.1f} pp")
+        report["fused_retrieval"] = fusion_report
 
     # -----------------------------------------------------------------------
     # 7. Oracle shortlist reranking
@@ -436,8 +527,10 @@ def main():
         else:
             logger.error("Cannot find metrics directory in %s", results_dir)
             return
+    if results_dir == metrics_dir and metrics_dir.name == "metrics":
+        results_dir = metrics_dir.parent
 
-    report = run_diagnostics(metrics_dir, split=args.split)
+    report = run_diagnostics(results_dir, metrics_dir, split=args.split)
 
     if report is not None and args.save:
         diag_dir = results_dir / "diagnostics"
@@ -445,6 +538,12 @@ def main():
         out_path = diag_dir / f"rerank_debug_{args.split}.json"
         with open(out_path, "w") as f:
             json.dump(report, f, indent=2, default=str)
+        fused_report = report.get("fused_retrieval")
+        if fused_report is not None:
+            fused_metrics_path = metrics_dir / f"{args.split}_fused_metrics.json"
+            with open(fused_metrics_path, "w") as f:
+                json.dump(fused_report, f, indent=2, default=str)
+            print(f"Fused metrics saved to {fused_metrics_path}")
         print(f"\nReport saved to {out_path}")
 
 

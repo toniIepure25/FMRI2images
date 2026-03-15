@@ -2,9 +2,9 @@
 
 This document provides complete technical context for a bachelor thesis project on neural decoding of visual perception from fMRI. It is designed as a self-contained briefing for an LLM or researcher performing deep analysis.
 
-**Project status (March 2026):** After 28 iterative versions, the project-best is **56.0% raw R@1 / 70.3% CSLS R@1** from N1v28a (dual-head MindEye-style, 1.08B params). V28a added an un-normalised regression head alongside the contrastive head, improving raw R@1 by +3.2pp over V26a but CSLS by only +0.7pp — the ~70% CSLS ceiling persists. The bottleneck is now identified as **single-subject data volume** (~9K unique images vs MindEye's ~70K across 7 subjects). V29 implements MindEye2-style two-phase cross-subject pre-training: Phase 1 trains on 4 subjects with 768-D CLS targets (~862M params), Phase 2 fine-tunes on subj01 with dual-head + 197K-D token targets (~1.08B params). All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
+**Project status (March 2026):** The project has now validated a strong V30 triple-head retrieval wave. The best compact shortlist head reaches **52.9% CSLS R@1 on VAL / 49.2% on SHARED1000** (V30e), while the dedicated rerank head is clearly discriminative (**25.0% rerank-only R@1 on VAL / 24.2% on SHARED1000**, oracle rerank **61.3% / 62.7%**). The key new result is post-hoc fusion: a fixed shortlist-local combination of compact and rerank scores achieves **56.2% VAL R@1** and **51.5% SHARED1000 R@1**, establishing that the rerank head should act as a corrective signal inside a high-quality shortlist rather than replace compact retrieval. Earlier project-best single-head metrics from N1v28a remain **56.0% raw R@1 / 70.3% CSLS R@1**. All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
 
-**SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training (primary bottleneck after V28a), (2) hubness in 197K-D retrieval space, (3) smaller model capacity (1.08B vs 996M — now comparable), and (4) possible fine-grained architectural differences (MindEye's retrieval submodule vs flat cosine similarity).
+**SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training (primary bottleneck after V28a), (2) hubness and metric mismatch in high-dimensional retrieval/rerank spaces, (3) smaller effective subject diversity despite comparable parameter count, and (4) possible fine-grained architectural differences (MindEye's retrieval submodule vs our explicit shortlist + rerank pipeline).
 
 ---
 
@@ -2633,3 +2633,143 @@ nohup make ablation ONLY=N1v29b SUBJECTS=subj01 GPU=0 > v29b_subj01.log 2>&1 &
 ### 33.9 Scaling to 8 Subjects (Optional)
 
 If V29a shows improvement, download subj03/04/06/08 and re-run with 8 subjects. With 7 additional adapters the model reaches ~1.84B params — will require 8-bit Adam (`bitsandbytes`) or gradient checkpointing to fit.
+
+---
+
+## 34. V30 Wave: Compact Shortlist + Dedicated Rerank Head
+
+### 34.1 Motivation
+
+By the end of V29, two facts were clear:
+
+1. Full-gallery retrieval in the 197,376-D token target space was heavily hubness-prone.
+2. The rich regression target contained detail useful for generation, but it was not an ideal retrieval space.
+
+V30 therefore split the decoder into three roles:
+
+- **Compact retrieval head**: 768-D, L2-normalized, trained for shortlist retrieval.
+- **Dedicated rerank head**: lower-dimensional stage-2 retrieval space trained only for reranking.
+- **Rich regression head**: high-dimensional token target used for generative fidelity, excluded from retrieval metrics.
+
+The guiding hypothesis was that retrieval should be decomposed into:
+
+`Stage 1 shortlist (compact, stable, anti-hub) -> Stage 2 correction (rerank, more expressive)`.
+
+### 34.2 V30a-V30c: Establishing the Triple-Head Baseline
+
+- **V30a** introduced the triple-head structure with compact retrieval + rich regression.
+- **V30b** added explicit two-stage retrieval diagnostics.
+- **V30c** tested a larger compact retrieval dimension (2048-D) but did not resolve the main bottleneck.
+
+These experiments showed that shortlist retrieval could stay strong, but using the rich regression head directly for stage-2 ranking was too unstable and destructive.
+
+### 34.3 V30d: Dedicated Rerank Head with Random-Projection Targets
+
+The first rerank-head implementation replaced PCA-compressed stage-2 targets with a **deterministic random-projection cache**:
+
+- input target: flattened 257 x 768 token embeddings (`197,376-D`)
+- output target: `1024-D` random projection
+- fit-free and deterministic
+- no PCA fit leakage risk
+- much faster preprocessing
+
+This completed the V30d wiring:
+
+- `retrieval_target` -> compact vMF head
+- `rerank_target` -> dedicated rerank head
+- `rich_target` -> regression head only
+
+**V30d_full results**
+
+Validation:
+- compact raw R@1 = **42.1%**
+- compact CSLS R@1 = **51.7%**
+- rerank-only R@1 = **21.7%**
+- oracle rerank R@1 = **56.3%**
+- two-stage reranked R@1 = **23.0%**
+- shortlist recall@100 = **99.9%**
+- rerank separability d' = **3.13**
+- inter-prediction cosine = **0.0049**
+
+Shared1000:
+- compact raw R@1 = **43.8%**
+- compact CSLS R@1 = **50.4%**
+- rerank-only R@1 = **15.6%**
+- oracle rerank R@1 = **49.2%**
+- two-stage reranked R@1 = **15.9%**
+- shortlist recall@100 = **99.8%**
+- rerank separability d' = **3.00**
+- inter-prediction cosine = **0.0100**
+
+**Interpretation:** V30d validated the rerank-head concept. The stage-2 space was real, discriminative, and no longer collapsed. But pure rerank-score replacement still underperformed the compact stage.
+
+### 34.4 V30e: Increase Rerank Capacity to 2048-D
+
+V30e kept the same architecture, losses, and data protocol as V30d_full, changing only:
+
+- `decoder.rerank_dim: 1024 -> 2048`
+- rerank cache: `outputs/rerank_cache/randomproj_dim2048_seed42.npz`
+
+This was a targeted capacity test, not a new wave.
+
+**V30e diagnostics**
+
+Validation:
+- compact raw R@1 = **42.9%**
+- compact CSLS R@1 = **52.9%**
+- rerank-only R@1 = **25.0%**
+- oracle rerank R@1 = **61.3%**
+- two-stage reranked R@1 = **25.6%**
+- shortlist recall@100 = **99.8%**
+
+Shared1000:
+- compact raw R@1 = **41.1%**
+- compact CSLS R@1 = **49.2%**
+- rerank-only R@1 = **24.2%**
+- oracle rerank R@1 = **62.7%**
+- two-stage reranked R@1 = **25.3%**
+- shortlist recall@100 = **99.8%**
+
+**Interpretation:** The 2048-D rerank head materially improved rerank-only and oracle performance. Shortlist quality was already excellent, so the remaining gap came from how stage-2 scores were used, not from shortlist recall.
+
+### 34.5 Post-hoc Fusion Result: The Key V30 Breakthrough
+
+The next hypothesis was that **rerank scores should complement compact scores rather than replace them**. A standalone VAL-only fusion sweep tested shortlist-local combinations of compact and rerank scores without retraining.
+
+Best VAL-selected fusion setting:
+
+- compact score: **CSLS**
+- family: **normalized_weighted**
+- normalization: **zscore**
+- shortlist_k: **50**
+- alpha: **0.8**
+
+Results:
+
+- **VAL fused R@1 = 56.2%**
+- **VAL fused R@5 / R@10 = 85.9% / 93.0%**
+- gain over best compact baseline on VAL = **+3.3 pp**
+- **SHARED1000 fused R@1 = 51.5%**
+- **SHARED1000 fused R@5 / R@10 = 83.3% / 91.7%**
+
+This established strong complementarity between the compact and rerank heads:
+
+- compact provides an excellent shortlist prior
+- rerank adds discriminative corrective signal
+- replacing compact scores with rerank scores is too destructive
+- **fusion is the correct next step**, not another architecture wave
+
+### 34.6 V30 Decision
+
+The V30 wave is now considered **validated**:
+
+- the dedicated rerank head is useful
+- the compact head remains a strong shortlist stage
+- shortlist quality is not the limiting factor
+- fused compact+rerrank retrieval is better than either score alone
+
+The next recommended experiment is therefore **fusion-aware checkpointing**:
+
+- keep the V30e architecture unchanged
+- log fixed fused metrics every validation
+- checkpoint on fused VAL R@1 instead of compact-only or rerank-replacement metrics

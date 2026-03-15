@@ -23,6 +23,16 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_FUSION_CONFIG: Dict[str, Any] = {
+    "enabled": False,
+    "compact_score": "csls",
+    "family": "normalized_weighted",
+    "normalization": "zscore",
+    "shortlist_k": 50,
+    "alpha": 0.8,
+    "csls_k": 10,
+}
+
 
 def _cosine_sim(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """(N, D) x (M, D) -> (N, M) cosine similarity matrix."""
@@ -143,6 +153,63 @@ def _recall_at_k(
     return results
 
 
+def _gt_rank_from_scores(scores: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Return ranked gallery indices and 1-based GT rank for each query."""
+    order = np.argsort(-scores, axis=1)
+    gt_rank = np.argmax(order == np.arange(scores.shape[0])[:, None], axis=1) + 1
+    return order, gt_rank.astype(np.int32)
+
+
+def _metrics_from_gt_rank(
+    gt_rank: np.ndarray,
+    ks: Sequence[int],
+) -> Dict[str, float]:
+    """Compute retrieval metrics from 1-based GT ranks."""
+    gt_rank = gt_rank.astype(np.int32)
+    metrics: Dict[str, float] = {
+        "median_rank": float(np.median(gt_rank)),
+        "mrr": float(np.mean(1.0 / np.maximum(gt_rank, 1))),
+    }
+    for k in ks:
+        metrics[f"r@{k}"] = float(np.mean(gt_rank <= k))
+    return metrics
+
+
+def _prefix_metrics(metrics: Dict[str, float], prefix: str) -> Dict[str, float]:
+    return {
+        f"{prefix}_{k}": float(v)
+        for k, v in metrics.items()
+    }
+
+
+def _normalize_shortlist_scores(scores: np.ndarray, mode: str) -> np.ndarray:
+    """Normalise shortlist-local scores per query before weighted fusion."""
+    if mode == "none":
+        return scores
+    if mode == "zscore":
+        mean = scores.mean(axis=1, keepdims=True)
+        std = scores.std(axis=1, keepdims=True)
+        return (scores - mean) / np.maximum(std, 1e-8)
+    if mode == "minmax":
+        s_min = scores.min(axis=1, keepdims=True)
+        s_max = scores.max(axis=1, keepdims=True)
+        return (scores - s_min) / np.maximum(s_max - s_min, 1e-8)
+    if mode == "stdscale":
+        std = scores.std(axis=1, keepdims=True)
+        return scores / np.maximum(std, 1e-8)
+    raise ValueError(f"Unknown fusion normalization mode: {mode}")
+
+
+def _rank_within_shortlist(scores: np.ndarray) -> np.ndarray:
+    """Convert scores to 1-based ranks within each shortlist row."""
+    order = np.argsort(-scores, axis=1)
+    ranks = np.empty_like(order)
+    ranks[np.arange(scores.shape[0])[:, None], order] = (
+        np.arange(scores.shape[1])[None, :] + 1
+    )
+    return ranks
+
+
 def _k_occurrence_stats(
     ranked_indices: np.ndarray,
     gallery_size: int,
@@ -172,6 +239,142 @@ def _mean_inter_embedding_cosine(x: np.ndarray, sample_size: int = 2000) -> floa
     sim = x_n @ x_n.T
     np.fill_diagonal(sim, 0.0)
     return float(sim.sum() / (n * (n - 1)))
+
+
+def fusion_metrics(
+    compact_preds: np.ndarray,
+    compact_gts: np.ndarray,
+    rich_preds: np.ndarray,
+    rich_gts: np.ndarray,
+    shortlist_k: int = 50,
+    ks: Sequence[int] = (1, 5, 10),
+    compact_score: str = "csls",
+    family: str = "normalized_weighted",
+    normalization: str = "zscore",
+    alpha: float = 0.8,
+    csls_k: int = 10,
+    rerank_mode: str = "cosine",
+) -> Dict[str, Any]:
+    """Evaluate fixed score fusion inside a compact shortlist.
+
+    The GT rank is computed in the full gallery by taking the fused shortlist
+    rank when the GT is shortlisted, and falling back to the chosen compact
+    score rank otherwise. This mirrors the post-hoc fusion sweep logic.
+    """
+    n = compact_preds.shape[0]
+    gt_indices = np.arange(n)
+
+    compact_raw_scores = _cosine_sim(compact_preds, compact_gts)
+    compact_csls_scores = _csls_scores(compact_preds, compact_gts, k=csls_k)
+    compact_scores = compact_csls_scores if compact_score == "csls" else compact_raw_scores
+    compact_order, compact_gt_rank = _gt_rank_from_scores(compact_scores)
+
+    if rerank_mode == "cosine":
+        rerank_scores = _cosine_sim(rich_preds, rich_gts)
+    elif rerank_mode == "dot":
+        rerank_scores = rich_preds @ rich_gts.T
+    else:
+        raise ValueError(f"Unknown rerank_mode: {rerank_mode}")
+
+    shortlist_k_eff = min(shortlist_k, compact_scores.shape[1])
+    shortlist = compact_order[:, :shortlist_k_eff]
+    row_idx = np.arange(n)[:, None]
+    compact_sl = compact_scores[row_idx, shortlist]
+    rerank_sl = rerank_scores[row_idx, shortlist]
+
+    shortlist_recall = {
+        f"r@{shortlist_k_eff}": float(np.mean(np.any(shortlist == gt_indices[:, None], axis=1)))
+    }
+
+    if family == "weighted":
+        fused_scores = alpha * compact_sl + (1.0 - alpha) * rerank_sl
+    elif family == "normalized_weighted":
+        compact_norm = _normalize_shortlist_scores(compact_sl, normalization)
+        rerank_norm = _normalize_shortlist_scores(rerank_sl, normalization)
+        fused_scores = alpha * compact_norm + (1.0 - alpha) * rerank_norm
+    elif family == "rrf":
+        compact_rank = _rank_within_shortlist(compact_sl)
+        rerank_rank = _rank_within_shortlist(rerank_sl)
+        fused_scores = 1.0 / (60.0 + compact_rank) + 1.0 / (60.0 + rerank_rank)
+    else:
+        raise ValueError(f"Unknown fusion family: {family}")
+
+    fused_order_local = np.argsort(-fused_scores, axis=1)
+    fused_shortlist = shortlist[row_idx, fused_order_local]
+    fused_gt_rank = compact_gt_rank.copy()
+    hit_rows = np.where(np.any(shortlist == gt_indices[:, None], axis=1))[0]
+    if hit_rows.size > 0:
+        local_gt_rank = np.argmax(
+            fused_shortlist[hit_rows] == hit_rows[:, None],
+            axis=1,
+        ) + 1
+        fused_gt_rank[hit_rows] = local_gt_rank.astype(np.int32)
+
+    rerank_only_gt_rank = _gt_rank_from_scores(rerank_scores)[1]
+    rerank_replacement_local = np.argsort(-rerank_sl, axis=1)
+    reranked_shortlist = shortlist[row_idx, rerank_replacement_local]
+    rerank_replacement_gt_rank = compact_gt_rank.copy()
+    if hit_rows.size > 0:
+        local_gt_rank = np.argmax(
+            reranked_shortlist[hit_rows] == hit_rows[:, None],
+            axis=1,
+        ) + 1
+        rerank_replacement_gt_rank[hit_rows] = local_gt_rank.astype(np.int32)
+
+    compact_raw_metrics = _metrics_from_gt_rank(
+        _gt_rank_from_scores(compact_raw_scores)[1], ks
+    )
+    compact_csls_metrics = _metrics_from_gt_rank(
+        _gt_rank_from_scores(compact_csls_scores)[1], ks
+    )
+    rerank_only_metrics = _metrics_from_gt_rank(rerank_only_gt_rank, ks)
+    rerank_replacement_metrics = _metrics_from_gt_rank(rerank_replacement_gt_rank, ks)
+    fused = _metrics_from_gt_rank(fused_gt_rank, ks)
+
+    report: Dict[str, Any] = {
+        "config": {
+            "compact_score": compact_score,
+            "family": family,
+            "normalization": normalization,
+            "shortlist_k": int(shortlist_k_eff),
+            "alpha": float(alpha),
+            "csls_k": int(csls_k),
+            "rerank_mode": rerank_mode,
+        },
+        "shortlist_recall": shortlist_recall,
+        "compact_raw": _prefix_metrics(compact_raw_metrics, "compact"),
+        "compact_csls": _prefix_metrics(compact_csls_metrics, "compact_csls"),
+        "rerank_only": _prefix_metrics(rerank_only_metrics, "rerank"),
+        "rerank_replacement": _prefix_metrics(rerank_replacement_metrics, "reranked"),
+        "fused": _prefix_metrics(fused, "fused"),
+        "fused_gain_over_compact_raw": round(
+            fused.get(f"r@{ks[0]}", 0.0) - compact_raw_metrics.get(f"r@{ks[0]}", 0.0),
+            4,
+        ),
+        "fused_gain_over_compact_csls": round(
+            fused.get(f"r@{ks[0]}", 0.0) - compact_csls_metrics.get(f"r@{ks[0]}", 0.0),
+            4,
+        ),
+        "fused_gain_over_rerank_replacement": round(
+            fused.get(f"r@{ks[0]}", 0.0) - rerank_replacement_metrics.get(f"r@{ks[0]}", 0.0),
+            4,
+        ),
+    }
+
+    logger.info(
+        "Fusion retrieval: compact=%s  family=%s  norm=%s  k=%d  alpha=%.2f  "
+        "fused_R@1=%.1f%%  compact_csls_R@1=%.1f%%  reranked_R@1=%.1f%%",
+        compact_score,
+        family,
+        normalization,
+        shortlist_k_eff,
+        alpha,
+        report["fused"].get("fused_r@1", 0.0) * 100,
+        report["compact_csls"].get("compact_csls_r@1", 0.0) * 100,
+        report["rerank_replacement"].get("reranked_r@1", 0.0) * 100,
+    )
+
+    return report
 
 
 def two_stage_metrics(

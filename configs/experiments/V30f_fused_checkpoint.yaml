@@ -1,23 +1,20 @@
-# V30e: Triple-Head VMF — Compact Retrieval + Dedicated Rerank Head + Rich Regression
+# V30f: Triple-Head VMF with fusion-aware checkpoint selection
 #
-# V30e is the direct rerank-dimension ablation of V30d_full. It preserves the
-# architecture, targets, losses, and schedule, and changes only what is needed
-# to run a 2048-D rerank head with a matching 2048-D random-projection cache.
-#
-# Prerequisite:
-#   Build deterministic random-projection rerank targets first:
-#     python scripts/preprocessing/build_rerank_cache.py \
-#       --config configs/experiments/V30e_rerank_head_2048.yaml
+# V30f continues the validated V30e setup unchanged in architecture, losses,
+# targets, and data. The only behavioral change is evaluation/model selection:
+# we now log fixed compact+rerrank fusion metrics every validation and choose
+# checkpoints by fused VAL R@1.
 #
 # Run:
-#   make ablation ONLY=V30e SUBJECTS=subj01 GPU=0
+#   make ablation ONLY=V30f SUBJECTS=subj01 GPU=0
 
 experiment:
-  name: "V30e_rerank_head_2048"
-  description: "V30e: triple-head vMF with dedicated 2048-D rerank head"
+  name: "V30f_fused_checkpoint"
+  description: "V30f: V30e with fusion-aware validation/checkpointing"
   tags: ["vmf_triple", "v30", "rerank_head", "compact_retrieval", "regression",
-         "token_targets", "dual_target", "wave2", "rerank_dim_2048"]
-  parent: "V30d_full"
+         "token_targets", "dual_target", "wave2", "rerank_dim_2048",
+         "fusion_eval", "fused_checkpoint"]
+  parent: "V30e_rerank_head_2048"
 
 data:
   subject: "subj01"
@@ -146,7 +143,7 @@ evaluation:
   use_csls: true
   csls_k: 10
   eval_shared1000: true
-  checkpoint_metric: "reranked_r@1"
+  checkpoint_metric: "fused_r@1"
   mc_tta_samples: 1
   kappa_weighted_avg: true
   two_stage:

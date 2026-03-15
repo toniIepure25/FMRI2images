@@ -1895,6 +1895,126 @@ def validate(
     return loss_metrics, val_preds, val_gts
 
 
+def _run_post_training_shared1000_eval(
+    output_dir: Path,
+    model: nn.Module,
+    config: Dict[str, Any],
+    subject: str,
+    device: str,
+    embeddings_df: pd.DataFrame,
+    preprocessor: Optional[EmbeddingPreprocessor],
+    vmf_is_log: bool,
+    zscore_stats_path: Optional[str],
+    is_multi_subject: bool,
+    token_cache=None,
+    rerank_cache=None,
+) -> bool:
+    """Run shared1000 evaluation once from the currently loaded model checkpoint."""
+    _metrics_save_dir = output_dir / "metrics"
+    _metrics_save_dir.mkdir(parents=True, exist_ok=True)
+
+    logger.info("=" * 60)
+    logger.info("Running shared1000 benchmark evaluation...")
+    _s1000_zscore_mode = config["data"].get("zscore_mode", "global")
+    _s1000_result = _evaluate_shared1000(
+        model=model,
+        subject=subject,
+        device=device,
+        embeddings_df=embeddings_df,
+        preprocessor=preprocessor,
+        vmf_is_log=vmf_is_log,
+        zscore_stats_path=zscore_stats_path,
+        zscore_mode=_s1000_zscore_mode,
+        batch_size=config["training"]["batch_size"],
+        is_multi_subject=is_multi_subject,
+        token_cache=token_cache,
+        rerank_cache=rerank_cache,
+    )
+    if _s1000_result is None:
+        logger.info("Shared1000 evaluation skipped (data unavailable)")
+        logger.info("=" * 60)
+        return False
+
+    _s1000_metrics, _s1000_preds, _s1000_gts = _s1000_result
+
+    _s1000_rich_preds = _s1000_metrics.pop("_rich_preds", None)
+    _s1000_rich_gts = _s1000_metrics.pop("_rich_gts", None)
+    _s1000_rerank_preds = _s1000_metrics.pop("_rerank_preds", None)
+    _s1000_rerank_gts = _s1000_metrics.pop("_rerank_gts", None)
+    _s1000_space = _s1000_metrics.pop("_space", None)
+    _s1000_nsd_ids = _s1000_metrics.pop("_nsd_ids", None)
+
+    _s1000_json_path = _metrics_save_dir / "shared1000_metrics.json"
+    with open(_s1000_json_path, "w") as _jf:
+        json.dump(_s1000_metrics, _jf, indent=2)
+    np.save(_metrics_save_dir / "shared1000_predictions.npy", _s1000_preds)
+    np.save(_metrics_save_dir / "shared1000_ground_truth.npy", _s1000_gts)
+    logger.info("Saved shared1000 metrics to %s", _s1000_json_path)
+    logger.info(
+        "Shared1000 benchmark:  R@1=%.1f%%  CSLS_R@1=%.1f%%  (gallery=%d)",
+        _s1000_metrics["r@1"] * 100,
+        _s1000_metrics["csls_r@1"] * 100,
+        _s1000_metrics["gallery_size"],
+    )
+
+    if _s1000_space == "compact":
+        _s1000_compact_path = _metrics_save_dir / "shared1000_metrics_compact.json"
+        with open(_s1000_compact_path, "w") as _jf:
+            json.dump(_s1000_metrics, _jf, indent=2)
+        np.save(_metrics_save_dir / "shared1000_predictions_compact.npy", _s1000_preds)
+        np.save(_metrics_save_dir / "shared1000_ground_truth_compact.npy", _s1000_gts)
+        if _s1000_nsd_ids is not None:
+            np.save(_metrics_save_dir / "shared1000_nsd_ids.npy", _s1000_nsd_ids)
+        logger.info("Saved compact shared1000 metrics to %s", _s1000_compact_path)
+
+        if _s1000_rich_preds is not None and _s1000_rich_gts is not None:
+            np.save(_metrics_save_dir / "shared1000_predictions_rich.npy", _s1000_rich_preds)
+            np.save(_metrics_save_dir / "shared1000_ground_truth_rich.npy", _s1000_rich_gts)
+            _rich_ret = _compute_retrieval(
+                _s1000_rich_preds / np.maximum(
+                    np.linalg.norm(_s1000_rich_preds, axis=-1, keepdims=True), 1e-8),
+                _s1000_rich_gts / np.maximum(
+                    np.linalg.norm(_s1000_rich_gts, axis=-1, keepdims=True), 1e-8),
+                ks=(1, 5, 10),
+            )
+            _rich_metrics = {
+                "benchmark": "shared1000_rich",
+                "gallery_size": _s1000_metrics["gallery_size"],
+                "rich_r@1": float(_rich_ret["top1_accuracy"]),
+                "rich_r@5": float(_rich_ret["top5_accuracy"]),
+                "rich_r@10": float(_rich_ret["top10_accuracy"]),
+                "rich_median_rank": float(_rich_ret["median_rank"]),
+            }
+            with open(_metrics_save_dir / "shared1000_metrics_rich.json", "w") as _jf:
+                json.dump(_rich_metrics, _jf, indent=2)
+            logger.info("Saved rich shared1000 metrics: R@1=%.1f%%",
+                        _rich_metrics["rich_r@1"] * 100)
+
+        if _s1000_rerank_preds is not None and _s1000_rerank_gts is not None:
+            np.save(_metrics_save_dir / "shared1000_predictions_rerank.npy", _s1000_rerank_preds)
+            np.save(_metrics_save_dir / "shared1000_ground_truth_rerank.npy", _s1000_rerank_gts)
+
+            from fmri2img.eval.two_stage_retrieval import two_stage_metrics
+            _ts_s1000 = two_stage_metrics(
+                _s1000_preds, _s1000_gts,
+                _s1000_rerank_preds, _s1000_rerank_gts,
+                shortlist_k=100, ks=(1, 5, 10),
+            )
+            _ts_s1000_path = _metrics_save_dir / "shared1000_two_stage_rerank.json"
+            with open(_ts_s1000_path, "w") as _jf:
+                json.dump(_ts_s1000, _jf, indent=2, default=str)
+            logger.info(
+                "Shared1000 two-stage (rerank head): reranked_R@1=%.1f%%  "
+                "compact_R@1=%.1f%%  gain=%.1f pp",
+                _ts_s1000["reranked"].get("reranked_r@1", 0) * 100,
+                _ts_s1000["compact_raw"].get("compact_r@1", 0) * 100,
+                _ts_s1000.get("rerank_gain_over_compact_raw", 0) * 100,
+            )
+
+    logger.info("=" * 60)
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Checkpoint helpers
 # ---------------------------------------------------------------------------
@@ -2047,6 +2167,8 @@ def main() -> None:
                         help="all=save last+best+periodic, best=best only, none=skip all")
     parser.add_argument("--no-checkpoints", action="store_true",
                         help="(deprecated) alias for --save-checkpoints none")
+    parser.add_argument("--post-eval-shared1000-only", action="store_true",
+                        help="Skip training and run shared1000 evaluation from a saved checkpoint")
     args = parser.parse_args()
     if args.no_checkpoints:
         args.save_checkpoints = "none"
@@ -2979,6 +3101,35 @@ def main() -> None:
 
     _vmf_is_log = getattr(model, "vmf_output_is_log", True)
 
+    if args.post_eval_shared1000_only:
+        _eval_ckpt_path = Path(args.resume) if args.resume else (output_dir / "checkpoint_best.pt")
+        if not _eval_ckpt_path.exists():
+            raise FileNotFoundError(
+                f"Checkpoint for post-training shared1000 evaluation not found: {_eval_ckpt_path}"
+            )
+        _eval_ckpt = torch.load(_eval_ckpt_path, map_location=device, weights_only=False)
+        model.load_state_dict(_eval_ckpt["model_state_dict"])
+        logger.info(
+            "Loaded checkpoint for post-training shared1000 evaluation: %s (epoch=%s)",
+            _eval_ckpt_path,
+            _eval_ckpt.get("epoch", "unknown"),
+        )
+        _run_post_training_shared1000_eval(
+            output_dir=output_dir,
+            model=model,
+            config=config,
+            subject=subject,
+            device=device,
+            embeddings_df=embeddings_df,
+            preprocessor=preprocessor,
+            vmf_is_log=_vmf_is_log,
+            zscore_stats_path=_zscore_stats_path,
+            is_multi_subject=_is_multi_subject,
+            token_cache=_token_cache,
+            rerank_cache=_rerank_cache,
+        )
+        return
+
     # --- MixCo config ---
     _mixco_cfg = config.get("training", {}).get("mixco", {})
     if _mixco_cfg.get("enabled", False):
@@ -3693,102 +3844,20 @@ def main() -> None:
     # --- Shared1000 benchmark evaluation ---
     _do_s1000 = config.get("evaluation", {}).get("eval_shared1000", True)
     if _do_s1000:
-        logger.info("=" * 60)
-        logger.info("Running shared1000 benchmark evaluation...")
-        _s1000_zscore_mode = config["data"].get("zscore_mode", "global")
-        _s1000_result = _evaluate_shared1000(
+        _run_post_training_shared1000_eval(
+            output_dir=output_dir,
             model=model,
+            config=config,
             subject=subject,
             device=device,
             embeddings_df=embeddings_df,
             preprocessor=preprocessor,
             vmf_is_log=_vmf_is_log,
             zscore_stats_path=_zscore_stats_path,
-            zscore_mode=_s1000_zscore_mode,
-            batch_size=config["training"]["batch_size"],
             is_multi_subject=_is_multi_subject,
             token_cache=_token_cache,
             rerank_cache=_rerank_cache,
         )
-        if _s1000_result is not None:
-            _s1000_metrics, _s1000_preds, _s1000_gts = _s1000_result
-
-            _s1000_rich_preds = _s1000_metrics.pop("_rich_preds", None)
-            _s1000_rich_gts = _s1000_metrics.pop("_rich_gts", None)
-            _s1000_rerank_preds = _s1000_metrics.pop("_rerank_preds", None)
-            _s1000_rerank_gts = _s1000_metrics.pop("_rerank_gts", None)
-            _s1000_space = _s1000_metrics.pop("_space", None)
-            _s1000_nsd_ids = _s1000_metrics.pop("_nsd_ids", None)
-
-            _s1000_json_path = _metrics_save_dir / "shared1000_metrics.json"
-            with open(_s1000_json_path, "w") as _jf:
-                json.dump(_s1000_metrics, _jf, indent=2)
-            np.save(_metrics_save_dir / "shared1000_predictions.npy", _s1000_preds)
-            np.save(_metrics_save_dir / "shared1000_ground_truth.npy", _s1000_gts)
-            logger.info("Saved shared1000 metrics to %s", _s1000_json_path)
-            logger.info(
-                "Shared1000 benchmark:  R@1=%.1f%%  CSLS_R@1=%.1f%%  (gallery=%d)",
-                _s1000_metrics["r@1"] * 100,
-                _s1000_metrics["csls_r@1"] * 100,
-                _s1000_metrics["gallery_size"],
-            )
-
-            if _s1000_space == "compact":
-                _s1000_compact_path = _metrics_save_dir / "shared1000_metrics_compact.json"
-                with open(_s1000_compact_path, "w") as _jf:
-                    json.dump(_s1000_metrics, _jf, indent=2)
-                np.save(_metrics_save_dir / "shared1000_predictions_compact.npy", _s1000_preds)
-                np.save(_metrics_save_dir / "shared1000_ground_truth_compact.npy", _s1000_gts)
-                if _s1000_nsd_ids is not None:
-                    np.save(_metrics_save_dir / "shared1000_nsd_ids.npy", _s1000_nsd_ids)
-                logger.info("Saved compact shared1000 metrics to %s", _s1000_compact_path)
-                if _s1000_rich_preds is not None and _s1000_rich_gts is not None:
-                    np.save(_metrics_save_dir / "shared1000_predictions_rich.npy", _s1000_rich_preds)
-                    np.save(_metrics_save_dir / "shared1000_ground_truth_rich.npy", _s1000_rich_gts)
-                    _rich_ret = _compute_retrieval(
-                        _s1000_rich_preds / np.maximum(
-                            np.linalg.norm(_s1000_rich_preds, axis=-1, keepdims=True), 1e-8),
-                        _s1000_rich_gts / np.maximum(
-                            np.linalg.norm(_s1000_rich_gts, axis=-1, keepdims=True), 1e-8),
-                        ks=(1, 5, 10),
-                    )
-                    _rich_metrics = {
-                        "benchmark": "shared1000_rich",
-                        "gallery_size": _s1000_metrics["gallery_size"],
-                        "rich_r@1": float(_rich_ret["top1_accuracy"]),
-                        "rich_r@5": float(_rich_ret["top5_accuracy"]),
-                        "rich_r@10": float(_rich_ret["top10_accuracy"]),
-                        "rich_median_rank": float(_rich_ret["median_rank"]),
-                    }
-                    with open(_metrics_save_dir / "shared1000_metrics_rich.json", "w") as _jf:
-                        json.dump(_rich_metrics, _jf, indent=2)
-                    logger.info("Saved rich shared1000 metrics: R@1=%.1f%%",
-                                _rich_metrics["rich_r@1"] * 100)
-
-                # V30d: save rerank shared1000 predictions and compute two-stage
-                if _s1000_rerank_preds is not None and _s1000_rerank_gts is not None:
-                    np.save(_metrics_save_dir / "shared1000_predictions_rerank.npy", _s1000_rerank_preds)
-                    np.save(_metrics_save_dir / "shared1000_ground_truth_rerank.npy", _s1000_rerank_gts)
-
-                    from fmri2img.eval.two_stage_retrieval import two_stage_metrics
-                    _ts_s1000 = two_stage_metrics(
-                        _s1000_preds, _s1000_gts,
-                        _s1000_rerank_preds, _s1000_rerank_gts,
-                        shortlist_k=100, ks=(1, 5, 10),
-                    )
-                    _ts_s1000_path = _metrics_save_dir / "shared1000_two_stage_rerank.json"
-                    with open(_ts_s1000_path, "w") as _jf:
-                        json.dump(_ts_s1000, _jf, indent=2, default=str)
-                    logger.info(
-                        "Shared1000 two-stage (rerank head): reranked_R@1=%.1f%%  "
-                        "compact_R@1=%.1f%%  gain=%.1f pp",
-                        _ts_s1000["reranked"].get("reranked_r@1", 0) * 100,
-                        _ts_s1000["compact_raw"].get("compact_r@1", 0) * 100,
-                        _ts_s1000.get("rerank_gain_over_compact_raw", 0) * 100,
-                    )
-        else:
-            logger.info("Shared1000 evaluation skipped (data unavailable)")
-        logger.info("=" * 60)
 
     logger.info("=" * 80)
     logger.info("Training complete!")

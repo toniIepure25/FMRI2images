@@ -74,6 +74,7 @@ class MultiSubjectPreextractedDataset(Dataset):
         token_cache=None,
         rerank_cache=None,
         dual_target: bool = False,
+        retrieval_projector=None,
     ):
         super().__init__()
         self.subjects = list(subjects)
@@ -84,6 +85,7 @@ class MultiSubjectPreextractedDataset(Dataset):
         self.rerank_cache = rerank_cache
         self.dual_target = dual_target
         self.embeddings_df = embeddings_df
+        self.retrieval_projector = retrieval_projector
 
         if dual_target and token_cache is None:
             raise ValueError(
@@ -97,6 +99,10 @@ class MultiSubjectPreextractedDataset(Dataset):
         if self.token_cache is not None:
             self._rich_dim = int(self.token_cache.shape[1] * self.token_cache.shape[2])
         self._rerank_dim = int(self.rerank_cache.rerank_dim) if self.rerank_cache is not None else None
+        self._retrieval_dim = (
+            int(self.retrieval_projector.output_dim)
+            if self.retrieval_projector is not None else None
+        )
 
         from fmri2img.data.multi_subject_dataset import _resolve_emb_col
         self._emb_col = _resolve_emb_col(embeddings_df, embedding_column)
@@ -272,9 +278,12 @@ class MultiSubjectPreextractedDataset(Dataset):
         emb_idx = self.embedding_lookup.get(nsd_id)
         if emb_idx is None:
             raise KeyError(f"nsdId={nsd_id} not in CLIP cache")
-        return np.asarray(
+        cls_emb = np.asarray(
             self.embeddings_df.iloc[emb_idx][self._emb_col], dtype=np.float32
         )
+        if self.retrieval_projector is not None:
+            cls_emb = self.retrieval_projector.transform(cls_emb)
+        return cls_emb
 
     def __getitem__(self, idx: int):
         """Returns a dict when ``dual_target=True``, else legacy tuples.
@@ -301,6 +310,11 @@ class MultiSubjectPreextractedDataset(Dataset):
 
             if cls_emb.ndim != 1:
                 raise ValueError(f"retrieval_target for nsdId={nsd_id} must be 1D, got {cls_emb.shape}")
+            if self._retrieval_dim is not None and cls_emb.shape[0] != self._retrieval_dim:
+                raise ValueError(
+                    f"retrieval_target dim mismatch for nsdId={nsd_id}: "
+                    f"got {cls_emb.shape[0]}, expected {self._retrieval_dim}"
+                )
             if token_emb.ndim != 1:
                 raise ValueError(f"rich_target for nsdId={nsd_id} must be 1D, got {token_emb.shape}")
             if self._rich_dim is not None and token_emb.shape[0] != self._rich_dim:

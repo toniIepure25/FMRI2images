@@ -422,6 +422,7 @@ class PreextractedNSDDataset(Dataset):
         token_cache=None,
         rerank_cache=None,
         dual_target: bool = False,
+        retrieval_projector=None,
     ):
         self.features = np.load(features_path, mmap_mode=None)  # (N, V) float32
         self.index_df = index_df.reset_index(drop=True)
@@ -429,6 +430,11 @@ class PreextractedNSDDataset(Dataset):
         self.token_cache = token_cache  # Optional[TokenCLIPCache]
         self.rerank_cache = rerank_cache  # Optional[CompressedTargetCache]
         self.dual_target = dual_target
+        self.retrieval_projector = retrieval_projector
+        self._retrieval_dim = (
+            int(self.retrieval_projector.output_dim)
+            if self.retrieval_projector is not None else None
+        )
 
         if dual_target and token_cache is None:
             raise ValueError(
@@ -483,7 +489,10 @@ class PreextractedNSDDataset(Dataset):
                 f"({len(self.embedding_lookup)} entries)"
             )
         col = resolve_embedding_column(self.embeddings_df, _EMBEDDING_COLUMN_OVERRIDE)
-        return np.asarray(self.embeddings_df.iloc[emb_idx][col], dtype=np.float32)
+        cls_emb = np.asarray(self.embeddings_df.iloc[emb_idx][col], dtype=np.float32)
+        if self.retrieval_projector is not None:
+            cls_emb = self.retrieval_projector.transform(cls_emb)
+        return cls_emb
 
     def __getitem__(self, idx: int):
         fmri = self.features[idx]
@@ -492,6 +501,11 @@ class PreextractedNSDDataset(Dataset):
         if self.dual_target:
             cls_emb = self._get_cls_embedding(nsd_id)
             token_emb = self.token_cache.get_flat(nsd_id)
+            if self._retrieval_dim is not None and cls_emb.shape[0] != self._retrieval_dim:
+                raise ValueError(
+                    f"retrieval_target dim mismatch for nsdId={nsd_id}: "
+                    f"got {cls_emb.shape[0]}, expected {self._retrieval_dim}"
+                )
             out = {
                 "fmri": torch.from_numpy(np.asarray(fmri, dtype=np.float32)),
                 "retrieval_target": torch.from_numpy(cls_emb),
@@ -536,6 +550,46 @@ def load_config(config_path: Path) -> Dict[str, Any]:
 def resolve_subject(args: argparse.Namespace, config: Dict[str, Any]) -> str:
     """Resolve subject from CLI override or config."""
     return args.subject or config.get("data", {}).get("subject", "subj01")
+
+
+def build_retrieval_target_projector(
+    config: Dict[str, Any],
+    embeddings_df: pd.DataFrame,
+) -> Optional[Any]:
+    """Create a deterministic retrieval-target projector when dims differ."""
+    decoder_cfg = config.get("model", {}).get("decoder", {})
+    target_dim = int(decoder_cfg.get("retrieval_dim", 768))
+    emb_col = resolve_embedding_column(embeddings_df, _EMBEDDING_COLUMN_OVERRIDE)
+    sample = np.asarray(embeddings_df.iloc[0][emb_col], dtype=np.float32)
+    input_dim = int(sample.shape[0])
+
+    if target_dim == input_dim:
+        return None
+
+    proj_cfg = config.get("data", {}).get("retrieval_target_projection", {})
+    if proj_cfg.get("enabled", True) is False:
+        raise ValueError(
+            f"decoder.retrieval_dim={target_dim} but compact target dim is {input_dim} "
+            "and retrieval_target_projection.enabled=false"
+        )
+
+    from fmri2img.data.fixed_target_projector import FixedTargetProjector
+
+    projector = FixedTargetProjector(
+        input_dim=input_dim,
+        output_dim=target_dim,
+        seed=int(proj_cfg.get("seed", config.get("data", {}).get("seed", 42))),
+        method=str(proj_cfg.get("method", "orthogonal_lift")),
+        l2_normalize=True,
+    )
+    logger.info(
+        "Compact retrieval targets will be projected: %d -> %d (method=%s, seed=%d)",
+        input_dim,
+        target_dim,
+        projector.method,
+        projector.seed,
+    )
+    return projector
 
 
 def resolve_index_path(subject: str) -> Path:
@@ -1367,6 +1421,7 @@ def _evaluate_shared1000(
     subject_id: int = 0,
     token_cache=None,
     rerank_cache=None,
+    retrieval_projector=None,
 ) -> Optional[Tuple[Dict[str, float], np.ndarray, np.ndarray]]:
     """Evaluate on NSD shared1000 benchmark for community-standard comparison.
 
@@ -1544,7 +1599,7 @@ def _evaluate_shared1000(
         preds_avg = None
 
     # --- Ground-truth CLIP embeddings ---
-    # vmf_triple: compact preds are in retrieval_dim space (e.g. 768-D CLS).
+    # vmf_triple: compact preds are in retrieval_dim space (e.g. 768-D or 1024-D).
     # Use CLS GTs regardless of token_cache, since retrieval is in compact space.
     # Also build rich GTs from token_cache if available for two-stage.
     _rich_gts_s1000: Optional[np.ndarray] = None
@@ -1620,6 +1675,8 @@ def _evaluate_shared1000(
         if missing > 0:
             logger.warning("Shared1000 eval: %d/%d images missing from CLIP cache", missing, n_images)
 
+    if retrieval_projector is not None:
+        gts = retrieval_projector.transform(gts)
     if preprocessor is not None:
         gts = preprocessor.transform(gts)
 
@@ -1962,6 +2019,7 @@ def _run_post_training_shared1000_eval(
     is_multi_subject: bool,
     token_cache=None,
     rerank_cache=None,
+    retrieval_projector=None,
 ) -> bool:
     """Run shared1000 evaluation once from the currently loaded model checkpoint."""
     _metrics_save_dir = output_dir / "metrics"
@@ -1983,6 +2041,7 @@ def _run_post_training_shared1000_eval(
         is_multi_subject=is_multi_subject,
         token_cache=token_cache,
         rerank_cache=rerank_cache,
+        retrieval_projector=retrieval_projector,
     )
     if _s1000_result is None:
         logger.info("Shared1000 evaluation skipped (data unavailable)")
@@ -2341,6 +2400,8 @@ def main() -> None:
         embeddings_df["nsdId"] = range(len(embeddings_df))
         logger.warning("Added sequential nsdId column to embeddings")
 
+    _retrieval_projector = build_retrieval_target_projector(config, embeddings_df)
+
     # --- Dataset (prefer pre-extracted features for speed) ---
     cache_root = os.environ.get("CACHE_ROOT", "cache")
     preextracted_path = Path(cache_root) / "preextracted" / f"subject={subject}" / "fmri_features.npy"
@@ -2363,7 +2424,7 @@ def main() -> None:
             _token_cache.num_tokens, _token_cache.token_dim, _use_mmap,
         )
 
-    # --- Rerank cache (V30d+): PCA-compressed token targets ---
+    # --- Rerank cache (V30d+): compressed token targets ---
     _rerank_cache_path = config.get("data", {}).get("rerank_cache_path", "")
     _rerank_cache = None
     if _rerank_cache_path:
@@ -2412,6 +2473,7 @@ def main() -> None:
             token_cache=_token_cache,
             rerank_cache=_rerank_cache,
             dual_target=_dual_target,
+            retrieval_projector=_retrieval_projector,
         )
         logger.info("Multi-subject dataset: %d subjects, %d total trials",
                      full_dataset.n_subjects, len(full_dataset))
@@ -2427,6 +2489,7 @@ def main() -> None:
             token_cache=_token_cache,
             rerank_cache=_rerank_cache,
             dual_target=_dual_target,
+            retrieval_projector=_retrieval_projector,
         )
     else:
         logger.warning(
@@ -3048,6 +3111,8 @@ def main() -> None:
         else:
             logger.warning("No embedding column found, fitting on first %d samples via dataset", min(n_train, 1000))
             train_embeddings = np.stack([full_dataset[i][1].numpy() for i in range(min(n_train, 1000))])
+        if _retrieval_projector is not None:
+            train_embeddings = _retrieval_projector.transform(train_embeddings)
         preprocessor.fit(train_embeddings)
         artifact_path = Path(resolve_preproc_artifact(subject, config))
         artifact_path.parent.mkdir(parents=True, exist_ok=True)
@@ -3214,6 +3279,7 @@ def main() -> None:
             is_multi_subject=_is_multi_subject,
             token_cache=_token_cache,
             rerank_cache=_rerank_cache,
+            retrieval_projector=_retrieval_projector,
         )
         return
 
@@ -3983,6 +4049,7 @@ def main() -> None:
             is_multi_subject=_is_multi_subject,
             token_cache=_token_cache,
             rerank_cache=_rerank_cache,
+            retrieval_projector=_retrieval_projector,
         )
 
     logger.info("=" * 80)

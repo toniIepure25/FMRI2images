@@ -146,7 +146,7 @@ evaluation:
   use_csls: true
   csls_k: 10
   eval_shared1000: true
-  checkpoint_metric: "csls_r@1"
+  checkpoint_metric: "reranked_r@1"
   mc_tta_samples: 1
   kappa_weighted_avg: true
   two_stage:

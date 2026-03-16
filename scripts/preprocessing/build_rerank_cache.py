@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import torch
 
 # Add project root to path
 _project_root = Path(__file__).resolve().parents[2]
@@ -186,6 +187,35 @@ def _flat_tokens_from_indices(token_cache, indices: np.ndarray) -> np.ndarray:
     return batch.reshape(len(indices), -1)
 
 
+def _resolve_transform_device(device: str) -> str:
+    """Pick a practical device for PCA transform matmuls."""
+    if device == "auto":
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    if device == "cuda" and not torch.cuda.is_available():
+        logger.warning("Requested device=cuda but CUDA is unavailable; falling back to cpu")
+        return "cpu"
+    return device
+
+
+def _transform_batch_pca(
+    flat_batch: np.ndarray,
+    mean: np.ndarray,
+    components_t: np.ndarray,
+    device: str,
+    mean_t: torch.Tensor | None = None,
+    components_t_t: torch.Tensor | None = None,
+) -> np.ndarray:
+    """Apply PCA transform on CPU or GPU and return float32 CPU array."""
+    if device == "cpu":
+        centered = flat_batch - mean[None, :]
+        return centered @ components_t
+
+    batch_t = torch.from_numpy(flat_batch).to(device=device, dtype=torch.float32, non_blocking=True)
+    centered_t = batch_t - mean_t.unsqueeze(0)
+    projected_t = centered_t @ components_t_t
+    return projected_t.cpu().numpy()
+
+
 def _build_random_projection_cache(
     token_cache,
     token_cache_path: str,
@@ -250,6 +280,7 @@ def _build_pca_cache(
     subject: str,
     val_ratio: float,
     exclude_shared1000: bool,
+    device: str,
 ) -> dict[str, Any]:
     from sklearn.decomposition import IncrementalPCA
 
@@ -279,10 +310,11 @@ def _build_pca_cache(
         )
     batch_size_eff = max(batch_size, k_eff)
     transform_batch_size = max(batch_size, min(512, k_eff))
+    transform_device = _resolve_transform_device(device)
     logger.info(
         "PCA method=train_only IncrementalPCA, subject=%s, train_images=%d, "
-        "input_dim=%d, output_dim=%d, fit_batch_size=%d, transform_batch_size=%d",
-        subject, len(train_indices), input_dim, k_eff, batch_size_eff, transform_batch_size,
+        "input_dim=%d, output_dim=%d, fit_batch_size=%d, transform_batch_size=%d, transform_device=%s",
+        subject, len(train_indices), input_dim, k_eff, batch_size_eff, transform_batch_size, transform_device,
     )
 
     pca = IncrementalPCA(n_components=k_eff, batch_size=batch_size_eff)
@@ -294,12 +326,29 @@ def _build_pca_cache(
 
     pca_mean = np.asarray(pca.mean_, dtype=np.float32)
     pca_components_t = np.asarray(pca.components_.T, dtype=np.float32)
+    mean_t = None
+    components_t_t = None
+    if transform_device == "cuda":
+        mean_t = torch.from_numpy(pca_mean).to(device="cuda", dtype=torch.float32)
+        components_t_t = torch.from_numpy(pca_components_t).to(device="cuda", dtype=torch.float32)
+        logger.info(
+            "PCA transform: loaded components to GPU (%s), starting full-cache projection...",
+            torch.cuda.get_device_name(0),
+        )
+    else:
+        logger.info("PCA transform: running on CPU, starting full-cache projection...")
 
     compressed = np.zeros((n_total, k_eff), dtype=np.float32)
     for start, end in _iter_chunk_bounds(n_total, transform_batch_size):
         flat_batch = np.asarray(token_cache._tokens[start:end], dtype=np.float32).reshape(end - start, -1)
-        flat_batch -= pca_mean[None, :]
-        projected = flat_batch @ pca_components_t
+        projected = _transform_batch_pca(
+            flat_batch=flat_batch,
+            mean=pca_mean,
+            components_t=pca_components_t,
+            device=transform_device,
+            mean_t=mean_t,
+            components_t_t=components_t_t,
+        )
         norms = np.linalg.norm(projected, axis=-1, keepdims=True)
         compressed[start:end] = projected / np.maximum(norms, 1e-8)
         if end % 1000 < transform_batch_size or end == n_total:
@@ -323,6 +372,7 @@ def _build_pca_cache(
         "cumulative_variance": explained,
         "pca_batch_size": int(batch_size_eff),
         "pca_transform_batch_size": int(transform_batch_size),
+        "pca_transform_device": transform_device,
     }
 
     np.savez_compressed(
@@ -345,6 +395,7 @@ def build_cache(
     subject: str | None = None,
     val_ratio: float = 0.10,
     exclude_shared1000: bool = True,
+    device: str = "auto",
 ):
     from fmri2img.data.token_clip_cache import TokenCLIPCache
 
@@ -384,6 +435,7 @@ def build_cache(
                 subject=subject,
                 val_ratio=val_ratio,
                 exclude_shared1000=exclude_shared1000,
+                device=device,
             )
         else:
             raise ValueError(f"Unknown cache method: {method}")
@@ -468,6 +520,13 @@ def main():
         default=None,
         help="Explicit output .npz path (overrides method-based naming)",
     )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="auto",
+        choices=["auto", "cpu", "cuda"],
+        help="Device for PCA transform stage (fit remains on CPU)",
+    )
 
     args = parser.parse_args()
 
@@ -505,6 +564,7 @@ def main():
         subject=args.subject,
         val_ratio=float(args.val_ratio),
         exclude_shared1000=bool(args.exclude_shared1000),
+        device=args.device,
     )
 
 

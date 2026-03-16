@@ -278,10 +278,11 @@ def _build_pca_cache(
             output_dim, len(train_indices), k_eff,
         )
     batch_size_eff = max(batch_size, k_eff)
+    transform_batch_size = max(batch_size, min(512, k_eff))
     logger.info(
         "PCA method=train_only IncrementalPCA, subject=%s, train_images=%d, "
-        "input_dim=%d, output_dim=%d, batch_size=%d",
-        subject, len(train_indices), input_dim, k_eff, batch_size_eff,
+        "input_dim=%d, output_dim=%d, fit_batch_size=%d, transform_batch_size=%d",
+        subject, len(train_indices), input_dim, k_eff, batch_size_eff, transform_batch_size,
     )
 
     pca = IncrementalPCA(n_components=k_eff, batch_size=batch_size_eff)
@@ -291,13 +292,17 @@ def _build_pca_cache(
         pca.partial_fit(flat_batch)
         logger.info("  PCA partial_fit: %d/%d train images", end, len(train_indices))
 
+    pca_mean = np.asarray(pca.mean_, dtype=np.float32)
+    pca_components_t = np.asarray(pca.components_.T, dtype=np.float32)
+
     compressed = np.zeros((n_total, k_eff), dtype=np.float32)
-    for start, end in _iter_chunk_bounds(n_total, batch_size):
+    for start, end in _iter_chunk_bounds(n_total, transform_batch_size):
         flat_batch = np.asarray(token_cache._tokens[start:end], dtype=np.float32).reshape(end - start, -1)
-        projected = pca.transform(flat_batch).astype(np.float32)
+        flat_batch -= pca_mean[None, :]
+        projected = flat_batch @ pca_components_t
         norms = np.linalg.norm(projected, axis=-1, keepdims=True)
         compressed[start:end] = projected / np.maximum(norms, 1e-8)
-        if end % 1000 < batch_size or end == n_total:
+        if end % 1000 < transform_batch_size or end == n_total:
             logger.info("  PCA transformed %d/%d images", end, n_total)
 
     explained = float(getattr(pca, "explained_variance_ratio_", np.array([], dtype=np.float32)).sum())
@@ -317,6 +322,7 @@ def _build_pca_cache(
         "metadata_version": METADATA_VERSION,
         "cumulative_variance": explained,
         "pca_batch_size": int(batch_size_eff),
+        "pca_transform_batch_size": int(transform_batch_size),
     }
 
     np.savez_compressed(

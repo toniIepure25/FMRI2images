@@ -2773,3 +2773,44 @@ The next recommended experiment is therefore **fusion-aware checkpointing**:
 - keep the V30e architecture unchanged
 - log fixed fused metrics every validation
 - checkpoint on fused VAL R@1 instead of compact-only or rerank-replacement metrics
+
+### 34.7 V31 Result and the Next V32 Direction
+
+V31 tested a simple stage-1 capacity increase:
+
+- compact retrieval head: `768 -> 1024`
+- rerank head: kept at `2048`
+- regression head: unchanged
+- fusion recipe: unchanged
+
+**Result:** V31 did **not** beat V30e + fusion.
+
+Validation comparison:
+- V30e fused R@1 = **56.2%**
+- V31 fused R@1 = **55.0%**
+- compact raw improved slightly: **42.9% -> 44.2%**
+- compact CSLS stayed essentially flat: **52.9% -> 53.1%**
+- rerank-only regressed: **25.0% -> 22.4%**
+- oracle rerank regressed: **61.3% -> 60.2%**
+
+Interpretation:
+
+- widening the compact head is **not** the best next lever
+- stage 1 is not improved enough to offset the damage to stage 2 / fusion
+- **V30e + fixed fusion remains the best validated base system**
+
+The next controlled step is therefore **V32_pca_rerank_2048**:
+
+- keep the V30e architecture unchanged
+- keep compact retrieval at `768-D`
+- keep rerank head at `2048-D`
+- replace the rerank target source:
+  - from deterministic random projection
+  - to **train-only PCA-compressed token targets**
+
+Why V32 is the best next action:
+
+- fusion is already validated
+- the rerank head is already useful
+- the remaining opportunity is **better structured rerank supervision**
+- PCA may preserve more semantically useful variance than a purely random target basis

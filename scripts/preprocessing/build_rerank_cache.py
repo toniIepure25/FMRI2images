@@ -1,22 +1,23 @@
 #!/usr/bin/env python3
-"""Build deterministic random-projection rerank target cache for V30d.
+"""Build compressed rerank target caches for V30/V32 experiments.
 
-This version intentionally avoids any train-fit compression stage. It applies
-the same fixed random projection to every flattened token target, then
-L2-normalizes the result for cosine-based reranking.
+Supported methods:
+    - ``random_projection``: deterministic SRHT-style projection (fit-free)
+    - ``pca``: train-only IncrementalPCA fit on experiment train image IDs
 
-Usage:
+Examples
+--------
+Random projection from config:
     python scripts/preprocessing/build_rerank_cache.py \
-        --config configs/experiments/N1v30d_rerank_head_1024.yaml
+        --config configs/experiments/V30e_rerank_head_2048.yaml
 
+Train-only PCA from config:
     python scripts/preprocessing/build_rerank_cache.py \
-        --token-cache outputs/clip_cache/tokens_ViT-L-14_projected.h5 \
-        --output-dim 1024 \
-        --seed 42
-
-Output:
-    outputs/rerank_cache/randomproj_dim1024_seed42.npz
+        --config configs/experiments/V32_pca_rerank_2048.yaml \
+        --method pca
 """
+
+from __future__ import annotations
 
 import argparse
 import json
@@ -25,6 +26,7 @@ import math
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
@@ -38,7 +40,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-METADATA_VERSION = 2
+METADATA_VERSION = 3
 
 
 def _next_power_of_two(n: int) -> int:
@@ -59,6 +61,23 @@ def _fwht_inplace(x: np.ndarray) -> np.ndarray:
         x_view[:, :, 1, :] = a - b
         h *= 2
     return x
+
+
+def _iter_chunk_bounds(n_items: int, batch_size: int, min_batch_size: int = 1):
+    """Yield chunk bounds, merging the last chunk if it would be too small."""
+    if n_items <= 0:
+        return
+    if batch_size <= 0:
+        raise ValueError(f"batch_size must be positive, got {batch_size}")
+
+    start = 0
+    while start < n_items:
+        end = min(start + batch_size, n_items)
+        remaining = n_items - end
+        if remaining and remaining < min_batch_size:
+            end = n_items
+        yield start, end
+        start = end
 
 
 def _build_projection_params(
@@ -94,12 +113,219 @@ def _project_batch_srht(
     work[:, :input_dim] = flat_batch
     work *= signs[None, :]
     _fwht_inplace(work)
-
-    # For unnormalized Hadamard H, PHD / sqrt(output_dim) gives the desired
-    # scale up to a constant factor, and we L2-normalize afterwards anyway.
     projected = work[:, output_indices] / math.sqrt(output_indices.shape[0])
     norms = np.linalg.norm(projected, axis=-1, keepdims=True)
     return projected / np.maximum(norms, 1e-8)
+
+
+def _resolve_output_path(
+    output_dir: Path,
+    output_path: str | None,
+    method: str,
+    output_dim: int,
+    seed: int,
+) -> Path:
+    if output_path:
+        return Path(output_path)
+    if method == "random_projection":
+        return output_dir / f"randomproj_dim{output_dim}_seed{seed}.npz"
+    if method == "pca":
+        return output_dir / f"pca_trainonly_dim{output_dim}_seed{seed}.npz"
+    raise ValueError(f"Unknown method: {method}")
+
+
+def _resolve_train_image_ids(
+    subject: str,
+    token_nsd_ids: np.ndarray,
+    val_ratio: float,
+    seed: int,
+    exclude_shared1000: bool,
+) -> np.ndarray:
+    import pandas as pd
+
+    index_path = Path(f"data/indices/nsd_index/subject={subject}/index.parquet")
+    if not index_path.exists():
+        raise FileNotFoundError(
+            f"Index not found for subject={subject}: {index_path}"
+        )
+
+    index_df = pd.read_parquet(index_path)
+    if exclude_shared1000 and "shared1000" in index_df.columns:
+        index_df = index_df[~index_df["shared1000"].fillna(False).astype(bool)].reset_index(drop=True)
+
+    unique_nsd = np.sort(index_df["nsdId"].unique().astype(np.int32))
+    token_set = set(int(x) for x in token_nsd_ids)
+    unique_nsd = np.array([nid for nid in unique_nsd if int(nid) in token_set], dtype=np.int32)
+
+    if len(unique_nsd) == 0:
+        raise ValueError(f"No overlap between token cache and subject {subject} image IDs")
+
+    rng = np.random.default_rng(seed)
+    rng.shuffle(unique_nsd)
+
+    n_val = max(1, int(len(unique_nsd) * val_ratio))
+    train_ids = unique_nsd[n_val:]
+    if len(train_ids) == 0:
+        raise ValueError(
+            f"Train split is empty for subject={subject} with val_ratio={val_ratio}"
+        )
+
+    logger.info(
+        "PCA fit split: subject=%s, train_images=%d, val_images=%d, exclude_shared1000=%s, seed=%d",
+        subject,
+        len(train_ids),
+        n_val,
+        exclude_shared1000,
+        seed,
+    )
+    return np.sort(train_ids)
+
+
+def _flat_tokens_from_indices(token_cache, indices: np.ndarray) -> np.ndarray:
+    batch = np.asarray(token_cache._tokens[indices], dtype=np.float32)
+    return batch.reshape(len(indices), -1)
+
+
+def _build_random_projection_cache(
+    token_cache,
+    token_cache_path: str,
+    output_dim: int,
+    seed: int,
+    batch_size: int,
+    out_path: Path,
+) -> dict[str, Any]:
+    all_nsd_ids = np.array(token_cache._nsd_ids, dtype=np.int32)
+    n_total = len(all_nsd_ids)
+    token_shape = tuple(int(x) for x in token_cache._tokens.shape[1:])
+    input_dim = int(np.prod(token_shape))
+
+    padded_dim, signs, output_indices = _build_projection_params(
+        input_dim=input_dim,
+        output_dim=output_dim,
+        seed=seed,
+    )
+    logger.info(
+        "Projection method=random_projection (SRHT), seed=%d, padded_dim=%d, output_dim=%d",
+        seed, padded_dim, output_dim,
+    )
+
+    compressed = np.zeros((n_total, output_dim), dtype=np.float32)
+    for start, end in _iter_chunk_bounds(n_total, batch_size):
+        flat_batch = np.asarray(token_cache._tokens[start:end], dtype=np.float32).reshape(end - start, -1)
+        compressed[start:end] = _project_batch_srht(
+            flat_batch=flat_batch,
+            padded_dim=padded_dim,
+            signs=signs,
+            output_indices=output_indices,
+        )
+        if end % 1000 < batch_size or end == n_total:
+            logger.info("  Projected %d/%d images", end, n_total)
+
+    metadata = {
+        "method": "random_projection",
+        "seed": int(seed),
+        "input_dim": input_dim,
+        "output_dim": int(output_dim),
+        "token_cache_source": str(token_cache_path),
+        "created": datetime.now().isoformat(),
+        "metadata_version": METADATA_VERSION,
+    }
+
+    np.savez_compressed(
+        out_path,
+        targets=compressed.astype(np.float32),
+        nsd_ids=all_nsd_ids.astype(np.int32),
+        metadata=json.dumps(metadata),
+    )
+    return metadata
+
+
+def _build_pca_cache(
+    token_cache,
+    token_cache_path: str,
+    output_dim: int,
+    seed: int,
+    batch_size: int,
+    out_path: Path,
+    subject: str,
+    val_ratio: float,
+    exclude_shared1000: bool,
+) -> dict[str, Any]:
+    from sklearn.decomposition import IncrementalPCA
+
+    all_nsd_ids = np.array(token_cache._nsd_ids, dtype=np.int32)
+    n_total = len(all_nsd_ids)
+    token_shape = tuple(int(x) for x in token_cache._tokens.shape[1:])
+    input_dim = int(np.prod(token_shape))
+
+    train_ids = _resolve_train_image_ids(
+        subject=subject,
+        token_nsd_ids=all_nsd_ids,
+        val_ratio=val_ratio,
+        seed=seed,
+        exclude_shared1000=exclude_shared1000,
+    )
+    id_to_idx = {int(nid): i for i, nid in enumerate(all_nsd_ids)}
+    train_indices = np.array([id_to_idx[int(nid)] for nid in train_ids if int(nid) in id_to_idx], dtype=np.int64)
+    train_indices = np.sort(train_indices)
+    if len(train_indices) == 0:
+        raise ValueError("Resolved zero train-only image IDs for PCA fit")
+
+    k_eff = min(output_dim, len(train_indices), input_dim)
+    if k_eff < output_dim:
+        logger.warning(
+            "Requested output_dim=%d but only %d train images are available; using k_eff=%d",
+            output_dim, len(train_indices), k_eff,
+        )
+    batch_size_eff = max(batch_size, k_eff)
+    logger.info(
+        "PCA method=train_only IncrementalPCA, subject=%s, train_images=%d, "
+        "input_dim=%d, output_dim=%d, batch_size=%d",
+        subject, len(train_indices), input_dim, k_eff, batch_size_eff,
+    )
+
+    pca = IncrementalPCA(n_components=k_eff, batch_size=batch_size_eff)
+    for start, end in _iter_chunk_bounds(len(train_indices), batch_size_eff, min_batch_size=k_eff):
+        batch_indices = train_indices[start:end]
+        flat_batch = _flat_tokens_from_indices(token_cache, batch_indices)
+        pca.partial_fit(flat_batch)
+        logger.info("  PCA partial_fit: %d/%d train images", end, len(train_indices))
+
+    compressed = np.zeros((n_total, k_eff), dtype=np.float32)
+    for start, end in _iter_chunk_bounds(n_total, batch_size):
+        flat_batch = np.asarray(token_cache._tokens[start:end], dtype=np.float32).reshape(end - start, -1)
+        projected = pca.transform(flat_batch).astype(np.float32)
+        norms = np.linalg.norm(projected, axis=-1, keepdims=True)
+        compressed[start:end] = projected / np.maximum(norms, 1e-8)
+        if end % 1000 < batch_size or end == n_total:
+            logger.info("  PCA transformed %d/%d images", end, n_total)
+
+    explained = float(getattr(pca, "explained_variance_ratio_", np.array([], dtype=np.float32)).sum())
+    metadata = {
+        "method": "pca",
+        "seed": int(seed),
+        "input_dim": input_dim,
+        "output_dim": int(k_eff),
+        "rerank_dim": int(k_eff),
+        "fit_split_description": (
+            f"subject={subject}, split_by_image=True, exclude_shared1000={exclude_shared1000}, "
+            f"val_ratio={val_ratio:.2f}, train_only_unique_images={len(train_indices)}"
+        ),
+        "train_image_count": int(len(train_indices)),
+        "token_cache_source": str(token_cache_path),
+        "created": datetime.now().isoformat(),
+        "metadata_version": METADATA_VERSION,
+        "cumulative_variance": explained,
+        "pca_batch_size": int(batch_size_eff),
+    }
+
+    np.savez_compressed(
+        out_path,
+        targets=compressed.astype(np.float32),
+        nsd_ids=all_nsd_ids.astype(np.int32),
+        metadata=json.dumps(metadata),
+    )
+    return metadata
 
 
 def build_cache(
@@ -108,6 +334,11 @@ def build_cache(
     seed: int,
     output_dir: Path,
     batch_size: int,
+    method: str,
+    output_path: str | None = None,
+    subject: str | None = None,
+    val_ratio: float = 0.10,
+    exclude_shared1000: bool = True,
 ):
     from fmri2img.data.token_clip_cache import TokenCLIPCache
 
@@ -116,63 +347,43 @@ def build_cache(
     tc.load(mmap=True)
 
     try:
-        all_nsd_ids = np.array(tc._nsd_ids, dtype=np.int32)
-        n_total = len(all_nsd_ids)
-        token_shape = tuple(int(x) for x in tc._tokens.shape[1:])
-        input_dim = int(np.prod(token_shape))
+        out_path = _resolve_output_path(output_dir, output_path, method, output_dim, seed)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
         logger.info(
-            "Token cache: %d images, tokens shape per image: %s, flattened_dim=%d",
-            n_total,
-            token_shape,
-            input_dim,
+            "Token cache: %d images, tokens shape per image: %s",
+            len(tc._nsd_ids),
+            tuple(int(x) for x in tc._tokens.shape[1:]),
         )
 
-        padded_dim, signs, output_indices = _build_projection_params(
-            input_dim=input_dim,
-            output_dim=output_dim,
-            seed=seed,
-        )
-        logger.info(
-            "Projection method=random_projection (SRHT), seed=%d, padded_dim=%d, output_dim=%d",
-            seed,
-            padded_dim,
-            output_dim,
-        )
-
-        compressed = np.zeros((n_total, output_dim), dtype=np.float32)
-        for start in range(0, n_total, batch_size):
-            end = min(start + batch_size, n_total)
-            flat_batch = np.array(tc._tokens[start:end], dtype=np.float32).reshape(end - start, -1)
-            compressed[start:end] = _project_batch_srht(
-                flat_batch=flat_batch,
-                padded_dim=padded_dim,
-                signs=signs,
-                output_indices=output_indices,
+        if method == "random_projection":
+            metadata = _build_random_projection_cache(
+                token_cache=tc,
+                token_cache_path=token_cache_path,
+                output_dim=output_dim,
+                seed=seed,
+                batch_size=batch_size,
+                out_path=out_path,
             )
-            if end % 1000 < batch_size or end == n_total:
-                logger.info("  Projected %d/%d images", end, n_total)
-
-        metadata = {
-            "method": "random_projection",
-            "seed": int(seed),
-            "input_dim": input_dim,
-            "output_dim": int(output_dim),
-            "token_cache_source": str(token_cache_path),
-            "created": datetime.now().isoformat(),
-            "metadata_version": METADATA_VERSION,
-        }
-
-        output_dir.mkdir(parents=True, exist_ok=True)
-        out_path = output_dir / f"randomproj_dim{output_dim}_seed{seed}.npz"
-        np.savez_compressed(
-            out_path,
-            targets=compressed.astype(np.float32),
-            nsd_ids=all_nsd_ids.astype(np.int32),
-            metadata=json.dumps(metadata),
-        )
+        elif method == "pca":
+            if not subject:
+                raise ValueError("PCA mode requires a subject so the train-only split can be reconstructed")
+            metadata = _build_pca_cache(
+                token_cache=tc,
+                token_cache_path=token_cache_path,
+                output_dim=output_dim,
+                seed=seed,
+                batch_size=batch_size,
+                out_path=out_path,
+                subject=subject,
+                val_ratio=val_ratio,
+                exclude_shared1000=exclude_shared1000,
+            )
+        else:
+            raise ValueError(f"Unknown cache method: {method}")
 
         logger.info(
-            "Saved random-projection rerank cache to %s (%.1f MB)",
+            "Saved rerank cache to %s (%.1f MB)",
             out_path,
             out_path.stat().st_size / 1e6,
         )
@@ -181,11 +392,14 @@ def build_cache(
         print("RERANK CACHE SUMMARY")
         print("=" * 60)
         print(f"  Output:             {out_path}")
-        print(f"  Method:             random_projection")
-        print(f"  Seed:               {seed}")
-        print(f"  Input dim:          {input_dim}")
-        print(f"  Output dim:         {output_dim}")
-        print(f"  Total images:       {n_total}")
+        print(f"  Method:             {metadata['method']}")
+        print(f"  Seed:               {metadata['seed']}")
+        print(f"  Input dim:          {metadata['input_dim']}")
+        print(f"  Output dim:         {metadata['output_dim']}")
+        if metadata["method"] == "pca":
+            print(f"  Train images:       {metadata['train_image_count']}")
+            print(f"  Fit split:          {metadata['fit_split_description']}")
+            print(f"  Cum. variance:      {metadata.get('cumulative_variance', -1):.4f}")
         print(f"  L2-normalised:      True")
         print("=" * 60)
     finally:
@@ -194,20 +408,20 @@ def build_cache(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Build deterministic random-projection rerank target cache for V30d"
+        description="Build compressed rerank target cache for V30/V32 experiments"
     )
 
     parser.add_argument(
         "--config",
         type=str,
         default=None,
-        help="Experiment config YAML (extracts token-cache path, seed, and output dim)",
+        help="Experiment config YAML (extracts token cache path, seed, dims, subject)",
     )
     parser.add_argument(
         "--method",
         type=str,
         default="random_projection",
-        choices=["random_projection"],
+        choices=["random_projection", "pca"],
         help="Compression method for rerank targets",
     )
     parser.add_argument(
@@ -225,16 +439,28 @@ def main():
         help="Compressed rerank target dimension",
     )
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--subject", type=str, default=None,
+                        help="Subject used to reconstruct the exact train-only fit split for PCA")
+    parser.add_argument("--val-ratio", type=float, default=0.10)
+    parser.add_argument("--exclude-shared1000", action="store_true", default=True)
+    parser.add_argument("--include-shared1000", action="store_true",
+                        help="Disable shared1000 exclusion when reconstructing the PCA fit split")
     parser.add_argument(
         "--batch-size",
         type=int,
         default=64,
-        help="Images per projection batch",
+        help="Images per chunk for projection/transform",
     )
     parser.add_argument(
         "--output-dir",
         type=str,
         default="outputs/rerank_cache",
+    )
+    parser.add_argument(
+        "--output-path",
+        type=str,
+        default=None,
+        help="Explicit output .npz path (overrides method-based naming)",
     )
 
     args = parser.parse_args()
@@ -249,7 +475,15 @@ def main():
 
         args.token_cache = args.token_cache or data_cfg.get("token_cache_path")
         args.seed = data_cfg.get("seed", args.seed)
+        args.subject = args.subject or data_cfg.get("subject")
+        args.val_ratio = data_cfg.get("val_split", args.val_ratio)
+        args.exclude_shared1000 = data_cfg.get("exclude_shared1000", args.exclude_shared1000)
         args.output_dim = decoder_cfg.get("rerank_dim", args.output_dim)
+        args.method = data_cfg.get("rerank_cache_method", args.method)
+        args.output_path = args.output_path or data_cfg.get("rerank_cache_path")
+
+    if args.include_shared1000:
+        args.exclude_shared1000 = False
 
     if not args.token_cache:
         parser.error("--token-cache is required (or provide --config)")
@@ -260,6 +494,11 @@ def main():
         seed=args.seed,
         output_dir=Path(args.output_dir),
         batch_size=args.batch_size,
+        method=args.method,
+        output_path=args.output_path,
+        subject=args.subject,
+        val_ratio=float(args.val_ratio),
+        exclude_shared1000=bool(args.exclude_shared1000),
     )
 
 

@@ -1,0 +1,168 @@
+# V32: PCA-compressed rerank targets on top of V30e
+#
+# Controlled continuation of the validated V30e system:
+#   - compact retrieval head stays 768-D
+#   - rerank head stays 2048-D
+#   - regression head stays generative-only
+#   - fusion recipe stays fixed
+#   - rerank target source changes from random projection -> train-only PCA
+#
+# Build cache:
+#   python scripts/preprocessing/build_rerank_cache.py \
+#     --config configs/experiments/V32_pca_rerank_2048.yaml \
+#     --method pca
+#
+# Run:
+#   make ablation ONLY=V32 SUBJECTS=subj01 GPU=0
+
+experiment:
+  name: "V32_pca_rerank_2048"
+  description: "V32: V30e architecture with train-only PCA rerank targets (2048-D)"
+  tags: ["vmf_triple", "v32", "rerank_head", "compact_retrieval", "regression",
+         "token_targets", "dual_target", "pca_rerank", "fused_checkpoint"]
+  parent: "V30e_rerank_head_2048"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+  rerank_cache_method: "pca"
+  rerank_cache_path: "outputs/rerank_cache/pca_trainonly_dim2048_seed42.npz"
+  dual_target: true
+
+model:
+  type: "vmf_triple"
+  posterior: "vmf"
+  pretrained_encoder_path: "experimental_results/N1v29a_cross_subject/subj01/checkpoint_best.pt"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.25
+    use_residual: true
+  decoder:
+    retrieval_dim: 768
+    rerank_enabled: true
+    rerank_dim: 2048
+    num_tokens: 257
+    token_dim_per: 768
+    perceptual_enabled: false
+    perceptual_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.25
+    kappa_mode: "softplus"
+    kappa_min: 0.001
+    kappa_max: 500.0
+
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  regression_mse:
+    enabled: true
+    weight: 0.5
+
+  rerank_softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.07
+    symmetric: true
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 16
+  gradient_accumulation_steps: 16
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 100
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 5
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 25
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "fused_r@1"
+  mc_tta_samples: 1
+  kappa_weighted_avg: true
+  two_stage:
+    enabled: true
+  fusion:
+    enabled: true
+    compact_score: "csls"
+    family: "normalized_weighted"
+    normalization: "zscore"
+    shortlist_k: 50
+    alpha: 0.8
+    csls_k: 10
+
+inference:
+  use_mean_for_retrieval: true

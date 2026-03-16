@@ -216,6 +216,87 @@ def _transform_batch_pca(
     return projected_t.cpu().numpy()
 
 
+def _fit_pca_torch_lowrank(
+    token_cache,
+    train_indices: np.ndarray,
+    input_dim: int,
+    output_dim: int,
+    device: str,
+) -> tuple[np.ndarray, np.ndarray, float, str]:
+    """Fit a train-only PCA basis on GPU using torch.pca_lowrank."""
+    n_train = len(train_indices)
+    logger.info(
+        "PCA fit: loading %d train images into memory for torch.pca_lowrank on %s...",
+        n_train,
+        device,
+    )
+    train_matrix = _flat_tokens_from_indices(token_cache, train_indices)
+    train_t = torch.from_numpy(train_matrix).to(device=device, dtype=torch.float32)
+    del train_matrix
+
+    pca_mean_t = train_t.mean(dim=0)
+    q = min(output_dim + 64, n_train, input_dim)
+    logger.info(
+        "PCA fit: running torch.pca_lowrank with q=%d, niter=4 on %s...",
+        q,
+        device,
+    )
+    _, singular_values_t, components_t = torch.pca_lowrank(
+        train_t,
+        q=q,
+        center=True,
+        niter=4,
+    )
+
+    centered_t = train_t - pca_mean_t.unsqueeze(0)
+    total_variance = torch.sum(centered_t * centered_t) / max(n_train - 1, 1)
+    explained_variance = (singular_values_t[:output_dim] ** 2) / max(n_train - 1, 1)
+    explained_ratio = float(
+        (explained_variance.sum() / torch.clamp(total_variance, min=1e-12)).item()
+    )
+
+    pca_mean = pca_mean_t.detach().cpu().numpy().astype(np.float32, copy=False)
+    pca_components_t = (
+        components_t[:, :output_dim].detach().cpu().numpy().astype(np.float32, copy=False)
+    )
+
+    del centered_t
+    del train_t
+    del pca_mean_t
+    del singular_values_t
+    del components_t
+    if device == "cuda":
+        torch.cuda.empty_cache()
+
+    return pca_mean, pca_components_t, explained_ratio, "torch_pca_lowrank"
+
+
+def _fit_pca_incremental(
+    token_cache,
+    train_indices: np.ndarray,
+    input_dim: int,
+    output_dim: int,
+    batch_size_eff: int,
+) -> tuple[np.ndarray, np.ndarray, float, str]:
+    from sklearn.decomposition import IncrementalPCA
+
+    logger.info(
+        "PCA fit: using IncrementalPCA on CPU with fit_batch_size=%d...",
+        batch_size_eff,
+    )
+    pca = IncrementalPCA(n_components=output_dim, batch_size=batch_size_eff)
+    for start, end in _iter_chunk_bounds(len(train_indices), batch_size_eff, min_batch_size=output_dim):
+        batch_indices = train_indices[start:end]
+        flat_batch = _flat_tokens_from_indices(token_cache, batch_indices)
+        pca.partial_fit(flat_batch)
+        logger.info("  PCA partial_fit: %d/%d train images", end, len(train_indices))
+
+    explained = float(getattr(pca, "explained_variance_ratio_", np.array([], dtype=np.float32)).sum())
+    pca_mean = np.asarray(pca.mean_, dtype=np.float32)
+    pca_components_t = np.asarray(pca.components_.T, dtype=np.float32)
+    return pca_mean, pca_components_t, explained, "incremental_pca"
+
+
 def _build_random_projection_cache(
     token_cache,
     token_cache_path: str,
@@ -282,8 +363,6 @@ def _build_pca_cache(
     exclude_shared1000: bool,
     device: str,
 ) -> dict[str, Any]:
-    from sklearn.decomposition import IncrementalPCA
-
     all_nsd_ids = np.array(token_cache._nsd_ids, dtype=np.int32)
     n_total = len(all_nsd_ids)
     token_shape = tuple(int(x) for x in token_cache._tokens.shape[1:])
@@ -311,21 +390,37 @@ def _build_pca_cache(
     batch_size_eff = max(batch_size, k_eff)
     transform_batch_size = max(batch_size, min(512, k_eff))
     transform_device = _resolve_transform_device(device)
+    fit_backend = "torch_pca_lowrank" if transform_device == "cuda" else "incremental_pca"
     logger.info(
-        "PCA method=train_only IncrementalPCA, subject=%s, train_images=%d, "
-        "input_dim=%d, output_dim=%d, fit_batch_size=%d, transform_batch_size=%d, transform_device=%s",
-        subject, len(train_indices), input_dim, k_eff, batch_size_eff, transform_batch_size, transform_device,
+        "PCA method=train_only, subject=%s, train_images=%d, input_dim=%d, output_dim=%d, "
+        "fit_backend=%s, fit_batch_size=%d, transform_batch_size=%d, transform_device=%s",
+        subject,
+        len(train_indices),
+        input_dim,
+        k_eff,
+        fit_backend,
+        batch_size_eff,
+        transform_batch_size,
+        transform_device,
     )
 
-    pca = IncrementalPCA(n_components=k_eff, batch_size=batch_size_eff)
-    for start, end in _iter_chunk_bounds(len(train_indices), batch_size_eff, min_batch_size=k_eff):
-        batch_indices = train_indices[start:end]
-        flat_batch = _flat_tokens_from_indices(token_cache, batch_indices)
-        pca.partial_fit(flat_batch)
-        logger.info("  PCA partial_fit: %d/%d train images", end, len(train_indices))
+    if transform_device == "cuda":
+        pca_mean, pca_components_t, explained, fit_backend = _fit_pca_torch_lowrank(
+            token_cache=token_cache,
+            train_indices=train_indices,
+            input_dim=input_dim,
+            output_dim=k_eff,
+            device=transform_device,
+        )
+    else:
+        pca_mean, pca_components_t, explained, fit_backend = _fit_pca_incremental(
+            token_cache=token_cache,
+            train_indices=train_indices,
+            input_dim=input_dim,
+            output_dim=k_eff,
+            batch_size_eff=batch_size_eff,
+        )
 
-    pca_mean = np.asarray(pca.mean_, dtype=np.float32)
-    pca_components_t = np.asarray(pca.components_.T, dtype=np.float32)
     mean_t = None
     components_t_t = None
     if transform_device == "cuda":
@@ -354,7 +449,6 @@ def _build_pca_cache(
         if end % 1000 < transform_batch_size or end == n_total:
             logger.info("  PCA transformed %d/%d images", end, n_total)
 
-    explained = float(getattr(pca, "explained_variance_ratio_", np.array([], dtype=np.float32)).sum())
     metadata = {
         "method": "pca",
         "seed": int(seed),
@@ -370,6 +464,7 @@ def _build_pca_cache(
         "created": datetime.now().isoformat(),
         "metadata_version": METADATA_VERSION,
         "cumulative_variance": explained,
+        "pca_fit_backend": fit_backend,
         "pca_batch_size": int(batch_size_eff),
         "pca_transform_batch_size": int(transform_batch_size),
         "pca_transform_device": transform_device,
@@ -525,7 +620,7 @@ def main():
         type=str,
         default="auto",
         choices=["auto", "cpu", "cuda"],
-        help="Device for PCA transform stage (fit remains on CPU)",
+        help="Device for PCA fit/transform when supported (cuda uses torch.pca_lowrank)",
     )
 
     args = parser.parse_args()

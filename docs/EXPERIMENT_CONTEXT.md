@@ -2958,3 +2958,70 @@ Follow-up control:
   - `V33_shortlist_teacher_distill`
   - `V33b_shortlist_teacher_distill_preinit`
 - this isolates whether proper encoder initialization from the now-available V29a checkpoint improves fused retrieval beyond the current V33 result
+
+### 34.9 V34: Tri-Expert Fusion Wave
+
+The next maximum-upside evaluation wave is **V34_tri_expert_fusion**.
+
+Rationale:
+
+- V32 already proved that compact + rerank fusion is strongly complementary
+- N1v28a remains a very strong legacy single-head expert:
+  - **56.0% raw R@1**
+  - **70.3% CSLS R@1**
+- This suggests the remaining bottleneck is not lack of signal but incomplete exploitation of **complementary experts**
+
+V34 is therefore an **evaluation-only** wave that combines three experts:
+
+1. compact shortlist expert from **V32/V33**
+2. PCA rerank expert from **V32/V33**
+3. legacy token-space retrieval expert from **N1v28a**
+
+Protocol:
+
+- Stage A:
+  - shortlist candidates using the compact expert only
+  - shortlist_k sweep in `{50, 100, 150, 200}`
+- Stage B:
+  - compute compact scores (raw cosine, CSLS)
+  - compute rerank scores (cosine)
+  - compute legacy scores (raw cosine, CSLS)
+  - sweep tri-expert score fusion on **VAL only**
+  - freeze the single best VAL setting
+  - apply the frozen setting to **SHARED1000 once**
+
+Fusion families:
+
+- weighted sum
+- normalized weighted sum
+- reciprocal-rank fusion
+- rank-average fusion
+- optional lightweight adaptive linear fusion fitted on VAL only
+
+Normalizations:
+
+- none
+- zscore
+- minmax
+- stdscale
+
+Metrics to watch:
+
+- **Primary**
+  - SHARED1000 tri-expert fused R@1 relative to the current V32 fused baseline (**57.0%**)
+- **Secondary**
+  - gain over best compact CSLS
+  - gain over current 2-expert fusion
+  - gain over legacy N1v28a alone
+  - gain over rerank-only retrieval
+
+Implementation note:
+
+- `scripts/evaluation/sweep_tri_fusion_retrieval.py` performs the sweep
+- alignment is enforced by `nsd_id`
+- tuning is forbidden on SHARED1000
+- outputs:
+  - `diagnostics/tri_fusion_sweep.json`
+  - `diagnostics/tri_fusion_sweep_val.csv`
+  - `metrics/val_tri_fused_metrics.json`
+  - `metrics/shared1000_tri_fused_metrics.json`

@@ -341,6 +341,22 @@ def run_diagnostics(results_dir: Path, metrics_dir: Path, split: str = "val"):
         print(f"  Gain over rerank repl.: {fusion_report.get('fused_gain_over_rerank_replacement', 0) * 100:.1f} pp")
         report["fused_retrieval"] = fusion_report
 
+    tri_fused_metrics_path = metrics_dir / f"{split}_tri_fused_metrics.json"
+    if tri_fused_metrics_path.exists():
+        print("\n" + "=" * 70)
+        print("6C. TRI-EXPERT FUSION")
+        print("=" * 70)
+        with open(tri_fused_metrics_path, "r") as f:
+            tri_report = json.load(f)
+        tri_payload = tri_report.get("tri_fused_best", tri_report.get("tri_fused_frozen", tri_report))
+        print(f"  Tri-fused R@1:           {tri_payload.get('R@1', 0.0):.1%}")
+        print(f"  Tri-fused R@5:           {tri_payload.get('R@5', 0.0):.1%}")
+        print(f"  Tri-fused R@10:          {tri_payload.get('R@10', 0.0):.1%}")
+        print(f"  Tri-fused MedR / MRR:    {tri_payload.get('median_rank', 0.0):.1f} / {tri_payload.get('MRR', 0.0):.4f}")
+        print(f"  Gain over compact CSLS:  {tri_report.get('gain_over_compact_csls', 0.0) * 100:.1f} pp")
+        print(f"  Gain over 2-expert:      {tri_report.get('gain_over_two_expert_fusion', 0.0) * 100:.1f} pp")
+        report["tri_fused_retrieval"] = tri_report
+
     # -----------------------------------------------------------------------
     # 7. Oracle shortlist reranking
     # -----------------------------------------------------------------------

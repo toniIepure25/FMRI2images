@@ -60,6 +60,7 @@ from fmri2img.losses.vmf_nce import (
 from fmri2img.training.kl_schedule import KLScheduler
 from fmri2img.losses.mixco import mixco_augment, mixco_nce_loss
 from fmri2img.losses.softclip import SoftCLIPLoss, VMFSoftCLIPLoss
+from fmri2img.losses.shortlist_teacher_distill import ShortlistTeacherDistillLoss
 from fmri2img.losses.hierarchical_clip_loss import HierarchicalCLIPLoss
 from fmri2img.losses.cka_loss import CKALoss
 from fmri2img.losses.direct_alignment import DirectAlignmentLoss
@@ -815,6 +816,28 @@ def setup_losses(config: Dict[str, Any], device: str,
         logger.info("Rerank SoftCLIP loss enabled (tau=%.3f, symmetric=%s)",
                      c.get("tau", 0.07), c.get("symmetric", True))
 
+    # --- V33: shortlist-local teacher distillation (rerank -> compact) ---
+    if loss_cfg.get("shortlist_teacher_distill", {}).get("enabled", False):
+        c = loss_cfg["shortlist_teacher_distill"]
+        losses["shortlist_teacher_distill"] = ShortlistTeacherDistillLoss(
+            compact_k=c.get("compact_k", 16),
+            teacher_k=c.get("teacher_k", 16),
+            teacher_temperature=c.get("teacher_temperature", 0.07),
+            student_temperature=c.get("student_temperature", 0.07),
+            teacher_rank_gate=c.get("teacher_rank_gate", 20),
+        )
+        logger.info(
+            "Shortlist teacher distill enabled "
+            "(weight=%.3f, compact_k=%d, teacher_k=%d, teacher_tau=%.3f, student_tau=%.3f, start_epoch=%d, gate<=%d)",
+            c.get("weight", 0.15),
+            c.get("compact_k", 16),
+            c.get("teacher_k", 16),
+            c.get("teacher_temperature", 0.07),
+            c.get("student_temperature", 0.07),
+            c.get("start_epoch", 10),
+            c.get("teacher_rank_gate", 20),
+        )
+
     # --- N3/N4: MultiTask vMF-NCE ---
     if loss_cfg.get("vmf_nce_multitask", {}).get("enabled", False):
         c = loss_cfg["vmf_nce_multitask"]
@@ -1177,6 +1200,36 @@ def train_epoch(
                 _rerank_loss = losses["rerank_softclip"](_rerank_pred, _rerank_target, queue=None)
                 total_loss = total_loss + _rerank_w * _rerank_loss
                 batch_metrics["rerank_softclip"] = _rerank_loss.item()
+
+            # --- V33: shortlist-local teacher distillation ---
+            _std_cfg = (config_ref or {}).get("loss", {}).get("shortlist_teacher_distill", {})
+            if (
+                "shortlist_teacher_distill" in losses
+                and _rerank_pred is not None
+                and _rerank_target is not None
+            ):
+                _std_loss, _std_stats = losses["shortlist_teacher_distill"](
+                    compact_pred=pred,
+                    retrieval_target=gt_embedding,
+                    rerank_pred=_rerank_pred,
+                    rerank_target=_rerank_target,
+                    return_stats=True,
+                )
+                _std_start_epoch = int(_std_cfg.get("start_epoch", 10))
+                if current_epoch > _std_start_epoch:
+                    _std_w = loss_weights.get(
+                        "shortlist_teacher_distill",
+                        _std_cfg.get("weight", 0.15),
+                    )
+                    total_loss = total_loss + _std_w * _std_loss
+                    batch_metrics["shortlist_teacher_distill"] = _std_loss.item()
+                else:
+                    batch_metrics["shortlist_teacher_distill"] = 0.0
+                batch_metrics["shortlist_teacher_gate_frac"] = _std_stats["gate_frac"]
+                batch_metrics["shortlist_teacher_pos_rank_mean"] = _std_stats["teacher_pos_rank_mean"]
+                batch_metrics["shortlist_teacher_pos_rank_median"] = _std_stats["teacher_pos_rank_median"]
+                batch_metrics["shortlist_student_pos_rank_mean"] = _std_stats["student_pos_rank_mean"]
+                batch_metrics["shortlist_student_pos_rank_median"] = _std_stats["student_pos_rank_median"]
 
             # --- Kappa regularizer ---
             kappa_reg_cfg = config_ref.get("loss", {}).get("kappa_reg", {}) if config_ref else {}
@@ -1750,6 +1803,8 @@ def validate(
     preprocessor: Optional[EmbeddingPreprocessor],
     queue: Optional[nn.Module],
     vmf_is_log: bool = True,
+    current_epoch: int = 0,
+    config_ref: Optional[Dict[str, Any]] = None,
 ) -> Tuple[Dict[str, float], np.ndarray, np.ndarray]:
     """Validate model and collect embeddings for retrieval evaluation."""
     model.eval()
@@ -1911,6 +1966,34 @@ def validate(
                 _rr_l = losses["rerank_softclip"](_rerank_pred_val2, _rerank_target, queue=None)
                 total_loss = total_loss + loss_weights.get("rerank_softclip", 1.0) * _rr_l
                 bm["rerank_softclip"] = _rr_l.item()
+
+            _std_cfg = (config_ref or {}).get("loss", {}).get("shortlist_teacher_distill", {})
+            if (
+                "shortlist_teacher_distill" in losses
+                and _rerank_pred_val2 is not None
+                and _rerank_target is not None
+            ):
+                _std_l, _std_stats = losses["shortlist_teacher_distill"](
+                    compact_pred=pred,
+                    retrieval_target=gt_embedding,
+                    rerank_pred=_rerank_pred_val2,
+                    rerank_target=_rerank_target,
+                    return_stats=True,
+                )
+                _std_start_epoch = int(_std_cfg.get("start_epoch", 10))
+                if current_epoch > _std_start_epoch:
+                    total_loss = total_loss + loss_weights.get(
+                        "shortlist_teacher_distill",
+                        _std_cfg.get("weight", 0.15),
+                    ) * _std_l
+                    bm["shortlist_teacher_distill"] = _std_l.item()
+                else:
+                    bm["shortlist_teacher_distill"] = 0.0
+                bm["shortlist_teacher_gate_frac"] = _std_stats["gate_frac"]
+                bm["shortlist_teacher_pos_rank_mean"] = _std_stats["teacher_pos_rank_mean"]
+                bm["shortlist_teacher_pos_rank_median"] = _std_stats["teacher_pos_rank_median"]
+                bm["shortlist_student_pos_rank_mean"] = _std_stats["student_pos_rank_mean"]
+                bm["shortlist_student_pos_rank_median"] = _std_stats["student_pos_rank_median"]
 
             # --- V11 val losses ---
             if "direct_alignment" in losses and is_vmf:
@@ -3575,6 +3658,8 @@ def main() -> None:
         val_metrics, val_preds, val_gts = validate(
             model, val_loader, losses, loss_weights, device, preprocessor, queue,
             vmf_is_log=_vmf_is_log,
+            current_epoch=epoch,
+            config_ref=config,
         )
         _epoch_val_extras = val_metrics.pop("_val_extras", {})
         if ema is not None:
@@ -3832,6 +3917,8 @@ def main() -> None:
             val_metrics_soup, soup_preds, soup_gts = validate(
                 model, val_loader, losses, loss_weights, device, preprocessor, queue,
                 vmf_is_log=_vmf_is_log,
+                current_epoch=best_epoch,
+                config_ref=config,
             )
             val_metrics_soup.pop("_val_extras", None)
             if ema is not None:
@@ -3889,6 +3976,8 @@ def main() -> None:
     _val_metrics_extra, _save_preds, _save_gts = validate(
         model, val_loader, losses, loss_weights, device, preprocessor, queue,
         vmf_is_log=_vmf_is_log,
+        current_epoch=best_epoch,
+        config_ref=config,
     )
     _val_extras = _val_metrics_extra.pop("_val_extras", {})
 

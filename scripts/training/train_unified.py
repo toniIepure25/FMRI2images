@@ -2707,7 +2707,9 @@ def main() -> None:
 
     # --- V29b: Load pretrained encoder from a prior run (e.g. cross-subject) ---
     _pe_path = model_config.get("pretrained_encoder_path")
+    _require_pe = bool(model_config.get("require_pretrained_encoder", False))
     _pe_loaded_ok = False
+    _matched_encoder_key_count = 0
     if _pe_path and os.path.isfile(_pe_path):
         _pe_ckpt = torch.load(_pe_path, map_location=device)
         _pe_sd = _pe_ckpt.get("model_state_dict", _pe_ckpt.get("state_dict", {}))
@@ -2742,8 +2744,25 @@ def main() -> None:
                 len(_pe_missing),
                 len(_pe_unexpected),
             )
+        _matched_encoder_key_count = len(_matched_encoder_keys)
+        if _require_pe and _matched_encoder_key_count == 0:
+            raise RuntimeError(
+                "require_pretrained_encoder=true but zero encoder keys matched from "
+                f"{_pe_path}"
+            )
+        if _require_pe:
+            logger.info(
+                "Verified pretrained encoder initialization is active: matched_encoder_keys=%d from %s",
+                _matched_encoder_key_count,
+                _pe_path,
+            )
         _pe_loaded_ok = True
     elif _pe_path:
+        if _require_pe:
+            raise FileNotFoundError(
+                "require_pretrained_encoder=true but pretrained_encoder_path was not found: "
+                f"{_pe_path}"
+            )
         logger.warning(
             "pretrained_encoder_path not found: %s — encoder starts random", _pe_path,
         )

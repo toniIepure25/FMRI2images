@@ -2,7 +2,7 @@
 
 This document provides complete technical context for a bachelor thesis project on neural decoding of visual perception from fMRI. It is designed as a self-contained briefing for an LLM or researcher performing deep analysis.
 
-**Project status (March 2026):** The project has now validated a strong V32 triple-head retrieval system. The current best generalization setup is **V32_pca_rerank_2048 + fusion**: compact shortlist retrieval reaches **51.7% CSLS R@1 on VAL / 48.7% on SHARED1000**, the PCA-supervised rerank head reaches **40.4% rerank-only R@1 on VAL / 41.1% on SHARED1000**, oracle rerank reaches **76.4% / 74.1%**, and fixed shortlist-local fusion reaches **58.6% VAL R@1 / 57.0% SHARED1000 R@1**. The best validated fusion recipe is now **compact=CSLS, family=weighted, normalization=none, shortlist_k=100, alpha=0.75**. This establishes that PCA rerank targets were a major success and that the remaining gap is not rerank collapse but incomplete transfer of rerank-relevant ranking signal into the compact shortlist stage. Earlier project-best single-head metrics from N1v28a remain **56.0% raw R@1 / 70.3% CSLS R@1**. All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
+**Project status (March 2026):** The project has now validated a strong V30 triple-head retrieval wave. The best compact shortlist head reaches **52.9% CSLS R@1 on VAL / 49.2% on SHARED1000** (V30e), while the dedicated rerank head is clearly discriminative (**25.0% rerank-only R@1 on VAL / 24.2% on SHARED1000**, oracle rerank **61.3% / 62.7%**). The key new result is post-hoc fusion: a fixed shortlist-local combination of compact and rerank scores achieves **56.2% VAL R@1** and **51.5% SHARED1000 R@1**, establishing that the rerank head should act as a corrective signal inside a high-quality shortlist rather than replace compact retrieval. Earlier project-best single-head metrics from N1v28a remain **56.0% raw R@1 / 70.3% CSLS R@1**. All experiments run on an **NVIDIA H100 80GB HBM3** with bf16 mixed precision.
 
 **SOTA target:** MindEye achieves 93.2% R@1 on the same dataset. The remaining gap is attributed to (1) single-subject vs 7-subject pre-training (primary bottleneck after V28a), (2) hubness and metric mismatch in high-dimensional retrieval/rerank spaces, (3) smaller effective subject diversity despite comparable parameter count, and (4) possible fine-grained architectural differences (MindEye's retrieval submodule vs our explicit shortlist + rerank pipeline).
 
@@ -2881,9 +2881,9 @@ Why V32 is the best next action:
 - the remaining opportunity is **better structured rerank supervision**
 - PCA may preserve more semantically useful variance than a purely random target basis
 
-### 34.8 V32 Result and the V33 Direction
+### 34.8 V32 Result, V33, and V33b
 
-V32 was a major success and is now the best generalization setup in the project.
+V32 was a major success and became the new best generalization setup.
 
 Observed V32 results:
 
@@ -2891,14 +2891,13 @@ Observed V32 results:
   - compact raw R@1 = **44.4%**
   - compact CSLS R@1 = **51.7%**
   - rerank-only R@1 = **40.4%**
-  - oracle rerank R@1 = **76.4%**
-  - fixed-fusion R@1 = **58.6%**
+  - fused R@1 = **58.6%**
 - **SHARED1000**
   - compact raw R@1 = **41.6%**
   - compact CSLS R@1 = **48.7%**
   - rerank-only R@1 = **41.1%**
+  - fused R@1 = **57.0%**
   - oracle rerank R@1 = **74.1%**
-  - fixed-fusion R@1 = **57.0%**
 
 Best VAL-selected fusion setting, frozen to SHARED1000:
 
@@ -2910,22 +2909,20 @@ Best VAL-selected fusion setting, frozen to SHARED1000:
 
 Interpretation:
 
-- PCA rerank targets dramatically improved stage-2 quality
-- compact and rerank heads are clearly complementary
-- fusion now generalizes strongly and is no longer a fragile post-hoc trick
-- the remaining gap is now between **fused retrieval (57.0%)** and **oracle rerank (74.1%)**
+- PCA rerank targets were a major success
+- compact and rerank heads are complementary
+- post-hoc fusion is strongly validated
+- the remaining gap is now primarily between **fused retrieval** and **oracle rerank**
 
-This means the next best action is **not another target change**. The next wave should try to transfer rerank-relevant local ordering signal into the compact shortlist head while keeping the validated V32 architecture and PCA rerank targets fixed.
-
-The approved next wave is therefore **V33_shortlist_teacher_distill**:
+This led to **V33_shortlist_teacher_distill**:
 
 - base: **V32_pca_rerank_2048**
 - architecture: unchanged
-- compact head: stays **768-D**
-- rerank head: stays **2048-D**
-- rerank targets: stay **train-only PCA**
-- checkpoint metric: stays **fused_r@1**
-- fusion baseline during validation:
+- compact head: **768-D**
+- rerank head: **2048-D**
+- rerank targets: **train-only PCA**
+- checkpoint metric: **fused_r@1**
+- fusion baseline:
   - compact score: **CSLS**
   - family: **weighted**
   - normalization: **none**
@@ -2934,7 +2931,7 @@ The approved next wave is therefore **V33_shortlist_teacher_distill**:
 
 New idea in V33:
 
-- add **shortlist-local teacher distillation**
+- shortlist-local teacher distillation from the rerank head into the compact head
 - teacher: rerank-head similarity logits, stop-gradient
 - student: compact-head similarity logits
 - local candidate set per query:
@@ -2943,11 +2940,21 @@ New idea in V33:
   - top-16 rerank candidates
   - deduplicated
 - conservative gate:
-  - only distil when teacher positive rank <= 20
+  - distil only when teacher positive rank <= 20
 - conservative schedule:
-  - off for first 10 epochs
+  - off for epochs 1-10
   - on from epoch 11
 - conservative weight:
   - **0.15**
 
-V33 is designed to reduce the fusion-oracle gap by improving shortlist-local ordering quality, not by replacing the compact head and not by changing the validated V32 representation design.
+Follow-up control:
+
+- **V33b_shortlist_teacher_distill_preinit**
+- purpose: clean V33 rerun with **verified V29a encoder preinit**
+- same architecture, losses, PCA rerank targets, fusion recipe, and checkpoint metric as V33
+- differs only in experiment identity and an enforced fail-fast requirement that the V29a encoder checkpoint must exist and load successfully
+- intended comparison:
+  - `V32_pca_rerank_2048`
+  - `V33_shortlist_teacher_distill`
+  - `V33b_shortlist_teacher_distill_preinit`
+- this isolates whether proper encoder initialization from the now-available V29a checkpoint improves fused retrieval beyond the current V33 result

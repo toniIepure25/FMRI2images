@@ -136,6 +136,101 @@ def _load_optional(path: Path) -> np.ndarray | None:
     return np.load(path) if path.exists() else None
 
 
+def _row_key_matrix(arr: np.ndarray, decimals: int = 6) -> list[bytes]:
+    arr32 = np.ascontiguousarray(np.round(arr.astype(np.float32, copy=False), decimals))
+    return [arr32[i].tobytes() for i in range(arr32.shape[0])]
+
+
+def _recover_nsd_ids_from_reference(
+    prefix: str,
+    gt_embeddings: np.ndarray,
+    reference_split: dict[str, np.ndarray],
+) -> np.ndarray:
+    ref_gts = reference_split.get("compact_gts")
+    ref_ids = reference_split.get("nsd_ids")
+    if ref_gts is None or ref_ids is None:
+        raise FileNotFoundError(
+            f"{prefix}: cannot recover nsd_ids without a reference split containing "
+            "compact_gts and nsd_ids"
+        )
+    if gt_embeddings.shape[1] != ref_gts.shape[1]:
+        raise ValueError(
+            f"{prefix}: cannot recover nsd_ids from reference because GT dims differ "
+            f"({gt_embeddings.shape[1]} vs {ref_gts.shape[1]})"
+        )
+
+    ref_map: dict[bytes, int] = {}
+    for nid, key in zip(ref_ids.astype(np.int32), _row_key_matrix(ref_gts)):
+        if key in ref_map and ref_map[key] != int(nid):
+            raise ValueError(f"{prefix}: duplicate reference GT embedding maps to multiple nsd_ids")
+        ref_map[key] = int(nid)
+
+    recovered: list[int] = []
+    missing = 0
+    for key in _row_key_matrix(gt_embeddings):
+        nid = ref_map.get(key)
+        if nid is None:
+            missing += 1
+            continue
+        recovered.append(nid)
+    if missing:
+        raise ValueError(
+            f"{prefix}: failed to recover nsd_ids for {missing}/{gt_embeddings.shape[0]} rows "
+            "from reference GT embeddings"
+        )
+    return np.asarray(recovered, dtype=np.int32)
+
+
+def _load_legacy_nsd_ids(
+    metrics_dir: Path,
+    results_dir: Path,
+    prefix: str,
+    expected_len: int,
+    gt_embeddings: np.ndarray,
+    reference_split: dict[str, np.ndarray] | None = None,
+) -> np.ndarray:
+    ids_path = metrics_dir / f"{prefix}_nsd_ids.npy"
+    if ids_path.exists():
+        nsd_ids = np.load(ids_path).astype(np.int32)
+        if nsd_ids.shape[0] != expected_len:
+            raise ValueError(
+                f"{prefix}: {ids_path.name} has {nsd_ids.shape[0]} ids, expected {expected_len}"
+            )
+        return nsd_ids
+
+    if prefix == "val":
+        split_path = results_dir / "split.json"
+        if split_path.exists():
+            with open(split_path) as f:
+                split_payload = json.load(f)
+            val_ids = np.asarray(split_payload.get("val_nsd_ids", []), dtype=np.int32)
+            if val_ids.shape[0] == expected_len:
+                logger.info(
+                    "%s: recovered legacy nsd_ids from %s",
+                    prefix,
+                    split_path,
+                )
+                return val_ids
+            logger.warning(
+                "%s: split.json exists at %s but val_nsd_ids has %d rows, expected %d",
+                prefix,
+                split_path,
+                val_ids.shape[0],
+                expected_len,
+            )
+
+    if reference_split is not None:
+        logger.info(
+            "%s: recovering legacy nsd_ids by matching GT embeddings to tri-expert reference",
+            prefix,
+        )
+        return _recover_nsd_ids_from_reference(prefix, gt_embeddings, reference_split)
+
+    raise FileNotFoundError(
+        f"Missing required file: {ids_path}. No safe fallback was available."
+    )
+
+
 def _resolve_metric_file(metrics_dir: Path, prefix: str, candidates: list[str]) -> Path:
     for name in candidates:
         path = metrics_dir / f"{prefix}_{name}.npy"
@@ -167,7 +262,12 @@ def _load_tri_split(metrics_dir: Path, prefix: str) -> dict[str, np.ndarray]:
     }
 
 
-def _load_legacy_split(metrics_dir: Path, prefix: str) -> dict[str, np.ndarray]:
+def _load_legacy_split(
+    metrics_dir: Path,
+    results_dir: Path,
+    prefix: str,
+    reference_split: dict[str, np.ndarray] | None = None,
+) -> dict[str, np.ndarray]:
     pred_path = _resolve_metric_file(
         metrics_dir,
         prefix,
@@ -178,9 +278,16 @@ def _load_legacy_split(metrics_dir: Path, prefix: str) -> dict[str, np.ndarray]:
         prefix,
         ["ground_truth_compact", "ground_truth"],
     )
-    nsd_ids = _load_required(metrics_dir / f"{prefix}_nsd_ids.npy").astype(np.int32)
     preds = np.load(pred_path)
     gts = np.load(gt_path)
+    nsd_ids = _load_legacy_nsd_ids(
+        metrics_dir=metrics_dir,
+        results_dir=results_dir,
+        prefix=prefix,
+        expected_len=preds.shape[0],
+        gt_embeddings=gts,
+        reference_split=reference_split,
+    )
     if preds.shape[0] != gts.shape[0] or preds.shape[0] != nsd_ids.shape[0]:
         raise ValueError(f"{prefix}: legacy arrays and nsd_ids are misaligned")
     return {
@@ -659,8 +766,18 @@ def main() -> None:
 
     tri_val = _load_tri_split(tri_metrics_dir, "val")
     tri_shared = _load_tri_split(tri_metrics_dir, "shared1000")
-    legacy_val = _load_legacy_split(legacy_metrics_dir, "val")
-    legacy_shared = _load_legacy_split(legacy_metrics_dir, "shared1000")
+    legacy_val = _load_legacy_split(
+        legacy_metrics_dir,
+        legacy_results_dir,
+        "val",
+        reference_split=tri_val,
+    )
+    legacy_shared = _load_legacy_split(
+        legacy_metrics_dir,
+        legacy_results_dir,
+        "shared1000",
+        reference_split=tri_shared,
+    )
 
     _assert_split_disjointness(tri_val["nsd_ids"], tri_shared["nsd_ids"], "tri_results_dir")
     _assert_split_disjointness(legacy_val["nsd_ids"], legacy_shared["nsd_ids"], "legacy_results_dir")

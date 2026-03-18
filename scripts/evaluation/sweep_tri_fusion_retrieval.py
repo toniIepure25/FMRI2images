@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pandas as pd
 
 logging.basicConfig(
     level=logging.INFO,
@@ -141,6 +142,30 @@ def _row_key_matrix(arr: np.ndarray, decimals: int = 6) -> list[bytes]:
     return [arr32[i].tobytes() for i in range(arr32.shape[0])]
 
 
+def _infer_subject_from_results_dir(results_dir: Path) -> str:
+    for candidate in [results_dir.name, results_dir.parent.name]:
+        if candidate.startswith("subj"):
+            return candidate
+    raise ValueError(f"Could not infer subject from results dir: {results_dir}")
+
+
+def _load_canonical_shared1000_ids(subject: str) -> np.ndarray:
+    index_path = Path("data/indices/nsd_index") / f"subject={subject}" / "index.parquet"
+    if not index_path.exists():
+        raise FileNotFoundError(
+            f"shared1000 fallback needs index parquet, but it was not found: {index_path}"
+        )
+    index_df = pd.read_parquet(index_path)
+    if "shared1000" not in index_df.columns or "nsdId" not in index_df.columns:
+        raise ValueError(
+            f"shared1000 fallback needs 'shared1000' and 'nsdId' columns in {index_path}"
+        )
+    s1000_mask = index_df["shared1000"].fillna(False).astype(bool).values
+    if not np.any(s1000_mask):
+        raise ValueError(f"shared1000 fallback found zero shared1000 rows in {index_path}")
+    return np.unique(index_df.loc[s1000_mask, "nsdId"].astype(np.int32).values)
+
+
 def _recover_nsd_ids_from_reference(
     prefix: str,
     gt_embeddings: np.ndarray,
@@ -218,6 +243,24 @@ def _load_legacy_nsd_ids(
                 val_ids.shape[0],
                 expected_len,
             )
+
+    if prefix == "shared1000":
+        subject = _infer_subject_from_results_dir(results_dir)
+        shared_ids = _load_canonical_shared1000_ids(subject)
+        if shared_ids.shape[0] == expected_len:
+            logger.info(
+                "%s: recovered legacy nsd_ids from canonical shared1000 index for %s",
+                prefix,
+                subject,
+            )
+            return shared_ids
+        logger.warning(
+            "%s: canonical shared1000 ids for %s has %d rows, expected %d",
+            prefix,
+            subject,
+            shared_ids.shape[0],
+            expected_len,
+        )
 
     if reference_split is not None:
         logger.info(

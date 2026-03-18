@@ -615,6 +615,16 @@ def _save_json(path: Path, payload: dict[str, Any]) -> None:
         json.dump(payload, f, indent=2, default=str)
 
 
+def _nearby_experiment_dirs(path: Path) -> list[str]:
+    parent = path.parent
+    if not parent.exists():
+        return []
+    return sorted(
+        p.name for p in parent.iterdir()
+        if p.is_dir()
+    )[:20]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sweep tri-expert retrieval fusion")
     parser.add_argument("tri_results_dir", type=str, help="V32/V33 results dir, e.g. experimental_results/V32_pca_rerank_2048/subj01")
@@ -624,12 +634,28 @@ def main() -> None:
 
     tri_results_dir = Path(args.tri_results_dir)
     legacy_results_dir = Path(args.legacy_results_dir)
+    if not tri_results_dir.exists():
+        nearby = _nearby_experiment_dirs(tri_results_dir)
+        hint = f" Nearby experiment dirs: {nearby}" if nearby else ""
+        raise FileNotFoundError(f"Tri-expert results directory not found: {tri_results_dir}.{hint}")
+    if not legacy_results_dir.exists():
+        nearby = _nearby_experiment_dirs(legacy_results_dir)
+        hint = f" Nearby experiment dirs: {nearby}" if nearby else ""
+        raise FileNotFoundError(f"Legacy results directory not found: {legacy_results_dir}.{hint}")
     tri_metrics_dir = tri_results_dir / "metrics"
     legacy_metrics_dir = legacy_results_dir / "metrics"
     if not tri_metrics_dir.exists():
-        raise FileNotFoundError(f"Tri-expert metrics directory not found: {tri_metrics_dir}")
+        nearby = sorted(p.name for p in tri_results_dir.iterdir()) if tri_results_dir.exists() else []
+        raise FileNotFoundError(
+            f"Tri-expert metrics directory not found: {tri_metrics_dir}. "
+            f"Contents of {tri_results_dir}: {nearby}"
+        )
     if not legacy_metrics_dir.exists():
-        raise FileNotFoundError(f"Legacy metrics directory not found: {legacy_metrics_dir}")
+        nearby = sorted(p.name for p in legacy_results_dir.iterdir()) if legacy_results_dir.exists() else []
+        raise FileNotFoundError(
+            f"Legacy metrics directory not found: {legacy_metrics_dir}. "
+            f"Contents of {legacy_results_dir}: {nearby}"
+        )
 
     tri_val = _load_tri_split(tri_metrics_dir, "val")
     tri_shared = _load_tri_split(tri_metrics_dir, "shared1000")

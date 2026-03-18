@@ -2708,6 +2708,7 @@ def main() -> None:
     # --- V29b: Load pretrained encoder from a prior run (e.g. cross-subject) ---
     _pe_path = model_config.get("pretrained_encoder_path")
     _require_pe = bool(model_config.get("require_pretrained_encoder", False))
+    _resume_ckpt_exists = bool(args.resume) and Path(args.resume).exists()
     _pe_loaded_ok = False
     _matched_encoder_key_count = 0
     if _pe_path and os.path.isfile(_pe_path):
@@ -2758,7 +2759,13 @@ def main() -> None:
             )
         _pe_loaded_ok = True
     elif _pe_path:
-        if _require_pe:
+        if _require_pe and _resume_ckpt_exists:
+            logger.info(
+                "require_pretrained_encoder=true but pretrained_encoder_path is missing; "
+                "continuing because --resume=%s will restore model weights from checkpoint",
+                args.resume,
+            )
+        elif _require_pe:
             raise FileNotFoundError(
                 "require_pretrained_encoder=true but pretrained_encoder_path was not found: "
                 f"{_pe_path}"

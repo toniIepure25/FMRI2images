@@ -120,9 +120,15 @@ def _best_result(results: list[dict[str, Any]]) -> dict[str, Any]:
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     if not rows:
         return
-    fieldnames = list(rows[0].keys())
+    fieldnames: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        for key in row.keys():
+            if key not in seen:
+                seen.add(key)
+                fieldnames.append(key)
     with open(path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
 

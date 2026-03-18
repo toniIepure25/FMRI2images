@@ -2959,6 +2959,73 @@ Follow-up control:
   - `V33b_shortlist_teacher_distill_preinit`
 - this isolates whether proper encoder initialization from the now-available V29a checkpoint improves fused retrieval beyond the current V33 result
 
+### 34.9 V34: Tri-Expert Evaluation-Only Fusion
+
+V34 tested the highest-upside evaluation-only hypothesis: the bottleneck was no longer lack of expert signal, but under-exploitation of complementary experts already present in the project.
+
+The tri-expert pool combined:
+
+1. the V32/V33 compact shortlist expert
+2. the V32/V33 PCA rerank expert
+3. the legacy `N1v28a` token-space retrieval expert
+
+Selection protocol:
+
+- choose the best fusion setting on **VAL only**
+- freeze that setting
+- apply it once to **SHARED1000**
+- no tuning on SHARED1000
+
+Confirmed best fixed tri-fusion setting:
+
+- compact score: **csls**
+- legacy score: **csls**
+- family: **normalized_weighted**
+- normalization: **minmax**
+- shortlist_k: **100**
+- alpha / beta / gamma: **0.25 / 0.0 / 0.75**
+
+Confirmed V34 results:
+
+- **VAL tri-fused R@1 = 76.1%**
+- **SHARED1000 tri-fused R@1 = 75.3%**
+
+Comparison against the current trainable pipeline:
+
+- V33b two-expert fused SHARED1000 R@1 = **59.5%**
+- V34 tri-expert fused SHARED1000 R@1 = **75.3%**
+- net gain = **+15.8 pp**
+
+Interpretation:
+
+- the dominant gain comes from **legacy + compact complementarity**
+- the rerank expert receives **zero weight** in the best global fixed fusion
+- therefore the next high-ROI wave is **not** more post-hoc fusion sweeping
+- and **not** more rerank-target modifications
+- the next wave should distill legacy retrieval knowledge into the current trainable compact head
+
+### 34.10 V35 Direction: Legacy-to-Compact Distillation
+
+The V35 hypothesis is to absorb part of the V34 tri-fusion gain into the current trainable V33b/V32 pipeline by making the compact retrieval head imitate the ranking preferences of the legacy `N1v28a` expert during training.
+
+Scope constraints for V35:
+
+- keep the current triple-head architecture unchanged
+- compact retrieval head remains the trainable shortlist head
+- rerank head remains PCA-supervised at 2048-D
+- regression head remains generative-only
+- validation fusion stays active
+- checkpoint metric remains **`fused_r@1`**
+
+Primary design:
+
+- teacher: frozen legacy `N1v28a` retrieval expert
+- student: current compact retrieval head
+- distillation target: shortlist-aware local teacher distribution over aligned in-batch candidates
+- loss form: KL / soft cross-entropy with configurable temperatures
+
+The key question for V35 is no longer whether expert complementarity exists. V34 already confirmed that it does. The only remaining question is how much of that complementarity can be transferred into the compact head without destabilizing the rerank or generative branches.
+
 ### 34.9 V34: Tri-Expert Fusion Wave
 
 The next maximum-upside evaluation wave is **V34_tri_expert_fusion**.

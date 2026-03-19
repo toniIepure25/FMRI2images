@@ -25,10 +25,12 @@ import math
 import os
 import platform
 import random
+import shutil
 import subprocess
 import sys
 import gc
 import time
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -2536,19 +2538,51 @@ def save_checkpoint(
     }
     if ema is not None:
         payload["ema_shadow"] = {k: v.cpu() for k, v in ema.shadow.items()}
+    path.parent.mkdir(parents=True, exist_ok=True)
     for _attempt in range(3):
+        _local_tmp: Optional[str] = None
+        _remote_tmp = path.with_suffix(path.suffix + f".tmp.{os.getpid()}")
         try:
-            torch.save(payload, path)
+            with tempfile.NamedTemporaryFile(
+                prefix=f"{path.stem}.",
+                suffix=".pt",
+                dir="/tmp",
+                delete=False,
+            ) as _tf:
+                _local_tmp = _tf.name
+
+            try:
+                torch.save(payload, _local_tmp)
+            except RuntimeError:
+                # Older serialization is slower but can be more robust on flaky filesystems.
+                torch.save(payload, _local_tmp, _use_new_zipfile_serialization=False)
+
+            shutil.copyfile(_local_tmp, _remote_tmp)
+            os.replace(_remote_tmp, path)
             return
-        except RuntimeError:
+        except (RuntimeError, OSError) as exc:
+            for _stale in (_remote_tmp,):
+                try:
+                    if os.path.exists(_stale):
+                        os.remove(_stale)
+                except OSError:
+                    pass
             if _attempt < 2:
                 logger.warning(
                     "Checkpoint save to %s failed (attempt %d/3, NFS?), "
-                    "retrying in 2s …", path, _attempt + 1,
+                    "retrying in 2s … [%s: %s]", path, _attempt + 1,
+                    type(exc).__name__, exc,
                 )
                 time.sleep(2)
             else:
                 raise
+        finally:
+            if _local_tmp is not None:
+                try:
+                    if os.path.exists(_local_tmp):
+                        os.remove(_local_tmp)
+                except OSError:
+                    pass
 
 
 def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimizer,

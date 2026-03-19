@@ -3099,6 +3099,68 @@ Implementation note:
   - `metrics/val_tri_gated_metrics.json`
   - `metrics/shared1000_tri_gated_metrics.json`
 
+### 34.13 V37 Actual Result and V38 Direction
+
+The first learned tri-fusion gate pass was a **negative result**. Fitting on VAL and selecting the best gate on the same VAL split produced strong apparent validation performance but poor transfer to SHARED1000.
+
+Observed learned-gate result:
+
+- best VAL gate: `shallow_mlp`, `shortlist_k=50`, compact shortlist score = `csls`
+- **VAL R@1 = 89.6%**
+- **SHARED1000 R@1 = 67.1%**
+
+Interpretation:
+
+- the learned gate clearly **overfit VAL**
+- the gain did **not** transfer to SHARED1000
+- this wave does **not** beat the best fixed tri-expert fusion
+
+By contrast, re-running fixed tri-expert fusion on the stronger **V35** base produced a new best overall retrieval system:
+
+- compact score = **csls**
+- legacy score = **csls**
+- family = **normalized_weighted**
+- normalization = **zscore**
+- shortlist_k = **150**
+- alpha / beta / gamma = **0.3 / 0.0 / 0.7**
+- **VAL tri-fused R@1 = 77.6%**
+- **SHARED1000 tri-fused R@1 = 77.2%**
+
+This improved on the earlier V34 tri-fusion result (**75.3% SHARED1000 R@1**) and reaffirmed the key structural finding:
+
+- the dominant complementarity is **compact + legacy**
+- the rerank branch receives **zero weight** in the best fixed tri-fusion setting
+- the next training wave should therefore optimize the **compact head itself**, not build another learned inference gate
+
+This motivates **V38_legacy_compact_distill**.
+
+V38 keeps the V35 triple-head architecture unchanged while evaluating with the current best fixed compact+legacy tri-fusion recipe, and simplifying the teacher signal:
+
+- initialize from the best **V35** checkpoint
+- keep the rerank branch for compatibility but do **not** make it central
+- use the frozen **N1v28a** legacy expert as the **only** teacher
+- distill legacy ranking signal directly into the **compact retrieval head**
+- keep `checkpoint_metric: fused_r@1`
+- keep the normal fixed-fusion evaluation flow used by the current best trained system
+
+The new V38 loss is intentionally minimal:
+
+- student logits: compact-head in-batch retrieval similarities
+- teacher logits: frozen legacy expert similarities over aligned in-batch legacy targets
+- top-k-aware KL / softened cross-entropy distillation
+- configurable `weight`, `teacher_tau`, `student_tau`, `topk`, and `start_epoch`
+
+Primary V38 success criteria:
+
+- improve **compact CSLS R@1** over V35
+- improve fused **SHARED1000 R@1** beyond **77.2%**, or at minimum match it with less dependence on external legacy fusion
+
+Implementation note:
+
+- new loss module: `src/fmri2img/losses/legacy_compact_distill.py`
+- training integration: `scripts/training/train_unified.py`
+- config: `configs/experiments/V38_legacy_compact_distill.yaml`
+
 ### 34.9 V34: Tri-Expert Fusion Wave
 
 The next maximum-upside evaluation wave is **V34_tri_expert_fusion**.

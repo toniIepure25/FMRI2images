@@ -62,6 +62,7 @@ from fmri2img.losses.vmf_nce import (
 from fmri2img.training.kl_schedule import KLScheduler
 from fmri2img.losses.mixco import mixco_augment, mixco_nce_loss
 from fmri2img.losses.softclip import SoftCLIPLoss, VMFSoftCLIPLoss
+from fmri2img.losses.legacy_compact_distill import LegacyCompactDistillLoss
 from fmri2img.losses.legacy_teacher_distill import LegacyTeacherDistillLoss
 from fmri2img.losses.shortlist_teacher_distill import ShortlistTeacherDistillLoss
 from fmri2img.losses.tri_teacher_distill import TriTeacherDistillLoss
@@ -912,6 +913,24 @@ def setup_losses(config: Dict[str, Any], device: str,
             c.get("teacher_rank_gate", 20),
         )
 
+    # --- V38: top-k legacy -> compact distillation over full in-batch logits ---
+    if loss_cfg.get("legacy_compact_distill", {}).get("enabled", False):
+        c = loss_cfg["legacy_compact_distill"]
+        losses["legacy_compact_distill"] = LegacyCompactDistillLoss(
+            teacher_temperature=c.get("teacher_tau", c.get("teacher_temperature", 0.07)),
+            student_temperature=c.get("student_tau", c.get("student_temperature", 0.07)),
+            topk=c.get("topk", 12),
+        )
+        logger.info(
+            "Legacy compact distill enabled "
+            "(weight=%.3f, teacher_tau=%.3f, student_tau=%.3f, topk=%d, start_epoch=%d)",
+            c.get("weight", 0.15),
+            c.get("teacher_tau", c.get("teacher_temperature", 0.07)),
+            c.get("student_tau", c.get("student_temperature", 0.07)),
+            c.get("topk", 12),
+            c.get("start_epoch", 10),
+        )
+
     # --- V36: combined rerank + legacy tri-teacher distillation ---
     if loss_cfg.get("tri_teacher_distill", {}).get("enabled", False):
         c = loss_cfg["tri_teacher_distill"]
@@ -1378,6 +1397,37 @@ def train_epoch(
                 batch_metrics["legacy_student_pos_rank_mean"] = _ltd_stats["student_pos_rank_mean"]
                 batch_metrics["legacy_student_pos_rank_median"] = _ltd_stats["student_pos_rank_median"]
 
+            # --- V38: full-batch legacy -> compact distillation ---
+            _lcd_cfg = (config_ref or {}).get("loss", {}).get("legacy_compact_distill", {})
+            if (
+                "legacy_compact_distill" in losses
+                and _legacy_teacher_pred is not None
+                and _rich_target is not None
+            ):
+                _lcd_loss, _lcd_stats = losses["legacy_compact_distill"](
+                    compact_pred=pred,
+                    retrieval_target=gt_embedding,
+                    teacher_pred=_legacy_teacher_pred,
+                    teacher_target=_rich_target,
+                    return_stats=True,
+                )
+                _lcd_start_epoch = int(_lcd_cfg.get("start_epoch", 10))
+                if current_epoch > _lcd_start_epoch:
+                    _lcd_w = loss_weights.get(
+                        "legacy_compact_distill",
+                        _lcd_cfg.get("weight", 0.15),
+                    )
+                    total_loss = total_loss + _lcd_w * _lcd_loss
+                    batch_metrics["legacy_compact_distill"] = _lcd_loss.item()
+                else:
+                    batch_metrics["legacy_compact_distill"] = 0.0
+                batch_metrics["legacy_compact_teacher_topk_hit_frac"] = _lcd_stats["teacher_topk_hit_frac"]
+                batch_metrics["legacy_compact_teacher_pos_rank_mean"] = _lcd_stats["teacher_pos_rank_mean"]
+                batch_metrics["legacy_compact_teacher_pos_rank_median"] = _lcd_stats["teacher_pos_rank_median"]
+                batch_metrics["legacy_compact_student_pos_rank_mean"] = _lcd_stats["student_pos_rank_mean"]
+                batch_metrics["legacy_compact_student_pos_rank_median"] = _lcd_stats["student_pos_rank_median"]
+                batch_metrics["legacy_compact_active_candidate_size_mean"] = _lcd_stats["active_candidate_size_mean"]
+
             # --- V36: combined rerank + legacy teacher distillation ---
             _tri_cfg = (config_ref or {}).get("loss", {}).get("tri_teacher_distill", {})
             if (
@@ -1661,6 +1711,7 @@ def _evaluate_shared1000(
     token_cache=None,
     rerank_cache=None,
     retrieval_projector=None,
+    legacy_teacher_model: Optional[nn.Module] = None,
 ) -> Optional[Tuple[Dict[str, float], np.ndarray, np.ndarray]]:
     """Evaluate on NSD shared1000 benchmark for community-standard comparison.
 
@@ -1759,6 +1810,7 @@ def _evaluate_shared1000(
     _is_triple = model_type == "vmf_triple"
     _all_rich_preds_s1000: List[np.ndarray] = []
     _all_rerank_preds_s1000: List[np.ndarray] = []
+    _all_legacy_preds_s1000: List[np.ndarray] = []
 
     if is_vmf_model:
         # --- vMF path: run ALL individual trials, fuse with kappa weights ---
@@ -1789,6 +1841,14 @@ def _evaluate_shared1000(
                     _rrp = getattr(model, "_last_rerank_pred", None)
                     if _rrp is not None:
                         _all_rerank_preds_s1000.append(_rrp.detach().cpu().numpy())
+                    if legacy_teacher_model is not None:
+                        _legacy_out = (
+                            legacy_teacher_model(batch_fmri, subject_ids=sid)
+                            if is_multi_subject
+                            else legacy_teacher_model(batch_fmri)
+                        )
+                        _legacy_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
+                        _all_legacy_preds_s1000.append(_legacy_pred.detach().cpu().numpy())
 
         trial_preds = np.concatenate(all_preds)
         trial_kappas = np.concatenate(all_kappas) if all_kappas else None
@@ -1842,6 +1902,8 @@ def _evaluate_shared1000(
     # Use CLS GTs regardless of token_cache, since retrieval is in compact space.
     # Also build rich GTs from token_cache if available for two-stage.
     _rich_gts_s1000: Optional[np.ndarray] = None
+    _legacy_preds_img: Optional[np.ndarray] = None
+    _legacy_gts_s1000: Optional[np.ndarray] = None
     if _is_triple:
         emb_col = resolve_embedding_column(embeddings_df, _EMBEDDING_COLUMN_OVERRIDE)
         emb_lookup: Dict[int, int] = {}
@@ -1884,6 +1946,18 @@ def _evaluate_shared1000(
             # Re-normalise after averaging
             _rerank_preds_img = _rerank_preds_img / np.maximum(
                 np.linalg.norm(_rerank_preds_img, axis=-1, keepdims=True), 1e-8)
+
+        if _all_legacy_preds_s1000 and token_cache is not None:
+            trial_legacy = np.concatenate(_all_legacy_preds_s1000)
+            _legacy_preds_img = np.zeros((n_images, trial_legacy.shape[1]), dtype=np.float32)
+            _legacy_gts_s1000 = np.zeros_like(_legacy_preds_img)
+            for i, uid in enumerate(unique_ids):
+                mask = nsd_ids == uid
+                _legacy_preds_img[i] = trial_legacy[mask].mean(axis=0)
+                if int(uid) in token_cache:
+                    _legacy_gts_s1000[i] = token_cache.get_flat(int(uid))
+            _legacy_preds_img = _legacy_preds_img / np.maximum(
+                np.linalg.norm(_legacy_preds_img, axis=-1, keepdims=True), 1e-8)
 
     elif token_cache is not None:
         gts = np.zeros((n_images, preds.shape[1]), dtype=np.float32)
@@ -1976,6 +2050,9 @@ def _evaluate_shared1000(
         if _rerank_preds_img is not None and _rerank_gts_s1000 is not None:
             metrics["_rerank_preds"] = _rerank_preds_img
             metrics["_rerank_gts"] = _rerank_gts_s1000
+        if _legacy_preds_img is not None and _legacy_gts_s1000 is not None:
+            metrics["_legacy_preds"] = _legacy_preds_img
+            metrics["_legacy_gts"] = _legacy_gts_s1000
 
     return metrics, preds, gts
 
@@ -2003,6 +2080,8 @@ def validate(
     all_rich_gts: List[np.ndarray] = []
     all_rerank_preds: List[np.ndarray] = []
     all_rerank_gts: List[np.ndarray] = []
+    all_legacy_preds: List[np.ndarray] = []
+    all_legacy_gts: List[np.ndarray] = []
     all_nsd_ids: List[np.ndarray] = []
 
     with torch.no_grad():
@@ -2083,6 +2162,8 @@ def validate(
                     else legacy_teacher_model(fmri_teacher)
                 )
                 _legacy_teacher_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
+                all_legacy_preds.append(_legacy_teacher_pred.detach().cpu().numpy())
+                all_legacy_gts.append(_rich_target.detach().cpu().numpy())
 
             total_loss = torch.tensor(0.0, device=device, dtype=torch.float32)
             bm: Dict[str, float] = {}
@@ -2220,6 +2301,35 @@ def validate(
                 bm["legacy_student_pos_rank_mean"] = _ltd_stats["student_pos_rank_mean"]
                 bm["legacy_student_pos_rank_median"] = _ltd_stats["student_pos_rank_median"]
 
+            if (
+                "legacy_compact_distill" in losses
+                and _legacy_teacher_pred is not None
+                and _rich_target is not None
+            ):
+                _lcd_cfg = (config_ref or {}).get("loss", {}).get("legacy_compact_distill", {})
+                _lcd_l, _lcd_stats = losses["legacy_compact_distill"](
+                    compact_pred=pred,
+                    retrieval_target=gt_embedding,
+                    teacher_pred=_legacy_teacher_pred,
+                    teacher_target=_rich_target,
+                    return_stats=True,
+                )
+                _lcd_start_epoch = int(_lcd_cfg.get("start_epoch", 10))
+                if current_epoch > _lcd_start_epoch:
+                    total_loss = total_loss + loss_weights.get(
+                        "legacy_compact_distill",
+                        _lcd_cfg.get("weight", 0.15),
+                    ) * _lcd_l
+                    bm["legacy_compact_distill"] = _lcd_l.item()
+                else:
+                    bm["legacy_compact_distill"] = 0.0
+                bm["legacy_compact_teacher_topk_hit_frac"] = _lcd_stats["teacher_topk_hit_frac"]
+                bm["legacy_compact_teacher_pos_rank_mean"] = _lcd_stats["teacher_pos_rank_mean"]
+                bm["legacy_compact_teacher_pos_rank_median"] = _lcd_stats["teacher_pos_rank_median"]
+                bm["legacy_compact_student_pos_rank_mean"] = _lcd_stats["student_pos_rank_mean"]
+                bm["legacy_compact_student_pos_rank_median"] = _lcd_stats["student_pos_rank_median"]
+                bm["legacy_compact_active_candidate_size_mean"] = _lcd_stats["active_candidate_size_mean"]
+
             _tri_cfg = (config_ref or {}).get("loss", {}).get("tri_teacher_distill", {})
             if (
                 "tri_teacher_distill" in losses
@@ -2290,6 +2400,10 @@ def validate(
         _extras["rerank_preds"] = np.concatenate(all_rerank_preds)
     if all_rerank_gts:
         _extras["rerank_gts"] = np.concatenate(all_rerank_gts)
+    if all_legacy_preds:
+        _extras["legacy_preds"] = np.concatenate(all_legacy_preds)
+    if all_legacy_gts:
+        _extras["legacy_gts"] = np.concatenate(all_legacy_gts)
     if all_nsd_ids:
         _extras["nsd_ids"] = np.concatenate(all_nsd_ids)
     loss_metrics["_val_extras"] = _extras
@@ -2306,6 +2420,27 @@ def _get_eval_fusion_cfg(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return None
     resolved = dict(DEFAULT_FUSION_CONFIG)
     resolved.update(fusion_cfg)
+    return resolved
+
+
+def _get_eval_tri_fusion_cfg(config: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Resolve optional fixed tri-fusion evaluation config."""
+    tri_cfg = config.get("evaluation", {}).get("tri_fusion", {})
+    if not tri_cfg.get("enabled", False):
+        return None
+    resolved = {
+        "compact_score": "csls",
+        "legacy_score": "csls",
+        "family": "normalized_weighted",
+        "normalization": "zscore",
+        "shortlist_k": 150,
+        "alpha": 0.3,
+        "beta": 0.0,
+        "gamma": 0.7,
+        "csls_k": 10,
+        "rerank_mode": "cosine",
+    }
+    resolved.update(tri_cfg)
     return resolved
 
 
@@ -2337,6 +2472,161 @@ def _compute_fusion_report(
     )
 
 
+def _compute_tri_fusion_report(
+    compact_preds: np.ndarray,
+    compact_gts: np.ndarray,
+    rerank_preds: np.ndarray,
+    rerank_gts: np.ndarray,
+    legacy_preds: np.ndarray,
+    legacy_gts: np.ndarray,
+    tri_fusion_cfg: Optional[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Compute fixed tri-expert fusion metrics inside a compact shortlist."""
+    if tri_fusion_cfg is None:
+        return None
+
+    from fmri2img.eval.two_stage_retrieval import (
+        _cosine_sim,
+        _csls_scores,
+        _gt_rank_from_scores,
+        _metrics_from_gt_rank,
+        _normalize_shortlist_scores,
+        _prefix_metrics,
+        _rank_within_shortlist,
+    )
+
+    compact_score = str(tri_fusion_cfg.get("compact_score", "csls"))
+    legacy_score = str(tri_fusion_cfg.get("legacy_score", "csls"))
+    family = str(tri_fusion_cfg.get("family", "normalized_weighted"))
+    normalization = str(tri_fusion_cfg.get("normalization", "zscore"))
+    shortlist_k = int(tri_fusion_cfg.get("shortlist_k", 150))
+    alpha = float(tri_fusion_cfg.get("alpha", 0.3))
+    beta = float(tri_fusion_cfg.get("beta", 0.0))
+    gamma = float(tri_fusion_cfg.get("gamma", 0.7))
+    csls_k = int(tri_fusion_cfg.get("csls_k", 10))
+    rerank_mode = str(tri_fusion_cfg.get("rerank_mode", "cosine"))
+
+    n = compact_preds.shape[0]
+    gt_indices = np.arange(n)
+
+    compact_raw_scores = _cosine_sim(compact_preds, compact_gts)
+    compact_csls_scores = _csls_scores(compact_preds, compact_gts, k=csls_k)
+    compact_scores = compact_csls_scores if compact_score == "csls" else compact_raw_scores
+    compact_order, compact_gt_rank = _gt_rank_from_scores(compact_scores)
+
+    if rerank_mode == "cosine":
+        rerank_scores = _cosine_sim(rerank_preds, rerank_gts)
+    elif rerank_mode == "dot":
+        rerank_scores = rerank_preds @ rerank_gts.T
+    else:
+        raise ValueError(f"Unknown rerank_mode: {rerank_mode}")
+
+    legacy_raw_scores = _cosine_sim(legacy_preds, legacy_gts)
+    legacy_csls_scores = _csls_scores(legacy_preds, legacy_gts, k=csls_k)
+    legacy_scores = legacy_csls_scores if legacy_score == "csls" else legacy_raw_scores
+
+    shortlist_k_eff = min(shortlist_k, compact_scores.shape[1])
+    shortlist = compact_order[:, :shortlist_k_eff]
+    row_idx = np.arange(n)[:, None]
+    compact_sl = compact_scores[row_idx, shortlist]
+    rerank_sl = rerank_scores[row_idx, shortlist]
+    legacy_sl = legacy_scores[row_idx, shortlist]
+
+    shortlist_recall = {
+        f"r@{shortlist_k_eff}": float(np.mean(np.any(shortlist == gt_indices[:, None], axis=1)))
+    }
+
+    if family == "weighted":
+        fused_scores = alpha * compact_sl + beta * rerank_sl + gamma * legacy_sl
+    elif family == "normalized_weighted":
+        fused_scores = (
+            alpha * _normalize_shortlist_scores(compact_sl, normalization)
+            + beta * _normalize_shortlist_scores(rerank_sl, normalization)
+            + gamma * _normalize_shortlist_scores(legacy_sl, normalization)
+        )
+    elif family == "rrf":
+        fused_scores = (
+            alpha / (60.0 + _rank_within_shortlist(compact_sl))
+            + beta / (60.0 + _rank_within_shortlist(rerank_sl))
+            + gamma / (60.0 + _rank_within_shortlist(legacy_sl))
+        )
+    elif family == "rank_average":
+        fused_scores = -(
+            alpha * _rank_within_shortlist(compact_sl)
+            + beta * _rank_within_shortlist(rerank_sl)
+            + gamma * _rank_within_shortlist(legacy_sl)
+        )
+    else:
+        raise ValueError(f"Unknown tri fusion family: {family}")
+
+    fused_order_local = np.argsort(-fused_scores, axis=1)
+    fused_shortlist = shortlist[row_idx, fused_order_local]
+    fused_gt_rank = compact_gt_rank.copy()
+    hit_rows = np.where(np.any(shortlist == gt_indices[:, None], axis=1))[0]
+    if hit_rows.size > 0:
+        local_gt_rank = np.argmax(
+            fused_shortlist[hit_rows] == hit_rows[:, None],
+            axis=1,
+        ) + 1
+        fused_gt_rank[hit_rows] = local_gt_rank.astype(np.int32)
+
+    compact_raw_metrics = _metrics_from_gt_rank(_gt_rank_from_scores(compact_raw_scores)[1], (1, 5, 10))
+    compact_csls_metrics = _metrics_from_gt_rank(_gt_rank_from_scores(compact_csls_scores)[1], (1, 5, 10))
+    rerank_only_metrics = _metrics_from_gt_rank(_gt_rank_from_scores(rerank_scores)[1], (1, 5, 10))
+    legacy_raw_metrics = _metrics_from_gt_rank(_gt_rank_from_scores(legacy_raw_scores)[1], (1, 5, 10))
+    legacy_csls_metrics = _metrics_from_gt_rank(_gt_rank_from_scores(legacy_csls_scores)[1], (1, 5, 10))
+    fused_metrics = _metrics_from_gt_rank(fused_gt_rank, (1, 5, 10))
+
+    report: Dict[str, Any] = {
+        "config": {
+            "compact_score": compact_score,
+            "legacy_score": legacy_score,
+            "family": family,
+            "normalization": normalization,
+            "shortlist_k": int(shortlist_k_eff),
+            "alpha": alpha,
+            "beta": beta,
+            "gamma": gamma,
+            "csls_k": csls_k,
+            "rerank_mode": rerank_mode,
+        },
+        "shortlist_recall": shortlist_recall,
+        "compact_raw": _prefix_metrics(compact_raw_metrics, "compact"),
+        "compact_csls": _prefix_metrics(compact_csls_metrics, "compact_csls"),
+        "rerank_only": _prefix_metrics(rerank_only_metrics, "rerank"),
+        "legacy_raw": _prefix_metrics(legacy_raw_metrics, "legacy"),
+        "legacy_csls": _prefix_metrics(legacy_csls_metrics, "legacy_csls"),
+        "fused": _prefix_metrics(fused_metrics, "fused"),
+        "fused_gain_over_compact_csls": round(
+            fused_metrics.get("r@1", 0.0) - compact_csls_metrics.get("r@1", 0.0), 4
+        ),
+        "fused_gain_over_legacy_csls": round(
+            fused_metrics.get("r@1", 0.0) - legacy_csls_metrics.get("r@1", 0.0), 4
+        ),
+        "fused_gain_over_rerank_only": round(
+            fused_metrics.get("r@1", 0.0) - rerank_only_metrics.get("r@1", 0.0), 4
+        ),
+    }
+
+    logger.info(
+        "Tri-fusion eval: compact=%s legacy=%s family=%s norm=%s k=%d "
+        "alpha/beta/gamma=%.2f/%.2f/%.2f fused_R@1=%.1f%% compact_csls_R@1=%.1f%% "
+        "legacy_csls_R@1=%.1f%%",
+        compact_score,
+        legacy_score,
+        family,
+        normalization,
+        shortlist_k_eff,
+        alpha,
+        beta,
+        gamma,
+        report["fused"].get("fused_r@1", 0.0) * 100,
+        report["compact_csls"].get("compact_csls_r@1", 0.0) * 100,
+        report["legacy_csls"].get("legacy_csls_r@1", 0.0) * 100,
+    )
+    return report
+
+
 def _fusion_scalar_metrics(report: Optional[Dict[str, Any]]) -> Dict[str, float]:
     """Flatten fused retrieval metrics for CSV logging and checkpointing."""
     if report is None:
@@ -2365,6 +2655,7 @@ def _run_post_training_shared1000_eval(
     token_cache=None,
     rerank_cache=None,
     retrieval_projector=None,
+    legacy_teacher_model: Optional[nn.Module] = None,
 ) -> bool:
     """Run shared1000 evaluation once from the currently loaded model checkpoint."""
     _metrics_save_dir = output_dir / "metrics"
@@ -2387,6 +2678,7 @@ def _run_post_training_shared1000_eval(
         token_cache=token_cache,
         rerank_cache=rerank_cache,
         retrieval_projector=retrieval_projector,
+        legacy_teacher_model=legacy_teacher_model,
     )
     if _s1000_result is None:
         logger.info("Shared1000 evaluation skipped (data unavailable)")
@@ -2399,6 +2691,8 @@ def _run_post_training_shared1000_eval(
     _s1000_rich_gts = _s1000_metrics.pop("_rich_gts", None)
     _s1000_rerank_preds = _s1000_metrics.pop("_rerank_preds", None)
     _s1000_rerank_gts = _s1000_metrics.pop("_rerank_gts", None)
+    _s1000_legacy_preds = _s1000_metrics.pop("_legacy_preds", None)
+    _s1000_legacy_gts = _s1000_metrics.pop("_legacy_gts", None)
     _s1000_space = _s1000_metrics.pop("_space", None)
     _s1000_nsd_ids = _s1000_metrics.pop("_nsd_ids", None)
 
@@ -2470,13 +2764,30 @@ def _run_post_training_shared1000_eval(
             )
 
             _fusion_cfg = _get_eval_fusion_cfg(config)
-            _fusion_report = _compute_fusion_report(
-                _s1000_preds,
-                _s1000_gts,
-                _s1000_rerank_preds,
-                _s1000_rerank_gts,
-                _fusion_cfg,
-            )
+            _tri_fusion_cfg = _get_eval_tri_fusion_cfg(config)
+            _fusion_report = None
+            if (
+                _tri_fusion_cfg is not None
+                and _s1000_legacy_preds is not None
+                and _s1000_legacy_gts is not None
+            ):
+                _fusion_report = _compute_tri_fusion_report(
+                    _s1000_preds,
+                    _s1000_gts,
+                    _s1000_rerank_preds,
+                    _s1000_rerank_gts,
+                    _s1000_legacy_preds,
+                    _s1000_legacy_gts,
+                    _tri_fusion_cfg,
+                )
+            elif _fusion_cfg is not None:
+                _fusion_report = _compute_fusion_report(
+                    _s1000_preds,
+                    _s1000_gts,
+                    _s1000_rerank_preds,
+                    _s1000_rerank_gts,
+                    _fusion_cfg,
+                )
             if _fusion_report is not None:
                 _fusion_path = _metrics_save_dir / "shared1000_fused_metrics.json"
                 with open(_fusion_path, "w") as _jf:
@@ -2491,6 +2802,10 @@ def _run_post_training_shared1000_eval(
                     _fused.get("fused_median_rank", 0.0),
                     _fused.get("fused_mrr", 0.0),
                 )
+        if _s1000_legacy_preds is not None and _s1000_legacy_gts is not None:
+            np.save(_metrics_save_dir / "shared1000_predictions_legacy.npy", _s1000_legacy_preds)
+            np.save(_metrics_save_dir / "shared1000_ground_truth_legacy.npy", _s1000_legacy_gts)
+            logger.info("Saved legacy shared1000 predictions %s", _s1000_legacy_preds.shape)
 
     logger.info("=" * 60)
     return True
@@ -3003,6 +3318,7 @@ def main() -> None:
     # --- Optional full-model initialization from a prior checkpoint ---
     _pm_path = model_config.get("pretrained_model_path")
     _require_pm = bool(model_config.get("require_pretrained_model", False))
+    _require_parent_split_match = bool(model_config.get("require_parent_split_match", False))
     _pm_loaded_ok = False
     if _pm_path and os.path.isfile(_pm_path):
         _pm_ckpt = torch.load(_pm_path, map_location=device, weights_only=False)
@@ -3137,21 +3453,31 @@ def main() -> None:
     # --- V35: Load frozen legacy teacher checkpoint for compact-head distillation ---
     legacy_teacher_model = None
     _legacy_teacher_cfg = config.get("loss", {}).get("legacy_teacher_distill", {})
+    _legacy_compact_cfg = config.get("loss", {}).get("legacy_compact_distill", {})
     _tri_teacher_cfg = config.get("loss", {}).get("tri_teacher_distill", {})
     _tri_mode = _tri_teacher_cfg.get("mode", "weighted_logits")
     _tri_needs_legacy = _tri_teacher_cfg.get("enabled", False) and _tri_mode != "rerank_only"
-    if _legacy_teacher_cfg.get("enabled", False) or _tri_needs_legacy:
+    if (
+        _legacy_teacher_cfg.get("enabled", False)
+        or _legacy_compact_cfg.get("enabled", False)
+        or _tri_needs_legacy
+    ):
         _legacy_teacher_path = _legacy_teacher_cfg.get("teacher_checkpoint_path", "")
+        _legacy_compact_path = _legacy_compact_cfg.get("teacher_checkpoint_path", "")
         _tri_teacher_path = _tri_teacher_cfg.get("teacher_checkpoint_path", "")
-        if _legacy_teacher_cfg.get("enabled", False) and _tri_needs_legacy:
-            if _legacy_teacher_path and _tri_teacher_path and _legacy_teacher_path != _tri_teacher_path:
-                raise RuntimeError(
-                    "legacy_teacher_distill and tri_teacher_distill specify different "
-                    "teacher checkpoints; refuse to continue:\n"
-                    f"  legacy_teacher_distill: {_legacy_teacher_path}\n"
-                    f"  tri_teacher_distill: {_tri_teacher_path}"
-                )
-        _legacy_teacher_path = _tri_teacher_path or _legacy_teacher_path
+        _teacher_paths = {
+            "legacy_teacher_distill": _legacy_teacher_path,
+            "legacy_compact_distill": _legacy_compact_path,
+            "tri_teacher_distill": _tri_teacher_path,
+        }
+        _teacher_paths = {k: v for k, v in _teacher_paths.items() if v}
+        if len(set(_teacher_paths.values())) > 1:
+            _teacher_details = "\n".join(f"  {k}: {v}" for k, v in sorted(_teacher_paths.items()))
+            raise RuntimeError(
+                "legacy distillation losses specify different teacher checkpoints; refuse to continue:\n"
+                f"{_teacher_details}"
+            )
+        _legacy_teacher_path = _tri_teacher_path or _legacy_compact_path or _legacy_teacher_path
         if not _legacy_teacher_path:
             raise RuntimeError(
                 "legacy teacher distillation requires teacher_checkpoint_path, but none was provided"
@@ -3414,6 +3740,47 @@ def main() -> None:
                      _split_save_path)
 
     # --- Split overlap diagnostic (detect cross-phase leakage) ---
+    if _split_nsd_ids_used is not None and _pm_path:
+        _pm_parent_dir = Path(_pm_path).parent
+        _pm_split_path = _pm_parent_dir / "split.json"
+        if _pm_split_path.exists():
+            with open(_pm_split_path) as _psf:
+                _parent_split = json.load(_psf)
+            _parent_train = set(int(x) for x in _parent_split["train_nsd_ids"])
+            _parent_val = set(int(x) for x in _parent_split["val_nsd_ids"])
+            _cur_train = set(int(x) for x in _split_nsd_ids_used["train_nsd_ids"])
+            _cur_val = set(int(x) for x in _split_nsd_ids_used["val_nsd_ids"])
+            _leaked = _cur_val & _parent_train
+            _exact_match = _cur_train == _parent_train and _cur_val == _parent_val
+            if _leaked:
+                _msg = (
+                    "SPLIT OVERLAP: current val images overlap with parent train split "
+                    f"({_pm_split_path}); leakage_count={len(_leaked)}"
+                )
+                if _require_parent_split_match:
+                    raise RuntimeError(_msg)
+                logger.warning("%s", _msg)
+            elif _require_parent_split_match and not _exact_match:
+                raise RuntimeError(
+                    "Parent split mismatch for pretrained_model_path. "
+                    f"Current split differs from {_pm_split_path}"
+                )
+            else:
+                logger.info(
+                    "Parent split check PASSED for pretrained model: exact_match=%s leakage=0 (%s)",
+                    _exact_match,
+                    _pm_split_path,
+                )
+        elif _require_parent_split_match:
+            raise FileNotFoundError(
+                f"require_parent_split_match=true but parent split.json was not found: {_pm_split_path}"
+            )
+        else:
+            logger.info(
+                "No parent split.json at %s — cannot check pretrained_model split alignment",
+                _pm_split_path,
+            )
+
     if _split_nsd_ids_used is not None and _pe_path:
         _pe_parent_dir = Path(_pe_path).parent
         _pe_split_path = _pe_parent_dir / "split.json"
@@ -3770,6 +4137,7 @@ def main() -> None:
 
     _vmf_is_log = getattr(model, "vmf_output_is_log", True)
     _fusion_eval_cfg = _get_eval_fusion_cfg(config)
+    _tri_fusion_eval_cfg = _get_eval_tri_fusion_cfg(config)
     if _fusion_eval_cfg is not None:
         logger.info(
             "Fusion eval enabled: compact=%s family=%s norm=%s shortlist_k=%d alpha=%.2f",
@@ -3778,6 +4146,19 @@ def main() -> None:
             _fusion_eval_cfg.get("normalization", "zscore"),
             int(_fusion_eval_cfg.get("shortlist_k", 50)),
             float(_fusion_eval_cfg.get("alpha", 0.8)),
+        )
+    if _tri_fusion_eval_cfg is not None:
+        logger.info(
+            "Tri-fusion eval enabled: compact=%s legacy=%s family=%s norm=%s "
+            "shortlist_k=%d alpha/beta/gamma=%.2f/%.2f/%.2f",
+            _tri_fusion_eval_cfg.get("compact_score", "csls"),
+            _tri_fusion_eval_cfg.get("legacy_score", "csls"),
+            _tri_fusion_eval_cfg.get("family", "normalized_weighted"),
+            _tri_fusion_eval_cfg.get("normalization", "zscore"),
+            int(_tri_fusion_eval_cfg.get("shortlist_k", 150)),
+            float(_tri_fusion_eval_cfg.get("alpha", 0.3)),
+            float(_tri_fusion_eval_cfg.get("beta", 0.0)),
+            float(_tri_fusion_eval_cfg.get("gamma", 0.7)),
         )
 
     if args.post_eval_shared1000_only:
@@ -3807,6 +4188,7 @@ def main() -> None:
             token_cache=_token_cache,
             rerank_cache=_rerank_cache,
             retrieval_projector=_retrieval_projector,
+            legacy_teacher_model=legacy_teacher_model,
         )
         return
 
@@ -4247,6 +4629,28 @@ def main() -> None:
                 _rrg,
                 _fusion_eval_cfg,
             )
+            if _tri_fusion_eval_cfg is not None and "legacy_preds" in _epoch_val_extras and "legacy_gts" in _epoch_val_extras:
+                _lp = _epoch_val_extras["legacy_preds"]
+                _lg = _epoch_val_extras["legacy_gts"]
+                if _val_nsd_ids is not None:
+                    _u_ids_l = np.unique(_val_nsd_ids)
+                    _lp_img = np.zeros((len(_u_ids_l), _lp.shape[1]), dtype=np.float32)
+                    _lg_img = np.zeros((len(_u_ids_l), _lg.shape[1]), dtype=np.float32)
+                    for i, uid in enumerate(_u_ids_l):
+                        _m = _val_nsd_ids == uid
+                        _lp_img[i] = _lp[_m].mean(axis=0)
+                        _lg_img[i] = _lg[_m][0]
+                    _lp, _lg = _lp_img, _lg_img
+                _lp = _lp / np.maximum(np.linalg.norm(_lp, axis=-1, keepdims=True), 1e-8)
+                _fusion_report_val = _compute_tri_fusion_report(
+                    _compact_eval_preds,
+                    _compact_eval_gts,
+                    _rrp,
+                    _rrg,
+                    _lp,
+                    _lg,
+                    _tri_fusion_eval_cfg,
+                )
             val_metrics.update(_fusion_scalar_metrics(_fusion_report_val))
             logger.info(
                 "Rerank val: rerank_R@1=%.4f  oracle_R@1=%.4f  "
@@ -4507,6 +4911,22 @@ def main() -> None:
             np.save(_metrics_save_dir / "val_predictions_rich.npy", _rp)
             np.save(_metrics_save_dir / "val_ground_truth_rich.npy", _rg)
             logger.info("Saved rich val predictions %s", _rp.shape)
+        if "legacy_preds" in _val_extras and "legacy_gts" in _val_extras:
+            _lp = _val_extras["legacy_preds"]
+            _lg = _val_extras["legacy_gts"]
+            if _val_nsd_ids is not None:
+                _u_ids_l = np.unique(_val_nsd_ids)
+                _lp_img = np.zeros((len(_u_ids_l), _lp.shape[1]), dtype=np.float32)
+                _lg_img = np.zeros((len(_u_ids_l), _lg.shape[1]), dtype=np.float32)
+                for i, uid in enumerate(_u_ids_l):
+                    _m = _val_nsd_ids == uid
+                    _lp_img[i] = _lp[_m].mean(axis=0)
+                    _lg_img[i] = _lg[_m][0]
+                _lp, _lg = _lp_img, _lg_img
+            _lp = _lp / np.maximum(np.linalg.norm(_lp, axis=-1, keepdims=True), 1e-8)
+            np.save(_metrics_save_dir / "val_predictions_legacy.npy", _lp)
+            np.save(_metrics_save_dir / "val_ground_truth_legacy.npy", _lg)
+            logger.info("Saved legacy val predictions %s", _lp.shape)
         # --- V30d: Save rerank head predictions ---
         if "rerank_preds" in _val_extras and "rerank_gts" in _val_extras:
             _rrp = _val_extras["rerank_preds"]
@@ -4547,6 +4967,32 @@ def main() -> None:
                 _rrg,
                 _fusion_eval_cfg,
             )
+            if (
+                _tri_fusion_eval_cfg is not None
+                and "legacy_preds" in _val_extras
+                and "legacy_gts" in _val_extras
+            ):
+                _lp = _val_extras["legacy_preds"]
+                _lg = _val_extras["legacy_gts"]
+                if _val_nsd_ids is not None:
+                    _u_ids_l = np.unique(_val_nsd_ids)
+                    _lp_img = np.zeros((len(_u_ids_l), _lp.shape[1]), dtype=np.float32)
+                    _lg_img = np.zeros((len(_u_ids_l), _lg.shape[1]), dtype=np.float32)
+                    for i, uid in enumerate(_u_ids_l):
+                        _m = _val_nsd_ids == uid
+                        _lp_img[i] = _lp[_m].mean(axis=0)
+                        _lg_img[i] = _lg[_m][0]
+                    _lp, _lg = _lp_img, _lg_img
+                _lp = _lp / np.maximum(np.linalg.norm(_lp, axis=-1, keepdims=True), 1e-8)
+                _fusion_report = _compute_tri_fusion_report(
+                    _save_preds,
+                    _save_gts,
+                    _rrp,
+                    _rrg,
+                    _lp,
+                    _lg,
+                    _tri_fusion_eval_cfg,
+                )
             if _fusion_report is not None:
                 _fusion_path = _metrics_save_dir / "val_fused_metrics.json"
                 with open(_fusion_path, "w") as _jf:
@@ -4586,6 +5032,7 @@ def main() -> None:
             token_cache=_token_cache,
             rerank_cache=_rerank_cache,
             retrieval_projector=_retrieval_projector,
+            legacy_teacher_model=legacy_teacher_model,
         )
     _merge_summary_metrics(_metrics_save_dir)
 

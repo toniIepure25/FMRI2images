@@ -62,6 +62,7 @@ from fmri2img.losses.mixco import mixco_augment, mixco_nce_loss
 from fmri2img.losses.softclip import SoftCLIPLoss, VMFSoftCLIPLoss
 from fmri2img.losses.legacy_teacher_distill import LegacyTeacherDistillLoss
 from fmri2img.losses.shortlist_teacher_distill import ShortlistTeacherDistillLoss
+from fmri2img.losses.tri_teacher_distill import TriTeacherDistillLoss
 from fmri2img.losses.hierarchical_clip_loss import HierarchicalCLIPLoss
 from fmri2img.losses.cka_loss import CKALoss
 from fmri2img.losses.direct_alignment import DirectAlignmentLoss
@@ -241,6 +242,54 @@ class MetricsLogger:
             summary["final_r@1"] = self._history[-1].get("val_r@1")
         with open(self.metrics_dir / "summary.json", "w") as f:
             json.dump(summary, f, indent=2, default=str)
+
+
+def _load_json_if_exists(path: Path) -> Optional[Dict[str, Any]]:
+    if not path.exists():
+        return None
+    with open(path, "r") as f:
+        obj = json.load(f)
+    return obj if isinstance(obj, dict) else None
+
+
+def _merge_summary_metrics(metrics_dir: Path) -> None:
+    """Backfill high-signal post-training metrics into summary.json."""
+    summary_path = metrics_dir / "summary.json"
+    summary = _load_json_if_exists(summary_path)
+    if summary is None:
+        return
+
+    updates: Dict[str, Any] = {}
+
+    val_fused = _load_json_if_exists(metrics_dir / "val_fused_metrics.json")
+    if val_fused is not None:
+        updates["best_fused_r@1"] = float(val_fused.get("fused", {}).get("fused_r@1", 0.0))
+
+    shared_compact = (
+        _load_json_if_exists(metrics_dir / "shared1000_metrics_compact.json")
+        or _load_json_if_exists(metrics_dir / "shared1000_metrics.json")
+    )
+    if shared_compact is not None:
+        updates["final_compact_csls_r@1"] = float(shared_compact.get("csls_r@1", 0.0))
+
+    shared_two_stage = _load_json_if_exists(metrics_dir / "shared1000_two_stage_rerank.json")
+    if shared_two_stage is not None:
+        updates["final_rerank_only_r@1"] = float(
+            shared_two_stage.get("rerank_only", {}).get("rerank_r@1", 0.0)
+        )
+
+    shared_fused = _load_json_if_exists(metrics_dir / "shared1000_fused_metrics.json")
+    if shared_fused is not None:
+        updates["final_shared1000_fused_r@1"] = float(
+            shared_fused.get("fused", {}).get("fused_r@1", 0.0)
+        )
+
+    if not updates:
+        return
+
+    summary.update(updates)
+    with open(summary_path, "w") as f:
+        json.dump(summary, f, indent=2, default=str)
 
 
 # ---------------------------------------------------------------------------
@@ -861,6 +910,37 @@ def setup_losses(config: Dict[str, Any], device: str,
             c.get("teacher_rank_gate", 20),
         )
 
+    # --- V36: combined rerank + legacy tri-teacher distillation ---
+    if loss_cfg.get("tri_teacher_distill", {}).get("enabled", False):
+        c = loss_cfg["tri_teacher_distill"]
+        losses["tri_teacher_distill"] = TriTeacherDistillLoss(
+            compact_topk=c.get("compact_topk", c.get("compact_k", 16)),
+            teacher_topk=c.get("teacher_topk", c.get("teacher_k", 16)),
+            teacher_tau=c.get("teacher_tau", c.get("teacher_temperature", 0.07)),
+            student_tau=c.get("student_tau", c.get("student_temperature", 0.07)),
+            gate_max_rank=c.get("gate_max_rank", c.get("teacher_rank_gate", 20)),
+            mode=c.get("mode", "weighted_logits"),
+            rerank_teacher_weight=c.get("rerank_teacher_weight", 0.35),
+            legacy_teacher_weight=c.get("legacy_teacher_weight", 0.65),
+            symmetric=c.get("symmetric", False),
+        )
+        logger.info(
+            "Tri-teacher distill enabled "
+            "(weight=%.3f, mode=%s, rerank_w=%.3f, legacy_w=%.3f, compact_topk=%d, "
+            "teacher_topk=%d, teacher_tau=%.3f, student_tau=%.3f, start_epoch=%d, gate<=%d, symmetric=%s)",
+            c.get("weight", 0.20),
+            c.get("mode", "weighted_logits"),
+            c.get("rerank_teacher_weight", 0.35),
+            c.get("legacy_teacher_weight", 0.65),
+            c.get("compact_topk", c.get("compact_k", 16)),
+            c.get("teacher_topk", c.get("teacher_k", 16)),
+            c.get("teacher_tau", c.get("teacher_temperature", 0.07)),
+            c.get("student_tau", c.get("student_temperature", 0.07)),
+            c.get("start_epoch", 10),
+            c.get("gate_max_rank", c.get("teacher_rank_gate", 20)),
+            c.get("symmetric", False),
+        )
+
     # --- N3/N4: MultiTask vMF-NCE ---
     if loss_cfg.get("vmf_nce_multitask", {}).get("enabled", False):
         c = loss_cfg["vmf_nce_multitask"]
@@ -1295,6 +1375,45 @@ def train_epoch(
                 batch_metrics["legacy_teacher_pos_rank_median"] = _ltd_stats["teacher_pos_rank_median"]
                 batch_metrics["legacy_student_pos_rank_mean"] = _ltd_stats["student_pos_rank_mean"]
                 batch_metrics["legacy_student_pos_rank_median"] = _ltd_stats["student_pos_rank_median"]
+
+            # --- V36: combined rerank + legacy teacher distillation ---
+            _tri_cfg = (config_ref or {}).get("loss", {}).get("tri_teacher_distill", {})
+            if (
+                "tri_teacher_distill" in losses
+                and _rerank_pred is not None
+                and _rerank_target is not None
+                and _legacy_teacher_pred is not None
+                and _rich_target is not None
+            ):
+                _tri_loss, _tri_stats = losses["tri_teacher_distill"](
+                    compact_pred=pred,
+                    retrieval_target=gt_embedding,
+                    rerank_pred=_rerank_pred,
+                    rerank_target=_rerank_target,
+                    legacy_pred=_legacy_teacher_pred,
+                    legacy_target=_rich_target,
+                    return_stats=True,
+                )
+                _tri_start_epoch = int(_tri_cfg.get("start_epoch", 10))
+                if current_epoch > _tri_start_epoch:
+                    _tri_w = loss_weights.get(
+                        "tri_teacher_distill",
+                        _tri_cfg.get("weight", 0.20),
+                    )
+                    total_loss = total_loss + _tri_w * _tri_loss
+                    batch_metrics["tri_teacher_distill"] = _tri_loss.item()
+                else:
+                    batch_metrics["tri_teacher_distill"] = 0.0
+                batch_metrics["tri_teacher_gate_frac"] = _tri_stats["gate_frac"]
+                batch_metrics["tri_teacher_candidate_size_mean"] = _tri_stats["candidate_size_mean"]
+                batch_metrics["tri_rerank_teacher_pos_rank_mean"] = _tri_stats["rerank_teacher_pos_rank_mean"]
+                batch_metrics["tri_rerank_teacher_pos_rank_median"] = _tri_stats["rerank_teacher_pos_rank_median"]
+                batch_metrics["tri_legacy_teacher_pos_rank_mean"] = _tri_stats["legacy_teacher_pos_rank_mean"]
+                batch_metrics["tri_legacy_teacher_pos_rank_median"] = _tri_stats["legacy_teacher_pos_rank_median"]
+                batch_metrics["tri_combined_teacher_pos_rank_mean"] = _tri_stats["combined_teacher_pos_rank_mean"]
+                batch_metrics["tri_combined_teacher_pos_rank_median"] = _tri_stats["combined_teacher_pos_rank_median"]
+                batch_metrics["tri_student_pos_rank_mean"] = _tri_stats["student_pos_rank_mean"]
+                batch_metrics["tri_student_pos_rank_median"] = _tri_stats["student_pos_rank_median"]
 
             # --- Kappa regularizer ---
             kappa_reg_cfg = config_ref.get("loss", {}).get("kappa_reg", {}) if config_ref else {}
@@ -2098,6 +2217,43 @@ def validate(
                 bm["legacy_teacher_pos_rank_median"] = _ltd_stats["teacher_pos_rank_median"]
                 bm["legacy_student_pos_rank_mean"] = _ltd_stats["student_pos_rank_mean"]
                 bm["legacy_student_pos_rank_median"] = _ltd_stats["student_pos_rank_median"]
+
+            _tri_cfg = (config_ref or {}).get("loss", {}).get("tri_teacher_distill", {})
+            if (
+                "tri_teacher_distill" in losses
+                and _rerank_pred_val2 is not None
+                and _rerank_target is not None
+                and _legacy_teacher_pred is not None
+                and _rich_target is not None
+            ):
+                _tri_l, _tri_stats = losses["tri_teacher_distill"](
+                    compact_pred=pred,
+                    retrieval_target=gt_embedding,
+                    rerank_pred=_rerank_pred_val2,
+                    rerank_target=_rerank_target,
+                    legacy_pred=_legacy_teacher_pred,
+                    legacy_target=_rich_target,
+                    return_stats=True,
+                )
+                _tri_start_epoch = int(_tri_cfg.get("start_epoch", 10))
+                if current_epoch > _tri_start_epoch:
+                    total_loss = total_loss + loss_weights.get(
+                        "tri_teacher_distill",
+                        _tri_cfg.get("weight", 0.20),
+                    ) * _tri_l
+                    bm["tri_teacher_distill"] = _tri_l.item()
+                else:
+                    bm["tri_teacher_distill"] = 0.0
+                bm["tri_teacher_gate_frac"] = _tri_stats["gate_frac"]
+                bm["tri_teacher_candidate_size_mean"] = _tri_stats["candidate_size_mean"]
+                bm["tri_rerank_teacher_pos_rank_mean"] = _tri_stats["rerank_teacher_pos_rank_mean"]
+                bm["tri_rerank_teacher_pos_rank_median"] = _tri_stats["rerank_teacher_pos_rank_median"]
+                bm["tri_legacy_teacher_pos_rank_mean"] = _tri_stats["legacy_teacher_pos_rank_mean"]
+                bm["tri_legacy_teacher_pos_rank_median"] = _tri_stats["legacy_teacher_pos_rank_median"]
+                bm["tri_combined_teacher_pos_rank_mean"] = _tri_stats["combined_teacher_pos_rank_mean"]
+                bm["tri_combined_teacher_pos_rank_median"] = _tri_stats["combined_teacher_pos_rank_median"]
+                bm["tri_student_pos_rank_mean"] = _tri_stats["student_pos_rank_mean"]
+                bm["tri_student_pos_rank_median"] = _tri_stats["student_pos_rank_median"]
 
             # --- V11 val losses ---
             if "direct_alignment" in losses and is_vmf:
@@ -2947,15 +3103,28 @@ def main() -> None:
     # --- V35: Load frozen legacy teacher checkpoint for compact-head distillation ---
     legacy_teacher_model = None
     _legacy_teacher_cfg = config.get("loss", {}).get("legacy_teacher_distill", {})
-    if _legacy_teacher_cfg.get("enabled", False):
+    _tri_teacher_cfg = config.get("loss", {}).get("tri_teacher_distill", {})
+    _tri_mode = _tri_teacher_cfg.get("mode", "weighted_logits")
+    _tri_needs_legacy = _tri_teacher_cfg.get("enabled", False) and _tri_mode != "rerank_only"
+    if _legacy_teacher_cfg.get("enabled", False) or _tri_needs_legacy:
         _legacy_teacher_path = _legacy_teacher_cfg.get("teacher_checkpoint_path", "")
+        _tri_teacher_path = _tri_teacher_cfg.get("teacher_checkpoint_path", "")
+        if _legacy_teacher_cfg.get("enabled", False) and _tri_needs_legacy:
+            if _legacy_teacher_path and _tri_teacher_path and _legacy_teacher_path != _tri_teacher_path:
+                raise RuntimeError(
+                    "legacy_teacher_distill and tri_teacher_distill specify different "
+                    "teacher checkpoints; refuse to continue:\n"
+                    f"  legacy_teacher_distill: {_legacy_teacher_path}\n"
+                    f"  tri_teacher_distill: {_tri_teacher_path}"
+                )
+        _legacy_teacher_path = _tri_teacher_path or _legacy_teacher_path
         if not _legacy_teacher_path:
             raise RuntimeError(
-                "legacy_teacher_distill.enabled=true but teacher_checkpoint_path is empty"
+                "legacy teacher distillation requires teacher_checkpoint_path, but none was provided"
             )
         if not os.path.isfile(_legacy_teacher_path):
             raise FileNotFoundError(
-                "legacy_teacher_distill.enabled=true but teacher checkpoint was not found: "
+                "legacy teacher checkpoint was not found: "
                 f"{_legacy_teacher_path}"
             )
         _legacy_ckpt = torch.load(_legacy_teacher_path, map_location=device, weights_only=False)
@@ -2987,6 +3156,7 @@ def main() -> None:
             getattr(legacy_teacher_model, "model_type", "unknown"),
             f"{_legacy_n_params:,}",
         )
+        logger.info("Legacy teacher params frozen and model set to eval()")
 
     # --- V25b: Load pretrained backbone + freeze for adapter warm-up ---
     _cs_freeze_epochs = 0
@@ -4383,6 +4553,7 @@ def main() -> None:
             rerank_cache=_rerank_cache,
             retrieval_projector=_retrieval_projector,
         )
+    _merge_summary_metrics(_metrics_save_dir)
 
     logger.info("=" * 80)
     logger.info("Training complete!")

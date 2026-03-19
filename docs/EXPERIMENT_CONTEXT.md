@@ -3026,6 +3026,24 @@ Primary design:
 
 The key question for V35 is no longer whether expert complementarity exists. V34 already confirmed that it does. The only remaining question is how much of that complementarity can be transferred into the compact head without destabilizing the rerank or generative branches.
 
+### 34.11 V36 Direction: Tri-Teacher Distillation
+
+V36 extends the V35 idea without changing the underlying triple-head architecture. The compact head remains the trainable shortlist head, the rerank head remains PCA-supervised at `2048-D`, and fused validation checkpointing stays unchanged. The new change is purely in the loss: compact-head student logits are distilled from a **combined shortlist-local teacher** built from:
+
+1. the current rerank-head teacher distribution
+2. the frozen legacy `N1v28a` teacher distribution
+
+The purpose is not to literally reproduce V34 tri-fusion during training. Instead, V36 tries to internalize more of the complementary ranking signal that V34 exposed, especially the strong legacy+compact complementarity, by teaching the compact head from both teachers at once over aligned in-batch candidate sets.
+
+Recommended default:
+
+- mode: `weighted_logits`
+- rerank teacher weight: `0.35`
+- legacy teacher weight: `0.65`
+- checkpoint metric: `fused_r@1`
+
+The success criterion for V36 is modest but meaningful: beat V35 on fused retrieval, especially on SHARED1000, without introducing another architectural wave or target-space rewrite.
+
 ### 34.9 V34: Tri-Expert Fusion Wave
 
 The next maximum-upside evaluation wave is **V34_tri_expert_fusion**.

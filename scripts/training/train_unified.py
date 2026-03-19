@@ -60,6 +60,7 @@ from fmri2img.losses.vmf_nce import (
 from fmri2img.training.kl_schedule import KLScheduler
 from fmri2img.losses.mixco import mixco_augment, mixco_nce_loss
 from fmri2img.losses.softclip import SoftCLIPLoss, VMFSoftCLIPLoss
+from fmri2img.losses.legacy_teacher_distill import LegacyTeacherDistillLoss
 from fmri2img.losses.shortlist_teacher_distill import ShortlistTeacherDistillLoss
 from fmri2img.losses.hierarchical_clip_loss import HierarchicalCLIPLoss
 from fmri2img.losses.cka_loss import CKALoss
@@ -838,6 +839,28 @@ def setup_losses(config: Dict[str, Any], device: str,
             c.get("teacher_rank_gate", 20),
         )
 
+    # --- V35: legacy-teacher distillation (frozen N1v28a -> compact) ---
+    if loss_cfg.get("legacy_teacher_distill", {}).get("enabled", False):
+        c = loss_cfg["legacy_teacher_distill"]
+        losses["legacy_teacher_distill"] = LegacyTeacherDistillLoss(
+            compact_k=c.get("compact_k", 16),
+            teacher_k=c.get("teacher_k", 16),
+            teacher_temperature=c.get("teacher_temperature", 0.07),
+            student_temperature=c.get("student_temperature", 0.07),
+            teacher_rank_gate=c.get("teacher_rank_gate", 20),
+        )
+        logger.info(
+            "Legacy teacher distill enabled "
+            "(weight=%.3f, compact_k=%d, teacher_k=%d, teacher_tau=%.3f, student_tau=%.3f, start_epoch=%d, gate<=%d)",
+            c.get("weight", 0.15),
+            c.get("compact_k", 16),
+            c.get("teacher_k", 16),
+            c.get("teacher_temperature", 0.07),
+            c.get("student_temperature", 0.07),
+            c.get("start_epoch", 10),
+            c.get("teacher_rank_gate", 20),
+        )
+
     # --- N3/N4: MultiTask vMF-NCE ---
     if loss_cfg.get("vmf_nce_multitask", {}).get("enabled", False):
         c = loss_cfg["vmf_nce_multitask"]
@@ -973,6 +996,7 @@ def train_epoch(
     amp_dtype: Optional[torch.dtype] = None,
     current_epoch: int = 0,
     log_sigmas: Optional[nn.ParameterDict] = None,
+    legacy_teacher_model: Optional[nn.Module] = None,
 ) -> Tuple[Dict[str, float], int]:
     """Train for one epoch with gradient accumulation and optional AMP."""
     model.train()
@@ -1036,6 +1060,8 @@ def train_epoch(
             fmri = fmri.to(device, dtype=torch.float32)
             gt_embedding = gt_embedding.to(device, dtype=torch.float32)
 
+        fmri_teacher = fmri
+
         # fMRI noise augmentation: Gaussian noise to reduce overfitting
         _noise_std = (config_ref or {}).get("training", {}).get("fmri_noise_std", 0)
         if _noise_std > 0:
@@ -1070,6 +1096,15 @@ def train_epoch(
             # through cos_sim(mu, target) instead of a random projection.
             _proj_head = getattr(model, "projection_head", None)
             pred_for_contrast = _proj_head(pred) if _proj_head is not None else pred
+            _legacy_teacher_pred = None
+            if legacy_teacher_model is not None and _rich_target is not None:
+                with torch.no_grad():
+                    _legacy_out = (
+                        legacy_teacher_model(fmri_teacher, subject_ids=subject_ids)
+                        if subject_ids is not None
+                        else legacy_teacher_model(fmri_teacher)
+                    )
+                    _legacy_teacher_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
 
             # --- Deterministic / regression losses ---
             if "mse" in losses and not is_gaussian:
@@ -1230,6 +1265,36 @@ def train_epoch(
                 batch_metrics["shortlist_teacher_pos_rank_median"] = _std_stats["teacher_pos_rank_median"]
                 batch_metrics["shortlist_student_pos_rank_mean"] = _std_stats["student_pos_rank_mean"]
                 batch_metrics["shortlist_student_pos_rank_median"] = _std_stats["student_pos_rank_median"]
+
+            # --- V35: legacy-teacher distillation (frozen N1v28a -> compact) ---
+            _ltd_cfg = (config_ref or {}).get("loss", {}).get("legacy_teacher_distill", {})
+            if (
+                "legacy_teacher_distill" in losses
+                and _legacy_teacher_pred is not None
+                and _rich_target is not None
+            ):
+                _ltd_loss, _ltd_stats = losses["legacy_teacher_distill"](
+                    compact_pred=pred,
+                    retrieval_target=gt_embedding,
+                    teacher_pred=_legacy_teacher_pred,
+                    teacher_target=_rich_target,
+                    return_stats=True,
+                )
+                _ltd_start_epoch = int(_ltd_cfg.get("start_epoch", 10))
+                if current_epoch > _ltd_start_epoch:
+                    _ltd_w = loss_weights.get(
+                        "legacy_teacher_distill",
+                        _ltd_cfg.get("weight", 0.15),
+                    )
+                    total_loss = total_loss + _ltd_w * _ltd_loss
+                    batch_metrics["legacy_teacher_distill"] = _ltd_loss.item()
+                else:
+                    batch_metrics["legacy_teacher_distill"] = 0.0
+                batch_metrics["legacy_teacher_gate_frac"] = _ltd_stats["gate_frac"]
+                batch_metrics["legacy_teacher_pos_rank_mean"] = _ltd_stats["teacher_pos_rank_mean"]
+                batch_metrics["legacy_teacher_pos_rank_median"] = _ltd_stats["teacher_pos_rank_median"]
+                batch_metrics["legacy_student_pos_rank_mean"] = _ltd_stats["student_pos_rank_mean"]
+                batch_metrics["legacy_student_pos_rank_median"] = _ltd_stats["student_pos_rank_median"]
 
             # --- Kappa regularizer ---
             kappa_reg_cfg = config_ref.get("loss", {}).get("kappa_reg", {}) if config_ref else {}
@@ -1805,6 +1870,7 @@ def validate(
     vmf_is_log: bool = True,
     current_epoch: int = 0,
     config_ref: Optional[Dict[str, Any]] = None,
+    legacy_teacher_model: Optional[nn.Module] = None,
 ) -> Tuple[Dict[str, float], np.ndarray, np.ndarray]:
     """Validate model and collect embeddings for retrieval evaluation."""
     model.eval()
@@ -1859,6 +1925,8 @@ def validate(
                 fmri = fmri.to(device, dtype=torch.float32)
                 gt_embedding = gt_embedding.to(device, dtype=torch.float32)
 
+            fmri_teacher = fmri
+
             if preprocessor is not None:
                 gt_embedding_np = gt_embedding.cpu().numpy()
                 gt_embedding_proc = preprocessor.transform(gt_embedding_np)
@@ -1886,6 +1954,14 @@ def validate(
                 all_rerank_preds.append(_rerank_pred_val.detach().cpu().numpy())
             if _rerank_target is not None:
                 all_rerank_gts.append(_rerank_target.detach().cpu().numpy())
+            _legacy_teacher_pred = None
+            if legacy_teacher_model is not None and _rich_target is not None:
+                _legacy_out = (
+                    legacy_teacher_model(fmri_teacher, subject_ids=subject_ids)
+                    if subject_ids is not None
+                    else legacy_teacher_model(fmri_teacher)
+                )
+                _legacy_teacher_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
 
             total_loss = torch.tensor(0.0, device=device, dtype=torch.float32)
             bm: Dict[str, float] = {}
@@ -1994,6 +2070,34 @@ def validate(
                 bm["shortlist_teacher_pos_rank_median"] = _std_stats["teacher_pos_rank_median"]
                 bm["shortlist_student_pos_rank_mean"] = _std_stats["student_pos_rank_mean"]
                 bm["shortlist_student_pos_rank_median"] = _std_stats["student_pos_rank_median"]
+
+            _ltd_cfg = (config_ref or {}).get("loss", {}).get("legacy_teacher_distill", {})
+            if (
+                "legacy_teacher_distill" in losses
+                and _legacy_teacher_pred is not None
+                and _rich_target is not None
+            ):
+                _ltd_l, _ltd_stats = losses["legacy_teacher_distill"](
+                    compact_pred=pred,
+                    retrieval_target=gt_embedding,
+                    teacher_pred=_legacy_teacher_pred,
+                    teacher_target=_rich_target,
+                    return_stats=True,
+                )
+                _ltd_start_epoch = int(_ltd_cfg.get("start_epoch", 10))
+                if current_epoch > _ltd_start_epoch:
+                    total_loss = total_loss + loss_weights.get(
+                        "legacy_teacher_distill",
+                        _ltd_cfg.get("weight", 0.15),
+                    ) * _ltd_l
+                    bm["legacy_teacher_distill"] = _ltd_l.item()
+                else:
+                    bm["legacy_teacher_distill"] = 0.0
+                bm["legacy_teacher_gate_frac"] = _ltd_stats["gate_frac"]
+                bm["legacy_teacher_pos_rank_mean"] = _ltd_stats["teacher_pos_rank_mean"]
+                bm["legacy_teacher_pos_rank_median"] = _ltd_stats["teacher_pos_rank_median"]
+                bm["legacy_student_pos_rank_mean"] = _ltd_stats["student_pos_rank_mean"]
+                bm["legacy_student_pos_rank_median"] = _ltd_stats["student_pos_rank_median"]
 
             # --- V11 val losses ---
             if "direct_alignment" in losses and is_vmf:
@@ -2772,6 +2876,50 @@ def main() -> None:
             )
         logger.warning(
             "pretrained_encoder_path not found: %s — encoder starts random", _pe_path,
+        )
+
+    # --- V35: Load frozen legacy teacher checkpoint for compact-head distillation ---
+    legacy_teacher_model = None
+    _legacy_teacher_cfg = config.get("loss", {}).get("legacy_teacher_distill", {})
+    if _legacy_teacher_cfg.get("enabled", False):
+        _legacy_teacher_path = _legacy_teacher_cfg.get("teacher_checkpoint_path", "")
+        if not _legacy_teacher_path:
+            raise RuntimeError(
+                "legacy_teacher_distill.enabled=true but teacher_checkpoint_path is empty"
+            )
+        if not os.path.isfile(_legacy_teacher_path):
+            raise FileNotFoundError(
+                "legacy_teacher_distill.enabled=true but teacher checkpoint was not found: "
+                f"{_legacy_teacher_path}"
+            )
+        _legacy_ckpt = torch.load(_legacy_teacher_path, map_location=device, weights_only=False)
+        _legacy_model_cfg = _legacy_ckpt.get("model_config")
+        if _legacy_model_cfg is None:
+            _legacy_root_cfg = _legacy_ckpt.get("config", {})
+            _legacy_model_cfg = _legacy_root_cfg.get("model")
+        if not isinstance(_legacy_model_cfg, dict):
+            raise KeyError(
+                "Legacy teacher checkpoint does not contain a usable model_config: "
+                f"{_legacy_teacher_path}"
+            )
+        _legacy_state = _legacy_ckpt.get("model_state_dict", _legacy_ckpt.get("state_dict"))
+        if _legacy_state is None:
+            raise KeyError(
+                "Legacy teacher checkpoint does not contain model_state_dict/state_dict: "
+                f"{_legacy_teacher_path}"
+            )
+        legacy_teacher_model = create_model(_legacy_model_cfg).to(device)
+        legacy_teacher_model.load_state_dict(_legacy_state, strict=True)
+        legacy_teacher_model.eval()
+        for param in legacy_teacher_model.parameters():
+            param.requires_grad = False
+        _legacy_n_params = sum(p.numel() for p in legacy_teacher_model.parameters())
+        logger.info(
+            "Loaded frozen legacy teacher from %s (epoch=%s, type=%s, params=%s)",
+            _legacy_teacher_path,
+            _legacy_ckpt.get("epoch", "unknown"),
+            getattr(legacy_teacher_model, "model_type", "unknown"),
+            f"{_legacy_n_params:,}",
         )
 
     # --- V25b: Load pretrained backbone + freeze for adapter warm-up ---
@@ -3614,7 +3762,7 @@ def main() -> None:
             lr_scheduler=lr_sched, config_ref=config, vmf_is_log=_vmf_is_log,
             mixco_cfg=_epoch_mixco if _epoch_mixco and _epoch_mixco.get("enabled", False) else None,
             ema=ema, amp_dtype=_amp_dtype, current_epoch=epoch,
-            log_sigmas=_log_sigmas,
+            log_sigmas=_log_sigmas, legacy_teacher_model=legacy_teacher_model,
         )
         logger.info("Train: %s", " | ".join(f"{k}={v:.4f}" for k, v in train_metrics.items()))
 
@@ -3686,6 +3834,7 @@ def main() -> None:
             vmf_is_log=_vmf_is_log,
             current_epoch=epoch,
             config_ref=config,
+            legacy_teacher_model=legacy_teacher_model,
         )
         _epoch_val_extras = val_metrics.pop("_val_extras", {})
         if ema is not None:
@@ -3945,6 +4094,7 @@ def main() -> None:
                 vmf_is_log=_vmf_is_log,
                 current_epoch=best_epoch,
                 config_ref=config,
+                legacy_teacher_model=legacy_teacher_model,
             )
             val_metrics_soup.pop("_val_extras", None)
             if ema is not None:
@@ -4004,6 +4154,7 @@ def main() -> None:
         vmf_is_log=_vmf_is_log,
         current_epoch=best_epoch,
         config_ref=config,
+        legacy_teacher_model=legacy_teacher_model,
     )
     _val_extras = _val_metrics_extra.pop("_val_extras", {})
 

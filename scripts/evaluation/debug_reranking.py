@@ -357,6 +357,29 @@ def run_diagnostics(results_dir: Path, metrics_dir: Path, split: str = "val"):
         print(f"  Gain over 2-expert:      {tri_report.get('gain_over_two_expert_fusion', 0.0) * 100:.1f} pp")
         report["tri_fused_retrieval"] = tri_report
 
+    tri_gated_metrics_path = metrics_dir / f"{split}_tri_gated_metrics.json"
+    if tri_gated_metrics_path.exists():
+        print("\n" + "=" * 70)
+        print("6D. LEARNED TRI-FUSION GATE")
+        print("=" * 70)
+        with open(tri_gated_metrics_path, "r") as f:
+            tri_gate_report = json.load(f)
+        tri_gate_payload = tri_gate_report.get(
+            "tri_gated_best",
+            tri_gate_report.get("tri_gated_frozen", tri_gate_report),
+        )
+        print(f"  Gate model:              {tri_gate_payload.get('model_family', 'unknown')}")
+        print(f"  Shortlist k:             {tri_gate_payload.get('shortlist_k', 'n/a')}")
+        print(f"  Compact shortlist score: {tri_gate_payload.get('compact_shortlist_variant', 'n/a')}")
+        print(f"  Tri-gated R@1:           {tri_gate_payload.get('R@1', 0.0):.1%}")
+        print(f"  Tri-gated R@5:           {tri_gate_payload.get('R@5', 0.0):.1%}")
+        print(f"  Tri-gated R@10:          {tri_gate_payload.get('R@10', 0.0):.1%}")
+        print(f"  Tri-gated MedR / MRR:    {tri_gate_payload.get('median_rank', 0.0):.1f} / {tri_gate_payload.get('MRR', 0.0):.4f}")
+        print(f"  Gain over compact CSLS:  {tri_gate_report.get('gain_over_compact_csls', 0.0) * 100:.1f} pp")
+        print(f"  Gain over fixed tri:     {tri_gate_report.get('gain_over_fixed_tri_fusion', 0.0) * 100:.1f} pp")
+        print(f"  Gain over 2-expert:      {tri_gate_report.get('gain_over_two_expert_fusion', 0.0) * 100:.1f} pp")
+        report["tri_gated_retrieval"] = tri_gate_report
+
     # -----------------------------------------------------------------------
     # 7. Oracle shortlist reranking
     # -----------------------------------------------------------------------

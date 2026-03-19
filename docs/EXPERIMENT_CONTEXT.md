@@ -3044,6 +3044,61 @@ Recommended default:
 
 The success criterion for V36 is modest but meaningful: beat V35 on fused retrieval, especially on SHARED1000, without introducing another architectural wave or target-space rewrite.
 
+### 34.12 V37 Direction: Learned Tri-Fusion Gate
+
+V36 underperformed and did **not** beat the current best trained pipeline:
+
+- best trained model: **V35**, SHARED1000 fused R@1 = **64.3%**
+- best overall system: **V34 tri-expert fusion**, SHARED1000 R@1 = **75.3%**
+
+This changes the conclusion. The legacy `N1v28a` expert is clearly complementary, but the gain should remain **explicit at inference time** rather than being forced into the compact head through distillation.
+
+V37 is therefore an **evaluation-only** wave:
+
+- keep the three experts frozen:
+  - compact expert from the V35/V33b/V32-style triple-head run
+  - rerank expert from the same triple-head run
+  - legacy expert from `N1v28a`
+- generate the shortlist from the **compact expert only**
+- fit a lightweight learned gate on **VAL only**
+- freeze the selected gate
+- apply it **once** to SHARED1000
+
+The learned gate rescoring problem is shortlist-local and candidate-wise. For each query-candidate pair, the recommended feature set includes:
+
+- compact raw score
+- compact CSLS score
+- rerank cosine score
+- legacy raw score
+- legacy CSLS score
+- candidate ranks under compact / rerank / legacy
+- cross-expert score deltas
+- shortlist position features
+- optional expert margin features such as top-1 and top-5 gaps
+
+Two small fusion models are sufficient for the first V37 pass:
+
+- `linear_logistic`
+- `shallow_mlp`
+
+The objective is not to redesign retrieval. It is to replace the **fixed post-hoc weight sweep** with a learned but still lightweight gate over already-validated expert signals.
+
+Expected gain:
+
+- beat the fixed V34 tri-fusion on **VAL**
+- target **match or exceed 75.3% SHARED1000 R@1**
+- improve **MRR** relative to fixed tri-fusion, especially when shortlist ordering contains useful local disagreements
+
+Implementation note:
+
+- `scripts/evaluation/fit_tri_fusion_gate.py` fits and freezes the learned gate
+- `scripts/evaluation/debug_reranking.py` surfaces tri-gated metrics alongside fixed fusion diagnostics
+- outputs:
+  - `diagnostics/tri_fusion_gate_summary.json`
+  - `diagnostics/tri_fusion_gate_val.csv`
+  - `metrics/val_tri_gated_metrics.json`
+  - `metrics/shared1000_tri_gated_metrics.json`
+
 ### 34.9 V34: Tri-Expert Fusion Wave
 
 The next maximum-upside evaluation wave is **V34_tri_expert_fusion**.

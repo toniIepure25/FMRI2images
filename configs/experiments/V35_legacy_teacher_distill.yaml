@@ -5,7 +5,8 @@
 #   - keep PCA-supervised rerank head and rich regression head unchanged
 #   - replace rerank-teacher distillation with frozen legacy N1v28a teacher distillation
 #   - checkpoint on fused_r@1
-#   - fail fast if either V29a encoder preinit or N1v28a legacy teacher is missing
+#   - initialize the student from the existing V33b checkpoint
+#   - fail fast if either V33b student init or N1v28a legacy teacher is missing
 #
 # Run:
 #   make ablation ONLY=V35 SUBJECTS=subj01 GPU=0 SAVE_CKPT=best
@@ -15,7 +16,7 @@ experiment:
   description: "V35: V33b base + frozen N1v28a teacher distillation into the compact head"
   tags: ["vmf_triple", "v35", "legacy_teacher_distill", "compact_retrieval",
          "rerank_head", "regression", "token_targets", "dual_target",
-         "pca_rerank", "fused_checkpoint", "pretrained_encoder_required"]
+         "pca_rerank", "fused_checkpoint", "pretrained_model_required"]
   parent: "V33b_shortlist_teacher_distill_preinit"
 
 data:
@@ -39,8 +40,8 @@ data:
 model:
   type: "vmf_triple"
   posterior: "vmf"
-  pretrained_encoder_path: "experimental_results/N1v29a_cross_subject/subj01/checkpoint_best.pt"
-  require_pretrained_encoder: true
+  pretrained_model_path: "experimental_results/V33b_shortlist_teacher_distill_preinit/subj01/checkpoint_best.pt"
+  require_pretrained_model: true
   encoder:
     encoder_type: "mlp"
     input_dim: null

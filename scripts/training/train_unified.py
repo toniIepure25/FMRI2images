@@ -2808,11 +2808,77 @@ def main() -> None:
     model = create_model(model_config, roi_indices=_roi_indices, ncsnr=_ncsnr_array).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     logger.info("Model parameters: %s", f"{n_params:,}")
+    _resume_ckpt_exists = bool(args.resume) and Path(args.resume).exists()
+
+    # --- Optional full-model initialization from a prior checkpoint ---
+    _pm_path = model_config.get("pretrained_model_path")
+    _require_pm = bool(model_config.get("require_pretrained_model", False))
+    _pm_loaded_ok = False
+    if _pm_path and os.path.isfile(_pm_path):
+        _pm_ckpt = torch.load(_pm_path, map_location=device, weights_only=False)
+        _pm_sd = _pm_ckpt.get("model_state_dict", _pm_ckpt.get("state_dict", {}))
+        if not _pm_sd:
+            if _require_pm:
+                raise KeyError(
+                    "require_pretrained_model=true but checkpoint does not contain "
+                    f"model_state_dict/state_dict: {_pm_path}"
+                )
+            logger.warning(
+                "pretrained_model_path has no model_state_dict/state_dict: %s", _pm_path,
+            )
+        else:
+            _model_sd = model.state_dict()
+            _matched_model_keys = sorted(set(_model_sd).intersection(_pm_sd))
+            _missing_model_keys = sorted(set(_model_sd).difference(_pm_sd))
+            _extra_source_model_keys = sorted(set(_pm_sd).difference(_model_sd))
+            _pm_missing, _pm_unexpected = model.load_state_dict(_pm_sd, strict=False)
+            logger.info(
+                "Pretrained full-model init from %s: source_keys=%d, model_keys=%d, "
+                "matched=%d, missing_in_source=%d, extra_in_source=%d",
+                _pm_path,
+                len(_pm_sd),
+                len(_model_sd),
+                len(_matched_model_keys),
+                len(_missing_model_keys),
+                len(_extra_source_model_keys),
+            )
+            if _pm_missing or _pm_unexpected:
+                logger.info(
+                    "Full-model load_state_dict(strict=False) summary: missing=%d unexpected=%d",
+                    len(_pm_missing),
+                    len(_pm_unexpected),
+                )
+            if _require_pm and len(_matched_model_keys) == 0:
+                raise RuntimeError(
+                    "require_pretrained_model=true but zero model keys matched from "
+                    f"{_pm_path}"
+                )
+            if _require_pm:
+                logger.info(
+                    "Verified pretrained full-model initialization is active: matched_model_keys=%d from %s",
+                    len(_matched_model_keys),
+                    _pm_path,
+                )
+            _pm_loaded_ok = True
+    elif _pm_path:
+        if _require_pm and _resume_ckpt_exists:
+            logger.info(
+                "require_pretrained_model=true but pretrained_model_path is missing; "
+                "continuing because --resume=%s will restore model weights from checkpoint",
+                args.resume,
+            )
+        elif _require_pm:
+            raise FileNotFoundError(
+                "require_pretrained_model=true but pretrained_model_path was not found: "
+                f"{_pm_path}"
+            )
+        logger.warning(
+            "pretrained_model_path not found: %s — model starts from scratch", _pm_path,
+        )
 
     # --- V29b: Load pretrained encoder from a prior run (e.g. cross-subject) ---
     _pe_path = model_config.get("pretrained_encoder_path")
     _require_pe = bool(model_config.get("require_pretrained_encoder", False))
-    _resume_ckpt_exists = bool(args.resume) and Path(args.resume).exists()
     _pe_loaded_ok = False
     _matched_encoder_key_count = 0
     if _pe_path and os.path.isfile(_pe_path):

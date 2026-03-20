@@ -3444,3 +3444,158 @@ If promising or better: investigate feature ablation (which feature groups contr
 ### 35.10 Recommendation
 
 _Pending post-repair results. The audit confirms the approach was never properly tested due to the argmax bug. A fair evaluation requires rebuilding caches with repaired features and retraining._
+
+---
+
+## 36. V40: OOF Tri Gate (Train/Eval Mismatch Fix)
+
+### 36.1 Ground Truth From Forensic Audit
+
+- Fixed tri-fusion (V35 + N1v28a) is currently the best practical system (SHARED1000 R@1 = 77.2%).
+- Union-shortlist oracle headroom is very high at K=100 (VAL and SHARED1000 oracle = 100.0%).
+- V39 repaired reranker underperformed fixed tri-fusion (VAL 63.4%, SHARED1000 65.5%).
+- Critical diagnosis: compact-vs-legacy top1 agreement is 100.0% on TRAIN caches but only ~45% on VAL/SHARED1000.
+- Conclusion: primary blocker is train/eval distribution mismatch for expert predictions, not lack of shortlist headroom.
+
+### 36.2 V40 Hypothesis
+
+Train the same lightweight candidate reranker, but with TRAIN supervision built from **out-of-fold expert predictions** (`train_oof`) so each train query is predicted by a model that did not train on that query.
+
+### 36.3 Leakage-Safe OOF Protocol
+
+1. Start from canonical base split (`split.json`) of the parent experiment.
+2. Partition `train_nsd_ids` into K folds (default K=5).
+3. For each fold f:
+   - train fold checkpoint on train_pool \ holdout_f only;
+   - generate predictions on holdout_f only (via split `val` for that fold).
+4. Merge fold-heldout predictions keyed by `nsd_id`:
+   - each train image appears exactly once;
+   - no duplicates, no missing IDs, no extra IDs.
+5. Save merged arrays under `train_oof_*` and use them to build train cache.
+
+### 36.4 New/Updated Tooling
+
+- New: `scripts/preprocessing/build_oof_split_folds.py`
+  - Deterministically creates fold split JSONs and `oof_fold_manifest.json`.
+- New: `scripts/preprocessing/merge_oof_expert_predictions.py`
+  - Merges per-fold heldout metrics into `train_oof_*` arrays with strict assertions.
+- Updated: `scripts/preprocessing/build_union_shortlist_cache.py`
+  - Supports train-specific prefix/metrics-dir overrides (`train_oof`).
+  - Adds stronger sanity metadata:
+    - top1 disagreement,
+    - source membership rates,
+    - per-feature variance + near-zero-variance flags,
+    - optional fold provenance embedding.
+- Updated: `scripts/evaluation/measure_union_shortlist_oracle.py`
+  - Can now audit `train` split with custom train prefix/metrics (`train_oof`).
+- Updated: `scripts/training/train_union_shortlist_reranker.py`
+  - Supports custom cache split names (`train_oof`, `val`, `shared1000`).
+  - Supports run tags for isolated artifacts (`v40_oof_tri_gate`).
+  - Reports optional gain over existing V39 reranker metrics if present.
+- New helper: `scripts/training/run_v40_oof_tri_gate.sh`
+  - Staged end-to-end runner after fold predictions exist.
+- New experiment doc config: `configs/experiments/V40_oof_tri_gate.yaml`.
+
+### 36.5 Reproducible Command Order
+
+Variables:
+
+```bash
+TRI=experimental_results/V35_legacy_teacher_distill/subj01
+LEG=experimental_results/N1v28a_dual_head/subj01
+K=5
+SHORTLIST_K=100
+```
+
+1. Build OOF fold split files from canonical train pool:
+
+```bash
+python scripts/preprocessing/build_oof_split_folds.py \
+  "$TRI/split.json" \
+  --output-dir "$TRI/oof/fold_splits" \
+  --num-folds "$K" \
+  --seed 42
+```
+
+2. Train fold checkpoints separately (tri + legacy), each using its fold split file (`data.split_file=.../oof_fold_XX.json`) and evaluate only fold `val`.
+
+3. Merge fold-heldout predictions into `train_oof_*` metrics arrays:
+
+```bash
+python scripts/preprocessing/merge_oof_expert_predictions.py \
+  --fold-manifest "$TRI/oof/fold_splits/oof_fold_manifest.json" \
+  --fold-results-root "$TRI/oof/tri_folds" \
+  --target-metrics-dir "$TRI/metrics" \
+  --split-prefix val
+
+python scripts/preprocessing/merge_oof_expert_predictions.py \
+  --fold-manifest "$TRI/oof/fold_splits/oof_fold_manifest.json" \
+  --fold-results-root "$TRI/oof/legacy_folds" \
+  --target-metrics-dir "$LEG/metrics" \
+  --split-prefix val
+```
+
+4. Build union shortlist caches (OOF train + val + shared1000):
+
+```bash
+python scripts/preprocessing/build_union_shortlist_cache.py \
+  "$TRI" "$LEG" \
+  --shortlist-k "$SHORTLIST_K" \
+  --splits train val shared1000 \
+  --train-tri-metrics-dir "$TRI/metrics" \
+  --train-legacy-metrics-dir "$LEG/metrics" \
+  --train-split-prefix train_oof \
+  --train-cache-name train_oof \
+  --fold-provenance-json "$TRI/oof/fold_splits/oof_fold_manifest.json"
+```
+
+5. Audit oracle/disagreement on OOF train vs VAL/SHARED1000:
+
+```bash
+python scripts/evaluation/measure_union_shortlist_oracle.py \
+  "$TRI" "$LEG" \
+  --splits train val shared1000 \
+  --train-tri-metrics-dir "$TRI/metrics" \
+  --train-legacy-metrics-dir "$LEG/metrics" \
+  --train-split-prefix train_oof
+```
+
+6. Train/evaluate V40 reranker on OOF cache:
+
+```bash
+python scripts/training/train_union_shortlist_reranker.py \
+  "$TRI" "$LEG" \
+  --shortlist-k "$SHORTLIST_K" \
+  --train-cache-split train_oof \
+  --val-cache-split val \
+  --shared-cache-split shared1000 \
+  --run-tag v40_oof_tri_gate
+```
+
+### 36.6 Expected Artifacts
+
+- Fold assignment/provenance:
+  - `experimental_results/.../oof/fold_splits/oof_fold_manifest.json`
+  - `experimental_results/.../oof/fold_splits/oof_fold_XX.json`
+- Merged OOF metrics arrays:
+  - `metrics/train_oof_predictions_compact.npy`
+  - `metrics/train_oof_ground_truth_compact.npy`
+  - `metrics/train_oof_nsd_ids.npy`
+  - optional: `metrics/train_oof_predictions_rerank.npy`, `metrics/train_oof_kappas.npy`
+  - `metrics/train_oof_merge_provenance*.json`
+- OOF cache files:
+  - `cache/union_shortlist_train_oof_k100.npz`
+  - `cache/union_shortlist_train_oof_k100_meta.json`
+- V40 model/eval outputs:
+  - `cache/v40_oof_tri_gate_reranker_k100_best.pt`
+  - `diagnostics/v40_oof_tri_gate_reranker_summary.json`
+  - `metrics/val_v40_oof_tri_gate_reranker_metrics.json`
+  - `metrics/shared1000_v40_oof_tri_gate_reranker_metrics.json`
+
+### 36.7 Win Criteria For V40
+
+- Minimal real win:
+  - SHARED1000 R@1 >= 78.5%
+  - and >= +1.0pp over fixed tri-fusion (77.2%)
+- Major win: SHARED1000 R@1 >= 82%
+- Negative result: SHARED1000 R@1 <= 77.2% -> keep fixed tri-fusion as final practical system.

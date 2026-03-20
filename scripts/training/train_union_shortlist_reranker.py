@@ -432,6 +432,7 @@ def _load_existing_metrics(metrics_dir: Path, prefix: str) -> dict[str, Any]:
         "fused_metrics",
         "tri_fused_metrics",
         "tri_gated_metrics",
+        "v39_reranker_metrics",
     ]:
         path = metrics_dir / f"{prefix}_{suffix}.json"
         if path.exists():
@@ -469,11 +470,29 @@ def _comparison_table(
         table["fixed_tri_fused"] = {
             "R@1": best.get("R@1", None),
         }
+    if "v39_reranker_metrics" in existing_baselines:
+        v39 = existing_baselines["v39_reranker_metrics"]
+        v39_r1 = None
+        if isinstance(v39, dict):
+            if "v39_reranker" in v39 and isinstance(v39["v39_reranker"], dict):
+                v39_r1 = v39["v39_reranker"].get("R@1")
+            elif "comparison" in v39 and isinstance(v39["comparison"], dict):
+                rr = v39["comparison"].get("v39_reranker", {})
+                if isinstance(rr, dict):
+                    v39_r1 = rr.get("R@1")
+        if v39_r1 is not None:
+            table["v39_reranker"] = {"R@1": v39_r1}
 
     # Compute gains
     reranker_r1 = reranker_metrics["R@1"]
     gains = {}
-    for key in ["shortlist_compact_csls", "shortlist_legacy_csls", "two_expert_fused", "fixed_tri_fused"]:
+    for key in [
+        "shortlist_compact_csls",
+        "shortlist_legacy_csls",
+        "two_expert_fused",
+        "fixed_tri_fused",
+        "v39_reranker",
+    ]:
         if key in table and table[key].get("R@1") is not None:
             baseline_r1 = table[key]["R@1"]
             gains[f"gain_over_{key}"] = round(reranker_r1 - baseline_r1, 4)
@@ -508,6 +527,30 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=256, help="Batch size (default: 256)")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument(
+        "--train-cache-split",
+        type=str,
+        default="train",
+        help="Cache split name used for training (default: train; use train_oof for V40)",
+    )
+    parser.add_argument(
+        "--val-cache-split",
+        type=str,
+        default="val",
+        help="Cache split name used for validation (default: val)",
+    )
+    parser.add_argument(
+        "--shared-cache-split",
+        type=str,
+        default="shared1000",
+        help="Cache split name used for shared1000 eval (default: shared1000)",
+    )
+    parser.add_argument(
+        "--run-tag",
+        type=str,
+        default="v39",
+        help="Tag used in output filenames (default: v39; e.g. v40_oof_tri_gate)",
+    )
+    parser.add_argument(
         "--train-on-val", action="store_true",
         help="Train on val split (if train cache unavailable). WARNING: this WILL overfit.",
     )
@@ -536,9 +579,9 @@ def main() -> None:
     # ── Step 1: Load caches ────────────────────────────────────────────
 
     # Try to load train cache first
-    train_cache_path = cache_dir / f"union_shortlist_train_k{k}.npz"
-    val_cache_path = cache_dir / f"union_shortlist_val_k{k}.npz"
-    s1000_cache_path = cache_dir / f"union_shortlist_shared1000_k{k}.npz"
+    train_cache_path = cache_dir / f"union_shortlist_{args.train_cache_split}_k{k}.npz"
+    val_cache_path = cache_dir / f"union_shortlist_{args.val_cache_split}_k{k}.npz"
+    s1000_cache_path = cache_dir / f"union_shortlist_{args.shared_cache_split}_k{k}.npz"
 
     have_train = train_cache_path.exists()
     have_val = val_cache_path.exists()
@@ -553,7 +596,7 @@ def main() -> None:
         logger.info("Loading TRAIN cache for training...")
         train_cache = _load_cache(train_cache_path)
         val_cache = _load_cache(val_cache_path)
-        train_split_name = "train"
+        train_split_name = args.train_cache_split
     elif args.train_on_val:
         logger.warning(
             "No train cache found. Training on VAL split as requested. "
@@ -654,7 +697,7 @@ def main() -> None:
     # ── Step 5: Print results ──────────────────────────────────────────
 
     print("\n" + "=" * 70)
-    print("V39 UNION SHORTLIST RESIDUAL RERANKER — RESULTS")
+    print(f"{args.run_tag.upper()} UNION SHORTLIST RESIDUAL RERANKER — RESULTS")
     print("=" * 70)
 
     print(f"\nModel: {result['n_params']} params, hidden={result['hidden_dim']}, "
@@ -681,6 +724,8 @@ def main() -> None:
             print(f"  {'2-expert fused':30s} R@1: {comp['two_expert_fused']['R@1']:.1%}")
         if "fixed_tri_fused" in comp and comp["fixed_tri_fused"].get("R@1") is not None:
             print(f"  {'fixed tri-fusion':30s} R@1: {comp['fixed_tri_fused']['R@1']:.1%}")
+        if "v39_reranker" in comp and comp["v39_reranker"].get("R@1") is not None:
+            print(f"  {'existing v39 reranker':30s} R@1: {comp['v39_reranker']['R@1']:.1%}")
         if "gains_pp" in comp:
             print()
             for gain_name, gain_val in comp["gains_pp"].items():
@@ -690,7 +735,7 @@ def main() -> None:
     # ── Step 6: Save ───────────────────────────────────────────────────
 
     summary = {
-        "experiment": "V39_union_shortlist_residual_reranker",
+        "experiment": f"{args.run_tag}_union_shortlist_residual_reranker",
         "hyperparameters": {
             "shortlist_k": k,
             "hidden_dim": args.hidden_dim,
@@ -705,6 +750,8 @@ def main() -> None:
         },
         "training": {
             "train_split": train_split_name,
+            "val_split": args.val_cache_split,
+            "shared_split": args.shared_cache_split,
             "best_epoch": result["best_epoch"],
             "best_train_loss": result["best_train_loss"],
             "n_params": result["n_params"],
@@ -715,13 +762,13 @@ def main() -> None:
         summary["shared1000"] = s1000_comparison
 
     # Save summary
-    summary_path = diagnostics_dir / "v39_reranker_summary.json"
+    summary_path = diagnostics_dir / f"{args.run_tag}_reranker_summary.json"
     _save_json(summary_path, summary)
     logger.info("Saved summary to %s", summary_path)
 
     # Save per-split metrics
     if metrics_dir.exists():
-        val_metrics_path = metrics_dir / "val_v39_reranker_metrics.json"
+        val_metrics_path = metrics_dir / f"{args.val_cache_split}_{args.run_tag}_reranker_metrics.json"
         _save_json(val_metrics_path, {
             "v39_reranker": val_metrics,
             "comparison": val_comparison,
@@ -729,7 +776,7 @@ def main() -> None:
         logger.info("Saved val metrics to %s", val_metrics_path)
 
         if s1000_metrics is not None:
-            s1000_metrics_path = metrics_dir / "shared1000_v39_reranker_metrics.json"
+            s1000_metrics_path = metrics_dir / f"{args.shared_cache_split}_{args.run_tag}_reranker_metrics.json"
             _save_json(s1000_metrics_path, {
                 "v39_reranker": s1000_metrics,
                 "comparison": s1000_comparison,
@@ -737,7 +784,7 @@ def main() -> None:
             logger.info("Saved shared1000 metrics to %s", s1000_metrics_path)
 
     # Save model checkpoint
-    ckpt_path = cache_dir / f"v39_reranker_k{k}_best.pt"
+    ckpt_path = cache_dir / f"{args.run_tag}_reranker_k{k}_best.pt"
     torch.save({
         "state_dict": model.state_dict(),
         "input_dim": input_dim,

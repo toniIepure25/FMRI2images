@@ -365,6 +365,7 @@ def _build_cache_for_split(
     split_arrays: dict[str, np.ndarray],
     split_name: str,
     shortlist_k: int,
+    fold_provenance: dict[str, Any] | None = None,
 ) -> dict[str, np.ndarray]:
     """Build complete cache for one split."""
     n = split_arrays["compact_preds"].shape[0]
@@ -375,6 +376,7 @@ def _build_cache_for_split(
     # Expert orderings (CSLS for shortlist construction)
     compact_order, compact_gt_rank = _gt_rank_from_scores(scores["compact_csls"])
     legacy_order, legacy_gt_rank = _gt_rank_from_scores(scores["legacy_csls"])
+    top1_disagree = float(np.mean(compact_order[:, 0] != legacy_order[:, 0]))
 
     # Build union shortlists
     shortlists, sizes, sources = _build_union_shortlist(compact_order, legacy_order, shortlist_k)
@@ -391,6 +393,18 @@ def _build_cache_for_split(
     kappas = split_arrays.get("compact_kappas")
     features = _extract_candidate_features(scores, shortlists, sizes, sources, kappas)
     logger.info("  Feature matrix: %s (%.1f MB)", features.shape, features.nbytes / 1e6)
+
+    valid_mask = shortlists >= 0
+    denom = float(np.maximum(valid_mask.sum(), 1))
+    source_compact_only = float((sources[:, :, 0] & ~sources[:, :, 1] & valid_mask).sum() / denom)
+    source_legacy_only = float((~sources[:, :, 0] & sources[:, :, 1] & valid_mask).sum() / denom)
+    source_both = float((sources[:, :, 0] & sources[:, :, 1] & valid_mask).sum() / denom)
+
+    valid_feats = features[valid_mask]
+    feat_var = valid_feats.var(axis=0)
+    low_var = [FEATURE_NAMES[i] for i, v in enumerate(feat_var.tolist()) if float(v) < 1e-8]
+    if low_var:
+        logger.warning("  Near-zero variance features (%d): %s", len(low_var), low_var)
 
     # Baselines
     compact_csls_r1 = float(np.mean(compact_gt_rank <= 1))
@@ -421,7 +435,20 @@ def _build_cache_for_split(
         "feature_names": FEATURE_NAMES,
         "compact_csls_r1": compact_csls_r1,
         "legacy_csls_r1": legacy_csls_r1,
+        "top1_disagree_fraction": top1_disagree,
+        "source_membership_rate": {
+            "compact_only": source_compact_only,
+            "legacy_only": source_legacy_only,
+            "both": source_both,
+        },
+        "feature_variance": {
+            name: float(var)
+            for name, var in zip(FEATURE_NAMES, feat_var.tolist())
+        },
+        "near_zero_variance_features": low_var,
     }
+    if fold_provenance is not None:
+        metadata["fold_provenance"] = fold_provenance
     cache["metadata_json"] = np.array([json.dumps(metadata)], dtype=object)
 
     return cache
@@ -448,6 +475,36 @@ def main() -> None:
         choices=["train", "val", "shared1000"],
         help="Which splits to build caches for (default: val shared1000)",
     )
+    parser.add_argument(
+        "--train-tri-metrics-dir",
+        type=str,
+        default=None,
+        help="Optional override metrics dir for TRAIN tri arrays (e.g. fold-merged OOF metrics)",
+    )
+    parser.add_argument(
+        "--train-legacy-metrics-dir",
+        type=str,
+        default=None,
+        help="Optional override metrics dir for TRAIN legacy arrays (e.g. fold-merged OOF metrics)",
+    )
+    parser.add_argument(
+        "--train-split-prefix",
+        type=str,
+        default="train",
+        help="Split prefix to load when split=train (default: train; use train_oof for OOF)",
+    )
+    parser.add_argument(
+        "--train-cache-name",
+        type=str,
+        default="train",
+        help="Cache split name to write for train inputs (default: train; use train_oof for OOF)",
+    )
+    parser.add_argument(
+        "--fold-provenance-json",
+        type=str,
+        default=None,
+        help="Optional JSON provenance to embed in TRAIN cache metadata",
+    )
     args = parser.parse_args()
 
     tri_results_dir = Path(args.tri_results_dir)
@@ -463,6 +520,22 @@ def main() -> None:
     tri_metrics = tri_results_dir / "metrics"
     legacy_metrics = legacy_results_dir / "metrics"
 
+    train_tri_metrics = Path(args.train_tri_metrics_dir) if args.train_tri_metrics_dir else tri_metrics
+    train_legacy_metrics = Path(args.train_legacy_metrics_dir) if args.train_legacy_metrics_dir else legacy_metrics
+    if "train" in args.splits:
+        if not train_tri_metrics.exists():
+            raise FileNotFoundError(f"TRAIN tri metrics dir not found: {train_tri_metrics}")
+        if not train_legacy_metrics.exists():
+            raise FileNotFoundError(f"TRAIN legacy metrics dir not found: {train_legacy_metrics}")
+
+    fold_provenance = None
+    if args.fold_provenance_json:
+        fp = Path(args.fold_provenance_json)
+        if not fp.exists():
+            raise FileNotFoundError(f"fold provenance JSON not found: {fp}")
+        with open(fp) as f:
+            fold_provenance = json.load(f)
+
     cache_dir = tri_results_dir / "cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -471,8 +544,16 @@ def main() -> None:
     for split_name in args.splits:
         logger.info("=== Processing %s split ===", split_name.upper())
 
+        split_prefix = split_name
+        tri_metrics_for_split = tri_metrics
+        legacy_metrics_for_split = legacy_metrics
+        if split_name == "train":
+            split_prefix = args.train_split_prefix
+            tri_metrics_for_split = train_tri_metrics
+            legacy_metrics_for_split = train_legacy_metrics
+
         try:
-            tri_split = _load_tri_split(tri_metrics, split_name)
+            tri_split = _load_tri_split(tri_metrics_for_split, split_prefix)
         except FileNotFoundError as e:
             logger.warning("Skipping %s: %s", split_name, e)
             continue
@@ -480,7 +561,7 @@ def main() -> None:
         ref = val_tri if val_tri is not None else None
         try:
             legacy_split = _load_legacy_split(
-                legacy_metrics, legacy_results_dir, split_name, reference_split=ref
+                legacy_metrics_for_split, legacy_results_dir, split_prefix, reference_split=ref
             )
         except FileNotFoundError as e:
             logger.warning("Skipping %s: %s", split_name, e)
@@ -490,14 +571,20 @@ def main() -> None:
             val_tri = tri_split
 
         aligned = _align_common_ids(tri_split, legacy_split, split_name)
-        cache = _build_cache_for_split(aligned, split_name, args.shortlist_k)
+        cache_name = args.train_cache_name if split_name == "train" else split_name
+        cache = _build_cache_for_split(
+            aligned,
+            cache_name,
+            args.shortlist_k,
+            fold_provenance=fold_provenance if split_name == "train" else None,
+        )
 
-        out_path = cache_dir / f"union_shortlist_{split_name}_k{args.shortlist_k}.npz"
+        out_path = cache_dir / f"union_shortlist_{cache_name}_k{args.shortlist_k}.npz"
         np.savez_compressed(out_path, **{k: v for k, v in cache.items() if k != "metadata_json"})
 
         # Save metadata separately as JSON for easy inspection
         meta = json.loads(cache["metadata_json"][0])
-        meta_path = cache_dir / f"union_shortlist_{split_name}_k{args.shortlist_k}_meta.json"
+        meta_path = cache_dir / f"union_shortlist_{cache_name}_k{args.shortlist_k}_meta.json"
         _save_json(meta_path, meta)
 
         logger.info("Saved cache to %s (%.1f MB)", out_path, out_path.stat().st_size / 1e6)

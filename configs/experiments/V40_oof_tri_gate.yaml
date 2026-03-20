@@ -1,0 +1,64 @@
+# V40: OOF Tri-Gate / Union-Shortlist Reranker
+#
+# Documentation config for the OOF train/eval-mismatch fix.
+# This is a post-hoc pipeline (not directly consumed by train_unified.py).
+#
+# Core idea:
+# - Train fold checkpoints on fold-train IDs only
+# - Predict only fold-holdout IDs
+# - Merge holdout predictions into train_oof_* arrays
+# - Build union shortlist cache from train_oof + val + shared1000
+# - Train lightweight candidate reranker on train_oof cache
+
+experiment:
+  name: "V40_oof_tri_gate"
+  description: "OOF-trained union-shortlist reranker to remove train/eval mismatch"
+  tags: ["v40", "oof", "tri_gate", "union_shortlist", "reranker", "post_hoc"]
+  parent: "V39_union_shortlist_residual_reranker"
+  type: "post_hoc_evaluation"
+
+experts:
+  tri:
+    base_results_dir: "experimental_results/V35_legacy_teacher_distill/subj01"
+    required_outputs:
+      - "train_oof_predictions_compact.npy"
+      - "train_oof_ground_truth_compact.npy"
+      - "train_oof_nsd_ids.npy"
+  legacy:
+    base_results_dir: "experimental_results/N1v28a_dual_head/subj01"
+    required_outputs:
+      - "train_oof_predictions_compact.npy"
+      - "train_oof_ground_truth_compact.npy"
+      - "train_oof_nsd_ids.npy"
+
+folding:
+  num_folds: 5
+  seed: 42
+  holdout_split_name: "val"
+  merged_train_prefix: "train_oof"
+
+shortlist:
+  k: 100
+  train_cache_name: "train_oof"
+  val_cache_name: "val"
+  shared_cache_name: "shared1000"
+
+reranker:
+  architecture: "candidate_mlp"
+  hidden_dim: 64
+  num_layers: 2
+  dropout: 0.1
+
+training:
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  max_epochs: 200
+  patience: 30
+  batch_size: 256
+  seed: 42
+
+success_criteria:
+  real_win: "shared1000 R@1 >= 78.5% and >= +1.0pp over fixed tri-fusion"
+  major_win: "shared1000 R@1 >= 82%"
+  negative: "shared1000 R@1 <= 77.2%"
+  practical_default_if_negative: "fixed tri-fusion remains final practical system"

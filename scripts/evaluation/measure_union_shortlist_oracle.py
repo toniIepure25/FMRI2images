@@ -231,8 +231,26 @@ def main() -> None:
         "--splits",
         nargs="+",
         default=["val", "shared1000"],
-        choices=["val", "shared1000"],
+        choices=["train", "val", "shared1000"],
         help="Which splits to audit (default: val shared1000)",
+    )
+    parser.add_argument(
+        "--train-tri-metrics-dir",
+        type=str,
+        default=None,
+        help="Optional tri metrics dir override for train split (e.g. merged OOF metrics)",
+    )
+    parser.add_argument(
+        "--train-legacy-metrics-dir",
+        type=str,
+        default=None,
+        help="Optional legacy metrics dir override for train split (e.g. merged OOF metrics)",
+    )
+    parser.add_argument(
+        "--train-split-prefix",
+        type=str,
+        default="train",
+        help="Split prefix for train split (default: train; use train_oof for OOF)",
     )
     args = parser.parse_args()
 
@@ -258,8 +276,24 @@ def main() -> None:
     diagnostics_dir = tri_results_dir / "diagnostics"
     diagnostics_dir.mkdir(parents=True, exist_ok=True)
 
+    train_tri_metrics = Path(args.train_tri_metrics_dir) if args.train_tri_metrics_dir else tri_metrics
+    train_legacy_metrics = Path(args.train_legacy_metrics_dir) if args.train_legacy_metrics_dir else legacy_metrics
+
     # Load splits
     all_results: dict[str, Any] = {"splits": {}}
+
+    if "train" in args.splits:
+        logger.info("Loading TRAIN split...")
+        train_tri = _load_tri_split(train_tri_metrics, args.train_split_prefix)
+        train_legacy = _load_legacy_split(
+            train_legacy_metrics,
+            legacy_results_dir,
+            args.train_split_prefix,
+            reference_split=None,
+        )
+        train_aligned = _align_common_ids(train_tri, train_legacy, "train")
+        train_results = _run_audit_for_split(train_aligned, "train", include_rerank=args.include_rerank)
+        all_results["splits"]["train"] = train_results
 
     val_tri, val_legacy, val_aligned = None, None, None
     if "val" in args.splits:

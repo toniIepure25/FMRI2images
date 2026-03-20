@@ -214,21 +214,26 @@ def main() -> None:
     from fmri2img.models.unified_model import UnifiedModel
 
     input_dim = features.shape[1]
-    model_type = config.get("model", {}).get("type", "vmf")
+    model_cfg = config.get("model", {})
+    model_type = model_cfg.get("type", "vmf")
+
+    # Inject input_dim into encoder config so UnifiedModel can build the encoder
+    model_cfg.setdefault("encoder", {})["input_dim"] = input_dim
 
     # Infer head dimensions from state_dict for vmf_triple
     if model_type == "vmf_triple":
-        decoder_cfg = config.get("model", {}).get("decoder", {})
+        decoder_cfg = model_cfg.get("decoder", {})
         rich_dim = _infer_dim_from_state_dict(state_dict, "regression_head")
         rerank_dim = _infer_dim_from_state_dict(state_dict, "rerank_head")
         if rich_dim:
             decoder_cfg["rich_target_dim"] = rich_dim
         if rerank_dim:
             decoder_cfg["rerank_dim"] = rerank_dim
-        config.setdefault("model", {})["decoder"] = decoder_cfg
+        model_cfg["decoder"] = decoder_cfg
         logger.info("vmf_triple: rich_dim=%s, rerank_dim=%s", rich_dim, rerank_dim)
 
-    model = UnifiedModel(config, input_dim=input_dim)
+    config["model"] = model_cfg
+    model = UnifiedModel(model_cfg)
     missing, unexpected = model.load_state_dict(state_dict, strict=False)
     if missing:
         logger.warning("Missing keys (%d): %s...", len(missing), missing[:3])

@@ -142,10 +142,19 @@ def main() -> None:
             trial_indices = np.array(split_info["val_indices"])
     elif "train_nsd_ids" in split_info:
         # Image-level split: map nsd_ids back to trial indices
+        # split.json may use 0-indexed nsd_ids while trial_meta uses 1-indexed;
+        # detect and correct the offset automatically.
         if args.split == "train":
-            split_nsd_set = set(split_info["train_nsd_ids"])
+            split_nsd_list = split_info["train_nsd_ids"]
         else:
-            split_nsd_set = set(split_info["val_nsd_ids"])
+            split_nsd_list = split_info["val_nsd_ids"]
+        split_nsd_set = set(split_nsd_list)
+        meta_nsd_set = set(int(x) for x in nsd_ids_all)
+        raw_overlap = len(split_nsd_set & meta_nsd_set)
+        plus1_overlap = len(set(x + 1 for x in split_nsd_set) & meta_nsd_set)
+        if plus1_overlap > raw_overlap * 2:
+            logger.info("Detected 0-indexed split nsd_ids vs 1-indexed trial_meta — applying +1 offset")
+            split_nsd_set = set(x + 1 for x in split_nsd_list)
         trial_indices = np.array([i for i, nid in enumerate(nsd_ids_all)
                                   if int(nid) in split_nsd_set])
     else:
@@ -202,11 +211,18 @@ def main() -> None:
     logger.info("CLIP cache: %d rows, columns: %s", len(clip_df), list(clip_df.columns)[:5])
 
     # Build nsdId -> embedding lookup
-    if emb_col not in clip_df.columns and "fused" in clip_df.columns:
-        emb_col = "fused"
-    elif emb_col not in clip_df.columns:
-        emb_col = "embedding"
-    clip_lookup = {row["nsdId"]: np.asarray(row[emb_col], dtype=np.float32)
+    # Resolve column: try config's embedding_column, then common fallbacks
+    _col_priority = [emb_col, "fused", "final", "embedding", "layer_12_proj",
+                     "layer_18_proj", "layer_12"]
+    resolved_col = None
+    for col in _col_priority:
+        if col in clip_df.columns:
+            resolved_col = col
+            break
+    if resolved_col is None:
+        raise KeyError(f"No embedding column found. Columns: {clip_df.columns.tolist()}")
+    logger.info("Using CLIP column: %s", resolved_col)
+    clip_lookup = {row["nsdId"]: np.asarray(row[resolved_col], dtype=np.float32)
                    for _, row in clip_df.iterrows()}
     del clip_df
 

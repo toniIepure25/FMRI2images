@@ -104,18 +104,34 @@ def main() -> None:
         split_info = json.load(f)
     logger.info("Loaded split from %s", split_path)
 
-    # Load the index CSV/parquet to get per-trial nsdIds
-    index_path = Path(f"cache/preproc/subject={args.subject}/index.parquet")
-    if not index_path.exists():
-        index_path = Path(f"cache/preproc/subject={args.subject}/index.csv")
-    if index_path.exists():
-        if str(index_path).endswith(".parquet"):
-            index_df = pd.read_parquet(index_path)
-        else:
-            index_df = pd.read_csv(index_path)
-        nsd_ids_all = index_df["nsdId"].values
+    # Load the trial metadata to get per-trial nsdIds
+    # Try multiple known locations
+    index_candidates = [
+        Path(f"cache/preextracted/subject={args.subject}/trial_meta.parquet"),
+        Path(f"cache/preproc/subject={args.subject}/index.parquet"),
+        Path(f"cache/preproc/subject={args.subject}/index.csv"),
+    ]
+    index_path = None
+    for p in index_candidates:
+        if p.exists():
+            index_path = p
+            break
+    if index_path is None:
+        raise FileNotFoundError(
+            f"Trial metadata not found. Tried: {[str(p) for p in index_candidates]}"
+        )
+    if str(index_path).endswith(".parquet"):
+        index_df = pd.read_parquet(index_path)
     else:
-        raise FileNotFoundError(f"Index not found: {index_path}")
+        index_df = pd.read_csv(index_path)
+    # Column might be nsdId or nsd_id
+    if "nsdId" in index_df.columns:
+        nsd_ids_all = index_df["nsdId"].values
+    elif "nsd_id" in index_df.columns:
+        nsd_ids_all = index_df["nsd_id"].values
+    else:
+        raise KeyError(f"No nsdId column found. Columns: {index_df.columns.tolist()}")
+    logger.info("Trial metadata: %s from %s", index_df.shape, index_path)
 
     # split.json may have trial-level indices OR image-level nsd_ids
     if "train_indices" in split_info:

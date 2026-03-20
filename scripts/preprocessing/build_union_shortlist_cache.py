@@ -229,10 +229,15 @@ FEATURE_NAMES = [
 ]
 
 
-def _build_labels(shortlists: np.ndarray, n: int) -> np.ndarray:
-    """Build binary labels: 1 if candidate == query index (GT), else 0."""
-    gt_ids = np.arange(n)[:, None]
-    labels = (shortlists == gt_ids).astype(np.int8)
+def _build_labels(shortlists: np.ndarray, gt_gallery_indices: np.ndarray) -> np.ndarray:
+    """Build binary labels: 1 if candidate == query's GT gallery index, else 0.
+
+    Args:
+        shortlists: (N, max_size) gallery indices per candidate
+        gt_gallery_indices: (N,) the GT gallery index for each query
+            (for position-aligned splits this is just arange(N))
+    """
+    labels = (shortlists == gt_gallery_indices[:, None]).astype(np.int8)
     return labels
 
 
@@ -256,8 +261,9 @@ def _build_cache_for_split(
     logger.info("  Union sizes: mean=%.1f, median=%.1f, max=%d",
                 np.mean(sizes), np.median(sizes), np.max(sizes))
 
-    # Labels
-    labels = _build_labels(shortlists, n)
+    # Labels — GT for query i is gallery index i (position-aligned splits)
+    gt_gallery_indices = np.arange(n, dtype=np.int32)
+    labels = _build_labels(shortlists, gt_gallery_indices)
     gt_in_union = float(np.any(labels == 1, axis=1).mean())
     logger.info("  GT in union: %.1f%%", gt_in_union * 100)
 
@@ -278,6 +284,7 @@ def _build_cache_for_split(
         "shortlists": shortlists,       # (N, max_size) int32, gallery indices
         "sizes": sizes,                 # (N,) int32
         "sources": sources,             # (N, max_size, 2) bool
+        "gt_gallery_indices": gt_gallery_indices,  # (N,) int32, GT gallery idx per query
     }
     if nsd_ids is not None:
         cache["nsd_ids"] = nsd_ids.astype(np.int32)

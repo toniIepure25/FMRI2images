@@ -94,6 +94,12 @@ class UnionShortlistDataset(torch.utils.data.Dataset):
         self.shortlists = cache["shortlists"]
         self.sizes = cache["sizes"]
         self.mask = torch.from_numpy(cache["shortlists"] >= 0)
+        # GT gallery index for each query (for correct evaluation after splits)
+        if "gt_gallery_indices" in cache:
+            self.gt_gallery_indices = cache["gt_gallery_indices"].astype(np.int32)
+        else:
+            # Backward compat: assume position-aligned (query i -> gallery i)
+            self.gt_gallery_indices = np.arange(len(self.features), dtype=np.int32)
 
     def __len__(self) -> int:
         return self.features.shape[0]
@@ -133,6 +139,7 @@ def _evaluate_reranker(
     # Rerank: for each query, pick the candidate with the highest logit
     labels = dataset.labels.numpy()
     has_gt = labels.any(axis=1)  # (N,) which queries have GT in shortlist
+    gt_gallery_indices = dataset.gt_gallery_indices  # (N,) correct GT gallery idx
 
     # Compute GT rank after reranking
     gt_ranks = np.full(n, n, dtype=np.int32)  # default: worst possible rank
@@ -141,8 +148,7 @@ def _evaluate_reranker(
         valid_logits = all_logits[i, :sizes[i]]
         order = np.argsort(-valid_logits)
         reranked = valid[order]
-        # GT for query i is gallery index i
-        gt_pos = np.where(reranked == i)[0]
+        gt_pos = np.where(reranked == gt_gallery_indices[i])[0]
         if len(gt_pos) > 0:
             gt_ranks[i] = int(gt_pos[0]) + 1
         # If GT not in shortlist, rank stays at n
@@ -168,10 +174,15 @@ def _evaluate_baselines_from_cache(
 ) -> dict[str, dict[str, float]]:
     """Compute baseline metrics directly from cached features."""
     features = cache["features"]     # (N, max_size, F)
-    labels = cache["labels"]         # (N, max_size)
     shortlists = cache["shortlists"] # (N, max_size)
     sizes = cache["sizes"]           # (N,)
     n = features.shape[0]
+
+    # GT gallery index for each query
+    if "gt_gallery_indices" in cache:
+        gt_gallery_indices = cache["gt_gallery_indices"].astype(np.int32)
+    else:
+        gt_gallery_indices = np.arange(n, dtype=np.int32)
 
     baselines = {}
     # Feature indices (from FEATURE_NAMES in build_union_shortlist_cache.py)
@@ -191,7 +202,7 @@ def _evaluate_baselines_from_cache(
             valid_scores = local_scores[i, :sizes[i]]
             order = np.argsort(-valid_scores)
             reranked = valid[order]
-            gt_pos = np.where(reranked == i)[0]
+            gt_pos = np.where(reranked == gt_gallery_indices[i])[0]
             if len(gt_pos) > 0:
                 gt_ranks[i] = int(gt_pos[0]) + 1
         baselines[name] = _metrics_from_gt_rank(gt_ranks)
@@ -486,6 +497,11 @@ def main() -> None:
         logger.info("No train cache found. Splitting val cache 80/20 for train/val...")
         full_cache = _load_cache(val_cache_path)
         n_full = full_cache["features"].shape[0]
+
+        # Ensure gt_gallery_indices exists before splitting
+        if "gt_gallery_indices" not in full_cache:
+            full_cache["gt_gallery_indices"] = np.arange(n_full, dtype=np.int32)
+
         rng = np.random.RandomState(args.seed)
         perm = rng.permutation(n_full)
         n_train = int(0.8 * n_full)

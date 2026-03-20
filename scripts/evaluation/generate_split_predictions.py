@@ -104,15 +104,7 @@ def main() -> None:
         split_info = json.load(f)
     logger.info("Loaded split from %s", split_path)
 
-    # split.json has train_indices and val_indices (trial-level, into 30000 rows)
-    if args.split == "train":
-        trial_indices = np.array(split_info["train_indices"])
-    else:
-        trial_indices = np.array(split_info["val_indices"])
-    logger.info("Split '%s': %d trials", args.split, len(trial_indices))
-
-    # Get nsdIds for these trials
-    # Load the index CSV/parquet
+    # Load the index CSV/parquet to get per-trial nsdIds
     index_path = Path(f"cache/preproc/subject={args.subject}/index.parquet")
     if not index_path.exists():
         index_path = Path(f"cache/preproc/subject={args.subject}/index.csv")
@@ -124,6 +116,26 @@ def main() -> None:
         nsd_ids_all = index_df["nsdId"].values
     else:
         raise FileNotFoundError(f"Index not found: {index_path}")
+
+    # split.json may have trial-level indices OR image-level nsd_ids
+    if "train_indices" in split_info:
+        # Direct trial indices
+        if args.split == "train":
+            trial_indices = np.array(split_info["train_indices"])
+        else:
+            trial_indices = np.array(split_info["val_indices"])
+    elif "train_nsd_ids" in split_info:
+        # Image-level split: map nsd_ids back to trial indices
+        if args.split == "train":
+            split_nsd_set = set(split_info["train_nsd_ids"])
+        else:
+            split_nsd_set = set(split_info["val_nsd_ids"])
+        trial_indices = np.array([i for i, nid in enumerate(nsd_ids_all)
+                                  if int(nid) in split_nsd_set])
+    else:
+        raise KeyError(f"Unrecognized split.json format. Keys: {list(split_info.keys())}")
+
+    logger.info("Split '%s': %d trials", args.split, len(trial_indices))
 
     nsd_ids = nsd_ids_all[trial_indices]
     features = all_features[trial_indices]

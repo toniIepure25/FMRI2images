@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
-"""Generate predictions for a specific split (train/val/shared1000) from a saved checkpoint.
+"""Generate compact (768-D) predictions for a data split from a saved checkpoint.
 
-This script loads a trained model checkpoint and runs inference on the requested
-data split, saving predictions in the same format as train_unified.py's
-post-training prediction saving. Useful for generating train-split predictions
-needed by V39 union-shortlist reranker.
+Lightweight inference-only script for V39 reranker cache building.
+Loads fMRI features directly and applies z-scoring manually — does NOT
+require token caches, rerank caches, or pretrained model inits.
+
+Memory: ~4 GB (model ~2GB + features ~2GB). Safe on shared H100.
+
+Saves: {prefix}_predictions_compact.npy, {prefix}_ground_truth_compact.npy,
+       {prefix}_kappas.npy, {prefix}_nsd_ids.npy
 
 Usage:
-    # Generate train predictions for V35 triple-head model
     python scripts/evaluation/generate_split_predictions.py \
-        --config configs/experiments/V38_legacy_compact_distill.yaml \
         --checkpoint experimental_results/V35_legacy_teacher_distill/subj01/checkpoint_best.pt \
-        --output-dir experimental_results/V35_legacy_teacher_distill/subj01 \
         --split train --subject subj01
 
-    # Generate train predictions for N1v28a legacy model
     python scripts/evaluation/generate_split_predictions.py \
-        --config configs/experiments/N1v28a_dual_head.yaml \
-        --checkpoint experimental_results/N1v28a_dual_head/subj01/checkpoint_best.pt \
+        --checkpoint /home/jovyan/local-data/experiment_archive/N1v28a_dual_head/subj01/checkpoint_best.pt \
         --output-dir experimental_results/N1v28a_dual_head/subj01 \
         --split train --subject subj01
 """
@@ -29,277 +28,263 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Any
 
 import numpy as np
+import pandas as pd
 import torch
-import yaml
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-
-def _load_config(config_path: Path) -> dict[str, Any]:
-    """Load YAML config."""
-    with open(config_path) as f:
-        return yaml.safe_load(f)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
 
 
-def _build_model(config: dict, input_dim: int, device: str) -> torch.nn.Module:
-    """Build model from config."""
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
-    from fmri2img.models.unified_model import UnifiedModel
-
-    model = UnifiedModel(config, input_dim=input_dim)
-    model = model.to(device)
-    model.eval()
-    return model
-
-
-def _load_dataset(config: dict, subject: str, split: str):
-    """Load dataset for the requested split.
-
-    Returns:
-        dataset: PyTorch dataset
-        nsd_ids: (N,) array of nsd_ids per trial (for image-level averaging)
-        index_df: DataFrame with trial metadata
-    """
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
-    from fmri2img.data.preextracted_dataset import PreextractedNSDDataset
-
-    data_cfg = config.get("data", {})
-
-    # Build dataset
-    dataset = PreextractedNSDDataset(
-        subject=subject,
-        embedding_column=data_cfg.get("embedding_column", "embedding"),
-        split_by_image=data_cfg.get("split_by_image", True),
-        exclude_shared1000=data_cfg.get("exclude_shared1000", True),
-        val_fraction=data_cfg.get("val_fraction", 0.1),
-        seed=data_cfg.get("seed", 42),
-        average_repetitions=data_cfg.get("average_repetitions", False),
-    )
-
-    # Get train or val subset
-    if split == "train":
-        indices = dataset.train_indices
-    elif split == "val":
-        indices = dataset.val_indices
-    else:
-        raise ValueError(f"Unsupported split: {split}. Use 'train' or 'val'.")
-
-    subset = torch.utils.data.Subset(dataset, indices)
-    nsd_ids = dataset.index_df.iloc[list(indices)]["nsdId"].values
-
-    return subset, nsd_ids, dataset
+def _infer_dim_from_state_dict(state_dict: dict, pattern: str) -> int | None:
+    """Find output dim of a linear layer matching pattern."""
+    for key, tensor in state_dict.items():
+        if pattern in key and key.endswith(".weight"):
+            return tensor.shape[0]
+    return None
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate predictions for a data split from a saved checkpoint"
+        description="Generate compact predictions for a data split"
     )
-    parser.add_argument("--config", type=str, required=True,
-                        help="Path to experiment YAML config")
-    parser.add_argument("--checkpoint", type=str, required=True,
-                        help="Path to checkpoint_best.pt")
-    parser.add_argument("--output-dir", type=str, required=True,
-                        help="Output directory (e.g. experimental_results/V35/subj01)")
-    parser.add_argument("--split", type=str, default="train",
-                        choices=["train", "val"],
-                        help="Which split to generate predictions for")
-    parser.add_argument("--subject", type=str, default="subj01",
-                        help="Subject ID")
-    parser.add_argument("--batch-size", type=int, default=64,
-                        help="Inference batch size")
-    parser.add_argument("--device", type=str, default="cuda",
-                        help="Device (cuda or cpu)")
+    parser.add_argument("--checkpoint", type=str, required=True)
+    parser.add_argument("--output-dir", type=str, default=None,
+                        help="Output dir (default: parent of checkpoint)")
+    parser.add_argument("--split", type=str, default="train", choices=["train", "val"])
+    parser.add_argument("--subject", type=str, default="subj01")
+    parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--device", type=str, default="cuda")
     args = parser.parse_args()
 
-    config = _load_config(Path(args.config))
-    output_dir = Path(args.output_dir)
+    ckpt_path = Path(args.checkpoint)
+    if not ckpt_path.exists():
+        raise FileNotFoundError(f"Checkpoint not found: {ckpt_path}")
+
+    # Output dir: default to checkpoint's parent (experimental_results/EXP/SUBJ/)
+    if args.output_dir:
+        output_dir = Path(args.output_dir)
+    else:
+        output_dir = ckpt_path.parent
     metrics_dir = output_dir / "metrics"
     metrics_dir.mkdir(parents=True, exist_ok=True)
 
     device = args.device if torch.cuda.is_available() else "cpu"
-    logger.info("Device: %s", device)
 
-    # Load dataset
-    logger.info("Loading %s split for %s...", args.split, args.subject)
-    dataset, nsd_ids, full_dataset = _load_dataset(config, args.subject, args.split)
-    logger.info("Dataset: %d trials", len(dataset))
+    # ── 1. Load checkpoint ───────────────────────────────────────────────
+    logger.info("Loading checkpoint: %s", ckpt_path)
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    config = ckpt.get("config", {})
+    state_dict = ckpt["model_state_dict"]
+    logger.info("Epoch: %s", ckpt.get("epoch", "?"))
 
-    # Determine input dim
-    sample = dataset[0]
-    if isinstance(sample, dict):
-        input_dim = sample["fmri"].shape[0]
+    # ── 2. Load fMRI features ────────────────────────────────────────────
+    features_path = Path(f"cache/preextracted/subject={args.subject}/fmri_features.npy")
+    if not features_path.exists():
+        raise FileNotFoundError(f"fMRI features not found: {features_path}")
+    all_features = np.load(features_path)  # (30000, ~15724)
+    logger.info("fMRI features: %s (%.1f GB)", all_features.shape,
+                all_features.nbytes / 1e9)
+
+    # ── 3. Load index and split ──────────────────────────────────────────
+    # Use the experiment's split.json to get the exact same train/val split
+    split_path = output_dir / "split.json"
+    if not split_path.exists():
+        # Try checkpoint's parent
+        split_path = ckpt_path.parent / "split.json"
+    if not split_path.exists():
+        raise FileNotFoundError(
+            f"split.json not found in {output_dir} or {ckpt_path.parent}. "
+            "Cannot determine train/val split."
+        )
+    with open(split_path) as f:
+        split_info = json.load(f)
+    logger.info("Loaded split from %s", split_path)
+
+    # split.json has train_indices and val_indices (trial-level, into 30000 rows)
+    if args.split == "train":
+        trial_indices = np.array(split_info["train_indices"])
     else:
-        input_dim = sample[0].shape[0]
-    logger.info("Input dim: %d", input_dim)
+        trial_indices = np.array(split_info["val_indices"])
+    logger.info("Split '%s': %d trials", args.split, len(trial_indices))
 
-    # Build model
-    model = _build_model(config, input_dim, device)
-    model_type = getattr(model, "model_type", "deterministic")
-    logger.info("Model type: %s", model_type)
+    # Get nsdIds for these trials
+    # Load the index CSV/parquet
+    index_path = Path(f"cache/preproc/subject={args.subject}/index.parquet")
+    if not index_path.exists():
+        index_path = Path(f"cache/preproc/subject={args.subject}/index.csv")
+    if index_path.exists():
+        if str(index_path).endswith(".parquet"):
+            index_df = pd.read_parquet(index_path)
+        else:
+            index_df = pd.read_csv(index_path)
+        nsd_ids_all = index_df["nsdId"].values
+    else:
+        raise FileNotFoundError(f"Index not found: {index_path}")
 
-    # Load checkpoint
-    ckpt_path = Path(args.checkpoint)
-    if not ckpt_path.exists():
-        raise FileNotFoundError(f"Checkpoint not found: {ckpt_path}")
-    ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
-    model.load_state_dict(ckpt["model_state_dict"])
-    logger.info("Loaded checkpoint from epoch %d", ckpt.get("epoch", -1))
+    nsd_ids = nsd_ids_all[trial_indices]
+    features = all_features[trial_indices]
+    del all_features  # Free memory
 
-    # Apply z-scoring if configured
-    zscore_mode = config.get("data", {}).get("zscore_mode", None)
-    normalize_fmri = config.get("data", {}).get("normalize_fmri", False)
-    zscore_stats_path = output_dir / "zscore_stats"
+    # ── 4. Apply z-scoring ───────────────────────────────────────────────
+    zscore_stats_dir = output_dir / "zscore_stats"
+    if not zscore_stats_dir.exists():
+        zscore_stats_dir = ckpt_path.parent / "zscore_stats"
 
-    # DataLoader
-    loader = torch.utils.data.DataLoader(
-        dataset, batch_size=args.batch_size, shuffle=False,
-        num_workers=0, pin_memory=True,
-    )
+    if zscore_stats_dir.exists():
+        # Determine which session each trial belongs to
+        if "session" in index_df.columns:
+            sessions = index_df["session"].values[trial_indices]
+        elif "sessionId" in index_df.columns:
+            sessions = index_df["sessionId"].values[trial_indices]
+        else:
+            sessions = None
 
-    # Run inference
-    logger.info("Running inference on %s split (%d batches)...", args.split, len(loader))
-    all_preds = []
-    all_gts = []
-    all_kappas = []
-    all_rich_preds = []
-    all_rich_gts = []
-    all_rerank_preds = []
-    all_rerank_gts = []
+        if sessions is not None:
+            unique_sessions = np.unique(sessions)
+            applied = 0
+            for sess in unique_sessions:
+                mean_path = zscore_stats_dir / f"session_{sess}_mean.npy"
+                std_path = zscore_stats_dir / f"session_{sess}_std.npy"
+                if mean_path.exists() and std_path.exists():
+                    mean = np.load(mean_path)
+                    std = np.load(std_path)
+                    std = np.where(std < 1e-6, 1.0, std)
+                    mask = sessions == sess
+                    features[mask] = (features[mask] - mean) / std
+                    applied += 1
+            logger.info("Applied z-scoring for %d/%d sessions", applied, len(unique_sessions))
+        else:
+            logger.warning("No session column found — skipping z-scoring")
+    else:
+        logger.warning("No zscore_stats directory found — skipping z-scoring")
 
+    # ── 5. Load CLIP embeddings (768-D GT) ───────────────────────────────
+    emb_col = config.get("data", {}).get("embedding_column", "embedding")
+    clip_path = Path("outputs/clip_cache/clip_multilayer.parquet")
+    if not clip_path.exists():
+        clip_path = Path("outputs/clip_cache/clip.parquet")
+    if not clip_path.exists():
+        raise FileNotFoundError("CLIP cache not found")
+
+    clip_df = pd.read_parquet(clip_path)
+    logger.info("CLIP cache: %d rows, columns: %s", len(clip_df), list(clip_df.columns)[:5])
+
+    # Build nsdId -> embedding lookup
+    if emb_col not in clip_df.columns and "fused" in clip_df.columns:
+        emb_col = "fused"
+    elif emb_col not in clip_df.columns:
+        emb_col = "embedding"
+    clip_lookup = {row["nsdId"]: np.asarray(row[emb_col], dtype=np.float32)
+                   for _, row in clip_df.iterrows()}
+    del clip_df
+
+    # ── 6. Build model ───────────────────────────────────────────────────
+    from fmri2img.models.unified_model import UnifiedModel
+
+    input_dim = features.shape[1]
+    model_type = config.get("model", {}).get("type", "vmf")
+
+    # Infer head dimensions from state_dict for vmf_triple
+    if model_type == "vmf_triple":
+        decoder_cfg = config.get("model", {}).get("decoder", {})
+        rich_dim = _infer_dim_from_state_dict(state_dict, "regression_head")
+        rerank_dim = _infer_dim_from_state_dict(state_dict, "rerank_head")
+        if rich_dim:
+            decoder_cfg["rich_target_dim"] = rich_dim
+        if rerank_dim:
+            decoder_cfg["rerank_dim"] = rerank_dim
+        config.setdefault("model", {})["decoder"] = decoder_cfg
+        logger.info("vmf_triple: rich_dim=%s, rerank_dim=%s", rich_dim, rerank_dim)
+
+    model = UnifiedModel(config, input_dim=input_dim)
+    missing, unexpected = model.load_state_dict(state_dict, strict=False)
+    if missing:
+        logger.warning("Missing keys (%d): %s...", len(missing), missing[:3])
+    if unexpected:
+        logger.warning("Unexpected keys (%d): %s...", len(unexpected), unexpected[:3])
+    model = model.to(device)
     model.eval()
-    with torch.no_grad():
-        for batch_idx, batch in enumerate(loader):
-            if isinstance(batch, dict):
-                fmri = batch["fmri"].to(device, dtype=torch.float32)
-                gt = batch["embedding"].numpy() if "embedding" in batch else None
-            elif isinstance(batch, (list, tuple)):
-                fmri = batch[0].to(device, dtype=torch.float32)
-                gt = batch[1].numpy() if len(batch) > 1 else None
-            else:
-                fmri = batch.to(device, dtype=torch.float32)
-                gt = None
+    n_params = sum(p.numel() for p in model.parameters())
+    logger.info("Model: %s, %dM params", model_type, n_params // 1_000_000)
 
-            output = model(fmri)
+    # ── 7. Run inference ─────────────────────────────────────────────────
+    n_trials = len(features)
+    bs = args.batch_size
+    all_preds = []
+    all_kappas = []
+
+    logger.info("Running inference: %d trials, batch_size=%d", n_trials, bs)
+    with torch.no_grad(), torch.amp.autocast(device_type="cuda", enabled=(device != "cpu"),
+                                              dtype=torch.bfloat16):
+        for start in range(0, n_trials, bs):
+            end = min(start + bs, n_trials)
+            fmri_batch = torch.from_numpy(features[start:end]).to(device, dtype=torch.float32)
+
+            output = model(fmri_batch)
 
             if isinstance(output, tuple):
-                pred = output[0]
+                pred = output[0]  # compact mu (768-D)
                 aux = output[1] if len(output) > 1 else {}
-
                 if isinstance(aux, dict):
                     kappa = aux.get("kappa", aux.get("concentration"))
                     if kappa is not None:
-                        all_kappas.append(kappa.squeeze(-1).cpu().numpy())
-
-                    # Rich/rerank predictions (vmf_triple)
-                    if "rich_pred" in aux:
-                        all_rich_preds.append(aux["rich_pred"].cpu().numpy())
-                    if "rich_gt" in aux:
-                        all_rich_gts.append(aux["rich_gt"].cpu().numpy())
-                    if "rerank_pred" in aux:
-                        all_rerank_preds.append(aux["rerank_pred"].cpu().numpy())
-                    if "rerank_gt" in aux:
-                        all_rerank_gts.append(aux["rerank_gt"].cpu().numpy())
+                        all_kappas.append(kappa.squeeze(-1).cpu().float().numpy())
                 elif torch.is_tensor(aux):
-                    all_kappas.append(aux.squeeze(-1).cpu().numpy())
+                    all_kappas.append(aux.squeeze(-1).cpu().float().numpy())
             else:
                 pred = output
 
-            all_preds.append(pred.cpu().numpy())
-            if gt is not None:
-                all_gts.append(gt)
+            all_preds.append(pred.cpu().float().numpy())
 
-            if (batch_idx + 1) % 50 == 0:
-                logger.info("  Batch %d/%d", batch_idx + 1, len(loader))
+            if (start // bs) % 100 == 0:
+                logger.info("  %d/%d trials", end, n_trials)
 
     preds = np.concatenate(all_preds)
-    gts = np.concatenate(all_gts) if all_gts else None
     kappas = np.concatenate(all_kappas) if all_kappas else None
-
     logger.info("Raw predictions: %s", preds.shape)
 
-    # Image-level averaging (dedup repetitions by nsdId)
-    unique_ids = np.unique(nsd_ids)
-    n_images = len(unique_ids)
-    logger.info("Unique images: %d (from %d trials)", n_images, len(nsd_ids))
+    # ── 8. Image-level averaging ─────────────────────────────────────────
+    unique_nsd = np.unique(nsd_ids)
+    n_images = len(unique_nsd)
+    emb_dim = preds.shape[1]
+    logger.info("Averaging: %d trials -> %d images", n_trials, n_images)
 
-    preds_img = np.zeros((n_images, preds.shape[1]), dtype=np.float32)
-    gts_img = np.zeros((n_images, gts.shape[1]), dtype=np.float32) if gts is not None else None
+    preds_img = np.zeros((n_images, emb_dim), dtype=np.float32)
+    gts_img = np.zeros((n_images, 768), dtype=np.float32)
     kappas_img = np.zeros(n_images, dtype=np.float32) if kappas is not None else None
 
-    for i, uid in enumerate(unique_ids):
-        mask = nsd_ids == uid
+    for i, nid in enumerate(unique_nsd):
+        mask = nsd_ids == nid
         preds_img[i] = preds[mask].mean(axis=0)
-        if gts is not None:
-            gts_img[i] = gts[mask][0]
+        if nid in clip_lookup:
+            gts_img[i] = clip_lookup[nid]
         if kappas is not None:
             kappas_img[i] = kappas[mask[:len(kappas)]].mean()
 
-    # L2-normalize after averaging
+    # L2-normalize
     nrm = np.linalg.norm(preds_img, axis=-1, keepdims=True)
     preds_img = preds_img / np.maximum(nrm, 1e-8)
 
+    # ── 9. Save ──────────────────────────────────────────────────────────
     prefix = args.split
 
-    # Save predictions
     np.save(metrics_dir / f"{prefix}_predictions.npy", preds_img)
-    logger.info("Saved %s predictions %s", prefix, preds_img.shape)
-
-    if gts_img is not None:
-        np.save(metrics_dir / f"{prefix}_ground_truth.npy", gts_img)
-        logger.info("Saved %s ground truth %s", prefix, gts_img.shape)
-
+    np.save(metrics_dir / f"{prefix}_predictions_compact.npy", preds_img)
+    np.save(metrics_dir / f"{prefix}_ground_truth.npy", gts_img)
+    np.save(metrics_dir / f"{prefix}_ground_truth_compact.npy", gts_img)
+    np.save(metrics_dir / f"{prefix}_nsd_ids.npy", unique_nsd)
     if kappas_img is not None:
         np.save(metrics_dir / f"{prefix}_kappas.npy", kappas_img)
-        logger.info("Saved %s kappas %s", prefix, kappas_img.shape)
 
-    # Save nsd_ids
-    np.save(metrics_dir / f"{prefix}_nsd_ids.npy", unique_ids)
-    logger.info("Saved %s nsd_ids %s", prefix, unique_ids.shape)
-
-    # vmf_triple: save compact/rerank/rich predictions
-    if model_type == "vmf_triple":
-        np.save(metrics_dir / f"{prefix}_predictions_compact.npy", preds_img)
-        np.save(metrics_dir / f"{prefix}_ground_truth_compact.npy", gts_img)
-        logger.info("Saved %s compact predictions (same as main) %s", prefix, preds_img.shape)
-
-        # Rich predictions
-        if all_rich_preds:
-            rich_preds = np.concatenate(all_rich_preds)
-            rich_gts = np.concatenate(all_rich_gts) if all_rich_gts else None
-            rp_img = np.zeros((n_images, rich_preds.shape[1]), dtype=np.float32)
-            rg_img = np.zeros((n_images, rich_gts.shape[1]), dtype=np.float32) if rich_gts is not None else None
-            for i, uid in enumerate(unique_ids):
-                mask = nsd_ids == uid
-                rp_img[i] = rich_preds[mask].mean(axis=0)
-                if rg_img is not None:
-                    rg_img[i] = rich_gts[mask][0]
-            np.save(metrics_dir / f"{prefix}_predictions_rich.npy", rp_img)
-            if rg_img is not None:
-                np.save(metrics_dir / f"{prefix}_ground_truth_rich.npy", rg_img)
-            logger.info("Saved %s rich predictions %s", prefix, rp_img.shape)
-
-        # Rerank predictions
-        if all_rerank_preds:
-            rerank_preds = np.concatenate(all_rerank_preds)
-            rerank_gts = np.concatenate(all_rerank_gts) if all_rerank_gts else None
-            rrp_img = np.zeros((n_images, rerank_preds.shape[1]), dtype=np.float32)
-            rrg_img = np.zeros((n_images, rerank_gts.shape[1]), dtype=np.float32) if rerank_gts is not None else None
-            for i, uid in enumerate(unique_ids):
-                mask = nsd_ids == uid
-                rrp_img[i] = rerank_preds[mask].mean(axis=0)
-                if rrg_img is not None:
-                    rrg_img[i] = rerank_gts[mask][0]
-            rrp_img = rrp_img / np.maximum(np.linalg.norm(rrp_img, axis=-1, keepdims=True), 1e-8)
-            np.save(metrics_dir / f"{prefix}_predictions_rerank.npy", rrp_img)
-            if rrg_img is not None:
-                np.save(metrics_dir / f"{prefix}_ground_truth_rerank.npy", rrg_img)
-            logger.info("Saved %s rerank predictions %s", prefix, rrp_img.shape)
-
-    logger.info("Done. All outputs in %s", metrics_dir)
+    # Sanity check
+    cos_sim = (preds_img * gts_img).sum(axis=-1).mean()
+    logger.info("Saved %d images to %s", n_images, metrics_dir)
+    logger.info("Sanity: mean_cos_sim=%.4f (expect ~0.4-0.5 for train)", cos_sim)
+    logger.info("Done.")
 
 
 if __name__ == "__main__":

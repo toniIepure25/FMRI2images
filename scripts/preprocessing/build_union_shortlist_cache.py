@@ -107,6 +107,33 @@ def _build_union_shortlist(
     return shortlists, sizes, sources
 
 
+def _safe_argmax(vals: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """argmax over axis=1, ignoring positions where mask is False.
+
+    Uses -inf masking so negative scores are handled correctly
+    (unlike vals * mask which treats 0 as > negative scores).
+    """
+    masked = np.where(mask, vals, -np.inf)
+    return np.argmax(masked, axis=1)
+
+
+def _shortlist_zscore(vals: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """Per-query z-score normalization within valid shortlist candidates."""
+    masked = np.where(mask, vals, np.nan)
+    mu = np.nanmean(masked, axis=1, keepdims=True)
+    sigma = np.nanstd(masked, axis=1, keepdims=True)
+    sigma = np.where(sigma < 1e-8, 1.0, sigma)
+    result = (vals - mu) / sigma
+    return np.where(mask, result, 0.0)
+
+
+def _shortlist_margin_to_top1(vals: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    """Per-candidate margin to the query's top-1 score."""
+    masked = np.where(mask, vals, -np.inf)
+    top1_score = np.max(masked, axis=1, keepdims=True)
+    return np.where(mask, vals - top1_score, 0.0)
+
+
 def _extract_candidate_features(
     scores: dict[str, np.ndarray],
     shortlists: np.ndarray,
@@ -123,9 +150,9 @@ def _extract_candidate_features(
     row_idx = np.arange(n)[:, None]
 
     # Gather local scores for each candidate in the shortlist
-    # For padded positions (-1), we index into the last column which is arbitrary
-    # but we'll mask them out later
+    # For padded positions (-1), we index into column 0 (arbitrary, masked later)
     safe_sl = np.where(shortlists >= 0, shortlists, 0)
+    mask = shortlists >= 0
 
     local_compact_raw = scores["compact_raw"][row_idx, safe_sl]
     local_compact_csls = scores["compact_csls"][row_idx, safe_sl]
@@ -133,98 +160,191 @@ def _extract_candidate_features(
     local_legacy_raw = scores["legacy_raw"][row_idx, safe_sl]
     local_legacy_csls = scores["legacy_csls"][row_idx, safe_sl]
 
-    # Ranks within shortlist (only among valid candidates)
-    # Mask invalid positions with -inf before ranking
-    mask = shortlists >= 0
+    # ── A. Raw ranks within shortlist (1-based) ──────────────────────
     def _local_rank(vals: np.ndarray) -> np.ndarray:
         masked = np.where(mask, vals, -np.inf)
         return _rank_within_shortlist(masked).astype(np.float32)
 
-    rank_compact_raw = _local_rank(local_compact_raw)
     rank_compact_csls = _local_rank(local_compact_csls)
-    rank_rerank = _local_rank(local_rerank)
-    rank_legacy_raw = _local_rank(local_legacy_raw)
     rank_legacy_csls = _local_rank(local_legacy_csls)
+    rank_rerank = _local_rank(local_rerank)
 
-    # Score differences
-    diff_compact_rerank = local_compact_csls - local_rerank
+    # ── B. Normalized ranks (rank / union_size per query) ────────────
+    sizes_2d = sizes[:, None].astype(np.float32)
+    rank_compact_csls_norm = rank_compact_csls / sizes_2d
+    rank_legacy_csls_norm = rank_legacy_csls / sizes_2d
+    rank_rerank_norm = rank_rerank / sizes_2d
+
+    # ── C. Reciprocal ranks: 1/(rank) ───────────────────────────────
+    rr_compact_csls = np.where(mask, 1.0 / np.maximum(rank_compact_csls, 1.0), 0.0)
+    rr_legacy_csls = np.where(mask, 1.0 / np.maximum(rank_legacy_csls, 1.0), 0.0)
+    rr_rerank = np.where(mask, 1.0 / np.maximum(rank_rerank, 1.0), 0.0)
+
+    # ── D. Score calibration: z-scores within shortlist ──────────────
+    zscore_compact_csls = _shortlist_zscore(local_compact_csls, mask)
+    zscore_legacy_csls = _shortlist_zscore(local_legacy_csls, mask)
+    zscore_rerank = _shortlist_zscore(local_rerank, mask)
+
+    # ── E. Margin to top-1 per expert ────────────────────────────────
+    margin_compact_csls = _shortlist_margin_to_top1(local_compact_csls, mask)
+    margin_legacy_csls = _shortlist_margin_to_top1(local_legacy_csls, mask)
+    margin_rerank = _shortlist_margin_to_top1(local_rerank, mask)
+
+    # ── F. Cross-expert score differences ────────────────────────────
     diff_compact_legacy = local_compact_csls - local_legacy_csls
+    diff_compact_rerank = local_compact_csls - local_rerank
     diff_rerank_legacy = local_rerank - local_legacy_csls
 
-    # Source flags
+    # ── G. Cross-expert rank differences (normalized) ────────────────
+    rank_gap_compact_legacy = (rank_compact_csls - rank_legacy_csls) / sizes_2d
+    rank_gap_compact_rerank = (rank_compact_csls - rank_rerank) / sizes_2d
+
+    # ── H. Source membership flags ───────────────────────────────────
     from_compact = sources[:, :, 0].astype(np.float32)
     from_legacy = sources[:, :, 1].astype(np.float32)
     from_both = (sources[:, :, 0] & sources[:, :, 1]).astype(np.float32)
+    compact_only = (sources[:, :, 0] & ~sources[:, :, 1]).astype(np.float32)
+    legacy_only = (~sources[:, :, 0] & sources[:, :, 1]).astype(np.float32)
 
-    # Position in shortlist (normalized)
-    pos = np.tile(np.arange(max_size, dtype=np.float32), (n, 1))
-    pos_norm = pos / max(max_size - 1, 1)
+    # ── I. Top-1 agreement/disagreement (FIX: use -inf masking) ──────
+    # BUG FIX: old code used `scores * mask` which fails when scores
+    # are negative (CSLS). Padded zeros beat negative valid scores.
+    compact_top1_pos = _safe_argmax(local_compact_csls, mask)
+    legacy_top1_pos = _safe_argmax(local_legacy_csls, mask)
+    rerank_top1_pos = _safe_argmax(local_rerank, mask)
 
-    # Per-query top-1 agreement features (broadcast to all candidates)
-    compact_top1 = np.argmax(local_compact_csls * mask, axis=1)
-    legacy_top1 = np.argmax(local_legacy_csls * mask, axis=1)
-    rerank_top1 = np.argmax(local_rerank * mask, axis=1)
-    agree_cl = np.repeat((compact_top1 == legacy_top1).astype(np.float32)[:, None], max_size, axis=1)
-    agree_cr = np.repeat((compact_top1 == rerank_top1).astype(np.float32)[:, None], max_size, axis=1)
+    # Per-query agreement (broadcast to all candidates)
+    agree_cl = (compact_top1_pos == legacy_top1_pos).astype(np.float32)
+    agree_cr = (compact_top1_pos == rerank_top1_pos).astype(np.float32)
+    agree_cl_bc = np.broadcast_to(agree_cl[:, None], (n, max_size)).copy()
+    agree_cr_bc = np.broadcast_to(agree_cr[:, None], (n, max_size)).copy()
 
-    # Top-1 indicator (is this candidate the top-1 for each expert?)
-    is_compact_top1 = (np.arange(max_size)[None, :] == compact_top1[:, None]).astype(np.float32)
-    is_legacy_top1 = (np.arange(max_size)[None, :] == legacy_top1[:, None]).astype(np.float32)
-    is_rerank_top1 = (np.arange(max_size)[None, :] == rerank_top1[:, None]).astype(np.float32)
+    # Per-candidate top-1 indicators
+    pos_range = np.arange(max_size)[None, :]
+    is_compact_top1 = (pos_range == compact_top1_pos[:, None]).astype(np.float32)
+    is_legacy_top1 = (pos_range == legacy_top1_pos[:, None]).astype(np.float32)
+    is_rerank_top1 = (pos_range == rerank_top1_pos[:, None]).astype(np.float32)
+    # Candidate is top-1 for BOTH compact and legacy
+    is_both_top1 = (is_compact_top1 * is_legacy_top1).astype(np.float32)
 
-    # Kappa feature (per-query, broadcast)
+    # ── J. Top-K indicators ─────────────────────────────────────────
+    is_compact_top5 = (rank_compact_csls <= 5).astype(np.float32)
+    is_legacy_top5 = (rank_legacy_csls <= 5).astype(np.float32)
+    is_compact_top10 = (rank_compact_csls <= 10).astype(np.float32)
+    is_legacy_top10 = (rank_legacy_csls <= 10).astype(np.float32)
+    in_both_top5 = (is_compact_top5 * is_legacy_top5).astype(np.float32)
+    in_both_top10 = (is_compact_top10 * is_legacy_top10).astype(np.float32)
+
+    # ── K. Kappa feature (per-query, broadcast) ─────────────────────
     if kappas is not None:
-        kappa_q = np.repeat(
+        kappa_q = np.broadcast_to(
             kappas.astype(np.float32).reshape(n, -1).mean(axis=1, keepdims=True),
-            max_size, axis=1,
-        )
+            (n, max_size),
+        ).copy()
     else:
         kappa_q = np.zeros((n, max_size), dtype=np.float32)
 
-    # Stack all features: (N, max_size, F)
+    # ── Stack all features: (N, max_size, F) ─────────────────────────
     feature_list = [
-        local_compact_raw,      # 0
-        local_compact_csls,     # 1
-        local_rerank,           # 2
-        local_legacy_raw,       # 3
-        local_legacy_csls,      # 4
-        rank_compact_raw,       # 5
-        rank_compact_csls,      # 6
-        rank_rerank,            # 7
-        rank_legacy_raw,        # 8
-        rank_legacy_csls,       # 9
-        diff_compact_rerank,    # 10
-        diff_compact_legacy,    # 11
-        diff_rerank_legacy,     # 12
-        from_compact,           # 13
-        from_legacy,            # 14
-        from_both,              # 15
-        pos_norm,               # 16
-        agree_cl,               # 17
-        agree_cr,               # 18
-        is_compact_top1,        # 19
-        is_legacy_top1,         # 20
-        is_rerank_top1,         # 21
-        kappa_q,                # 22
+        # Raw scores (5)
+        local_compact_raw,          # 0
+        local_compact_csls,         # 1
+        local_rerank,               # 2
+        local_legacy_raw,           # 3
+        local_legacy_csls,          # 4
+        # Normalized ranks (3)
+        rank_compact_csls_norm,     # 5
+        rank_legacy_csls_norm,      # 6
+        rank_rerank_norm,           # 7
+        # Reciprocal ranks (3)
+        rr_compact_csls,            # 8
+        rr_legacy_csls,             # 9
+        rr_rerank,                  # 10
+        # Z-scored shortlist scores (3)
+        zscore_compact_csls,        # 11
+        zscore_legacy_csls,         # 12
+        zscore_rerank,              # 13
+        # Margin to top-1 (3)
+        margin_compact_csls,        # 14
+        margin_legacy_csls,         # 15
+        margin_rerank,              # 16
+        # Cross-expert score diffs (3)
+        diff_compact_legacy,        # 17
+        diff_compact_rerank,        # 18
+        diff_rerank_legacy,         # 19
+        # Cross-expert rank gaps (2)
+        rank_gap_compact_legacy,    # 20
+        rank_gap_compact_rerank,    # 21
+        # Source flags (5)
+        from_compact,               # 22
+        from_legacy,                # 23
+        from_both,                  # 24
+        compact_only,               # 25
+        legacy_only,                # 26
+        # Agreement structure (6)
+        agree_cl_bc,                # 27  per-query: compact & legacy agree on top1?
+        agree_cr_bc,                # 28  per-query: compact & rerank agree on top1?
+        is_compact_top1,            # 29
+        is_legacy_top1,             # 30
+        is_rerank_top1,             # 31
+        is_both_top1,               # 32
+        # Top-K indicators (6)
+        is_compact_top5,            # 33
+        is_legacy_top5,             # 34
+        is_compact_top10,           # 35
+        is_legacy_top10,            # 36
+        in_both_top5,               # 37
+        in_both_top10,              # 38
+        # Query-level (1)
+        kappa_q,                    # 39
     ]
     features = np.stack(feature_list, axis=-1).astype(np.float32)
 
     # Zero out features for padded positions
     features[~mask] = 0.0
 
+    # ── Sanity checks ────────────────────────────────────────────────
+    # Top-1 flags should sum to exactly 1 per expert per query (among valid)
+    for name, indicator in [("compact", is_compact_top1), ("legacy", is_legacy_top1)]:
+        sums = (indicator * mask).sum(axis=1)
+        bad = (sums != 1.0).sum()
+        if bad > 0:
+            logger.warning("SANITY: %s_top1 flag sums != 1 for %d/%d queries", name, bad, n)
+
+    # Agreement should NOT be all-ones if oracle audit shows disagreement
+    agree_rate = agree_cl.mean()
+    logger.info("  Top-1 compact-legacy agreement: %.1f%% (expect ~45%% for val/shared1000)",
+                agree_rate * 100)
+
     return features
 
 
 FEATURE_NAMES = [
+    # Raw scores (5)
     "compact_raw_score", "compact_csls_score", "rerank_score",
     "legacy_raw_score", "legacy_csls_score",
-    "compact_raw_rank", "compact_csls_rank", "rerank_rank",
-    "legacy_raw_rank", "legacy_csls_rank",
-    "diff_compact_rerank", "diff_compact_legacy", "diff_rerank_legacy",
-    "from_compact", "from_legacy", "from_both",
-    "position_norm",
+    # Normalized ranks (3)
+    "compact_csls_rank_norm", "legacy_csls_rank_norm", "rerank_rank_norm",
+    # Reciprocal ranks (3)
+    "compact_csls_rr", "legacy_csls_rr", "rerank_rr",
+    # Z-scored shortlist scores (3)
+    "compact_csls_zscore", "legacy_csls_zscore", "rerank_zscore",
+    # Margin to top-1 (3)
+    "margin_compact_csls", "margin_legacy_csls", "margin_rerank",
+    # Cross-expert score diffs (3)
+    "diff_compact_legacy", "diff_compact_rerank", "diff_rerank_legacy",
+    # Cross-expert rank gaps (2)
+    "rank_gap_compact_legacy", "rank_gap_compact_rerank",
+    # Source flags (5)
+    "from_compact", "from_legacy", "from_both", "compact_only", "legacy_only",
+    # Agreement structure (6)
     "agree_compact_legacy_top1", "agree_compact_rerank_top1",
-    "is_compact_top1", "is_legacy_top1", "is_rerank_top1",
+    "is_compact_top1", "is_legacy_top1", "is_rerank_top1", "is_both_top1",
+    # Top-K indicators (6)
+    "is_compact_top5", "is_legacy_top5",
+    "is_compact_top10", "is_legacy_top10",
+    "in_both_top5", "in_both_top10",
+    # Query-level (1)
     "kappa_query",
 ]
 

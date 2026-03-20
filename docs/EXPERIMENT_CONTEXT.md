@@ -3262,21 +3262,49 @@ This gives ~10× more training data than V37, with proper train/val/test separat
 Union shortlist per query:
     top-K from compact CSLS ∪ top-K from legacy CSLS → ~120-180 candidates
 
-Per-candidate feature vector (23 features):
-    - 5 expert scores (compact raw, compact CSLS, rerank, legacy raw, legacy CSLS)
-    - 5 expert ranks (within shortlist)
-    - 3 score differences (compact-rerank, compact-legacy, rerank-legacy)
-    - 3 source flags (from_compact, from_legacy, from_both)
-    - 1 position norm
-    - 2 top-1 agreement flags (compact-legacy, compact-rerank)
-    - 3 top-1 indicators (is this the top-1 for each expert?)
-    - 1 kappa (query-level confidence)
+Per-candidate feature vector (40 features, post-audit repair):
+    Group 1 — Raw expert scores (5):
+        compact_raw, compact_csls, rerank, legacy_raw, legacy_csls
+
+    Group 2 — Expert ranks within shortlist (5):
+        rank_compact_raw, rank_compact_csls, rank_rerank, rank_legacy_raw, rank_legacy_csls
+
+    Group 3 — Normalized ranks (5):  rank / union_size
+    Group 4 — Reciprocal ranks (5):  1 / rank
+
+    Group 5 — Per-shortlist z-scored scores (3):
+        zscore_compact_csls, zscore_rerank, zscore_legacy_csls
+
+    Group 6 — Margin-to-top-1 features (3):
+        margin_compact_csls, margin_rerank, margin_legacy_csls
+
+    Group 7 — Score differences (3):
+        diff_compact_rerank, diff_compact_legacy, diff_rerank_legacy
+
+    Group 8 — Source flags (3):
+        from_compact, from_legacy, from_both
+        + compact_only / legacy_only indicators (2)
+
+    Group 9 — Top-K indicators (2):
+        is_top5_any_expert, is_top10_any_expert
+
+    Group 10 — Cross-expert rank gaps (2):
+        rank_gap_compact_legacy, rank_gap_compact_rerank
+
+    Group 11 — Top-1 agreement (2):
+        agree_compact_legacy_top1, agree_compact_rerank_top1
+
+    Group 12 — Top-1 indicators (4):
+        is_compact_top1, is_legacy_top1, is_rerank_top1, is_both_top1
+
+    Group 13 — Query-level (1):
+        position_norm
 
 Model: CandidateReranker
-    - Per-candidate shared MLP: [23 → 64 GELU → 64 GELU → 1]
+    - Per-candidate shared MLP: [40 → 64 GELU → 64 GELU → 1]
     - Masked softmax over valid shortlist positions
     - Shortlist cross-entropy loss
-    - ~4,300 parameters (vs. ~600M for main encoder)
+    - ~5,700 parameters (vs. ~600M for main encoder)
 ```
 
 ### 35.4 Pipeline
@@ -3324,15 +3352,95 @@ Phase 3: Train Reranker
 | File                                                            | Purpose                                      |
 | --------------------------------------------------------------- | -------------------------------------------- |
 | `scripts/evaluation/measure_union_shortlist_oracle.py`           | Phase 1: headroom audit                      |
-| `scripts/preprocessing/build_union_shortlist_cache.py`           | Phase 2: offline cache builder               |
+| `scripts/preprocessing/build_union_shortlist_cache.py`           | Phase 2: offline cache builder (repaired)    |
+| `scripts/evaluation/inspect_union_shortlist_cache.py`            | Phase 2b: cache diagnostics & feature audit  |
 | `src/fmri2img/models/union_shortlist_reranker.py`                | Phase 3: CandidateReranker model             |
-| `scripts/training/train_union_shortlist_reranker.py`             | Phase 4: training + evaluation               |
+| `scripts/training/train_union_shortlist_reranker.py`             | Phase 4: training + evaluation (with checks) |
 | `configs/experiments/V39_union_shortlist_residual_reranker.yaml` | Config (documentation, not train_unified.py)  |
 
-### 35.8 V39 Results
+### 35.8 V39 Audit (2026-03-21)
 
-_Pending — run on JupyterHub._
+#### 35.8.1 What Was Wrong
 
-### 35.9 Recommendation
+**CRITICAL BUG: `argmax(score * bool_mask)` with negative CSLS scores.**
 
-_Pending headroom audit and training results._
+The original cache builder computed top-1 agreement and top-1 indicator features using:
+```python
+top1_compact = np.argmax(compact_csls_scores * mask, axis=1)
+```
+CSLS scores are frequently **negative** (typical range: -0.3 to +0.1). Boolean `mask` converts to 0/1, so padding positions get value 0. When valid scores are negative, `argmax` selects the padded position (value 0) over the valid negative score. This caused:
+
+- `agree_compact_legacy_top1 ≈ 1.0` (both argmax pointed to same pad position)
+- All `is_*_top1` flags pointed to padded positions (position 0 or first pad)
+- All source membership features collapsed to constant 1.0
+
+This rendered 8 of 23 features **degenerate**, leaving the reranker with only raw scores and ranks — roughly equivalent to fixed fusion, explaining why it could not beat the baseline.
+
+The oracle audit (Phase 1) correctly showed **55% top-1 disagreement** and **100% oracle recall** because it used a different code path (`np.argsort`, not masked argmax). The cache builder was the sole location of the bug.
+
+#### 35.8.2 What Was Verified
+
+1. **Oracle headroom is real:** Union shortlist at K=100 contains the GT for 100% of queries. The top-1 experts disagree ~55% of the time. There is substantial room for a learned resolver.
+
+2. **Train/val/test separation works:** With proper train cache (8100 queries), the VAL-SHARED1000 gap dropped from 13.9pp (V37-style overfit) to 1.6pp. The overfitting problem from V37 is solved.
+
+3. **The "reranker doesn't work" conclusion was premature:** It was based on degenerate features, not a fundamental limitation of the approach.
+
+#### 35.8.3 What Was Fixed
+
+1. **Safe argmax with -inf masking:**
+   ```python
+   def _safe_argmax(vals, mask):
+       masked = np.where(mask, vals, -np.inf)
+       return np.argmax(masked, axis=1)
+   ```
+
+2. **Feature set expanded from 23 → 40 features** (see §35.3 for full list):
+   - Normalized ranks (rank / union_size) — scale-invariant
+   - Reciprocal ranks (1 / rank) — emphasizes top positions
+   - Per-shortlist z-scored scores — removes per-query score offset
+   - Margin-to-top-1 — how far is this candidate from the expert's best pick
+   - compact_only / legacy_only source flags — which expert uniquely contributed this candidate
+   - Top-5 / top-10 indicators — coarse position buckets
+   - Cross-expert rank gaps — how much do experts disagree on this candidate
+   - is_both_top1 — both experts agree this is #1
+
+3. **Train-time sanity checks added** to `train_union_shortlist_reranker.py`:
+   - Shape validation, NaN/Inf detection, multi-GT warnings
+   - Disagreement rate logging (expected ~50%, was ~0% before fix)
+   - Source membership logging (expected ~30% compact-only, was 0% before fix)
+
+4. **Cache inspection utility** created (`inspect_union_shortlist_cache.py`):
+   - Reports per-feature mean/std/min/max/constant-rate
+   - Flags CONSTANT and ZERO-VAR features
+   - Shows top-1 agreement/disagreement breakdown
+   - Verifies top-1 indicator sums (exactly 1.0 per query)
+
+#### 35.8.4 Pre-Retrain Results (Degenerate Features)
+
+| Metric          | compact_csls | legacy_csls | fused_0.3c_0.7l | reranker |
+| --------------- | ------------ | ----------- | ---------------- | -------- |
+| VAL R@1         | 64.0%        | 69.6%       | 77.6%            | 68.3%    |
+| SHARED1000 R@1  | 65.2%        | 70.1%       | 77.2%            | 69.9%    |
+
+The reranker could not beat `legacy_csls` alone because 8 of 23 features were constant.
+
+#### 35.8.5 Post-Repair Results
+
+_Pending — rebuild caches and retrain with repaired 40-feature set._
+
+### 35.9 Success Criteria (Post-Repair)
+
+| Outcome         | Threshold (SHARED1000 R@1)  | Interpretation                                          |
+| --------------- | --------------------------- | ------------------------------------------------------- |
+| Promising       | ≥ 78%                       | Beats fixed tri-fusion (77.2%), reranker adds value     |
+| Major win       | ≥ 82%                       | Candidate-level reranking is the right next direction   |
+| Negative        | < 75%                       | Reranker does not add value even with correct features  |
+
+If negative after repair: fixed tri-fusion (0.3c + 0.7l) should remain the final retrieval system. The residual reranker approach would be conclusively ruled out.
+
+If promising or better: investigate feature ablation (which feature groups contribute most) and consider adding embedding-derived features (e.g., cosine similarity between query fMRI embedding and candidate CLIP embedding).
+
+### 35.10 Recommendation
+
+_Pending post-repair results. The audit confirms the approach was never properly tested due to the argmax bug. A fair evaluation requires rebuilding caches with repaired features and retraining._

@@ -1,8 +1,24 @@
-# V39: Union-Shortlist Residual Reranker
+# V39: Union-Shortlist Residual Reranker (Repaired)
 #
 # This is NOT a training config for train_unified.py. V39 is a post-hoc
 # evaluation wave that trains a small candidate-level reranker over the
 # union shortlist of existing experts.
+#
+# V39 Audit (2026-03-21):
+#   CRITICAL BUG FOUND: top-1 agreement/disagreement features were computed
+#   using `argmax(score * bool_mask)` which fails for negative CSLS scores.
+#   Padded positions (value 0) beat valid negative scores, causing argmax to
+#   select pad positions. This made agree_cl ≈ 1.0 and all is_*_top1 flags
+#   point to the same padded position. Fixed with proper -inf masking.
+#
+#   Feature set expanded from 23 to 40 features with:
+#   - Normalized ranks (rank/union_size)
+#   - Reciprocal ranks (1/rank)
+#   - Per-shortlist z-scored scores
+#   - Margin-to-top-1 features
+#   - compact_only / legacy_only source flags
+#   - Top-5 / top-10 indicators
+#   - Cross-expert rank gap features
 #
 # Prerequisites:
 #   1. A trained triple-head model (V35/V36/V38) with saved predictions
@@ -10,16 +26,19 @@
 #   3. Pre-built union shortlist caches (from build_union_shortlist_cache.py)
 #
 # Run sequence:
-#   # Step 1: Build caches (on JupyterHub with predictions)
+#   # Step 0: Inspect existing caches (if any) to verify features
+#   python scripts/evaluation/inspect_union_shortlist_cache.py \
+#       experimental_results/V35_legacy_teacher_distill/subj01/cache/ --all
+#
+#   # Step 1: Rebuild caches with repaired features
 #   python scripts/preprocessing/build_union_shortlist_cache.py \
 #       experimental_results/V35_legacy_teacher_distill/subj01 \
 #       experimental_results/N1v28a_dual_head/subj01 \
-#       --shortlist-k 100 --splits val shared1000
+#       --shortlist-k 100 --splits train val shared1000
 #
-#   # Step 2: Headroom audit
-#   python scripts/evaluation/measure_union_shortlist_oracle.py \
-#       experimental_results/V35_legacy_teacher_distill/subj01 \
-#       experimental_results/N1v28a_dual_head/subj01
+#   # Step 2: Inspect rebuilt caches (verify disagree rate ~50%)
+#   python scripts/evaluation/inspect_union_shortlist_cache.py \
+#       experimental_results/V35_legacy_teacher_distill/subj01/cache/ --all
 #
 #   # Step 3: Train reranker
 #   python scripts/training/train_union_shortlist_reranker.py \
@@ -32,8 +51,8 @@
 
 experiment:
   name: "V39_union_shortlist_residual_reranker"
-  description: "V39: candidate-level residual reranker over union shortlist of compact + legacy experts"
-  tags: ["v39", "union_shortlist", "residual_reranker", "post_hoc", "candidate_level"]
+  description: "V39: candidate-level residual reranker over union shortlist of compact + legacy experts (repaired features)"
+  tags: ["v39", "union_shortlist", "residual_reranker", "post_hoc", "candidate_level", "repaired"]
   parent: "V35_legacy_teacher_distill"
   type: "post_hoc_evaluation"
 
@@ -49,7 +68,7 @@ experts:
     description: "Legacy N1v28a dual-head token-space expert"
   rerank:
     enabled: false
-    description: "Rerank expert (disabled — zero weight in best fixed tri-fusion)"
+    description: "Rerank expert (included in features but not in shortlist construction)"
 
 # Union shortlist
 shortlist:
@@ -79,11 +98,12 @@ evaluation:
   compare_against:
     - "compact_csls"
     - "legacy_csls"
-    - "two_expert_fused"
+    - "fused_0.3c_0.7l"
     - "fixed_tri_fusion"
 
 # Success criteria
 success_criteria:
-  promising: "shared1000 R@1 >= 78%"
+  promising: "shared1000 R@1 >= 78% (beats fixed tri-fusion 77.2%)"
   major_win: "shared1000 R@1 >= 82%"
-  failure: "shared1000 R@1 < 75%"
+  negative: "shared1000 R@1 < 75% — reranker does not add value"
+  conclusion_if_negative: "fixed tri-fusion should remain final system"

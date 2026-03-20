@@ -65,12 +65,73 @@ logger = logging.getLogger(__name__)
 
 
 def _load_cache(path: Path) -> dict[str, np.ndarray]:
-    """Load union shortlist cache .npz file."""
+    """Load union shortlist cache .npz file with validation."""
     if not path.exists():
         raise FileNotFoundError(f"Cache not found: {path}")
     data = dict(np.load(path, allow_pickle=True))
     logger.info("Loaded cache %s: features=%s, labels=%s",
                 path.name, data["features"].shape, data["labels"].shape)
+
+    # ── Fail-fast validation ─────────────────────────────────────────
+    features = data["features"]
+    labels = data["labels"]
+    shortlists = data["shortlists"]
+    sizes = data["sizes"]
+    n, max_size, f_dim = features.shape
+
+    # Shape consistency
+    assert labels.shape == (n, max_size), f"labels shape {labels.shape} != ({n}, {max_size})"
+    assert shortlists.shape == (n, max_size), f"shortlists shape mismatch"
+    assert sizes.shape == (n,), f"sizes shape mismatch"
+
+    # GT must be present in union for position-aligned splits
+    gt_per_query = labels.sum(axis=1)
+    gt_in_union_rate = (gt_per_query > 0).mean()
+    if gt_in_union_rate < 0.99:
+        logger.warning("CACHE WARNING: GT in union = %.1f%% (expected ~100%%)", gt_in_union_rate * 100)
+
+    # Labels must have exactly 1 positive per query (where GT is present)
+    multi_gt = (gt_per_query > 1).sum()
+    if multi_gt > 0:
+        raise ValueError(f"Cache has {multi_gt} queries with >1 GT candidate — labels are broken")
+
+    # Check for NaN/Inf in features
+    mask = shortlists >= 0
+    valid_features = features[mask]
+    if np.isnan(valid_features).any():
+        raise ValueError("Cache contains NaN features")
+    if np.isinf(valid_features).any():
+        raise ValueError("Cache contains Inf features")
+
+    # Diagnostic: expert disagreement rate
+    # Feature indices 29/30 are is_compact_top1/is_legacy_top1 in new format
+    # Feature indices 19/20 in old format — detect by feature dim
+    if f_dim >= 30:
+        # New feature format
+        compact_top1_idx, legacy_top1_idx = 29, 30
+        agree_idx = 27
+    elif f_dim == 23:
+        # Old feature format
+        compact_top1_idx, legacy_top1_idx = 19, 20
+        agree_idx = 17
+    else:
+        compact_top1_idx = legacy_top1_idx = agree_idx = None
+
+    if agree_idx is not None and agree_idx < f_dim:
+        agree_vals = features[:, 0, agree_idx]
+        disagree_rate = 1.0 - agree_vals.mean()
+        logger.info("  Expert disagreement rate: %.1f%%", disagree_rate * 100)
+
+    # Diagnostic: source membership
+    if "sources" in data:
+        sources = data["sources"]
+        c_only = (sources[:, :, 0] & ~sources[:, :, 1] & mask).sum()
+        l_only = (~sources[:, :, 0] & sources[:, :, 1] & mask).sum()
+        both = (sources[:, :, 0] & sources[:, :, 1] & mask).sum()
+        total = mask.sum()
+        logger.info("  Source: compact_only=%.1f%%, legacy_only=%.1f%%, both=%.1f%%",
+                     c_only / total * 100, l_only / total * 100, both / total * 100)
+
     return data
 
 
@@ -185,7 +246,7 @@ def _evaluate_baselines_from_cache(
         gt_gallery_indices = np.arange(n, dtype=np.int32)
 
     baselines = {}
-    # Feature indices (from FEATURE_NAMES in build_union_shortlist_cache.py)
+    # Feature indices 0-4 are raw scores in both old and new feature formats
     score_indices = {
         "compact_raw": 0,
         "compact_csls": 1,
@@ -194,8 +255,7 @@ def _evaluate_baselines_from_cache(
         "legacy_csls": 4,
     }
 
-    for name, feat_idx in score_indices.items():
-        local_scores = features[:, :, feat_idx]
+    def _rank_by_scores(local_scores: np.ndarray) -> np.ndarray:
         gt_ranks = np.full(n, n, dtype=np.int32)
         for i in range(n):
             valid = shortlists[i, :sizes[i]]
@@ -205,7 +265,17 @@ def _evaluate_baselines_from_cache(
             gt_pos = np.where(reranked == gt_gallery_indices[i])[0]
             if len(gt_pos) > 0:
                 gt_ranks[i] = int(gt_pos[0]) + 1
-        baselines[name] = _metrics_from_gt_rank(gt_ranks)
+        return gt_ranks
+
+    for name, feat_idx in score_indices.items():
+        baselines[name] = _metrics_from_gt_rank(_rank_by_scores(features[:, :, feat_idx]))
+
+    # Fixed tri-fusion baseline (α·compact_csls + β·legacy_csls within shortlist)
+    # Use the best weights from the sweep: typically legacy-heavy
+    for alpha, beta in [(0.0, 1.0), (0.3, 0.7), (0.5, 0.5)]:
+        fused = alpha * features[:, :, 1] + beta * features[:, :, 4]  # csls scores
+        label = f"fused_{alpha:.1f}c_{beta:.1f}l"
+        baselines[label] = _metrics_from_gt_rank(_rank_by_scores(fused))
 
     return baselines
 

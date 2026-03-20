@@ -3227,3 +3227,112 @@ Implementation note:
   - `diagnostics/tri_fusion_sweep_val.csv`
   - `metrics/val_tri_fused_metrics.json`
   - `metrics/shared1000_tri_fused_metrics.json`
+
+---
+
+## 35. V39: Union-Shortlist Residual Reranker
+
+### 35.1 Motivation
+
+By V38, the project established three key facts:
+
+1. **Fixed tri-fusion** of compact CSLS + legacy CSLS produces the best retrieval: VAL 77.6%, SHARED1000 77.2% R@1.
+2. The dominant complementarity is **compact + legacy** (rerank expert receives zero weight in the best fixed setting).
+3. A **learned global gate** (V37, `fit_tri_fusion_gate.py`) badly overfit: VAL 89.6% → SHARED1000 67.1%. The gate was trained on VAL only (~900 queries), with no proper train/val separation.
+
+The fundamental limitation of fixed score fusion (V34/V37) is that it applies the **same global weights** to every query. When compact and legacy experts disagree on a query, the fixed weights cannot resolve the disagreement — they simply average the conflict. A per-query, per-candidate resolver could do better.
+
+The fundamental limitation of the V37 learned gate was **overfitting**: training on ~900 VAL queries with 34 features per candidate produced a model that memorized VAL-specific patterns.
+
+### 35.2 V39 Hypothesis
+
+Train a small **candidate-level residual reranker** that:
+- Operates on the **union shortlist** of compact CSLS top-K and legacy CSLS top-K
+- Takes per-candidate features (expert scores, ranks, agreements, source flags)
+- Outputs one scalar per candidate, softmaxed over the shortlist
+- Is trained on the **training set** (~8000+ unique images), not VAL
+- Is validated on VAL (~900 images)
+- Is evaluated once on SHARED1000 (frozen)
+
+This gives ~10× more training data than V37, with proper train/val/test separation.
+
+### 35.3 Architecture
+
+```
+Union shortlist per query:
+    top-K from compact CSLS ∪ top-K from legacy CSLS → ~120-180 candidates
+
+Per-candidate feature vector (23 features):
+    - 5 expert scores (compact raw, compact CSLS, rerank, legacy raw, legacy CSLS)
+    - 5 expert ranks (within shortlist)
+    - 3 score differences (compact-rerank, compact-legacy, rerank-legacy)
+    - 3 source flags (from_compact, from_legacy, from_both)
+    - 1 position norm
+    - 2 top-1 agreement flags (compact-legacy, compact-rerank)
+    - 3 top-1 indicators (is this the top-1 for each expert?)
+    - 1 kappa (query-level confidence)
+
+Model: CandidateReranker
+    - Per-candidate shared MLP: [23 → 64 GELU → 64 GELU → 1]
+    - Masked softmax over valid shortlist positions
+    - Shortlist cross-entropy loss
+    - ~4,300 parameters (vs. ~600M for main encoder)
+```
+
+### 35.4 Pipeline
+
+```
+Phase 1: Headroom Audit
+    scripts/evaluation/measure_union_shortlist_oracle.py
+    → diagnostics/union_shortlist_oracle.json
+    → Measures union_oracle@K for K ∈ {25, 50, 100, 150, 200}
+
+Phase 2: Build Caches
+    scripts/preprocessing/build_union_shortlist_cache.py
+    → cache/union_shortlist_{split}_k{K}.npz
+    → Per-query: candidates, features (N, max_size, 23), labels, metadata
+
+Phase 3: Train Reranker
+    scripts/training/train_union_shortlist_reranker.py
+    → Train on train split, select on val, freeze, evaluate on shared1000
+    → diagnostics/v39_reranker_summary.json
+    → metrics/{val,shared1000}_v39_reranker_metrics.json
+```
+
+### 35.5 Key Design Decisions
+
+1. **Union shortlist, not compact-only shortlist.** Fixed tri-fusion already showed that legacy contributes unique correct candidates. The union shortlist captures these.
+
+2. **Train on training set, not VAL.** This is the critical fix over V37. The training set has ~8000+ images (after split), providing adequate data for a 4K-param model.
+
+3. **No embedding features.** The reranker sees only expert-derived scores and ranks, not raw embeddings. This prevents the reranker from becoming another (worse) embedding model and keeps it focused on resolving expert disagreements.
+
+4. **Candidate-level, not query-level.** Each candidate gets its own feature vector processed by a shared MLP. The model learns "what makes a candidate likely to be correct" rather than "what makes a query easy."
+
+5. **Residual decision model.** The reranker is explicitly designed to resolve the **residual disagreements** between experts, not to replace them. If experts agree, the reranker's job is trivial.
+
+### 35.6 Success Criteria
+
+| Outcome    | Threshold (SHARED1000 R@1) | Interpretation                                           |
+| ---------- | --------------------------- | -------------------------------------------------------- |
+| Failure    | < 75%                       | Reranker cannot beat fixed tri-fusion                    |
+| Promising  | 78-82%                      | Reranker resolves some expert disagreements              |
+| Major win  | ≥ 82%                       | Candidate-level reranking is the right next direction    |
+
+### 35.7 Files
+
+| File                                                            | Purpose                                      |
+| --------------------------------------------------------------- | -------------------------------------------- |
+| `scripts/evaluation/measure_union_shortlist_oracle.py`           | Phase 1: headroom audit                      |
+| `scripts/preprocessing/build_union_shortlist_cache.py`           | Phase 2: offline cache builder               |
+| `src/fmri2img/models/union_shortlist_reranker.py`                | Phase 3: CandidateReranker model             |
+| `scripts/training/train_union_shortlist_reranker.py`             | Phase 4: training + evaluation               |
+| `configs/experiments/V39_union_shortlist_residual_reranker.yaml` | Config (documentation, not train_unified.py)  |
+
+### 35.8 V39 Results
+
+_Pending — run on JupyterHub._
+
+### 35.9 Recommendation
+
+_Pending headroom audit and training results._

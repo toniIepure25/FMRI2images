@@ -1,0 +1,89 @@
+# V39: Union-Shortlist Residual Reranker
+#
+# This is NOT a training config for train_unified.py. V39 is a post-hoc
+# evaluation wave that trains a small candidate-level reranker over the
+# union shortlist of existing experts.
+#
+# Prerequisites:
+#   1. A trained triple-head model (V35/V36/V38) with saved predictions
+#   2. A trained legacy model (N1v28a) with saved predictions
+#   3. Pre-built union shortlist caches (from build_union_shortlist_cache.py)
+#
+# Run sequence:
+#   # Step 1: Build caches (on JupyterHub with predictions)
+#   python scripts/preprocessing/build_union_shortlist_cache.py \
+#       experimental_results/V35_legacy_teacher_distill/subj01 \
+#       experimental_results/N1v28a_dual_head/subj01 \
+#       --shortlist-k 100 --splits val shared1000
+#
+#   # Step 2: Headroom audit
+#   python scripts/evaluation/measure_union_shortlist_oracle.py \
+#       experimental_results/V35_legacy_teacher_distill/subj01 \
+#       experimental_results/N1v28a_dual_head/subj01
+#
+#   # Step 3: Train reranker
+#   python scripts/training/train_union_shortlist_reranker.py \
+#       experimental_results/V35_legacy_teacher_distill/subj01 \
+#       experimental_results/N1v28a_dual_head/subj01 \
+#       --shortlist-k 100
+#
+# This config exists for documentation purposes and to maintain the
+# experiment versioning convention.
+
+experiment:
+  name: "V39_union_shortlist_residual_reranker"
+  description: "V39: candidate-level residual reranker over union shortlist of compact + legacy experts"
+  tags: ["v39", "union_shortlist", "residual_reranker", "post_hoc", "candidate_level"]
+  parent: "V35_legacy_teacher_distill"
+  type: "post_hoc_evaluation"
+
+# Expert sources
+experts:
+  compact:
+    results_dir: "experimental_results/V35_legacy_teacher_distill/subj01"
+    score_type: "csls"
+    description: "Triple-head compact retrieval expert"
+  legacy:
+    results_dir: "experimental_results/N1v28a_dual_head/subj01"
+    score_type: "csls"
+    description: "Legacy N1v28a dual-head token-space expert"
+  rerank:
+    enabled: false
+    description: "Rerank expert (disabled — zero weight in best fixed tri-fusion)"
+
+# Union shortlist
+shortlist:
+  k: 100
+  sources: ["compact_csls", "legacy_csls"]
+
+# Reranker model
+reranker:
+  architecture: "candidate_mlp"
+  hidden_dim: 64
+  num_layers: 2
+  dropout: 0.1
+
+# Training
+training:
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  max_epochs: 200
+  patience: 30
+  batch_size: 256
+  seed: 42
+
+# Evaluation
+evaluation:
+  checkpoint_metric: "val_R@1"
+  eval_shared1000: true
+  compare_against:
+    - "compact_csls"
+    - "legacy_csls"
+    - "two_expert_fused"
+    - "fixed_tri_fusion"
+
+# Success criteria
+success_criteria:
+  promising: "shared1000 R@1 >= 78%"
+  major_win: "shared1000 R@1 >= 82%"
+  failure: "shared1000 R@1 < 75%"

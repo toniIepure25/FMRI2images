@@ -242,6 +242,11 @@ def main() -> None:
         raise KeyError("Invalid fold manifest: missing 'folds' or 'train_pool_nsd_ids'")
 
     fold_results_root = Path(args.fold_results_root)
+    if not fold_results_root.exists():
+        raise FileNotFoundError(
+            f"fold-results-root does not exist: {fold_results_root}. "
+            "Run fold predictions first or pass the correct --fold-results-root."
+        )
     fold_entries: list[dict[str, Any]] = []
 
     for fold in manifest["folds"]:
@@ -250,7 +255,16 @@ def main() -> None:
         fold_dir = fold_results_root / fold_dir_rel
         metrics_dir = fold_dir / args.metrics_subdir
         if not metrics_dir.exists():
-            raise FileNotFoundError(f"Fold metrics dir not found: {metrics_dir}")
+            nearby = sorted(p.name for p in fold_results_root.iterdir() if p.is_dir())[:20]
+            raise FileNotFoundError(
+                "Fold metrics dir not found: "
+                f"{metrics_dir}. "
+                "Expected per-fold outputs like "
+                f"{fold_results_root}/fold_00/{args.metrics_subdir}/val_*.npy. "
+                "Either generate fold-heldout predictions first, or pass the correct "
+                "--fold-results-root/--fold-dir-pattern/--metrics-subdir. "
+                f"Nearby dirs under fold-results-root: {nearby}"
+            )
 
         fold_entries.append(
             {

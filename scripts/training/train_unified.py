@@ -2997,6 +2997,9 @@ def main() -> None:
                         help="(deprecated) alias for --save-checkpoints none")
     parser.add_argument("--post-eval-shared1000-only", action="store_true",
                         help="Skip training and run shared1000 evaluation from a saved checkpoint")
+    parser.add_argument("--save-train-preds", action="store_true",
+                        help="Skip training; load best checkpoint and save train-split predictions "
+                             "(for V39 union-shortlist reranker)")
     args = parser.parse_args()
     if args.no_checkpoints:
         args.save_checkpoints = "none"
@@ -4190,6 +4193,142 @@ def main() -> None:
             retrieval_projector=_retrieval_projector,
             legacy_teacher_model=legacy_teacher_model,
         )
+        return
+
+    # --- Save train-split predictions (for V39 reranker cache building) ---
+    if args.save_train_preds:
+        _eval_ckpt_path = Path(args.resume) if args.resume else (output_dir / "checkpoint_best.pt")
+        if not _eval_ckpt_path.exists():
+            raise FileNotFoundError(
+                f"Checkpoint not found: {_eval_ckpt_path}"
+            )
+        _eval_ckpt = torch.load(_eval_ckpt_path, map_location=device, weights_only=False)
+        model.load_state_dict(_eval_ckpt["model_state_dict"])
+        logger.info(
+            "Loaded checkpoint for train prediction saving: %s (epoch=%s)",
+            _eval_ckpt_path, _eval_ckpt.get("epoch", "unknown"),
+        )
+        model.eval()
+
+        # Build train nsd_ids for image-level averaging
+        _train_nsd_ids = None
+        if hasattr(train_dataset, "indices") and hasattr(full_dataset, "index_df"):
+            _train_nsd_ids = full_dataset.index_df.iloc[list(train_dataset.indices)]["nsdId"].values
+
+        # Create non-shuffled train loader for deterministic predictions
+        _train_pred_loader = DataLoader(
+            train_dataset, batch_size=batch_size, shuffle=False,
+            num_workers=dl_workers, pin_memory=dl_pin,
+            collate_fn=_collate_fn,
+        )
+
+        # Run validate() on train set to get predictions
+        _train_metrics, _train_preds, _train_gts = validate(
+            model, _train_pred_loader, losses, loss_weights, device, preprocessor, queue,
+            vmf_is_log=_vmf_is_log,
+            current_epoch=_eval_ckpt.get("epoch", 0),
+            config_ref=config,
+            legacy_teacher_model=legacy_teacher_model,
+        )
+        _train_extras = _train_metrics.pop("_val_extras", {})
+
+        # Collect kappas
+        _save_model_type_tr = getattr(model, "model_type", "deterministic")
+        _train_kappas = None
+        if _save_model_type_tr in ("vmf", "vmf_dcf", "vmf_triple"):
+            _kappa_list_tr: list = []
+            with torch.no_grad():
+                for _sb in _train_pred_loader:
+                    if isinstance(_sb, dict):
+                        _s_fmri = _sb["fmri"].to(device, dtype=torch.float32)
+                        _s_sid = _sb.get("subject_id")
+                        if _s_sid is not None:
+                            _s_sid = _s_sid.to(device)
+                    else:
+                        _s_fmri = _sb[0].to(device, dtype=torch.float32)
+                        _s_sid = _sb[2].to(device) if _is_multi_subject and len(_sb) >= 3 else None
+                    _s_out = model(_s_fmri, subject_ids=_s_sid) if _s_sid is not None else model(_s_fmri)
+                    if isinstance(_s_out, tuple) and len(_s_out) >= 2:
+                        _s_aux = _s_out[1]
+                        if isinstance(_s_aux, dict):
+                            _s_k = _s_aux.get("kappa", _s_aux.get("concentration"))
+                        elif torch.is_tensor(_s_aux):
+                            _s_k = _s_aux
+                        else:
+                            _s_k = None
+                        if _s_k is not None:
+                            if _vmf_is_log:
+                                _s_k = _s_k.exp()
+                            _kappa_list_tr.append(_s_k.squeeze(-1).detach().cpu().numpy())
+            if _kappa_list_tr:
+                _train_kappas = np.concatenate(_kappa_list_tr)
+
+        # Image-level averaging
+        if _train_nsd_ids is not None:
+            _u_ids = np.unique(_train_nsd_ids)
+            _ip = np.zeros((len(_u_ids), _train_preds.shape[1]), dtype=np.float32)
+            _ig = np.zeros((len(_u_ids), _train_gts.shape[1]), dtype=np.float32)
+            _ik = np.zeros(len(_u_ids), dtype=np.float32) if _train_kappas is not None else None
+            for i, uid in enumerate(_u_ids):
+                _m = _train_nsd_ids == uid
+                _ip[i] = _train_preds[_m].mean(axis=0)
+                _ig[i] = _train_gts[_m][0]
+                if _ik is not None and _train_kappas is not None:
+                    _ik[i] = _train_kappas[_m[:len(_train_kappas)]].mean()
+            _nrm = np.linalg.norm(_ip, axis=-1, keepdims=True)
+            _train_preds = _ip / np.maximum(_nrm, 1e-8)
+            _train_gts = _ig
+            if _ik is not None:
+                _train_kappas = _ik
+            _train_nsd_ids_save = _u_ids
+        else:
+            _train_nsd_ids_save = None
+
+        # Save
+        _metrics_save_dir = output_dir / "metrics"
+        _metrics_save_dir.mkdir(parents=True, exist_ok=True)
+        np.save(_metrics_save_dir / "train_predictions.npy", _train_preds)
+        np.save(_metrics_save_dir / "train_ground_truth.npy", _train_gts)
+        logger.info("Saved train predictions %s and ground truth %s to %s",
+                     _train_preds.shape, _train_gts.shape, _metrics_save_dir)
+        if _train_kappas is not None:
+            np.save(_metrics_save_dir / "train_kappas.npy", _train_kappas)
+            logger.info("Saved train kappas %s", _train_kappas.shape)
+        if _train_nsd_ids_save is not None:
+            np.save(_metrics_save_dir / "train_nsd_ids.npy", _train_nsd_ids_save)
+            logger.info("Saved train nsd_ids %s", _train_nsd_ids_save.shape)
+
+        # vmf_triple: save compact/rerank/legacy variants
+        if _save_model_type_tr == "vmf_triple":
+            np.save(_metrics_save_dir / "train_predictions_compact.npy", _train_preds)
+            np.save(_metrics_save_dir / "train_ground_truth_compact.npy", _train_gts)
+            logger.info("Saved train compact predictions %s", _train_preds.shape)
+            for _extra_name, _pred_key, _gt_key in [
+                ("rich", "rich_preds", "rich_gts"),
+                ("legacy", "legacy_preds", "legacy_gts"),
+                ("rerank", "rerank_preds", "rerank_gts"),
+            ]:
+                if _pred_key in _train_extras:
+                    _ep = _train_extras[_pred_key]
+                    _eg = _train_extras.get(_gt_key)
+                    if _train_nsd_ids is not None:
+                        _u = np.unique(_train_nsd_ids)
+                        _ep_img = np.zeros((len(_u), _ep.shape[1]), dtype=np.float32)
+                        _eg_img = np.zeros((len(_u), _eg.shape[1]), dtype=np.float32) if _eg is not None else None
+                        for i, uid in enumerate(_u):
+                            _m = _train_nsd_ids == uid
+                            _ep_img[i] = _ep[_m].mean(axis=0)
+                            if _eg_img is not None:
+                                _eg_img[i] = _eg[_m][0]
+                        _ep, _eg = _ep_img, _eg_img
+                    if _extra_name in ("legacy", "rerank"):
+                        _ep = _ep / np.maximum(np.linalg.norm(_ep, axis=-1, keepdims=True), 1e-8)
+                    np.save(_metrics_save_dir / f"train_predictions_{_extra_name}.npy", _ep)
+                    if _eg is not None:
+                        np.save(_metrics_save_dir / f"train_ground_truth_{_extra_name}.npy", _eg)
+                    logger.info("Saved train %s predictions %s", _extra_name, _ep.shape)
+
+        logger.info("Train prediction saving complete.")
         return
 
     # --- MixCo config ---

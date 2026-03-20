@@ -134,6 +134,7 @@ def main() -> None:
     logger.info("Trial metadata: %s from %s", index_df.shape, index_path)
 
     # split.json may have trial-level indices OR image-level nsd_ids
+    nsd_id_offset = 0  # offset between trial_meta nsd_ids and CLIP/split nsd_ids
     if "train_indices" in split_info:
         # Direct trial indices
         if args.split == "train":
@@ -152,9 +153,11 @@ def main() -> None:
         meta_nsd_set = set(int(x) for x in nsd_ids_all)
         raw_overlap = len(split_nsd_set & meta_nsd_set)
         plus1_overlap = len(set(x + 1 for x in split_nsd_set) & meta_nsd_set)
+        nsd_id_offset = 0
         if plus1_overlap > raw_overlap * 2:
             logger.info("Detected 0-indexed split nsd_ids vs 1-indexed trial_meta — applying +1 offset")
             split_nsd_set = set(x + 1 for x in split_nsd_list)
+            nsd_id_offset = 1  # trial_meta is +1 relative to split/CLIP
         trial_indices = np.array([i for i, nid in enumerate(nsd_ids_all)
                                   if int(nid) in split_nsd_set])
     else:
@@ -162,7 +165,8 @@ def main() -> None:
 
     logger.info("Split '%s': %d trials", args.split, len(trial_indices))
 
-    nsd_ids = nsd_ids_all[trial_indices]
+    # Use canonical (0-indexed) nsd_ids matching CLIP cache and split.json
+    nsd_ids = nsd_ids_all[trial_indices] - nsd_id_offset
     features = all_features[trial_indices]
     del all_features  # Free memory
 

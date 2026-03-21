@@ -376,7 +376,11 @@ def run_diagnostics(results_dir: Path, metrics_dir: Path, split: str = "val"):
         print(f"  Tri-gated R@10:          {tri_gate_payload.get('R@10', 0.0):.1%}")
         print(f"  Tri-gated MedR / MRR:    {tri_gate_payload.get('median_rank', 0.0):.1f} / {tri_gate_payload.get('MRR', 0.0):.4f}")
         print(f"  Gain over compact CSLS:  {tri_gate_report.get('gain_over_compact_csls', 0.0) * 100:.1f} pp")
-        print(f"  Gain over fixed tri:     {tri_gate_report.get('gain_over_fixed_tri_fusion', 0.0) * 100:.1f} pp")
+        tri_gate_gain_vs_fixed = tri_gate_report.get('gain_over_fixed_tri_fusion')
+        if tri_gate_gain_vs_fixed is None:
+            print("  Gain over fixed tri:     n/a")
+        else:
+            print(f"  Gain over fixed tri:     {tri_gate_gain_vs_fixed * 100:.1f} pp")
         print(f"  Gain over 2-expert:      {tri_gate_report.get('gain_over_two_expert_fusion', 0.0) * 100:.1f} pp")
         report["tri_gated_retrieval"] = tri_gate_report
 

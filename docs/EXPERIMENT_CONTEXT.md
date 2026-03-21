@@ -3599,3 +3599,76 @@ python scripts/training/train_union_shortlist_reranker.py \
   - and >= +1.0pp over fixed tri-fusion (77.2%)
 - Major win: SHARED1000 R@1 >= 82%
 - Negative result: SHARED1000 R@1 <= 77.2% -> keep fixed tri-fusion as final practical system.
+
+## 37. Finalization Mode (Frozen Best System)
+
+### 37.1 Freeze Decision
+
+Major model iteration is now paused. The project enters **finalization mode** with a frozen production retrieval system built from:
+
+- **Tri/main results dir:** `experimental_results/V35_legacy_teacher_distill/subj01`
+- **Legacy results dir:** `experimental_results/N1v28a_dual_head/subj01`
+
+The production system is the **fixed tri-expert fusion** selected on VAL and frozen for SHARED1000.
+
+### 37.2 Frozen Production Recipe
+
+The canonical frozen setting is:
+
+- `compact_score: csls`
+- `legacy_score: csls`
+- `family: normalized_weighted`
+- `normalization: zscore`
+- `shortlist_k: 150`
+- `alpha / beta / gamma: 0.3 / 0.0 / 0.7`
+
+Confirmed production result:
+
+- **SHARED1000 R@1 = 77.2%**
+
+Interpretation:
+
+- the legacy `N1v28a` expert remains strongly complementary at inference time
+- the rerank expert is retained for compatibility and diagnostics, but receives zero weight in the best frozen tri-fusion setting
+- the best practical system is therefore **compact + legacy with frozen fixed fusion**, not another learned gate or another training wave
+
+### 37.3 Final Export Pipeline
+
+The repository now exposes a deterministic finalization/export path rather than another sweep:
+
+- `scripts/evaluation/final_best_system.py`
+  - loads the frozen tri-fusion setting from `diagnostics/tri_fusion_sweep.json`
+  - verifies that the saved best setting matches the production recipe above
+  - fail-fast checks the saved SHARED1000 result against the expected `77.2%`
+- `scripts/evaluation/export_final_best_system_bundle.py`
+  - exports the final metrics bundle and per-query prediction tables to `final_outputs/best_system/`
+- `scripts/evaluation/export_final_qualitatives.py`
+  - exports labeled qualitative retrieval panels, contact sheets, and retrieval-based reconstructions for VAL and SHARED1000
+
+### 37.4 Final Outputs
+
+The canonical thesis/presentation export directory is:
+
+- `final_outputs/best_system/`
+
+Expected outputs include:
+
+- `final_metrics_summary.json`
+- `final_metrics_summary.csv`
+- `per_query_val_predictions.csv`
+- `per_query_shared1000_predictions.csv`
+- `qualitatives/val/...`
+- `qualitatives/shared1000/...`
+- `qualitatives/contact_sheets/...`
+- `reconstructions/val/...`
+- `reconstructions/shared1000/...`
+- `README.md`
+
+### 37.5 Policy For Thesis Finalization
+
+- Do **not** start another model wave during finalization.
+- Do **not** silently resweep fusion weights during export.
+- Do **not** fall back to a worse retrieval system.
+- Prefer deterministic retrieval-based reconstruction exports over fragile generation paths.
+- Treat the frozen fixed tri-fusion system above as the reportable production system unless a future wave clearly and reproducibly exceeds it on SHARED1000.
+

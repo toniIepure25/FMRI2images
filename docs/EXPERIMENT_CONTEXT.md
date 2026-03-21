@@ -3672,3 +3672,23 @@ Expected outputs include:
 - Prefer deterministic retrieval-based reconstruction exports over fragile generation paths.
 - Treat the frozen fixed tri-fusion system above as the reportable production system unless a future wave clearly and reproducibly exceeds it on SHARED1000.
 
+### 37.6 Retrieval-Guided Diffusion Add-on
+
+A final qualitative appendix script now exists at `scripts/evaluation/export_diffusion_addon.py`.
+This add-on keeps the **frozen best retrieval system unchanged** and operates on only a small selected set of examples.
+
+Design:
+
+- selection is performed from the frozen fixed tri-fusion outputs
+- retrieval-only reconstruction is the fused top-1 retrieved image
+- the preferred refinement path is **Stable Diffusion img2img** driven by a fused top-k retrieval prototype
+- if diffusion dependencies are unavailable, the script falls back to a clearly labeled **heuristic retrieval-guided refinement**
+- outputs are saved under `final_outputs/diffusion_addon/` with selection tables, per-example metrics, figures, contact sheets, and a README
+
+Important policy:
+
+- this is **not** a new benchmark wave
+- this does **not** retrain the retrieval backbone
+- quantitative outputs from this script are **small-scale qualitative metrics only**
+- any fallback refinement must be described honestly as a heuristic, not as a diffusion result
+

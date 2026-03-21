@@ -43,6 +43,26 @@ def _save_yaml(path: Path, payload: dict[str, Any]) -> None:
         yaml.safe_dump(payload, f, sort_keys=False)
 
 
+def _path_remap(path_str: str, old_prefix: str | None, new_prefix: str | None) -> str:
+    if not old_prefix or not new_prefix:
+        return path_str
+    if path_str.startswith(old_prefix):
+        return new_prefix + path_str[len(old_prefix):]
+    return path_str
+
+
+def _validate_json_file(path: Path) -> None:
+    if not path.exists():
+        raise FileNotFoundError(f"Missing JSON file: {path}")
+    text = path.read_text().strip()
+    if not text:
+        raise ValueError(f"JSON file is empty: {path}")
+    try:
+        json.loads(text)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON in {path}: {e}") from e
+
+
 def _bool_env_default(val: bool) -> str:
     return "1" if val else "0"
 
@@ -96,6 +116,18 @@ def main() -> None:
         choices=["val", "train"],
         help="Which split to export from each fold (OOF should use val)",
     )
+    parser.add_argument(
+        "--checkpoint-path-old-prefix",
+        type=str,
+        default=None,
+        help="Optional old prefix for remapping checkpoint paths in config",
+    )
+    parser.add_argument(
+        "--checkpoint-path-new-prefix",
+        type=str,
+        default=None,
+        help="Optional new prefix for remapping checkpoint paths in config",
+    )
     args = parser.parse_args()
 
     base_config_path = Path(args.base_config)
@@ -110,6 +142,10 @@ def main() -> None:
     folds = manifest.get("folds")
     if not isinstance(folds, list) or not folds:
         raise ValueError("Manifest must contain non-empty list: folds")
+
+    # Preflight: fold split JSONs must all be present and valid.
+    for fold in folds:
+        _validate_json_file(Path(fold["split_json"]))
 
     generated_configs: list[dict[str, Any]] = []
 
@@ -127,6 +163,26 @@ def main() -> None:
         exp["name"] = exp_name
         data["subject"] = args.subject
         data["split_file"] = str(fold["split_json"])
+
+        # Optional checkpoint path remap for remote environments.
+        if "model" in cfg and isinstance(cfg["model"], dict):
+            pm = cfg["model"].get("pretrained_model_path")
+            if isinstance(pm, str):
+                cfg["model"]["pretrained_model_path"] = _path_remap(
+                    pm,
+                    args.checkpoint_path_old_prefix,
+                    args.checkpoint_path_new_prefix,
+                )
+        if "loss" in cfg and isinstance(cfg["loss"], dict):
+            ltd = cfg["loss"].get("legacy_teacher_distill")
+            if isinstance(ltd, dict):
+                tp = ltd.get("teacher_checkpoint_path")
+                if isinstance(tp, str):
+                    ltd["teacher_checkpoint_path"] = _path_remap(
+                        tp,
+                        args.checkpoint_path_old_prefix,
+                        args.checkpoint_path_new_prefix,
+                    )
 
         if args.disable_shared1000_eval:
             evaluation["eval_shared1000"] = False
@@ -191,6 +247,11 @@ def main() -> None:
         print(f"  fold {row['fold_index']:02d}: {row['config_path']}")
     print(f"Generated run script: {run_script_path}")
     print(f"Fold predictions root: {fold_preds_root}")
+    if args.checkpoint_path_old_prefix and args.checkpoint_path_new_prefix:
+        print(
+            "Checkpoint path remap enabled: "
+            f"{args.checkpoint_path_old_prefix} -> {args.checkpoint_path_new_prefix}"
+        )
 
 
 if __name__ == "__main__":

@@ -54,7 +54,9 @@ from sweep_tri_fusion_retrieval import (  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
 from fmri2img.models.union_shortlist_reranker import (  # noqa: E402
     CandidateReranker,
+    VMFEvidenceReranker,
     shortlist_cross_entropy,
+    shortlist_pairwise_margin_loss,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -72,6 +74,15 @@ def _load_cache(path: Path) -> dict[str, np.ndarray]:
     logger.info("Loaded cache %s: features=%s, labels=%s",
                 path.name, data["features"].shape, data["labels"].shape)
 
+    metadata = {}
+    meta_arr = data.get("metadata_json")
+    if meta_arr is not None and len(meta_arr) > 0:
+        try:
+            metadata = json.loads(str(meta_arr[0]))
+        except Exception as exc:
+            logger.warning("Failed to parse cache metadata_json from %s: %s", path, exc)
+    data["_metadata"] = metadata
+
     # ── Fail-fast validation ─────────────────────────────────────────
     features = data["features"]
     labels = data["labels"]
@@ -83,6 +94,10 @@ def _load_cache(path: Path) -> dict[str, np.ndarray]:
     assert labels.shape == (n, max_size), f"labels shape {labels.shape} != ({n}, {max_size})"
     assert shortlists.shape == (n, max_size), f"shortlists shape mismatch"
     assert sizes.shape == (n,), f"sizes shape mismatch"
+
+    nsd_ids = data.get("nsd_ids")
+    if nsd_ids is not None and np.unique(nsd_ids).shape[0] != nsd_ids.shape[0]:
+        raise ValueError(f"Cache has duplicate nsd_ids: {path}")
 
     # GT must be present in union for position-aligned splits
     gt_per_query = labels.sum(axis=1)
@@ -104,18 +119,12 @@ def _load_cache(path: Path) -> dict[str, np.ndarray]:
         raise ValueError("Cache contains Inf features")
 
     # Diagnostic: expert disagreement rate
-    # Feature indices 29/30 are is_compact_top1/is_legacy_top1 in new format
-    # Feature indices 19/20 in old format — detect by feature dim
     if f_dim >= 30:
-        # New feature format
-        compact_top1_idx, legacy_top1_idx = 29, 30
         agree_idx = 27
     elif f_dim == 23:
-        # Old feature format
-        compact_top1_idx, legacy_top1_idx = 19, 20
         agree_idx = 17
     else:
-        compact_top1_idx = legacy_top1_idx = agree_idx = None
+        agree_idx = None
 
     if agree_idx is not None and agree_idx < f_dim:
         agree_vals = features[:, 0, agree_idx]
@@ -128,7 +137,7 @@ def _load_cache(path: Path) -> dict[str, np.ndarray]:
         c_only = (sources[:, :, 0] & ~sources[:, :, 1] & mask).sum()
         l_only = (~sources[:, :, 0] & sources[:, :, 1] & mask).sum()
         both = (sources[:, :, 0] & sources[:, :, 1] & mask).sum()
-        total = mask.sum()
+        total = max(int(mask.sum()), 1)
         logger.info("  Source: compact_only=%.1f%%, legacy_only=%.1f%%, both=%.1f%%",
                      c_only / total * 100, l_only / total * 100, both / total * 100)
 
@@ -141,6 +150,32 @@ def _load_meta(path: Path) -> dict[str, Any]:
         raise FileNotFoundError(f"Metadata not found: {path}")
     with open(path) as f:
         return json.load(f)
+
+
+def _require_oof_cache_sanity(cache: dict[str, np.ndarray], cache_name: str) -> None:
+    """Fail fast on degenerate in-sample caches masquerading as OOF."""
+    meta = cache.get("_metadata", {}) or {}
+    if not str(cache_name).startswith("train_oof"):
+        return
+
+    nsd_ids = cache.get("nsd_ids")
+    if nsd_ids is not None and np.unique(nsd_ids).shape[0] != nsd_ids.shape[0]:
+        raise ValueError(f"{cache_name}: duplicate nsd_ids detected")
+
+    disagree = meta.get("top1_disagree_fraction")
+    compact_r1 = meta.get("compact_csls_r1")
+    legacy_r1 = meta.get("legacy_csls_r1")
+    if disagree is not None and float(disagree) < 0.20:
+        raise ValueError(
+            f"{cache_name}: expert disagreement is only {float(disagree)*100:.1f}% — "
+            "this looks in-sample rather than true OOF data"
+        )
+    if compact_r1 is not None and legacy_r1 is not None:
+        if float(compact_r1) > 0.98 and float(legacy_r1) > 0.98:
+            raise ValueError(
+                f"{cache_name}: compact_csls_r1={float(compact_r1):.3f} and "
+                f"legacy_csls_r1={float(legacy_r1):.3f}; expected a harder OOF cache"
+            )
 
 
 # ── Dataset helpers ────────────────────────────────────────────────────
@@ -177,7 +212,7 @@ class UnionShortlistDataset(torch.utils.data.Dataset):
 
 
 def _evaluate_reranker(
-    model: CandidateReranker,
+    model: nn.Module,
     dataset: UnionShortlistDataset,
     device: torch.device,
 ) -> dict[str, Any]:
@@ -298,6 +333,10 @@ def _train_reranker(
     eval_every: int = 5,
     seed: int = 42,
     device: torch.device | None = None,
+    model_family: str = "candidate_mlp",
+    pairwise_margin_weight: float = 0.0,
+    pairwise_margin: float = 0.2,
+    pairwise_hard_neg_k: int = 5,
 ) -> dict[str, Any]:
     """Train the reranker and return the best model + metrics."""
     if device is None:
@@ -306,16 +345,26 @@ def _train_reranker(
     torch.manual_seed(seed)
     np.random.seed(seed)
 
-    model = CandidateReranker(
-        input_dim=input_dim,
-        hidden_dim=hidden_dim,
-        num_layers=num_layers,
-        dropout=dropout,
-    ).to(device)
+    if model_family == "candidate_mlp":
+        model = CandidateReranker(
+            input_dim=input_dim,
+            hidden_dim=hidden_dim,
+            num_layers=num_layers,
+            dropout=dropout,
+        ).to(device)
+    elif model_family == "vmf_evidence":
+        model = VMFEvidenceReranker(
+            input_dim=input_dim,
+            hidden_dim=hidden_dim,
+            num_layers=num_layers,
+            dropout=dropout,
+        ).to(device)
+    else:
+        raise ValueError(f"Unknown model_family: {model_family}")
 
     n_params = sum(p.numel() for p in model.parameters())
-    logger.info("Reranker: %d parameters, hidden=%d, layers=%d, dropout=%.2f",
-                n_params, hidden_dim, num_layers, dropout)
+    logger.info("Reranker (%s): %d parameters, hidden=%d, layers=%d, dropout=%.2f, pairwise_w=%.3f",
+                model_family, n_params, hidden_dim, num_layers, dropout, pairwise_margin_weight)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs, eta_min=lr * 0.01)
@@ -354,7 +403,18 @@ def _train_reranker(
             mask = batch["mask"].to(device)
 
             logits = model(features, mask)
-            loss = shortlist_cross_entropy(logits, labels, mask)
+            ce_loss = shortlist_cross_entropy(logits, labels, mask)
+            loss = ce_loss
+            pairwise_loss = torch.tensor(0.0, device=device)
+            if pairwise_margin_weight > 0:
+                pairwise_loss = shortlist_pairwise_margin_loss(
+                    logits,
+                    labels,
+                    mask,
+                    margin=pairwise_margin,
+                    hard_neg_k=pairwise_hard_neg_k,
+                )
+                loss = loss + pairwise_margin_weight * pairwise_loss
 
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
@@ -413,6 +473,10 @@ def _train_reranker(
         "best_val_metrics": best_payload["val_metrics"],
         "best_train_loss": best_payload["train_loss"],
         "n_params": n_params,
+        "model_family": model_family,
+        "pairwise_margin_weight": pairwise_margin_weight,
+        "pairwise_margin": pairwise_margin,
+        "pairwise_hard_neg_k": pairwise_hard_neg_k,
         "hidden_dim": hidden_dim,
         "num_layers": num_layers,
         "dropout": dropout,
@@ -448,10 +512,11 @@ def _comparison_table(
     split_name: str,
 ) -> dict[str, Any]:
     """Build comparison table."""
+    resolver_metrics = {k: v for k, v in reranker_metrics.items() if isinstance(v, (int, float))}
     table = {
         "split": split_name,
-        "v39_reranker": {k: v for k, v in reranker_metrics.items()
-                         if isinstance(v, (int, float))},
+        "resolver": resolver_metrics,
+        "v39_reranker": resolver_metrics,  # backward-compatible alias
     }
 
     # Cache-derived baselines (within-shortlist)
@@ -520,6 +585,31 @@ def main() -> None:
     parser.add_argument("--hidden-dim", type=int, default=64, help="Hidden dim (default: 64)")
     parser.add_argument("--num-layers", type=int, default=2, help="MLP layers (default: 2)")
     parser.add_argument("--dropout", type=float, default=0.1, help="Dropout (default: 0.1)")
+    parser.add_argument(
+        "--model-family",
+        type=str,
+        default="candidate_mlp",
+        choices=["candidate_mlp", "vmf_evidence"],
+        help="Resolver family (default: candidate_mlp)",
+    )
+    parser.add_argument(
+        "--pairwise-margin-weight",
+        type=float,
+        default=0.0,
+        help="Weight for shortlist pairwise hard-negative margin loss",
+    )
+    parser.add_argument(
+        "--pairwise-margin",
+        type=float,
+        default=0.2,
+        help="Margin used by shortlist pairwise loss",
+    )
+    parser.add_argument(
+        "--pairwise-hard-neg-k",
+        type=int,
+        default=5,
+        help="Number of hardest negatives per query for pairwise loss",
+    )
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate (default: 1e-3)")
     parser.add_argument("--weight-decay", type=float, default=1e-4, help="Weight decay")
     parser.add_argument("--max-epochs", type=int, default=200, help="Max epochs (default: 200)")
@@ -626,6 +716,8 @@ def main() -> None:
         train_split_name = f"val_80pct ({n_train} queries)"
         logger.info("  Train: %d queries, Val: %d queries", n_train, len(val_idx))
 
+    _require_oof_cache_sanity(train_cache, args.train_cache_split)
+
     train_dataset = UnionShortlistDataset(train_cache)
     val_dataset = UnionShortlistDataset(val_cache)
     input_dim = train_cache["features"].shape[-1]
@@ -643,6 +735,10 @@ def main() -> None:
         hidden_dim=args.hidden_dim,
         num_layers=args.num_layers,
         dropout=args.dropout,
+        model_family=args.model_family,
+        pairwise_margin_weight=args.pairwise_margin_weight,
+        pairwise_margin=args.pairwise_margin,
+        pairwise_hard_neg_k=args.pairwise_hard_neg_k,
         lr=args.lr,
         weight_decay=args.weight_decay,
         max_epochs=args.max_epochs,
@@ -709,12 +805,13 @@ def main() -> None:
         if comp is None:
             continue
         print(f"\n--- {label} ---")
-        print(f"  V39 Reranker R@1:     {comp['v39_reranker']['R@1']:.1%}")
-        print(f"  V39 Reranker R@5:     {comp['v39_reranker']['R@5']:.1%}")
-        print(f"  V39 Reranker R@10:    {comp['v39_reranker']['R@10']:.1%}")
-        print(f"  Oracle recall:        {comp['v39_reranker']['oracle_recall']:.1%}")
-        print(f"  GT absent:            {comp['v39_reranker']['gt_absent_count']}")
-        print(f"  GT present, missed:   {comp['v39_reranker']['gt_present_miss_count']}")
+        _resolver = comp.get("resolver", comp.get("v39_reranker", {}))
+        print(f"  Resolver R@1:         {_resolver['R@1']:.1%}")
+        print(f"  Resolver R@5:         {_resolver['R@5']:.1%}")
+        print(f"  Resolver R@10:        {_resolver['R@10']:.1%}")
+        print(f"  Oracle recall:        {_resolver['oracle_recall']:.1%}")
+        print(f"  GT absent:            {_resolver['gt_absent_count']}")
+        print(f"  GT present, missed:   {_resolver['gt_present_miss_count']}")
         print()
         for key, baseline in comp.items():
             if key.startswith("shortlist_") and isinstance(baseline, dict) and "R@1" in baseline:
@@ -741,6 +838,10 @@ def main() -> None:
             "hidden_dim": args.hidden_dim,
             "num_layers": args.num_layers,
             "dropout": args.dropout,
+            "model_family": args.model_family,
+            "pairwise_margin_weight": args.pairwise_margin_weight,
+            "pairwise_margin": args.pairwise_margin,
+            "pairwise_hard_neg_k": args.pairwise_hard_neg_k,
             "lr": args.lr,
             "weight_decay": args.weight_decay,
             "max_epochs": args.max_epochs,
@@ -791,6 +892,10 @@ def main() -> None:
         "hidden_dim": args.hidden_dim,
         "num_layers": args.num_layers,
         "dropout": args.dropout,
+        "model_family": args.model_family,
+        "pairwise_margin_weight": args.pairwise_margin_weight,
+        "pairwise_margin": args.pairwise_margin,
+        "pairwise_hard_neg_k": args.pairwise_hard_neg_k,
         "feat_mean": result["feat_mean"],
         "feat_std": result["feat_std"],
         "best_epoch": result["best_epoch"],

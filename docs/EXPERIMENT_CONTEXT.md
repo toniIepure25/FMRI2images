@@ -3161,6 +3161,64 @@ Implementation note:
 - training integration: `scripts/training/train_unified.py`
 - config: `configs/experiments/V38_legacy_compact_distill.yaml`
 
+### 34.12 Diagnosing the 77% Ceiling and the V41/V42 Path
+
+A deeper forensic audit of the post-V35 system showed that the **77.2% SHARED1000 ceiling is not a shortlist recall failure**. The shortlist already contains the correct image with essentially saturated recall under expert union, but the final system still loses many queries inside that shortlist.
+
+Key evidence from the live artifacts:
+
+- fixed tri-fusion reaches **77.2% SHARED1000 R@1**
+- union-oracle shortlist recall reaches **~100% by K=50** on SHARED1000
+- compact and legacy top-1 predictions disagree on **55.1%** of SHARED1000 queries
+- among the remaining fixed-tri misses, the GT is still usually near the top under at least one expert
+- the stored V39 reranker was trained on an unrealistically easy in-sample train cache
+- tri OOF folds already existed, but the legacy OOF side was incomplete
+
+This isolates three distinct bottlenecks:
+
+1. **Residual decision-layer error inside an already-good shortlist.**
+2. **Train/eval mismatch in the learned resolver.**
+3. **A representation ceiling in the current compact expert.**
+
+The next implementation path therefore splits into two waves.
+
+**V41_oof_union_vmf_resolver** addresses the decision-layer problem first:
+
+- train only on true **out-of-fold** expert predictions (`train_oof`)
+- merge both tri and legacy fold-heldout predictions before cache building
+- fail fast if train OOF disagreement collapses or coverage is incomplete
+- upgrade the resolver from a plain candidate MLP to a **vMF-aware evidence resolver**
+- augment candidate features with compact-component ambiguity cues
+- add a shortlist pairwise hard-negative margin term alongside shortlist cross-entropy
+
+Success criterion for V41:
+
+- beat fixed tri-fusion (**77.2%**) by at least **+2 pp** on SHARED1000
+- if not, treat the resolver as secondary rather than the main route to 85%
+
+**V42_multi_hypothesis_vMF_retrieval** then attacks the representation ceiling directly:
+
+- replace the single compact vMF retrieval head with a **4-component mixture-vMF retrieval head**
+- score candidates by `logsumexp_j(kappa_j * cos(mu_j, z))` with optional learned mixture weights
+- keep the rerank branch as residual evidence instead of the central optimization target
+- keep legacy-to-compact distillation, but checkpoint on the actual production-style objective: **`tri_fused_r@1`**
+- export compact component tensors so downstream OOF resolvers can use vMF ambiguity features
+
+The intended final architecture is therefore:
+
+- **multi-hypothesis vMF retrieval expert**
+- plus an **OOF union-shortlist vMF evidence resolver**
+- evaluated in order: compact-only, compact+legacy fixed tri-fusion, then resolver-enhanced ranking
+
+This keeps the system vMF-centered and architecture-aligned, while moving beyond static fusion toward a query-aware shortlist decision layer without collapsing into a generic non-vMF retrieval recipe.
+
+Implementation notes:
+
+- post-hoc OOF resolver config: `configs/experiments/V41_oof_union_vmf_resolver.yaml`
+- staged OOF driver: `scripts/training/run_v41_oof_union_vmf_resolver.sh`
+- new training config: `configs/experiments/V42_multi_hypothesis_vmf_retrieval.yaml`
+- multi-hypothesis compact head + mixture loss integration: `scripts/training/train_unified.py` and `src/fmri2img/losses/vmf_nce.py`
+
 ### 34.9 V34: Tri-Expert Fusion Wave
 
 The next maximum-upside evaluation wave is **V34_tri_expert_fusion**.

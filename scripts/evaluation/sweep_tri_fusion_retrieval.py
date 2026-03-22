@@ -297,11 +297,39 @@ def _load_tri_split(metrics_dir: Path, prefix: str) -> dict[str, np.ndarray]:
     rerank_gts = _load_required(metrics_dir / f"{prefix}_ground_truth_rerank.npy")
     nsd_ids = _load_required(metrics_dir / f"{prefix}_nsd_ids.npy").astype(np.int32)
     kappas = _load_optional(metrics_dir / f"{prefix}_kappas.npy")
+
+    def _optional_component(name_candidates: list[str]) -> np.ndarray | None:
+        for name in name_candidates:
+            path = metrics_dir / f"{prefix}_{name}.npy"
+            if path.exists():
+                return np.load(path)
+        return None
+
+    component_mu = _optional_component([
+        "predictions_compact_component_mu",
+        "predictions_compact_components_mu",
+    ])
+    component_kappa = _optional_component([
+        "predictions_compact_component_kappa",
+        "predictions_compact_components_kappa",
+    ])
+    component_logits = _optional_component([
+        "predictions_compact_component_logits",
+        "predictions_compact_components_logits",
+    ])
+
     if compact_preds.shape[0] != compact_gts.shape[0] or compact_preds.shape[0] != nsd_ids.shape[0]:
         raise ValueError(f"{prefix}: compact arrays and nsd_ids are misaligned")
     if rerank_preds.shape[0] != rerank_gts.shape[0] or rerank_preds.shape[0] != nsd_ids.shape[0]:
         raise ValueError(f"{prefix}: rerank arrays and nsd_ids are misaligned")
-    return {
+    for name, arr in {
+        "compact_component_mu": component_mu,
+        "compact_component_kappa": component_kappa,
+        "compact_component_logits": component_logits,
+    }.items():
+        if arr is not None and arr.shape[0] != nsd_ids.shape[0]:
+            raise ValueError(f"{prefix}: {name} rows {arr.shape[0]} != nsd_ids rows {nsd_ids.shape[0]}")
+    out = {
         "nsd_ids": nsd_ids,
         "compact_preds": compact_preds,
         "compact_gts": compact_gts,
@@ -309,6 +337,13 @@ def _load_tri_split(metrics_dir: Path, prefix: str) -> dict[str, np.ndarray]:
         "rerank_gts": rerank_gts,
         "compact_kappas": kappas,
     }
+    if component_mu is not None:
+        out["compact_component_mu"] = component_mu
+    if component_kappa is not None:
+        out["compact_component_kappa"] = component_kappa
+    if component_logits is not None:
+        out["compact_component_logits"] = component_logits
+    return out
 
 
 def _load_legacy_split(
@@ -381,6 +416,14 @@ def _align_common_ids(
     tri_kappas = tri_split.get("compact_kappas")
     if tri_kappas is not None:
         aligned["compact_kappas"] = tri_kappas[tri_idx]
+    for key in [
+        "compact_component_mu",
+        "compact_component_kappa",
+        "compact_component_logits",
+    ]:
+        arr = tri_split.get(key)
+        if arr is not None:
+            aligned[key] = arr[tri_idx]
     return aligned
 
 

@@ -338,6 +338,103 @@ class VonMisesFisherNCELoss(nn.Module):
         return std_loss
 
 
+class MixtureVonMisesFisherNCELoss(VonMisesFisherNCELoss):
+    """InfoNCE-style loss for a multi-hypothesis vMF query distribution.
+
+    The query is parameterised by M unit directions and concentrations, with an
+    optional learned mixture weight per component. Candidate logits are
+
+        logit(q, k) = logsumexp_j(log w_j + kappa_j * cos(mu_j, z_k) / tau)
+
+    which defines a multi-modal hyperspherical retrieval expert while keeping
+    the same contrastive training protocol as the single-vMF head.
+    """
+
+    def _score_mixture(
+        self,
+        component_mu: torch.Tensor,
+        component_kappa: torch.Tensor,
+        keys: torch.Tensor,
+        component_logits: Optional[torch.Tensor] = None,
+        positive_idx: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        if component_kappa.ndim == 3 and component_kappa.shape[-1] == 1:
+            component_kappa = component_kappa[..., 0]
+        cos_sim = torch.einsum("bmd,kd->bmk", component_mu, keys)
+        if self.use_arctanh:
+            cos_sim = torch.atanh(cos_sim.clamp(-1 + 1e-7, 1 - 1e-7))
+        tau = self.effective_tau
+        component_scores = component_kappa.unsqueeze(-1) * cos_sim / tau
+
+        if component_logits is not None:
+            log_w = F.log_softmax(component_logits, dim=1).unsqueeze(-1)
+        else:
+            m = component_mu.shape[1]
+            log_w = component_scores.new_full((component_mu.shape[0], m, 1), -math.log(float(m)))
+
+        logits = torch.logsumexp(component_scores + log_w, dim=1)
+
+        if self.hard_negative_weight > 0 and positive_idx is not None:
+            B, M = logits.shape
+            neg_mask = torch.ones(B, M, dtype=torch.bool, device=logits.device)
+            neg_mask[torch.arange(B, device=logits.device), positive_idx] = False
+            top_k = min(self.hard_neg_k, int(neg_mask.sum(1).min().item()))
+            if top_k > 0:
+                masked_logits = logits.masked_fill(~neg_mask, -1e9)
+                _, hard_idx = masked_logits.topk(top_k, dim=1)
+                boost = torch.zeros_like(logits)
+                boost.scatter_(1, hard_idx, self.hard_negative_weight)
+                logits = logits + boost
+
+        if self.use_csls_training:
+            logits = self._csls_correct(logits)
+
+        return logits.clamp(-80, 80)
+
+    def forward(
+        self,
+        component_mu_query: torch.Tensor,
+        component_kappa_or_log_query: torch.Tensor,
+        key_embeddings: torch.Tensor,
+        component_logits: Optional[torch.Tensor] = None,
+        queue: Optional[nn.Module] = None,
+    ) -> torch.Tensor:
+        if self.kappa_is_log:
+            component_kappa = component_kappa_or_log_query.exp()
+        else:
+            component_kappa = component_kappa_or_log_query
+        if component_kappa.ndim == 2:
+            pass
+        elif component_kappa.ndim == 3 and component_kappa.shape[-1] == 1:
+            component_kappa = component_kappa[..., 0]
+        else:
+            raise ValueError(
+                f"MixtureVonMisesFisherNCELoss expects component kappa with shape (B, M) or (B, M, 1); got {tuple(component_kappa.shape)}"
+            )
+
+        B = component_mu_query.size(0)
+        labels = torch.arange(B, device=component_mu_query.device)
+        if self.use_queue and queue is not None and queue.is_ready():
+            queue_embs = queue.get_queue()
+            all_keys = torch.cat([key_embeddings, queue_embs], dim=0)
+        else:
+            all_keys = key_embeddings
+
+        logits = self._score_mixture(
+            component_mu_query,
+            component_kappa,
+            all_keys,
+            component_logits=component_logits,
+            positive_idx=labels,
+        )
+        std_loss = F.cross_entropy(logits, labels, label_smoothing=self.label_smoothing)
+        if self.isf_weight > 0:
+            log_prob_isf = F.log_softmax(logits, dim=0)
+            isf_loss = -log_prob_isf[labels, labels].mean()
+            return (1.0 - self.isf_weight) * std_loss + self.isf_weight * isf_loss
+        return std_loss
+
+
 # ---------------------------------------------------------------------------
 # R-Drop regularization for vMF outputs  (Liang et al., 2021)
 # ---------------------------------------------------------------------------

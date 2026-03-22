@@ -347,6 +347,72 @@ def compute_retrieval_metrics_csls(
     return results
 
 
+def score_mixture_vmf_gallery(
+    component_mu: np.ndarray,
+    component_kappa: np.ndarray,
+    gallery_embeddings: np.ndarray,
+    component_logits: Optional[np.ndarray] = None,
+    normalize: bool = True,
+) -> np.ndarray:
+    """Score a gallery with a multi-hypothesis vMF query model."""
+    component_mu = np.asarray(component_mu, dtype=np.float32)
+    component_kappa = np.asarray(component_kappa, dtype=np.float32)
+    gallery_embeddings = np.asarray(gallery_embeddings, dtype=np.float32)
+    if component_mu.ndim != 3:
+        raise ValueError(f"component_mu must have shape (N, M, D), got {component_mu.shape}")
+    if component_kappa.ndim == 3 and component_kappa.shape[-1] == 1:
+        component_kappa = component_kappa[..., 0]
+    if component_kappa.ndim != 2:
+        raise ValueError(f"component_kappa must have shape (N, M) or (N, M, 1), got {component_kappa.shape}")
+    if normalize:
+        component_mu = normalize_embeddings(component_mu)
+        gallery_embeddings = normalize_embeddings(gallery_embeddings)
+    component_scores = np.einsum('nmd,kd->nmk', component_mu, gallery_embeddings)
+    component_scores = component_scores * component_kappa[:, :, None]
+    if component_logits is not None:
+        component_logits = np.asarray(component_logits, dtype=np.float32)
+        logits_shift = component_logits - component_logits.max(axis=1, keepdims=True)
+        weights = np.exp(logits_shift)
+        weights = weights / np.maximum(weights.sum(axis=1, keepdims=True), 1e-8)
+        component_scores = component_scores + np.log(np.maximum(weights[:, :, None], 1e-8))
+    else:
+        m = component_scores.shape[1]
+        component_scores = component_scores - np.log(float(max(m, 1)))
+    max_scores = np.max(component_scores, axis=1, keepdims=True)
+    return (max_scores[:, 0, :] + np.log(np.exp(component_scores - max_scores).sum(axis=1))).astype(np.float32)
+
+
+def compute_mixture_vmf_retrieval_metrics(
+    component_mu: np.ndarray,
+    component_kappa: np.ndarray,
+    ground_truth: np.ndarray,
+    component_logits: Optional[np.ndarray] = None,
+    ks: Tuple[int, ...] = (1, 5, 10),
+    normalize: bool = True,
+) -> Dict[str, float]:
+    """Retrieval metrics for a multi-hypothesis vMF query model."""
+    scores = score_mixture_vmf_gallery(
+        component_mu,
+        component_kappa,
+        ground_truth,
+        component_logits=component_logits,
+        normalize=normalize,
+    )
+    N = scores.shape[0]
+    ranks = np.argsort(-scores, axis=1)
+    correct_ranks = np.zeros(N, dtype=np.int32)
+    for i in range(N):
+        correct_ranks[i] = np.where(ranks[i] == i)[0][0]
+    results: Dict[str, float] = {}
+    for k in ks:
+        results[f'top{k}_accuracy'] = float((correct_ranks < k).mean())
+    results['mean_rank'] = float(correct_ranks.mean() + 1)
+    results['median_rank'] = float(np.median(correct_ranks) + 1)
+    results['mrr'] = float((1.0 / (correct_ranks + 1.0)).mean())
+    results['chance_top1'] = 1.0 / N
+    return results
+
+
 def compute_retrieval_by_gallery_size(
     predictions: np.ndarray,
     ground_truth: np.ndarray,

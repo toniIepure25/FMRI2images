@@ -134,12 +134,89 @@ def _shortlist_margin_to_top1(vals: np.ndarray, mask: np.ndarray) -> np.ndarray:
     return np.where(mask, vals - top1_score, 0.0)
 
 
+def _softmax_np(x: np.ndarray, axis: int = -1) -> np.ndarray:
+    x = x - np.max(x, axis=axis, keepdims=True)
+    exp_x = np.exp(x)
+    return exp_x / np.maximum(exp_x.sum(axis=axis, keepdims=True), 1e-8)
+
+
+def _component_feature_block(
+    split_arrays: dict[str, np.ndarray] | None,
+    shortlists: np.ndarray,
+    mask: np.ndarray,
+) -> dict[str, np.ndarray]:
+    n, max_size = shortlists.shape
+    zeros = {
+        "component_max_score": np.zeros((n, max_size), dtype=np.float32),
+        "component_mean_score": np.zeros((n, max_size), dtype=np.float32),
+        "component_top2_gap": np.zeros((n, max_size), dtype=np.float32),
+        "component_entropy_q": np.zeros((n, max_size), dtype=np.float32),
+        "component_weight_gap_q": np.zeros((n, max_size), dtype=np.float32),
+        "component_kappa_max_q": np.zeros((n, max_size), dtype=np.float32),
+    }
+    if not split_arrays:
+        return zeros
+
+    comp_mu = split_arrays.get("compact_component_mu")
+    comp_kappa = split_arrays.get("compact_component_kappa")
+    gallery = split_arrays.get("compact_gts")
+    comp_logits = split_arrays.get("compact_component_logits")
+    if comp_mu is None or comp_kappa is None or gallery is None:
+        return zeros
+
+    safe_sl = np.where(shortlists >= 0, shortlists, 0)
+    local_gallery = gallery[safe_sl]
+    local_gallery = local_gallery / np.maximum(np.linalg.norm(local_gallery, axis=-1, keepdims=True), 1e-8)
+    comp_mu = comp_mu / np.maximum(np.linalg.norm(comp_mu, axis=-1, keepdims=True), 1e-8)
+    comp_kappa = np.asarray(comp_kappa, dtype=np.float32)
+    if comp_kappa.ndim == 3 and comp_kappa.shape[-1] == 1:
+        comp_kappa = comp_kappa[..., 0]
+    if comp_kappa.ndim != 2:
+        return zeros
+
+    comp_scores = np.einsum("nmd,nkd->nmk", comp_mu.astype(np.float32), local_gallery.astype(np.float32))
+    comp_scores = comp_scores * comp_kappa[:, :, None]
+    sorted_scores = np.sort(comp_scores, axis=1)[:, ::-1, :]
+
+    out = {
+        "component_max_score": np.max(comp_scores, axis=1).astype(np.float32),
+        "component_mean_score": np.mean(comp_scores, axis=1).astype(np.float32),
+        "component_top2_gap": (
+            (sorted_scores[:, 0, :] - sorted_scores[:, 1, :])
+            if comp_scores.shape[1] > 1
+            else np.zeros((n, max_size), dtype=np.float32)
+        ).astype(np.float32),
+        "component_entropy_q": np.zeros((n, max_size), dtype=np.float32),
+        "component_weight_gap_q": np.zeros((n, max_size), dtype=np.float32),
+        "component_kappa_max_q": np.broadcast_to(comp_kappa.max(axis=1, keepdims=True), (n, max_size)).astype(np.float32).copy(),
+    }
+
+    if comp_logits is not None:
+        weights = _softmax_np(np.asarray(comp_logits, dtype=np.float32), axis=1)
+    else:
+        weights = np.full((n, comp_scores.shape[1]), 1.0 / float(comp_scores.shape[1]), dtype=np.float32)
+    entropy = -(weights * np.log(np.maximum(weights, 1e-8))).sum(axis=1)
+    if weights.shape[1] > 1:
+        entropy = entropy / np.log(float(weights.shape[1]))
+        sorted_w = np.sort(weights, axis=1)[:, ::-1]
+        gap = sorted_w[:, 0] - sorted_w[:, 1]
+    else:
+        gap = np.ones(n, dtype=np.float32)
+    out["component_entropy_q"] = np.broadcast_to(entropy[:, None].astype(np.float32), (n, max_size)).copy()
+    out["component_weight_gap_q"] = np.broadcast_to(gap[:, None].astype(np.float32), (n, max_size)).copy()
+
+    for key, arr in out.items():
+        arr[~mask] = 0.0
+    return out
+
+
 def _extract_candidate_features(
     scores: dict[str, np.ndarray],
     shortlists: np.ndarray,
     sizes: np.ndarray,
     sources: np.ndarray,
     kappas: np.ndarray | None,
+    split_arrays: dict[str, np.ndarray] | None = None,
 ) -> np.ndarray:
     """Extract per-candidate feature vectors for the union shortlist.
 
@@ -244,6 +321,14 @@ def _extract_candidate_features(
     else:
         kappa_q = np.zeros((n, max_size), dtype=np.float32)
 
+    component_block = _component_feature_block(split_arrays, shortlists, mask)
+    component_max_score = component_block["component_max_score"]
+    component_mean_score = component_block["component_mean_score"]
+    component_top2_gap = component_block["component_top2_gap"]
+    component_entropy_q = component_block["component_entropy_q"]
+    component_weight_gap_q = component_block["component_weight_gap_q"]
+    component_kappa_max_q = component_block["component_kappa_max_q"]
+
     # ── Stack all features: (N, max_size, F) ─────────────────────────
     feature_list = [
         # Raw scores (5)
@@ -297,6 +382,13 @@ def _extract_candidate_features(
         in_both_top10,              # 38
         # Query-level (1)
         kappa_q,                    # 39
+        # vMF component evidence (6)
+        component_max_score,        # 40
+        component_mean_score,       # 41
+        component_top2_gap,         # 42
+        component_entropy_q,        # 43
+        component_weight_gap_q,     # 44
+        component_kappa_max_q,      # 45
     ]
     features = np.stack(feature_list, axis=-1).astype(np.float32)
 
@@ -346,6 +438,13 @@ FEATURE_NAMES = [
     "in_both_top5", "in_both_top10",
     # Query-level (1)
     "kappa_query",
+    # vMF component evidence (6)
+    "compact_component_max_score",
+    "compact_component_mean_score",
+    "compact_component_top2_gap",
+    "compact_component_entropy",
+    "compact_component_weight_gap",
+    "compact_component_kappa_max",
 ]
 
 
@@ -391,7 +490,14 @@ def _build_cache_for_split(
 
     # Features
     kappas = split_arrays.get("compact_kappas")
-    features = _extract_candidate_features(scores, shortlists, sizes, sources, kappas)
+    features = _extract_candidate_features(
+        scores,
+        shortlists,
+        sizes,
+        sources,
+        kappas,
+        split_arrays=split_arrays,
+    )
     logger.info("  Feature matrix: %s (%.1f MB)", features.shape, features.nbytes / 1e6)
 
     valid_mask = shortlists >= 0
@@ -411,6 +517,19 @@ def _build_cache_for_split(
     legacy_csls_r1 = float(np.mean(legacy_gt_rank <= 1))
 
     nsd_ids = split_arrays.get("nsd_ids")
+    if nsd_ids is not None and np.unique(nsd_ids).shape[0] != nsd_ids.shape[0]:
+        raise ValueError(f"{split_name}: duplicate nsd_ids detected while building cache")
+    if split_name == "train_oof":
+        if top1_disagree < 0.20:
+            raise ValueError(
+                f"{split_name}: compact/legacy top1 disagreement is only {top1_disagree*100:.1f}% — "
+                "expected a real OOF distribution, not an in-sample cache"
+            )
+        if compact_csls_r1 > 0.98 and legacy_csls_r1 > 0.98:
+            raise ValueError(
+                f"{split_name}: compact_csls_r1={compact_csls_r1:.3f}, legacy_csls_r1={legacy_csls_r1:.3f}; "
+                "this looks degenerate for OOF training"
+            )
 
     cache = {
         "features": features,           # (N, max_size, F)
@@ -436,6 +555,9 @@ def _build_cache_for_split(
         "compact_csls_r1": compact_csls_r1,
         "legacy_csls_r1": legacy_csls_r1,
         "top1_disagree_fraction": top1_disagree,
+        "has_compact_components": bool(split_arrays.get("compact_component_mu") is not None),
+        "compact_component_count": int(split_arrays.get("compact_component_mu").shape[1])
+        if split_arrays.get("compact_component_mu") is not None else 0,
         "source_membership_rate": {
             "compact_only": source_compact_only,
             "legacy_only": source_legacy_only,

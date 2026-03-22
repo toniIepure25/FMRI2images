@@ -1,0 +1,83 @@
+# V41: OOF Union-Shortlist vMF Evidence Resolver
+#
+# Post-hoc pipeline that fixes the train/eval mismatch in V39 by training the
+# shortlist resolver only on true out-of-fold expert predictions. The resolver
+# is vMF-aware: it consumes compact/legacy/rerank evidence together with
+# compact-component ambiguity features exported from the compact retrieval head.
+#
+# Canonical run entry:
+#   bash scripts/training/run_v41_oof_union_vmf_resolver.sh \
+#       experimental_results/V35_legacy_teacher_distill/subj01 \
+#       experimental_results/N1v28a_dual_head/subj01 5
+
+experiment:
+  name: "V41_oof_union_vmf_resolver"
+  description: "True-OOF union-shortlist resolver with vMF-aware evidence features and hard-negative shortlist loss"
+  tags: ["v41", "oof", "union_shortlist", "vmf_evidence", "resolver", "post_hoc"]
+  parent: "V40_oof_tri_gate"
+  type: "post_hoc_evaluation"
+
+experts:
+  tri:
+    base_results_dir: "experimental_results/V35_legacy_teacher_distill/subj01"
+    required_outputs:
+      - "train_oof_predictions_compact.npy"
+      - "train_oof_ground_truth_compact.npy"
+      - "train_oof_nsd_ids.npy"
+      - "train_oof_predictions_compact_component_mu.npy"
+      - "train_oof_predictions_compact_component_kappa.npy"
+  legacy:
+    base_results_dir: "experimental_results/N1v28a_dual_head/subj01"
+    required_outputs:
+      - "train_oof_predictions_compact.npy"
+      - "train_oof_ground_truth_compact.npy"
+      - "train_oof_nsd_ids.npy"
+
+folding:
+  num_folds: 5
+  seed: 42
+  holdout_split_name: "val"
+  merged_train_prefix: "train_oof"
+  required_train_pool_size: 8100
+
+shortlist:
+  k: 100
+  train_cache_name: "train_oof"
+  val_cache_name: "val"
+  shared_cache_name: "shared1000"
+  sources: ["compact_csls", "legacy_csls"]
+
+reranker:
+  architecture: "vmf_evidence"
+  hidden_dim: 96
+  num_layers: 2
+  dropout: 0.1
+  pairwise_margin_weight: 0.10
+  pairwise_margin: 0.20
+  pairwise_hard_neg_k: 5
+
+training:
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  max_epochs: 200
+  patience: 30
+  batch_size: 256
+  seed: 42
+
+evaluation:
+  shortlist_k_default: 100
+  shortlist_k_fallback: 150
+  success_gate_gain_over_fixed_tri_pp: 2.0
+  fixed_tri_shared1000_r1: 0.772
+
+sanity_checks:
+  require_unique_train_oof_ids: true
+  require_complete_train_pool_coverage: true
+  require_disagreement_fraction_min: 0.20
+  forbid_near_perfect_train_oof_experts: true
+
+success_criteria:
+  realistic: "shared1000 resolver R@1 in the 80–82% range"
+  stretch: "shared1000 resolver R@1 in the 82–83% range"
+  main_gate: "must beat fixed tri-fusion 77.2% by at least +2.0 pp to remain the main path to 85%"
+  fallback_if_negative: "if <79%, treat the resolver as secondary and move to the stronger multi-hypothesis vMF base model"

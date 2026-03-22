@@ -92,6 +92,35 @@ def _load_fold_arrays(metrics_dir: Path, split_prefix: str) -> dict[str, np.ndar
         out["predictions_rerank"] = rerank_pred
         out["ground_truth_rerank"] = rerank_gt
 
+    def _optional_component(name_candidates: list[str]) -> np.ndarray | None:
+        for name in name_candidates:
+            path = metrics_dir / f"{split_prefix}_{name}.npy"
+            if path.exists():
+                return np.load(path).astype(np.float32)
+        return None
+
+    component_mu = _optional_component([
+        "predictions_compact_component_mu",
+        "predictions_compact_components_mu",
+    ])
+    component_kappa = _optional_component([
+        "predictions_compact_component_kappa",
+        "predictions_compact_components_kappa",
+    ])
+    component_logits = _optional_component([
+        "predictions_compact_component_logits",
+        "predictions_compact_components_logits",
+    ])
+    for name, arr in {
+        "predictions_compact_component_mu": component_mu,
+        "predictions_compact_component_kappa": component_kappa,
+        "predictions_compact_component_logits": component_logits,
+    }.items():
+        if arr is not None:
+            if arr.shape[0] != nsd_ids.shape[0]:
+                raise ValueError(f"{metrics_dir}: {name} rows {arr.shape[0]} != ids rows {nsd_ids.shape[0]}")
+            out[name] = arr
+
     return out
 
 
@@ -136,6 +165,13 @@ def _merge_rows_by_nsd_id(
                 row_payload["predictions_rerank"] = arrays["predictions_rerank"][row_idx]
             if "ground_truth_rerank" in arrays:
                 row_payload["ground_truth_rerank"] = arrays["ground_truth_rerank"][row_idx]
+            for key in [
+                "predictions_compact_component_mu",
+                "predictions_compact_component_kappa",
+                "predictions_compact_component_logits",
+            ]:
+                if key in arrays:
+                    row_payload[key] = arrays[key][row_idx]
 
             row_map[nid] = row_payload
             provenance[nid] = {
@@ -180,6 +216,17 @@ def _merge_rows_by_nsd_id(
         merged["train_oof_ground_truth_rerank"] = np.stack(
             [row_map[int(nid)]["ground_truth_rerank"] for nid in ordered_ids], axis=0
         ).astype(np.float32)
+
+    for src_key, out_key in [
+        ("predictions_compact_component_mu", "train_oof_predictions_compact_component_mu"),
+        ("predictions_compact_component_kappa", "train_oof_predictions_compact_component_kappa"),
+        ("predictions_compact_component_logits", "train_oof_predictions_compact_component_logits"),
+    ]:
+        has_component = all(src_key in row_map[int(nid)] for nid in ordered_ids)
+        if has_component:
+            merged[out_key] = np.stack(
+                [row_map[int(nid)][src_key] for nid in ordered_ids], axis=0
+            ).astype(np.float32)
 
     return merged
 
@@ -302,6 +349,7 @@ def main() -> None:
         "fold_entries": fold_entries,
         "has_kappas": bool("train_oof_kappas" in merged),
         "has_rerank": bool("train_oof_predictions_rerank" in merged),
+        "has_compact_components": bool("train_oof_predictions_compact_component_mu" in merged),
     }
 
     provenance_path = Path(args.provenance_json) if args.provenance_json else (

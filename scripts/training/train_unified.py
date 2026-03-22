@@ -52,6 +52,7 @@ from fmri2img.losses.gaussian_nll import GaussianNLLLoss
 from fmri2img.losses.gaussian_nce import GaussianNCELoss
 from fmri2img.losses.vmf_nce import (
     VonMisesFisherNCELoss,
+    MixtureVonMisesFisherNCELoss,
     VonMisesFisherNLLLoss,
     KappaSPCLVMFNCELoss,
     DeltaSPCLVMFNCELoss,
@@ -73,6 +74,7 @@ from fmri2img.losses.uniformity import UniformityLoss
 from fmri2img.eval.embedding_eval import (
     compute_retrieval_metrics as _compute_retrieval,
     compute_retrieval_metrics_csls as _compute_retrieval_csls,
+    compute_mixture_vmf_retrieval_metrics as _compute_mixture_vmf_retrieval,
 )
 
 logging.basicConfig(
@@ -267,6 +269,9 @@ def _merge_summary_metrics(metrics_dir: Path) -> None:
     val_fused = _load_json_if_exists(metrics_dir / "val_fused_metrics.json")
     if val_fused is not None:
         updates["best_fused_r@1"] = float(val_fused.get("fused", {}).get("fused_r@1", 0.0))
+        tri_best = val_fused.get("tri_fused_best") or val_fused.get("tri_fused_frozen")
+        if isinstance(tri_best, dict):
+            updates["best_tri_fused_r@1"] = float(tri_best.get("R@1", 0.0))
 
     shared_compact = (
         _load_json_if_exists(metrics_dir / "shared1000_metrics_compact.json")
@@ -274,6 +279,8 @@ def _merge_summary_metrics(metrics_dir: Path) -> None:
     )
     if shared_compact is not None:
         updates["final_compact_csls_r@1"] = float(shared_compact.get("csls_r@1", 0.0))
+        if "mixture_r@1" in shared_compact:
+            updates["final_mixture_r@1"] = float(shared_compact.get("mixture_r@1", 0.0))
 
     shared_two_stage = _load_json_if_exists(metrics_dir / "shared1000_two_stage_rerank.json")
     if shared_two_stage is not None:
@@ -286,6 +293,9 @@ def _merge_summary_metrics(metrics_dir: Path) -> None:
         updates["final_shared1000_fused_r@1"] = float(
             shared_fused.get("fused", {}).get("fused_r@1", 0.0)
         )
+        tri_best = shared_fused.get("tri_fused_best") or shared_fused.get("tri_fused_frozen")
+        if isinstance(tri_best, dict):
+            updates["final_shared1000_tri_fused_r@1"] = float(tri_best.get("R@1", 0.0))
 
     if not updates:
         return
@@ -293,6 +303,44 @@ def _merge_summary_metrics(metrics_dir: Path) -> None:
     summary.update(updates)
     with open(summary_path, "w") as f:
         json.dump(summary, f, indent=2, default=str)
+
+
+def _aggregate_component_outputs_by_nsd_id(
+    component_mu: np.ndarray,
+    component_kappa: np.ndarray,
+    component_logits: Optional[np.ndarray],
+    nsd_ids: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, Optional[np.ndarray], np.ndarray]:
+    unique_ids = np.unique(nsd_ids)
+    n_img = len(unique_ids)
+    n_comp = component_mu.shape[1]
+    dim = component_mu.shape[2]
+    agg_mu = np.zeros((n_img, n_comp, dim), dtype=np.float32)
+    agg_kappa = np.zeros((n_img, n_comp), dtype=np.float32)
+    agg_logits = np.zeros((n_img, n_comp), dtype=np.float32) if component_logits is not None else None
+    for i, uid in enumerate(unique_ids):
+        mask = nsd_ids == uid
+        mu_i = component_mu[mask].mean(axis=0)
+        agg_mu[i] = mu_i / np.maximum(np.linalg.norm(mu_i, axis=-1, keepdims=True), 1e-8)
+        agg_kappa[i] = component_kappa[mask].mean(axis=0)
+        if agg_logits is not None and component_logits is not None:
+            agg_logits[i] = component_logits[mask].mean(axis=0)
+    return agg_mu, agg_kappa, agg_logits, unique_ids.astype(np.int32)
+
+
+def _save_compact_component_arrays(
+    metrics_dir: Path,
+    prefix: str,
+    component_mu: Optional[np.ndarray],
+    component_kappa: Optional[np.ndarray],
+    component_logits: Optional[np.ndarray],
+) -> None:
+    if component_mu is not None:
+        np.save(metrics_dir / f"{prefix}_predictions_compact_component_mu.npy", component_mu)
+    if component_kappa is not None:
+        np.save(metrics_dir / f"{prefix}_predictions_compact_component_kappa.npy", component_kappa)
+    if component_logits is not None:
+        np.save(metrics_dir / f"{prefix}_predictions_compact_component_logits.npy", component_logits)
 
 
 # ---------------------------------------------------------------------------
@@ -805,6 +853,27 @@ def setup_losses(config: Dict[str, Any], device: str,
                      c.get("hard_negative_weight", 0.0),
                      c.get("use_csls_training", False), c.get("isf_weight", 0.0))
 
+
+    if loss_cfg.get("vmf_nce_mixture", {}).get("enabled", False):
+        c = loss_cfg["vmf_nce_mixture"]
+        use_q = c.get("use_queue", False) and queue is not None
+        _learnable_tau = c.get("learnable_temperature", False)
+        losses["vmf_nce_mixture"] = MixtureVonMisesFisherNCELoss(
+            tau=c.get("tau", 0.07), use_queue=use_q, kappa_is_log=vmf_kappa_is_log,
+            learnable_temperature=_learnable_tau,
+            use_arctanh=c.get("use_arctanh", False),
+            margin_base=c.get("margin_base", 0.0),
+            margin_kappa_ref=c.get("margin_kappa_ref", 50.0),
+            label_smoothing=c.get("label_smoothing", 0.0),
+            hard_negative_weight=c.get("hard_negative_weight", 0.0),
+            hard_neg_k=c.get("hard_neg_k", 16),
+            use_csls_training=c.get("use_csls_training", False),
+            csls_k=c.get("csls_k", 10),
+            isf_weight=c.get("isf_weight", 0.0),
+        )
+        logger.info("Mixture vMF-NCE loss enabled (queue=%s, tau=%s, learnable_tau=%s, arctanh=%s)",
+                     use_q, c.get("tau", 0.07), _learnable_tau, c.get("use_arctanh", False))
+
     # --- N4: kappa-SPCL (or Delta-SPCL) ---
     if loss_cfg.get("vmf_nce_spcl", {}).get("enabled", False):
         c = loss_cfg["vmf_nce_spcl"]
@@ -1206,6 +1275,9 @@ def train_epoch(
                         else legacy_teacher_model(fmri_teacher)
                     )
                     _legacy_teacher_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
+            _compact_component_mu = getattr(model, "_last_compact_component_mu", None)
+            _compact_component_kappa = getattr(model, "_last_compact_component_kappa", None)
+            _compact_component_logits = getattr(model, "_last_compact_component_logits", None)
 
             # --- Deterministic / regression losses ---
             if "mse" in losses and not is_gaussian:
@@ -1248,6 +1320,22 @@ def train_epoch(
                 l = losses["vmf_nce"](pred, aux, gt_embedding, queue=queue)
                 total_loss = total_loss + loss_weights.get("vmf_nce", 1.0) * l
                 batch_metrics["vmf_nce"] = l.item()
+
+            if (
+                "vmf_nce_mixture" in losses
+                and is_vmf
+                and _compact_component_mu is not None
+                and _compact_component_kappa is not None
+            ):
+                l = losses["vmf_nce_mixture"](
+                    _compact_component_mu,
+                    _compact_component_kappa,
+                    gt_embedding,
+                    component_logits=_compact_component_logits,
+                    queue=queue,
+                )
+                total_loss = total_loss + loss_weights.get("vmf_nce_mixture", 1.0) * l
+                batch_metrics["vmf_nce_mixture"] = l.item()
 
             # --- vMF-NCE-SPCL (N4) or Delta-SPCL ---
             if "vmf_nce_spcl" in losses and is_vmf:
@@ -1811,6 +1899,9 @@ def _evaluate_shared1000(
     _all_rich_preds_s1000: List[np.ndarray] = []
     _all_rerank_preds_s1000: List[np.ndarray] = []
     _all_legacy_preds_s1000: List[np.ndarray] = []
+    _all_compact_component_mu_s1000: List[np.ndarray] = []
+    _all_compact_component_kappa_s1000: List[np.ndarray] = []
+    _all_compact_component_logits_s1000: List[np.ndarray] = []
 
     if is_vmf_model:
         # --- vMF path: run ALL individual trials, fuse with kappa weights ---
@@ -1841,6 +1932,14 @@ def _evaluate_shared1000(
                     _rrp = getattr(model, "_last_rerank_pred", None)
                     if _rrp is not None:
                         _all_rerank_preds_s1000.append(_rrp.detach().cpu().numpy())
+                    _cmu = getattr(model, "_last_compact_component_mu", None)
+                    _ckappa = getattr(model, "_last_compact_component_kappa", None)
+                    _clogits = getattr(model, "_last_compact_component_logits", None)
+                    if _cmu is not None and _ckappa is not None:
+                        _all_compact_component_mu_s1000.append(_cmu.detach().cpu().numpy())
+                        _all_compact_component_kappa_s1000.append(_ckappa.detach().cpu().numpy())
+                        if _clogits is not None:
+                            _all_compact_component_logits_s1000.append(_clogits.detach().cpu().numpy())
                     if legacy_teacher_model is not None:
                         _legacy_out = (
                             legacy_teacher_model(batch_fmri, subject_ids=sid)
@@ -1852,6 +1951,22 @@ def _evaluate_shared1000(
 
         trial_preds = np.concatenate(all_preds)
         trial_kappas = np.concatenate(all_kappas) if all_kappas else None
+        _component_mu_img: Optional[np.ndarray] = None
+        _component_kappa_img: Optional[np.ndarray] = None
+        _component_logits_img: Optional[np.ndarray] = None
+        if _all_compact_component_mu_s1000 and _all_compact_component_kappa_s1000:
+            trial_component_mu = np.concatenate(_all_compact_component_mu_s1000)
+            trial_component_kappa = np.concatenate(_all_compact_component_kappa_s1000)
+            trial_component_logits = (
+                np.concatenate(_all_compact_component_logits_s1000)
+                if _all_compact_component_logits_s1000 else None
+            )
+            _component_mu_img, _component_kappa_img, _component_logits_img, _ = _aggregate_component_outputs_by_nsd_id(
+                trial_component_mu,
+                trial_component_kappa,
+                trial_component_logits,
+                nsd_ids,
+            )
 
         preds = np.zeros((n_images, trial_preds.shape[1]), dtype=np.float32)
         preds_avg = np.zeros_like(preds)
@@ -2034,6 +2149,21 @@ def _evaluate_shared1000(
             metrics["r@1_avg"], metrics["csls_r@1_avg"],
         )
 
+    if _is_triple and '_component_mu_img' in locals() and _component_mu_img is not None and _component_kappa_img is not None:
+        mix_ret = _compute_mixture_vmf_retrieval(
+            _component_mu_img,
+            _component_kappa_img,
+            gts,
+            component_logits=_component_logits_img,
+            ks=(1, 5, 10),
+            normalize=True,
+        )
+        metrics["mixture_r@1"] = float(mix_ret["top1_accuracy"])
+        metrics["mixture_r@5"] = float(mix_ret["top5_accuracy"])
+        metrics["mixture_r@10"] = float(mix_ret["top10_accuracy"])
+        metrics["mixture_median_rank"] = float(mix_ret["median_rank"])
+        metrics["mixture_mrr"] = float(mix_ret["mrr"])
+
     logger.info(
         "Shared1000: R@1=%.4f  R@5=%.4f  R@10=%.4f  CSLS_R@1=%.4f  "
         "MedR=%.1f  MRR=%.4f  pos_sim=%.4f  (N=%d images, %d trials)",
@@ -2053,6 +2183,11 @@ def _evaluate_shared1000(
         if _legacy_preds_img is not None and _legacy_gts_s1000 is not None:
             metrics["_legacy_preds"] = _legacy_preds_img
             metrics["_legacy_gts"] = _legacy_gts_s1000
+        if '_component_mu_img' in locals() and _component_mu_img is not None and _component_kappa_img is not None:
+            metrics["_compact_component_mu"] = _component_mu_img
+            metrics["_compact_component_kappa"] = _component_kappa_img
+            if _component_logits_img is not None:
+                metrics["_compact_component_logits"] = _component_logits_img
 
     return metrics, preds, gts
 
@@ -2082,6 +2217,9 @@ def validate(
     all_rerank_gts: List[np.ndarray] = []
     all_legacy_preds: List[np.ndarray] = []
     all_legacy_gts: List[np.ndarray] = []
+    all_compact_component_mu: List[np.ndarray] = []
+    all_compact_component_kappa: List[np.ndarray] = []
+    all_compact_component_logits: List[np.ndarray] = []
     all_nsd_ids: List[np.ndarray] = []
 
     with torch.no_grad():
@@ -2140,6 +2278,14 @@ def validate(
 
             all_preds.append(pred.detach().cpu().numpy())
             all_gts.append(gt_embedding.detach().cpu().numpy())
+            _component_mu_val = getattr(model, "_last_compact_component_mu", None)
+            _component_kappa_val = getattr(model, "_last_compact_component_kappa", None)
+            _component_logits_val = getattr(model, "_last_compact_component_logits", None)
+            if _component_mu_val is not None and _component_kappa_val is not None:
+                all_compact_component_mu.append(_component_mu_val.detach().cpu().numpy())
+                all_compact_component_kappa.append(_component_kappa_val.detach().cpu().numpy())
+                if _component_logits_val is not None:
+                    all_compact_component_logits.append(_component_logits_val.detach().cpu().numpy())
 
             # Collect rich-space predictions when triple-head active
             _reg_pred_for_rich = getattr(model, "_last_rich_pred", None)
@@ -2207,6 +2353,22 @@ def validate(
                 l = losses["vmf_nce"](pred, aux, gt_embedding, queue=None)
                 total_loss = total_loss + loss_weights.get("vmf_nce", 1.0) * l
                 bm["vmf_nce"] = l.item()
+
+            if (
+                "vmf_nce_mixture" in losses
+                and is_vmf
+                and _component_mu_val is not None
+                and _component_kappa_val is not None
+            ):
+                l = losses["vmf_nce_mixture"](
+                    _component_mu_val,
+                    _component_kappa_val,
+                    gt_embedding,
+                    component_logits=_component_logits_val,
+                    queue=None,
+                )
+                total_loss = total_loss + loss_weights.get("vmf_nce_mixture", 1.0) * l
+                bm["vmf_nce_mixture"] = l.item()
 
             if "vmf_nce_spcl" in losses and is_vmf:
                 spcl_kwargs = dict(queue=None)
@@ -2404,6 +2566,11 @@ def validate(
         _extras["legacy_preds"] = np.concatenate(all_legacy_preds)
     if all_legacy_gts:
         _extras["legacy_gts"] = np.concatenate(all_legacy_gts)
+    if all_compact_component_mu:
+        _extras["compact_component_mu"] = np.concatenate(all_compact_component_mu)
+        _extras["compact_component_kappa"] = np.concatenate(all_compact_component_kappa)
+        if all_compact_component_logits:
+            _extras["compact_component_logits"] = np.concatenate(all_compact_component_logits)
     if all_nsd_ids:
         _extras["nsd_ids"] = np.concatenate(all_nsd_ids)
     loss_metrics["_val_extras"] = _extras
@@ -2627,18 +2794,31 @@ def _compute_tri_fusion_report(
     return report
 
 
-def _fusion_scalar_metrics(report: Optional[Dict[str, Any]]) -> Dict[str, float]:
+def _fusion_scalar_metrics(
+    report: Optional[Dict[str, Any]],
+    prefix: str = "fused",
+    include_legacy_alias: bool = False,
+) -> Dict[str, float]:
     """Flatten fused retrieval metrics for CSV logging and checkpointing."""
     if report is None:
         return {}
     fused = report.get("fused", {})
-    return {
-        "fused_r@1": float(fused.get("fused_r@1", 0.0)),
-        "fused_r@5": float(fused.get("fused_r@5", 0.0)),
-        "fused_r@10": float(fused.get("fused_r@10", 0.0)),
-        "fused_median_rank": float(fused.get("fused_median_rank", 0.0)),
-        "fused_mrr": float(fused.get("fused_mrr", 0.0)),
+    out = {
+        f"{prefix}_r@1": float(fused.get("fused_r@1", 0.0)),
+        f"{prefix}_r@5": float(fused.get("fused_r@5", 0.0)),
+        f"{prefix}_r@10": float(fused.get("fused_r@10", 0.0)),
+        f"{prefix}_median_rank": float(fused.get("fused_median_rank", 0.0)),
+        f"{prefix}_mrr": float(fused.get("fused_mrr", 0.0)),
     }
+    if include_legacy_alias and prefix != "fused":
+        out.update({
+            "fused_r@1": out[f"{prefix}_r@1"],
+            "fused_r@5": out[f"{prefix}_r@5"],
+            "fused_r@10": out[f"{prefix}_r@10"],
+            "fused_median_rank": out[f"{prefix}_median_rank"],
+            "fused_mrr": out[f"{prefix}_mrr"],
+        })
+    return out
 
 
 def _run_post_training_shared1000_eval(
@@ -2693,6 +2873,9 @@ def _run_post_training_shared1000_eval(
     _s1000_rerank_gts = _s1000_metrics.pop("_rerank_gts", None)
     _s1000_legacy_preds = _s1000_metrics.pop("_legacy_preds", None)
     _s1000_legacy_gts = _s1000_metrics.pop("_legacy_gts", None)
+    _s1000_component_mu = _s1000_metrics.pop("_compact_component_mu", None)
+    _s1000_component_kappa = _s1000_metrics.pop("_compact_component_kappa", None)
+    _s1000_component_logits = _s1000_metrics.pop("_compact_component_logits", None)
     _s1000_space = _s1000_metrics.pop("_space", None)
     _s1000_nsd_ids = _s1000_metrics.pop("_nsd_ids", None)
 
@@ -2717,6 +2900,13 @@ def _run_post_training_shared1000_eval(
         np.save(_metrics_save_dir / "shared1000_ground_truth_compact.npy", _s1000_gts)
         if _s1000_nsd_ids is not None:
             np.save(_metrics_save_dir / "shared1000_nsd_ids.npy", _s1000_nsd_ids)
+        _save_compact_component_arrays(
+            _metrics_save_dir,
+            "shared1000",
+            _s1000_component_mu,
+            _s1000_component_kappa,
+            _s1000_component_logits,
+        )
         logger.info("Saved compact shared1000 metrics to %s", _s1000_compact_path)
 
         if _s1000_rich_preds is not None and _s1000_rich_gts is not None:
@@ -4715,6 +4905,38 @@ def main() -> None:
                 csls_ret["top10_accuracy"],
             )
 
+
+        if (
+            "compact_component_mu" in _epoch_val_extras
+            and "compact_component_kappa" in _epoch_val_extras
+        ):
+            _cmu = _epoch_val_extras["compact_component_mu"]
+            _ckappa = _epoch_val_extras["compact_component_kappa"]
+            _clogits = _epoch_val_extras.get("compact_component_logits")
+            _mix_gts = img_gts if _val_nsd_ids is not None else val_gts
+            if _val_nsd_ids is not None:
+                _cmu, _ckappa, _clogits, _ = _aggregate_component_outputs_by_nsd_id(
+                    _cmu, _ckappa, _clogits, _val_nsd_ids,
+                )
+            mix_ret = _compute_mixture_vmf_retrieval(
+                _cmu,
+                _ckappa,
+                _mix_gts,
+                component_logits=_clogits,
+                ks=(1, 5, 10),
+                normalize=True,
+            )
+            val_metrics["mixture_r@1"] = mix_ret["top1_accuracy"]
+            val_metrics["mixture_r@5"] = mix_ret["top5_accuracy"]
+            val_metrics["mixture_r@10"] = mix_ret["top10_accuracy"]
+            val_metrics["mixture_median_rank"] = mix_ret["median_rank"]
+            val_metrics["mixture_mrr"] = mix_ret["mrr"]
+            logger.info(
+                "Mixture-vMF Retrieval: R@1=%.4f  R@5=%.4f  R@10=%.4f  MedR=%.1f  MRR=%.4f",
+                mix_ret["top1_accuracy"], mix_ret["top5_accuracy"], mix_ret["top10_accuracy"],
+                mix_ret["median_rank"], mix_ret["mrr"],
+            )
+
         # --- V30d per-validation rerank and two-stage diagnostics ---
         _two_stage_cfg = config.get("evaluation", {}).get("two_stage", {})
         _two_stage_enabled = _two_stage_cfg.get("enabled", False)
@@ -4768,6 +4990,7 @@ def main() -> None:
                 _rrg,
                 _fusion_eval_cfg,
             )
+            _used_tri_fusion_val = False
             if _tri_fusion_eval_cfg is not None and "legacy_preds" in _epoch_val_extras and "legacy_gts" in _epoch_val_extras:
                 _lp = _epoch_val_extras["legacy_preds"]
                 _lg = _epoch_val_extras["legacy_gts"]
@@ -4790,7 +5013,11 @@ def main() -> None:
                     _lg,
                     _tri_fusion_eval_cfg,
                 )
-            val_metrics.update(_fusion_scalar_metrics(_fusion_report_val))
+                _used_tri_fusion_val = True
+            if _used_tri_fusion_val:
+                val_metrics.update(_fusion_scalar_metrics(_fusion_report_val, prefix="tri_fused", include_legacy_alias=True))
+            else:
+                val_metrics.update(_fusion_scalar_metrics(_fusion_report_val))
             logger.info(
                 "Rerank val: rerank_R@1=%.4f  oracle_R@1=%.4f  "
                 "sep=%.3f  inter_pred=%.4f  shortlist@100=%.4f  reranked_R@1=%.4f",
@@ -5066,6 +5293,15 @@ def main() -> None:
             np.save(_metrics_save_dir / "val_predictions_legacy.npy", _lp)
             np.save(_metrics_save_dir / "val_ground_truth_legacy.npy", _lg)
             logger.info("Saved legacy val predictions %s", _lp.shape)
+
+        if "compact_component_mu" in _val_extras and "compact_component_kappa" in _val_extras:
+            _cmu = _val_extras["compact_component_mu"]
+            _ck = _val_extras["compact_component_kappa"]
+            _cl = _val_extras.get("compact_component_logits")
+            if _val_nsd_ids is not None:
+                _cmu, _ck, _cl, _ = _aggregate_component_outputs_by_nsd_id(_cmu, _ck, _cl, _val_nsd_ids)
+            _save_compact_component_arrays(_metrics_save_dir, "val", _cmu, _ck, _cl)
+            logger.info("Saved compact component val predictions %s", _cmu.shape)
         # --- V30d: Save rerank head predictions ---
         if "rerank_preds" in _val_extras and "rerank_gts" in _val_extras:
             _rrp = _val_extras["rerank_preds"]

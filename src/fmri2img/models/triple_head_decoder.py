@@ -41,6 +41,9 @@ class TripleHeadOutput(NamedTuple):
     reg_pred: torch.Tensor                  # (B, token_dim) un-normalised
     perc_pred: Optional[torch.Tensor]       # (B, perceptual_dim) or None
     rerank_pred: Optional[torch.Tensor]     # (B, rerank_dim) L2-normalised or None
+    component_mu: Optional[torch.Tensor] = None       # (B, M, retrieval_dim)
+    component_kappa: Optional[torch.Tensor] = None    # (B, M)
+    component_logits: Optional[torch.Tensor] = None   # (B, M)
 
 
 class TripleHeadVMFDecoder(nn.Module):
@@ -90,6 +93,7 @@ class TripleHeadVMFDecoder(nn.Module):
         kappa_min: float = 1e-3,
         kappa_max: float = 500.0,
         kappa_mode: str = "softplus",
+        retrieval_num_hypotheses: int = 1,
     ):
         super().__init__()
 
@@ -103,6 +107,7 @@ class TripleHeadVMFDecoder(nn.Module):
         self.kappa_min = kappa_min
         self.kappa_max = kappa_max
         self.kappa_mode = kappa_mode
+        self.retrieval_num_hypotheses = max(int(retrieval_num_hypotheses), 1)
 
         # --- Shared backbone ---
         if hidden_dims is None or len(hidden_dims) == 0:
@@ -122,8 +127,11 @@ class TripleHeadVMFDecoder(nn.Module):
             backbone_out = hidden_dims[-1]
 
         # --- Head A: compact vMF retrieval ---
-        self.retrieval_mu_head = nn.Linear(backbone_out, retrieval_dim)
-        self.retrieval_kappa_head = nn.Linear(backbone_out, 1)
+        self.retrieval_mu_head = nn.Linear(backbone_out, retrieval_dim * self.retrieval_num_hypotheses)
+        self.retrieval_kappa_head = nn.Linear(backbone_out, self.retrieval_num_hypotheses)
+        self.retrieval_component_logits_head: Optional[nn.Linear] = None
+        if self.retrieval_num_hypotheses > 1:
+            self.retrieval_component_logits_head = nn.Linear(backbone_out, self.retrieval_num_hypotheses)
 
         # --- Head B: rich regression (un-normalised, Euclidean) ---
         self.regression_head = nn.Linear(backbone_out, token_dim)
@@ -164,12 +172,12 @@ class TripleHeadVMFDecoder(nn.Module):
         total = n_backbone + n_retrieval + n_regression + n_rerank + n_perceptual
         logger.info(
             "TripleHeadVMFDecoder: %d -> backbone(%s, %d) -> "
-            "retrieval(%d, %d params) + rerank(%s, %d params) "
+            "retrieval(%d x %d hyp, %d params) + rerank(%s, %d params) "
             "+ regression(%d, %d params) "
             "+ perceptual(%s, %d params) = %.2fM total",
             self.input_dim,
             hidden_dims, backbone_out,
-            self.retrieval_dim, n_retrieval,
+            self.retrieval_dim, self.retrieval_num_hypotheses, n_retrieval,
             self.rerank_dim if self.has_rerank else "off", n_rerank,
             self.token_dim, n_regression,
             self.perceptual_dim if self.has_perceptual else "off",
@@ -189,13 +197,34 @@ class TripleHeadVMFDecoder(nn.Module):
         features = self.shared_backbone(h)
 
         # Head A: compact vMF retrieval
-        mu = F.normalize(self.retrieval_mu_head(features), p=2, dim=-1)
-        kappa = kappa_activation(
-            self.retrieval_kappa_head(features),
+        raw_mu = self.retrieval_mu_head(features)
+        component_mu = raw_mu.view(raw_mu.shape[0], self.retrieval_num_hypotheses, self.retrieval_dim)
+        component_mu = F.normalize(component_mu, p=2, dim=-1)
+        raw_kappa = self.retrieval_kappa_head(features)
+        component_kappa = kappa_activation(
+            raw_kappa,
             mode=self.kappa_mode,
             kappa_min=self.kappa_min,
             kappa_max=self.kappa_max,
         )
+        component_logits = None
+        if self.retrieval_component_logits_head is not None:
+            component_logits = self.retrieval_component_logits_head(features)
+            component_weights = torch.softmax(component_logits, dim=-1)
+        else:
+            component_weights = torch.ones(
+                component_mu.shape[:2],
+                device=component_mu.device,
+                dtype=component_mu.dtype,
+            )
+
+        if self.retrieval_num_hypotheses == 1:
+            mu = component_mu[:, 0, :]
+            kappa = component_kappa[:, :1]
+        else:
+            consensus = (component_weights.unsqueeze(-1) * component_kappa.unsqueeze(-1) * component_mu).sum(dim=1)
+            mu = F.normalize(consensus, p=2, dim=-1)
+            kappa = torch.linalg.norm(consensus, dim=-1, keepdim=True)
 
         # Head B: rich regression (un-normalised)
         reg_pred = self.regression_head(features)
@@ -210,6 +239,13 @@ class TripleHeadVMFDecoder(nn.Module):
         if self.perceptual_head is not None:
             perc_pred = self.perceptual_head(features)
 
-        return TripleHeadOutput(mu=mu, kappa=kappa,
-                                reg_pred=reg_pred, perc_pred=perc_pred,
-                                rerank_pred=rerank_pred)
+        return TripleHeadOutput(
+            mu=mu,
+            kappa=kappa,
+            reg_pred=reg_pred,
+            perc_pred=perc_pred,
+            rerank_pred=rerank_pred,
+            component_mu=component_mu,
+            component_kappa=component_kappa,
+            component_logits=component_logits,
+        )

@@ -8,7 +8,8 @@ require token caches, rerank caches, or pretrained model inits.
 Memory: ~4 GB (model ~2GB + features ~2GB). Safe on shared H100.
 
 Saves: {prefix}_predictions_compact.npy, {prefix}_ground_truth_compact.npy,
-       {prefix}_kappas.npy, {prefix}_nsd_ids.npy
+       {prefix}_kappas.npy, {prefix}_nsd_ids.npy,
+       optional {prefix}_predictions_compact_component_{mu,kappa,logits}.npy
 
 Usage:
     python scripts/evaluation/generate_split_predictions.py \
@@ -287,6 +288,9 @@ def main() -> None:
     all_preds = []
     all_kappas = []
     all_rerank_preds = []
+    all_component_mu = []
+    all_component_kappa = []
+    all_component_logits = []
     has_rerank_head = model_type == "vmf_triple"
 
     logger.info("Running inference: %d trials, batch_size=%d", n_trials, bs)
@@ -316,12 +320,25 @@ def main() -> None:
             if has_rerank_head and hasattr(model, "_last_rerank_pred") and model._last_rerank_pred is not None:
                 all_rerank_preds.append(model._last_rerank_pred.cpu().float().numpy())
 
+            # Extract compact component predictions for multi-hypothesis vMF heads
+            if has_rerank_head and hasattr(model, "_last_compact_component_mu") and model._last_compact_component_mu is not None:
+                all_component_mu.append(model._last_compact_component_mu.cpu().float().numpy())
+                _comp_kappa = getattr(model, "_last_compact_component_kappa", None)
+                _comp_logits = getattr(model, "_last_compact_component_logits", None)
+                if _comp_kappa is not None:
+                    all_component_kappa.append(_comp_kappa.cpu().float().numpy())
+                if _comp_logits is not None:
+                    all_component_logits.append(_comp_logits.cpu().float().numpy())
+
             if (start // bs) % 100 == 0:
                 logger.info("  %d/%d trials", end, n_trials)
 
     preds = np.concatenate(all_preds)
     kappas = np.concatenate(all_kappas) if all_kappas else None
     rerank_preds = np.concatenate(all_rerank_preds) if all_rerank_preds else None
+    component_mu = np.concatenate(all_component_mu) if all_component_mu else None
+    component_kappa = np.concatenate(all_component_kappa) if all_component_kappa else None
+    component_logits = np.concatenate(all_component_logits) if all_component_logits else None
     logger.info("Raw predictions: %s", preds.shape)
     if rerank_preds is not None:
         logger.info("Rerank predictions: %s", rerank_preds.shape)
@@ -345,6 +362,17 @@ def main() -> None:
         rerank_preds_img = None
         rerank_gts_img = None
 
+    if component_mu is not None and component_kappa is not None:
+        n_comp = component_mu.shape[1]
+        comp_dim = component_mu.shape[2]
+        component_mu_img = np.zeros((n_images, n_comp, comp_dim), dtype=np.float32)
+        component_kappa_img = np.zeros((n_images, n_comp), dtype=np.float32)
+        component_logits_img = np.zeros((n_images, n_comp), dtype=np.float32) if component_logits is not None else None
+    else:
+        component_mu_img = None
+        component_kappa_img = None
+        component_logits_img = None
+
     for i, nid in enumerate(unique_nsd):
         mask = nsd_ids == nid
         preds_img[i] = preds[mask].mean(axis=0)
@@ -356,6 +384,16 @@ def main() -> None:
             rerank_preds_img[i] = rerank_preds[mask].mean(axis=0)
         if rerank_gts_img is not None and rerank_lookup and nid in rerank_lookup:
             rerank_gts_img[i] = rerank_lookup[nid]
+        if component_mu_img is not None and component_kappa_img is not None:
+            mu_i = component_mu[mask].mean(axis=0)
+            mu_i = mu_i / np.maximum(np.linalg.norm(mu_i, axis=-1, keepdims=True), 1e-8)
+            component_mu_img[i] = mu_i
+            kappa_i = component_kappa[mask]
+            if kappa_i.ndim == 3 and kappa_i.shape[-1] == 1:
+                kappa_i = kappa_i[..., 0]
+            component_kappa_img[i] = kappa_i.mean(axis=0)
+            if component_logits_img is not None and component_logits is not None:
+                component_logits_img[i] = component_logits[mask].mean(axis=0)
 
     # L2-normalize compact predictions
     nrm = np.linalg.norm(preds_img, axis=-1, keepdims=True)
@@ -369,6 +407,9 @@ def main() -> None:
         nrm_rg = np.linalg.norm(rerank_gts_img, axis=-1, keepdims=True)
         rerank_gts_img = rerank_gts_img / np.maximum(nrm_rg, 1e-8)
 
+    if component_mu_img is not None:
+        logger.info("Compact component predictions: %s", component_mu_img.shape)
+
     # ── 9. Save ──────────────────────────────────────────────────────────
     prefix = args.split
 
@@ -379,6 +420,12 @@ def main() -> None:
     np.save(metrics_dir / f"{prefix}_nsd_ids.npy", unique_nsd)
     if kappas_img is not None:
         np.save(metrics_dir / f"{prefix}_kappas.npy", kappas_img)
+    if component_mu_img is not None:
+        np.save(metrics_dir / f"{prefix}_predictions_compact_component_mu.npy", component_mu_img)
+    if component_kappa_img is not None:
+        np.save(metrics_dir / f"{prefix}_predictions_compact_component_kappa.npy", component_kappa_img)
+    if component_logits_img is not None:
+        np.save(metrics_dir / f"{prefix}_predictions_compact_component_logits.npy", component_logits_img)
     if rerank_preds_img is not None:
         np.save(metrics_dir / f"{prefix}_predictions_rerank.npy", rerank_preds_img)
         logger.info("Saved rerank predictions: %s", rerank_preds_img.shape)

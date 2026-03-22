@@ -495,6 +495,7 @@ class UnifiedModel(nn.Module):
                 kappa_min=decoder_cfg.get("kappa_min", 1e-3),
                 kappa_max=decoder_cfg.get("kappa_max", 500.0),
                 kappa_mode=decoder_cfg.get("kappa_mode", "softplus"),
+                retrieval_num_hypotheses=decoder_cfg.get("retrieval_num_hypotheses", 1),
             )
         elif self.model_type == "vmf_dcf":
             if encoder_type not in ("roi_transformer", "multi_subject_roi_transformer"):
@@ -647,6 +648,9 @@ class UnifiedModel(nn.Module):
             from fmri2img.models.triple_head_decoder import TripleHeadOutput
             dec_out: TripleHeadOutput = self.decoder(h)
             self._last_compact_pred = dec_out.mu
+            self._last_compact_component_mu = dec_out.component_mu
+            self._last_compact_component_kappa = dec_out.component_kappa
+            self._last_compact_component_logits = dec_out.component_logits
             self._last_rich_pred = dec_out.reg_pred
             self._last_rerank_pred = dec_out.rerank_pred
             self._last_perc_pred = dec_out.perc_pred

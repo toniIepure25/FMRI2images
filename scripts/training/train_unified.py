@@ -343,6 +343,99 @@ def _save_compact_component_arrays(
         np.save(metrics_dir / f"{prefix}_predictions_compact_component_logits.npy", component_logits)
 
 
+def _adapt_pretrained_tensor_for_model(
+    key: str,
+    source_tensor: torch.Tensor,
+    target_tensor: torch.Tensor,
+) -> Optional[torch.Tensor]:
+    """Adapt selected pretrained tensors across decoder shape upgrades.
+
+    This is primarily used for upgrading a single-hypothesis compact retrieval
+    head into the new multi-hypothesis vMF head without discarding the whole
+    compact branch. The old retrieval parameters are tiled across hypotheses so
+    the initial consensus behaves like the original single-head model.
+    """
+    if not torch.is_tensor(source_tensor):
+        return None
+
+    if key == "decoder.retrieval_mu_head.weight":
+        if source_tensor.ndim == 2 and target_tensor.ndim == 2 and source_tensor.shape[1] == target_tensor.shape[1]:
+            if target_tensor.shape[0] % source_tensor.shape[0] == 0:
+                repeat = target_tensor.shape[0] // source_tensor.shape[0]
+                return source_tensor.repeat(repeat, 1)
+    elif key == "decoder.retrieval_mu_head.bias":
+        if source_tensor.ndim == 1 and target_tensor.ndim == 1 and target_tensor.shape[0] % source_tensor.shape[0] == 0:
+            repeat = target_tensor.shape[0] // source_tensor.shape[0]
+            return source_tensor.repeat(repeat)
+    elif key == "decoder.retrieval_kappa_head.weight":
+        if source_tensor.ndim == 2 and target_tensor.ndim == 2 and source_tensor.shape[1] == target_tensor.shape[1]:
+            if target_tensor.shape[0] % source_tensor.shape[0] == 0:
+                repeat = target_tensor.shape[0] // source_tensor.shape[0]
+                return source_tensor.repeat(repeat, 1)
+    elif key == "decoder.retrieval_kappa_head.bias":
+        if source_tensor.ndim == 1 and target_tensor.ndim == 1 and target_tensor.shape[0] % source_tensor.shape[0] == 0:
+            repeat = target_tensor.shape[0] // source_tensor.shape[0]
+            return source_tensor.repeat(repeat)
+
+    return None
+
+
+def _prepare_compatible_pretrained_state_dict(
+    model: nn.Module,
+    source_state_dict: Dict[str, torch.Tensor],
+) -> tuple[Dict[str, torch.Tensor], list[str], list[str], list[str], list[str]]:
+    """Filter/adapt a source state dict so load_state_dict(strict=False) is safe.
+
+    Returns
+    -------
+    compatible_state_dict
+        Keys ready to pass to load_state_dict.
+    matched_keys
+        Keys copied without adaptation.
+    adapted_keys
+        Keys copied after an explicit shape adaptation.
+    initialized_keys
+        Keys that do not exist in the source checkpoint but are deliberately
+        initialized here (currently mixture logits -> zeros).
+    skipped_shape_keys
+        Keys present in both states but skipped because shapes were incompatible
+        and no principled adaptation rule exists.
+    """
+    model_state = model.state_dict()
+    compatible: Dict[str, torch.Tensor] = {}
+    matched: list[str] = []
+    adapted: list[str] = []
+    initialized: list[str] = []
+    skipped_shape: list[str] = []
+
+    for key, source_tensor in source_state_dict.items():
+        target_tensor = model_state.get(key)
+        if target_tensor is None:
+            continue
+        if source_tensor.shape == target_tensor.shape:
+            compatible[key] = source_tensor
+            matched.append(key)
+            continue
+        adapted_tensor = _adapt_pretrained_tensor_for_model(key, source_tensor, target_tensor)
+        if adapted_tensor is not None and adapted_tensor.shape == target_tensor.shape:
+            compatible[key] = adapted_tensor.to(dtype=target_tensor.dtype)
+            adapted.append(key)
+        else:
+            skipped_shape.append(key)
+
+    # For newly introduced multi-hypothesis logits, initialize to zero so a
+    # tiled single-head init reduces to the original consensus at step 0.
+    for key in (
+        "decoder.retrieval_component_logits_head.weight",
+        "decoder.retrieval_component_logits_head.bias",
+    ):
+        if key in model_state and key not in compatible:
+            compatible[key] = torch.zeros_like(model_state[key])
+            initialized.append(key)
+
+    return compatible, matched, adapted, initialized, skipped_shape
+
+
 # ---------------------------------------------------------------------------
 # Embedding column resolution
 # ---------------------------------------------------------------------------
@@ -3527,35 +3620,60 @@ def main() -> None:
             )
         else:
             _model_sd = model.state_dict()
-            _matched_model_keys = sorted(set(_model_sd).intersection(_pm_sd))
-            _missing_model_keys = sorted(set(_model_sd).difference(_pm_sd))
             _extra_source_model_keys = sorted(set(_pm_sd).difference(_model_sd))
-            _pm_missing, _pm_unexpected = model.load_state_dict(_pm_sd, strict=False)
+            _pm_compatible_sd, _pm_matched_keys, _pm_adapted_keys, _pm_initialized_keys, _pm_skipped_shape_keys = (
+                _prepare_compatible_pretrained_state_dict(model, _pm_sd)
+            )
+            _missing_model_keys = sorted(set(_model_sd).difference(_pm_compatible_sd))
+            _pm_missing, _pm_unexpected = model.load_state_dict(_pm_compatible_sd, strict=False)
             logger.info(
                 "Pretrained full-model init from %s: source_keys=%d, model_keys=%d, "
-                "matched=%d, missing_in_source=%d, extra_in_source=%d",
+                "matched=%d, adapted=%d, initialized=%d, skipped_shape=%d, missing_in_source=%d, extra_in_source=%d",
                 _pm_path,
                 len(_pm_sd),
                 len(_model_sd),
-                len(_matched_model_keys),
+                len(_pm_matched_keys),
+                len(_pm_adapted_keys),
+                len(_pm_initialized_keys),
+                len(_pm_skipped_shape_keys),
                 len(_missing_model_keys),
                 len(_extra_source_model_keys),
             )
+            if _pm_adapted_keys:
+                logger.info(
+                    "Pretrained adaptation applied to %d key(s): %s",
+                    len(_pm_adapted_keys),
+                    _pm_adapted_keys[:8],
+                )
+            if _pm_initialized_keys:
+                logger.info(
+                    "Pretrained init created %d new key(s): %s",
+                    len(_pm_initialized_keys),
+                    _pm_initialized_keys[:8],
+                )
+            if _pm_skipped_shape_keys:
+                logger.info(
+                    "Skipped %d incompatible pretrained key(s) due to shape mismatch: %s",
+                    len(_pm_skipped_shape_keys),
+                    _pm_skipped_shape_keys[:8],
+                )
             if _pm_missing or _pm_unexpected:
                 logger.info(
                     "Full-model load_state_dict(strict=False) summary: missing=%d unexpected=%d",
                     len(_pm_missing),
                     len(_pm_unexpected),
                 )
-            if _require_pm and len(_matched_model_keys) == 0:
+            if _require_pm and (len(_pm_matched_keys) + len(_pm_adapted_keys) + len(_pm_initialized_keys) == 0):
                 raise RuntimeError(
-                    "require_pretrained_model=true but zero model keys matched from "
+                    "require_pretrained_model=true but zero compatible model keys matched from "
                     f"{_pm_path}"
                 )
             if _require_pm:
                 logger.info(
-                    "Verified pretrained full-model initialization is active: matched_model_keys=%d from %s",
-                    len(_matched_model_keys),
+                    "Verified pretrained full-model initialization is active: matched=%d adapted=%d initialized=%d from %s",
+                    len(_pm_matched_keys),
+                    len(_pm_adapted_keys),
+                    len(_pm_initialized_keys),
                     _pm_path,
                 )
             _pm_loaded_ok = True

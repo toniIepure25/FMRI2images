@@ -30,6 +30,7 @@ LEGACY_BASE_CONFIG="${LEGACY_BASE_CONFIG:-configs/experiments/N1v28a_dual_head.y
 PAIRWISE_MARGIN_WEIGHT="${PAIRWISE_MARGIN_WEIGHT:-0.10}"
 PAIRWISE_MARGIN="${PAIRWISE_MARGIN:-0.20}"
 PAIRWISE_HARD_NEG_K="${PAIRWISE_HARD_NEG_K:-5}"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 OOF_DIR="${TRI_RESULTS_DIR}/oof_v41"
 FOLD_SPLIT_DIR="${OOF_DIR}/fold_splits"
@@ -58,7 +59,7 @@ if [[ ! -f "${LEGACY_BASE_CONFIG}" ]]; then
 fi
 
 echo "[1/7] Building deterministic OOF folds from ${BASE_SPLIT}"
-python scripts/preprocessing/build_oof_split_folds.py \
+"${PYTHON_BIN}" scripts/preprocessing/build_oof_split_folds.py \
   "${BASE_SPLIT}" \
   --output-dir "${FOLD_SPLIT_DIR}" \
   --num-folds "${NUM_FOLDS}" \
@@ -67,7 +68,7 @@ python scripts/preprocessing/build_oof_split_folds.py \
 FOLD_MANIFEST="${FOLD_SPLIT_DIR}/oof_fold_manifest.json"
 
 echo "[2/7] Preparing TRI fold configs and export script"
-python scripts/training/prepare_oof_fold_runs.py \
+"${PYTHON_BIN}" scripts/training/prepare_oof_fold_runs.py \
   --base-config "${TRI_BASE_CONFIG}" \
   --fold-manifest "${FOLD_MANIFEST}" \
   --config-output-dir "${TRI_CONFIG_DIR}" \
@@ -81,7 +82,7 @@ python scripts/training/prepare_oof_fold_runs.py \
   --prediction-split val
 
 echo "[3/7] Preparing LEGACY fold configs and export script"
-python scripts/training/prepare_oof_fold_runs.py \
+"${PYTHON_BIN}" scripts/training/prepare_oof_fold_runs.py \
   --base-config "${LEGACY_BASE_CONFIG}" \
   --fold-manifest "${FOLD_MANIFEST}" \
   --config-output-dir "${LEGACY_CONFIG_DIR}" \
@@ -133,7 +134,7 @@ for fold_idx in $(seq 0 $((NUM_FOLDS - 1))); do
 done
 
 echo "[5/7] Merging TRI fold-heldout predictions -> train_oof"
-python scripts/preprocessing/merge_oof_expert_predictions.py \
+"${PYTHON_BIN}" scripts/preprocessing/merge_oof_expert_predictions.py \
   --fold-manifest "${FOLD_MANIFEST}" \
   --fold-results-root "${TRI_FOLD_ROOT}" \
   --fold-dir-pattern "fold_{fold_index:02d}" \
@@ -143,7 +144,7 @@ python scripts/preprocessing/merge_oof_expert_predictions.py \
   --provenance-json "${TRI_RESULTS_DIR}/metrics/train_oof_merge_provenance_tri_v41.json"
 
 echo "[5/7] Merging LEGACY fold-heldout predictions -> train_oof"
-python scripts/preprocessing/merge_oof_expert_predictions.py \
+"${PYTHON_BIN}" scripts/preprocessing/merge_oof_expert_predictions.py \
   --fold-manifest "${FOLD_MANIFEST}" \
   --fold-results-root "${LEGACY_FOLD_ROOT}" \
   --fold-dir-pattern "fold_{fold_index:02d}" \
@@ -153,7 +154,7 @@ python scripts/preprocessing/merge_oof_expert_predictions.py \
   --provenance-json "${LEGACY_RESULTS_DIR}/metrics/train_oof_merge_provenance_legacy_v41.json"
 
 echo "[6/7] Building union shortlist caches (train_oof + val + shared1000)"
-python scripts/preprocessing/build_union_shortlist_cache.py \
+"${PYTHON_BIN}" scripts/preprocessing/build_union_shortlist_cache.py \
   "${TRI_RESULTS_DIR}" \
   "${LEGACY_RESULTS_DIR}" \
   --shortlist-k "${SHORTLIST_K}" \
@@ -165,7 +166,7 @@ python scripts/preprocessing/build_union_shortlist_cache.py \
   --fold-provenance-json "${FOLD_MANIFEST}"
 
 echo "[6/7] Auditing union oracle/disagreement on train_oof + val + shared1000"
-python scripts/evaluation/measure_union_shortlist_oracle.py \
+"${PYTHON_BIN}" scripts/evaluation/measure_union_shortlist_oracle.py \
   "${TRI_RESULTS_DIR}" \
   "${LEGACY_RESULTS_DIR}" \
   --splits train val shared1000 \
@@ -174,7 +175,7 @@ python scripts/evaluation/measure_union_shortlist_oracle.py \
   --train-split-prefix train_oof
 
 echo "[7/7] Training V41 vMF-evidence resolver on train_oof cache"
-python scripts/training/train_union_shortlist_reranker.py \
+"${PYTHON_BIN}" scripts/training/train_union_shortlist_reranker.py \
   "${TRI_RESULTS_DIR}" \
   "${LEGACY_RESULTS_DIR}" \
   --shortlist-k "${SHORTLIST_K}" \

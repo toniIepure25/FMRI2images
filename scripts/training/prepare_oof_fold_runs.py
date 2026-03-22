@@ -208,6 +208,7 @@ def main() -> None:
     lines.append(f"GPU=\"${{GPU:-{args.gpu}}}\"")
     lines.append(f"SUBJECT=\"${{SUBJECT:-{args.subject}}}\"")
     lines.append(f"SAVE_CKPT=\"${{SAVE_CKPT:-{args.save_checkpoints}}}\"")
+    lines.append("PYTHON_BIN=\"${PYTHON_BIN:-python3}\"")
     lines.append("export CUDA_VISIBLE_DEVICES=\"$GPU\"")
     lines.append("")
     lines.append(f"FOLD_PREDS_ROOT=\"{fold_preds_root}\"")
@@ -224,13 +225,13 @@ def main() -> None:
         lines.append("")
         lines.append(f"echo \"[Fold {fold_tag}] train {exp_name}\"")
         lines.append(
-            "python scripts/training/train_unified.py "
+            "\"$PYTHON_BIN\" scripts/training/train_unified.py "
             f"--config \"{cfg_path}\" --subject \"$SUBJECT\" --gpu 0 --save-checkpoints \"$SAVE_CKPT\""
         )
         lines.append("")
         lines.append(f"echo \"[Fold {fold_tag}] export {args.prediction_split} predictions\"")
         lines.append(
-            "python scripts/evaluation/generate_split_predictions.py "
+            "\"$PYTHON_BIN\" scripts/evaluation/generate_split_predictions.py "
             f"--checkpoint \"experimental_results/{exp_name}/$SUBJECT/checkpoint_best.pt\" "
             f"--output-dir \"$FOLD_PREDS_ROOT/fold_{fold_tag}\" "
             f"--split {args.prediction_split} --subject \"$SUBJECT\""

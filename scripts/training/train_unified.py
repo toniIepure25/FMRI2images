@@ -66,6 +66,7 @@ from fmri2img.training.kl_schedule import KLScheduler
 from fmri2img.losses.mixco import mixco_augment, mixco_nce_loss
 from fmri2img.losses.softclip import SoftCLIPLoss, VMFSoftCLIPLoss
 from fmri2img.losses.legacy_compact_distill import LegacyCompactDistillLoss
+from fmri2img.losses.component_legacy_compact_distill import ComponentLegacyCompactDistillLoss
 from fmri2img.losses.legacy_teacher_distill import LegacyTeacherDistillLoss
 from fmri2img.losses.shortlist_teacher_distill import ShortlistTeacherDistillLoss
 from fmri2img.losses.tri_teacher_distill import TriTeacherDistillLoss
@@ -77,7 +78,10 @@ from fmri2img.eval.embedding_eval import (
     compute_retrieval_metrics as _compute_retrieval,
     compute_retrieval_metrics_csls as _compute_retrieval_csls,
     compute_mixture_vmf_retrieval_metrics as _compute_mixture_vmf_retrieval,
+    compute_mixture_vmf_retrieval_metrics_csls as _compute_mixture_vmf_retrieval_csls,
     compute_mixture_component_diagnostics as _compute_mixture_component_diagnostics,
+    score_mixture_vmf_gallery as _score_mixture_vmf_gallery,
+    csls_from_score_matrix as _csls_from_score_matrix,
 )
 
 logging.basicConfig(
@@ -284,6 +288,8 @@ def _merge_summary_metrics(metrics_dir: Path) -> None:
         updates["final_compact_csls_r@1"] = float(shared_compact.get("csls_r@1", 0.0))
         if "mixture_r@1" in shared_compact:
             updates["final_mixture_r@1"] = float(shared_compact.get("mixture_r@1", 0.0))
+        if "mixture_csls_r@1" in shared_compact:
+            updates["final_mixture_csls_r@1"] = float(shared_compact.get("mixture_csls_r@1", 0.0))
 
     shared_two_stage = _load_json_if_exists(metrics_dir / "shared1000_two_stage_rerank.json")
     if shared_two_stage is not None:
@@ -306,6 +312,29 @@ def _merge_summary_metrics(metrics_dir: Path) -> None:
     summary.update(updates)
     with open(summary_path, "w") as f:
         json.dump(summary, f, indent=2, default=str)
+
+
+def _metric_lower_is_better(metric_name: str) -> bool:
+    metric_name = str(metric_name)
+    return (
+        metric_name == "median_rank"
+        or metric_name.endswith("median_rank")
+        or metric_name == "loss"
+        or metric_name.endswith("loss")
+    )
+
+
+def _sanitize_metric_name(metric_name: str) -> str:
+    safe = []
+    for ch in str(metric_name):
+        if ch.isalnum():
+            safe.append(ch)
+        else:
+            safe.append("_")
+    sanitized = "".join(safe).strip("_")
+    while "__" in sanitized:
+        sanitized = sanitized.replace("__", "_")
+    return sanitized or "metric"
 
 
 def _aggregate_component_outputs_by_nsd_id(
@@ -1132,6 +1161,28 @@ def setup_losses(config: Dict[str, Any], device: str,
             c.get("start_epoch", 10),
         )
 
+    # --- V44: component-responsibility legacy -> compact distillation ---
+    if loss_cfg.get("component_legacy_compact_distill", {}).get("enabled", False):
+        c = loss_cfg["component_legacy_compact_distill"]
+        losses["component_legacy_compact_distill"] = ComponentLegacyCompactDistillLoss(
+            teacher_temperature=c.get("teacher_tau", c.get("teacher_temperature", 0.07)),
+            student_temperature=c.get("student_tau", c.get("student_temperature", 0.07)),
+            topk=c.get("topk", 12),
+            use_component_logits_prior=c.get("use_component_logits_prior", True),
+            prior_weight=c.get("prior_weight", 0.10),
+        )
+        logger.info(
+            "Component legacy compact distill enabled "
+            "(weight=%.3f, teacher_tau=%.3f, student_tau=%.3f, topk=%d, start_epoch=%d, logits_prior=%s, prior_weight=%.3f)",
+            c.get("weight", 0.10),
+            c.get("teacher_tau", c.get("teacher_temperature", 0.07)),
+            c.get("student_tau", c.get("student_temperature", 0.07)),
+            c.get("topk", 12),
+            c.get("start_epoch", 10),
+            c.get("use_component_logits_prior", True),
+            c.get("prior_weight", 0.10),
+        )
+
     # --- V36: combined rerank + legacy tri-teacher distillation ---
     if loss_cfg.get("tri_teacher_distill", {}).get("enabled", False):
         c = loss_cfg["tri_teacher_distill"]
@@ -1273,6 +1324,29 @@ def compute_vmf_kl(mu: torch.Tensor, log_kappa: torch.Tensor, dim: int) -> torch
     return kl.mean()
 
 
+def _get_legacy_teacher_mask_and_voxels(
+    model: nn.Module,
+    subject_ids: Optional[torch.Tensor],
+) -> Tuple[Optional[torch.Tensor], int]:
+    if subject_ids is None:
+        return None, 0
+    canonical_subject = getattr(model, "_canonical_subject", None)
+    subj_map = getattr(model, "_subj_int_to_id", None)
+    if not canonical_subject or not subj_map:
+        return None, 0
+    canonical_int = next((int(i) for i, sid in subj_map.items() if sid == canonical_subject), None)
+    canonical_voxels = int(getattr(model, "_canonical_voxels", 0) or 0)
+    if canonical_int is None:
+        return None, canonical_voxels
+    return subject_ids == canonical_int, canonical_voxels
+
+
+def _maybe_mask_legacy_tensor(tensor: Optional[torch.Tensor], mask: Optional[torch.Tensor]) -> Optional[torch.Tensor]:
+    if tensor is None or mask is None:
+        return tensor
+    return tensor[mask]
+
+
 # ---------------------------------------------------------------------------
 # Training and validation loops
 # ---------------------------------------------------------------------------
@@ -1398,18 +1472,33 @@ def train_epoch(
             # through cos_sim(mu, target) instead of a random projection.
             _proj_head = getattr(model, "projection_head", None)
             pred_for_contrast = _proj_head(pred) if _proj_head is not None else pred
+            _legacy_teacher_mask, _legacy_teacher_voxels = _get_legacy_teacher_mask_and_voxels(model, subject_ids)
             _legacy_teacher_pred = None
             if legacy_teacher_model is not None and _rich_target is not None:
                 with torch.no_grad():
-                    _legacy_out = (
-                        legacy_teacher_model(fmri_teacher, subject_ids=subject_ids)
-                        if subject_ids is not None
-                        else legacy_teacher_model(fmri_teacher)
-                    )
-                    _legacy_teacher_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
+                    if _legacy_teacher_mask is not None:
+                        if bool(_legacy_teacher_mask.any().item()):
+                            _teacher_fmri = fmri_teacher[_legacy_teacher_mask]
+                            if _legacy_teacher_voxels > 0:
+                                _teacher_fmri = _teacher_fmri[:, :_legacy_teacher_voxels]
+                            _legacy_out = legacy_teacher_model(_teacher_fmri)
+                            _legacy_teacher_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
+                    else:
+                        _legacy_out = (
+                            legacy_teacher_model(fmri_teacher, subject_ids=subject_ids)
+                            if subject_ids is not None
+                            else legacy_teacher_model(fmri_teacher)
+                        )
+                        _legacy_teacher_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
             _compact_component_mu = getattr(model, "_last_compact_component_mu", None)
             _compact_component_kappa = getattr(model, "_last_compact_component_kappa", None)
             _compact_component_logits = getattr(model, "_last_compact_component_logits", None)
+            _pred_for_legacy = _maybe_mask_legacy_tensor(pred, _legacy_teacher_mask)
+            _gt_for_legacy = _maybe_mask_legacy_tensor(gt_embedding, _legacy_teacher_mask)
+            _rich_target_for_legacy = _maybe_mask_legacy_tensor(_rich_target, _legacy_teacher_mask)
+            _compact_component_mu_for_legacy = _maybe_mask_legacy_tensor(_compact_component_mu, _legacy_teacher_mask)
+            _compact_component_kappa_for_legacy = _maybe_mask_legacy_tensor(_compact_component_kappa, _legacy_teacher_mask)
+            _compact_component_logits_for_legacy = _maybe_mask_legacy_tensor(_compact_component_logits, _legacy_teacher_mask)
 
             # --- Deterministic / regression losses ---
             if "mse" in losses and not is_gaussian:
@@ -1581,19 +1670,28 @@ def train_epoch(
             _reg_pred = getattr(model, "_last_reg_pred", None)
             _reg_mse_cfg = (config_ref or {}).get("loss", {}).get("regression_mse", {})
             if _reg_mse_cfg.get("enabled", False) and _reg_pred is not None:
-                _reg_mse_w = loss_weights.get("regression_mse", _reg_mse_cfg.get("weight", 1.0))
-                _reg_target = _rich_target if _rich_target is not None else gt_embedding
-                _reg_loss = F.mse_loss(_reg_pred, _reg_target, reduction="mean")
-                total_loss = total_loss + _reg_mse_w * _reg_loss
-                batch_metrics["reg_mse"] = _reg_loss.item()
+                _reg_mse_start_epoch = int(_reg_mse_cfg.get("start_epoch", 0))
+                if current_epoch > _reg_mse_start_epoch:
+                    _reg_mse_w = loss_weights.get("regression_mse", _reg_mse_cfg.get("weight", 1.0))
+                    _reg_target = _rich_target if _rich_target is not None else gt_embedding
+                    _reg_loss = F.mse_loss(_reg_pred, _reg_target, reduction="mean")
+                    total_loss = total_loss + _reg_mse_w * _reg_loss
+                    batch_metrics["reg_mse"] = _reg_loss.item()
+                else:
+                    batch_metrics["reg_mse"] = 0.0
 
             # --- V30d: Rerank head SoftCLIP ---
             _rerank_pred = getattr(model, "_last_rerank_pred", None)
+            _rerank_cfg = (config_ref or {}).get("loss", {}).get("rerank_softclip", {})
             if "rerank_softclip" in losses and _rerank_pred is not None and _rerank_target is not None:
-                _rerank_w = loss_weights.get("rerank_softclip", 1.0)
-                _rerank_loss = losses["rerank_softclip"](_rerank_pred, _rerank_target, queue=None)
-                total_loss = total_loss + _rerank_w * _rerank_loss
-                batch_metrics["rerank_softclip"] = _rerank_loss.item()
+                _rerank_start_epoch = int(_rerank_cfg.get("start_epoch", 0))
+                if current_epoch > _rerank_start_epoch:
+                    _rerank_w = loss_weights.get("rerank_softclip", _rerank_cfg.get("weight", 1.0))
+                    _rerank_loss = losses["rerank_softclip"](_rerank_pred, _rerank_target, queue=None)
+                    total_loss = total_loss + _rerank_w * _rerank_loss
+                    batch_metrics["rerank_softclip"] = _rerank_loss.item()
+                else:
+                    batch_metrics["rerank_softclip"] = 0.0
 
             # --- V33: shortlist-local teacher distillation ---
             _std_cfg = (config_ref or {}).get("loss", {}).get("shortlist_teacher_distill", {})
@@ -1633,10 +1731,10 @@ def train_epoch(
                 and _rich_target is not None
             ):
                 _ltd_loss, _ltd_stats = losses["legacy_teacher_distill"](
-                    compact_pred=pred,
-                    retrieval_target=gt_embedding,
+                    compact_pred=_pred_for_legacy,
+                    retrieval_target=_gt_for_legacy,
                     teacher_pred=_legacy_teacher_pred,
-                    teacher_target=_rich_target,
+                    teacher_target=_rich_target_for_legacy,
                     return_stats=True,
                 )
                 _ltd_start_epoch = int(_ltd_cfg.get("start_epoch", 10))
@@ -1663,10 +1761,10 @@ def train_epoch(
                 and _rich_target is not None
             ):
                 _lcd_loss, _lcd_stats = losses["legacy_compact_distill"](
-                    compact_pred=pred,
-                    retrieval_target=gt_embedding,
+                    compact_pred=_pred_for_legacy,
+                    retrieval_target=_gt_for_legacy,
                     teacher_pred=_legacy_teacher_pred,
-                    teacher_target=_rich_target,
+                    teacher_target=_rich_target_for_legacy,
                     return_stats=True,
                 )
                 _lcd_start_epoch = int(_lcd_cfg.get("start_epoch", 10))
@@ -1686,6 +1784,44 @@ def train_epoch(
                 batch_metrics["legacy_compact_student_pos_rank_median"] = _lcd_stats["student_pos_rank_median"]
                 batch_metrics["legacy_compact_active_candidate_size_mean"] = _lcd_stats["active_candidate_size_mean"]
 
+            # --- V44: component-responsibility legacy -> compact distillation ---
+            _clcd_cfg = (config_ref or {}).get("loss", {}).get("component_legacy_compact_distill", {})
+            if (
+                "component_legacy_compact_distill" in losses
+                and _legacy_teacher_pred is not None
+                and _rich_target is not None
+                and _compact_component_mu is not None
+                and _compact_component_kappa is not None
+            ):
+                _clcd_loss, _clcd_stats = losses["component_legacy_compact_distill"](
+                    compact_component_mu=_compact_component_mu_for_legacy,
+                    compact_component_kappa=_compact_component_kappa_for_legacy,
+                    retrieval_target=_gt_for_legacy,
+                    teacher_pred=_legacy_teacher_pred,
+                    teacher_target=_rich_target_for_legacy,
+                    component_logits=_compact_component_logits_for_legacy,
+                    return_stats=True,
+                )
+                _clcd_start_epoch = int(_clcd_cfg.get("start_epoch", 10))
+                if current_epoch > _clcd_start_epoch:
+                    _clcd_w = loss_weights.get(
+                        "component_legacy_compact_distill",
+                        _clcd_cfg.get("weight", 0.10),
+                    )
+                    total_loss = total_loss + _clcd_w * _clcd_loss
+                    batch_metrics["component_legacy_compact_distill"] = _clcd_loss.item()
+                else:
+                    batch_metrics["component_legacy_compact_distill"] = 0.0
+                batch_metrics["component_legacy_teacher_topk_hit_frac"] = _clcd_stats["teacher_topk_hit_frac"]
+                batch_metrics["component_legacy_teacher_pos_rank_mean"] = _clcd_stats["teacher_pos_rank_mean"]
+                batch_metrics["component_legacy_teacher_pos_rank_median"] = _clcd_stats["teacher_pos_rank_median"]
+                batch_metrics["component_legacy_student_pos_rank_mean"] = _clcd_stats["student_pos_rank_mean"]
+                batch_metrics["component_legacy_student_pos_rank_median"] = _clcd_stats["student_pos_rank_median"]
+                batch_metrics["component_legacy_active_candidate_size_mean"] = _clcd_stats["active_candidate_size_mean"]
+                batch_metrics["component_legacy_responsible_component_entropy"] = _clcd_stats["responsible_component_entropy"]
+                batch_metrics["component_legacy_responsible_component_top_rate"] = _clcd_stats["responsible_component_top_rate"]
+                batch_metrics["component_legacy_responsible_component_mean"] = _clcd_stats["responsible_component_mean"]
+
             # --- V36: combined rerank + legacy teacher distillation ---
             _tri_cfg = (config_ref or {}).get("loss", {}).get("tri_teacher_distill", {})
             if (
@@ -1696,12 +1832,12 @@ def train_epoch(
                 and _rich_target is not None
             ):
                 _tri_loss, _tri_stats = losses["tri_teacher_distill"](
-                    compact_pred=pred,
-                    retrieval_target=gt_embedding,
-                    rerank_pred=_rerank_pred,
-                    rerank_target=_rerank_target,
+                    compact_pred=_pred_for_legacy,
+                    retrieval_target=_gt_for_legacy,
+                    rerank_pred=_maybe_mask_legacy_tensor(_rerank_pred, _legacy_teacher_mask),
+                    rerank_target=_maybe_mask_legacy_tensor(_rerank_target, _legacy_teacher_mask),
                     legacy_pred=_legacy_teacher_pred,
-                    legacy_target=_rich_target,
+                    legacy_target=_rich_target_for_legacy,
                     return_stats=True,
                 )
                 _tri_start_epoch = int(_tri_cfg.get("start_epoch", 10))
@@ -2328,11 +2464,25 @@ def _evaluate_shared1000(
             ks=(1, 5, 10),
             normalize=True,
         )
+        mix_csls_ret = _compute_mixture_vmf_retrieval_csls(
+            _component_mu_img,
+            _component_kappa_img,
+            gts,
+            component_logits=_component_logits_img,
+            ks=(1, 5, 10),
+            normalize=True,
+            csls_k=10,
+        )
         metrics["mixture_r@1"] = float(mix_ret["top1_accuracy"])
         metrics["mixture_r@5"] = float(mix_ret["top5_accuracy"])
         metrics["mixture_r@10"] = float(mix_ret["top10_accuracy"])
         metrics["mixture_median_rank"] = float(mix_ret["median_rank"])
         metrics["mixture_mrr"] = float(mix_ret["mrr"])
+        metrics["mixture_csls_r@1"] = float(mix_csls_ret["top1_accuracy"])
+        metrics["mixture_csls_r@5"] = float(mix_csls_ret["top5_accuracy"])
+        metrics["mixture_csls_r@10"] = float(mix_csls_ret["top10_accuracy"])
+        metrics["mixture_csls_median_rank"] = float(mix_csls_ret["median_rank"])
+        metrics["mixture_csls_mrr"] = float(mix_csls_ret["mrr"])
         _mix_diag = _compute_mixture_component_diagnostics(
             _component_mu_img,
             _component_kappa_img,
@@ -2491,21 +2641,37 @@ def validate(
                 all_rerank_preds.append(_rerank_pred_val.detach().cpu().numpy())
             if _rerank_target is not None:
                 all_rerank_gts.append(_rerank_target.detach().cpu().numpy())
+            _legacy_teacher_mask, _legacy_teacher_voxels = _get_legacy_teacher_mask_and_voxels(model, subject_ids)
             _legacy_teacher_pred = None
             if legacy_teacher_model is not None and _rich_target is not None:
-                _legacy_out = (
-                    legacy_teacher_model(fmri_teacher, subject_ids=subject_ids)
-                    if subject_ids is not None
-                    else legacy_teacher_model(fmri_teacher)
-                )
-                _legacy_teacher_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
-                all_legacy_preds.append(_legacy_teacher_pred.detach().cpu().numpy())
-                all_legacy_gts.append(_rich_target.detach().cpu().numpy())
+                if _legacy_teacher_mask is not None:
+                    if bool(_legacy_teacher_mask.any().item()):
+                        _teacher_fmri = fmri_teacher[_legacy_teacher_mask]
+                        if _legacy_teacher_voxels > 0:
+                            _teacher_fmri = _teacher_fmri[:, :_legacy_teacher_voxels]
+                        _legacy_out = legacy_teacher_model(_teacher_fmri)
+                        _legacy_teacher_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
+                else:
+                    _legacy_out = (
+                        legacy_teacher_model(fmri_teacher, subject_ids=subject_ids)
+                        if subject_ids is not None
+                        else legacy_teacher_model(fmri_teacher)
+                    )
+                    _legacy_teacher_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
+                if _legacy_teacher_pred is not None:
+                    all_legacy_preds.append(_legacy_teacher_pred.detach().cpu().numpy())
+                    all_legacy_gts.append(_maybe_mask_legacy_tensor(_rich_target, _legacy_teacher_mask).detach().cpu().numpy())
 
             total_loss = torch.tensor(0.0, device=device, dtype=torch.float32)
             bm: Dict[str, float] = {}
             is_gaussian = model_type == "gaussian" and aux is not None
             is_vmf = model_type in ("vmf", "vmf_dcf", "vmf_triple") and aux is not None
+            _pred_for_legacy = _maybe_mask_legacy_tensor(pred, _legacy_teacher_mask)
+            _gt_for_legacy = _maybe_mask_legacy_tensor(gt_embedding, _legacy_teacher_mask)
+            _rich_target_for_legacy = _maybe_mask_legacy_tensor(_rich_target, _legacy_teacher_mask)
+            _component_mu_val_for_legacy = _maybe_mask_legacy_tensor(_component_mu_val, _legacy_teacher_mask)
+            _component_kappa_val_for_legacy = _maybe_mask_legacy_tensor(_component_kappa_val, _legacy_teacher_mask)
+            _component_logits_val_for_legacy = _maybe_mask_legacy_tensor(_component_logits_val, _legacy_teacher_mask)
 
             if "mse" in losses and not is_gaussian:
                 l = losses["mse"](pred, gt_embedding)
@@ -2622,19 +2788,29 @@ def validate(
 
             # --- Dual-head / triple-head regression MSE ---
             _reg_pred_val = getattr(model, "_last_reg_pred", None)
-            if _reg_pred_val is not None:
-                _reg_mse_w = loss_weights.get("regression_mse", 1.0)
-                _val_reg_target = _rich_target if _rich_target is not None else gt_embedding
-                _reg_l = F.mse_loss(_reg_pred_val, _val_reg_target, reduction="mean")
-                total_loss = total_loss + _reg_mse_w * _reg_l
-                bm["reg_mse"] = _reg_l.item()
+            _reg_mse_cfg = (config_ref or {}).get("loss", {}).get("regression_mse", {})
+            if _reg_mse_cfg.get("enabled", False) and _reg_pred_val is not None:
+                _reg_mse_start_epoch = int(_reg_mse_cfg.get("start_epoch", 0))
+                if current_epoch > _reg_mse_start_epoch:
+                    _reg_mse_w = loss_weights.get("regression_mse", _reg_mse_cfg.get("weight", 1.0))
+                    _val_reg_target = _rich_target if _rich_target is not None else gt_embedding
+                    _reg_l = F.mse_loss(_reg_pred_val, _val_reg_target, reduction="mean")
+                    total_loss = total_loss + _reg_mse_w * _reg_l
+                    bm["reg_mse"] = _reg_l.item()
+                else:
+                    bm["reg_mse"] = 0.0
 
             # --- V30d: Rerank SoftCLIP val loss ---
             _rerank_pred_val2 = getattr(model, "_last_rerank_pred", None)
+            _rerank_cfg = (config_ref or {}).get("loss", {}).get("rerank_softclip", {})
             if "rerank_softclip" in losses and _rerank_pred_val2 is not None and _rerank_target is not None:
-                _rr_l = losses["rerank_softclip"](_rerank_pred_val2, _rerank_target, queue=None)
-                total_loss = total_loss + loss_weights.get("rerank_softclip", 1.0) * _rr_l
-                bm["rerank_softclip"] = _rr_l.item()
+                _rerank_start_epoch = int(_rerank_cfg.get("start_epoch", 0))
+                if current_epoch > _rerank_start_epoch:
+                    _rr_l = losses["rerank_softclip"](_rerank_pred_val2, _rerank_target, queue=None)
+                    total_loss = total_loss + loss_weights.get("rerank_softclip", _rerank_cfg.get("weight", 1.0)) * _rr_l
+                    bm["rerank_softclip"] = _rr_l.item()
+                else:
+                    bm["rerank_softclip"] = 0.0
 
             _std_cfg = (config_ref or {}).get("loss", {}).get("shortlist_teacher_distill", {})
             if (
@@ -2671,10 +2847,10 @@ def validate(
                 and _rich_target is not None
             ):
                 _ltd_l, _ltd_stats = losses["legacy_teacher_distill"](
-                    compact_pred=pred,
-                    retrieval_target=gt_embedding,
+                    compact_pred=_pred_for_legacy,
+                    retrieval_target=_gt_for_legacy,
                     teacher_pred=_legacy_teacher_pred,
-                    teacher_target=_rich_target,
+                    teacher_target=_rich_target_for_legacy,
                     return_stats=True,
                 )
                 _ltd_start_epoch = int(_ltd_cfg.get("start_epoch", 10))
@@ -2699,10 +2875,10 @@ def validate(
             ):
                 _lcd_cfg = (config_ref or {}).get("loss", {}).get("legacy_compact_distill", {})
                 _lcd_l, _lcd_stats = losses["legacy_compact_distill"](
-                    compact_pred=pred,
-                    retrieval_target=gt_embedding,
+                    compact_pred=_pred_for_legacy,
+                    retrieval_target=_gt_for_legacy,
                     teacher_pred=_legacy_teacher_pred,
-                    teacher_target=_rich_target,
+                    teacher_target=_rich_target_for_legacy,
                     return_stats=True,
                 )
                 _lcd_start_epoch = int(_lcd_cfg.get("start_epoch", 10))
@@ -2721,6 +2897,42 @@ def validate(
                 bm["legacy_compact_student_pos_rank_median"] = _lcd_stats["student_pos_rank_median"]
                 bm["legacy_compact_active_candidate_size_mean"] = _lcd_stats["active_candidate_size_mean"]
 
+            _clcd_cfg = (config_ref or {}).get("loss", {}).get("component_legacy_compact_distill", {})
+            if (
+                "component_legacy_compact_distill" in losses
+                and _legacy_teacher_pred is not None
+                and _rich_target is not None
+                and _component_mu_val is not None
+                and _component_kappa_val is not None
+            ):
+                _clcd_l, _clcd_stats = losses["component_legacy_compact_distill"](
+                    compact_component_mu=_component_mu_val_for_legacy,
+                    compact_component_kappa=_component_kappa_val_for_legacy,
+                    retrieval_target=_gt_for_legacy,
+                    teacher_pred=_legacy_teacher_pred,
+                    teacher_target=_rich_target_for_legacy,
+                    component_logits=_component_logits_val_for_legacy,
+                    return_stats=True,
+                )
+                _clcd_start_epoch = int(_clcd_cfg.get("start_epoch", 10))
+                if current_epoch > _clcd_start_epoch:
+                    total_loss = total_loss + loss_weights.get(
+                        "component_legacy_compact_distill",
+                        _clcd_cfg.get("weight", 0.10),
+                    ) * _clcd_l
+                    bm["component_legacy_compact_distill"] = _clcd_l.item()
+                else:
+                    bm["component_legacy_compact_distill"] = 0.0
+                bm["component_legacy_teacher_topk_hit_frac"] = _clcd_stats["teacher_topk_hit_frac"]
+                bm["component_legacy_teacher_pos_rank_mean"] = _clcd_stats["teacher_pos_rank_mean"]
+                bm["component_legacy_teacher_pos_rank_median"] = _clcd_stats["teacher_pos_rank_median"]
+                bm["component_legacy_student_pos_rank_mean"] = _clcd_stats["student_pos_rank_mean"]
+                bm["component_legacy_student_pos_rank_median"] = _clcd_stats["student_pos_rank_median"]
+                bm["component_legacy_active_candidate_size_mean"] = _clcd_stats["active_candidate_size_mean"]
+                bm["component_legacy_responsible_component_entropy"] = _clcd_stats["responsible_component_entropy"]
+                bm["component_legacy_responsible_component_top_rate"] = _clcd_stats["responsible_component_top_rate"]
+                bm["component_legacy_responsible_component_mean"] = _clcd_stats["responsible_component_mean"]
+
             _tri_cfg = (config_ref or {}).get("loss", {}).get("tri_teacher_distill", {})
             if (
                 "tri_teacher_distill" in losses
@@ -2730,12 +2942,12 @@ def validate(
                 and _rich_target is not None
             ):
                 _tri_l, _tri_stats = losses["tri_teacher_distill"](
-                    compact_pred=pred,
-                    retrieval_target=gt_embedding,
-                    rerank_pred=_rerank_pred_val2,
-                    rerank_target=_rerank_target,
+                    compact_pred=_pred_for_legacy,
+                    retrieval_target=_gt_for_legacy,
+                    rerank_pred=_maybe_mask_legacy_tensor(_rerank_pred_val2, _legacy_teacher_mask),
+                    rerank_target=_maybe_mask_legacy_tensor(_rerank_target, _legacy_teacher_mask),
                     legacy_pred=_legacy_teacher_pred,
-                    legacy_target=_rich_target,
+                    legacy_target=_rich_target_for_legacy,
                     return_stats=True,
                 )
                 _tri_start_epoch = int(_tri_cfg.get("start_epoch", 10))
@@ -2876,6 +3088,9 @@ def _compute_tri_fusion_report(
     legacy_preds: np.ndarray,
     legacy_gts: np.ndarray,
     tri_fusion_cfg: Optional[Dict[str, Any]],
+    compact_component_mu: Optional[np.ndarray] = None,
+    compact_component_kappa: Optional[np.ndarray] = None,
+    compact_component_logits: Optional[np.ndarray] = None,
 ) -> Optional[Dict[str, Any]]:
     """Compute fixed tri-expert fusion metrics inside a compact shortlist."""
     if tri_fusion_cfg is None:
@@ -2907,7 +3122,32 @@ def _compute_tri_fusion_report(
 
     compact_raw_scores = _cosine_sim(compact_preds, compact_gts)
     compact_csls_scores = _csls_scores(compact_preds, compact_gts, k=csls_k)
-    compact_scores = compact_csls_scores if compact_score == "csls" else compact_raw_scores
+    mixture_raw_scores = None
+    mixture_csls_scores = None
+    if compact_component_mu is not None and compact_component_kappa is not None:
+        mixture_raw_scores = _score_mixture_vmf_gallery(
+            compact_component_mu,
+            compact_component_kappa,
+            compact_gts,
+            component_logits=compact_component_logits,
+            normalize=True,
+        )
+        mixture_csls_scores = _csls_from_score_matrix(mixture_raw_scores, k=csls_k)
+
+    if compact_score == "csls":
+        compact_scores = compact_csls_scores
+    elif compact_score == "raw_cosine":
+        compact_scores = compact_raw_scores
+    elif compact_score == "mixture_raw":
+        if mixture_raw_scores is None:
+            raise ValueError("tri_fusion compact_score='mixture_raw' requires compact component arrays")
+        compact_scores = mixture_raw_scores
+    elif compact_score == "mixture_csls":
+        if mixture_csls_scores is None:
+            raise ValueError("tri_fusion compact_score='mixture_csls' requires compact component arrays")
+        compact_scores = mixture_csls_scores
+    else:
+        raise ValueError(f"Unknown tri compact_score variant: {compact_score}")
     compact_order, compact_gt_rank = _gt_rank_from_scores(compact_scores)
 
     if rerank_mode == "cosine":
@@ -3003,6 +3243,14 @@ def _compute_tri_fusion_report(
             fused_metrics.get("r@1", 0.0) - rerank_only_metrics.get("r@1", 0.0), 4
         ),
     }
+    if mixture_raw_scores is not None:
+        mixture_raw_metrics = _metrics_from_gt_rank(_gt_rank_from_scores(mixture_raw_scores)[1], (1, 5, 10))
+        mixture_csls_metrics = _metrics_from_gt_rank(_gt_rank_from_scores(mixture_csls_scores)[1], (1, 5, 10))
+        report["mixture_raw"] = _prefix_metrics(mixture_raw_metrics, "mixture")
+        report["mixture_csls"] = _prefix_metrics(mixture_csls_metrics, "mixture_csls")
+        report["fused_gain_over_mixture_csls"] = round(
+            fused_metrics.get("r@1", 0.0) - mixture_csls_metrics.get("r@1", 0.0), 4
+        )
 
     logger.info(
         "Tri-fusion eval: compact=%s legacy=%s family=%s norm=%s k=%d "
@@ -3198,6 +3446,9 @@ def _run_post_training_shared1000_eval(
                     _s1000_legacy_preds,
                     _s1000_legacy_gts,
                     _tri_fusion_cfg,
+                    compact_component_mu=_s1000_component_mu,
+                    compact_component_kappa=_s1000_component_kappa,
+                    compact_component_logits=_s1000_component_logits,
                 )
             elif _fusion_cfg is not None:
                 _fusion_report = _compute_fusion_report(
@@ -4575,10 +4826,30 @@ def main() -> None:
         config.get("evaluation", {}).get("checkpoint_metric")
         or config.get("training", {}).get("checkpoint_metric", "r@1")
     )
-    _ckpt_lower_is_better = _ckpt_metric_name == "median_rank"
+    _ckpt_lower_is_better = _metric_lower_is_better(_ckpt_metric_name)
+    _extra_best_metric_names = [
+        m for m in config.get("evaluation", {}).get("best_checkpoints", [])
+        if isinstance(m, str) and m and m != _ckpt_metric_name
+    ]
+    _extra_best_trackers: Dict[str, Dict[str, Any]] = {
+        m: {
+            "best_value": float("inf") if _metric_lower_is_better(m) else 0.0,
+            "best_epoch": 0,
+            "lower_is_better": _metric_lower_is_better(m),
+        }
+        for m in _extra_best_metric_names
+    }
     if _ckpt_metric_name != "r@1":
         logger.info("Checkpoint metric: %s (lower_is_better=%s)",
                      _ckpt_metric_name, _ckpt_lower_is_better)
+    if _extra_best_trackers:
+        logger.info(
+            "Additional best-checkpoint metrics: %s",
+            ", ".join(
+                f"{name}(lower={tracker['lower_is_better']})"
+                for name, tracker in _extra_best_trackers.items()
+            ),
+        )
     if _ckpt_lower_is_better:
         best_metric_val = float("inf")
 
@@ -5160,6 +5431,9 @@ def main() -> None:
             )
 
 
+        _val_component_mu_img = None
+        _val_component_kappa_img = None
+        _val_component_logits_img = None
         if (
             "compact_component_mu" in _epoch_val_extras
             and "compact_component_kappa" in _epoch_val_extras
@@ -5172,6 +5446,9 @@ def main() -> None:
                 _cmu, _ckappa, _clogits, _ = _aggregate_component_outputs_by_nsd_id(
                     _cmu, _ckappa, _clogits, _val_nsd_ids,
                 )
+            _val_component_mu_img = _cmu
+            _val_component_kappa_img = _ckappa
+            _val_component_logits_img = _clogits
             mix_ret = _compute_mixture_vmf_retrieval(
                 _cmu,
                 _ckappa,
@@ -5180,11 +5457,25 @@ def main() -> None:
                 ks=(1, 5, 10),
                 normalize=True,
             )
+            mix_csls_ret = _compute_mixture_vmf_retrieval_csls(
+                _cmu,
+                _ckappa,
+                _mix_gts,
+                component_logits=_clogits,
+                ks=(1, 5, 10),
+                normalize=True,
+                csls_k=_csls_k if _use_csls else 10,
+            )
             val_metrics["mixture_r@1"] = mix_ret["top1_accuracy"]
             val_metrics["mixture_r@5"] = mix_ret["top5_accuracy"]
             val_metrics["mixture_r@10"] = mix_ret["top10_accuracy"]
             val_metrics["mixture_median_rank"] = mix_ret["median_rank"]
             val_metrics["mixture_mrr"] = mix_ret["mrr"]
+            val_metrics["mixture_csls_r@1"] = mix_csls_ret["top1_accuracy"]
+            val_metrics["mixture_csls_r@5"] = mix_csls_ret["top5_accuracy"]
+            val_metrics["mixture_csls_r@10"] = mix_csls_ret["top10_accuracy"]
+            val_metrics["mixture_csls_median_rank"] = mix_csls_ret["median_rank"]
+            val_metrics["mixture_csls_mrr"] = mix_csls_ret["mrr"]
             _mix_diag = _compute_mixture_component_diagnostics(
                 _cmu,
                 _ckappa,
@@ -5195,6 +5486,11 @@ def main() -> None:
                 "Mixture-vMF Retrieval: R@1=%.4f  R@5=%.4f  R@10=%.4f  MedR=%.1f  MRR=%.4f",
                 mix_ret["top1_accuracy"], mix_ret["top5_accuracy"], mix_ret["top10_accuracy"],
                 mix_ret["median_rank"], mix_ret["mrr"],
+            )
+            logger.info(
+                "Mixture-vMF CSLS: R@1=%.4f  R@5=%.4f  R@10=%.4f  MedR=%.1f  MRR=%.4f",
+                mix_csls_ret["top1_accuracy"], mix_csls_ret["top5_accuracy"], mix_csls_ret["top10_accuracy"],
+                mix_csls_ret["median_rank"], mix_csls_ret["mrr"],
             )
             logger.info(
                 "Mixture-vMF diagnostics: pairwise_cos=%.6f  weight_entropy=%.4f  top_weight=%.4f  kappa_across_std=%.6f",
@@ -5287,6 +5583,9 @@ def main() -> None:
                     _lp,
                     _lg,
                     _tri_fusion_eval_cfg,
+                    compact_component_mu=_val_component_mu_img,
+                    compact_component_kappa=_val_component_kappa_img,
+                    compact_component_logits=_val_component_logits_img,
                 )
                 _used_tri_fusion_val = True
             if _used_tri_fusion_val:
@@ -5375,6 +5674,37 @@ def main() -> None:
                 logger.info("Early stopping at epoch %d (patience=%d)", epoch, early_stop_patience)
                 break
 
+        for _extra_metric_name, _extra_tracker in _extra_best_trackers.items():
+            _extra_cur_metric = val_metrics.get(_extra_metric_name)
+            if _extra_cur_metric is None:
+                continue
+            if _extra_tracker["lower_is_better"]:
+                _extra_improved = _extra_cur_metric < _extra_tracker["best_value"] - early_stop_min_delta
+            else:
+                _extra_improved = _extra_cur_metric > _extra_tracker["best_value"] + early_stop_min_delta
+            if not _extra_improved:
+                continue
+            _extra_tracker["best_value"] = float(_extra_cur_metric)
+            _extra_tracker["best_epoch"] = int(epoch)
+            if ema is not None:
+                ema.apply_shadow(model)
+            if args.save_checkpoints in ("all", "best"):
+                save_checkpoint(
+                    output_dir / f"checkpoint_best_{_sanitize_metric_name(_extra_metric_name)}.pt",
+                    model, optimizer, lr_sched,
+                    scaler, epoch, val_loss, config, global_step,
+                    subject=subject, roi_mask_path=str(roi_mask_path),
+                    losses=losses, meta=_ckpt_meta, ema=ema,
+                )
+            if ema is not None:
+                ema.restore(model)
+            logger.info(
+                "New metric-specific best: %s=%.4f (epoch=%d)",
+                _extra_metric_name,
+                _extra_cur_metric,
+                epoch,
+            )
+
         if args.save_checkpoints == "all" and save_frequency > 0 and epoch % save_frequency == 0:
             save_checkpoint(
                 output_dir / f"checkpoint_epoch_{epoch}.pt", model, optimizer,
@@ -5394,6 +5724,20 @@ def main() -> None:
     metrics_logger.write_summary(best_epoch, best_val_loss, wall_time, manifest,
                                  best_r1=best_r1, best_metric=best_metric_val,
                                  checkpoint_metric=_ckpt_metric_name)
+    if _extra_best_trackers:
+        _summary_path = output_dir / "metrics" / "summary.json"
+        _summary = _load_json_if_exists(_summary_path) or {}
+        _summary["best_checkpoints"] = {
+            name: {
+                "best_value": float(tracker["best_value"]),
+                "best_epoch": int(tracker["best_epoch"]),
+                "lower_is_better": bool(tracker["lower_is_better"]),
+                "checkpoint_path": f"checkpoint_best_{_sanitize_metric_name(name)}.pt",
+            }
+            for name, tracker in _extra_best_trackers.items()
+        }
+        with open(_summary_path, "w") as _sf:
+            json.dump(_summary, _sf, indent=2, default=str)
 
     # --- Model soup post-training (V10) ---
     _eval_cfg = config.get("evaluation", {})
@@ -5569,6 +5913,9 @@ def main() -> None:
             np.save(_metrics_save_dir / "val_ground_truth_legacy.npy", _lg)
             logger.info("Saved legacy val predictions %s", _lp.shape)
 
+        _cmu = None
+        _ck = None
+        _cl = None
         if "compact_component_mu" in _val_extras and "compact_component_kappa" in _val_extras:
             _cmu = _val_extras["compact_component_mu"]
             _ck = _val_extras["compact_component_kappa"]
@@ -5642,6 +5989,9 @@ def main() -> None:
                     _lp,
                     _lg,
                     _tri_fusion_eval_cfg,
+                    compact_component_mu=_cmu,
+                    compact_component_kappa=_ck,
+                    compact_component_logits=_cl,
                 )
             if _fusion_report is not None:
                 _fusion_path = _metrics_save_dir / "val_fused_metrics.json"

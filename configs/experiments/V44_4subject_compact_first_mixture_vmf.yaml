@@ -1,0 +1,220 @@
+experiment:
+  name: V44_4subject_compact_first_mixture_vmf
+  description: "V44: 4-subject compact-first mixture-vMF pretraining with delayed rerank/regression and mixture-CSLS checkpointing"
+  tags:
+    - vmf_triple
+    - v44
+    - multi_hypothesis_vmf
+    - cross_subject
+    - compact_first
+    - mixture_csls
+    - anti_collapse
+    - 4subject
+  parent: V43b_stable_anti_collapse_multi_hypothesis_vmf
+
+data:
+  subjects: [subj01, subj02, subj05, subj07]
+  subject: subj01
+  roi: nsdgeneral
+  train_split: 0.9
+  val_split: 0.1
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: per_session
+  embedding_column: fused
+  seed: 42
+  token_cache_path: outputs/clip_cache/tokens_ViT-L-14_projected.h5
+  rerank_cache_method: pca
+  rerank_cache_path: outputs/rerank_cache/pca_trainonly_dim2048_seed42.npz
+  dual_target: true
+
+model:
+  type: vmf_triple
+  posterior: vmf
+  encoder:
+    encoder_type: mlp
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: gelu
+    dropout: 0.25
+    use_residual: true
+  decoder:
+    retrieval_dim: 768
+    retrieval_num_hypotheses: 4
+    rerank_enabled: true
+    rerank_dim: 2048
+    num_tokens: 257
+    token_dim_per: 768
+    perceptual_enabled: false
+    perceptual_dim: 768
+    hidden_dims: [2048]
+    activation: gelu
+    dropout: 0.25
+    kappa_mode: softplus
+    kappa_min: 0.001
+    kappa_max: 200.0
+  projection_head:
+    enabled: false
+  cross_subject:
+    enabled: true
+    canonical_subject: subj01
+    pretrained_checkpoint: experimental_results/V43b_stable_anti_collapse_multi_hypothesis_vmf/subj01/checkpoint_best.pt
+    freeze_epochs: 12
+    backbone_lr_factor: 0.1
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  vmf_nce_mixture:
+    enabled: true
+    weight: 0.35
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: false
+    hard_negative_weight: 0.0
+    hard_neg_k: 8
+    use_csls_training: false
+    start_epoch: 15
+
+  mixture_diversity:
+    enabled: true
+    weight: 0.06
+    start_epoch: 15
+    cosine_margin: 0.88
+    entropy_target: 0.80
+    kappa_std_target: 0.15
+    direction_weight: 1.0
+    entropy_weight: 0.08
+    kappa_weight: 0.03
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  regression_mse:
+    enabled: true
+    weight: 0.05
+    start_epoch: 40
+
+  rerank_softclip:
+    enabled: true
+    weight: 0.25
+    tau: 0.07
+    symmetric: true
+    start_epoch: 40
+
+  legacy_compact_distill:
+    enabled: true
+    weight: 0.12
+    teacher_checkpoint_path: experimental_results/N1v28a_dual_head/subj01/checkpoint_best.pt
+    teacher_tau: 0.07
+    student_tau: 0.07
+    topk: 12
+    start_epoch: 0
+
+  component_legacy_compact_distill:
+    enabled: true
+    weight: 0.08
+    teacher_checkpoint_path: experimental_results/N1v28a_dual_head/subj01/checkpoint_best.pt
+    teacher_tau: 0.07
+    student_tau: 0.07
+    topk: 12
+    start_epoch: 15
+    use_component_logits_prior: true
+    prior_weight: 0.10
+
+  shortlist_teacher_distill:
+    enabled: false
+
+  legacy_teacher_distill:
+    enabled: false
+
+  tri_teacher_distill:
+    enabled: false
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.02
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 16
+  gradient_accumulation_steps: 16
+  mixed_precision: true
+  mixed_precision_dtype: bf16
+  num_epochs: 150
+  optimizer:
+    type: adamw
+    lr: 3.0e-05
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 8
+  min_lr: 1.0e-06
+  gradient_clip: 0.5
+  early_stop_patience: 30
+  early_stop_min_delta: 0.0005
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: mixture_csls_r@1
+  best_checkpoints: [csls_r@1, mixture_csls_r@1, tri_fused_r@1]
+  mc_tta_samples: 1
+  kappa_weighted_avg: true
+  two_stage:
+    enabled: true
+  fusion:
+    enabled: true
+    compact_score: csls
+    family: weighted
+    normalization: none
+    shortlist_k: 100
+    alpha: 0.75
+    csls_k: 10
+  tri_fusion:
+    enabled: false
+
+inference:
+  use_mean_for_retrieval: true

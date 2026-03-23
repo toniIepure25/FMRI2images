@@ -141,6 +141,56 @@ def normalize_embeddings(embeddings: Union[np.ndarray, torch.Tensor]) -> Union[n
         return embeddings / norms
 
 
+def _correct_ranks_from_scores(scores: np.ndarray) -> np.ndarray:
+    """Return 0-indexed correct ranks from an (N, N) score matrix."""
+    scores = np.asarray(scores, dtype=np.float32)
+    if scores.ndim != 2 or scores.shape[0] != scores.shape[1]:
+        raise ValueError(f"scores must have shape (N, N), got {scores.shape}")
+    N = scores.shape[0]
+    ranks = np.argsort(-scores, axis=1)
+    correct_ranks = np.zeros(N, dtype=np.int32)
+    for i in range(N):
+        correct_ranks[i] = np.where(ranks[i] == i)[0][0]
+    return correct_ranks
+
+
+def _retrieval_metrics_from_correct_ranks(
+    correct_ranks: np.ndarray,
+    ks: Tuple[int, ...] = (1, 5, 10),
+) -> Dict[str, float]:
+    """Build standard retrieval metrics from 0-indexed correct ranks."""
+    correct_ranks = np.asarray(correct_ranks, dtype=np.int32)
+    N = int(correct_ranks.shape[0])
+    results: Dict[str, float] = {}
+    for k in ks:
+        results[f'top{k}_accuracy'] = float((correct_ranks < k).mean())
+    results['mean_rank'] = float(correct_ranks.mean() + 1)
+    results['median_rank'] = float(np.median(correct_ranks) + 1)
+    results['mrr'] = float((1.0 / (correct_ranks + 1.0)).mean())
+    results['chance_top1'] = 1.0 / max(N, 1)
+    return results
+
+
+def csls_from_score_matrix(
+    scores: np.ndarray,
+    k: int = 10,
+) -> np.ndarray:
+    """Apply CSLS-style local scaling directly to a precomputed score matrix.
+
+    This is useful when the query-side similarity comes from a structured model
+    (for example a mixture-vMF scorer) rather than a single embedding vector.
+    """
+    scores = np.asarray(scores, dtype=np.float32)
+    if scores.ndim != 2:
+        raise ValueError(f"scores must have shape (N, M), got {scores.shape}")
+    k = min(k, scores.shape[1] - 1, scores.shape[0] - 1)
+    if k < 1:
+        return scores
+    r_x = np.sort(scores, axis=1)[:, -k:].mean(axis=1)
+    r_y = np.sort(scores, axis=0)[-k:, :].mean(axis=0)
+    return 2.0 * scores - r_x[:, None] - r_y[None, :]
+
+
 def _get_correct_ranks_gpu(
     predictions: np.ndarray,
     ground_truth: np.ndarray,
@@ -273,12 +323,7 @@ def csls_similarity(
         sim = _chunked_matmul_gpu(predictions, ground_truth, chunk_size=128)
     else:
         sim = predictions @ ground_truth.T  # (N, M)
-    k = min(k, sim.shape[1] - 1, sim.shape[0] - 1)
-    if k < 1:
-        return sim
-    r_x = np.sort(sim, axis=1)[:, -k:].mean(axis=1)   # (N,)
-    r_y = np.sort(sim, axis=0)[-k:, :].mean(axis=0)    # (M,)
-    return 2.0 * sim - r_x[:, None] - r_y[None, :]
+    return csls_from_score_matrix(sim, k=k)
 
 
 def _chunked_matmul_gpu(
@@ -320,11 +365,11 @@ def compute_retrieval_metrics_csls(
 
     similarities = csls_similarity(predictions, ground_truth, k=csls_k)
 
-    N = len(predictions)
     D = predictions.shape[1]
 
     # For high-D, use GPU-accelerated rank computation
     if D > 2048 and torch.cuda.is_available():
+        N = len(predictions)
         device = torch.device("cuda")
         sim_t = torch.from_numpy(similarities).to(device, dtype=torch.float32)
         diag = sim_t[torch.arange(N, device=device), torch.arange(N, device=device)]
@@ -332,19 +377,9 @@ def compute_retrieval_metrics_csls(
         del sim_t
         torch.cuda.empty_cache()
     else:
-        ranks = np.argsort(-similarities, axis=1)
-        correct_ranks = np.zeros(N, dtype=np.int32)
-        for i in range(N):
-            correct_ranks[i] = np.where(ranks[i] == i)[0][0]
+        correct_ranks = _correct_ranks_from_scores(similarities)
 
-    results: Dict[str, float] = {}
-    for k in ks:
-        results[f'top{k}_accuracy'] = float((correct_ranks < k).mean())
-    results['mean_rank'] = float(correct_ranks.mean() + 1)
-    results['median_rank'] = float(np.median(correct_ranks) + 1)
-    results['mrr'] = float((1.0 / (correct_ranks + 1.0)).mean())
-    results['chance_top1'] = 1.0 / N
-    return results
+    return _retrieval_metrics_from_correct_ranks(correct_ranks, ks=ks)
 
 
 def score_mixture_vmf_gallery(
@@ -398,19 +433,30 @@ def compute_mixture_vmf_retrieval_metrics(
         component_logits=component_logits,
         normalize=normalize,
     )
-    N = scores.shape[0]
-    ranks = np.argsort(-scores, axis=1)
-    correct_ranks = np.zeros(N, dtype=np.int32)
-    for i in range(N):
-        correct_ranks[i] = np.where(ranks[i] == i)[0][0]
-    results: Dict[str, float] = {}
-    for k in ks:
-        results[f'top{k}_accuracy'] = float((correct_ranks < k).mean())
-    results['mean_rank'] = float(correct_ranks.mean() + 1)
-    results['median_rank'] = float(np.median(correct_ranks) + 1)
-    results['mrr'] = float((1.0 / (correct_ranks + 1.0)).mean())
-    results['chance_top1'] = 1.0 / N
-    return results
+    correct_ranks = _correct_ranks_from_scores(scores)
+    return _retrieval_metrics_from_correct_ranks(correct_ranks, ks=ks)
+
+
+def compute_mixture_vmf_retrieval_metrics_csls(
+    component_mu: np.ndarray,
+    component_kappa: np.ndarray,
+    ground_truth: np.ndarray,
+    component_logits: Optional[np.ndarray] = None,
+    ks: Tuple[int, ...] = (1, 5, 10),
+    normalize: bool = True,
+    csls_k: int = 10,
+) -> Dict[str, float]:
+    """CSLS retrieval metrics for a multi-hypothesis vMF query model."""
+    scores = score_mixture_vmf_gallery(
+        component_mu,
+        component_kappa,
+        ground_truth,
+        component_logits=component_logits,
+        normalize=normalize,
+    )
+    csls_scores = csls_from_score_matrix(scores, k=csls_k)
+    correct_ranks = _correct_ranks_from_scores(csls_scores)
+    return _retrieval_metrics_from_correct_ranks(correct_ranks, ks=ks)
 
 
 def compute_mixture_component_diagnostics(

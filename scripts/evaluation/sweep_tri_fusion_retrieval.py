@@ -37,7 +37,7 @@ WEIGHT_TRIPLES = [
     for c in [int(round((1.0 - a * WEIGHT_STEP - b * WEIGHT_STEP) / WEIGHT_STEP))]
     if 0 <= c <= int(1 / WEIGHT_STEP) and abs((a + b + c) * WEIGHT_STEP - 1.0) < 1e-8
 ]
-COMPACT_SCORE_VARIANTS = ["raw_cosine", "csls"]
+COMPACT_SCORE_VARIANTS = ["raw_cosine", "csls", "mixture_raw", "mixture_csls"]
 LEGACY_SCORE_VARIANTS = ["raw_cosine", "csls"]
 NORMALIZATION_MODES = ["none", "zscore", "minmax", "stdscale"]
 RRF_K = 60.0
@@ -57,6 +57,44 @@ def _csls_scores(preds: np.ndarray, gallery: np.ndarray, k: int = 10) -> np.ndar
     top_k_pred = np.sort(sim, axis=1)[:, -k:].mean(axis=1, keepdims=True)
     top_k_gal = np.sort(sim, axis=0)[-k:, :].mean(axis=0, keepdims=True)
     return sim - 0.5 * (top_k_pred + top_k_gal)
+
+
+def _csls_from_score_matrix(scores: np.ndarray, k: int = 10) -> np.ndarray:
+    scores = np.asarray(scores, dtype=np.float32)
+    k = min(k, scores.shape[0] - 1, scores.shape[1] - 1)
+    if k < 1:
+        return scores
+    top_k_pred = np.sort(scores, axis=1)[:, -k:].mean(axis=1, keepdims=True)
+    top_k_gal = np.sort(scores, axis=0)[-k:, :].mean(axis=0, keepdims=True)
+    return 2.0 * scores - top_k_pred - top_k_gal
+
+
+def _score_mixture_vmf_gallery(
+    component_mu: np.ndarray,
+    component_kappa: np.ndarray,
+    gallery_embeddings: np.ndarray,
+    component_logits: np.ndarray | None = None,
+) -> np.ndarray:
+    component_mu = np.asarray(component_mu, dtype=np.float32)
+    component_kappa = np.asarray(component_kappa, dtype=np.float32)
+    gallery_embeddings = np.asarray(gallery_embeddings, dtype=np.float32)
+    if component_kappa.ndim == 3 and component_kappa.shape[-1] == 1:
+        component_kappa = component_kappa[..., 0]
+    component_mu = _l2_normalize(component_mu)
+    gallery_embeddings = _l2_normalize(gallery_embeddings)
+    component_scores = np.einsum("nmd,kd->nmk", component_mu, gallery_embeddings)
+    component_scores = component_scores * component_kappa[:, :, None]
+    if component_logits is not None:
+        component_logits = np.asarray(component_logits, dtype=np.float32)
+        logits_shift = component_logits - component_logits.max(axis=1, keepdims=True)
+        weights = np.exp(logits_shift)
+        weights = weights / np.maximum(weights.sum(axis=1, keepdims=True), 1e-8)
+        component_scores = component_scores + np.log(np.maximum(weights[:, :, None], 1e-8))
+    else:
+        m = component_scores.shape[1]
+        component_scores = component_scores - np.log(float(max(m, 1)))
+    max_scores = np.max(component_scores, axis=1, keepdims=True)
+    return (max_scores[:, 0, :] + np.log(np.exp(component_scores - max_scores).sum(axis=1))).astype(np.float32)
 
 
 def _metrics_from_gt_rank(gt_rank: np.ndarray) -> dict[str, float]:
@@ -442,24 +480,42 @@ def _load_existing_two_expert_fusion(metrics_dir: Path, prefix: str) -> dict[str
 
 
 def _build_split_scores(split_arrays: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
-    return {
+    scores = {
         "compact_raw": _cosine_sim(split_arrays["compact_preds"], split_arrays["compact_gts"]),
         "compact_csls": _csls_scores(split_arrays["compact_preds"], split_arrays["compact_gts"], k=10),
         "rerank": _cosine_sim(split_arrays["rerank_preds"], split_arrays["rerank_gts"]),
         "legacy_raw": _cosine_sim(split_arrays["legacy_preds"], split_arrays["legacy_gts"]),
         "legacy_csls": _csls_scores(split_arrays["legacy_preds"], split_arrays["legacy_gts"], k=10),
     }
+    component_mu = split_arrays.get("compact_component_mu")
+    component_kappa = split_arrays.get("compact_component_kappa")
+    if component_mu is not None and component_kappa is not None:
+        component_logits = split_arrays.get("compact_component_logits")
+        mixture_raw = _score_mixture_vmf_gallery(
+            component_mu,
+            component_kappa,
+            split_arrays["compact_gts"],
+            component_logits=component_logits,
+        )
+        scores["mixture_raw"] = mixture_raw
+        scores["mixture_csls"] = _csls_from_score_matrix(mixture_raw, k=10)
+    return scores
 
 
 def _compute_baselines(scores: dict[str, np.ndarray]) -> dict[str, Any]:
     baselines: dict[str, Any] = {}
-    for key, score_name in [
+    variants = [
         ("compact_raw", "compact_raw"),
         ("compact_csls", "compact_csls"),
+        ("mixture_raw", "mixture_raw"),
+        ("mixture_csls", "mixture_csls"),
         ("rerank_only", "rerank"),
         ("legacy_raw", "legacy_raw"),
         ("legacy_csls", "legacy_csls"),
-    ]:
+    ]
+    for key, score_name in variants:
+        if score_name not in scores:
+            continue
         _, gt_rank = _gt_rank_from_scores(scores[score_name])
         baselines[key] = _metrics_from_gt_rank(gt_rank)
     return baselines
@@ -678,14 +734,24 @@ def _evaluate_split(
 
     compact_orders: dict[str, np.ndarray] = {}
     compact_gt_ranks: dict[str, np.ndarray] = {}
-    for variant_name, score_name in [("raw_cosine", "compact_raw"), ("csls", "compact_csls")]:
-        compact_orders[variant_name], compact_gt_ranks[variant_name] = _gt_rank_from_scores(scores[score_name])
+    compact_variant_to_score = {
+        "raw_cosine": "compact_raw",
+        "csls": "compact_csls",
+        "mixture_raw": "mixture_raw",
+        "mixture_csls": "mixture_csls",
+    }
+    for variant_name, score_name in compact_variant_to_score.items():
+        if score_name in scores:
+            compact_orders[variant_name], compact_gt_ranks[variant_name] = _gt_rank_from_scores(scores[score_name])
 
     sweep_results: list[dict[str, Any]] = []
     compact_kappas = split_arrays.get("compact_kappas")
 
     for compact_variant in COMPACT_SCORE_VARIANTS:
-        compact_scores = scores["compact_raw"] if compact_variant == "raw_cosine" else scores["compact_csls"]
+        score_name = compact_variant_to_score.get(compact_variant)
+        if score_name not in scores:
+            continue
+        compact_scores = scores[score_name]
         compact_order = compact_orders[compact_variant]
         compact_gt_rank = compact_gt_ranks[compact_variant]
 
@@ -780,7 +846,16 @@ def _apply_frozen_setting(
     scores = _build_split_scores(split_arrays)
     compact_variant = setting["compact_score_variant"]
     legacy_variant = setting["legacy_score_variant"]
-    compact_scores = scores["compact_raw"] if compact_variant == "raw_cosine" else scores["compact_csls"]
+    compact_variant_to_score = {
+        "raw_cosine": "compact_raw",
+        "csls": "compact_csls",
+        "mixture_raw": "mixture_raw",
+        "mixture_csls": "mixture_csls",
+    }
+    compact_score_name = compact_variant_to_score[compact_variant]
+    if compact_score_name not in scores:
+        raise ValueError(f"Requested compact variant {compact_variant} is unavailable for this split")
+    compact_scores = scores[compact_score_name]
     legacy_scores = scores["legacy_raw"] if legacy_variant == "raw_cosine" else scores["legacy_csls"]
     compact_order, compact_gt_rank = _gt_rank_from_scores(compact_scores)
     adaptive_model = setting.get("adaptive_model")
@@ -983,6 +1058,10 @@ def main() -> None:
     print("VAL baselines")
     print(f"  Compact raw R@1:          {val_baselines['compact_raw']['R@1']:.1%}")
     print(f"  Compact CSLS R@1:         {val_baselines['compact_csls']['R@1']:.1%}")
+    if "mixture_raw" in val_baselines:
+        print(f"  Mixture raw R@1:          {val_baselines['mixture_raw']['R@1']:.1%}")
+    if "mixture_csls" in val_baselines:
+        print(f"  Mixture CSLS R@1:         {val_baselines['mixture_csls']['R@1']:.1%}")
     print(f"  Rerank-only R@1:          {val_baselines['rerank_only']['R@1']:.1%}")
     print(f"  Legacy raw R@1:           {val_baselines['legacy_raw']['R@1']:.1%}")
     print(f"  Legacy CSLS R@1:          {val_baselines['legacy_csls']['R@1']:.1%}")

@@ -75,6 +75,7 @@ from fmri2img.eval.embedding_eval import (
     compute_retrieval_metrics as _compute_retrieval,
     compute_retrieval_metrics_csls as _compute_retrieval_csls,
     compute_mixture_vmf_retrieval_metrics as _compute_mixture_vmf_retrieval,
+    compute_mixture_component_diagnostics as _compute_mixture_component_diagnostics,
 )
 
 logging.basicConfig(
@@ -2256,6 +2257,27 @@ def _evaluate_shared1000(
         metrics["mixture_r@10"] = float(mix_ret["top10_accuracy"])
         metrics["mixture_median_rank"] = float(mix_ret["median_rank"])
         metrics["mixture_mrr"] = float(mix_ret["mrr"])
+        _mix_diag = _compute_mixture_component_diagnostics(
+            _component_mu_img,
+            _component_kappa_img,
+            component_logits=_component_logits_img,
+        )
+        metrics.update({k: float(v) for k, v in _mix_diag.items()})
+        logger.info(
+            "Shared1000 mixture diagnostics: pairwise_cos=%.6f  weight_entropy=%.4f  top_weight=%.4f  kappa_across_std=%.6f",
+            metrics["component_pairwise_cos_mean"],
+            metrics["component_weight_entropy_mean"],
+            metrics["component_top_weight_mean"],
+            metrics["component_kappa_across_component_std_mean"],
+        )
+        if (
+            metrics["component_pairwise_cos_mean"] > 0.999
+            and metrics["component_weight_entropy_norm_mean"] > 0.99
+            and metrics["component_kappa_across_component_std_mean"] < 1e-3
+        ):
+            logger.warning(
+                "Shared1000 compact mixture appears collapsed: near-identical component directions, uniform weights, and identical kappas"
+            )
 
     logger.info(
         "Shared1000: R@1=%.4f  R@5=%.4f  R@10=%.4f  CSLS_R@1=%.4f  "
@@ -5049,11 +5071,32 @@ def main() -> None:
             val_metrics["mixture_r@10"] = mix_ret["top10_accuracy"]
             val_metrics["mixture_median_rank"] = mix_ret["median_rank"]
             val_metrics["mixture_mrr"] = mix_ret["mrr"]
+            _mix_diag = _compute_mixture_component_diagnostics(
+                _cmu,
+                _ckappa,
+                component_logits=_clogits,
+            )
+            val_metrics.update(_mix_diag)
             logger.info(
                 "Mixture-vMF Retrieval: R@1=%.4f  R@5=%.4f  R@10=%.4f  MedR=%.1f  MRR=%.4f",
                 mix_ret["top1_accuracy"], mix_ret["top5_accuracy"], mix_ret["top10_accuracy"],
                 mix_ret["median_rank"], mix_ret["mrr"],
             )
+            logger.info(
+                "Mixture-vMF diagnostics: pairwise_cos=%.6f  weight_entropy=%.4f  top_weight=%.4f  kappa_across_std=%.6f",
+                val_metrics["component_pairwise_cos_mean"],
+                val_metrics["component_weight_entropy_mean"],
+                val_metrics["component_top_weight_mean"],
+                val_metrics["component_kappa_across_component_std_mean"],
+            )
+            if (
+                val_metrics["component_pairwise_cos_mean"] > 0.999
+                and val_metrics["component_weight_entropy_norm_mean"] > 0.99
+                and val_metrics["component_kappa_across_component_std_mean"] < 1e-3
+            ):
+                logger.warning(
+                    "Compact mixture appears collapsed: near-identical component directions, uniform weights, and identical kappas"
+                )
 
         # --- V30d per-validation rerank and two-stage diagnostics ---
         _two_stage_cfg = config.get("evaluation", {}).get("two_stage", {})
@@ -5531,7 +5574,14 @@ def main() -> None:
 
     logger.info("=" * 80)
     logger.info("Training complete!")
-    logger.info("Best R@1: %.4f | val_loss: %.4f (epoch %d)", best_r1, best_val_loss, best_epoch)
+    logger.info(
+        "Best checkpoint metric: %s=%.4f (epoch %d) | best compact R@1=%.4f | best_val_loss=%.4f",
+        _ckpt_metric_name,
+        best_metric_val,
+        best_epoch,
+        best_r1,
+        best_val_loss,
+    )
     logger.info("Wall time: %.1f min", wall_time / 60)
     logger.info("Outputs: %s", output_dir)
     logger.info("=" * 80)

@@ -413,6 +413,89 @@ def compute_mixture_vmf_retrieval_metrics(
     return results
 
 
+def compute_mixture_component_diagnostics(
+    component_mu: np.ndarray,
+    component_kappa: np.ndarray,
+    component_logits: Optional[np.ndarray] = None,
+) -> Dict[str, float]:
+    """Summarize whether a multi-hypothesis compact head actually uses its components.
+
+    The most important collapse signals are:
+      - component directions becoming identical,
+      - component kappas becoming identical,
+      - mixture weights staying uniform with maximal entropy.
+    """
+    component_mu = np.asarray(component_mu, dtype=np.float32)
+    component_kappa = np.asarray(component_kappa, dtype=np.float32)
+    if component_mu.ndim != 3:
+        raise ValueError(f"component_mu must have shape (N, M, D), got {component_mu.shape}")
+    if component_kappa.ndim == 3 and component_kappa.shape[-1] == 1:
+        component_kappa = component_kappa[..., 0]
+    if component_kappa.ndim != 2:
+        raise ValueError(f"component_kappa must have shape (N, M) or (N, M, 1), got {component_kappa.shape}")
+
+    mu = normalize_embeddings(component_mu)
+    n, m, _ = mu.shape
+    if m == 1:
+        return {
+            "component_count": 1.0,
+            "component_pairwise_cos_mean": 1.0,
+            "component_pairwise_cos_std": 0.0,
+            "component_pairwise_cos_q10": 1.0,
+            "component_pairwise_cos_q50": 1.0,
+            "component_pairwise_cos_q90": 1.0,
+            "component_weight_entropy_mean": 0.0,
+            "component_weight_entropy_norm_mean": 0.0,
+            "component_top_weight_mean": 1.0,
+            "component_top_weight_median": 1.0,
+            "component_kappa_mean": float(component_kappa.mean()),
+            "component_kappa_std": float(component_kappa.std()),
+            "component_kappa_across_component_std_mean": 0.0,
+            "component_top_to_consensus_cos_mean": 1.0,
+            "component_all_to_consensus_cos_mean": 1.0,
+        }
+
+    pairwise = []
+    for i in range(m):
+        for j in range(i + 1, m):
+            pairwise.append(np.sum(mu[:, i, :] * mu[:, j, :], axis=-1))
+    pairwise_arr = np.stack(pairwise, axis=1)
+
+    if component_logits is not None:
+        logits = np.asarray(component_logits, dtype=np.float32)
+        shifted = logits - logits.max(axis=1, keepdims=True)
+        weights = np.exp(shifted)
+        weights = weights / np.maximum(weights.sum(axis=1, keepdims=True), 1e-8)
+    else:
+        weights = np.full((n, m), 1.0 / float(m), dtype=np.float32)
+
+    entropy = -(weights * np.log(np.clip(weights, 1e-8, None))).sum(axis=1)
+    entropy_norm = entropy / max(np.log(float(m)), 1e-8)
+    top_weight = weights.max(axis=1)
+
+    consensus = (weights[:, :, None] * component_kappa[:, :, None] * mu).sum(axis=1)
+    consensus = consensus / np.maximum(np.linalg.norm(consensus, axis=-1, keepdims=True), 1e-8)
+    cos_to_consensus = np.sum(mu * consensus[:, None, :], axis=-1)
+
+    return {
+        "component_count": float(m),
+        "component_pairwise_cos_mean": float(pairwise_arr.mean()),
+        "component_pairwise_cos_std": float(pairwise_arr.std()),
+        "component_pairwise_cos_q10": float(np.quantile(pairwise_arr, 0.10)),
+        "component_pairwise_cos_q50": float(np.quantile(pairwise_arr, 0.50)),
+        "component_pairwise_cos_q90": float(np.quantile(pairwise_arr, 0.90)),
+        "component_weight_entropy_mean": float(entropy.mean()),
+        "component_weight_entropy_norm_mean": float(entropy_norm.mean()),
+        "component_top_weight_mean": float(top_weight.mean()),
+        "component_top_weight_median": float(np.median(top_weight)),
+        "component_kappa_mean": float(component_kappa.mean()),
+        "component_kappa_std": float(component_kappa.std()),
+        "component_kappa_across_component_std_mean": float(component_kappa.std(axis=1).mean()),
+        "component_top_to_consensus_cos_mean": float(cos_to_consensus.max(axis=1).mean()),
+        "component_all_to_consensus_cos_mean": float(cos_to_consensus.mean()),
+    }
+
+
 def compute_retrieval_by_gallery_size(
     predictions: np.ndarray,
     ground_truth: np.ndarray,

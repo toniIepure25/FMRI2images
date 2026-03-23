@@ -1453,22 +1453,33 @@ def train_epoch(
                 total_loss = total_loss + loss_weights.get("vmf_nce", 1.0) * l
                 batch_metrics["vmf_nce"] = l.item()
 
+            _mix_cfg = (config_ref or {}).get("loss", {}).get("vmf_nce_mixture", {})
+            _mix_start_epoch = int(_mix_cfg.get("start_epoch", 0))
             if (
                 "vmf_nce_mixture" in losses
                 and is_vmf
                 and _compact_component_mu is not None
                 and _compact_component_kappa is not None
             ):
-                l = losses["vmf_nce_mixture"](
-                    _compact_component_mu,
-                    _compact_component_kappa,
-                    gt_embedding,
-                    component_logits=_compact_component_logits,
-                    queue=queue,
-                )
-                total_loss = total_loss + loss_weights.get("vmf_nce_mixture", 1.0) * l
-                batch_metrics["vmf_nce_mixture"] = l.item()
+                if current_epoch > _mix_start_epoch:
+                    l = losses["vmf_nce_mixture"](
+                        _compact_component_mu,
+                        _compact_component_kappa,
+                        gt_embedding,
+                        component_logits=_compact_component_logits,
+                        queue=queue,
+                    )
+                    if torch.isfinite(l):
+                        total_loss = total_loss + loss_weights.get("vmf_nce_mixture", 1.0) * l
+                        batch_metrics["vmf_nce_mixture"] = l.item()
+                    else:
+                        logger.warning("Non-finite vmf_nce_mixture at step %d epoch %d -- skipping mixture loss", global_step, current_epoch)
+                        batch_metrics["vmf_nce_mixture"] = 0.0
+                else:
+                    batch_metrics["vmf_nce_mixture"] = 0.0
 
+            _mix_div_cfg = (config_ref or {}).get("loss", {}).get("mixture_diversity", {})
+            _mix_div_start_epoch = int(_mix_div_cfg.get("start_epoch", 0))
             if (
                 "mixture_diversity" in losses
                 and is_vmf
@@ -1477,17 +1488,24 @@ def train_epoch(
                 and _compact_component_mu.ndim == 3
                 and _compact_component_mu.shape[1] > 1
             ):
-                _mix_div_l, _mix_div_stats = losses["mixture_diversity"](
-                    _compact_component_mu,
-                    _compact_component_kappa,
-                    component_logits=_compact_component_logits,
-                )
-                total_loss = total_loss + loss_weights.get("mixture_diversity", 1.0) * _mix_div_l
-                batch_metrics["mixture_diversity"] = _mix_div_l.item()
-                batch_metrics["mixture_pairwise_cos"] = _mix_div_stats["pairwise_cos_mean"]
-                batch_metrics["mixture_weight_entropy_norm"] = _mix_div_stats["weight_entropy_norm"]
-                batch_metrics["mixture_top_weight_mean"] = _mix_div_stats["top_weight_mean"]
-                batch_metrics["mixture_kappa_std_mean"] = _mix_div_stats["kappa_std_mean"]
+                if current_epoch > _mix_div_start_epoch:
+                    _mix_div_l, _mix_div_stats = losses["mixture_diversity"](
+                        _compact_component_mu,
+                        _compact_component_kappa,
+                        component_logits=_compact_component_logits,
+                    )
+                    if torch.isfinite(_mix_div_l):
+                        total_loss = total_loss + loss_weights.get("mixture_diversity", 1.0) * _mix_div_l
+                        batch_metrics["mixture_diversity"] = _mix_div_l.item()
+                        batch_metrics["mixture_pairwise_cos"] = _mix_div_stats["pairwise_cos_mean"]
+                        batch_metrics["mixture_weight_entropy_norm"] = _mix_div_stats["weight_entropy_norm"]
+                        batch_metrics["mixture_top_weight_mean"] = _mix_div_stats["top_weight_mean"]
+                        batch_metrics["mixture_kappa_std_mean"] = _mix_div_stats["kappa_std_mean"]
+                    else:
+                        logger.warning("Non-finite mixture_diversity at step %d epoch %d -- skipping diversity loss", global_step, current_epoch)
+                        batch_metrics["mixture_diversity"] = 0.0
+                else:
+                    batch_metrics["mixture_diversity"] = 0.0
 
             # --- vMF-NCE-SPCL (N4) or Delta-SPCL ---
             if "vmf_nce_spcl" in losses and is_vmf:
@@ -2527,22 +2545,33 @@ def validate(
                 total_loss = total_loss + loss_weights.get("vmf_nce", 1.0) * l
                 bm["vmf_nce"] = l.item()
 
+            _mix_cfg = (config_ref or {}).get("loss", {}).get("vmf_nce_mixture", {})
+            _mix_start_epoch = int(_mix_cfg.get("start_epoch", 0))
             if (
                 "vmf_nce_mixture" in losses
                 and is_vmf
                 and _component_mu_val is not None
                 and _component_kappa_val is not None
             ):
-                l = losses["vmf_nce_mixture"](
-                    _component_mu_val,
-                    _component_kappa_val,
-                    gt_embedding,
-                    component_logits=_component_logits_val,
-                    queue=None,
-                )
-                total_loss = total_loss + loss_weights.get("vmf_nce_mixture", 1.0) * l
-                bm["vmf_nce_mixture"] = l.item()
+                if current_epoch > _mix_start_epoch:
+                    l = losses["vmf_nce_mixture"](
+                        _component_mu_val,
+                        _component_kappa_val,
+                        gt_embedding,
+                        component_logits=_component_logits_val,
+                        queue=None,
+                    )
+                    if torch.isfinite(l):
+                        total_loss = total_loss + loss_weights.get("vmf_nce_mixture", 1.0) * l
+                        bm["vmf_nce_mixture"] = l.item()
+                    else:
+                        logger.warning("Non-finite vmf_nce_mixture in val epoch %d -- skipping mixture loss", current_epoch)
+                        bm["vmf_nce_mixture"] = 0.0
+                else:
+                    bm["vmf_nce_mixture"] = 0.0
 
+            _mix_div_cfg = (config_ref or {}).get("loss", {}).get("mixture_diversity", {})
+            _mix_div_start_epoch = int(_mix_div_cfg.get("start_epoch", 0))
             if (
                 "mixture_diversity" in losses
                 and is_vmf
@@ -2551,17 +2580,24 @@ def validate(
                 and _component_mu_val.ndim == 3
                 and _component_mu_val.shape[1] > 1
             ):
-                _mix_div_l, _mix_div_stats = losses["mixture_diversity"](
-                    _component_mu_val,
-                    _component_kappa_val,
-                    component_logits=_component_logits_val,
-                )
-                total_loss = total_loss + loss_weights.get("mixture_diversity", 1.0) * _mix_div_l
-                bm["mixture_diversity"] = _mix_div_l.item()
-                bm["mixture_pairwise_cos"] = _mix_div_stats["pairwise_cos_mean"]
-                bm["mixture_weight_entropy_norm"] = _mix_div_stats["weight_entropy_norm"]
-                bm["mixture_top_weight_mean"] = _mix_div_stats["top_weight_mean"]
-                bm["mixture_kappa_std_mean"] = _mix_div_stats["kappa_std_mean"]
+                if current_epoch > _mix_div_start_epoch:
+                    _mix_div_l, _mix_div_stats = losses["mixture_diversity"](
+                        _component_mu_val,
+                        _component_kappa_val,
+                        component_logits=_component_logits_val,
+                    )
+                    if torch.isfinite(_mix_div_l):
+                        total_loss = total_loss + loss_weights.get("mixture_diversity", 1.0) * _mix_div_l
+                        bm["mixture_diversity"] = _mix_div_l.item()
+                        bm["mixture_pairwise_cos"] = _mix_div_stats["pairwise_cos_mean"]
+                        bm["mixture_weight_entropy_norm"] = _mix_div_stats["weight_entropy_norm"]
+                        bm["mixture_top_weight_mean"] = _mix_div_stats["top_weight_mean"]
+                        bm["mixture_kappa_std_mean"] = _mix_div_stats["kappa_std_mean"]
+                    else:
+                        logger.warning("Non-finite mixture_diversity in val epoch %d -- skipping diversity loss", current_epoch)
+                        bm["mixture_diversity"] = 0.0
+                else:
+                    bm["mixture_diversity"] = 0.0
 
             if "vmf_nce_spcl" in losses and is_vmf:
                 spcl_kwargs = dict(queue=None)

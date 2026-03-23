@@ -358,19 +358,42 @@ class MixtureVonMisesFisherNCELoss(VonMisesFisherNCELoss):
         component_logits: Optional[torch.Tensor] = None,
         positive_idx: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
+        # Run mixture math in float32 even under autocast/bf16 to avoid
+        # logsumexp / CSLS / softmax instabilities at startup.
+        component_mu_f = torch.nan_to_num(
+            component_mu.float(), nan=0.0, posinf=0.0, neginf=0.0
+        )
+        component_mu_f = F.normalize(component_mu_f, p=2, dim=-1)
+        keys_f = torch.nan_to_num(keys.float(), nan=0.0, posinf=0.0, neginf=0.0)
+        keys_f = F.normalize(keys_f, p=2, dim=-1)
+
         if component_kappa.ndim == 3 and component_kappa.shape[-1] == 1:
             component_kappa = component_kappa[..., 0]
-        cos_sim = torch.einsum("bmd,kd->bmk", component_mu, keys)
+        component_kappa_f = torch.nan_to_num(
+            component_kappa.float(), nan=1.0, posinf=250.0, neginf=1.0
+        ).clamp(min=1e-3, max=250.0)
+
+        cos_sim = torch.einsum("bmd,kd->bmk", component_mu_f, keys_f)
         if self.use_arctanh:
             cos_sim = torch.atanh(cos_sim.clamp(-1 + 1e-7, 1 - 1e-7))
+
         tau = self.effective_tau
-        component_scores = component_kappa.unsqueeze(-1) * cos_sim / tau
+        if not torch.is_tensor(tau):
+            tau = component_mu_f.new_tensor(float(tau))
+        else:
+            tau = tau.to(device=component_mu_f.device, dtype=torch.float32)
+        tau = tau.clamp(min=1e-3)
+
+        component_scores = (component_kappa_f.unsqueeze(-1) * cos_sim / tau).clamp(-80.0, 80.0)
 
         if component_logits is not None:
-            log_w = F.log_softmax(component_logits, dim=1).unsqueeze(-1)
+            component_logits_f = torch.nan_to_num(
+                component_logits.float(), nan=0.0, posinf=20.0, neginf=-20.0
+            ).clamp(-20.0, 20.0)
+            log_w = F.log_softmax(component_logits_f, dim=1).unsqueeze(-1)
         else:
-            m = component_mu.shape[1]
-            log_w = component_scores.new_full((component_mu.shape[0], m, 1), -math.log(float(m)))
+            m = component_mu_f.shape[1]
+            log_w = component_scores.new_full((component_mu_f.shape[0], m, 1), -math.log(float(m)))
 
         logits = torch.logsumexp(component_scores + log_w, dim=1)
 
@@ -387,9 +410,9 @@ class MixtureVonMisesFisherNCELoss(VonMisesFisherNCELoss):
                 logits = logits + boost
 
         if self.use_csls_training:
-            logits = self._csls_correct(logits)
+            logits = self._csls_correct(logits.float())
 
-        return logits.clamp(-80, 80)
+        return logits.clamp(-80.0, 80.0)
 
     def forward(
         self,
@@ -472,7 +495,9 @@ class MixtureComponentDiversityLoss(nn.Module):
         if component_kappa.ndim != 2:
             raise ValueError(f"component_kappa must have shape (B, M) or (B, M, 1), got {tuple(component_kappa.shape)}")
 
+        component_mu = torch.nan_to_num(component_mu.float(), nan=0.0, posinf=0.0, neginf=0.0)
         component_mu = F.normalize(component_mu, p=2, dim=-1)
+        component_kappa = torch.nan_to_num(component_kappa.float(), nan=0.0, posinf=250.0, neginf=0.0).clamp(min=0.0, max=250.0)
         bsz, num_comp, _ = component_mu.shape
         if num_comp <= 1:
             zero = component_mu.new_zeros(())
@@ -486,13 +511,14 @@ class MixtureComponentDiversityLoss(nn.Module):
                 "kappa_std_mean": 0.0,
             }
 
-        pairwise = torch.matmul(component_mu, component_mu.transpose(1, 2))
+        pairwise = torch.matmul(component_mu, component_mu.transpose(1, 2)).clamp(-1.0, 1.0)
         mask = torch.triu(torch.ones_like(pairwise, dtype=torch.bool), diagonal=1)
         pairwise_vals = pairwise[mask]
         direction_penalty = F.relu(pairwise_vals - self.cosine_margin).pow(2).mean()
 
         if component_logits is not None:
-            weights = torch.softmax(component_logits, dim=-1)
+            logits_f = torch.nan_to_num(component_logits.float(), nan=0.0, posinf=20.0, neginf=-20.0).clamp(-20.0, 20.0)
+            weights = torch.softmax(logits_f, dim=-1)
             entropy = -(weights * torch.log(weights.clamp_min(1e-8))).sum(dim=-1)
             entropy_norm = entropy / max(math.log(float(num_comp)), 1e-8)
             top_weight = weights.max(dim=-1).values
@@ -502,7 +528,7 @@ class MixtureComponentDiversityLoss(nn.Module):
             top_weight = component_mu.new_full((bsz,), 1.0 / float(num_comp))
             entropy_penalty = component_mu.new_zeros(())
 
-        kappa_std = component_kappa.std(dim=1)
+        kappa_std = component_kappa.std(dim=1, unbiased=False)
         kappa_penalty = F.relu(self.kappa_std_target - kappa_std).pow(2).mean()
 
         total = (

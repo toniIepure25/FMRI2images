@@ -128,6 +128,24 @@ def main() -> None:
         default=None,
         help="Optional new prefix for remapping checkpoint paths in config",
     )
+    parser.add_argument(
+        "--strip-pretrained-model",
+        action="store_true",
+        help=(
+            "Remove model.pretrained_model_path and disable require_pretrained_model "
+            "for generated fold configs. Use this for leakage-safe OOF runs."
+        ),
+    )
+    parser.add_argument(
+        "--fold-teacher-checkpoint-template",
+        type=str,
+        default=None,
+        help=(
+            "Optional per-fold teacher checkpoint path template applied to "
+            "loss.legacy_teacher_distill.teacher_checkpoint_path. Supports "
+            "{fold_index}, {fold_tag}, and {subject}."
+        ),
+    )
     args = parser.parse_args()
 
     base_config_path = Path(args.base_config)
@@ -166,6 +184,10 @@ def main() -> None:
 
         # Optional checkpoint path remap for remote environments.
         if "model" in cfg and isinstance(cfg["model"], dict):
+            if args.strip_pretrained_model:
+                cfg["model"].pop("pretrained_model_path", None)
+                cfg["model"]["require_pretrained_model"] = False
+                cfg["model"]["require_parent_split_match"] = False
             pm = cfg["model"].get("pretrained_model_path")
             if isinstance(pm, str):
                 cfg["model"]["pretrained_model_path"] = _path_remap(
@@ -176,6 +198,12 @@ def main() -> None:
         if "loss" in cfg and isinstance(cfg["loss"], dict):
             ltd = cfg["loss"].get("legacy_teacher_distill")
             if isinstance(ltd, dict):
+                if args.fold_teacher_checkpoint_template:
+                    ltd["teacher_checkpoint_path"] = args.fold_teacher_checkpoint_template.format(
+                        fold_index=fold_idx,
+                        fold_tag=fold_tag,
+                        subject=args.subject,
+                    )
                 tp = ltd.get("teacher_checkpoint_path")
                 if isinstance(tp, str):
                     ltd["teacher_checkpoint_path"] = _path_remap(

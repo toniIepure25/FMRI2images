@@ -67,21 +67,7 @@ echo "[1/7] Building deterministic OOF folds from ${BASE_SPLIT}"
 
 FOLD_MANIFEST="${FOLD_SPLIT_DIR}/oof_fold_manifest.json"
 
-echo "[2/7] Preparing TRI fold configs and export script"
-"${PYTHON_BIN}" scripts/training/prepare_oof_fold_runs.py \
-  --base-config "${TRI_BASE_CONFIG}" \
-  --fold-manifest "${FOLD_MANIFEST}" \
-  --config-output-dir "${TRI_CONFIG_DIR}" \
-  --run-script-path "${TRI_RUN_SCRIPT}" \
-  --exp-prefix V41_tri_oof \
-  --subject "${SUBJECT}" \
-  --gpu "${GPU}" \
-  --fold-preds-root "${TRI_FOLD_ROOT}" \
-  --save-checkpoints "${SAVE_CKPT}" \
-  --disable-shared1000-eval \
-  --prediction-split val
-
-echo "[3/7] Preparing LEGACY fold configs and export script"
+echo "[2/7] Preparing LEGACY fold configs and export script"
 "${PYTHON_BIN}" scripts/training/prepare_oof_fold_runs.py \
   --base-config "${LEGACY_BASE_CONFIG}" \
   --fold-manifest "${FOLD_MANIFEST}" \
@@ -95,7 +81,32 @@ echo "[3/7] Preparing LEGACY fold configs and export script"
   --disable-shared1000-eval \
   --prediction-split val
 
+echo "[3/7] Preparing TRI fold configs and export script"
+"${PYTHON_BIN}" scripts/training/prepare_oof_fold_runs.py \
+  --base-config "${TRI_BASE_CONFIG}" \
+  --fold-manifest "${FOLD_MANIFEST}" \
+  --config-output-dir "${TRI_CONFIG_DIR}" \
+  --run-script-path "${TRI_RUN_SCRIPT}" \
+  --exp-prefix V41_tri_oof \
+  --subject "${SUBJECT}" \
+  --gpu "${GPU}" \
+  --fold-preds-root "${TRI_FOLD_ROOT}" \
+  --save-checkpoints "${SAVE_CKPT}" \
+  --disable-shared1000-eval \
+  --prediction-split val \
+  --strip-pretrained-model \
+  --fold-teacher-checkpoint-template "experimental_results/V41_legacy_oof_fold_{fold_tag}/${SUBJECT}/checkpoint_best.pt"
+
 chmod +x "${TRI_RUN_SCRIPT}" "${LEGACY_RUN_SCRIPT}"
+
+if grep -R "pretrained_model_path" "${TRI_CONFIG_DIR}"/*.yaml >/dev/null 2>&1; then
+  echo "ERROR: generated TRI OOF configs still contain pretrained_model_path; this would leak held-out fold images."
+  exit 1
+fi
+if ! grep -R "V41_legacy_oof_fold_" "${TRI_CONFIG_DIR}"/*.yaml >/dev/null 2>&1; then
+  echo "ERROR: generated TRI OOF configs are not wired to fold-specific legacy teacher checkpoints."
+  exit 1
+fi
 
 if [[ "${PREPARE_ONLY}" == "1" ]]; then
   echo "Prepared OOF fold configs/scripts only. Next run the generated scripts:"
@@ -105,10 +116,20 @@ if [[ "${PREPARE_ONLY}" == "1" ]]; then
 fi
 
 if [[ "${RUN_FOLDS}" == "1" ]]; then
-  echo "[4/7] Running TRI OOF fold jobs"
-  GPU="${GPU}" SUBJECT="${SUBJECT}" SAVE_CKPT="${SAVE_CKPT}" bash "${TRI_RUN_SCRIPT}"
   echo "[4/7] Running LEGACY OOF fold jobs"
   GPU="${GPU}" SUBJECT="${SUBJECT}" SAVE_CKPT="${SAVE_CKPT}" bash "${LEGACY_RUN_SCRIPT}"
+
+  for fold_idx in $(seq 0 $((NUM_FOLDS - 1))); do
+    fold_tag=$(printf "%02d" "${fold_idx}")
+    legacy_ckpt="experimental_results/V41_legacy_oof_fold_${fold_tag}/${SUBJECT}/checkpoint_best.pt"
+    if [[ ! -f "${legacy_ckpt}" ]]; then
+      echo "ERROR: missing fold-specific legacy teacher checkpoint: ${legacy_ckpt}"
+      exit 1
+    fi
+  done
+
+  echo "[4/7] Running TRI OOF fold jobs"
+  GPU="${GPU}" SUBJECT="${SUBJECT}" SAVE_CKPT="${SAVE_CKPT}" bash "${TRI_RUN_SCRIPT}"
 fi
 
 for fold_idx in $(seq 0 $((NUM_FOLDS - 1))); do

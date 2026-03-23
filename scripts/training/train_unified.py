@@ -22,6 +22,7 @@ import csv
 import json
 import logging
 import math
+import hashlib
 import os
 import platform
 import random
@@ -53,6 +54,7 @@ from fmri2img.losses.gaussian_nce import GaussianNCELoss
 from fmri2img.losses.vmf_nce import (
     VonMisesFisherNCELoss,
     MixtureVonMisesFisherNCELoss,
+    MixtureComponentDiversityLoss,
     VonMisesFisherNLLLoss,
     KappaSPCLVMFNCELoss,
     DeltaSPCLVMFNCELoss,
@@ -344,6 +346,22 @@ def _save_compact_component_arrays(
         np.save(metrics_dir / f"{prefix}_predictions_compact_component_logits.npy", component_logits)
 
 
+def _deterministic_component_jitter_like(
+    tensor: torch.Tensor,
+    key: str,
+    scale: float,
+) -> torch.Tensor:
+    if scale <= 0:
+        return torch.zeros_like(tensor)
+    seed_bytes = hashlib.sha256(key.encode("utf-8")).digest()[:8]
+    seed = int.from_bytes(seed_bytes, byteorder="little", signed=False)
+    generator = torch.Generator(device="cpu")
+    generator.manual_seed(seed)
+    noise = torch.randn(tensor.shape, generator=generator, dtype=torch.float32)
+    noise = noise.to(device=tensor.device, dtype=tensor.dtype)
+    return noise * scale
+
+
 def _adapt_pretrained_tensor_for_model(
     key: str,
     source_tensor: torch.Tensor,
@@ -351,32 +369,39 @@ def _adapt_pretrained_tensor_for_model(
 ) -> Optional[torch.Tensor]:
     """Adapt selected pretrained tensors across decoder shape upgrades.
 
-    This is primarily used for upgrading a single-hypothesis compact retrieval
-    head into the new multi-hypothesis vMF head without discarding the whole
-    compact branch. The old retrieval parameters are tiled across hypotheses so
-    the initial consensus behaves like the original single-head model.
+    For multi-hypothesis compact heads we tile the legacy single-head weights,
+    but add a tiny deterministic jitter so the optimizer does not start in a
+    perfectly symmetric 4x-clone solution.
     """
     if not torch.is_tensor(source_tensor):
         return None
 
+    def _repeat_with_jitter(source: torch.Tensor, target: torch.Tensor) -> Optional[torch.Tensor]:
+        if target.shape[0] % source.shape[0] != 0:
+            return None
+        repeat = target.shape[0] // source.shape[0]
+        if source.ndim == 2:
+            repeated = source.repeat(repeat, 1)
+        elif source.ndim == 1:
+            repeated = source.repeat(repeat)
+        else:
+            return None
+        base_scale = float(source.detach().float().std().item())
+        jitter_scale = max(base_scale, 1e-3) * 1e-3
+        return repeated + _deterministic_component_jitter_like(repeated, key, jitter_scale)
+
     if key == "decoder.retrieval_mu_head.weight":
         if source_tensor.ndim == 2 and target_tensor.ndim == 2 and source_tensor.shape[1] == target_tensor.shape[1]:
-            if target_tensor.shape[0] % source_tensor.shape[0] == 0:
-                repeat = target_tensor.shape[0] // source_tensor.shape[0]
-                return source_tensor.repeat(repeat, 1)
+            return _repeat_with_jitter(source_tensor, target_tensor)
     elif key == "decoder.retrieval_mu_head.bias":
-        if source_tensor.ndim == 1 and target_tensor.ndim == 1 and target_tensor.shape[0] % source_tensor.shape[0] == 0:
-            repeat = target_tensor.shape[0] // source_tensor.shape[0]
-            return source_tensor.repeat(repeat)
+        if source_tensor.ndim == 1 and target_tensor.ndim == 1:
+            return _repeat_with_jitter(source_tensor, target_tensor)
     elif key == "decoder.retrieval_kappa_head.weight":
         if source_tensor.ndim == 2 and target_tensor.ndim == 2 and source_tensor.shape[1] == target_tensor.shape[1]:
-            if target_tensor.shape[0] % source_tensor.shape[0] == 0:
-                repeat = target_tensor.shape[0] // source_tensor.shape[0]
-                return source_tensor.repeat(repeat, 1)
+            return _repeat_with_jitter(source_tensor, target_tensor)
     elif key == "decoder.retrieval_kappa_head.bias":
-        if source_tensor.ndim == 1 and target_tensor.ndim == 1 and target_tensor.shape[0] % source_tensor.shape[0] == 0:
-            repeat = target_tensor.shape[0] // source_tensor.shape[0]
-            return source_tensor.repeat(repeat)
+        if source_tensor.ndim == 1 and target_tensor.ndim == 1:
+            return _repeat_with_jitter(source_tensor, target_tensor)
 
     return None
 
@@ -397,7 +422,8 @@ def _prepare_compatible_pretrained_state_dict(
         Keys copied after an explicit shape adaptation.
     initialized_keys
         Keys that do not exist in the source checkpoint but are deliberately
-        initialized here (currently mixture logits -> zeros).
+        initialized here. For multi-hypothesis logits we now keep the model's
+        default random init to break symmetry, so this is typically empty.
     skipped_shape_keys
         Keys present in both states but skipped because shapes were incompatible
         and no principled adaptation rule exists.
@@ -424,15 +450,9 @@ def _prepare_compatible_pretrained_state_dict(
         else:
             skipped_shape.append(key)
 
-    # For newly introduced multi-hypothesis logits, initialize to zero so a
-    # tiled single-head init reduces to the original consensus at step 0.
-    for key in (
-        "decoder.retrieval_component_logits_head.weight",
-        "decoder.retrieval_component_logits_head.bias",
-    ):
-        if key in model_state and key not in compatible:
-            compatible[key] = torch.zeros_like(model_state[key])
-            initialized.append(key)
+    # Keep newly introduced mixture-logit parameters at the decoder's random
+    # init rather than zeroing them out; a non-symmetric start is important for
+    # multi-hypothesis specialization.
 
     return compatible, matched, adapted, initialized, skipped_shape
 
@@ -968,6 +988,24 @@ def setup_losses(config: Dict[str, Any], device: str,
         logger.info("Mixture vMF-NCE loss enabled (queue=%s, tau=%s, learnable_tau=%s, arctanh=%s)",
                      use_q, c.get("tau", 0.07), _learnable_tau, c.get("use_arctanh", False))
 
+    if loss_cfg.get("mixture_diversity", {}).get("enabled", False):
+        c = loss_cfg["mixture_diversity"]
+        losses["mixture_diversity"] = MixtureComponentDiversityLoss(
+            cosine_margin=c.get("cosine_margin", 0.85),
+            entropy_target=c.get("entropy_target", 0.75),
+            kappa_std_target=c.get("kappa_std_target", 0.25),
+            direction_weight=c.get("direction_weight", 1.0),
+            entropy_weight=c.get("entropy_weight", 0.10),
+            kappa_weight=c.get("kappa_weight", 0.05),
+        )
+        logger.info(
+            "Mixture diversity loss enabled (weight=%.3f, cos_margin=%.2f, entropy_target=%.2f, kappa_std_target=%.2f)",
+            c.get("weight", 0.05),
+            c.get("cosine_margin", 0.85),
+            c.get("entropy_target", 0.75),
+            c.get("kappa_std_target", 0.25),
+        )
+
     # --- N4: kappa-SPCL (or Delta-SPCL) ---
     if loss_cfg.get("vmf_nce_spcl", {}).get("enabled", False):
         c = loss_cfg["vmf_nce_spcl"]
@@ -1430,6 +1468,26 @@ def train_epoch(
                 )
                 total_loss = total_loss + loss_weights.get("vmf_nce_mixture", 1.0) * l
                 batch_metrics["vmf_nce_mixture"] = l.item()
+
+            if (
+                "mixture_diversity" in losses
+                and is_vmf
+                and _compact_component_mu is not None
+                and _compact_component_kappa is not None
+                and _compact_component_mu.ndim == 3
+                and _compact_component_mu.shape[1] > 1
+            ):
+                _mix_div_l, _mix_div_stats = losses["mixture_diversity"](
+                    _compact_component_mu,
+                    _compact_component_kappa,
+                    component_logits=_compact_component_logits,
+                )
+                total_loss = total_loss + loss_weights.get("mixture_diversity", 1.0) * _mix_div_l
+                batch_metrics["mixture_diversity"] = _mix_div_l.item()
+                batch_metrics["mixture_pairwise_cos"] = _mix_div_stats["pairwise_cos_mean"]
+                batch_metrics["mixture_weight_entropy_norm"] = _mix_div_stats["weight_entropy_norm"]
+                batch_metrics["mixture_top_weight_mean"] = _mix_div_stats["top_weight_mean"]
+                batch_metrics["mixture_kappa_std_mean"] = _mix_div_stats["kappa_std_mean"]
 
             # --- vMF-NCE-SPCL (N4) or Delta-SPCL ---
             if "vmf_nce_spcl" in losses and is_vmf:
@@ -2484,6 +2542,26 @@ def validate(
                 )
                 total_loss = total_loss + loss_weights.get("vmf_nce_mixture", 1.0) * l
                 bm["vmf_nce_mixture"] = l.item()
+
+            if (
+                "mixture_diversity" in losses
+                and is_vmf
+                and _component_mu_val is not None
+                and _component_kappa_val is not None
+                and _component_mu_val.ndim == 3
+                and _component_mu_val.shape[1] > 1
+            ):
+                _mix_div_l, _mix_div_stats = losses["mixture_diversity"](
+                    _component_mu_val,
+                    _component_kappa_val,
+                    component_logits=_component_logits_val,
+                )
+                total_loss = total_loss + loss_weights.get("mixture_diversity", 1.0) * _mix_div_l
+                bm["mixture_diversity"] = _mix_div_l.item()
+                bm["mixture_pairwise_cos"] = _mix_div_stats["pairwise_cos_mean"]
+                bm["mixture_weight_entropy_norm"] = _mix_div_stats["weight_entropy_norm"]
+                bm["mixture_top_weight_mean"] = _mix_div_stats["top_weight_mean"]
+                bm["mixture_kappa_std_mean"] = _mix_div_stats["kappa_std_mean"]
 
             if "vmf_nce_spcl" in losses and is_vmf:
                 spcl_kwargs = dict(queue=None)

@@ -435,6 +435,93 @@ class MixtureVonMisesFisherNCELoss(VonMisesFisherNCELoss):
         return std_loss
 
 
+class MixtureComponentDiversityLoss(nn.Module):
+    """Anti-collapse regularizer for multi-hypothesis vMF heads.
+
+    Encourages component directions to differ, discourages permanently uniform
+    mixture weights, and optionally nudges kappas away from identical values.
+    """
+
+    def __init__(
+        self,
+        cosine_margin: float = 0.85,
+        entropy_target: float = 0.75,
+        kappa_std_target: float = 0.25,
+        direction_weight: float = 1.0,
+        entropy_weight: float = 0.10,
+        kappa_weight: float = 0.05,
+    ):
+        super().__init__()
+        self.cosine_margin = cosine_margin
+        self.entropy_target = entropy_target
+        self.kappa_std_target = kappa_std_target
+        self.direction_weight = direction_weight
+        self.entropy_weight = entropy_weight
+        self.kappa_weight = kappa_weight
+
+    def forward(
+        self,
+        component_mu: torch.Tensor,
+        component_kappa: torch.Tensor,
+        component_logits: Optional[torch.Tensor] = None,
+    ) -> tuple[torch.Tensor, dict[str, float]]:
+        if component_kappa.ndim == 3 and component_kappa.shape[-1] == 1:
+            component_kappa = component_kappa[..., 0]
+        if component_mu.ndim != 3:
+            raise ValueError(f"component_mu must have shape (B, M, D), got {tuple(component_mu.shape)}")
+        if component_kappa.ndim != 2:
+            raise ValueError(f"component_kappa must have shape (B, M) or (B, M, 1), got {tuple(component_kappa.shape)}")
+
+        component_mu = F.normalize(component_mu, p=2, dim=-1)
+        bsz, num_comp, _ = component_mu.shape
+        if num_comp <= 1:
+            zero = component_mu.new_zeros(())
+            return zero, {
+                "direction_penalty": 0.0,
+                "entropy_penalty": 0.0,
+                "kappa_penalty": 0.0,
+                "pairwise_cos_mean": 1.0,
+                "weight_entropy_norm": 0.0,
+                "top_weight_mean": 1.0,
+                "kappa_std_mean": 0.0,
+            }
+
+        pairwise = torch.matmul(component_mu, component_mu.transpose(1, 2))
+        mask = torch.triu(torch.ones_like(pairwise, dtype=torch.bool), diagonal=1)
+        pairwise_vals = pairwise[mask]
+        direction_penalty = F.relu(pairwise_vals - self.cosine_margin).pow(2).mean()
+
+        if component_logits is not None:
+            weights = torch.softmax(component_logits, dim=-1)
+            entropy = -(weights * torch.log(weights.clamp_min(1e-8))).sum(dim=-1)
+            entropy_norm = entropy / max(math.log(float(num_comp)), 1e-8)
+            top_weight = weights.max(dim=-1).values
+            entropy_penalty = F.relu(entropy_norm - self.entropy_target).pow(2).mean()
+        else:
+            entropy_norm = component_mu.new_full((bsz,), 1.0)
+            top_weight = component_mu.new_full((bsz,), 1.0 / float(num_comp))
+            entropy_penalty = component_mu.new_zeros(())
+
+        kappa_std = component_kappa.std(dim=1)
+        kappa_penalty = F.relu(self.kappa_std_target - kappa_std).pow(2).mean()
+
+        total = (
+            self.direction_weight * direction_penalty
+            + self.entropy_weight * entropy_penalty
+            + self.kappa_weight * kappa_penalty
+        )
+        stats = {
+            "direction_penalty": float(direction_penalty.detach().item()),
+            "entropy_penalty": float(entropy_penalty.detach().item()),
+            "kappa_penalty": float(kappa_penalty.detach().item()),
+            "pairwise_cos_mean": float(pairwise_vals.detach().mean().item()),
+            "weight_entropy_norm": float(entropy_norm.detach().mean().item()),
+            "top_weight_mean": float(top_weight.detach().mean().item()),
+            "kappa_std_mean": float(kappa_std.detach().mean().item()),
+        }
+        return total, stats
+
+
 # ---------------------------------------------------------------------------
 # R-Drop regularization for vMF outputs  (Liang et al., 2021)
 # ---------------------------------------------------------------------------

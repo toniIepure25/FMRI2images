@@ -21,6 +21,7 @@ from fmri2img.models.vmf_decoder import VonMisesFisherDecoder
 from fmri2img.models.roi_transformer import ROITransformerEncoder
 from fmri2img.models.roi_dcf import ROIDCFDecoder
 from fmri2img.models.multi_subject_encoder import MultiSubjectROITransformer
+from fmri2img.models.dense_vmf_hybrid_decoder import DenseVMFHybridDecoder
 from fmri2img.models.projection_head import ContrastiveProjectionHead
 from fmri2img.models.ncsnr_attention import NCSnrAttention
 from fmri2img.models.encoders import ResidualMLPEncoder
@@ -497,6 +498,26 @@ class UnifiedModel(nn.Module):
                 kappa_mode=decoder_cfg.get("kappa_mode", "softplus"),
                 retrieval_num_hypotheses=decoder_cfg.get("retrieval_num_hypotheses", 1),
             )
+        elif self.model_type == "dense_vmf_hybrid":
+            self.vmf_output_is_log = False
+            _retrieval_dim = decoder_cfg.get("retrieval_dim", 768)
+            _n_tok = decoder_cfg.get("num_tokens", 257)
+            _d_tok = decoder_cfg.get("token_dim_per", decoder_cfg.get("token_dim", 768))
+            _token_dim_total = _n_tok * _d_tok
+            self.decoder = DenseVMFHybridDecoder(
+                input_dim=latent_dim,
+                retrieval_dim=_retrieval_dim,
+                token_dim=_token_dim_total,
+                rerank_dim=decoder_cfg.get("rerank_dim", 2048),
+                rerank_enabled=decoder_cfg.get("rerank_enabled", False),
+                regression_enabled=decoder_cfg.get("regression_enabled", False),
+                hidden_dims=decoder_cfg.get("hidden_dims", [2048]),
+                activation=decoder_cfg.get("activation", "gelu"),
+                dropout=decoder_cfg.get("dropout", 0.1),
+                kappa_min=decoder_cfg.get("kappa_min", 1e-3),
+                kappa_max=decoder_cfg.get("kappa_max", 500.0),
+                kappa_mode=decoder_cfg.get("kappa_mode", "softplus"),
+            )
         elif self.model_type == "vmf_dcf":
             if encoder_type not in ("roi_transformer", "multi_subject_roi_transformer"):
                 raise ValueError(
@@ -656,6 +677,22 @@ class UnifiedModel(nn.Module):
             self._last_perc_pred = dec_out.perc_pred
             self._last_reg_pred = dec_out.reg_pred
             return dec_out.mu, dec_out.kappa
+        elif self.model_type == "dense_vmf_hybrid":
+            dec_out = self.decoder(h)
+            self._last_dense_pred = dec_out.dense_pred
+            self._last_compact_pred = dec_out.dense_pred
+            self._last_vmf_pred = dec_out.vmf_mu
+            self._last_vmf_kappa = dec_out.vmf_kappa
+            self._last_compact_component_mu = None
+            self._last_compact_component_kappa = None
+            self._last_compact_component_logits = None
+            self._last_rich_pred = dec_out.reg_pred
+            self._last_rerank_pred = dec_out.rerank_pred
+            self._last_reg_pred = dec_out.reg_pred
+            return dec_out.dense_pred, {
+                "vmf_mu": dec_out.vmf_mu,
+                "kappa": dec_out.vmf_kappa,
+            }
         else:  # vmf, vmf_dcf handled above
             dec_out = self.decoder(h)
             if len(dec_out) == 3:

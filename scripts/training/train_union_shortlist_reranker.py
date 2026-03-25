@@ -54,6 +54,7 @@ from sweep_tri_fusion_retrieval import (  # noqa: E402
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
 from fmri2img.models.union_shortlist_reranker import (  # noqa: E402
     CandidateReranker,
+    ShortlistSetTransformerReranker,
     VMFEvidenceReranker,
     shortlist_cross_entropy,
     shortlist_pairwise_margin_loss,
@@ -289,6 +290,9 @@ def _evaluate_baselines_from_cache(
         "legacy_raw": 3,
         "legacy_csls": 4,
     }
+    if features.shape[2] >= 53:
+        score_indices["vmf_raw"] = 46
+        score_indices["vmf_csls"] = 47
 
     def _rank_by_scores(local_scores: np.ndarray) -> np.ndarray:
         gt_ranks = np.full(n, n, dtype=np.int32)
@@ -354,6 +358,13 @@ def _train_reranker(
         ).to(device)
     elif model_family == "vmf_evidence":
         model = VMFEvidenceReranker(
+            input_dim=input_dim,
+            hidden_dim=hidden_dim,
+            num_layers=num_layers,
+            dropout=dropout,
+        ).to(device)
+    elif model_family == "set_transformer":
+        model = ShortlistSetTransformerReranker(
             input_dim=input_dim,
             hidden_dim=hidden_dim,
             num_layers=num_layers,
@@ -589,7 +600,7 @@ def main() -> None:
         "--model-family",
         type=str,
         default="candidate_mlp",
-        choices=["candidate_mlp", "vmf_evidence"],
+        choices=["candidate_mlp", "vmf_evidence", "set_transformer"],
         help="Resolver family (default: candidate_mlp)",
     )
     parser.add_argument(

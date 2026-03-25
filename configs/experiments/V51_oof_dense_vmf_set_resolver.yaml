@@ -1,0 +1,81 @@
+# V51: OOF Dense-vMF Set Resolver
+#
+# Post-hoc resolver stage for the dense-vMF hybrid family. This configuration
+# documents the intended OOF training recipe once V50 (or a stronger dense
+# descendant) produces full val/shared1000/train_oof exports.
+
+experiment:
+  name: "V51_oof_dense_vmf_set_resolver"
+  description: "Strict OOF shortlist set-resolver over dense, auxiliary-vMF, legacy, and rerank evidence"
+  tags: ["v51", "oof", "dense_vmf_hybrid", "set_resolver", "union_shortlist", "post_hoc"]
+  parent: "V50_all8_dense_vmf_hybrid"
+  type: "post_hoc_evaluation"
+
+experts:
+  dense:
+    base_results_dir: "experimental_results/V50_all8_dense_vmf_hybrid/subj01"
+    required_outputs:
+      - "train_oof_predictions_compact.npy"
+      - "train_oof_ground_truth_compact.npy"
+      - "train_oof_nsd_ids.npy"
+      - "train_oof_predictions_vmf.npy"
+      - "train_oof_kappas_vmf.npy"
+      - "train_oof_predictions_rerank.npy"
+      - "train_oof_ground_truth_rerank.npy"
+  legacy:
+    base_results_dir: "experimental_results/N1v28a_dual_head/subj01"
+    required_outputs:
+      - "train_oof_predictions_compact.npy"
+      - "train_oof_ground_truth_compact.npy"
+      - "train_oof_nsd_ids.npy"
+
+folding:
+  num_folds: 5
+  seed: 42
+  holdout_split_name: "val"
+  merged_train_prefix: "train_oof"
+  required_train_pool_size: 8100
+
+shortlist:
+  k: 100
+  train_cache_name: "train_oof"
+  val_cache_name: "val"
+  shared_cache_name: "shared1000"
+  sources: ["compact_csls", "legacy_csls"]
+  optional_sources: ["rerank", "vmf_csls"]
+
+reranker:
+  architecture: "set_transformer"
+  hidden_dim: 128
+  num_layers: 2
+  dropout: 0.1
+  pairwise_margin_weight: 0.15
+  pairwise_margin: 0.20
+  pairwise_hard_neg_k: 5
+
+training:
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  max_epochs: 200
+  patience: 30
+  batch_size: 256
+  seed: 42
+
+evaluation:
+  shortlist_k_default: 100
+  shortlist_k_fallback: 150
+  success_gate_gain_over_fixed_dense_legacy_pp: 2.0
+  fixed_dense_legacy_target_r1: 0.800
+
+sanity_checks:
+  require_unique_train_oof_ids: true
+  require_complete_train_pool_coverage: true
+  require_disagreement_fraction_min: 0.20
+  forbid_near_perfect_train_oof_experts: true
+  require_vmf_aux_features: true
+
+success_criteria:
+  on_track: "resolver adds at least +2.0 pp over fixed dense+legacy fusion on SHARED1000"
+  strong: "final SHARED1000 resolver R@1 reaches at least 84%"
+  target: "final SHARED1000 resolver R@1 reaches 85% or better"
+  fallback_if_negative: "if resolver adds <1.5 pp, continue improving the dense base expert before more resolver work"

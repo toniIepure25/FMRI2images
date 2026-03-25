@@ -337,6 +337,37 @@ def _sanitize_metric_name(metric_name: str) -> str:
     return sanitized or "metric"
 
 
+def _aggregate_rows_by_nsd_id(
+    values: np.ndarray,
+    nsd_ids: np.ndarray,
+    *,
+    reduce: str = "mean",
+    normalize: bool = False,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Aggregate row-aligned arrays from trial level to unique-image level."""
+    values = np.asarray(values)
+    nsd_ids = np.asarray(nsd_ids, dtype=np.int32)
+    unique_ids = np.unique(nsd_ids)
+    out_shape = (len(unique_ids),) + values.shape[1:]
+    aggregated = np.zeros(out_shape, dtype=np.float32)
+
+    for i, uid in enumerate(unique_ids):
+        mask = nsd_ids == uid
+        if reduce == "first":
+            aggregated[i] = values[mask][0]
+        elif reduce == "mean":
+            aggregated[i] = values[mask].mean(axis=0)
+        else:
+            raise ValueError(f"Unknown reduce mode: {reduce}")
+
+    if normalize and aggregated.ndim >= 2:
+        aggregated = aggregated / np.maximum(
+            np.linalg.norm(aggregated, axis=-1, keepdims=True),
+            1e-8,
+        )
+    return aggregated.astype(np.float32), unique_ids.astype(np.int32)
+
+
 def _aggregate_component_outputs_by_nsd_id(
     component_mu: np.ndarray,
     component_kappa: np.ndarray,
@@ -373,6 +404,49 @@ def _save_compact_component_arrays(
         np.save(metrics_dir / f"{prefix}_predictions_compact_component_kappa.npy", component_kappa)
     if component_logits is not None:
         np.save(metrics_dir / f"{prefix}_predictions_compact_component_logits.npy", component_logits)
+
+
+def _save_aux_vmf_arrays(
+    metrics_dir: Path,
+    prefix: str,
+    vmf_preds: Optional[np.ndarray],
+    vmf_kappas: Optional[np.ndarray],
+) -> None:
+    if vmf_preds is not None:
+        np.save(metrics_dir / f"{prefix}_predictions_vmf.npy", vmf_preds)
+    if vmf_kappas is not None:
+        np.save(metrics_dir / f"{prefix}_kappas_vmf.npy", vmf_kappas)
+
+
+def _extract_vmf_outputs_for_losses(
+    model_type: str,
+    pred: torch.Tensor,
+    aux: Any,
+) -> tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
+    """Return the vMF prediction/kappa pair used by vMF-style losses.
+
+    For classic vMF models, the primary retrieval prediction is itself the vMF
+    mean direction. For dense-vMF hybrid models, the dense prediction remains
+    primary while the auxiliary vMF branch is used only for confidence losses
+    and diagnostics.
+    """
+    if model_type == "dense_vmf_hybrid":
+        if isinstance(aux, dict):
+            vmf_mu = aux.get("vmf_mu")
+            vmf_kappa = aux.get("kappa", aux.get("concentration"))
+            if torch.is_tensor(vmf_mu) and torch.is_tensor(vmf_kappa):
+                return vmf_mu, vmf_kappa
+        return None, None
+
+    if model_type in ("vmf", "vmf_dcf", "vmf_triple"):
+        if isinstance(aux, dict):
+            vmf_kappa = aux.get("kappa", aux.get("concentration"))
+            if torch.is_tensor(vmf_kappa):
+                return pred, vmf_kappa
+            return None, None
+        if torch.is_tensor(aux):
+            return pred, aux
+    return None, None
 
 
 def _deterministic_component_jitter_like(
@@ -416,8 +490,20 @@ def _adapt_pretrained_tensor_for_model(
         else:
             return None
         base_scale = float(source.detach().float().std().item())
+        if not math.isfinite(base_scale):
+            base_scale = 1e-3
         jitter_scale = max(base_scale, 1e-3) * 1e-3
         return repeated + _deterministic_component_jitter_like(repeated, key, jitter_scale)
+
+    def _copy_if_same_tail(source: torch.Tensor, target: torch.Tensor) -> Optional[torch.Tensor]:
+        if source.shape == target.shape:
+            return source
+        if source.ndim == target.ndim == 2 and source.shape[1] == target.shape[1]:
+            if source.shape[0] == target.shape[0]:
+                return source
+        if source.ndim == target.ndim == 1 and source.shape[0] == target.shape[0]:
+            return source
+        return None
 
     if key == "decoder.retrieval_mu_head.weight":
         if source_tensor.ndim == 2 and target_tensor.ndim == 2 and source_tensor.shape[1] == target_tensor.shape[1]:
@@ -478,6 +564,29 @@ def _prepare_compatible_pretrained_state_dict(
             adapted.append(key)
         else:
             skipped_shape.append(key)
+
+    alias_map = {
+        "decoder.dense_head.weight": "decoder.retrieval_mu_head.weight",
+        "decoder.dense_head.bias": "decoder.retrieval_mu_head.bias",
+        "decoder.vmf_mu_head.weight": "decoder.retrieval_mu_head.weight",
+        "decoder.vmf_mu_head.bias": "decoder.retrieval_mu_head.bias",
+        "decoder.vmf_kappa_head.weight": "decoder.retrieval_kappa_head.weight",
+        "decoder.vmf_kappa_head.bias": "decoder.retrieval_kappa_head.bias",
+        "decoder.rerank_head.weight": "decoder.rerank_head.weight",
+        "decoder.rerank_head.bias": "decoder.rerank_head.bias",
+        "decoder.regression_head.weight": "decoder.regression_head.weight",
+        "decoder.regression_head.bias": "decoder.regression_head.bias",
+    }
+    for target_key, source_key in alias_map.items():
+        if target_key in compatible or target_key not in model_state:
+            continue
+        source_tensor = source_state_dict.get(source_key)
+        if source_tensor is None:
+            continue
+        target_tensor = model_state[target_key]
+        if source_tensor.shape == target_tensor.shape:
+            compatible[target_key] = source_tensor.to(dtype=target_tensor.dtype)
+            adapted.append(target_key)
 
     # Keep newly introduced mixture-logit parameters at the decoder's random
     # init rather than zeroing them out; a non-symmetric start is important for
@@ -1460,12 +1569,13 @@ def train_epoch(
                 pred, aux = output
             else:
                 pred, aux = output, None
+            _vmf_pred_head, _vmf_aux_head = _extract_vmf_outputs_for_losses(model_type, pred, aux)
 
             total_loss = torch.tensor(0.0, device=device, dtype=torch.float32)
             batch_metrics: Dict[str, float] = {}
 
             is_gaussian = model_type == "gaussian" and aux is not None
-            is_vmf = model_type in ("vmf", "vmf_dcf", "vmf_triple") and aux is not None
+            is_vmf = _vmf_pred_head is not None and _vmf_aux_head is not None
 
             # Projection head for KD losses (SoftCLIP, MixCo) only.
             # vMF-NCE uses raw pred so kappa gets proper gradient flow
@@ -1514,7 +1624,7 @@ def train_epoch(
             # --- SoftCLIP knowledge distillation (works for all model types) ---
             if "softclip" in losses:
                 if isinstance(losses["softclip"], VMFSoftCLIPLoss) and is_vmf:
-                    l = losses["softclip"](pred_for_contrast, aux, gt_embedding, queue=queue)
+                    l = losses["softclip"](_vmf_pred_head, _vmf_aux_head, gt_embedding, queue=queue)
                 else:
                     l = losses["softclip"](pred_for_contrast, gt_embedding, queue=queue)
                 total_loss = total_loss + loss_weights.get("softclip", 1.0) * l
@@ -1533,12 +1643,12 @@ def train_epoch(
 
             # --- vMF losses ---
             if "vmf_nll" in losses and is_vmf:
-                l = losses["vmf_nll"](pred, aux, gt_embedding)
+                l = losses["vmf_nll"](_vmf_pred_head, _vmf_aux_head, gt_embedding)
                 total_loss = total_loss + loss_weights.get("vmf_nll", 1.0) * l
                 batch_metrics["vmf_nll"] = l.item()
 
             if "vmf_nce" in losses and is_vmf:
-                l = losses["vmf_nce"](pred, aux, gt_embedding, queue=queue)
+                l = losses["vmf_nce"](_vmf_pred_head, _vmf_aux_head, gt_embedding, queue=queue)
                 total_loss = total_loss + loss_weights.get("vmf_nce", 1.0) * l
                 batch_metrics["vmf_nce"] = l.item()
 
@@ -1602,7 +1712,7 @@ def train_epoch(
                 if isinstance(losses["vmf_nce_spcl"], DeltaSPCLVMFNCELoss):
                     dcf_ex = getattr(model, "_last_dcf_extras", {})
                     spcl_kwargs["delta"] = dcf_ex.get("delta")
-                l = losses["vmf_nce_spcl"](pred, aux, gt_embedding, **spcl_kwargs)
+                l = losses["vmf_nce_spcl"](_vmf_pred_head, _vmf_aux_head, gt_embedding, **spcl_kwargs)
                 total_loss = total_loss + loss_weights.get("vmf_nce_spcl", 1.0) * l
                 batch_metrics["vmf_nce_spcl"] = l.item()
 
@@ -1610,7 +1720,7 @@ def train_epoch(
             if "vmf_nce_multitask" in losses and is_vmf:
                 dcf_extras = getattr(model, "_last_dcf_extras", {})
                 mt_total, mt_fused, mt_aux = losses["vmf_nce_multitask"](
-                    pred, aux, gt_embedding,
+                    _vmf_pred_head, _vmf_aux_head, gt_embedding,
                     per_roi_mus=dcf_extras.get("per_roi_mus"),
                     per_roi_kappas=dcf_extras.get("per_roi_kappas"),
                     queue=queue,
@@ -1863,15 +1973,15 @@ def train_epoch(
 
             # --- Kappa regularizer ---
             kappa_reg_cfg = config_ref.get("loss", {}).get("kappa_reg", {}) if config_ref else {}
-            if kappa_reg_cfg.get("enabled", False) and is_vmf and aux is not None:
-                kappa_vals = aux.squeeze(-1) if not vmf_is_log else aux.exp().squeeze(-1)
+            if kappa_reg_cfg.get("enabled", False) and is_vmf and _vmf_aux_head is not None:
+                kappa_vals = _vmf_aux_head.squeeze(-1) if not vmf_is_log else _vmf_aux_head.exp().squeeze(-1)
                 kr = kappa_regularizer(kappa_vals, kappa_reg_cfg.get("lambda_kappa", 0.01))
                 total_loss = total_loss + kr
                 batch_metrics["kappa_reg"] = kr.item()
 
             # --- Direct cosine alignment (V11, fixed V19: use raw pred) ---
             if "direct_alignment" in losses and is_vmf:
-                da_loss = losses["direct_alignment"](pred, gt_embedding)
+                da_loss = losses["direct_alignment"](_vmf_pred_head, gt_embedding)
                 total_loss = total_loss + loss_weights.get("direct_alignment", 0.5) * da_loss
                 batch_metrics["direct_align"] = da_loss.item()
 
@@ -1887,18 +1997,19 @@ def train_epoch(
             if _rdrop_cfg.get("enabled", False) and is_vmf and current_epoch >= _rdrop_start:
                 output2 = model(fmri, subject_ids=subject_ids) if subject_ids is not None else model(fmri)
                 pred2, aux2 = (output2 if isinstance(output2, tuple) else (output2, None))
-                if aux2 is not None:
-                    k1 = aux.squeeze(-1) if not vmf_is_log else aux.exp().squeeze(-1)
-                    k2 = aux2.squeeze(-1) if not vmf_is_log else aux2.exp().squeeze(-1)
-                    rd_loss = vmf_rdrop_loss(pred, k1, pred2, k2)
+                _vmf_pred_head2, _vmf_aux_head2 = _extract_vmf_outputs_for_losses(model_type, pred2, aux2)
+                if _vmf_aux_head2 is not None and _vmf_pred_head2 is not None:
+                    k1 = _vmf_aux_head.squeeze(-1) if not vmf_is_log else _vmf_aux_head.exp().squeeze(-1)
+                    k2 = _vmf_aux_head2.squeeze(-1) if not vmf_is_log else _vmf_aux_head2.exp().squeeze(-1)
+                    rd_loss = vmf_rdrop_loss(_vmf_pred_head, k1, _vmf_pred_head2, k2)
                     _rdrop_w = _rdrop_cfg.get("weight", 0.5)
                     total_loss = total_loss + _rdrop_w * rd_loss
                     batch_metrics["r_drop"] = rd_loss.item()
 
             # --- Kappa statistics ---
-            if is_vmf and aux is not None:
+            if is_vmf and _vmf_aux_head is not None:
                 with torch.no_grad():
-                    kv = aux.squeeze(-1) if not vmf_is_log else aux.exp().squeeze(-1)
+                    kv = _vmf_aux_head.squeeze(-1) if not vmf_is_log else _vmf_aux_head.exp().squeeze(-1)
                     kv = kv.float()
                     batch_metrics["kappa_mean"] = kv.mean().item()
                     batch_metrics["kappa_std"] = kv.std().item()
@@ -1914,8 +2025,8 @@ def train_epoch(
                 batch_metrics["kl"] = (kl_weight * kl_raw).item()
 
             if kl_scheduler is not None and is_vmf:
-                log_kappa_for_kl = aux if vmf_is_log else torch.log(aux.clamp(min=1e-8))
-                kl_raw = compute_vmf_kl(pred, log_kappa_for_kl, pred.size(-1))
+                log_kappa_for_kl = _vmf_aux_head if vmf_is_log else torch.log(_vmf_aux_head.clamp(min=1e-8))
+                kl_raw = compute_vmf_kl(_vmf_pred_head, log_kappa_for_kl, _vmf_pred_head.size(-1))
                 kl_weight = kl_scheduler.step()
                 total_loss = total_loss + kl_weight * kl_raw
                 batch_metrics["kl"] = (kl_weight * kl_raw).item()
@@ -2201,13 +2312,18 @@ def _evaluate_shared1000(
     is_vmf_model = model_type in ("vmf", "vmf_dcf", "vmf_triple")
     model.eval()
 
-    _is_triple = model_type == "vmf_triple"
+    _uses_compact_cls_space = model_type in ("vmf_triple", "dense_vmf_hybrid")
+    _has_component_outputs = model_type == "vmf_triple"
     _all_rich_preds_s1000: List[np.ndarray] = []
     _all_rerank_preds_s1000: List[np.ndarray] = []
     _all_legacy_preds_s1000: List[np.ndarray] = []
+    _all_vmf_preds_s1000: List[np.ndarray] = []
+    _all_vmf_kappas_s1000: List[np.ndarray] = []
     _all_compact_component_mu_s1000: List[np.ndarray] = []
     _all_compact_component_kappa_s1000: List[np.ndarray] = []
     _all_compact_component_logits_s1000: List[np.ndarray] = []
+    _vmf_preds_img: Optional[np.ndarray] = None
+    _vmf_kappas_img: Optional[np.ndarray] = None
 
     if is_vmf_model:
         # --- vMF path: run ALL individual trials, fuse with kappa weights ---
@@ -2231,7 +2347,15 @@ def _evaluate_shared1000(
                     if vmf_is_log:
                         k = k.exp()
                     all_kappas.append(k.cpu().numpy())
-                if _is_triple:
+                if _uses_compact_cls_space:
+                    _vmf_pred_head, _vmf_aux_head = _extract_vmf_outputs_for_losses(model_type, pred, aux)
+                    if _vmf_pred_head is not None and _vmf_aux_head is not None:
+                        _all_vmf_preds_s1000.append(_vmf_pred_head.detach().cpu().numpy())
+                        _vk = _vmf_aux_head
+                        if vmf_is_log:
+                            _vk = _vk.exp()
+                        _all_vmf_kappas_s1000.append(_vk.squeeze(-1).detach().cpu().numpy())
+                if _uses_compact_cls_space:
                     _rp = getattr(model, "_last_rich_pred", None)
                     if _rp is not None:
                         _all_rich_preds_s1000.append(_rp.detach().cpu().numpy())
@@ -2310,13 +2434,42 @@ def _evaluate_shared1000(
                     out = model(batch_fmri, subject_ids=sid)
                 else:
                     out = model(batch_fmri)
-                pred = out[0] if isinstance(out, tuple) else out
+                pred, aux = (out if isinstance(out, tuple) else (out, None))
                 all_preds_list.append(pred.cpu().numpy())
+                if _uses_compact_cls_space:
+                    _vmf_pred_head, _vmf_aux_head = _extract_vmf_outputs_for_losses(model_type, pred, aux)
+                    if _vmf_pred_head is not None and _vmf_aux_head is not None:
+                        _all_vmf_preds_s1000.append(_vmf_pred_head.detach().cpu().numpy())
+                        _vk = _vmf_aux_head
+                        if vmf_is_log:
+                            _vk = _vk.exp()
+                        _all_vmf_kappas_s1000.append(_vk.squeeze(-1).detach().cpu().numpy())
+                    _rrp = getattr(model, "_last_rerank_pred", None)
+                    if _rrp is not None:
+                        _all_rerank_preds_s1000.append(_rrp.detach().cpu().numpy())
+                    _rp = getattr(model, "_last_rich_pred", None)
+                    if _rp is not None:
+                        _all_rich_preds_s1000.append(_rp.detach().cpu().numpy())
+                    if legacy_teacher_model is not None:
+                        _legacy_out = (
+                            legacy_teacher_model(batch_fmri, subject_ids=sid)
+                            if is_multi_subject
+                            else legacy_teacher_model(batch_fmri)
+                        )
+                        _legacy_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
+                        _all_legacy_preds_s1000.append(_legacy_pred.detach().cpu().numpy())
 
         preds = np.concatenate(all_preds_list)
         norms = np.linalg.norm(preds, axis=-1, keepdims=True)
         preds = preds / np.maximum(norms, 1e-8)
         preds_avg = None
+        if _all_vmf_preds_s1000:
+            _vmf_preds_img = np.concatenate(_all_vmf_preds_s1000)
+            _vmf_preds_img = _vmf_preds_img / np.maximum(
+                np.linalg.norm(_vmf_preds_img, axis=-1, keepdims=True), 1e-8
+            )
+        if _all_vmf_kappas_s1000:
+            _vmf_kappas_img = np.concatenate(_all_vmf_kappas_s1000)
 
     # --- Ground-truth CLIP embeddings ---
     # vmf_triple: compact preds are in retrieval_dim space (e.g. 768-D or 1024-D).
@@ -2325,7 +2478,7 @@ def _evaluate_shared1000(
     _rich_gts_s1000: Optional[np.ndarray] = None
     _legacy_preds_img: Optional[np.ndarray] = None
     _legacy_gts_s1000: Optional[np.ndarray] = None
-    if _is_triple:
+    if _uses_compact_cls_space:
         emb_col = resolve_embedding_column(embeddings_df, _EMBEDDING_COLUMN_OVERRIDE)
         emb_lookup: Dict[int, int] = {}
         if "nsdId" in embeddings_df.columns:
@@ -2346,11 +2499,17 @@ def _evaluate_shared1000(
             trial_rich = np.concatenate(_all_rich_preds_s1000)
             _rich_preds_img = np.zeros((n_images, trial_rich.shape[1]), dtype=np.float32)
             _rich_gts_s1000 = np.zeros_like(_rich_preds_img)
-            for i, uid in enumerate(unique_ids):
-                mask = nsd_ids == uid
-                _rich_preds_img[i] = trial_rich[mask].mean(axis=0)
-                if int(uid) in token_cache:
-                    _rich_gts_s1000[i] = token_cache.get_flat(int(uid))
+            if trial_rich.shape[0] == n_images:
+                _rich_preds_img = trial_rich
+                for i, uid in enumerate(unique_ids):
+                    if int(uid) in token_cache:
+                        _rich_gts_s1000[i] = token_cache.get_flat(int(uid))
+            else:
+                for i, uid in enumerate(unique_ids):
+                    mask = nsd_ids == uid
+                    _rich_preds_img[i] = trial_rich[mask].mean(axis=0)
+                    if int(uid) in token_cache:
+                        _rich_gts_s1000[i] = token_cache.get_flat(int(uid))
 
         # V30d: aggregate rerank predictions per image
         _rerank_preds_img: Optional[np.ndarray] = None
@@ -2359,11 +2518,17 @@ def _evaluate_shared1000(
             trial_rerank = np.concatenate(_all_rerank_preds_s1000)
             _rerank_preds_img = np.zeros((n_images, trial_rerank.shape[1]), dtype=np.float32)
             _rerank_gts_s1000 = np.zeros((n_images, trial_rerank.shape[1]), dtype=np.float32)
-            for i, uid in enumerate(unique_ids):
-                mask = nsd_ids == uid
-                _rerank_preds_img[i] = trial_rerank[mask].mean(axis=0)
-                if int(uid) in rerank_cache:
-                    _rerank_gts_s1000[i] = rerank_cache[int(uid)]
+            if trial_rerank.shape[0] == n_images:
+                _rerank_preds_img = trial_rerank
+                for i, uid in enumerate(unique_ids):
+                    if int(uid) in rerank_cache:
+                        _rerank_gts_s1000[i] = rerank_cache[int(uid)]
+            else:
+                for i, uid in enumerate(unique_ids):
+                    mask = nsd_ids == uid
+                    _rerank_preds_img[i] = trial_rerank[mask].mean(axis=0)
+                    if int(uid) in rerank_cache:
+                        _rerank_gts_s1000[i] = rerank_cache[int(uid)]
             # Re-normalise after averaging
             _rerank_preds_img = _rerank_preds_img / np.maximum(
                 np.linalg.norm(_rerank_preds_img, axis=-1, keepdims=True), 1e-8)
@@ -2372,11 +2537,17 @@ def _evaluate_shared1000(
             trial_legacy = np.concatenate(_all_legacy_preds_s1000)
             _legacy_preds_img = np.zeros((n_images, trial_legacy.shape[1]), dtype=np.float32)
             _legacy_gts_s1000 = np.zeros_like(_legacy_preds_img)
-            for i, uid in enumerate(unique_ids):
-                mask = nsd_ids == uid
-                _legacy_preds_img[i] = trial_legacy[mask].mean(axis=0)
-                if int(uid) in token_cache:
-                    _legacy_gts_s1000[i] = token_cache.get_flat(int(uid))
+            if trial_legacy.shape[0] == n_images:
+                _legacy_preds_img = trial_legacy
+                for i, uid in enumerate(unique_ids):
+                    if int(uid) in token_cache:
+                        _legacy_gts_s1000[i] = token_cache.get_flat(int(uid))
+            else:
+                for i, uid in enumerate(unique_ids):
+                    mask = nsd_ids == uid
+                    _legacy_preds_img[i] = trial_legacy[mask].mean(axis=0)
+                    if int(uid) in token_cache:
+                        _legacy_gts_s1000[i] = token_cache.get_flat(int(uid))
             _legacy_preds_img = _legacy_preds_img / np.maximum(
                 np.linalg.norm(_legacy_preds_img, axis=-1, keepdims=True), 1e-8)
 
@@ -2455,7 +2626,24 @@ def _evaluate_shared1000(
             metrics["r@1_avg"], metrics["csls_r@1_avg"],
         )
 
-    if _is_triple and '_component_mu_img' in locals() and _component_mu_img is not None and _component_kappa_img is not None:
+    if _vmf_preds_img is not None:
+        vmf_ret = _compute_retrieval(_vmf_preds_img, gts, ks=(1, 5, 10))
+        vmf_csls_ret = _compute_retrieval_csls(_vmf_preds_img, gts, ks=(1, 5, 10), csls_k=10)
+        metrics["vmf_r@1"] = float(vmf_ret["top1_accuracy"])
+        metrics["vmf_r@5"] = float(vmf_ret["top5_accuracy"])
+        metrics["vmf_r@10"] = float(vmf_ret["top10_accuracy"])
+        metrics["vmf_median_rank"] = float(vmf_ret["median_rank"])
+        metrics["vmf_mrr"] = float(vmf_ret["mrr"])
+        metrics["vmf_csls_r@1"] = float(vmf_csls_ret["top1_accuracy"])
+        metrics["vmf_csls_r@5"] = float(vmf_csls_ret["top5_accuracy"])
+        metrics["vmf_csls_r@10"] = float(vmf_csls_ret["top10_accuracy"])
+        metrics["vmf_csls_median_rank"] = float(vmf_csls_ret["median_rank"])
+        metrics["vmf_csls_mrr"] = float(vmf_csls_ret["mrr"])
+        if _vmf_kappas_img is not None:
+            metrics["vmf_kappa_mean_eval"] = float(np.mean(_vmf_kappas_img))
+            metrics["vmf_kappa_std_eval"] = float(np.std(_vmf_kappas_img))
+
+    if _has_component_outputs and '_component_mu_img' in locals() and _component_mu_img is not None and _component_kappa_img is not None:
         mix_ret = _compute_mixture_vmf_retrieval(
             _component_mu_img,
             _component_kappa_img,
@@ -2512,7 +2700,7 @@ def _evaluate_shared1000(
         metrics["median_rank"], metrics["mrr"], mean_pos_sim, n_images, n_raw,
     )
 
-    if _is_triple:
+    if _uses_compact_cls_space:
         metrics["_space"] = "compact"
         metrics["_nsd_ids"] = unique_ids.astype(np.int32)
         if _rich_gts_s1000 is not None:
@@ -2524,6 +2712,10 @@ def _evaluate_shared1000(
         if _legacy_preds_img is not None and _legacy_gts_s1000 is not None:
             metrics["_legacy_preds"] = _legacy_preds_img
             metrics["_legacy_gts"] = _legacy_gts_s1000
+        if _vmf_preds_img is not None:
+            metrics["_vmf_preds"] = _vmf_preds_img
+        if _vmf_kappas_img is not None:
+            metrics["_vmf_kappas"] = _vmf_kappas_img
         if '_component_mu_img' in locals() and _component_mu_img is not None and _component_kappa_img is not None:
             metrics["_compact_component_mu"] = _component_mu_img
             metrics["_compact_component_kappa"] = _component_kappa_img
@@ -2558,6 +2750,8 @@ def validate(
     all_rerank_gts: List[np.ndarray] = []
     all_legacy_preds: List[np.ndarray] = []
     all_legacy_gts: List[np.ndarray] = []
+    all_vmf_preds: List[np.ndarray] = []
+    all_vmf_kappas: List[np.ndarray] = []
     all_compact_component_mu: List[np.ndarray] = []
     all_compact_component_kappa: List[np.ndarray] = []
     all_compact_component_logits: List[np.ndarray] = []
@@ -2616,9 +2810,16 @@ def validate(
                 pred, aux = output
             else:
                 pred, aux = output, None
+            _vmf_pred_head, _vmf_aux_head = _extract_vmf_outputs_for_losses(model_type, pred, aux)
 
             all_preds.append(pred.detach().cpu().numpy())
             all_gts.append(gt_embedding.detach().cpu().numpy())
+            if _vmf_pred_head is not None and _vmf_aux_head is not None:
+                all_vmf_preds.append(_vmf_pred_head.detach().cpu().numpy())
+                _vk = _vmf_aux_head
+                if vmf_is_log:
+                    _vk = _vk.exp()
+                all_vmf_kappas.append(_vk.squeeze(-1).detach().cpu().numpy())
             _component_mu_val = getattr(model, "_last_compact_component_mu", None)
             _component_kappa_val = getattr(model, "_last_compact_component_kappa", None)
             _component_logits_val = getattr(model, "_last_compact_component_logits", None)
@@ -2665,7 +2866,7 @@ def validate(
             total_loss = torch.tensor(0.0, device=device, dtype=torch.float32)
             bm: Dict[str, float] = {}
             is_gaussian = model_type == "gaussian" and aux is not None
-            is_vmf = model_type in ("vmf", "vmf_dcf", "vmf_triple") and aux is not None
+            is_vmf = _vmf_pred_head is not None and _vmf_aux_head is not None
             _pred_for_legacy = _maybe_mask_legacy_tensor(pred, _legacy_teacher_mask)
             _gt_for_legacy = _maybe_mask_legacy_tensor(gt_embedding, _legacy_teacher_mask)
             _rich_target_for_legacy = _maybe_mask_legacy_tensor(_rich_target, _legacy_teacher_mask)
@@ -2685,7 +2886,7 @@ def validate(
 
             if "softclip" in losses:
                 if isinstance(losses["softclip"], VMFSoftCLIPLoss) and is_vmf:
-                    l = losses["softclip"](pred, aux, gt_embedding, queue=None)
+                    l = losses["softclip"](_vmf_pred_head, _vmf_aux_head, gt_embedding, queue=None)
                 else:
                     l = losses["softclip"](pred, gt_embedding, queue=None)
                 total_loss = total_loss + loss_weights.get("softclip", 1.0) * l
@@ -2702,12 +2903,12 @@ def validate(
                 bm["gnce"] = l.item()
 
             if "vmf_nll" in losses and is_vmf:
-                l = losses["vmf_nll"](pred, aux, gt_embedding)
+                l = losses["vmf_nll"](_vmf_pred_head, _vmf_aux_head, gt_embedding)
                 total_loss = total_loss + loss_weights.get("vmf_nll", 1.0) * l
                 bm["vmf_nll"] = l.item()
 
             if "vmf_nce" in losses and is_vmf:
-                l = losses["vmf_nce"](pred, aux, gt_embedding, queue=None)
+                l = losses["vmf_nce"](_vmf_pred_head, _vmf_aux_head, gt_embedding, queue=None)
                 total_loss = total_loss + loss_weights.get("vmf_nce", 1.0) * l
                 bm["vmf_nce"] = l.item()
 
@@ -2770,14 +2971,14 @@ def validate(
                 if isinstance(losses["vmf_nce_spcl"], DeltaSPCLVMFNCELoss):
                     dcf_ex = getattr(model, "_last_dcf_extras", {})
                     spcl_kwargs["delta"] = dcf_ex.get("delta")
-                l = losses["vmf_nce_spcl"](pred, aux, gt_embedding, **spcl_kwargs)
+                l = losses["vmf_nce_spcl"](_vmf_pred_head, _vmf_aux_head, gt_embedding, **spcl_kwargs)
                 total_loss = total_loss + loss_weights.get("vmf_nce_spcl", 1.0) * l
                 bm["vmf_nce_spcl"] = l.item()
 
             if "vmf_nce_multitask" in losses and is_vmf:
                 dcf_extras = getattr(model, "_last_dcf_extras", {})
                 mt_total, mt_fused, mt_aux = losses["vmf_nce_multitask"](
-                    pred, aux, gt_embedding,
+                    _vmf_pred_head, _vmf_aux_head, gt_embedding,
                     per_roi_mus=dcf_extras.get("per_roi_mus"),
                     per_roi_kappas=dcf_extras.get("per_roi_kappas"),
                     queue=None,
@@ -2972,7 +3173,7 @@ def validate(
 
             # --- V11 val losses ---
             if "direct_alignment" in losses and is_vmf:
-                da_l = losses["direct_alignment"](pred, gt_embedding)
+                da_l = losses["direct_alignment"](_vmf_pred_head, gt_embedding)
                 total_loss = total_loss + loss_weights.get("direct_alignment", 0.5) * da_l
                 bm["direct_align"] = da_l.item()
             if "uniformity" in losses:
@@ -2983,8 +3184,8 @@ def validate(
             if is_gaussian:
                 bm["kl"] = compute_kl_divergence(pred, aux).item()
             if is_vmf:
-                log_kappa_for_kl = aux if vmf_is_log else torch.log(aux.clamp(min=1e-8))
-                bm["kl"] = compute_vmf_kl(pred, log_kappa_for_kl, pred.size(-1)).item()
+                log_kappa_for_kl = _vmf_aux_head if vmf_is_log else torch.log(_vmf_aux_head.clamp(min=1e-8))
+                bm["kl"] = compute_vmf_kl(_vmf_pred_head, log_kappa_for_kl, _vmf_pred_head.size(-1)).item()
 
             bm["loss"] = total_loss.item()
             for k, v in bm.items():
@@ -3007,6 +3208,10 @@ def validate(
         _extras["legacy_preds"] = np.concatenate(all_legacy_preds)
     if all_legacy_gts:
         _extras["legacy_gts"] = np.concatenate(all_legacy_gts)
+    if all_vmf_preds:
+        _extras["vmf_preds"] = np.concatenate(all_vmf_preds)
+    if all_vmf_kappas:
+        _extras["vmf_kappas"] = np.concatenate(all_vmf_kappas)
     if all_compact_component_mu:
         _extras["compact_component_mu"] = np.concatenate(all_compact_component_mu)
         _extras["compact_component_kappa"] = np.concatenate(all_compact_component_kappa)
@@ -3350,6 +3555,8 @@ def _run_post_training_shared1000_eval(
     _s1000_rerank_gts = _s1000_metrics.pop("_rerank_gts", None)
     _s1000_legacy_preds = _s1000_metrics.pop("_legacy_preds", None)
     _s1000_legacy_gts = _s1000_metrics.pop("_legacy_gts", None)
+    _s1000_vmf_preds = _s1000_metrics.pop("_vmf_preds", None)
+    _s1000_vmf_kappas = _s1000_metrics.pop("_vmf_kappas", None)
     _s1000_component_mu = _s1000_metrics.pop("_compact_component_mu", None)
     _s1000_component_kappa = _s1000_metrics.pop("_compact_component_kappa", None)
     _s1000_component_logits = _s1000_metrics.pop("_compact_component_logits", None)
@@ -3375,6 +3582,9 @@ def _run_post_training_shared1000_eval(
             json.dump(_s1000_metrics, _jf, indent=2)
         np.save(_metrics_save_dir / "shared1000_predictions_compact.npy", _s1000_preds)
         np.save(_metrics_save_dir / "shared1000_ground_truth_compact.npy", _s1000_gts)
+        _save_aux_vmf_arrays(_metrics_save_dir, "shared1000", _s1000_vmf_preds, _s1000_vmf_kappas)
+        if _s1000_vmf_kappas is not None:
+            np.save(_metrics_save_dir / "shared1000_kappas.npy", np.asarray(_s1000_vmf_kappas, dtype=np.float32))
         if _s1000_nsd_ids is not None:
             np.save(_metrics_save_dir / "shared1000_nsd_ids.npy", _s1000_nsd_ids)
         _save_compact_component_arrays(
@@ -3385,6 +3595,21 @@ def _run_post_training_shared1000_eval(
             _s1000_component_logits,
         )
         logger.info("Saved compact shared1000 metrics to %s", _s1000_compact_path)
+        if _s1000_vmf_preds is not None:
+            _vmf_metrics = {
+                "benchmark": "shared1000_vmf_aux",
+                "gallery_size": _s1000_metrics["gallery_size"],
+                "vmf_r@1": float(_s1000_metrics.get("vmf_r@1", 0.0)),
+                "vmf_r@5": float(_s1000_metrics.get("vmf_r@5", 0.0)),
+                "vmf_r@10": float(_s1000_metrics.get("vmf_r@10", 0.0)),
+                "vmf_csls_r@1": float(_s1000_metrics.get("vmf_csls_r@1", 0.0)),
+                "vmf_csls_r@5": float(_s1000_metrics.get("vmf_csls_r@5", 0.0)),
+                "vmf_csls_r@10": float(_s1000_metrics.get("vmf_csls_r@10", 0.0)),
+                "vmf_kappa_mean_eval": float(_s1000_metrics.get("vmf_kappa_mean_eval", 0.0)),
+                "vmf_kappa_std_eval": float(_s1000_metrics.get("vmf_kappa_std_eval", 0.0)),
+            }
+            with open(_metrics_save_dir / "shared1000_metrics_vmf.json", "w") as _jf:
+                json.dump(_vmf_metrics, _jf, indent=2)
 
         if _s1000_rich_preds is not None and _s1000_rich_gts is not None:
             np.save(_metrics_save_dir / "shared1000_predictions_rich.npy", _s1000_rich_preds)
@@ -4977,25 +5202,21 @@ def main() -> None:
                             _kappa_list_tr.append(_s_k.squeeze(-1).detach().cpu().numpy())
             if _kappa_list_tr:
                 _train_kappas = np.concatenate(_kappa_list_tr)
+        elif _save_model_type_tr == "dense_vmf_hybrid" and "vmf_kappas" in _train_extras:
+            _train_kappas = np.asarray(_train_extras["vmf_kappas"], dtype=np.float32)
 
         # Image-level averaging
         if _train_nsd_ids is not None:
-            _u_ids = np.unique(_train_nsd_ids)
-            _ip = np.zeros((len(_u_ids), _train_preds.shape[1]), dtype=np.float32)
-            _ig = np.zeros((len(_u_ids), _train_gts.shape[1]), dtype=np.float32)
-            _ik = np.zeros(len(_u_ids), dtype=np.float32) if _train_kappas is not None else None
-            for i, uid in enumerate(_u_ids):
-                _m = _train_nsd_ids == uid
-                _ip[i] = _train_preds[_m].mean(axis=0)
-                _ig[i] = _train_gts[_m][0]
-                if _ik is not None and _train_kappas is not None:
-                    _ik[i] = _train_kappas[_m[:len(_train_kappas)]].mean()
-            _nrm = np.linalg.norm(_ip, axis=-1, keepdims=True)
-            _train_preds = _ip / np.maximum(_nrm, 1e-8)
-            _train_gts = _ig
-            if _ik is not None:
-                _train_kappas = _ik
-            _train_nsd_ids_save = _u_ids
+            _train_preds, _train_nsd_ids_save = _aggregate_rows_by_nsd_id(
+                _train_preds, _train_nsd_ids, reduce="mean", normalize=True,
+            )
+            _train_gts, _ = _aggregate_rows_by_nsd_id(
+                _train_gts, _train_nsd_ids, reduce="first", normalize=False,
+            )
+            if _train_kappas is not None:
+                _train_kappas, _ = _aggregate_rows_by_nsd_id(
+                    _train_kappas, _train_nsd_ids[: len(_train_kappas)], reduce="mean", normalize=False,
+                )
         else:
             _train_nsd_ids_save = None
 
@@ -5013,11 +5234,36 @@ def main() -> None:
             np.save(_metrics_save_dir / "train_nsd_ids.npy", _train_nsd_ids_save)
             logger.info("Saved train nsd_ids %s", _train_nsd_ids_save.shape)
 
-        # vmf_triple: save compact/rerank/legacy variants
-        if _save_model_type_tr == "vmf_triple":
+        # compact-family export: save dense/compact aliases and auxiliary heads
+        if _save_model_type_tr in ("vmf_triple", "dense_vmf_hybrid"):
             np.save(_metrics_save_dir / "train_predictions_compact.npy", _train_preds)
             np.save(_metrics_save_dir / "train_ground_truth_compact.npy", _train_gts)
             logger.info("Saved train compact predictions %s", _train_preds.shape)
+            if _save_model_type_tr == "dense_vmf_hybrid":
+                _train_vmf_preds = _train_extras.get("vmf_preds")
+                _train_vmf_kappas = _train_extras.get("vmf_kappas")
+                if _train_vmf_preds is not None:
+                    if _train_nsd_ids is not None:
+                        _train_vmf_preds, _ = _aggregate_rows_by_nsd_id(
+                            _train_vmf_preds, _train_nsd_ids, reduce="mean", normalize=True,
+                        )
+                    else:
+                        _train_vmf_preds = _train_vmf_preds / np.maximum(
+                            np.linalg.norm(_train_vmf_preds, axis=-1, keepdims=True), 1e-8,
+                        )
+                if _train_vmf_kappas is not None and _train_nsd_ids is not None:
+                    _train_vmf_kappas, _ = _aggregate_rows_by_nsd_id(
+                        _train_vmf_kappas, _train_nsd_ids[: len(_train_vmf_kappas)], reduce="mean",
+                    )
+                _save_aux_vmf_arrays(
+                    _metrics_save_dir,
+                    "train",
+                    _train_vmf_preds,
+                    _train_vmf_kappas,
+                )
+                if _train_vmf_kappas is not None and _train_kappas is None:
+                    np.save(_metrics_save_dir / "train_kappas.npy", _train_vmf_kappas.astype(np.float32))
+                    logger.info("Saved train kappas alias from aux-vMF %s", _train_vmf_kappas.shape)
             for _extra_name, _pred_key, _gt_key in [
                 ("rich", "rich_preds", "rich_gts"),
                 ("legacy", "legacy_preds", "legacy_gts"),
@@ -5027,15 +5273,9 @@ def main() -> None:
                     _ep = _train_extras[_pred_key]
                     _eg = _train_extras.get(_gt_key)
                     if _train_nsd_ids is not None:
-                        _u = np.unique(_train_nsd_ids)
-                        _ep_img = np.zeros((len(_u), _ep.shape[1]), dtype=np.float32)
-                        _eg_img = np.zeros((len(_u), _eg.shape[1]), dtype=np.float32) if _eg is not None else None
-                        for i, uid in enumerate(_u):
-                            _m = _train_nsd_ids == uid
-                            _ep_img[i] = _ep[_m].mean(axis=0)
-                            if _eg_img is not None:
-                                _eg_img[i] = _eg[_m][0]
-                        _ep, _eg = _ep_img, _eg_img
+                        _ep, _ = _aggregate_rows_by_nsd_id(_ep, _train_nsd_ids, reduce="mean")
+                        if _eg is not None:
+                            _eg, _ = _aggregate_rows_by_nsd_id(_eg, _train_nsd_ids, reduce="first")
                     if _extra_name in ("legacy", "rerank"):
                         _ep = _ep / np.maximum(np.linalg.norm(_ep, axis=-1, keepdims=True), 1e-8)
                     np.save(_metrics_save_dir / f"train_predictions_{_extra_name}.npy", _ep)
@@ -5428,6 +5668,49 @@ def main() -> None:
                 "CSLS Retrieval: R@1=%.4f  R@5=%.4f  R@10=%.4f",
                 csls_ret["top1_accuracy"], csls_ret["top5_accuracy"],
                 csls_ret["top10_accuracy"],
+            )
+
+        if "vmf_preds" in _epoch_val_extras and "vmf_kappas" in _epoch_val_extras:
+            _vmf_preds_val = _epoch_val_extras["vmf_preds"]
+            _vmf_kappas_val = _epoch_val_extras["vmf_kappas"]
+            if _val_nsd_ids is not None:
+                _u_ids_v = np.unique(_val_nsd_ids)
+                _vmf_img = np.zeros((len(_u_ids_v), _vmf_preds_val.shape[1]), dtype=np.float32)
+                _vmf_kappa_img = np.zeros(len(_u_ids_v), dtype=np.float32)
+                for i, uid in enumerate(_u_ids_v):
+                    _m = _val_nsd_ids == uid
+                    _vmf_img[i] = _vmf_preds_val[_m].mean(axis=0)
+                    _vmf_kappa_img[i] = _vmf_kappas_val[_m[:len(_vmf_kappas_val)]].mean()
+                _vmf_preds_eval = _vmf_img / np.maximum(np.linalg.norm(_vmf_img, axis=-1, keepdims=True), 1e-8)
+                _vmf_gts_eval = img_gts
+            else:
+                _vmf_preds_eval = _vmf_preds_val / np.maximum(np.linalg.norm(_vmf_preds_val, axis=-1, keepdims=True), 1e-8)
+                _vmf_kappa_img = _vmf_kappas_val
+                _vmf_gts_eval = val_gts
+            _vmf_ret = _compute_retrieval(_vmf_preds_eval, _vmf_gts_eval, ks=(1, 5, 10))
+            _vmf_csls_ret = _compute_retrieval_csls(
+                _vmf_preds_eval,
+                _vmf_gts_eval,
+                ks=(1, 5, 10),
+                csls_k=_csls_k if _use_csls else 10,
+            )
+            val_metrics["vmf_r@1"] = _vmf_ret["top1_accuracy"]
+            val_metrics["vmf_r@5"] = _vmf_ret["top5_accuracy"]
+            val_metrics["vmf_r@10"] = _vmf_ret["top10_accuracy"]
+            val_metrics["vmf_median_rank"] = _vmf_ret["median_rank"]
+            val_metrics["vmf_mrr"] = _vmf_ret["mrr"]
+            val_metrics["vmf_csls_r@1"] = _vmf_csls_ret["top1_accuracy"]
+            val_metrics["vmf_csls_r@5"] = _vmf_csls_ret["top5_accuracy"]
+            val_metrics["vmf_csls_r@10"] = _vmf_csls_ret["top10_accuracy"]
+            val_metrics["vmf_csls_median_rank"] = _vmf_csls_ret["median_rank"]
+            val_metrics["vmf_csls_mrr"] = _vmf_csls_ret["mrr"]
+            val_metrics["vmf_kappa_mean_eval"] = float(np.mean(_vmf_kappa_img))
+            val_metrics["vmf_kappa_std_eval"] = float(np.std(_vmf_kappa_img))
+            logger.info(
+                "Aux-vMF Retrieval: R@1=%.4f  CSLS_R@1=%.4f  kappa_mean=%.3f",
+                val_metrics["vmf_r@1"],
+                val_metrics["vmf_csls_r@1"],
+                val_metrics["vmf_kappa_mean_eval"],
             )
 
 
@@ -5845,26 +6128,25 @@ def main() -> None:
                         _kappa_list.append(_s_k.squeeze(-1).detach().cpu().numpy())
         if _kappa_list:
             _save_kappas = np.concatenate(_kappa_list)
+    elif _save_model_type == "dense_vmf_hybrid" and "vmf_kappas" in _val_extras:
+        _save_kappas = np.asarray(_val_extras["vmf_kappas"], dtype=np.float32)
 
     if ema is not None and _loaded_ckpt_for_save:
         ema.restore(model)
 
     if _val_nsd_ids is not None:
-        _u_ids = np.unique(_val_nsd_ids)
-        _ip = np.zeros((len(_u_ids), _save_preds.shape[1]), dtype=np.float32)
-        _ig = np.zeros((len(_u_ids), _save_gts.shape[1]), dtype=np.float32)
-        _ik = np.zeros(len(_u_ids), dtype=np.float32) if _save_kappas is not None else None
-        for i, uid in enumerate(_u_ids):
-            _m = _val_nsd_ids == uid
-            _ip[i] = _save_preds[_m].mean(axis=0)
-            _ig[i] = _save_gts[_m][0]
-            if _ik is not None and _save_kappas is not None:
-                _ik[i] = _save_kappas[_m[:len(_save_kappas)]].mean()
-        _nrm = np.linalg.norm(_ip, axis=-1, keepdims=True)
-        _save_preds = _ip / np.maximum(_nrm, 1e-8)
-        _save_gts = _ig
-        if _ik is not None:
-            _save_kappas = _ik
+        _save_preds, _val_img_ids = _aggregate_rows_by_nsd_id(
+            _save_preds, _val_nsd_ids, reduce="mean", normalize=True,
+        )
+        _save_gts, _ = _aggregate_rows_by_nsd_id(
+            _save_gts, _val_nsd_ids, reduce="first", normalize=False,
+        )
+        if _save_kappas is not None:
+            _save_kappas, _ = _aggregate_rows_by_nsd_id(
+                _save_kappas, _val_nsd_ids[: len(_save_kappas)], reduce="mean", normalize=False,
+            )
+    else:
+        _val_img_ids = None
 
     _metrics_save_dir = output_dir / "metrics"
     _metrics_save_dir.mkdir(parents=True, exist_ok=True)
@@ -5876,23 +6158,43 @@ def main() -> None:
         np.save(_metrics_save_dir / "val_kappas.npy", _save_kappas)
         logger.info("Saved val kappas %s to %s", _save_kappas.shape, _metrics_save_dir)
 
-    # --- V30 compact/rich separated outputs for vmf_triple ---
-    if _save_model_type == "vmf_triple":
+    # --- Compact-family separated outputs for vmf_triple / dense_vmf_hybrid ---
+    if _save_model_type in ("vmf_triple", "dense_vmf_hybrid"):
         np.save(_metrics_save_dir / "val_predictions_compact.npy", _save_preds)
         np.save(_metrics_save_dir / "val_ground_truth_compact.npy", _save_gts)
         logger.info("Saved compact val predictions %s", _save_preds.shape)
+        if _val_img_ids is not None:
+            np.save(_metrics_save_dir / "val_nsd_ids.npy", _val_img_ids)
+            logger.info("Saved val nsd_ids %s", _val_img_ids.shape)
+        if _save_model_type == "dense_vmf_hybrid":
+            _vmf_preds_val = _val_extras.get("vmf_preds")
+            _vmf_kappas_val = _val_extras.get("vmf_kappas")
+            if _vmf_preds_val is not None:
+                if _val_nsd_ids is not None:
+                    _vmf_preds_val, _ = _aggregate_rows_by_nsd_id(
+                        _vmf_preds_val, _val_nsd_ids, reduce="mean", normalize=True,
+                    )
+                else:
+                    _vmf_preds_val = _vmf_preds_val / np.maximum(
+                        np.linalg.norm(_vmf_preds_val, axis=-1, keepdims=True), 1e-8,
+                    )
+            if _vmf_kappas_val is not None and _val_nsd_ids is not None:
+                _vmf_kappas_val, _ = _aggregate_rows_by_nsd_id(
+                    _vmf_kappas_val,
+                    _val_nsd_ids[: len(_vmf_kappas_val)],
+                    reduce="mean",
+                    normalize=False,
+                )
+            _save_aux_vmf_arrays(_metrics_save_dir, "val", _vmf_preds_val, _vmf_kappas_val)
+            if _vmf_kappas_val is not None and _save_kappas is None:
+                np.save(_metrics_save_dir / "val_kappas.npy", _vmf_kappas_val.astype(np.float32))
+                logger.info("Saved val kappas alias from aux-vMF %s", _vmf_kappas_val.shape)
         if "rich_preds" in _val_extras and "rich_gts" in _val_extras:
             _rp = _val_extras["rich_preds"]
             _rg = _val_extras["rich_gts"]
             if _val_nsd_ids is not None:
-                _u_ids_r = np.unique(_val_nsd_ids)
-                _rp_img = np.zeros((len(_u_ids_r), _rp.shape[1]), dtype=np.float32)
-                _rg_img = np.zeros((len(_u_ids_r), _rg.shape[1]), dtype=np.float32)
-                for i, uid in enumerate(_u_ids_r):
-                    _m = _val_nsd_ids == uid
-                    _rp_img[i] = _rp[_m].mean(axis=0)
-                    _rg_img[i] = _rg[_m][0]
-                _rp, _rg = _rp_img, _rg_img
+                _rp, _ = _aggregate_rows_by_nsd_id(_rp, _val_nsd_ids, reduce="mean", normalize=False)
+                _rg, _ = _aggregate_rows_by_nsd_id(_rg, _val_nsd_ids, reduce="first", normalize=False)
             np.save(_metrics_save_dir / "val_predictions_rich.npy", _rp)
             np.save(_metrics_save_dir / "val_ground_truth_rich.npy", _rg)
             logger.info("Saved rich val predictions %s", _rp.shape)
@@ -5900,14 +6202,8 @@ def main() -> None:
             _lp = _val_extras["legacy_preds"]
             _lg = _val_extras["legacy_gts"]
             if _val_nsd_ids is not None:
-                _u_ids_l = np.unique(_val_nsd_ids)
-                _lp_img = np.zeros((len(_u_ids_l), _lp.shape[1]), dtype=np.float32)
-                _lg_img = np.zeros((len(_u_ids_l), _lg.shape[1]), dtype=np.float32)
-                for i, uid in enumerate(_u_ids_l):
-                    _m = _val_nsd_ids == uid
-                    _lp_img[i] = _lp[_m].mean(axis=0)
-                    _lg_img[i] = _lg[_m][0]
-                _lp, _lg = _lp_img, _lg_img
+                _lp, _ = _aggregate_rows_by_nsd_id(_lp, _val_nsd_ids, reduce="mean", normalize=False)
+                _lg, _ = _aggregate_rows_by_nsd_id(_lg, _val_nsd_ids, reduce="first", normalize=False)
             _lp = _lp / np.maximum(np.linalg.norm(_lp, axis=-1, keepdims=True), 1e-8)
             np.save(_metrics_save_dir / "val_predictions_legacy.npy", _lp)
             np.save(_metrics_save_dir / "val_ground_truth_legacy.npy", _lg)
@@ -5929,14 +6225,8 @@ def main() -> None:
             _rrp = _val_extras["rerank_preds"]
             _rrg = _val_extras["rerank_gts"]
             if _val_nsd_ids is not None:
-                _u_ids_rr = np.unique(_val_nsd_ids)
-                _rrp_img = np.zeros((len(_u_ids_rr), _rrp.shape[1]), dtype=np.float32)
-                _rrg_img = np.zeros((len(_u_ids_rr), _rrg.shape[1]), dtype=np.float32)
-                for i, uid in enumerate(_u_ids_rr):
-                    _m = _val_nsd_ids == uid
-                    _rrp_img[i] = _rrp[_m].mean(axis=0)
-                    _rrg_img[i] = _rrg[_m][0]
-                _rrp, _rrg = _rrp_img, _rrg_img
+                _rrp, _ = _aggregate_rows_by_nsd_id(_rrp, _val_nsd_ids, reduce="mean", normalize=False)
+                _rrg, _ = _aggregate_rows_by_nsd_id(_rrg, _val_nsd_ids, reduce="first", normalize=False)
             # L2-normalise after averaging (rerank head outputs are L2-normed per-sample,
             # but averaging denormalises them)
             _rrp = _rrp / np.maximum(np.linalg.norm(_rrp, axis=-1, keepdims=True), 1e-8)

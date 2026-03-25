@@ -236,6 +236,14 @@ def _extract_candidate_features(
     local_rerank = scores["rerank"][row_idx, safe_sl]
     local_legacy_raw = scores["legacy_raw"][row_idx, safe_sl]
     local_legacy_csls = scores["legacy_csls"][row_idx, safe_sl]
+    local_vmf_raw = (
+        scores["vmf_raw"][row_idx, safe_sl]
+        if "vmf_raw" in scores else np.zeros((n, max_size), dtype=np.float32)
+    )
+    local_vmf_csls = (
+        scores["vmf_csls"][row_idx, safe_sl]
+        if "vmf_csls" in scores else np.zeros((n, max_size), dtype=np.float32)
+    )
 
     # ── A. Raw ranks within shortlist (1-based) ──────────────────────
     def _local_rank(vals: np.ndarray) -> np.ndarray:
@@ -245,12 +253,14 @@ def _extract_candidate_features(
     rank_compact_csls = _local_rank(local_compact_csls)
     rank_legacy_csls = _local_rank(local_legacy_csls)
     rank_rerank = _local_rank(local_rerank)
+    rank_vmf_csls = _local_rank(local_vmf_csls) if "vmf_csls" in scores else np.zeros((n, max_size), dtype=np.float32)
 
     # ── B. Normalized ranks (rank / union_size per query) ────────────
     sizes_2d = sizes[:, None].astype(np.float32)
     rank_compact_csls_norm = rank_compact_csls / sizes_2d
     rank_legacy_csls_norm = rank_legacy_csls / sizes_2d
     rank_rerank_norm = rank_rerank / sizes_2d
+    rank_vmf_csls_norm = rank_vmf_csls / sizes_2d if "vmf_csls" in scores else np.zeros((n, max_size), dtype=np.float32)
 
     # ── C. Reciprocal ranks: 1/(rank) ───────────────────────────────
     rr_compact_csls = np.where(mask, 1.0 / np.maximum(rank_compact_csls, 1.0), 0.0)
@@ -266,15 +276,18 @@ def _extract_candidate_features(
     margin_compact_csls = _shortlist_margin_to_top1(local_compact_csls, mask)
     margin_legacy_csls = _shortlist_margin_to_top1(local_legacy_csls, mask)
     margin_rerank = _shortlist_margin_to_top1(local_rerank, mask)
+    margin_vmf_csls = _shortlist_margin_to_top1(local_vmf_csls, mask) if "vmf_csls" in scores else np.zeros((n, max_size), dtype=np.float32)
 
     # ── F. Cross-expert score differences ────────────────────────────
     diff_compact_legacy = local_compact_csls - local_legacy_csls
     diff_compact_rerank = local_compact_csls - local_rerank
     diff_rerank_legacy = local_rerank - local_legacy_csls
+    diff_compact_vmf = local_compact_csls - local_vmf_csls if "vmf_csls" in scores else np.zeros((n, max_size), dtype=np.float32)
 
     # ── G. Cross-expert rank differences (normalized) ────────────────
     rank_gap_compact_legacy = (rank_compact_csls - rank_legacy_csls) / sizes_2d
     rank_gap_compact_rerank = (rank_compact_csls - rank_rerank) / sizes_2d
+    rank_gap_compact_vmf = (rank_compact_csls - rank_vmf_csls) / sizes_2d if "vmf_csls" in scores else np.zeros((n, max_size), dtype=np.float32)
 
     # ── H. Source membership flags ───────────────────────────────────
     from_compact = sources[:, :, 0].astype(np.float32)
@@ -295,6 +308,12 @@ def _extract_candidate_features(
     agree_cr = (compact_top1_pos == rerank_top1_pos).astype(np.float32)
     agree_cl_bc = np.broadcast_to(agree_cl[:, None], (n, max_size)).copy()
     agree_cr_bc = np.broadcast_to(agree_cr[:, None], (n, max_size)).copy()
+    if "vmf_csls" in scores:
+        vmf_top1_pos = _safe_argmax(local_vmf_csls, mask)
+        agree_cv = (compact_top1_pos == vmf_top1_pos).astype(np.float32)
+        agree_cv_bc = np.broadcast_to(agree_cv[:, None], (n, max_size)).copy()
+    else:
+        agree_cv_bc = np.zeros((n, max_size), dtype=np.float32)
 
     # Per-candidate top-1 indicators
     pos_range = np.arange(max_size)[None, :]
@@ -389,6 +408,14 @@ def _extract_candidate_features(
         component_entropy_q,        # 43
         component_weight_gap_q,     # 44
         component_kappa_max_q,      # 45
+        # Auxiliary vMF evidence (7)
+        local_vmf_raw,              # 46
+        local_vmf_csls,             # 47
+        diff_compact_vmf,           # 48
+        rank_gap_compact_vmf,       # 49
+        agree_cv_bc,                # 50
+        rank_vmf_csls_norm,         # 51
+        margin_vmf_csls,            # 52
     ]
     features = np.stack(feature_list, axis=-1).astype(np.float32)
 
@@ -445,6 +472,14 @@ FEATURE_NAMES = [
     "compact_component_entropy",
     "compact_component_weight_gap",
     "compact_component_kappa_max",
+    # Auxiliary vMF evidence (7)
+    "vmf_raw_score",
+    "vmf_csls_score",
+    "diff_compact_vmf",
+    "rank_gap_compact_vmf",
+    "agree_compact_vmf_top1",
+    "vmf_csls_rank_norm",
+    "margin_vmf_csls",
 ]
 
 
@@ -554,6 +589,7 @@ def _build_cache_for_split(
         "feature_names": FEATURE_NAMES,
         "compact_csls_r1": compact_csls_r1,
         "legacy_csls_r1": legacy_csls_r1,
+        "has_aux_vmf": bool("vmf_preds" in split_arrays),
         "top1_disagree_fraction": top1_disagree,
         "has_compact_components": bool(split_arrays.get("compact_component_mu") is not None),
         "compact_component_count": int(split_arrays.get("compact_component_mu").shape[1])

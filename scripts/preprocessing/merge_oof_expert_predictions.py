@@ -82,6 +82,19 @@ def _load_fold_arrays(metrics_dir: Path, split_prefix: str) -> dict[str, np.ndar
             raise ValueError(f"{metrics_dir}: kappas rows {kappas.shape[0]} != ids rows {nsd_ids.shape[0]}")
         out["kappas"] = kappas
 
+    vmf_pred_path = metrics_dir / f"{split_prefix}_predictions_vmf.npy"
+    vmf_kappa_path = metrics_dir / f"{split_prefix}_kappas_vmf.npy"
+    if vmf_pred_path.exists():
+        vmf_pred = np.load(vmf_pred_path).astype(np.float32)
+        if vmf_pred.shape[0] != nsd_ids.shape[0]:
+            raise ValueError(f"{metrics_dir}: vmf prediction rows {vmf_pred.shape[0]} != ids rows {nsd_ids.shape[0]}")
+        out["predictions_vmf"] = vmf_pred
+    if vmf_kappa_path.exists():
+        vmf_kappa = np.load(vmf_kappa_path).astype(np.float32)
+        if vmf_kappa.shape[0] != nsd_ids.shape[0]:
+            raise ValueError(f"{metrics_dir}: vmf kappas rows {vmf_kappa.shape[0]} != ids rows {nsd_ids.shape[0]}")
+        out["kappas_vmf"] = vmf_kappa
+
     rerank_pred_path = metrics_dir / f"{split_prefix}_predictions_rerank.npy"
     rerank_gt_path = metrics_dir / f"{split_prefix}_ground_truth_rerank.npy"
     if rerank_pred_path.exists() and rerank_gt_path.exists():
@@ -161,6 +174,10 @@ def _merge_rows_by_nsd_id(
             }
             if "kappas" in arrays:
                 row_payload["kappas"] = np.asarray(arrays["kappas"][row_idx], dtype=np.float32)
+            if "predictions_vmf" in arrays:
+                row_payload["predictions_vmf"] = arrays["predictions_vmf"][row_idx]
+            if "kappas_vmf" in arrays:
+                row_payload["kappas_vmf"] = np.asarray(arrays["kappas_vmf"][row_idx], dtype=np.float32)
             if "predictions_rerank" in arrays:
                 row_payload["predictions_rerank"] = arrays["predictions_rerank"][row_idx]
             if "ground_truth_rerank" in arrays:
@@ -204,6 +221,17 @@ def _merge_rows_by_nsd_id(
     if has_kappa:
         kappa = np.array([float(row_map[int(nid)]["kappas"]) for nid in ordered_ids], dtype=np.float32)
         merged["train_oof_kappas"] = kappa
+
+    has_vmf_pred = all("predictions_vmf" in row_map[int(nid)] for nid in ordered_ids)
+    if has_vmf_pred:
+        merged["train_oof_predictions_vmf"] = np.stack(
+            [row_map[int(nid)]["predictions_vmf"] for nid in ordered_ids], axis=0
+        ).astype(np.float32)
+    has_vmf_kappa = all("kappas_vmf" in row_map[int(nid)] for nid in ordered_ids)
+    if has_vmf_kappa:
+        merged["train_oof_kappas_vmf"] = np.array(
+            [float(row_map[int(nid)]["kappas_vmf"]) for nid in ordered_ids], dtype=np.float32
+        )
 
     has_rerank = all(
         "predictions_rerank" in row_map[int(nid)] and "ground_truth_rerank" in row_map[int(nid)]

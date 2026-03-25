@@ -37,7 +37,7 @@ WEIGHT_TRIPLES = [
     for c in [int(round((1.0 - a * WEIGHT_STEP - b * WEIGHT_STEP) / WEIGHT_STEP))]
     if 0 <= c <= int(1 / WEIGHT_STEP) and abs((a + b + c) * WEIGHT_STEP - 1.0) < 1e-8
 ]
-COMPACT_SCORE_VARIANTS = ["raw_cosine", "csls", "mixture_raw", "mixture_csls"]
+COMPACT_SCORE_VARIANTS = ["raw_cosine", "csls", "vmf_raw", "vmf_csls", "mixture_raw", "mixture_csls"]
 LEGACY_SCORE_VARIANTS = ["raw_cosine", "csls"]
 NORMALIZATION_MODES = ["none", "zscore", "minmax", "stdscale"]
 RRF_K = 60.0
@@ -335,6 +335,8 @@ def _load_tri_split(metrics_dir: Path, prefix: str) -> dict[str, np.ndarray]:
     rerank_gts = _load_required(metrics_dir / f"{prefix}_ground_truth_rerank.npy")
     nsd_ids = _load_required(metrics_dir / f"{prefix}_nsd_ids.npy").astype(np.int32)
     kappas = _load_optional(metrics_dir / f"{prefix}_kappas.npy")
+    vmf_preds = _load_optional(metrics_dir / f"{prefix}_predictions_vmf.npy")
+    vmf_kappas = _load_optional(metrics_dir / f"{prefix}_kappas_vmf.npy")
 
     def _optional_component(name_candidates: list[str]) -> np.ndarray | None:
         for name in name_candidates:
@@ -360,6 +362,10 @@ def _load_tri_split(metrics_dir: Path, prefix: str) -> dict[str, np.ndarray]:
         raise ValueError(f"{prefix}: compact arrays and nsd_ids are misaligned")
     if rerank_preds.shape[0] != rerank_gts.shape[0] or rerank_preds.shape[0] != nsd_ids.shape[0]:
         raise ValueError(f"{prefix}: rerank arrays and nsd_ids are misaligned")
+    if vmf_preds is not None and vmf_preds.shape[0] != nsd_ids.shape[0]:
+        raise ValueError(f"{prefix}: vmf predictions rows {vmf_preds.shape[0]} != nsd_ids rows {nsd_ids.shape[0]}")
+    if vmf_kappas is not None and vmf_kappas.shape[0] != nsd_ids.shape[0]:
+        raise ValueError(f"{prefix}: vmf kappas rows {vmf_kappas.shape[0]} != nsd_ids rows {nsd_ids.shape[0]}")
     for name, arr in {
         "compact_component_mu": component_mu,
         "compact_component_kappa": component_kappa,
@@ -375,6 +381,10 @@ def _load_tri_split(metrics_dir: Path, prefix: str) -> dict[str, np.ndarray]:
         "rerank_gts": rerank_gts,
         "compact_kappas": kappas,
     }
+    if vmf_preds is not None:
+        out["vmf_preds"] = vmf_preds
+    if vmf_kappas is not None:
+        out["vmf_kappas"] = vmf_kappas
     if component_mu is not None:
         out["compact_component_mu"] = component_mu
     if component_kappa is not None:
@@ -454,6 +464,12 @@ def _align_common_ids(
     tri_kappas = tri_split.get("compact_kappas")
     if tri_kappas is not None:
         aligned["compact_kappas"] = tri_kappas[tri_idx]
+    tri_vmf_preds = tri_split.get("vmf_preds")
+    if tri_vmf_preds is not None:
+        aligned["vmf_preds"] = tri_vmf_preds[tri_idx]
+    tri_vmf_kappas = tri_split.get("vmf_kappas")
+    if tri_vmf_kappas is not None:
+        aligned["vmf_kappas"] = tri_vmf_kappas[tri_idx]
     for key in [
         "compact_component_mu",
         "compact_component_kappa",
@@ -487,6 +503,10 @@ def _build_split_scores(split_arrays: dict[str, np.ndarray]) -> dict[str, np.nda
         "legacy_raw": _cosine_sim(split_arrays["legacy_preds"], split_arrays["legacy_gts"]),
         "legacy_csls": _csls_scores(split_arrays["legacy_preds"], split_arrays["legacy_gts"], k=10),
     }
+    vmf_preds = split_arrays.get("vmf_preds")
+    if vmf_preds is not None:
+        scores["vmf_raw"] = _cosine_sim(vmf_preds, split_arrays["compact_gts"])
+        scores["vmf_csls"] = _csls_scores(vmf_preds, split_arrays["compact_gts"], k=10)
     component_mu = split_arrays.get("compact_component_mu")
     component_kappa = split_arrays.get("compact_component_kappa")
     if component_mu is not None and component_kappa is not None:
@@ -507,6 +527,8 @@ def _compute_baselines(scores: dict[str, np.ndarray]) -> dict[str, Any]:
     variants = [
         ("compact_raw", "compact_raw"),
         ("compact_csls", "compact_csls"),
+        ("vmf_raw", "vmf_raw"),
+        ("vmf_csls", "vmf_csls"),
         ("mixture_raw", "mixture_raw"),
         ("mixture_csls", "mixture_csls"),
         ("rerank_only", "rerank"),
@@ -737,6 +759,8 @@ def _evaluate_split(
     compact_variant_to_score = {
         "raw_cosine": "compact_raw",
         "csls": "compact_csls",
+        "vmf_raw": "vmf_raw",
+        "vmf_csls": "vmf_csls",
         "mixture_raw": "mixture_raw",
         "mixture_csls": "mixture_csls",
     }

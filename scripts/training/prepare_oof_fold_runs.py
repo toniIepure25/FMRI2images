@@ -196,17 +196,24 @@ def main() -> None:
                     args.checkpoint_path_new_prefix,
                 )
         if "loss" in cfg and isinstance(cfg["loss"], dict):
-            ltd = cfg["loss"].get("legacy_teacher_distill")
-            if isinstance(ltd, dict):
-                if args.fold_teacher_checkpoint_template:
-                    ltd["teacher_checkpoint_path"] = args.fold_teacher_checkpoint_template.format(
+            for loss_name in [
+                "legacy_teacher_distill",
+                "legacy_compact_distill",
+                "component_legacy_compact_distill",
+                "tri_teacher_distill",
+            ]:
+                loss_cfg = cfg["loss"].get(loss_name)
+                if not isinstance(loss_cfg, dict):
+                    continue
+                if args.fold_teacher_checkpoint_template and "teacher_checkpoint_path" in loss_cfg:
+                    loss_cfg["teacher_checkpoint_path"] = args.fold_teacher_checkpoint_template.format(
                         fold_index=fold_idx,
                         fold_tag=fold_tag,
                         subject=args.subject,
                     )
-                tp = ltd.get("teacher_checkpoint_path")
+                tp = loss_cfg.get("teacher_checkpoint_path")
                 if isinstance(tp, str):
-                    ltd["teacher_checkpoint_path"] = _path_remap(
+                    loss_cfg["teacher_checkpoint_path"] = _path_remap(
                         tp,
                         args.checkpoint_path_old_prefix,
                         args.checkpoint_path_new_prefix,

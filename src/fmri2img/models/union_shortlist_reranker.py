@@ -134,6 +134,73 @@ class VMFEvidenceReranker(nn.Module):
         return logits
 
 
+class ShortlistSetTransformerReranker(nn.Module):
+    """Set-aware shortlist reranker with lightweight self-attention.
+
+    Each candidate is first projected independently, then contextualized with
+    shortlist-wide self-attention so the final score can depend on agreement,
+    disagreement, and relative evidence structure across candidates.
+    """
+
+    def __init__(
+        self,
+        input_dim: int,
+        hidden_dim: int = 128,
+        num_layers: int = 2,
+        dropout: float = 0.1,
+        num_heads: int = 4,
+    ) -> None:
+        super().__init__()
+        self.input_proj = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+        )
+        enc_layer = nn.TransformerEncoderLayer(
+            d_model=hidden_dim,
+            nhead=max(1, num_heads),
+            dim_feedforward=hidden_dim * 4,
+            dropout=dropout,
+            activation="gelu",
+            batch_first=True,
+            norm_first=True,
+        )
+        self.encoder = nn.TransformerEncoder(enc_layer, num_layers=max(1, num_layers))
+        fusion_dim = input_dim + hidden_dim * 3
+        self.head = nn.Sequential(
+            nn.Linear(fusion_dim, hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim // 2, 1),
+        )
+
+    def forward(
+        self,
+        features: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> torch.Tensor:
+        x = self.input_proj(features)
+        encoded = self.encoder(x, src_key_padding_mask=~mask)
+
+        mask_f = mask.unsqueeze(-1).float()
+        denom = mask_f.sum(dim=1).clamp_min(1.0)
+        pooled_mean = (encoded * mask_f).sum(dim=1) / denom
+        neg_inf = torch.full_like(encoded, float("-inf"))
+        pooled_max = torch.where(mask.unsqueeze(-1), encoded, neg_inf).amax(dim=1)
+        pooled_max = torch.where(torch.isfinite(pooled_max), pooled_max, torch.zeros_like(pooled_max))
+
+        pooled_mean = pooled_mean.unsqueeze(1).expand_as(encoded)
+        pooled_max = pooled_max.unsqueeze(1).expand_as(encoded)
+        fused = torch.cat([features, encoded, pooled_mean, pooled_max], dim=-1)
+        logits = self.head(fused).squeeze(-1)
+        logits = logits.masked_fill(~mask, float("-inf"))
+        return logits
+
+
 def shortlist_cross_entropy(
     logits: torch.Tensor,
     labels: torch.Tensor,

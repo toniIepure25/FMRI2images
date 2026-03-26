@@ -73,6 +73,13 @@ PY
 ensure_preextracted_subjects() {
     local subject_list="$1"
     for subject in $subject_list; do
+        index_file="data/indices/nsd_index/subject=${subject}/index.parquet"
+        if [[ -f "$index_file" ]]; then
+            echo "  ${subject}: index found"
+        else
+            echo "  ${subject}: building index ..."
+            make index SUBJECT="${subject}"
+        fi
         feat_file="${CACHE_ROOT}/preextracted/subject=${subject}/fmri_features.npy"
         if [[ -f "$feat_file" ]]; then
             echo "  ${subject}: pre-extracted features found"

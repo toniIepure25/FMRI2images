@@ -31,6 +31,13 @@ import nibabel as nib
 import numpy as np
 import pandas as pd
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SRC_ROOT = REPO_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
+
+from fmri2img.io.s3 import NIfTILoader, get_s3_filesystem
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -38,8 +45,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def resolve_roi_mask_path(subject: str) -> Path:
-    """Search multiple candidate locations for the nsdgeneral ROI mask."""
+def resolve_roi_mask_path(subject: str) -> str:
+    """Search local candidates first, then fall back to NSD S3."""
     nsd_root = os.environ.get("NSD_DATA_ROOT", "data/nsd")
     candidates = [
         Path(nsd_root) / "nsddata" / "ppdata" / subject / "func1pt8mm" / "roi" / "nsdgeneral.nii.gz",
@@ -50,8 +57,15 @@ def resolve_roi_mask_path(subject: str) -> Path:
     ]
     for p in candidates:
         if p.exists():
-            return p
-    return candidates[0]
+            return str(p)
+    return f"s3://natural-scenes-dataset/nsddata/ppdata/{subject}/func1pt8mm/roi/nsdgeneral.nii.gz"
+
+
+def load_nifti_any(path: str, nifti_loader: NIfTILoader):
+    """Load a local or S3-backed NIfTI image."""
+    if path.startswith("s3://"):
+        return nifti_loader.load(path, mmap=False, validate=True)
+    return nib.load(str(path))
 
 
 def main():
@@ -72,6 +86,10 @@ def main():
         "--roi-mask", type=str, default=None,
         help="Path to ROI mask NIfTI (default: auto-resolve nsdgeneral.nii.gz)",
     )
+    parser.add_argument(
+        "--s3-cache-dir", type=str, default=None,
+        help="Cache directory for S3-backed ROI/beta downloads",
+    )
     args = parser.parse_args()
 
     subject = args.subject
@@ -88,18 +106,27 @@ def main():
     logger.info("Index:   %s", index_file)
     logger.info("Output:  %s", output_dir)
 
+    s3_cache_dir = (
+        Path(args.s3_cache_dir)
+        if args.s3_cache_dir
+        else Path(os.environ.get("S3_CACHE_ROOT", "cache/s3_cache")) / "preextract" / subject
+    )
+    s3_cache_dir.mkdir(parents=True, exist_ok=True)
+    nifti_loader = NIfTILoader(get_s3_filesystem(cache_storage=str(s3_cache_dir)))
+    logger.info("S3 cache: %s", s3_cache_dir)
+
     # --- Load index ---
     index_df = pd.read_parquet(index_file)
     n_trials = len(index_df)
     logger.info("Loaded index: %d trials", n_trials)
 
     # --- Load ROI mask ---
-    roi_mask_path = Path(args.roi_mask) if args.roi_mask else resolve_roi_mask_path(subject)
-    if not roi_mask_path.exists():
+    roi_mask_path = args.roi_mask if args.roi_mask else resolve_roi_mask_path(subject)
+    if not str(roi_mask_path).startswith("s3://") and not Path(roi_mask_path).exists():
         logger.error("ROI mask not found: %s", roi_mask_path)
         sys.exit(1)
 
-    mask_img = nib.load(str(roi_mask_path))
+    mask_img = load_nifti_any(str(roi_mask_path), nifti_loader)
     roi_mask = mask_img.get_fdata() > 0.5
     n_voxels = int(roi_mask.sum())
     logger.info("ROI mask: %s (%d voxels)", roi_mask_path, n_voxels)
@@ -130,7 +157,7 @@ def main():
             "[%d/%d] Loading %s (%d trials)",
             sess_i + 1, n_sessions, Path(beta_path).name, len(trials),
         )
-        img = nib.load(beta_path)
+        img = load_nifti_any(str(beta_path), nifti_loader)
         data_4d = img.get_fdata(dtype=np.float32)
 
         for row_idx, vol_idx in trials:

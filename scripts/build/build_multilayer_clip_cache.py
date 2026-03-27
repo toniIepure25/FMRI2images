@@ -78,6 +78,34 @@ except ImportError:
     logger.warning("requests not available - will skip COCO HTTP fallback")
 
 
+def configure_safe_cuda_backends(device: str) -> None:
+    """Disable unstable CUDA attention/cudnn paths for one-off CLIP cache builds."""
+    if not str(device).startswith("cuda"):
+        return
+
+    torch.backends.cudnn.enabled = False
+
+    cuda_backends = getattr(torch.backends, "cuda", None)
+    if cuda_backends is None:
+        logger.info("Configured safe CUDA cache-build backends: cudnn disabled")
+        return
+
+    for name, enabled in (
+        ("enable_cudnn_sdp", False),
+        ("enable_flash_sdp", False),
+        ("enable_mem_efficient_sdp", False),
+        ("enable_math_sdp", True),
+    ):
+        fn = getattr(cuda_backends, name, None)
+        if callable(fn):
+            fn(enabled)
+
+    logger.info(
+        "Configured safe CUDA cache-build backends: cudnn disabled, "
+        "flash/mem-efficient/cudnn SDP off, math SDP on"
+    )
+
+
 def load_image_from_hdf5(
     hdf5_file,  # Open h5py.File object
     nsd_id: int
@@ -332,6 +360,8 @@ def main():
     logger.info(f"Layers: {args.layers}")
     logger.info(f"Output: {args.cache}")
     logger.info(f"Device: {args.device}")
+
+    configure_safe_cuda_backends(args.device)
     
     cache_path = Path(args.cache)
     cache_path.parent.mkdir(parents=True, exist_ok=True)

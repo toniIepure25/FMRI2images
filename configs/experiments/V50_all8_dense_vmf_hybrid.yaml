@@ -147,8 +147,8 @@ queue:
   size: 16384
 
 training:
-  batch_size: 8
-  gradient_accumulation_steps: 32
+  batch_size: 4
+  gradient_accumulation_steps: 64
   mixed_precision: true
   mixed_precision_dtype: "bf16"
   num_epochs: 120

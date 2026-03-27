@@ -4946,9 +4946,28 @@ def main() -> None:
         import torch.nn.functional as F
 
         def _multi_subject_collate(batch):
-            # Handles both 3-element (fmri, emb, subj_id) and
-            # 4-element (fmri, emb, subj_id, hier_targets) tuples
-            has_hier = len(batch[0]) == 4
+            # Handles:
+            #   - 3-element tuples: (fmri, emb, subj_id)
+            #   - 4-element tuples: (fmri, emb, subj_id, hier_targets)
+            #   - dual_target dict samples from MultiSubjectPreextractedDataset
+            first = batch[0]
+
+            if isinstance(first, dict):
+                fmri_list = [sample["fmri"] for sample in batch]
+                max_v = max(f.shape[0] for f in fmri_list)
+                padded = [F.pad(f, (0, max_v - f.shape[0])) for f in fmri_list]
+                result = {
+                    "fmri": torch.stack(padded),
+                    "retrieval_target": torch.stack([sample["retrieval_target"] for sample in batch]),
+                    "rich_target": torch.stack([sample["rich_target"] for sample in batch]),
+                    "subject_id": torch.stack([sample["subject_id"] for sample in batch]).to(dtype=torch.long),
+                    "nsd_id": torch.stack([sample["nsd_id"] for sample in batch]).to(dtype=torch.long),
+                }
+                if "rerank_target" in first:
+                    result["rerank_target"] = torch.stack([sample["rerank_target"] for sample in batch])
+                return result
+
+            has_hier = len(first) == 4
             if has_hier:
                 fmri_list, emb_list, subj_ids, hier_list = zip(*batch)
             else:

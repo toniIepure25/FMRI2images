@@ -4311,7 +4311,7 @@ def main() -> None:
     _pe_loaded_ok = False
     _matched_encoder_key_count = 0
     if _pe_path and os.path.isfile(_pe_path):
-        _pe_ckpt = torch.load(_pe_path, map_location=device)
+        _pe_ckpt = torch.load(_pe_path, map_location=device, weights_only=False)
         _pe_sd = _pe_ckpt.get("model_state_dict", _pe_ckpt.get("state_dict", {}))
         _pe_keys = {k: v for k, v in _pe_sd.items() if k.startswith("encoder.")}
         _model_sd = model.state_dict()
@@ -4450,7 +4450,7 @@ def main() -> None:
         _cs_freeze_epochs = _cross_subject_cfg.get("freeze_epochs", 30)
         _cs_backbone_lr_factor = _cross_subject_cfg.get("backbone_lr_factor", 0.1)
         if _cs_ckpt_path and os.path.isfile(_cs_ckpt_path):
-            ckpt = torch.load(_cs_ckpt_path, map_location=device)
+            ckpt = torch.load(_cs_ckpt_path, map_location=device, weights_only=False)
             _sd = ckpt.get("model_state_dict", ckpt.get("state_dict", {}))
             # Load only encoder/decoder weights (skip subject_adapters, projection_head)
             _backbone_keys = {

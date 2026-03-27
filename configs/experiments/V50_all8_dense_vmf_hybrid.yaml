@@ -113,6 +113,7 @@ loss:
     student_tau: 0.07
     topk: 12
     start_epoch: 5
+    teacher_chunk_size: 1
 
   component_legacy_compact_distill:
     enabled: false

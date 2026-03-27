@@ -1456,6 +1456,68 @@ def _maybe_mask_legacy_tensor(tensor: Optional[torch.Tensor], mask: Optional[tor
     return tensor[mask]
 
 
+def _legacy_teacher_should_run(
+    losses: Dict[str, nn.Module],
+    config_ref: Optional[Dict[str, Any]],
+    current_epoch: int,
+) -> bool:
+    loss_cfg = (config_ref or {}).get("loss", {})
+    for loss_name in (
+        "legacy_teacher_distill",
+        "legacy_compact_distill",
+        "component_legacy_compact_distill",
+    ):
+        if loss_name not in losses:
+            continue
+        start_epoch = int(loss_cfg.get(loss_name, {}).get("start_epoch", 10))
+        if current_epoch > start_epoch:
+            return True
+    return False
+
+
+def _legacy_teacher_chunk_size(config_ref: Optional[Dict[str, Any]]) -> int:
+    loss_cfg = (config_ref or {}).get("loss", {})
+    chunk_sizes: List[int] = []
+    for loss_name in (
+        "legacy_teacher_distill",
+        "legacy_compact_distill",
+        "component_legacy_compact_distill",
+    ):
+        val = int(loss_cfg.get(loss_name, {}).get("teacher_chunk_size", 0) or 0)
+        if val > 0:
+            chunk_sizes.append(val)
+    return min(chunk_sizes) if chunk_sizes else 1
+
+
+def _forward_legacy_teacher_chunked(
+    legacy_teacher_model: nn.Module,
+    fmri: torch.Tensor,
+    subject_ids: Optional[torch.Tensor] = None,
+    chunk_size: int = 0,
+) -> Optional[torch.Tensor]:
+    if fmri is None or fmri.shape[0] == 0:
+        return None
+
+    if chunk_size <= 0 or fmri.shape[0] <= chunk_size:
+        out = (
+            legacy_teacher_model(fmri, subject_ids=subject_ids)
+            if subject_ids is not None else legacy_teacher_model(fmri)
+        )
+        return out[0] if isinstance(out, tuple) else out
+
+    preds: List[torch.Tensor] = []
+    for start in range(0, fmri.shape[0], chunk_size):
+        end = min(start + chunk_size, fmri.shape[0])
+        sid_chunk = subject_ids[start:end] if subject_ids is not None else None
+        out = (
+            legacy_teacher_model(fmri[start:end], subject_ids=sid_chunk)
+            if sid_chunk is not None else legacy_teacher_model(fmri[start:end])
+        )
+        pred = out[0] if isinstance(out, tuple) else out
+        preds.append(pred)
+    return torch.cat(preds, dim=0) if preds else None
+
+
 # ---------------------------------------------------------------------------
 # Training and validation loops
 # ---------------------------------------------------------------------------
@@ -1584,22 +1646,27 @@ def train_epoch(
             pred_for_contrast = _proj_head(pred) if _proj_head is not None else pred
             _legacy_teacher_mask, _legacy_teacher_voxels = _get_legacy_teacher_mask_and_voxels(model, subject_ids)
             _legacy_teacher_pred = None
-            if legacy_teacher_model is not None and _rich_target is not None:
+            _legacy_teacher_needed = _legacy_teacher_should_run(losses, config_ref, current_epoch)
+            _legacy_teacher_chunk = _legacy_teacher_chunk_size(config_ref)
+            if legacy_teacher_model is not None and _rich_target is not None and _legacy_teacher_needed:
                 with torch.no_grad():
                     if _legacy_teacher_mask is not None:
                         if bool(_legacy_teacher_mask.any().item()):
                             _teacher_fmri = fmri_teacher[_legacy_teacher_mask]
                             if _legacy_teacher_voxels > 0:
                                 _teacher_fmri = _teacher_fmri[:, :_legacy_teacher_voxels]
-                            _legacy_out = legacy_teacher_model(_teacher_fmri)
-                            _legacy_teacher_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
+                            _legacy_teacher_pred = _forward_legacy_teacher_chunked(
+                                legacy_teacher_model,
+                                _teacher_fmri,
+                                chunk_size=_legacy_teacher_chunk,
+                            )
                     else:
-                        _legacy_out = (
-                            legacy_teacher_model(fmri_teacher, subject_ids=subject_ids)
-                            if subject_ids is not None
-                            else legacy_teacher_model(fmri_teacher)
+                        _legacy_teacher_pred = _forward_legacy_teacher_chunked(
+                            legacy_teacher_model,
+                            fmri_teacher,
+                            subject_ids=subject_ids,
+                            chunk_size=_legacy_teacher_chunk,
                         )
-                        _legacy_teacher_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
             _compact_component_mu = getattr(model, "_last_compact_component_mu", None)
             _compact_component_kappa = getattr(model, "_last_compact_component_kappa", None)
             _compact_component_logits = getattr(model, "_last_compact_component_logits", None)
@@ -2844,21 +2911,26 @@ def validate(
                 all_rerank_gts.append(_rerank_target.detach().cpu().numpy())
             _legacy_teacher_mask, _legacy_teacher_voxels = _get_legacy_teacher_mask_and_voxels(model, subject_ids)
             _legacy_teacher_pred = None
-            if legacy_teacher_model is not None and _rich_target is not None:
+            _legacy_teacher_needed = _legacy_teacher_should_run(losses, config_ref, current_epoch)
+            _legacy_teacher_chunk = _legacy_teacher_chunk_size(config_ref)
+            if legacy_teacher_model is not None and _rich_target is not None and _legacy_teacher_needed:
                 if _legacy_teacher_mask is not None:
                     if bool(_legacy_teacher_mask.any().item()):
                         _teacher_fmri = fmri_teacher[_legacy_teacher_mask]
                         if _legacy_teacher_voxels > 0:
                             _teacher_fmri = _teacher_fmri[:, :_legacy_teacher_voxels]
-                        _legacy_out = legacy_teacher_model(_teacher_fmri)
-                        _legacy_teacher_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
+                        _legacy_teacher_pred = _forward_legacy_teacher_chunked(
+                            legacy_teacher_model,
+                            _teacher_fmri,
+                            chunk_size=_legacy_teacher_chunk,
+                        )
                 else:
-                    _legacy_out = (
-                        legacy_teacher_model(fmri_teacher, subject_ids=subject_ids)
-                        if subject_ids is not None
-                        else legacy_teacher_model(fmri_teacher)
+                    _legacy_teacher_pred = _forward_legacy_teacher_chunked(
+                        legacy_teacher_model,
+                        fmri_teacher,
+                        subject_ids=subject_ids,
+                        chunk_size=_legacy_teacher_chunk,
                     )
-                    _legacy_teacher_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
                 if _legacy_teacher_pred is not None:
                     all_legacy_preds.append(_legacy_teacher_pred.detach().cpu().numpy())
                     all_legacy_gts.append(_maybe_mask_legacy_tensor(_rich_target, _legacy_teacher_mask).detach().cpu().numpy())

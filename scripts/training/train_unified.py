@@ -3575,6 +3575,62 @@ def _fusion_scalar_metrics(
     return out
 
 
+def _prepare_legacy_arrays_for_tri_fusion(
+    legacy_preds: np.ndarray,
+    legacy_gts: np.ndarray,
+    nsd_ids: Optional[np.ndarray],
+    *,
+    logger: logging.Logger,
+    context: str,
+) -> Tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+    """Align legacy arrays to image-level rows for tri-fusion evaluation.
+
+    In multi-subject runs, the legacy teacher may only be evaluated on the
+    canonical-subject subset. When that happens, the legacy arrays no longer
+    match either the full validation trial count or the full image count, so
+    tri-fusion over the full validation set is not well-defined. In that case
+    we skip tri-fusion cleanly and fall back to the compact+rereank fusion path
+    instead of crashing on a boolean mask mismatch.
+    """
+    if nsd_ids is None:
+        return legacy_preds, legacy_gts
+
+    n_trials = int(len(nsd_ids))
+    unique_ids = np.unique(nsd_ids)
+    n_images = int(len(unique_ids))
+    pred_rows = int(legacy_preds.shape[0])
+    gt_rows = int(legacy_gts.shape[0])
+
+    if pred_rows == n_trials and gt_rows == n_trials:
+        legacy_preds_img, _ = _aggregate_rows_by_nsd_id(
+            legacy_preds,
+            nsd_ids,
+            reduce="mean",
+            normalize=False,
+        )
+        legacy_gts_img, _ = _aggregate_rows_by_nsd_id(
+            legacy_gts,
+            nsd_ids,
+            reduce="first",
+            normalize=False,
+        )
+        return legacy_preds_img, legacy_gts_img
+
+    if pred_rows == n_images and gt_rows == n_images:
+        return legacy_preds, legacy_gts
+
+    logger.warning(
+        "Skipping tri-fusion %s: legacy arrays have partial coverage "
+        "(pred_rows=%d, gt_rows=%d, expected trials=%d or images=%d)",
+        context,
+        pred_rows,
+        gt_rows,
+        n_trials,
+        n_images,
+    )
+    return None, None
+
+
 def _run_post_training_shared1000_eval(
     output_dir: Path,
     model: nn.Module,
@@ -5937,35 +5993,34 @@ def main() -> None:
             )
             _used_tri_fusion_val = False
             if _tri_fusion_eval_cfg is not None and "legacy_preds" in _epoch_val_extras and "legacy_gts" in _epoch_val_extras:
-                _lp = _epoch_val_extras["legacy_preds"]
-                _lg = _epoch_val_extras["legacy_gts"]
-                if _val_nsd_ids is not None:
-                    _u_ids_l = np.unique(_val_nsd_ids)
-                    _lp_img = np.zeros((len(_u_ids_l), _lp.shape[1]), dtype=np.float32)
-                    _lg_img = np.zeros((len(_u_ids_l), _lg.shape[1]), dtype=np.float32)
-                    for i, uid in enumerate(_u_ids_l):
-                        _m = _val_nsd_ids == uid
-                        _lp_img[i] = _lp[_m].mean(axis=0)
-                        _lg_img[i] = _lg[_m][0]
-                    _lp, _lg = _lp_img, _lg_img
-                _lp = _lp / np.maximum(np.linalg.norm(_lp, axis=-1, keepdims=True), 1e-8)
-                _fusion_report_val = _compute_tri_fusion_report(
-                    _compact_eval_preds,
-                    _compact_eval_gts,
-                    _rrp,
-                    _rrg,
-                    _lp,
-                    _lg,
-                    _tri_fusion_eval_cfg,
-                    compact_component_mu=_val_component_mu_img,
-                    compact_component_kappa=_val_component_kappa_img,
-                    compact_component_logits=_val_component_logits_img,
+                _lp, _lg = _prepare_legacy_arrays_for_tri_fusion(
+                    _epoch_val_extras["legacy_preds"],
+                    _epoch_val_extras["legacy_gts"],
+                    _val_nsd_ids,
+                    logger=logger,
+                    context="during validation",
                 )
-                _used_tri_fusion_val = True
+                if _lp is not None and _lg is not None:
+                    _lp = _lp / np.maximum(np.linalg.norm(_lp, axis=-1, keepdims=True), 1e-8)
+                    _fusion_report_val = _compute_tri_fusion_report(
+                        _compact_eval_preds,
+                        _compact_eval_gts,
+                        _rrp,
+                        _rrg,
+                        _lp,
+                        _lg,
+                        _tri_fusion_eval_cfg,
+                        compact_component_mu=_val_component_mu_img,
+                        compact_component_kappa=_val_component_kappa_img,
+                        compact_component_logits=_val_component_logits_img,
+                    )
+                    _used_tri_fusion_val = True
             if _used_tri_fusion_val:
                 val_metrics.update(_fusion_scalar_metrics(_fusion_report_val, prefix="tri_fused", include_legacy_alias=True))
             else:
                 val_metrics.update(_fusion_scalar_metrics(_fusion_report_val))
+                if _tri_fusion_eval_cfg is not None:
+                    val_metrics.update(_fusion_scalar_metrics(_fusion_report_val, prefix="tri_fused"))
             logger.info(
                 "Rerank val: rerank_R@1=%.4f  oracle_R@1=%.4f  "
                 "sep=%.3f  inter_pred=%.4f  shortlist@100=%.4f  reranked_R@1=%.4f",
@@ -6350,30 +6405,27 @@ def main() -> None:
                 and "legacy_preds" in _val_extras
                 and "legacy_gts" in _val_extras
             ):
-                _lp = _val_extras["legacy_preds"]
-                _lg = _val_extras["legacy_gts"]
-                if _val_nsd_ids is not None:
-                    _u_ids_l = np.unique(_val_nsd_ids)
-                    _lp_img = np.zeros((len(_u_ids_l), _lp.shape[1]), dtype=np.float32)
-                    _lg_img = np.zeros((len(_u_ids_l), _lg.shape[1]), dtype=np.float32)
-                    for i, uid in enumerate(_u_ids_l):
-                        _m = _val_nsd_ids == uid
-                        _lp_img[i] = _lp[_m].mean(axis=0)
-                        _lg_img[i] = _lg[_m][0]
-                    _lp, _lg = _lp_img, _lg_img
-                _lp = _lp / np.maximum(np.linalg.norm(_lp, axis=-1, keepdims=True), 1e-8)
-                _fusion_report = _compute_tri_fusion_report(
-                    _save_preds,
-                    _save_gts,
-                    _rrp,
-                    _rrg,
-                    _lp,
-                    _lg,
-                    _tri_fusion_eval_cfg,
-                    compact_component_mu=_cmu,
-                    compact_component_kappa=_ck,
-                    compact_component_logits=_cl,
+                _lp, _lg = _prepare_legacy_arrays_for_tri_fusion(
+                    _val_extras["legacy_preds"],
+                    _val_extras["legacy_gts"],
+                    _val_nsd_ids,
+                    logger=logger,
+                    context="during final val export",
                 )
+                if _lp is not None and _lg is not None:
+                    _lp = _lp / np.maximum(np.linalg.norm(_lp, axis=-1, keepdims=True), 1e-8)
+                    _fusion_report = _compute_tri_fusion_report(
+                        _save_preds,
+                        _save_gts,
+                        _rrp,
+                        _rrg,
+                        _lp,
+                        _lg,
+                        _tri_fusion_eval_cfg,
+                        compact_component_mu=_cmu,
+                        compact_component_kappa=_ck,
+                        compact_component_logits=_cl,
+                    )
             if _fusion_report is not None:
                 _fusion_path = _metrics_save_dir / "val_fused_metrics.json"
                 with open(_fusion_path, "w") as _jf:

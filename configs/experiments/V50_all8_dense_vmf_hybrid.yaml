@@ -173,7 +173,7 @@ training:
     temperature: 0.07
     weight: 0.4
   ema:
-    enabled: true
+    enabled: false
     decay: 0.999
 
 evaluation:

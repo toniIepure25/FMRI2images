@@ -5575,11 +5575,19 @@ def main() -> None:
                     "params": _backbone_params,
                     "lr": _backbone_lr,
                 })
+                if hasattr(lr_sched, "base_lrs") and len(lr_sched.base_lrs) < len(optimizer.param_groups):
+                    lr_sched.base_lrs.append(_backbone_lr)
+                if hasattr(lr_sched, "lr_lambdas") and len(lr_sched.lr_lambdas) < len(optimizer.param_groups):
+                    lr_sched.lr_lambdas.append(lr_lambda)
                 logger.info(
                     "[CROSS-SUBJECT] Unfreezing backbone at epoch %d: "
                     "%d params added at lr=%.2e (%.1f× base)",
                     epoch, len(_backbone_params), _backbone_lr,
                     _cs_backbone_lr_factor,
+                )
+                logger.info(
+                    "[CROSS-SUBJECT] Extended lr scheduler to %d param groups after unfreeze",
+                    len(optimizer.param_groups),
                 )
             else:
                 logger.warning(

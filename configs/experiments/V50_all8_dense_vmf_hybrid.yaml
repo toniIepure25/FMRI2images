@@ -114,6 +114,7 @@ loss:
     topk: 12
     start_epoch: 5
     teacher_chunk_size: 1
+    teacher_step_interval: 16
 
   component_legacy_compact_distill:
     enabled: false

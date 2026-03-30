@@ -1262,12 +1262,13 @@ def setup_losses(config: Dict[str, Any], device: str,
         )
         logger.info(
             "Legacy compact distill enabled "
-            "(weight=%.3f, teacher_tau=%.3f, student_tau=%.3f, topk=%d, start_epoch=%d)",
+            "(weight=%.3f, teacher_tau=%.3f, student_tau=%.3f, topk=%d, start_epoch=%d, teacher_step_interval=%d)",
             c.get("weight", 0.15),
             c.get("teacher_tau", c.get("teacher_temperature", 0.07)),
             c.get("student_tau", c.get("student_temperature", 0.07)),
             c.get("topk", 12),
             c.get("start_epoch", 10),
+            c.get("teacher_step_interval", 1),
         )
 
     # --- V44: component-responsibility legacy -> compact distillation ---
@@ -1475,6 +1476,20 @@ def _legacy_teacher_should_run(
     return False
 
 
+def _legacy_teacher_step_interval(config_ref: Optional[Dict[str, Any]]) -> int:
+    loss_cfg = (config_ref or {}).get("loss", {})
+    intervals: List[int] = []
+    for loss_name in (
+        "legacy_teacher_distill",
+        "legacy_compact_distill",
+        "component_legacy_compact_distill",
+    ):
+        val = int(loss_cfg.get(loss_name, {}).get("teacher_step_interval", 1) or 1)
+        if val > 1:
+            intervals.append(val)
+    return min(intervals) if intervals else 1
+
+
 def _legacy_teacher_chunk_size(config_ref: Optional[Dict[str, Any]]) -> int:
     loss_cfg = (config_ref or {}).get("loss", {})
     chunk_sizes: List[int] = []
@@ -1625,6 +1640,36 @@ def train_epoch(
             gt_embedding_proc = preprocessor.transform(gt_embedding_np)
             gt_embedding = torch.from_numpy(gt_embedding_proc).float().to(device)
 
+        _legacy_teacher_mask, _legacy_teacher_voxels = _get_legacy_teacher_mask_and_voxels(model, subject_ids)
+        _legacy_teacher_pred = None
+        _legacy_teacher_needed = _legacy_teacher_should_run(losses, config_ref, current_epoch)
+        _legacy_teacher_interval = _legacy_teacher_step_interval(config_ref)
+        _legacy_teacher_this_step = (
+            _legacy_teacher_needed
+            and ((global_step % _legacy_teacher_interval) == 0)
+        )
+        _legacy_teacher_chunk = _legacy_teacher_chunk_size(config_ref)
+        if legacy_teacher_model is not None and _rich_target is not None and _legacy_teacher_this_step:
+            with torch.no_grad():
+                with torch.amp.autocast("cuda", enabled=use_amp, dtype=_amp_dtype):
+                    if _legacy_teacher_mask is not None:
+                        if bool(_legacy_teacher_mask.any().item()):
+                            _teacher_fmri = fmri_teacher[_legacy_teacher_mask]
+                            if _legacy_teacher_voxels > 0:
+                                _teacher_fmri = _teacher_fmri[:, :_legacy_teacher_voxels]
+                            _legacy_teacher_pred = _forward_legacy_teacher_chunked(
+                                legacy_teacher_model,
+                                _teacher_fmri,
+                                chunk_size=_legacy_teacher_chunk,
+                            )
+                    else:
+                        _legacy_teacher_pred = _forward_legacy_teacher_chunked(
+                            legacy_teacher_model,
+                            fmri_teacher,
+                            subject_ids=subject_ids,
+                            chunk_size=_legacy_teacher_chunk,
+                        )
+
         with torch.amp.autocast("cuda", enabled=use_amp, dtype=_amp_dtype):
             output = model(fmri, subject_ids=subject_ids) if subject_ids is not None else model(fmri)
             if isinstance(output, tuple):
@@ -1644,29 +1689,6 @@ def train_epoch(
             # through cos_sim(mu, target) instead of a random projection.
             _proj_head = getattr(model, "projection_head", None)
             pred_for_contrast = _proj_head(pred) if _proj_head is not None else pred
-            _legacy_teacher_mask, _legacy_teacher_voxels = _get_legacy_teacher_mask_and_voxels(model, subject_ids)
-            _legacy_teacher_pred = None
-            _legacy_teacher_needed = _legacy_teacher_should_run(losses, config_ref, current_epoch)
-            _legacy_teacher_chunk = _legacy_teacher_chunk_size(config_ref)
-            if legacy_teacher_model is not None and _rich_target is not None and _legacy_teacher_needed:
-                with torch.no_grad():
-                    if _legacy_teacher_mask is not None:
-                        if bool(_legacy_teacher_mask.any().item()):
-                            _teacher_fmri = fmri_teacher[_legacy_teacher_mask]
-                            if _legacy_teacher_voxels > 0:
-                                _teacher_fmri = _teacher_fmri[:, :_legacy_teacher_voxels]
-                            _legacy_teacher_pred = _forward_legacy_teacher_chunked(
-                                legacy_teacher_model,
-                                _teacher_fmri,
-                                chunk_size=_legacy_teacher_chunk,
-                            )
-                    else:
-                        _legacy_teacher_pred = _forward_legacy_teacher_chunked(
-                            legacy_teacher_model,
-                            fmri_teacher,
-                            subject_ids=subject_ids,
-                            chunk_size=_legacy_teacher_chunk,
-                        )
             _compact_component_mu = getattr(model, "_last_compact_component_mu", None)
             _compact_component_kappa = getattr(model, "_last_compact_component_kappa", None)
             _compact_component_logits = getattr(model, "_last_compact_component_logits", None)

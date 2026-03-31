@@ -49,6 +49,7 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+import torch
 from tqdm import tqdm
 
 # Add project root to path
@@ -70,6 +71,33 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Image loading helpers
 # ---------------------------------------------------------------------------
+
+def configure_safe_cuda_backends(device: str) -> None:
+    """Disable unstable CUDA attention/cudnn paths for one-off CLIP cache builds."""
+    if not str(device).startswith("cuda"):
+        return
+
+    torch.backends.cudnn.enabled = False
+
+    cuda_backends = getattr(torch.backends, "cuda", None)
+    if cuda_backends is None:
+        logger.info("Configured safe CUDA cache-build backends: cudnn disabled")
+        return
+
+    for name, enabled in (
+        ("enable_cudnn_sdp", False),
+        ("enable_flash_sdp", False),
+        ("enable_mem_efficient_sdp", False),
+        ("enable_math_sdp", True),
+    ):
+        fn = getattr(cuda_backends, name, None)
+        if callable(fn):
+            fn(enabled)
+
+    logger.info(
+        "Configured safe CUDA cache-build backends: cudnn disabled, "
+        "flash/mem-efficient/cudnn SDP off, math SDP on"
+    )
 
 def _make_image_loader():
     """Create a RobustImageLoader with S3/COCO fallback.
@@ -206,6 +234,8 @@ def build_token_cache(
     logger.info(f"CLIP config:  {clip_config}")
     logger.info(f"Output:       {output_path}")
     logger.info(f"Mode:         {mode}")
+
+    configure_safe_cuda_backends(device)
 
     # Load CLIP model
     model, preprocess, cfg = load_clip_model(clip_config, device=device)

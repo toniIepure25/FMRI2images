@@ -10,6 +10,7 @@ RERANK_CACHE="${RERANK_CACHE:-outputs/rerank_cache/pca_trainonly_dim2048_seed42_
 LOG_ROOT="${LOG_ROOT:-/home/jovyan/work/preserved_localdata/experiment_archive/all8_v35_v42_v43b_chain_logs}"
 RUNTIME_ROOT="${RUNTIME_ROOT:-/home/jovyan/work/preserved_runtime}"
 RUNTIME_PYTHON="${RUNTIME_PYTHON:-${RUNTIME_ROOT}/python_runtime}"
+NSD_HDF5_DEFAULT="/home/jovyan/work/data/nsd/nsddata_stimuli/stimuli/nsd/nsd_stimuli.hdf5"
 
 mkdir -p "${LOG_ROOT}"
 touch "${LOG_ROOT}/chain_master.log"
@@ -23,6 +24,10 @@ if [[ -d "${RUNTIME_PYTHON}" ]]; then
   export TORCH_HOME="${TORCH_HOME:-${RUNTIME_ROOT}/torch_cache}"
 else
   export PYTHONPATH="${PYTHONPATH:-src}"
+fi
+
+if [[ -z "${NSD_HDF5:-}" && -f "${NSD_HDF5_DEFAULT}" ]]; then
+  export NSD_HDF5="${NSD_HDF5_DEFAULT}"
 fi
 
 link_result_dir() {

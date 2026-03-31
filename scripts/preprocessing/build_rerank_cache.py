@@ -135,11 +135,9 @@ def _resolve_output_path(
     raise ValueError(f"Unknown method: {method}")
 
 
-def _resolve_train_image_ids(
+def _load_subject_unique_nsd_ids(
     subject: str,
     token_nsd_ids: np.ndarray,
-    val_ratio: float,
-    seed: int,
     exclude_shared1000: bool,
 ) -> np.ndarray:
     import pandas as pd
@@ -161,6 +159,39 @@ def _resolve_train_image_ids(
     if len(unique_nsd) == 0:
         raise ValueError(f"No overlap between token cache and subject {subject} image IDs")
 
+    return unique_nsd
+
+
+def _resolve_train_image_ids(
+    subject: str | None,
+    subjects: list[str] | None,
+    token_nsd_ids: np.ndarray,
+    val_ratio: float,
+    seed: int,
+    exclude_shared1000: bool,
+) -> np.ndarray:
+    if subject is None and not subjects:
+        raise ValueError("Need either a subject or subjects list for PCA split reconstruction")
+
+    if subjects:
+        unique_union: set[int] = set()
+        for subj in subjects:
+            unique_union.update(
+                int(x)
+                for x in _load_subject_unique_nsd_ids(
+                    subject=subj,
+                    token_nsd_ids=token_nsd_ids,
+                    exclude_shared1000=exclude_shared1000,
+                )
+            )
+        unique_nsd = np.array(sorted(unique_union), dtype=np.int32)
+    else:
+        unique_nsd = _load_subject_unique_nsd_ids(
+            subject=subject,
+            token_nsd_ids=token_nsd_ids,
+            exclude_shared1000=exclude_shared1000,
+        )
+
     rng = np.random.default_rng(seed)
     rng.shuffle(unique_nsd)
 
@@ -171,14 +202,24 @@ def _resolve_train_image_ids(
             f"Train split is empty for subject={subject} with val_ratio={val_ratio}"
         )
 
-    logger.info(
-        "PCA fit split: subject=%s, train_images=%d, val_images=%d, exclude_shared1000=%s, seed=%d",
-        subject,
-        len(train_ids),
-        n_val,
-        exclude_shared1000,
-        seed,
-    )
+    if subjects:
+        logger.info(
+            "PCA fit split: subjects=%s, train_images=%d, val_images=%d, exclude_shared1000=%s, seed=%d",
+            ",".join(subjects),
+            len(train_ids),
+            n_val,
+            exclude_shared1000,
+            seed,
+        )
+    else:
+        logger.info(
+            "PCA fit split: subject=%s, train_images=%d, val_images=%d, exclude_shared1000=%s, seed=%d",
+            subject,
+            len(train_ids),
+            n_val,
+            exclude_shared1000,
+            seed,
+        )
     return np.sort(train_ids)
 
 
@@ -358,7 +399,8 @@ def _build_pca_cache(
     seed: int,
     batch_size: int,
     out_path: Path,
-    subject: str,
+    subject: str | None,
+    subjects: list[str] | None,
     val_ratio: float,
     exclude_shared1000: bool,
     device: str,
@@ -370,6 +412,7 @@ def _build_pca_cache(
 
     train_ids = _resolve_train_image_ids(
         subject=subject,
+        subjects=subjects,
         token_nsd_ids=all_nsd_ids,
         val_ratio=val_ratio,
         seed=seed,
@@ -391,10 +434,11 @@ def _build_pca_cache(
     transform_batch_size = max(batch_size, min(512, k_eff))
     transform_device = _resolve_transform_device(device)
     fit_backend = "torch_pca_lowrank" if transform_device == "cuda" else "incremental_pca"
+    fit_source = f"subjects={','.join(subjects)}" if subjects else f"subject={subject}"
     logger.info(
-        "PCA method=train_only, subject=%s, train_images=%d, input_dim=%d, output_dim=%d, "
+        "PCA method=train_only, %s, train_images=%d, input_dim=%d, output_dim=%d, "
         "fit_backend=%s, fit_batch_size=%d, transform_batch_size=%d, transform_device=%s",
-        subject,
+        fit_source,
         len(train_indices),
         input_dim,
         k_eff,
@@ -456,7 +500,7 @@ def _build_pca_cache(
         "output_dim": int(k_eff),
         "rerank_dim": int(k_eff),
         "fit_split_description": (
-            f"subject={subject}, split_by_image=True, exclude_shared1000={exclude_shared1000}, "
+            f"{fit_source}, split_by_image=True, exclude_shared1000={exclude_shared1000}, "
             f"val_ratio={val_ratio:.2f}, train_only_unique_images={len(train_indices)}"
         ),
         "train_image_count": int(len(train_indices)),
@@ -488,6 +532,7 @@ def build_cache(
     method: str,
     output_path: str | None = None,
     subject: str | None = None,
+    subjects: list[str] | None = None,
     val_ratio: float = 0.10,
     exclude_shared1000: bool = True,
     device: str = "auto",
@@ -518,8 +563,10 @@ def build_cache(
                 out_path=out_path,
             )
         elif method == "pca":
-            if not subject:
-                raise ValueError("PCA mode requires a subject so the train-only split can be reconstructed")
+            if not subject and not subjects:
+                raise ValueError(
+                    "PCA mode requires either --subject or --subjects so the train-only split can be reconstructed"
+                )
             metadata = _build_pca_cache(
                 token_cache=tc,
                 token_cache_path=token_cache_path,
@@ -528,6 +575,7 @@ def build_cache(
                 batch_size=batch_size,
                 out_path=out_path,
                 subject=subject,
+                subjects=subjects,
                 val_ratio=val_ratio,
                 exclude_shared1000=exclude_shared1000,
                 device=device,
@@ -568,7 +616,7 @@ def main():
         "--config",
         type=str,
         default=None,
-        help="Experiment config YAML (extracts token cache path, seed, dims, subject)",
+        help="Experiment config YAML (extracts token cache path, seed, dims, subject/subjects)",
     )
     parser.add_argument(
         "--method",
@@ -594,6 +642,12 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--subject", type=str, default=None,
                         help="Subject used to reconstruct the exact train-only fit split for PCA")
+    parser.add_argument(
+        "--subjects",
+        type=str,
+        default=None,
+        help="Comma-separated subject list used to reconstruct a multi-subject union train-only split for PCA",
+    )
     parser.add_argument("--val-ratio", type=float, default=0.10)
     parser.add_argument("--exclude-shared1000", action="store_true", default=True)
     parser.add_argument("--include-shared1000", action="store_true",
@@ -636,6 +690,10 @@ def main():
         args.token_cache = args.token_cache or data_cfg.get("token_cache_path")
         args.seed = data_cfg.get("seed", args.seed)
         args.subject = args.subject or data_cfg.get("subject")
+        if not args.subjects:
+            cfg_subjects = data_cfg.get("subjects") or []
+            if cfg_subjects:
+                args.subjects = ",".join(str(s) for s in cfg_subjects)
         args.val_ratio = data_cfg.get("val_split", args.val_ratio)
         args.exclude_shared1000 = data_cfg.get("exclude_shared1000", args.exclude_shared1000)
         args.output_dim = decoder_cfg.get("rerank_dim", args.output_dim)
@@ -657,6 +715,7 @@ def main():
         method=args.method,
         output_path=args.output_path,
         subject=args.subject,
+        subjects=[s.strip() for s in args.subjects.split(",") if s.strip()] if args.subjects else None,
         val_ratio=float(args.val_ratio),
         exclude_shared1000=bool(args.exclude_shared1000),
         device=args.device,

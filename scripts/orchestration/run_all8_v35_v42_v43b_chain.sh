@@ -8,12 +8,22 @@ SUBJECTS_CSV="${SUBJECTS_CSV:-subj01,subj02,subj03,subj04,subj05,subj06,subj07,s
 TOKEN_CACHE="${TOKEN_CACHE:-outputs/clip_cache/tokens_ViT-L-14_projected_all8.h5}"
 RERANK_CACHE="${RERANK_CACHE:-outputs/rerank_cache/pca_trainonly_dim2048_seed42_all8.npz}"
 LOG_ROOT="${LOG_ROOT:-/home/jovyan/work/preserved_localdata/experiment_archive/all8_v35_v42_v43b_chain_logs}"
+RUNTIME_ROOT="${RUNTIME_ROOT:-/home/jovyan/work/preserved_runtime}"
+RUNTIME_PYTHON="${RUNTIME_PYTHON:-${RUNTIME_ROOT}/python_runtime}"
 
 mkdir -p "${LOG_ROOT}"
 touch "${LOG_ROOT}/chain_master.log"
 
 export CUDA_VISIBLE_DEVICES="${GPU}"
-export PYTHONPATH="${PYTHONPATH:-src}"
+if [[ -d "${RUNTIME_PYTHON}" ]]; then
+  export PYTHONPATH="${RUNTIME_PYTHON}:src:${PYTHONPATH:-}"
+  export PIP_CACHE_DIR="${PIP_CACHE_DIR:-${RUNTIME_ROOT}/pip_cache}"
+  export HF_HOME="${HF_HOME:-${RUNTIME_ROOT}/hf_cache}"
+  export HUGGINGFACE_HUB_CACHE="${HUGGINGFACE_HUB_CACHE:-${RUNTIME_ROOT}/hf_cache}"
+  export TORCH_HOME="${TORCH_HOME:-${RUNTIME_ROOT}/torch_cache}"
+else
+  export PYTHONPATH="${PYTHONPATH:-src}"
+fi
 
 link_result_dir() {
   local name="$1"

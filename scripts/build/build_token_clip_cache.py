@@ -200,6 +200,97 @@ def get_nsd_ids_for_subjects(
     return result
 
 
+def _load_existing_ids(output_path: Path) -> set[int]:
+    """Read already-written nsdIds from an existing appendable cache."""
+    if not output_path.exists():
+        return set()
+
+    with h5py.File(output_path, "a") as f:
+        if "tokens" not in f or "nsd_ids" not in f:
+            raise ValueError(
+                f"Existing token cache at {output_path} is missing required datasets"
+            )
+
+        tokens_ds = f["tokens"]
+        ids_ds = f["nsd_ids"]
+        existing_count = min(tokens_ds.shape[0], ids_ds.shape[0])
+
+        if tokens_ds.shape[0] != ids_ds.shape[0]:
+            logger.warning(
+                "Repairing partially-written cache at %s "
+                "(tokens=%d, ids=%d -> %d)",
+                output_path,
+                tokens_ds.shape[0],
+                ids_ds.shape[0],
+                existing_count,
+            )
+            tokens_ds.resize((existing_count, *tokens_ds.shape[1:]))
+            ids_ds.resize((existing_count,))
+            f.flush()
+
+        if existing_count == 0:
+            return set()
+
+        return set(np.asarray(ids_ds[:existing_count], dtype=np.int32).tolist())
+
+
+def _open_appendable_cache(
+    output_path: Path,
+    *,
+    num_tokens: int,
+    token_dim: int,
+    batch_size: int,
+    model_name: str,
+    pretrained: str,
+    cfg: dict,
+    mode: str,
+):
+    """Open an HDF5 cache for append, creating resizable datasets if needed."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    is_new_file = not output_path.exists()
+
+    f = h5py.File(output_path, "a")
+    if is_new_file:
+        chunk_batch = max(1, min(batch_size, 32))
+        f.create_dataset(
+            "tokens",
+            shape=(0, num_tokens, token_dim),
+            maxshape=(None, num_tokens, token_dim),
+            dtype="float32",
+            chunks=(chunk_batch, num_tokens, token_dim),
+            compression="gzip",
+            compression_opts=4,
+        )
+        f.create_dataset(
+            "nsd_ids",
+            shape=(0,),
+            maxshape=(None,),
+            dtype="int32",
+            chunks=(max(1, min(2048, chunk_batch * 32)),),
+        )
+
+    tokens_ds = f["tokens"]
+    ids_ds = f["nsd_ids"]
+
+    # Keep metadata current even across resumed runs.
+    f.attrs["model_name"] = model_name
+    f.attrs["pretrained"] = pretrained
+    f.attrs["hidden_dim"] = (
+        int(token_dim) if mode == "hidden" else int(cfg["embedding_dim"])
+    )
+    f.attrs["proj_dim"] = int(cfg["embedding_dim"])
+    f.attrs["num_tokens"] = int(num_tokens)
+    f.attrs["token_dim"] = int(token_dim)
+    f.attrs["projected"] = mode == "projected"
+    f.attrs["mode"] = mode
+    f.attrs["build_date"] = datetime.datetime.now().isoformat()
+    f.attrs["normalized"] = True
+    f.attrs["num_images"] = int(ids_ds.shape[0])
+    f.flush()
+
+    return f, tokens_ds, ids_ds
+
+
 # ---------------------------------------------------------------------------
 # Main builder
 # ---------------------------------------------------------------------------
@@ -270,11 +361,8 @@ def build_token_cache(
 
     # Check for existing cache (resume support)
     output_path = Path(output_path)
-    existing_ids = set()
-    if output_path.exists():
-        with h5py.File(output_path, "r") as f:
-            if "nsd_ids" in f:
-                existing_ids = set(f["nsd_ids"][:].tolist())
+    existing_ids = _load_existing_ids(output_path)
+    if existing_ids:
         logger.info(f"Resuming: {len(existing_ids)} images already cached")
         nsd_ids = [nid for nid in nsd_ids if nid not in existing_ids]
         if not nsd_ids:
@@ -299,95 +387,94 @@ def build_token_cache(
         else encode_images_tokens
     )
 
-    # Collect tokens in memory (for subj01 ~10K × 257 × 768 ≈ 7.4 GB — fits)
-    all_tokens = []
-    all_ids = []
     n_failed = 0
+    n_written = 0
+    flush_every = 8
+    final_count = len(existing_ids)
 
-    for batch_start in tqdm(range(0, len(nsd_ids), batch_size), desc="Encoding"):
-        batch_ids = nsd_ids[batch_start : batch_start + batch_size]
-        batch_images = []
-        valid_ids = []
+    cache_file, tokens_ds, ids_ds = _open_appendable_cache(
+        output_path,
+        num_tokens=num_tokens,
+        token_dim=token_dim,
+        batch_size=batch_size,
+        model_name=model_name,
+        pretrained=pretrained,
+        cfg=cfg,
+        mode=mode,
+    )
 
-        for nid in batch_ids:
-            row = _nsd_to_row.get(nid)
-            if row is not None:
-                img = image_loader.load(row)
-            else:
-                # Fallback: try loading directly via local HDF5
-                img = image_loader._load_from_local_hdf5(nid)
-            if img is not None:
-                batch_images.append(img)
-                valid_ids.append(nid)
-            else:
-                n_failed += 1
-                if n_failed <= 5:
-                    logger.warning(
-                        f"Failed to load nsdId={nid} — skipping ({n_failed} total failures)"
-                    )
+    try:
+        for batch_idx, batch_start in enumerate(
+            tqdm(range(0, len(nsd_ids), batch_size), desc="Encoding"),
+            start=1,
+        ):
+            batch_ids = nsd_ids[batch_start : batch_start + batch_size]
+            batch_images = []
+            valid_ids = []
 
-        if not batch_images:
-            continue
+            for nid in batch_ids:
+                row = _nsd_to_row.get(nid)
+                if row is not None:
+                    img = image_loader.load(row)
+                else:
+                    # Fallback: try loading directly via local HDF5
+                    img = image_loader._load_from_local_hdf5(nid)
+                if img is not None:
+                    batch_images.append(img)
+                    valid_ids.append(nid)
+                else:
+                    n_failed += 1
+                    if n_failed <= 5:
+                        logger.warning(
+                            f"Failed to load nsdId={nid} — skipping ({n_failed} total failures)"
+                        )
 
-        tokens = encode_fn(
-            model, preprocess, batch_images,
-            device=device, normalize=True,
-        )  # (B, T, D)
-        all_tokens.append(tokens)
-        all_ids.extend(valid_ids)
+            if not batch_images:
+                continue
 
-    if n_failed > 0:
-        logger.warning(f"Total failed image loads: {n_failed}/{len(nsd_ids) + n_failed}")
+            tokens = np.asarray(
+                encode_fn(
+                    model,
+                    preprocess,
+                    batch_images,
+                    device=device,
+                    normalize=True,
+                ),
+                dtype=np.float32,
+            )
+            batch_ids_arr = np.asarray(valid_ids, dtype=np.int32)
 
-    if not all_ids:
-        logger.error("No images were encoded. Aborting.")
-        return
+            prev_count = ids_ds.shape[0]
+            new_count = prev_count + len(batch_ids_arr)
+            tokens_ds.resize((new_count, num_tokens, token_dim))
+            ids_ds.resize((new_count,))
+            tokens_ds[prev_count:new_count] = tokens
+            ids_ds[prev_count:new_count] = batch_ids_arr
+            n_written += len(batch_ids_arr)
 
-    # Stack results
-    all_tokens = np.concatenate(all_tokens, axis=0)  # (N, T, D)
-    all_ids = np.array(all_ids, dtype=np.int32)
-    logger.info(f"Encoded {len(all_ids)} images → shape {all_tokens.shape}")
+            if batch_idx % flush_every == 0:
+                cache_file.attrs["num_images"] = int(ids_ds.shape[0])
+                cache_file.flush()
 
-    # Merge with existing cache if resuming
-    if existing_ids and output_path.exists():
-        with h5py.File(output_path, "r") as f:
-            prev_tokens = f["tokens"][:]
-            prev_ids = f["nsd_ids"][:]
-        all_tokens = np.concatenate([prev_tokens, all_tokens], axis=0)
-        all_ids = np.concatenate([prev_ids, all_ids], axis=0)
-        logger.info(f"Merged with existing: total {len(all_ids)} images")
+        if n_failed > 0:
+            logger.warning(
+                f"Total failed image loads: {n_failed}/{len(nsd_ids) + n_failed}"
+            )
 
-    # Sort by nsdId for consistent ordering
-    sort_idx = np.argsort(all_ids)
-    all_tokens = all_tokens[sort_idx]
-    all_ids = all_ids[sort_idx]
+        final_count = ids_ds.shape[0]
+        if final_count == 0:
+            logger.error("No images were encoded. Aborting.")
+            return
 
-    # Write HDF5
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with h5py.File(output_path, "w") as f:
-        f.create_dataset(
-            "tokens", data=all_tokens, dtype="float32",
-            chunks=(1, num_tokens, token_dim),
-            compression="gzip", compression_opts=4,
-        )
-        f.create_dataset("nsd_ids", data=all_ids, dtype="int32")
+        cache_file.attrs["num_images"] = int(final_count)
+        cache_file.flush()
 
-        # Metadata
-        f.attrs["model_name"] = model_name
-        f.attrs["pretrained"] = pretrained
-        f.attrs["hidden_dim"] = int(token_dim) if mode == "hidden" else int(cfg["embedding_dim"])
-        f.attrs["proj_dim"] = int(cfg["embedding_dim"])
-        f.attrs["num_tokens"] = int(num_tokens)
-        f.attrs["token_dim"] = int(token_dim)
-        f.attrs["projected"] = mode == "projected"
-        f.attrs["mode"] = mode
-        f.attrs["num_images"] = len(all_ids)
-        f.attrs["build_date"] = datetime.datetime.now().isoformat()
-        f.attrs["normalized"] = True
+    finally:
+        cache_file.close()
 
     file_size_gb = output_path.stat().st_size / 1e9
     logger.info(f"Wrote {output_path} ({file_size_gb:.2f} GB)")
-    logger.info(f"  Shape: ({len(all_ids)}, {num_tokens}, {token_dim})")
+    logger.info(f"  Shape: ({final_count}, {num_tokens}, {token_dim})")
     logger.info(f"  Model: {model_name}, mode={mode}")
     logger.info("Done!")
 

@@ -238,6 +238,53 @@ def _resolve_transform_device(device: str) -> str:
     return device
 
 
+def _format_bytes(n_bytes: int) -> str:
+    units = ["B", "KiB", "MiB", "GiB", "TiB"]
+    value = float(n_bytes)
+    for unit in units:
+        if value < 1024.0 or unit == units[-1]:
+            return f"{value:.2f} {unit}"
+        value /= 1024.0
+    return f"{n_bytes} B"
+
+
+def _should_use_cuda_lowrank(
+    n_train: int,
+    input_dim: int,
+    device: str,
+) -> tuple[bool, str | None]:
+    """Estimate whether a dense GPU low-rank PCA fit is practical.
+
+    ``torch.pca_lowrank`` needs the full train matrix on device and additional
+    working memory for centering and factorization. For very large all-subject
+    token caches, the dense fit can exceed H100 memory even when the transform
+    phase itself would fit comfortably.
+    """
+    if device != "cuda":
+        return False, "requested transform device is not cuda"
+    if not torch.cuda.is_available():
+        return False, "CUDA is unavailable"
+
+    matrix_bytes = int(n_train) * int(input_dim) * 4
+    estimated_working_bytes = int(matrix_bytes * 2.6)
+    free_bytes, total_bytes = torch.cuda.mem_get_info()
+
+    if matrix_bytes > 24 * 1024**3:
+        return (
+            False,
+            "train matrix is too large for dense CUDA low-rank "
+            f"({ _format_bytes(matrix_bytes) })",
+        )
+    if estimated_working_bytes > int(free_bytes * 0.85):
+        return (
+            False,
+            "estimated CUDA working set exceeds safe free-memory budget "
+            f"({ _format_bytes(estimated_working_bytes) } needed vs "
+            f"{ _format_bytes(free_bytes) } free on { _format_bytes(total_bytes) } total)",
+        )
+    return True, None
+
+
 def _transform_batch_pca(
     flat_batch: np.ndarray,
     mean: np.ndarray,
@@ -434,6 +481,18 @@ def _build_pca_cache(
     transform_batch_size = max(batch_size, min(512, k_eff))
     transform_device = _resolve_transform_device(device)
     fit_backend = "torch_pca_lowrank" if transform_device == "cuda" else "incremental_pca"
+    if fit_backend == "torch_pca_lowrank":
+        use_cuda_lowrank, fallback_reason = _should_use_cuda_lowrank(
+            n_train=len(train_indices),
+            input_dim=input_dim,
+            device=transform_device,
+        )
+        if not use_cuda_lowrank:
+            fit_backend = "incremental_pca"
+            logger.warning(
+                "PCA fit: falling back from CUDA low-rank to IncrementalPCA on CPU: %s",
+                fallback_reason,
+            )
     fit_source = f"subjects={','.join(subjects)}" if subjects else f"subject={subject}"
     logger.info(
         "PCA method=train_only, %s, train_images=%d, input_dim=%d, output_dim=%d, "
@@ -448,14 +507,31 @@ def _build_pca_cache(
         transform_device,
     )
 
-    if transform_device == "cuda":
-        pca_mean, pca_components_t, explained, fit_backend = _fit_pca_torch_lowrank(
-            token_cache=token_cache,
-            train_indices=train_indices,
-            input_dim=input_dim,
-            output_dim=k_eff,
-            device=transform_device,
-        )
+    if fit_backend == "torch_pca_lowrank":
+        try:
+            pca_mean, pca_components_t, explained, fit_backend = _fit_pca_torch_lowrank(
+                token_cache=token_cache,
+                train_indices=train_indices,
+                input_dim=input_dim,
+                output_dim=k_eff,
+                device=transform_device,
+            )
+        except (torch.OutOfMemoryError, RuntimeError) as exc:
+            message = str(exc).lower()
+            if "out of memory" not in message:
+                raise
+            logger.warning(
+                "PCA fit: CUDA low-rank failed with OOM; retrying with IncrementalPCA on CPU"
+            )
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            pca_mean, pca_components_t, explained, fit_backend = _fit_pca_incremental(
+                token_cache=token_cache,
+                train_indices=train_indices,
+                input_dim=input_dim,
+                output_dim=k_eff,
+                batch_size_eff=batch_size_eff,
+            )
     else:
         pca_mean, pca_components_t, explained, fit_backend = _fit_pca_incremental(
             token_cache=token_cache,

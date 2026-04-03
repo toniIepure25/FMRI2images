@@ -52,6 +52,23 @@ docs/
   research/
     README.md                        Multi-agent research workspace
 
+  PBT/
+    README.md                        Laboratory delivery package
+    lab 4/
+      README.md                      Lab 4 deliverables
+      chapter_application.md         Practical application chapter
+      functionality_f1.md            F1 design, implementation, and testing
+      f1_demo.html                   Static demonstration interface for F1
+      run_f1_demo.sh                 Executable launcher for F1
+      mini_user_manual_f1.md         Mini user manual with execution screenshots
+    lab 5/
+      README.md                      Lab 5 deliverables
+      abstract.md                    Thesis abstract draft
+      introduction.md                Thesis introduction draft
+      functionality_f2.md            F2 design, implementation, and evaluation notes
+      f2_demo.html                   Static demonstration interface for F2
+      run_f2_demo.sh                 Executable launcher for F2
+
   technical/
     DATA_REQUIREMENTS.md             Data requirements and NSD paths
     NSD_Dataset_Guide.md             NSD dataset reference

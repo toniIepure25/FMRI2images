@@ -5,9 +5,111 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-53%2F53%20passing-brightgreen.svg)]()
 
-> **A comprehensive framework for reconstructing visual stimuli from brain activity using the Natural Scenes Dataset (NSD), CLIP embeddings, and Stable Diffusion.**
+> Repository for fMRI-to-image retrieval and reconstruction experiments built on the Natural Scenes Dataset (NSD), CLIP-based targets, and diffusion-based reconstruction.
 
-This repository implements state-of-the-art approaches for decoding visual information from fMRI signals, featuring multiple encoder architectures, robust preprocessing pipelines, and comprehensive evaluation metrics. The system achieves high-quality image reconstruction by bridging the gap between neural representations and generative models.
+This codebase contains the training, evaluation, and export pipeline used for a sequence of retrieval-focused and reconstruction-focused experiments. The most important completed result in the current documented line is a frozen compact+legacy fixed-fusion retrieval system that reaches **77.2% R@1 on SHARED1000**.
+
+---
+
+## 🔬 Research Motivation
+
+This project studies a central neural decoding question: **how much visual information can be recovered from fMRI signals strongly enough to support reliable image retrieval, and under what modeling choices does that recovery transfer beyond a validation split?**
+
+The work is motivated by two practical and scientific goals:
+
+- to build a reproducible brain-to-image pipeline grounded in the Natural Scenes Dataset rather than in isolated qualitative examples;
+- to understand which components genuinely help decoding, especially the distinction between global retrieval, shortlist-local reranking, and richer reconstruction-oriented targets.
+
+The overall research direction is deliberately conservative. Instead of treating every architectural addition as an improvement by default, the repository tests strong baselines, tracks negative results, and prioritizes methods that continue to hold up on **SHARED1000**, which is the most important reportable benchmark in the documented experimental line.
+
+---
+
+## 📈 Current Results Snapshot
+
+The table below keeps only milestones that are explicitly documented in this repository, primarily in [docs/EXPERIMENT_CONTEXT.md](docs/EXPERIMENT_CONTEXT.md), the thesis chapter draft in [docs/thesis/template/chapter4.tex](docs/thesis/template/chapter4.tex), and the frozen export bundle in [docs/thesis/results/final_outputs/best_system](docs/thesis/results/final_outputs/best_system).
+
+| Stage / system                         | Validation R@1                        | SHARED1000 R@1 | Why it matters                                                                                                    |
+| -------------------------------------- | ------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `exp001_baseline_ultimate`             | 1.33% top-1 on a 75-sample evaluation | —              | Earliest complete end-to-end baseline; useful mainly as a sanity check rather than a competitive retrieval system |
+| `V30e` compact CSLS retrieval          | 52.9% CSLS                            | 49.2% CSLS     | Strong compact shortlist head before adding richer rerank and legacy fusion signals                               |
+| `V32` compact + rerank frozen fusion   | 58.6%                                 | 57.0%          | Established that shortlist-local reranking helped when applied after compact retrieval rather than replacing it   |
+| `V34` fixed tri-fusion                 | 76.1%                                 | 75.3%          | First major compact + rerank + legacy fusion breakthrough                                                         |
+| `V35 + N1v28a` frozen fixed tri-fusion | **77.6%**                             | **77.2%**      | Best documented practical retrieval system in the repository and the frozen reportable endpoint                   |
+| `V37` learned tri-gate                 | 89.6%                                 | 67.1%          | Important negative result: a validation-fitted learned gate overfit badly and failed to transfer                  |
+| `V39` repaired reranker                | 63.4%                                 | 65.5%          | Showed that even a repaired shortlist reranker still remained below the fixed tri-fusion baseline                 |
+
+Two conclusions matter most for the rest of the repository:
+
+- the strongest completed system is still the frozen **compact CSLS + legacy CSLS** fusion recipe selected from validation and frozen before SHARED1000;
+- after the 77.2% endpoint, the main problem is not shortlist recall, but ranking inside a shortlist that already contains the correct answer surprisingly often.
+
+---
+
+## 🧭 Experimental Stages
+
+The project did not move in a straight line. The main stages were:
+
+1. **End-to-end baseline sanity checks.** The earliest complete runs showed that decent cosine similarity alone was not enough; retrieval could remain poor even when embedding loss looked reasonable.
+2. **Compact-head training plus expert fusion.** The project then converged on a stronger compact retrieval branch and a complementary legacy branch, which led to the best fixed tri-fusion result.
+3. **Learned fusion as a negative result.** A validation-fitted tri-gate looked very strong on VAL, but collapsed on SHARED1000, showing that the problem was easy to overfit at the decision layer.
+4. **Shortlist reranking and forensic audit.** Later work showed that the correct image was usually already present in the expert union shortlist, which shifted the diagnosis from recall failure to ranking failure inside the shortlist.
+5. **Finalization of the frozen best system.** The repository therefore treats the fixed compact+legacy fusion recipe as the reportable production baseline unless a later wave clearly and reproducibly exceeds it.
+
+For the final frozen system, the documented recipe is:
+
+- compact score: `csls`
+- legacy score: `csls`
+- fusion family: `normalized_weighted`
+- normalization: `zscore`
+- shortlist size: `150`
+- weights: `alpha / beta / gamma = 0.3 / 0.0 / 0.7`
+
+---
+
+## 🖼️ Qualitative Reconstruction Examples
+
+The repository also includes exported comparison panels in [reconstruction_results](reconstruction_results). These are not presented as a quantitative reconstruction benchmark; they are qualitative evidence showing what the retrieval-and-reconstruction pipeline preserves, where it partially aligns, and where it still fails.
+
+### Selected panels from `reconstruction_results`
+
+<table>
+  <tr>
+    <td align="center"><strong>Best</strong></td>
+    <td align="center"><strong>Best</strong></td>
+    <td align="center"><strong>Medium</strong></td>
+  </tr>
+  <tr>
+    <td><img src="reconstruction_results/best_cases/query_21279.png" alt="Best-case reconstruction panel for query 21279" width="100%"></td>
+    <td><img src="reconstruction_results/best_cases/query_26292.png" alt="Best-case reconstruction panel for query 26292" width="100%"></td>
+    <td><img src="reconstruction_results/medium_cases/query_17942.png" alt="Medium-case reconstruction panel for query 17942" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><code>best_cases/query_21279.png</code></td>
+    <td align="center"><code>best_cases/query_26292.png</code></td>
+    <td align="center"><code>medium_cases/query_17942.png</code></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Medium</strong></td>
+    <td align="center"><strong>Hard</strong></td>
+    <td align="center"><strong>Hard</strong></td>
+  </tr>
+  <tr>
+    <td><img src="reconstruction_results/medium_cases/query_32625.png" alt="Medium-case reconstruction panel for query 32625" width="100%"></td>
+    <td><img src="reconstruction_results/hard_cases/query_69030.png" alt="Hard-case reconstruction panel for query 69030" width="100%"></td>
+    <td><img src="reconstruction_results/hard_cases/query_57553.png" alt="Hard-case reconstruction panel for query 57553" width="100%"></td>
+  </tr>
+  <tr>
+    <td align="center"><code>medium_cases/query_32625.png</code></td>
+    <td align="center"><code>hard_cases/query_69030.png</code></td>
+    <td align="center"><code>hard_cases/query_57553.png</code></td>
+  </tr>
+</table>
+
+These panels are useful as a compact qualitative ladder:
+
+- the **best cases** show examples where semantic content, coarse layout, and the retrieved visual neighborhood align well;
+- the **medium cases** show partial preservation of category and scene structure with visible ambiguity;
+- the **hard cases** make the remaining failure modes explicit, especially when retrieval remains plausible at a coarse level but the visual details diverge.
 
 ---
 

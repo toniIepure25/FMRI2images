@@ -184,3 +184,15 @@ Thumbs.db
 *codebase.md*
 
 *.png
+AGENTS.md
+docs/thesis/
+
+.claude/
+.cursor/
+.pytest_cache/
+.venv/
+cache/
+checkpoints/
+data/
+docs/PBT/
+docs/Thesis/

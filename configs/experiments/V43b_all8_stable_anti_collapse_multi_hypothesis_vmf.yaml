@@ -152,10 +152,11 @@ training:
   mixed_precision_dtype: bf16
   num_epochs: 120
   optimizer:
-    type: adamw
-    lr: 2.0e-05
+    type: sgd
+    lr: 1.0e-4
     weight_decay: 0.05
-    betas: [0.9, 0.999]
+    momentum: 0.0
+    nesterov: false
   warmup_epochs: 5
   min_lr: 1.0e-06
   gradient_clip: 0.5

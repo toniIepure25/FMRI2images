@@ -4679,19 +4679,41 @@ def main() -> None:
     opt_cfg = config["training"]["optimizer"]
     # When cross-subject freeze is active, only include trainable params initially
     _opt_params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.AdamW(
-        _opt_params,
-        lr=float(opt_cfg.get("lr", 1e-4)),
-        weight_decay=float(opt_cfg.get("weight_decay", 0.01)),
-        betas=opt_cfg.get("betas", [0.9, 0.999]),
-    )
+    _opt_type = str(opt_cfg.get("type", "adamw")).lower()
+    _opt_lr = float(opt_cfg.get("lr", 1e-4))
+    _opt_weight_decay = float(opt_cfg.get("weight_decay", 0.01))
+    if _opt_type == "adamw":
+        optimizer = torch.optim.AdamW(
+            _opt_params,
+            lr=_opt_lr,
+            weight_decay=_opt_weight_decay,
+            betas=opt_cfg.get("betas", [0.9, 0.999]),
+        )
+    elif _opt_type == "sgd":
+        optimizer = torch.optim.SGD(
+            _opt_params,
+            lr=_opt_lr,
+            momentum=float(opt_cfg.get("momentum", 0.0)),
+            dampening=float(opt_cfg.get("dampening", 0.0)),
+            weight_decay=_opt_weight_decay,
+            nesterov=bool(opt_cfg.get("nesterov", False)),
+        )
+        logger.info(
+            "Optimizer: SGD (lr=%.2e, momentum=%.3f, weight_decay=%.4f, nesterov=%s)",
+            _opt_lr,
+            float(opt_cfg.get("momentum", 0.0)),
+            _opt_weight_decay,
+            bool(opt_cfg.get("nesterov", False)),
+        )
+    else:
+        raise ValueError(f"Unsupported optimizer type: {_opt_type}")
 
     loss_params = []
     for loss_mod in losses.values():
         if isinstance(loss_mod, nn.Module):
             loss_params.extend(loss_mod.parameters())
     if loss_params:
-        optimizer.add_param_group({"params": loss_params, "lr": float(opt_cfg.get("lr", 1e-4))})
+        optimizer.add_param_group({"params": loss_params, "lr": _opt_lr})
         logger.info("Added %d loss parameter(s) to optimizer", len(loss_params))
 
     # --- Data split ---

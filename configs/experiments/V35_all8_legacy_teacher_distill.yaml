@@ -19,6 +19,7 @@ data:
   zscore_mode: "per_session"
   embedding_column: "fused"
   seed: 42
+  exclude_parent_train_from_val: true
   token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected_all8.h5"
   rerank_cache_method: "pca"
   rerank_cache_path: "outputs/rerank_cache/pca_trainonly_dim2048_seed42_all8.npz"

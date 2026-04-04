@@ -4721,7 +4721,41 @@ def main() -> None:
     exclude_shared1000 = config["data"].get("exclude_shared1000", False)
     data_seed = config["data"].get("seed", 42)
     _split_file = config["data"].get("split_file")
+    _exclude_parent_train_from_val = bool(
+        config.get("data", {}).get("exclude_parent_train_from_val", False)
+    )
     _split_nsd_ids_used: dict | None = None
+
+    def _collect_parent_train_exclusions() -> tuple[set[int], list[str]]:
+        _sources: list[str] = []
+        _excluded: set[int] = set()
+        if not _exclude_parent_train_from_val:
+            return _excluded, _sources
+        _candidate_ckpts: list[str] = []
+        for _cand in (
+            _pm_path,
+            _pe_path,
+            _cross_subject_cfg.get("pretrained_checkpoint") if _cross_subject_enabled else None,
+        ):
+            if _cand:
+                _candidate_ckpts.append(str(_cand))
+        for _cand in dict.fromkeys(_candidate_ckpts):
+            _split_path = Path(_cand).parent / "split.json"
+            if not _split_path.exists():
+                logger.warning(
+                    "exclude_parent_train_from_val=true but parent split.json was not found: %s",
+                    _split_path,
+                )
+                continue
+            with open(_split_path) as _psf:
+                _parent_split = json.load(_psf)
+            _train_ids = {int(x) for x in _parent_split.get("train_nsd_ids", [])}
+            if _train_ids:
+                _excluded.update(_train_ids)
+                _sources.append(str(_split_path))
+        return _excluded, _sources
+
+    _parent_train_exclusions, _parent_train_exclusion_sources = _collect_parent_train_exclusions()
 
     # --- Try loading a pre-computed split file (cross-phase consistency) ---
     if _split_file and os.path.isfile(_split_file) and hasattr(full_dataset, "index_df"):
@@ -4749,7 +4783,12 @@ def main() -> None:
     elif _split_file:
         logger.warning("split_file specified but not found: %s — falling back to computed split", _split_file)
 
-    if _split_nsd_ids_used is None and hasattr(full_dataset, "train_indices") and full_dataset.train_indices is not None:
+    if (
+        _split_nsd_ids_used is None
+        and hasattr(full_dataset, "train_indices")
+        and full_dataset.train_indices is not None
+        and not (_exclude_parent_train_from_val and split_by_image and hasattr(full_dataset, "index_df"))
+    ):
         train_indices = full_dataset.train_indices.tolist()
         val_indices = full_dataset.val_indices.tolist()
         logger.info(
@@ -4786,8 +4825,34 @@ def main() -> None:
         train_ratio = config["data"]["train_split"]
         val_ratio = config["data"]["val_split"]
         n_val_images = max(1, int(len(unique_images) * val_ratio / (train_ratio + val_ratio)))
-        val_image_set = set(unique_images[:n_val_images])
-        train_image_set = set(unique_images[n_val_images:])
+        if _parent_train_exclusions:
+            _eligible_val = int(sum(int(x) not in _parent_train_exclusions for x in unique_images))
+            if _eligible_val < n_val_images:
+                raise RuntimeError(
+                    "exclude_parent_train_from_val=true but only "
+                    f"{_eligible_val} eligible validation images remain for target {n_val_images}"
+                )
+            val_image_list: list[int] = []
+            train_image_list: list[int] = []
+            for _nid in unique_images:
+                _nid_i = int(_nid)
+                if len(val_image_list) < n_val_images and _nid_i not in _parent_train_exclusions:
+                    val_image_list.append(_nid_i)
+                else:
+                    train_image_list.append(_nid_i)
+            val_image_set = set(val_image_list)
+            train_image_set = set(train_image_list)
+            logger.info(
+                "Leakage-aware image split: excluded %d parent-train images from val candidacy "
+                "(eligible_val=%d, target_val=%d) using %s",
+                len(_parent_train_exclusions),
+                _eligible_val,
+                n_val_images,
+                _parent_train_exclusion_sources,
+            )
+        else:
+            val_image_set = set(int(x) for x in unique_images[:n_val_images])
+            train_image_set = set(int(x) for x in unique_images[n_val_images:])
 
         train_indices = [i for i in pool_indices if _idx_df.iloc[i]["nsdId"] in train_image_set]
         val_indices = [i for i in pool_indices if _idx_df.iloc[i]["nsdId"] in val_image_set]
@@ -4825,6 +4890,10 @@ def main() -> None:
             "n_val_images": len(_split_nsd_ids_used["val_nsd_ids"]),
             **_split_nsd_ids_used,
         }
+        if _parent_train_exclusions:
+            _split_payload["exclude_parent_train_from_val"] = True
+            _split_payload["parent_train_excluded_from_val_count"] = len(_parent_train_exclusions)
+            _split_payload["parent_train_excluded_from_val_sources"] = _parent_train_exclusion_sources
         if _split_file and os.path.isfile(_split_file):
             _split_payload["loaded_from"] = _split_file
         with open(_split_save_path, "w") as _sf:

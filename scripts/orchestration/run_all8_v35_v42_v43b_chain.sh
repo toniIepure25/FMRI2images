@@ -16,6 +16,7 @@ mkdir -p "${LOG_ROOT}"
 touch "${LOG_ROOT}/chain_master.log"
 
 export CUDA_VISIBLE_DEVICES="${GPU}"
+export PYTORCH_ALLOC_CONF="${PYTORCH_ALLOC_CONF:-expandable_segments:True}"
 if [[ -d "${RUNTIME_PYTHON}" ]]; then
   export PYTHONPATH="${RUNTIME_PYTHON}:src:${PYTHONPATH:-}"
   export PIP_CACHE_DIR="${PIP_CACHE_DIR:-${RUNTIME_ROOT}/pip_cache}"

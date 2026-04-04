@@ -146,8 +146,8 @@ queue:
   size: 16384
 
 training:
-  batch_size: 8
-  gradient_accumulation_steps: 32
+  batch_size: 4
+  gradient_accumulation_steps: 64
   mixed_precision: true
   mixed_precision_dtype: bf16
   num_epochs: 120
@@ -166,7 +166,7 @@ training:
   voxel_dropout: 0.1
   softclip_from_start: true
   mixco:
-    enabled: true
+    enabled: false
     alpha: 0.15
     temperature: 0.07
     weight: 0.5

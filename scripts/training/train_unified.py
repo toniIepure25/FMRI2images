@@ -3875,9 +3875,10 @@ def save_checkpoint(
     losses: Optional[Dict[str, nn.Module]] = None,
     meta: Optional[Dict[str, Any]] = None,
     ema: Optional["ModelEMA"] = None,
+    lightweight: bool = False,
 ) -> None:
     loss_states = {}
-    if losses:
+    if losses and not lightweight:
         for k, v in losses.items():
             if isinstance(v, nn.Module):
                 loss_states[k] = v.state_dict()
@@ -3885,18 +3886,20 @@ def save_checkpoint(
         "epoch": epoch,
         "global_step": global_step,
         "model_state_dict": model.state_dict(),
-        "optimizer_state_dict": optimizer.state_dict(),
-        "lr_scheduler_state_dict": lr_scheduler.state_dict() if lr_scheduler else None,
-        "scaler_state_dict": scaler.state_dict() if scaler else None,
-        "loss_states": loss_states,
         "val_loss": val_loss,
         "config": config,
         "model_config": config.get("model", {}),
         "subject": subject,
         "roi_mask_path": roi_mask_path,
         "_meta": meta or {},
+        "checkpoint_format": "lightweight" if lightweight else "full",
     }
-    if ema is not None:
+    if not lightweight:
+        payload["optimizer_state_dict"] = optimizer.state_dict()
+        payload["lr_scheduler_state_dict"] = lr_scheduler.state_dict() if lr_scheduler else None
+        payload["scaler_state_dict"] = scaler.state_dict() if scaler else None
+        payload["loss_states"] = loss_states
+    if ema is not None and not lightweight:
         payload["ema_shadow"] = {k: v.cpu() for k, v in ema.shadow.items()}
     path.parent.mkdir(parents=True, exist_ok=True)
     for _attempt in range(3):
@@ -3953,9 +3956,20 @@ def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimiz
     """Load checkpoint and restore state. Returns (start_epoch, best_val_loss, global_step)."""
     ckpt = torch.load(path, map_location=device, weights_only=False)
     model.load_state_dict(ckpt["model_state_dict"])
-    optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+    if ckpt.get("optimizer_state_dict") is not None:
+        optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+    else:
+        logger.warning(
+            "Checkpoint %s has no optimizer state; continuing with a fresh optimizer",
+            path,
+        )
     if lr_scheduler and ckpt.get("lr_scheduler_state_dict"):
         lr_scheduler.load_state_dict(ckpt["lr_scheduler_state_dict"])
+    elif lr_scheduler and ckpt.get("optimizer_state_dict") is None:
+        logger.warning(
+            "Checkpoint %s has no LR scheduler state; keeping the freshly created scheduler",
+            path,
+        )
     if scaler and ckpt.get("scaler_state_dict"):
         scaler.load_state_dict(ckpt["scaler_state_dict"])
     if losses and ckpt.get("loss_states"):
@@ -3968,8 +3982,13 @@ def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimiz
             if name in ema.shadow:
                 ema.shadow[name] = val.to(device)
         logger.info("Restored EMA shadow state (%d params)", len(ckpt["ema_shadow"]))
-    logger.info("Resumed from checkpoint %s (epoch %d, val_loss=%.4f)",
-                path, ckpt["epoch"], ckpt["val_loss"])
+    logger.info(
+        "Resumed from checkpoint %s (epoch %d, val_loss=%.4f, format=%s)",
+        path,
+        ckpt["epoch"],
+        ckpt["val_loss"],
+        ckpt.get("checkpoint_format", "full"),
+    )
     return ckpt["epoch"] + 1, ckpt["val_loss"], ckpt.get("global_step", 0)
 
 
@@ -6186,6 +6205,9 @@ def main() -> None:
         if _cur_metric is None:
             _cur_metric = val_r1
         best_r1 = max(best_r1, val_r1)
+        _lightweight_best_ckpt = bool(
+            config.get("training", {}).get("lightweight_best_checkpoint", False)
+        )
 
         if args.save_checkpoints == "all":
             save_checkpoint(
@@ -6213,6 +6235,7 @@ def main() -> None:
                     scaler, epoch, val_loss, config, global_step,
                     subject=subject, roi_mask_path=str(roi_mask_path),
                     losses=losses, meta=_ckpt_meta, ema=ema,
+                    lightweight=_lightweight_best_ckpt,
                 )
             if ema is not None:
                 ema.restore(model)
@@ -6245,6 +6268,7 @@ def main() -> None:
                     scaler, epoch, val_loss, config, global_step,
                     subject=subject, roi_mask_path=str(roi_mask_path),
                     losses=losses, meta=_ckpt_meta, ema=ema,
+                    lightweight=_lightweight_best_ckpt,
                 )
             if ema is not None:
                 ema.restore(model)

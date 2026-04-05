@@ -149,6 +149,7 @@ queue:
 training:
   batch_size: 4
   gradient_accumulation_steps: 64
+  lightweight_best_checkpoint: true
   mixed_precision: true
   mixed_precision_dtype: bf16
   num_epochs: 120

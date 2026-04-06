@@ -17,6 +17,7 @@ data:
   normalize_fmri: true
   average_repetitions: false
   one_trial_per_image_per_epoch: true
+  max_unique_images_per_epoch: 40000
   zscore_mode: "per_session"
   embedding_column: "fused"
   seed: 42
@@ -42,6 +43,7 @@ model:
     retrieval_dim: 768
     rerank_enabled: true
     rerank_dim: 2048
+    regression_enabled: false
     num_tokens: 257
     token_dim_per: 768
     perceptual_enabled: false
@@ -79,6 +81,7 @@ loss:
     weight: 1.0
     tau: 0.07
     symmetric: true
+    start_epoch: 12
   shortlist_teacher_distill:
     enabled: false
   legacy_teacher_distill:
@@ -91,7 +94,7 @@ loss:
     student_temperature: 0.07
     start_epoch: 10
     teacher_rank_gate: 20
-    teacher_step_interval: 16
+    teacher_step_interval: 64
     teacher_chunk_size: 1
   vmf_nll:
     enabled: false
@@ -150,8 +153,11 @@ training:
 evaluation:
   use_csls: true
   csls_k: 10
-  eval_shared1000: true
+  eval_shared1000: false
   checkpoint_metric: "fused_r@1"
+  proxy_val_every_epochs: 1
+  proxy_val_num_images: 2048
+  full_val_every_epochs: 3
   mc_tta_samples: 1
   kappa_weighted_avg: true
   two_stage:

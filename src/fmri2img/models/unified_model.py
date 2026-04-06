@@ -488,6 +488,7 @@ class UnifiedModel(nn.Module):
                 token_dim=_token_dim_total,
                 rerank_dim=_rerank_dim,
                 rerank_enabled=_rerank_enabled,
+                regression_enabled=decoder_cfg.get("regression_enabled", True),
                 perceptual_dim=_perc_dim,
                 perceptual_enabled=_perc_enabled,
                 hidden_dims=decoder_cfg.get("hidden_dims", [2048]),

@@ -49,6 +49,18 @@ run_step() {
   echo "[$(date -Iseconds)] DONE ${name}" | tee -a "${LOG_ROOT}/chain_master.log"
 }
 
+gate_promotion() {
+  local name="$1"
+  shift
+  echo "[$(date -Iseconds)] GATE ${name}" | tee -a "${LOG_ROOT}/chain_master.log"
+  if python3 scripts/orchestration/check_all8_promotion_gate.py "$@" 2>&1 | tee "${LOG_ROOT}/${name}.log"; then
+    echo "[$(date -Iseconds)] PASS ${name}" | tee -a "${LOG_ROOT}/chain_master.log"
+  else
+    echo "[$(date -Iseconds)] STOP ${name}" | tee -a "${LOG_ROOT}/chain_master.log"
+    exit 0
+  fi
+}
+
 should_run_stage() {
   local stage="$1"
   local stages=(
@@ -109,6 +121,9 @@ if should_run_stage v35_all8; then
       --subject "${SUBJECT}" \
       --gpu 0 \
       --save-checkpoints "${SAVE_CKPT}"
+  gate_promotion promote_v35_all8_to_v42_all8 \
+    --current-dir "experimental_results/V35_all8_legacy_teacher_distill/${SUBJECT}" \
+    --baseline-dir "experimental_results/V35_legacy_teacher_distill/${SUBJECT}"
 fi
 
 if should_run_stage v42_all8; then
@@ -118,6 +133,10 @@ if should_run_stage v42_all8; then
       --subject "${SUBJECT}" \
       --gpu 0 \
       --save-checkpoints "${SAVE_CKPT}"
+  gate_promotion promote_v42_all8_to_v43b_all8 \
+    --current-dir "experimental_results/V42_all8_multi_hypothesis_vmf_retrieval/${SUBJECT}" \
+    --baseline-dir "experimental_results/V42_multi_hypothesis_vmf_retrieval/${SUBJECT}" \
+    --require-mixture
 fi
 
 if should_run_stage v43b_all8; then

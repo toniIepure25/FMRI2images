@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 class TripleHeadOutput(NamedTuple):
     mu: torch.Tensor                        # (B, retrieval_dim) L2-normalised
     kappa: torch.Tensor                     # (B, 1) positive
-    reg_pred: torch.Tensor                  # (B, token_dim) un-normalised
+    reg_pred: Optional[torch.Tensor]        # (B, token_dim) un-normalised
     perc_pred: Optional[torch.Tensor]       # (B, perceptual_dim) or None
     rerank_pred: Optional[torch.Tensor]     # (B, rerank_dim) L2-normalised or None
     component_mu: Optional[torch.Tensor] = None       # (B, M, retrieval_dim)
@@ -85,6 +85,7 @@ class TripleHeadVMFDecoder(nn.Module):
         token_dim: int = 197376,
         rerank_dim: int = 1024,
         rerank_enabled: bool = False,
+        regression_enabled: bool = True,
         perceptual_dim: int = 768,
         perceptual_enabled: bool = False,
         hidden_dims: Optional[list[int]] = None,
@@ -102,6 +103,7 @@ class TripleHeadVMFDecoder(nn.Module):
         self.token_dim = token_dim
         self.rerank_dim = rerank_dim
         self.has_rerank = rerank_enabled
+        self.has_regression = bool(regression_enabled)
         self.perceptual_dim = perceptual_dim
         self.has_perceptual = perceptual_enabled
         self.kappa_min = kappa_min
@@ -134,7 +136,9 @@ class TripleHeadVMFDecoder(nn.Module):
             self.retrieval_component_logits_head = nn.Linear(backbone_out, self.retrieval_num_hypotheses)
 
         # --- Head B: rich regression (un-normalised, Euclidean) ---
-        self.regression_head = nn.Linear(backbone_out, token_dim)
+        self.regression_head: Optional[nn.Linear] = None
+        if self.has_regression:
+            self.regression_head = nn.Linear(backbone_out, token_dim)
 
         # --- Head D: dedicated rerank (L2-normalised, cosine-discriminative) ---
         self.rerank_head: Optional[nn.Linear] = None
@@ -158,8 +162,10 @@ class TripleHeadVMFDecoder(nn.Module):
                        + self.retrieval_mu_head.bias.numel()
                        + self.retrieval_kappa_head.weight.numel()
                        + self.retrieval_kappa_head.bias.numel())
-        n_regression = (self.regression_head.weight.numel()
-                        + self.regression_head.bias.numel())
+        n_regression = 0
+        if self.regression_head is not None:
+            n_regression = (self.regression_head.weight.numel()
+                            + self.regression_head.bias.numel())
         n_rerank = 0
         if self.rerank_head is not None:
             n_rerank = (self.rerank_head.weight.numel()
@@ -179,7 +185,7 @@ class TripleHeadVMFDecoder(nn.Module):
             hidden_dims, backbone_out,
             self.retrieval_dim, self.retrieval_num_hypotheses, n_retrieval,
             self.rerank_dim if self.has_rerank else "off", n_rerank,
-            self.token_dim, n_regression,
+            self.token_dim if self.has_regression else "off", n_regression,
             self.perceptual_dim if self.has_perceptual else "off",
             n_perceptual,
             total / 1e6,
@@ -227,7 +233,7 @@ class TripleHeadVMFDecoder(nn.Module):
             kappa = torch.linalg.norm(consensus, dim=-1, keepdim=True)
 
         # Head B: rich regression (un-normalised)
-        reg_pred = self.regression_head(features)
+        reg_pred = self.regression_head(features) if self.regression_head is not None else None
 
         # Head D: dedicated rerank (L2-normalised)
         rerank_pred = None

@@ -890,9 +890,14 @@ class PreextractedNSDDataset(Dataset):
 
 
 class OneTrialPerImagePerEpochSampler(Sampler[int]):
-    """Sample one repetition per unique image on each training epoch."""
+    """Sample one repetition per image, with an optional per-epoch image budget."""
 
-    def __init__(self, dataset: Dataset, seed: int = 42):
+    def __init__(
+        self,
+        dataset: Dataset,
+        seed: int = 42,
+        max_unique_images_per_epoch: Optional[int] = None,
+    ):
         self.seed = int(seed)
         self._epoch = 0
 
@@ -908,17 +913,73 @@ class OneTrialPerImagePerEpochSampler(Sampler[int]):
         groups: dict[int, list[int]] = {}
         for pos, nsd_id in enumerate(index_df["nsdId"].astype(np.int64).tolist()):
             groups.setdefault(int(nsd_id), []).append(int(pos))
+
         self.groups = [np.asarray(groups[k], dtype=np.int64) for k in sorted(groups.keys())]
+        self.full_train_rows = int(len(index_df))
+        self.unique_image_count = int(len(self.groups))
+        if max_unique_images_per_epoch is None:
+            self.max_unique_images_per_epoch = self.unique_image_count
+        else:
+            self.max_unique_images_per_epoch = max(1, min(int(max_unique_images_per_epoch), self.unique_image_count))
+        rng = np.random.default_rng(self.seed)
+        self._group_order = rng.permutation(self.unique_image_count).astype(np.int64)
+
+    @property
+    def sampled_rows_per_epoch(self) -> int:
+        return self.max_unique_images_per_epoch
 
     def __iter__(self):
         rng = np.random.default_rng(self.seed + self._epoch)
-        self._epoch += 1
-        sampled = [int(group[rng.integers(0, len(group))]) for group in self.groups]
+        if self.max_unique_images_per_epoch >= self.unique_image_count:
+            group_ids = self._group_order
+        else:
+            start = (self._epoch * self.max_unique_images_per_epoch) % self.unique_image_count
+            stop = start + self.max_unique_images_per_epoch
+            if stop <= self.unique_image_count:
+                group_ids = self._group_order[start:stop]
+            else:
+                wrap = stop - self.unique_image_count
+                group_ids = np.concatenate((self._group_order[start:], self._group_order[:wrap]))
+        sampled = [
+            int(self.groups[int(group_id)][rng.integers(0, len(self.groups[int(group_id)]))])
+            for group_id in group_ids
+        ]
         rng.shuffle(sampled)
+        self._epoch += 1
         return iter(sampled)
 
     def __len__(self) -> int:
-        return len(self.groups)
+        return self.sampled_rows_per_epoch
+
+
+def _build_proxy_val_subset(
+    full_dataset: Dataset,
+    val_dataset: Dataset,
+    max_unique_images: int,
+    seed: int,
+) -> Tuple[Subset, np.ndarray]:
+    if max_unique_images <= 0:
+        raise ValueError("Proxy validation requires max_unique_images > 0")
+    if not hasattr(val_dataset, "indices") or not hasattr(full_dataset, "index_df"):
+        raise ValueError("Proxy validation requires a Subset val_dataset backed by index_df")
+
+    val_indices = list(val_dataset.indices)
+    val_index_df = full_dataset.index_df.iloc[val_indices]
+    unique_ids = np.unique(val_index_df["nsdId"].astype(np.int64).values)
+    if len(unique_ids) <= max_unique_images:
+        proxy_indices = val_indices
+        proxy_ids = unique_ids
+    else:
+        rng = np.random.default_rng(int(seed) + 1009)
+        shuffled = unique_ids.copy()
+        rng.shuffle(shuffled)
+        chosen_ids = set(int(x) for x in shuffled[:max_unique_images])
+        proxy_indices = [
+            int(i) for i in val_indices
+            if int(full_dataset.index_df.iloc[int(i)]["nsdId"]) in chosen_ids
+        ]
+        proxy_ids = np.asarray(sorted(chosen_ids), dtype=np.int64)
+    return Subset(full_dataset, proxy_indices), proxy_ids
 
 
 # ---------------------------------------------------------------------------
@@ -5235,6 +5296,9 @@ def main() -> None:
     _one_trial_per_image = bool(
         config.get("data", {}).get("one_trial_per_image_per_epoch", False)
     )
+    _max_unique_images_per_epoch = config.get("data", {}).get("max_unique_images_per_epoch")
+    if _max_unique_images_per_epoch is not None and not _one_trial_per_image:
+        raise ValueError("data.max_unique_images_per_epoch requires data.one_trial_per_image_per_epoch=true")
 
     _collate_fn = None
     if _is_multi_subject:
@@ -5292,12 +5356,17 @@ def main() -> None:
     if _one_trial_per_image:
         if not split_by_image:
             raise ValueError("data.one_trial_per_image_per_epoch=true requires split_by_image=true")
-        _train_sampler = OneTrialPerImagePerEpochSampler(train_dataset, seed=data_seed)
+        _train_sampler = OneTrialPerImagePerEpochSampler(
+            train_dataset,
+            seed=data_seed,
+            max_unique_images_per_epoch=_max_unique_images_per_epoch,
+        )
         _train_shuffle = False
         logger.info(
-            "One-trial-per-image sampler active: %d train rows -> %d sampled rows per epoch",
-            len(train_dataset),
-            len(_train_sampler),
+            "Epoch-budgeted image sampler active: full_rows=%d unique_images=%d sampled_rows=%d per epoch",
+            _train_sampler.full_train_rows,
+            _train_sampler.unique_image_count,
+            _train_sampler.sampled_rows_per_epoch,
         )
 
     train_loader = DataLoader(
@@ -5313,12 +5382,58 @@ def main() -> None:
         persistent_workers=(dl_workers > 0),
         collate_fn=_collate_fn,
     )
+    if _train_sampler is not None:
+        _expected_batches = math.ceil(_train_sampler.sampled_rows_per_epoch / batch_size)
+        _actual_batches = len(train_loader)
+        logger.info(
+            "Train loader budget: full_rows=%d unique_images=%d sampled_rows=%d expected_batches=%d actual_batches=%d",
+            _train_sampler.full_train_rows,
+            _train_sampler.unique_image_count,
+            _train_sampler.sampled_rows_per_epoch,
+            _expected_batches,
+            _actual_batches,
+        )
+        if _actual_batches != _expected_batches:
+            raise RuntimeError(
+                "Epoch-budgeted sampler mismatch: "
+                f"expected { _expected_batches } batches from { _train_sampler.sampled_rows_per_epoch } sampled rows, "
+                f"but DataLoader reports { _actual_batches } batches"
+            )
     logger.info("Train: %d | Val: %d", len(train_dataset), len(val_dataset))
 
     # Build val nsdId array for image-level retrieval (dedup across repetitions)
     _val_nsd_ids = None
     if hasattr(val_dataset, "indices") and hasattr(full_dataset, "index_df"):
         _val_nsd_ids = full_dataset.index_df.iloc[list(val_dataset.indices)]["nsdId"].values
+
+    _proxy_val_loader = None
+    _proxy_val_nsd_ids = None
+    _proxy_val_every_epochs = max(0, int(config.get("evaluation", {}).get("proxy_val_every_epochs", 0)))
+    _full_val_every_epochs = max(1, int(config.get("evaluation", {}).get("full_val_every_epochs", 1)))
+    _proxy_val_num_images = int(config.get("evaluation", {}).get("proxy_val_num_images", 0) or 0)
+    if _proxy_val_every_epochs > 0 and _full_val_every_epochs > 1:
+        if _proxy_val_num_images <= 0:
+            raise ValueError("evaluation.proxy_val_num_images must be > 0 when proxy validation is enabled")
+        _proxy_val_dataset, _proxy_unique_ids = _build_proxy_val_subset(
+            full_dataset,
+            val_dataset,
+            max_unique_images=_proxy_val_num_images,
+            seed=data_seed,
+        )
+        _proxy_val_loader = DataLoader(
+            _proxy_val_dataset, batch_size=batch_size, shuffle=False,
+            num_workers=dl_workers, pin_memory=dl_pin,
+            persistent_workers=(dl_workers > 0),
+            collate_fn=_collate_fn,
+        )
+        _proxy_val_nsd_ids = full_dataset.index_df.iloc[list(_proxy_val_dataset.indices)]["nsdId"].values
+        logger.info(
+            "Proxy validation active: %d unique val images (%d rows), every %d epoch(s); full validation every %d epoch(s)",
+            len(_proxy_unique_ids),
+            len(_proxy_val_dataset),
+            _proxy_val_every_epochs,
+            _full_val_every_epochs,
+        )
 
     # --- AMP ---
     grad_accum_steps = config["training"].get("gradient_accumulation_steps", 16)
@@ -5909,19 +6024,42 @@ def main() -> None:
                     len(_tr_p),
                 )
 
+        _run_full_validation = (_full_val_every_epochs <= 1) or (epoch % _full_val_every_epochs == 0)
+        _run_proxy_validation = (
+            (not _run_full_validation)
+            and _proxy_val_loader is not None
+            and _proxy_val_every_epochs > 0
+            and (epoch % _proxy_val_every_epochs == 0)
+        )
+        if not _run_full_validation and not _run_proxy_validation:
+            logger.info(
+                "Skipping validation at epoch %d (proxy every %d epoch(s), full every %d epoch(s))",
+                epoch,
+                _proxy_val_every_epochs,
+                _full_val_every_epochs,
+            )
+            metrics_logger.log_epoch(epoch, optimizer.param_groups[0]["lr"], train_metrics, {})
+            gc.collect()
+            torch.cuda.empty_cache()
+            continue
+
+        _eval_loader = val_loader if _run_full_validation else _proxy_val_loader
+        _eval_nsd_ids = _val_nsd_ids if _run_full_validation else _proxy_val_nsd_ids
+        _eval_label = "full" if _run_full_validation else "proxy"
+
         if ema is not None:
             ema.apply_shadow(model)
         val_metrics, val_preds, val_gts = validate(
-            model, val_loader, losses, loss_weights, device, preprocessor, queue,
+            model, _eval_loader, losses, loss_weights, device, preprocessor, queue,
             vmf_is_log=_vmf_is_log,
             current_epoch=epoch,
             config_ref=config,
-            legacy_teacher_model=legacy_teacher_model,
+            legacy_teacher_model=legacy_teacher_model if _run_full_validation else None,
         )
         _epoch_val_extras = val_metrics.pop("_val_extras", {})
         if ema is not None:
             ema.restore(model)
-        logger.info("Val:   %s", " | ".join(f"{k}={v:.4f}" for k, v in val_metrics.items()))
+        logger.info("%s val: %s", _eval_label.capitalize(), " | ".join(f"{k}={v:.4f}" for k, v in val_metrics.items()))
 
         # --- MC-Dropout TTA (V9) ---
         _mc_tta_cfg = config.get("evaluation", {})
@@ -5930,7 +6068,7 @@ def main() -> None:
             if ema is not None:
                 ema.apply_shadow(model)
             mc_preds, _, mc_kappas = mc_dropout_tta(
-                model, val_loader, device, preprocessor,
+                model, _eval_loader, device, preprocessor,
                 n_samples=_mc_tta_n, vmf_is_log=_vmf_is_log,
             )
             if ema is not None:
@@ -5948,13 +6086,13 @@ def main() -> None:
         # Image-level retrieval: average predictions per unique nsdId.
         # With kappa-weighted averaging (V9), repetitions with higher
         # confidence contribute more to the image-level prediction.
-        if _val_nsd_ids is not None:
-            unique_ids = np.unique(_val_nsd_ids)
+        if _eval_nsd_ids is not None:
+            unique_ids = np.unique(_eval_nsd_ids)
             img_preds = np.zeros((len(unique_ids), val_preds.shape[1]), dtype=np.float32)
             img_gts = np.zeros((len(unique_ids), val_gts.shape[1]), dtype=np.float32)
             _use_kappa_avg = _mc_tta_cfg.get("kappa_weighted_avg", False)
             for i, uid in enumerate(unique_ids):
-                mask = _val_nsd_ids == uid
+                mask = _eval_nsd_ids == uid
                 if _use_kappa_avg and mc_kappas is not None:
                     k_w = mc_kappas[mask]
                     k_w = k_w / (k_w.sum() + 1e-8)
@@ -5994,8 +6132,8 @@ def main() -> None:
         _use_csls = config.get("evaluation", {}).get("use_csls", False)
         if _use_csls:
             _csls_k = config.get("evaluation", {}).get("csls_k", 10)
-            _csls_src = img_preds if _val_nsd_ids is not None else val_preds
-            _csls_tgt = img_gts if _val_nsd_ids is not None else val_gts
+            _csls_src = img_preds if _eval_nsd_ids is not None else val_preds
+            _csls_tgt = img_gts if _eval_nsd_ids is not None else val_gts
             csls_ret = _compute_retrieval_csls(_csls_src, _csls_tgt, ks=(1, 5, 10), csls_k=_csls_k)
             val_metrics["csls_r@1"] = csls_ret["top1_accuracy"]
             val_metrics["csls_r@5"] = csls_ret["top5_accuracy"]
@@ -6009,12 +6147,12 @@ def main() -> None:
         if "vmf_preds" in _epoch_val_extras and "vmf_kappas" in _epoch_val_extras:
             _vmf_preds_val = _epoch_val_extras["vmf_preds"]
             _vmf_kappas_val = _epoch_val_extras["vmf_kappas"]
-            if _val_nsd_ids is not None:
-                _u_ids_v = np.unique(_val_nsd_ids)
+            if _eval_nsd_ids is not None:
+                _u_ids_v = np.unique(_eval_nsd_ids)
                 _vmf_img = np.zeros((len(_u_ids_v), _vmf_preds_val.shape[1]), dtype=np.float32)
                 _vmf_kappa_img = np.zeros(len(_u_ids_v), dtype=np.float32)
                 for i, uid in enumerate(_u_ids_v):
-                    _m = _val_nsd_ids == uid
+                    _m = _eval_nsd_ids == uid
                     _vmf_img[i] = _vmf_preds_val[_m].mean(axis=0)
                     _vmf_kappa_img[i] = _vmf_kappas_val[_m[:len(_vmf_kappas_val)]].mean()
                 _vmf_preds_eval = _vmf_img / np.maximum(np.linalg.norm(_vmf_img, axis=-1, keepdims=True), 1e-8)
@@ -6060,10 +6198,10 @@ def main() -> None:
             _cmu = _epoch_val_extras["compact_component_mu"]
             _ckappa = _epoch_val_extras["compact_component_kappa"]
             _clogits = _epoch_val_extras.get("compact_component_logits")
-            _mix_gts = img_gts if _val_nsd_ids is not None else val_gts
-            if _val_nsd_ids is not None:
+            _mix_gts = img_gts if _eval_nsd_ids is not None else val_gts
+            if _eval_nsd_ids is not None:
                 _cmu, _ckappa, _clogits, _ = _aggregate_component_outputs_by_nsd_id(
-                    _cmu, _ckappa, _clogits, _val_nsd_ids,
+                    _cmu, _ckappa, _clogits, _eval_nsd_ids,
                 )
             _val_component_mu_img = _cmu
             _val_component_kappa_img = _ckappa
@@ -6130,25 +6268,25 @@ def main() -> None:
         # --- V30d per-validation rerank and two-stage diagnostics ---
         _two_stage_cfg = config.get("evaluation", {}).get("two_stage", {})
         _two_stage_enabled = _two_stage_cfg.get("enabled", False)
-        if _two_stage_enabled and "rerank_preds" in _epoch_val_extras and "rerank_gts" in _epoch_val_extras:
+        if _run_full_validation and _two_stage_enabled and "rerank_preds" in _epoch_val_extras and "rerank_gts" in _epoch_val_extras:
             from fmri2img.eval.two_stage_retrieval import two_stage_metrics
 
             _rrp = _epoch_val_extras["rerank_preds"]
             _rrg = _epoch_val_extras["rerank_gts"]
-            if _val_nsd_ids is not None:
-                _u_ids_rr = np.unique(_val_nsd_ids)
+            if _eval_nsd_ids is not None:
+                _u_ids_rr = np.unique(_eval_nsd_ids)
                 _rrp_img = np.zeros((len(_u_ids_rr), _rrp.shape[1]), dtype=np.float32)
                 _rrg_img = np.zeros((len(_u_ids_rr), _rrg.shape[1]), dtype=np.float32)
                 for i, uid in enumerate(_u_ids_rr):
-                    _m = _val_nsd_ids == uid
+                    _m = _eval_nsd_ids == uid
                     _rrp_img[i] = _rrp[_m].mean(axis=0)
                     _rrg_img[i] = _rrg[_m][0]
                 _rrp = _rrp_img
                 _rrg = _rrg_img
             _rrp = _rrp / np.maximum(np.linalg.norm(_rrp, axis=-1, keepdims=True), 1e-8)
 
-            _compact_eval_preds = img_preds if _val_nsd_ids is not None else val_preds
-            _compact_eval_gts = img_gts if _val_nsd_ids is not None else val_gts
+            _compact_eval_preds = img_preds if _eval_nsd_ids is not None else val_preds
+            _compact_eval_gts = img_gts if _eval_nsd_ids is not None else val_gts
             _ts_val = two_stage_metrics(
                 _compact_eval_preds,
                 _compact_eval_gts,
@@ -6185,7 +6323,7 @@ def main() -> None:
                 _lp, _lg = _prepare_legacy_arrays_for_tri_fusion(
                     _epoch_val_extras["legacy_preds"],
                     _epoch_val_extras["legacy_gts"],
-                    _val_nsd_ids,
+                    _eval_nsd_ids,
                     logger=logger,
                     context="during validation",
                 )
@@ -6231,7 +6369,12 @@ def main() -> None:
                     val_metrics.get("fused_mrr", 0.0),
                 )
 
-        metrics_logger.log_epoch(epoch, optimizer.param_groups[0]["lr"], train_metrics, val_metrics)
+        _logged_val_metrics = (
+            val_metrics
+            if _run_full_validation
+            else {f"proxy_{k}": v for k, v in val_metrics.items()}
+        )
+        metrics_logger.log_epoch(epoch, optimizer.param_groups[0]["lr"], train_metrics, _logged_val_metrics)
 
         # Free large val arrays before checkpoint save to reduce RAM peak.
         # With 329K-D token targets, val_preds alone is ~3 GB RAM.
@@ -6245,6 +6388,14 @@ def main() -> None:
         except NameError:
             pass
         gc.collect()
+
+        if not _run_full_validation:
+            logger.info(
+                "Proxy validation only at epoch %d; checkpointing and early stopping wait for the next full validation",
+                epoch,
+            )
+            torch.cuda.empty_cache()
+            continue
 
         # --- Checkpointing (early-stop on configurable metric) ---
         val_loss = val_metrics.get("loss", val_metrics.get("mse", float("inf")))

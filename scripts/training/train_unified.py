@@ -42,7 +42,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import yaml
-from torch.utils.data import DataLoader, Dataset, Subset
+from torch.utils.data import DataLoader, Dataset, Sampler, Subset
 from tqdm import tqdm
 
 from fmri2img.models.unified_model import create_model
@@ -887,6 +887,38 @@ class PreextractedNSDDataset(Dataset):
         fmri_tensor = torch.from_numpy(np.asarray(fmri, dtype=np.float32))
         emb_tensor = torch.from_numpy(np.asarray(embedding, dtype=np.float32))
         return fmri_tensor, emb_tensor
+
+
+class OneTrialPerImagePerEpochSampler(Sampler[int]):
+    """Sample one repetition per unique image on each training epoch."""
+
+    def __init__(self, dataset: Dataset, seed: int = 42):
+        self.seed = int(seed)
+        self._epoch = 0
+
+        if isinstance(dataset, Subset):
+            if not hasattr(dataset.dataset, "index_df"):
+                raise ValueError("Subset base dataset has no index_df for image-grouped sampling")
+            index_df = dataset.dataset.index_df.iloc[list(dataset.indices)].reset_index(drop=True)
+        elif hasattr(dataset, "index_df"):
+            index_df = dataset.index_df.reset_index(drop=True)
+        else:
+            raise ValueError("Dataset has no index_df for image-grouped sampling")
+
+        groups: dict[int, list[int]] = {}
+        for pos, nsd_id in enumerate(index_df["nsdId"].astype(np.int64).tolist()):
+            groups.setdefault(int(nsd_id), []).append(int(pos))
+        self.groups = [np.asarray(groups[k], dtype=np.int64) for k in sorted(groups.keys())]
+
+    def __iter__(self):
+        rng = np.random.default_rng(self.seed + self._epoch)
+        self._epoch += 1
+        sampled = [int(group[rng.integers(0, len(group))]) for group in self.groups]
+        rng.shuffle(sampled)
+        return iter(sampled)
+
+    def __len__(self) -> int:
+        return len(self.groups)
 
 
 # ---------------------------------------------------------------------------
@@ -5200,6 +5232,9 @@ def main() -> None:
     use_preextracted = isinstance(full_dataset, PreextractedNSDDataset) or _is_multi_subject
     dl_workers = 2 if use_preextracted else 0
     dl_pin = device.startswith("cuda")
+    _one_trial_per_image = bool(
+        config.get("data", {}).get("one_trial_per_image_per_epoch", False)
+    )
 
     _collate_fn = None
     if _is_multi_subject:
@@ -5252,8 +5287,22 @@ def main() -> None:
 
         _collate_fn = _multi_subject_collate
 
+    _train_sampler = None
+    _train_shuffle = True
+    if _one_trial_per_image:
+        if not split_by_image:
+            raise ValueError("data.one_trial_per_image_per_epoch=true requires split_by_image=true")
+        _train_sampler = OneTrialPerImagePerEpochSampler(train_dataset, seed=data_seed)
+        _train_shuffle = False
+        logger.info(
+            "One-trial-per-image sampler active: %d train rows -> %d sampled rows per epoch",
+            len(train_dataset),
+            len(_train_sampler),
+        )
+
     train_loader = DataLoader(
-        train_dataset, batch_size=batch_size, shuffle=True,
+        train_dataset, batch_size=batch_size, shuffle=_train_shuffle,
+        sampler=_train_sampler,
         num_workers=dl_workers, pin_memory=dl_pin,
         persistent_workers=(dl_workers > 0),
         collate_fn=_collate_fn,

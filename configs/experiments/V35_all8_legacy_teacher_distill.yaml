@@ -16,6 +16,7 @@ data:
   exclude_shared1000: true
   normalize_fmri: true
   average_repetitions: false
+  one_trial_per_image_per_epoch: true
   zscore_mode: "per_session"
   embedding_column: "fused"
   seed: 42

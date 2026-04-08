@@ -3750,3 +3750,118 @@ Important policy:
 - quantitative outputs from this script are **small-scale qualitative metrics only**
 - any fallback refinement must be described honestly as a heuristic, not as a diffusion result
 
+## 38. Post-Freeze Research Extension: V44a/V44b SCFR
+
+### 38.1 Motivation
+
+The frozen production system remains the thesis-grade practical endpoint. However, the retrieval evidence after the V30/V35 waves suggests that the next research bottleneck is no longer shortlist recall alone. The remaining gap appears to involve:
+
+- subject-dominated nuisance variance that contaminates the retrieval latent
+- insufficient separation between subject-specific structure and image-relevant structure
+- ranking precision inside already recoverable candidate sets
+
+The **Subject-Conditioned Factorized Retrieval (SCFR)** wave is a post-freeze research extension designed to test whether an explicitly factorized latent can improve all-8-subject retrieval without changing the frozen final system.
+
+### 38.2 Architecture Summary
+
+SCFR introduces a new retrieval-first model family, `scfr_vmf`, inside the existing unified training stack.
+
+Core design:
+
+- shared MLP encoder trunk with the existing cross-subject canonical-space adapters
+- lightweight subject conditioning via learned subject embeddings and FiLM-style modulation
+- factorized latent split:
+  - `z_vis`: subject-invariant visual latent used for retrieval
+  - `z_subj`: subject-specific latent used for subject prediction
+- retrieval head:
+  - existing vMF decoder machinery reused on `z_vis`
+- subject head:
+  - shallow MLP from `z_subj` to 8-way subject logits
+- optional adversarial branch:
+  - subject classifier on `z_vis` through a Gradient Reversal Layer (GRL)
+  - enabled only in the full variant after warmup
+
+This design intentionally avoids a heavier per-subject frontier architecture. The goal is to keep the wave compute-aware, easier to ablate, and easier to justify scientifically.
+
+### 38.3 Staged Configs
+
+Two configs define the first SCFR wave:
+
+- `configs/experiments/V44a_all8_scfr_smoke.yaml`
+  - stable all-8 smoke run
+  - pooled fused retrieval target path
+  - no rerank training
+  - no regression head
+  - no adversarial subject removal
+  - focus: architecture validation, logging, diagnostics, and retrieval stability
+
+- `configs/experiments/V44b_all8_scfr_full.yaml`
+  - same base architecture
+  - enables warmup-delayed adversarial subject removal on `z_vis`
+  - keeps the same stable pooled retrieval target path
+  - adds SHARED1000 evaluation only after the smoke variant is in place
+
+Both configs keep the screen-first all-8 runtime controls:
+
+- `one_trial_per_image_per_epoch: true`
+- `max_unique_images_per_epoch: 40000`
+- proxy validation every epoch on a fixed 2048-image subset
+- full validation every 3 epochs
+
+### 38.4 Losses and Diagnostics
+
+SCFR adds three research-specific losses on top of the existing retrieval path:
+
+- `subject_ce`
+  - cross-entropy on `z_subj -> subject_id`
+- `orthogonality`
+  - batchwise cross-covariance Frobenius penalty between centered `z_vis` and `z_subj`
+- `adversarial_subject_ce`
+  - optional cross-entropy on `z_vis` through GRL
+  - warmup-delayed in `V44b`
+
+New diagnostics expected from SCFR runs:
+
+- `subject_acc`
+- `adv_subject_acc`
+- `orthogonality`
+- `adv_lambda`
+- usual retrieval and CSLS metrics
+- `metrics/scfr_diagnostics.json` summarizing the latest and best full-validation SCFR signals
+
+### 38.5 BigG Status
+
+OpenCLIP ViT-bigG/14 infrastructure exists in the repository, but it is **not** the default for the first SCFR wave. The reason is practical rather than theoretical:
+
+- the stable pooled fused embedding path is already integrated and retrieval-compatible
+- the all-8 bigG path has not yet been revalidated as a robust training default
+- the SCFR wave should therefore not be blocked on a target migration that is orthogonal to the factorization question
+
+BigG remains a follow-up upgrade path after the base SCFR architecture is stable.
+
+### 38.6 Success Criteria
+
+The SCFR wave is considered promising only if several signals move together:
+
+- retrieval improves over the current all-8 screened baseline
+- `z_subj` carries clear subject information (`subject_acc` meaningfully above chance)
+- in `V44b`, `z_vis` becomes less subject-identifiable than `z_subj`
+- retrieval remains numerically stable
+- CSLS behaves sensibly and does not collapse
+- the model remains compatible with the existing retrieval evaluation path
+
+### 38.7 Kill Criteria
+
+The SCFR wave should be stopped early if any of the following persist:
+
+- no retrieval gain after a reasonable screen-first budget
+- `z_subj` fails to carry subject information
+- in `V44b`, `z_vis` remains strongly subject-identifiable despite adversarial warmup
+- orthogonality reduces retrieval while producing only cosmetic factorization
+- kappa, GRL, or loss balancing cause numerical instability
+
+### 38.8 Interpretation Policy
+
+- SCFR is a research extension, not the frozen reportable production system.
+- Negative results are scientifically useful if they clarify whether explicit subject-factorization helps all-8 retrieval.
+- Claims about subject-invariant disentanglement must be based on the logged SCFR diagnostics, not on qualitative intuition alone.

@@ -6,6 +6,7 @@ Creates models based on experiment configuration:
 - Deterministic models (single output)
 - Gaussian models (mu + logvar outputs)
 - vMF models (mu + kappa on the unit hypersphere)
+- SCFR vMF models (subject-conditioned factorized retrieval)
 - vMF-DCF models (per-ROI vMF experts with spherical consensus fusion)
 
 Supports modular architecture with encoder + decoder.
@@ -22,6 +23,7 @@ from fmri2img.models.roi_transformer import ROITransformerEncoder
 from fmri2img.models.roi_dcf import ROIDCFDecoder
 from fmri2img.models.multi_subject_encoder import MultiSubjectROITransformer
 from fmri2img.models.dense_vmf_hybrid_decoder import DenseVMFHybridDecoder
+from fmri2img.models.scfr_vmf import SCFRVMFOutput, SubjectConditionedFactorizedVMFDecoder
 from fmri2img.models.projection_head import ContrastiveProjectionHead
 from fmri2img.models.ncsnr_attention import NCSnrAttention
 from fmri2img.models.encoders import ResidualMLPEncoder
@@ -519,6 +521,35 @@ class UnifiedModel(nn.Module):
                 kappa_max=decoder_cfg.get("kappa_max", 500.0),
                 kappa_mode=decoder_cfg.get("kappa_mode", "softplus"),
             )
+        elif self.model_type == "scfr_vmf":
+            self.vmf_output_is_log = False
+            scfr_cfg = config.get("scfr", {})
+            _cross_dims = config.get("cross_subject", {}).get("subject_voxel_dims", {})
+            _num_subjects = int(scfr_cfg.get("num_subjects", max(len(_cross_dims), 1)))
+            self.decoder = SubjectConditionedFactorizedVMFDecoder(
+                input_dim=latent_dim,
+                retrieval_dim=decoder_cfg.get("retrieval_dim", 768),
+                num_subjects=_num_subjects,
+                total_latent_dim=scfr_cfg.get("total_latent_dim", 4096),
+                z_vis_dim=scfr_cfg.get("z_vis_dim", 2048),
+                z_subj_dim=scfr_cfg.get("z_subj_dim", 2048),
+                subject_embedding_dim=scfr_cfg.get("subject_embedding_dim", 64),
+                subject_condition_hidden_dim=scfr_cfg.get("subject_condition_hidden_dim", 128),
+                subject_condition_dropout=scfr_cfg.get("subject_condition_dropout", 0.0),
+                factor_hidden_dims=scfr_cfg.get("factor_hidden_dims", []),
+                subject_head_hidden_dims=scfr_cfg.get("subject_head_hidden_dims", [512]),
+                adversarial_enabled=scfr_cfg.get("adversarial_enabled", False),
+                adversarial_head_hidden_dims=scfr_cfg.get("adversarial_head_hidden_dims", [512]),
+                grl_start_epoch=scfr_cfg.get("grl_start_epoch", 10),
+                grl_ramp_epochs=scfr_cfg.get("grl_ramp_epochs", 8),
+                grl_lambda_max=scfr_cfg.get("grl_lambda_max", 0.2),
+                activation=decoder_cfg.get("activation", "gelu"),
+                dropout=decoder_cfg.get("dropout", 0.1),
+                kappa_min=decoder_cfg.get("kappa_min", 1e-3),
+                kappa_max=decoder_cfg.get("kappa_max", 500.0),
+                kappa_mode=decoder_cfg.get("kappa_mode", "softplus"),
+            )
+            self.num_subjects = _num_subjects
         elif self.model_type == "vmf_dcf":
             if encoder_type not in ("roi_transformer", "multi_subject_roi_transformer"):
                 raise ValueError(
@@ -694,6 +725,23 @@ class UnifiedModel(nn.Module):
                 "vmf_mu": dec_out.vmf_mu,
                 "kappa": dec_out.vmf_kappa,
             }
+        elif self.model_type == "scfr_vmf":
+            dec_out: SCFRVMFOutput = self.decoder(h, subject_ids=subject_ids)
+            self._last_compact_pred = dec_out.mu
+            self._last_vmf_pred = dec_out.mu
+            self._last_vmf_kappa = dec_out.kappa
+            self._last_compact_component_mu = None
+            self._last_compact_component_kappa = None
+            self._last_compact_component_logits = None
+            self._last_rich_pred = None
+            self._last_rerank_pred = None
+            self._last_reg_pred = None
+            self._last_z_vis = dec_out.z_vis
+            self._last_z_subj = dec_out.z_subj
+            self._last_subject_logits = dec_out.subject_logits
+            self._last_adv_subject_logits = dec_out.adv_subject_logits
+            self._last_adv_lambda = float(dec_out.adv_lambda)
+            return dec_out.mu, dec_out.kappa
         else:  # vmf, vmf_dcf handled above
             dec_out = self.decoder(h)
             if len(dec_out) == 3:
@@ -703,6 +751,11 @@ class UnifiedModel(nn.Module):
             else:
                 self._last_reg_pred = None
                 return dec_out
+
+    def set_current_epoch(self, epoch: int) -> None:
+        """Forward epoch state to decoders that need scheduled behaviour."""
+        if hasattr(self.decoder, "set_current_epoch"):
+            self.decoder.set_current_epoch(epoch)
     
     def get_config(self) -> Dict[str, Any]:
         """Return model configuration."""

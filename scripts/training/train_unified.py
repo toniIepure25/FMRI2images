@@ -74,6 +74,7 @@ from fmri2img.losses.hierarchical_clip_loss import HierarchicalCLIPLoss
 from fmri2img.losses.cka_loss import CKALoss
 from fmri2img.losses.direct_alignment import DirectAlignmentLoss
 from fmri2img.losses.uniformity import UniformityLoss
+from fmri2img.losses.scfr_losses import CrossCovarianceOrthogonalityLoss
 from fmri2img.eval.embedding_eval import (
     compute_retrieval_metrics as _compute_retrieval,
     compute_retrieval_metrics_csls as _compute_retrieval_csls,
@@ -438,7 +439,7 @@ def _extract_vmf_outputs_for_losses(
                 return vmf_mu, vmf_kappa
         return None, None
 
-    if model_type in ("vmf", "vmf_dcf", "vmf_triple"):
+    if model_type in ("vmf", "vmf_dcf", "vmf_triple", "scfr_vmf"):
         if isinstance(aux, dict):
             vmf_kappa = aux.get("kappa", aux.get("concentration"))
             if torch.is_tensor(vmf_kappa):
@@ -447,6 +448,79 @@ def _extract_vmf_outputs_for_losses(
         if torch.is_tensor(aux):
             return pred, aux
     return None, None
+
+
+def _classification_accuracy(
+    logits: Optional[torch.Tensor],
+    targets: Optional[torch.Tensor],
+) -> Optional[float]:
+    if logits is None or targets is None:
+        return None
+    if logits.ndim != 2 or targets.ndim != 1:
+        raise ValueError(
+            f"classification accuracy expects logits (B,C) and targets (B,), got "
+            f"{tuple(logits.shape)} and {tuple(targets.shape)}"
+        )
+    if logits.shape[0] != targets.shape[0]:
+        raise ValueError(
+            f"classification accuracy batch mismatch: {logits.shape[0]} vs {targets.shape[0]}"
+        )
+    if logits.shape[0] == 0:
+        return None
+    preds = logits.argmax(dim=-1)
+    return float((preds == targets).float().mean().item())
+
+
+def _assert_scfr_subject_ids(
+    model: nn.Module,
+    subject_ids: Optional[torch.Tensor],
+    config_ref: Optional[Dict[str, Any]],
+) -> None:
+    if subject_ids is None:
+        raise ValueError("SCFR requires subject_id in every batch")
+    if subject_ids.ndim != 1:
+        raise ValueError(f"SCFR subject_id tensor must be 1D, got {tuple(subject_ids.shape)}")
+    if subject_ids.dtype not in (torch.int32, torch.int64):
+        raise TypeError(f"SCFR subject_id tensor must be integer typed, got {subject_ids.dtype}")
+
+    expected = getattr(model, "num_subjects", None)
+    if expected is None:
+        expected = (config_ref or {}).get("model", {}).get("scfr", {}).get("num_subjects")
+    if expected is None:
+        return
+    expected = int(expected)
+    if int(subject_ids.min().item()) < 0 or int(subject_ids.max().item()) >= expected:
+        raise ValueError(
+            f"SCFR subject_id values out of range [0, {expected - 1}]: "
+            f"min={int(subject_ids.min().item())}, max={int(subject_ids.max().item())}"
+        )
+
+
+def _write_scfr_diagnostics(
+    metrics_dir: Path,
+    config: Dict[str, Any],
+    latest_metrics: Dict[str, Any],
+    best_metrics: Optional[Dict[str, Any]] = None,
+) -> None:
+    scfr_cfg = (config.get("model", {}) or {}).get("scfr", {}) or {}
+    payload = {
+        "model_type": "scfr_vmf",
+        "config": {
+            "num_subjects": int(scfr_cfg.get("num_subjects", 0) or 0),
+            "total_latent_dim": int(scfr_cfg.get("total_latent_dim", 4096)),
+            "z_vis_dim": int(scfr_cfg.get("z_vis_dim", 2048)),
+            "z_subj_dim": int(scfr_cfg.get("z_subj_dim", 2048)),
+            "adversarial_enabled": bool(scfr_cfg.get("adversarial_enabled", False)),
+            "grl_start_epoch": int(scfr_cfg.get("grl_start_epoch", 10)),
+            "grl_ramp_epochs": int(scfr_cfg.get("grl_ramp_epochs", 8)),
+            "grl_lambda_max": float(scfr_cfg.get("grl_lambda_max", 0.2)),
+        },
+        "latest_full_validation": latest_metrics,
+    }
+    if best_metrics is not None:
+        payload["best_full_validation"] = best_metrics
+    with open(metrics_dir / "scfr_diagnostics.json", "w") as f:
+        json.dump(payload, f, indent=2, default=str)
 
 
 def _deterministic_component_jitter_like(
@@ -572,6 +646,10 @@ def _prepare_compatible_pretrained_state_dict(
         "decoder.vmf_mu_head.bias": "decoder.retrieval_mu_head.bias",
         "decoder.vmf_kappa_head.weight": "decoder.retrieval_kappa_head.weight",
         "decoder.vmf_kappa_head.bias": "decoder.retrieval_kappa_head.bias",
+        "decoder.retrieval_decoder.mu_head.weight": "decoder.retrieval_mu_head.weight",
+        "decoder.retrieval_decoder.mu_head.bias": "decoder.retrieval_mu_head.bias",
+        "decoder.retrieval_decoder.kappa_head.weight": "decoder.retrieval_kappa_head.weight",
+        "decoder.retrieval_decoder.kappa_head.bias": "decoder.retrieval_kappa_head.bias",
         "decoder.rerank_head.weight": "decoder.rerank_head.weight",
         "decoder.rerank_head.bias": "decoder.rerank_head.bias",
         "decoder.regression_head.weight": "decoder.regression_head.weight",
@@ -587,6 +665,19 @@ def _prepare_compatible_pretrained_state_dict(
         if source_tensor.shape == target_tensor.shape:
             compatible[target_key] = source_tensor.to(dtype=target_tensor.dtype)
             adapted.append(target_key)
+
+    for target_key, target_tensor in model_state.items():
+        if target_key in compatible:
+            continue
+        if target_key.startswith("decoder.retrieval_decoder.shared_backbone."):
+            source_key = target_key.replace(
+                "decoder.retrieval_decoder.shared_backbone.",
+                "decoder.shared_backbone.",
+            )
+            source_tensor = source_state_dict.get(source_key)
+            if source_tensor is not None and source_tensor.shape == target_tensor.shape:
+                compatible[target_key] = source_tensor.to(dtype=target_tensor.dtype)
+                adapted.append(target_key)
 
     # Keep newly introduced mixture-logit parameters at the decoder's random
     # init rather than zeroing them out; a non-symmetric start is important for
@@ -924,16 +1015,12 @@ class OneTrialPerImagePerEpochSampler(Sampler[int]):
         rng = np.random.default_rng(self.seed)
         self._group_order = rng.permutation(self.unique_image_count).astype(np.int64)
 
-    @property
-    def sampled_rows_per_epoch(self) -> int:
-        return self.max_unique_images_per_epoch
-
-    def __iter__(self):
-        rng = np.random.default_rng(self.seed + self._epoch)
+    def _sample_indices_for_epoch(self, epoch: int) -> list[int]:
+        rng = np.random.default_rng(self.seed + int(epoch))
         if self.max_unique_images_per_epoch >= self.unique_image_count:
             group_ids = self._group_order
         else:
-            start = (self._epoch * self.max_unique_images_per_epoch) % self.unique_image_count
+            start = (int(epoch) * self.max_unique_images_per_epoch) % self.unique_image_count
             stop = start + self.max_unique_images_per_epoch
             if stop <= self.unique_image_count:
                 group_ids = self._group_order[start:stop]
@@ -945,6 +1032,18 @@ class OneTrialPerImagePerEpochSampler(Sampler[int]):
             for group_id in group_ids
         ]
         rng.shuffle(sampled)
+        return sampled
+
+    def preview_indices(self, epoch: Optional[int] = None) -> list[int]:
+        """Preview sampled indices without advancing the internal epoch counter."""
+        return self._sample_indices_for_epoch(self._epoch if epoch is None else int(epoch))
+
+    @property
+    def sampled_rows_per_epoch(self) -> int:
+        return self.max_unique_images_per_epoch
+
+    def __iter__(self):
+        sampled = self._sample_indices_for_epoch(self._epoch)
         self._epoch += 1
         return iter(sampled)
 
@@ -980,6 +1079,62 @@ def _build_proxy_val_subset(
         ]
         proxy_ids = np.asarray(sorted(chosen_ids), dtype=np.int64)
     return Subset(full_dataset, proxy_indices), proxy_ids
+
+
+def _probe_scfr_subject_balance(
+    *,
+    model: nn.Module,
+    full_dataset: Dataset,
+    train_dataset: Dataset,
+    train_sampler: Optional[Sampler[int]],
+) -> None:
+    """Fail fast if a nominal all-subject SCFR run is effectively single-subject."""
+    if not hasattr(full_dataset, "index_df"):
+        logger.warning("SCFR subject-balance probe skipped: dataset has no index_df")
+        return
+
+    if isinstance(train_dataset, Subset):
+        train_positions = list(train_dataset.indices)
+    else:
+        train_positions = list(range(len(train_dataset)))
+
+    if train_sampler is not None and hasattr(train_sampler, "preview_indices"):
+        sampled_local = list(train_sampler.preview_indices(epoch=0))
+        probe_positions = [train_positions[i] for i in sampled_local]
+    else:
+        probe_positions = train_positions
+
+    probe_df = full_dataset.index_df.iloc[probe_positions]
+    if "_subject_int" not in probe_df.columns:
+        logger.warning("SCFR subject-balance probe skipped: _subject_int column missing")
+        return
+
+    subject_vals = probe_df["_subject_int"].astype(np.int64).values
+    if len(subject_vals) == 0:
+        raise RuntimeError("SCFR subject-balance probe found zero sampled training rows")
+
+    expected_subjects = int(getattr(model, "num_subjects", int(subject_vals.max()) + 1))
+    counts = np.bincount(subject_vals, minlength=expected_subjects)
+    probs = counts / max(int(counts.sum()), 1)
+    entropy = float(-(probs[probs > 0] * np.log(probs[probs > 0])).sum())
+    top_frac = float(counts.max() / max(int(counts.sum()), 1))
+    active_subjects = int((counts > 0).sum())
+
+    logger.info(
+        "SCFR subject-balance probe: sampled_rows=%d active_subjects=%d/%d top_frac=%.4f entropy=%.4f counts=%s",
+        len(subject_vals),
+        active_subjects,
+        len(counts),
+        top_frac,
+        entropy,
+        counts.tolist(),
+    )
+
+    if active_subjects < 2 or top_frac >= 0.99:
+        raise RuntimeError(
+            "SCFR subject-balance probe indicates an effectively single-subject epoch "
+            f"(active_subjects={active_subjects}, top_frac={top_frac:.4f}, counts={counts.tolist()})"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1300,6 +1455,41 @@ def setup_losses(config: Dict[str, Any], device: str,
         )
         logger.info("Rerank SoftCLIP loss enabled (tau=%.3f, symmetric=%s)",
                      c.get("tau", 0.07), c.get("symmetric", True))
+
+    if loss_cfg.get("subject_ce", {}).get("enabled", False):
+        c = loss_cfg["subject_ce"]
+        losses["subject_ce"] = nn.CrossEntropyLoss(
+            label_smoothing=float(c.get("label_smoothing", 0.0)),
+        )
+        logger.info(
+            "SCFR subject CE enabled (weight=%.3f, label_smoothing=%.3f)",
+            c.get("weight", 1.0),
+            c.get("label_smoothing", 0.0),
+        )
+
+    if loss_cfg.get("adversarial_subject_ce", {}).get("enabled", False):
+        c = loss_cfg["adversarial_subject_ce"]
+        losses["adversarial_subject_ce"] = nn.CrossEntropyLoss(
+            label_smoothing=float(c.get("label_smoothing", 0.0)),
+        )
+        logger.info(
+            "SCFR adversarial subject CE enabled (weight=%.3f, label_smoothing=%.3f, start_epoch=%d)",
+            c.get("weight", 1.0),
+            c.get("label_smoothing", 0.0),
+            c.get("start_epoch", 0),
+        )
+
+    if loss_cfg.get("orthogonality", {}).get("enabled", False):
+        c = loss_cfg["orthogonality"]
+        losses["orthogonality"] = CrossCovarianceOrthogonalityLoss(
+            standardize=bool(c.get("standardize", True)),
+            eps=float(c.get("eps", 1e-6)),
+        )
+        logger.info(
+            "SCFR orthogonality loss enabled (weight=%.3f, standardize=%s)",
+            c.get("weight", 0.05),
+            c.get("standardize", True),
+        )
 
     # --- V33: shortlist-local teacher distillation (rerank -> compact) ---
     if loss_cfg.get("shortlist_teacher_distill", {}).get("enabled", False):
@@ -1655,6 +1845,8 @@ def train_epoch(
 ) -> Tuple[Dict[str, float], int]:
     """Train for one epoch with gradient accumulation and optional AMP."""
     model.train()
+    if hasattr(model, "set_current_epoch"):
+        model.set_current_epoch(current_epoch)
     epoch_metrics: Dict[str, list] = {}
     _amp_dtype = amp_dtype or torch.float16
     use_amp = (scaler is not None and scaler.is_enabled()) or (_amp_dtype == torch.bfloat16)
@@ -1662,6 +1854,7 @@ def train_epoch(
 
     optimizer.zero_grad()
     _is_vmf_triple = model_type == "vmf_triple"
+    _is_scfr = model_type == "scfr_vmf"
     pbar = tqdm(dataloader, desc="Training")
     for step_in_epoch, batch in enumerate(pbar):
         hier_targets = None
@@ -1714,6 +1907,9 @@ def train_epoch(
             subject_ids = None
             fmri = fmri.to(device, dtype=torch.float32)
             gt_embedding = gt_embedding.to(device, dtype=torch.float32)
+
+        if _is_scfr:
+            _assert_scfr_subject_ids(model, subject_ids, config_ref)
 
         fmri_teacher = fmri
 
@@ -1833,6 +2029,50 @@ def train_epoch(
                 l = losses["vmf_nce"](_vmf_pred_head, _vmf_aux_head, gt_embedding, queue=queue)
                 total_loss = total_loss + loss_weights.get("vmf_nce", 1.0) * l
                 batch_metrics["vmf_nce"] = l.item()
+
+            if _is_scfr:
+                _z_vis = getattr(model, "_last_z_vis", None)
+                _z_subj = getattr(model, "_last_z_subj", None)
+                _subject_logits = getattr(model, "_last_subject_logits", None)
+                _adv_subject_logits = getattr(model, "_last_adv_subject_logits", None)
+                _adv_lambda = float(getattr(model, "_last_adv_lambda", 0.0))
+
+                if "subject_ce" in losses:
+                    if _subject_logits is None:
+                        raise RuntimeError("SCFR subject_ce enabled but _last_subject_logits is missing")
+                    _subject_loss = losses["subject_ce"](_subject_logits, subject_ids)
+                    total_loss = total_loss + loss_weights.get("subject_ce", 1.0) * _subject_loss
+                    batch_metrics["subject_ce"] = _subject_loss.item()
+                    _subject_acc = _classification_accuracy(_subject_logits, subject_ids)
+                    if _subject_acc is not None:
+                        batch_metrics["subject_acc"] = _subject_acc
+
+                if "orthogonality" in losses:
+                    if _z_vis is None or _z_subj is None:
+                        raise RuntimeError("SCFR orthogonality enabled but latent tensors are missing")
+                    _orth_loss = losses["orthogonality"](_z_vis, _z_subj)
+                    total_loss = total_loss + loss_weights.get("orthogonality", 1.0) * _orth_loss
+                    batch_metrics["orthogonality"] = _orth_loss.item()
+
+                if "adversarial_subject_ce" in losses:
+                    if _adv_subject_logits is None:
+                        raise RuntimeError(
+                            "SCFR adversarial_subject_ce enabled but _last_adv_subject_logits is missing"
+                        )
+                    _adv_acc = _classification_accuracy(_adv_subject_logits, subject_ids)
+                    if _adv_acc is not None:
+                        batch_metrics["adv_subject_acc"] = _adv_acc
+                    _adv_start_epoch = int(
+                        (config_ref or {}).get("loss", {}).get("adversarial_subject_ce", {}).get(
+                            "start_epoch",
+                            (config_ref or {}).get("model", {}).get("scfr", {}).get("grl_start_epoch", 0),
+                        )
+                    )
+                    if current_epoch >= _adv_start_epoch:
+                        _adv_loss = losses["adversarial_subject_ce"](_adv_subject_logits, subject_ids)
+                        total_loss = total_loss + loss_weights.get("adversarial_subject_ce", 1.0) * _adv_loss
+                        batch_metrics["adv_subject_ce"] = _adv_loss.item()
+                batch_metrics["adv_lambda"] = _adv_lambda
 
             _mix_cfg = (config_ref or {}).get("loss", {}).get("vmf_nce_mixture", {})
             _mix_start_epoch = int(_mix_cfg.get("start_epoch", 0))
@@ -2341,7 +2581,7 @@ def mc_dropout_tta(
                 )
                 pred, aux = (output if isinstance(output, tuple) else (output, None))
                 batch_preds.append(pred.cpu().numpy())
-                if aux is not None and model_type in ("vmf", "vmf_dcf", "vmf_triple"):
+                if aux is not None and model_type in ("vmf", "vmf_dcf", "vmf_triple", "scfr_vmf"):
                     k = aux.squeeze(-1)
                     if vmf_is_log:
                         k = k.exp()
@@ -2491,10 +2731,10 @@ def _evaluate_shared1000(
     n_images = len(unique_ids)
 
     model_type = getattr(model, "model_type", "deterministic")
-    is_vmf_model = model_type in ("vmf", "vmf_dcf", "vmf_triple")
+    is_vmf_model = model_type in ("vmf", "vmf_dcf", "vmf_triple", "scfr_vmf")
     model.eval()
 
-    _uses_compact_cls_space = model_type in ("vmf_triple", "dense_vmf_hybrid")
+    _uses_compact_cls_space = model_type in ("vmf_triple", "dense_vmf_hybrid", "scfr_vmf")
     _has_component_outputs = model_type == "vmf_triple"
     _all_rich_preds_s1000: List[np.ndarray] = []
     _all_rerank_preds_s1000: List[np.ndarray] = []
@@ -2922,6 +3162,8 @@ def validate(
 ) -> Tuple[Dict[str, float], np.ndarray, np.ndarray]:
     """Validate model and collect embeddings for retrieval evaluation."""
     model.eval()
+    if hasattr(model, "set_current_epoch"):
+        model.set_current_epoch(current_epoch)
     epoch_metrics: Dict[str, list] = {}
     model_type = getattr(model, "model_type", "deterministic")
     all_preds: List[np.ndarray] = []
@@ -2979,6 +3221,9 @@ def validate(
                 subject_ids = None
                 fmri = fmri.to(device, dtype=torch.float32)
                 gt_embedding = gt_embedding.to(device, dtype=torch.float32)
+
+            if model_type == "scfr_vmf":
+                _assert_scfr_subject_ids(model, subject_ids, config_ref)
 
             fmri_teacher = fmri
 
@@ -3098,6 +3343,50 @@ def validate(
                 l = losses["vmf_nce"](_vmf_pred_head, _vmf_aux_head, gt_embedding, queue=None)
                 total_loss = total_loss + loss_weights.get("vmf_nce", 1.0) * l
                 bm["vmf_nce"] = l.item()
+
+            if model_type == "scfr_vmf":
+                _z_vis = getattr(model, "_last_z_vis", None)
+                _z_subj = getattr(model, "_last_z_subj", None)
+                _subject_logits = getattr(model, "_last_subject_logits", None)
+                _adv_subject_logits = getattr(model, "_last_adv_subject_logits", None)
+                _adv_lambda = float(getattr(model, "_last_adv_lambda", 0.0))
+
+                if "subject_ce" in losses:
+                    if _subject_logits is None:
+                        raise RuntimeError("SCFR subject_ce enabled but _last_subject_logits is missing")
+                    _subject_loss = losses["subject_ce"](_subject_logits, subject_ids)
+                    total_loss = total_loss + loss_weights.get("subject_ce", 1.0) * _subject_loss
+                    bm["subject_ce"] = _subject_loss.item()
+                    _subject_acc = _classification_accuracy(_subject_logits, subject_ids)
+                    if _subject_acc is not None:
+                        bm["subject_acc"] = _subject_acc
+
+                if "orthogonality" in losses:
+                    if _z_vis is None or _z_subj is None:
+                        raise RuntimeError("SCFR orthogonality enabled but latent tensors are missing")
+                    _orth_loss = losses["orthogonality"](_z_vis, _z_subj)
+                    total_loss = total_loss + loss_weights.get("orthogonality", 1.0) * _orth_loss
+                    bm["orthogonality"] = _orth_loss.item()
+
+                if "adversarial_subject_ce" in losses:
+                    if _adv_subject_logits is None:
+                        raise RuntimeError(
+                            "SCFR adversarial_subject_ce enabled but _last_adv_subject_logits is missing"
+                        )
+                    _adv_acc = _classification_accuracy(_adv_subject_logits, subject_ids)
+                    if _adv_acc is not None:
+                        bm["adv_subject_acc"] = _adv_acc
+                    _adv_start_epoch = int(
+                        (config_ref or {}).get("loss", {}).get("adversarial_subject_ce", {}).get(
+                            "start_epoch",
+                            (config_ref or {}).get("model", {}).get("scfr", {}).get("grl_start_epoch", 0),
+                        )
+                    )
+                    if current_epoch >= _adv_start_epoch:
+                        _adv_loss = losses["adversarial_subject_ce"](_adv_subject_logits, subject_ids)
+                        total_loss = total_loss + loss_weights.get("adversarial_subject_ce", 1.0) * _adv_loss
+                        bm["adv_subject_ce"] = _adv_loss.item()
+                bm["adv_lambda"] = _adv_lambda
 
             _mix_cfg = (config_ref or {}).get("loss", {}).get("vmf_nce_mixture", {})
             _mix_start_epoch = int(_mix_cfg.get("start_epoch", 0))
@@ -4473,6 +4762,14 @@ def main() -> None:
     model = create_model(model_config, roi_indices=_roi_indices, ncsnr=_ncsnr_array).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     logger.info("Model parameters: %s", f"{n_params:,}")
+    if getattr(model, "model_type", "") == "scfr_vmf":
+        _configured_subjects = config.get("data", {}).get("subjects", [])
+        _model_subjects = int(getattr(model, "num_subjects", 0))
+        if _configured_subjects and _model_subjects != len(_configured_subjects):
+            raise ValueError(
+                "SCFR subject count mismatch between data and model config: "
+                f"len(data.subjects)={len(_configured_subjects)} vs model.num_subjects={_model_subjects}"
+            )
     _resume_ckpt_exists = bool(args.resume) and Path(args.resume).exists()
 
     # --- Optional full-model initialization from a prior checkpoint ---
@@ -5399,6 +5696,13 @@ def main() -> None:
                 f"expected { _expected_batches } batches from { _train_sampler.sampled_rows_per_epoch } sampled rows, "
                 f"but DataLoader reports { _actual_batches } batches"
             )
+    if getattr(model, "model_type", "") == "scfr_vmf":
+        _probe_scfr_subject_balance(
+            model=model,
+            full_dataset=full_dataset,
+            train_dataset=train_dataset,
+            train_sampler=_train_sampler,
+        )
     logger.info("Train: %d | Val: %d", len(train_dataset), len(val_dataset))
 
     # Build val nsdId array for image-level retrieval (dedup across repetitions)
@@ -5485,6 +5789,7 @@ def main() -> None:
         json.dump(manifest, f, indent=2, default=str)
 
     metrics_logger = MetricsLogger(output_dir)
+    _scfr_diag_best: Optional[Dict[str, Any]] = None
     early_stop_patience = config["training"].get("early_stop_patience", 15)
     early_stop_min_delta = config["training"].get("early_stop_min_delta", 0.001)
     save_frequency = config["training"].get("save_frequency", 0)
@@ -5618,7 +5923,7 @@ def main() -> None:
         # Collect kappas
         _save_model_type_tr = getattr(model, "model_type", "deterministic")
         _train_kappas = None
-        if _save_model_type_tr in ("vmf", "vmf_dcf", "vmf_triple"):
+        if _save_model_type_tr in ("vmf", "vmf_dcf", "vmf_triple", "scfr_vmf"):
             _kappa_list_tr: list = []
             with torch.no_grad():
                 for _sb in _train_pred_loader:
@@ -5678,7 +5983,7 @@ def main() -> None:
             logger.info("Saved train nsd_ids %s", _train_nsd_ids_save.shape)
 
         # compact-family export: save dense/compact aliases and auxiliary heads
-        if _save_model_type_tr in ("vmf_triple", "dense_vmf_hybrid"):
+        if _save_model_type_tr in ("vmf_triple", "dense_vmf_hybrid", "scfr_vmf"):
             np.save(_metrics_save_dir / "train_predictions_compact.npy", _train_preds)
             np.save(_metrics_save_dir / "train_ground_truth_compact.npy", _train_gts)
             logger.info("Saved train compact predictions %s", _train_preds.shape)
@@ -6064,7 +6369,7 @@ def main() -> None:
         # --- MC-Dropout TTA (V9) ---
         _mc_tta_cfg = config.get("evaluation", {})
         _mc_tta_n = _mc_tta_cfg.get("mc_tta_samples", 0)
-        if _mc_tta_n > 1 and getattr(model, "model_type", "") in ("vmf", "vmf_dcf", "vmf_triple"):
+        if _mc_tta_n > 1 and getattr(model, "model_type", "") in ("vmf", "vmf_dcf", "vmf_triple", "scfr_vmf"):
             if ema is not None:
                 ema.apply_shadow(model)
             mc_preds, _, mc_kappas = mc_dropout_tta(
@@ -6375,6 +6680,26 @@ def main() -> None:
             else {f"proxy_{k}": v for k, v in val_metrics.items()}
         )
         metrics_logger.log_epoch(epoch, optimizer.param_groups[0]["lr"], train_metrics, _logged_val_metrics)
+        _scfr_latest_metrics = None
+        if _run_full_validation and getattr(model, "model_type", "") == "scfr_vmf":
+            _scfr_latest_metrics = {
+                "epoch": int(epoch),
+                "checkpoint_metric": str(_ckpt_metric_name),
+                "checkpoint_metric_value": float(val_metrics.get(_ckpt_metric_name, val_metrics.get("r@1", 0.0))),
+                "r@1": float(val_metrics.get("r@1", 0.0)),
+                "csls_r@1": float(val_metrics.get("csls_r@1", 0.0)),
+                "vmf_csls_r@1": float(val_metrics.get("vmf_csls_r@1", val_metrics.get("csls_r@1", 0.0))),
+                "subject_acc": float(val_metrics.get("subject_acc", 0.0)),
+                "adv_subject_acc": float(val_metrics.get("adv_subject_acc", 0.0)),
+                "orthogonality": float(val_metrics.get("orthogonality", 0.0)),
+                "adv_lambda": float(val_metrics.get("adv_lambda", 0.0)),
+            }
+            _write_scfr_diagnostics(
+                output_dir / "metrics",
+                config,
+                latest_metrics=_scfr_latest_metrics,
+                best_metrics=_scfr_diag_best,
+            )
 
         # Free large val arrays before checkpoint save to reduce RAM peak.
         # With 329K-D token targets, val_preds alone is ~3 GB RAM.
@@ -6439,6 +6764,14 @@ def main() -> None:
                 )
             if ema is not None:
                 ema.restore(model)
+            if _scfr_latest_metrics is not None:
+                _scfr_diag_best = dict(_scfr_latest_metrics)
+                _write_scfr_diagnostics(
+                    output_dir / "metrics",
+                    config,
+                    latest_metrics=_scfr_latest_metrics,
+                    best_metrics=_scfr_diag_best,
+                )
             logger.info("New best: %s=%.4f (R@1=%.4f, val_loss=%.4f)",
                         _ckpt_metric_name, _cur_metric, val_r1, val_loss)
         else:
@@ -6593,7 +6926,7 @@ def main() -> None:
 
     _save_model_type = getattr(model, "model_type", "deterministic")
     _save_kappas = None
-    if _save_model_type in ("vmf", "vmf_dcf", "vmf_triple"):
+    if _save_model_type in ("vmf", "vmf_dcf", "vmf_triple", "scfr_vmf"):
         model.eval()
         _kappa_list: List[np.ndarray] = []
         with torch.no_grad():
@@ -6650,7 +6983,7 @@ def main() -> None:
         logger.info("Saved val kappas %s to %s", _save_kappas.shape, _metrics_save_dir)
 
     # --- Compact-family separated outputs for vmf_triple / dense_vmf_hybrid ---
-    if _save_model_type in ("vmf_triple", "dense_vmf_hybrid"):
+    if _save_model_type in ("vmf_triple", "dense_vmf_hybrid", "scfr_vmf"):
         np.save(_metrics_save_dir / "val_predictions_compact.npy", _save_preds)
         np.save(_metrics_save_dir / "val_ground_truth_compact.npy", _save_gts)
         logger.info("Saved compact val predictions %s", _save_preds.shape)

@@ -1,0 +1,207 @@
+# V44b: All-8 Subject-Conditioned Factorized Retrieval (SCFR) full wave
+#
+# Purpose:
+#   - extend V44a with warmup-delayed adversarial subject removal on z_vis
+#   - keep the stable pooled retrieval target path and retrieval-first metrics
+#   - remain compute-aware and all-8 compatible without depending on a new
+#     target-space migration
+#
+# Notes:
+#   - bigG/14 is intentionally not the default here; the first SCFR wave stays
+#     on the stable fused pooled-target path until the bigG all-8 path is
+#     explicitly revalidated end-to-end
+#   - cross_subject.freeze_epochs is intentionally 0 to avoid freezing the
+#     newly introduced SCFR factorization head
+
+experiment:
+  name: "V44b_all8_scfr_full"
+  description: "V44b: all-8 subject-conditioned factorized retrieval with warmup-delayed adversarial subject removal on z_vis"
+  tags:
+    - v44b
+    - scfr
+    - scfr_vmf
+    - all8subjects
+    - cross_subject
+    - retrieval_first
+    - factorized_latent
+    - subject_supervision
+    - adversarial_subject_removal
+  parent: "V35_legacy_teacher_distill"
+
+data:
+  subjects: [subj01, subj02, subj03, subj04, subj05, subj06, subj07, subj08]
+  subject: subj01
+  roi: nsdgeneral
+  train_split: 0.9
+  val_split: 0.1
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  exclude_parent_train_from_val: true
+  normalize_fmri: true
+  average_repetitions: false
+  one_trial_per_image_per_epoch: true
+  max_unique_images_per_epoch: 40000
+  zscore_mode: per_session
+  embedding_column: fused
+  seed: 42
+  dual_target: false
+
+model:
+  type: "scfr_vmf"
+  posterior: "vmf"
+  pretrained_model_path: "experimental_results/V35_legacy_teacher_distill/subj01/checkpoint_best.pt"
+  require_pretrained_model: true
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.25
+    use_residual: true
+  decoder:
+    retrieval_dim: 768
+    activation: "gelu"
+    dropout: 0.20
+    kappa_mode: "softplus"
+    kappa_min: 0.001
+    kappa_max: 200.0
+  scfr:
+    num_subjects: 8
+    total_latent_dim: 4096
+    z_vis_dim: 2048
+    z_subj_dim: 2048
+    subject_embedding_dim: 64
+    subject_condition_hidden_dim: 128
+    subject_condition_dropout: 0.0
+    factor_hidden_dims: []
+    subject_head_hidden_dims: [512]
+    adversarial_enabled: true
+    adversarial_head_hidden_dims: [512]
+    grl_start_epoch: 10
+    grl_ramp_epochs: 8
+    grl_lambda_max: 0.2
+  projection_head:
+    enabled: false
+  cross_subject:
+    enabled: true
+    canonical_subject: subj01
+    freeze_epochs: 0
+
+preprocessing:
+  enabled: false
+
+loss:
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  subject_ce:
+    enabled: true
+    weight: 0.25
+    label_smoothing: 0.0
+
+  orthogonality:
+    enabled: true
+    weight: 0.02
+    standardize: true
+    eps: 1.0e-6
+
+  adversarial_subject_ce:
+    enabled: true
+    weight: 0.10
+    label_smoothing: 0.0
+    start_epoch: 10
+
+  rerank_softclip:
+    enabled: false
+  regression_mse:
+    enabled: false
+  legacy_compact_distill:
+    enabled: false
+  component_legacy_compact_distill:
+    enabled: false
+  shortlist_teacher_distill:
+    enabled: false
+  legacy_teacher_distill:
+    enabled: false
+  tri_teacher_distill:
+    enabled: false
+  vmf_nll:
+    enabled: false
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 4
+  gradient_accumulation_steps: 64
+  lightweight_best_checkpoint: true
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 30
+  optimizer:
+    type: "sgd"
+    lr: 1.0e-4
+    weight_decay: 0.05
+    momentum: 0.0
+    nesterov: false
+  warmup_epochs: 5
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 12
+  early_stop_min_delta: 0.001
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: false
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: false
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  best_checkpoints: [csls_r@1]
+  proxy_val_every_epochs: 1
+  proxy_val_num_images: 2048
+  full_val_every_epochs: 3
+  mc_tta_samples: 1
+  kappa_weighted_avg: true
+  two_stage:
+    enabled: false
+  fusion:
+    enabled: false
+  tri_fusion:
+    enabled: false
+
+inference:
+  use_mean_for_retrieval: true

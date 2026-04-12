@@ -3865,3 +3865,119 @@ The SCFR wave should be stopped early if any of the following persist:
 - SCFR is a research extension, not the frozen reportable production system.
 - Negative results are scientifically useful if they clarify whether explicit subject-factorization helps all-8 retrieval.
 - Claims about subject-invariant disentanglement must be based on the logged SCFR diagnostics, not on qualitative intuition alone.
+
+## 39. Post-SCFR Retrieval Distillation: V45 Fusion-Distilled All-8 Student
+
+### 39.1 Motivation
+
+`V44a_all8_scfr_smoke` was an important engineering success but a scientific negative result. The all-8 SCFR path ran correctly, logged the intended subject diagnostics, and produced a clean checkpoint, but retrieval remained near-random while subject disentanglement was weak. The practical conclusion is that explicit factorization should **not** be extended directly as the next major wave.
+
+The stronger evidence from the repository points elsewhere:
+
+- the best practical frozen system is not a single model but a fixed expert/fusion system built from `V35_legacy_teacher_distill`, `N1v28a_dual_head`, and frozen tri-fusion settings
+- this system already reaches about `77.6%` VAL `R@1` and `77.2%` SHARED1000 `R@1`
+- union-shortlist oracle analysis shows that recall is not the main bottleneck; ranking precision is
+- lightweight reranking and learned gating did not solve that bottleneck robustly
+
+The `V45` wave therefore asks a more practical question: can a single all-8 retrieval student learn the **ranking topology** already present in the best frozen expert system?
+
+### 39.2 Core Idea
+
+`V45_all8_fusion_distill_student` stays close to the known-good retrieval family. It does **not** introduce diffusion priors, synthetic fMRI, or adversarial subject-disentanglement machinery. Instead, it:
+
+- reuses the stable `vmf_triple` retrieval stack
+- trains on all 8 subjects with the existing cross-subject adapter path
+- keeps direct retrieval supervision (`softclip` + `vmf_nce`)
+- adds a ranking-topology distillation loss on top
+
+The teacher signal is intentionally practical. Instead of brittle direct multi-subject frozen-teacher forward passes, `V45` distils the **frozen final fusion recipe** over the stable in-batch target spaces:
+
+- compact teacher channel: retrieval targets
+- legacy teacher channel: rich targets
+- optional rerank teacher channel: PCA rerank targets
+
+The recipe is loaded from the frozen best-system bundle in:
+
+- `docs/thesis/results/final_outputs/best_system/final_metrics_summary.json`
+
+This keeps the teacher path reproducible, explicit, and compatible with all-8 training.
+
+### 39.3 Losses
+
+`V45` keeps the student’s normal retrieval supervision and adds one new distillation term:
+
+- `softclip`
+  - direct retrieval supervision in the compact embedding space
+- `vmf_nce`
+  - direct vMF retrieval supervision with kappa-aware logits
+- `fusion_ranking_distill`
+  - shortlist-local KL distillation from the frozen fusion recipe
+  - the student compact logits are matched to the fused teacher score distribution
+  - the teacher operates on the batch-local image target topology, not on an expensive multi-model online ensemble
+
+The distillation loss logs:
+
+- `fusion_ranking_distill`
+- `fusion_teacher_gate_frac`
+- `fusion_teacher_candidate_size_mean`
+- `fusion_teacher_pos_rank_mean`
+- `fusion_student_pos_rank_mean`
+- `fusion_teacher_student_topk_overlap`
+- `fusion_teacher_top1_agreement`
+- `fusion_teacher_coverage`
+
+An additive diagnostics file is also expected:
+
+- `metrics/fusion_distill_diagnostics.json`
+
+### 39.4 Staged Configs
+
+Two staged configs define the first `V45` wave:
+
+- `configs/experiments/V45a_all8_fusion_distill_smoke.yaml`
+  - safe smoke run
+  - all-8 screen-first runtime
+  - direct retrieval supervision retained
+  - frozen-fusion ranking distillation enabled with a conservative schedule
+  - no rerank-head training
+  - no regression
+  - no SHARED1000 evaluation
+
+- `configs/experiments/V45b_all8_fusion_distill_full.yaml`
+  - same architecture family
+  - stronger distillation schedule
+  - longer budget
+  - SHARED1000 evaluation enabled
+
+Both configs keep the shortened all-8 runtime controls:
+
+- `one_trial_per_image_per_epoch: true`
+- `max_unique_images_per_epoch: 40000`
+- proxy validation every epoch
+- full validation every 3 epochs
+
+### 39.5 Success Criteria
+
+`V45` is promising only if several signals improve together:
+
+- student retrieval clearly beats weaker all-8 baselines
+- teacher-student ranking agreement increases
+- top-k overlap with the frozen fusion teacher improves
+- SHARED1000 improves meaningfully beyond weaker all-8 student baselines
+- the run remains numerically stable and reproducible
+
+### 39.6 Kill Criteria
+
+The `V45` wave should be stopped or redesigned if any of the following persist:
+
+- the distillation loss decreases but retrieval does not improve
+- teacher-student agreement improves while direct target alignment degrades
+- improvement appears only on VAL and fails to transfer to SHARED1000
+- the teacher path proves operationally too brittle or too expensive
+- the student simply imitates the teacher locally without becoming a stronger retrieval model globally
+
+### 39.7 Interpretation Policy
+
+- `V45` is a retrieval-first research extension, not a change to the frozen final reportable system.
+- Any claim that the student has captured the expert ensemble’s ranking knowledge must be grounded in the logged agreement and retrieval metrics.
+- The distillation teacher in `V45` is a practical proxy for the frozen system’s score topology; it should be described as such rather than as a literal online ensemble forward pass.

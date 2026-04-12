@@ -1,0 +1,193 @@
+# V45a: all-8 retrieval student distilled from the frozen best-system fusion recipe
+#
+# Purpose:
+#   - keep the known-good compact retrieval family
+#   - train a single all-8 student to imitate the ranking topology of the
+#     frozen best practical system
+#   - use the frozen final fusion recipe over stable in-batch target spaces
+#   - stay retrieval-first and screen-first before any heavier follow-up
+
+experiment:
+  name: "V45a_all8_fusion_distill_smoke"
+  description: "V45a: all-8 retrieval-first student distilled from the frozen best-system fusion topology over compact and legacy target spaces"
+  tags:
+    - v45a
+    - all8subjects
+    - fusion_distill
+    - ranking_distill
+    - retrieval_first
+    - vmf_triple
+    - cross_subject
+    - smoke
+  parent: "V35_legacy_teacher_distill"
+
+data:
+  subjects: [subj01, subj02, subj03, subj04, subj05, subj06, subj07, subj08]
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  exclude_parent_train_from_val: true
+  normalize_fmri: true
+  average_repetitions: false
+  one_trial_per_image_per_epoch: true
+  max_unique_images_per_epoch: 40000
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected_all8.h5"
+  rerank_cache_method: "pca"
+  rerank_cache_path: "outputs/rerank_cache/pca_trainonly_dim2048_seed42_all8.npz"
+  dual_target: true
+
+model:
+  type: "vmf_triple"
+  posterior: "vmf"
+  pretrained_model_path: "experimental_results/V35_legacy_teacher_distill/subj01/checkpoint_best.pt"
+  require_pretrained_model: true
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.25
+    use_residual: true
+  decoder:
+    retrieval_dim: 768
+    rerank_enabled: false
+    rerank_dim: 2048
+    regression_enabled: false
+    num_tokens: 257
+    token_dim_per: 768
+    perceptual_enabled: false
+    perceptual_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.25
+    kappa_mode: "softplus"
+    kappa_min: 0.001
+    kappa_max: 500.0
+  projection_head:
+    enabled: false
+  cross_subject:
+    enabled: true
+    canonical_subject: subj01
+    pretrained_checkpoint: "experimental_results/V35_legacy_teacher_distill/subj01/checkpoint_best.pt"
+    freeze_epochs: 8
+    backbone_lr_factor: 0.15
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+  fusion_ranking_distill:
+    enabled: true
+    weight: 0.15
+    recipe_summary_path: "docs/thesis/results/final_outputs/best_system/final_metrics_summary.json"
+    strict_recipe: true
+    compact_topk: 16
+    teacher_topk: 32
+    teacher_tau: 0.07
+    student_tau: 0.07
+    gate_max_rank: 20
+    topk_overlap_k: 10
+    start_epoch: 6
+    csls_k: 10
+    symmetric: false
+  rerank_softclip:
+    enabled: false
+  regression_mse:
+    enabled: false
+  shortlist_teacher_distill:
+    enabled: false
+  legacy_teacher_distill:
+    enabled: false
+  legacy_compact_distill:
+    enabled: false
+  component_legacy_compact_distill:
+    enabled: false
+  tri_teacher_distill:
+    enabled: false
+  vmf_nll:
+    enabled: false
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 4
+  gradient_accumulation_steps: 64
+  lightweight_best_checkpoint: true
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 18
+  optimizer:
+    type: "sgd"
+    lr: 1.0e-4
+    weight_decay: 0.05
+    momentum: 0.0
+    nesterov: false
+  warmup_epochs: 5
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 9
+  early_stop_min_delta: 0.001
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: false
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: false
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: false
+  checkpoint_metric: "csls_r@1"
+  best_checkpoints: [csls_r@1]
+  proxy_val_every_epochs: 1
+  proxy_val_num_images: 2048
+  full_val_every_epochs: 3
+  mc_tta_samples: 1
+  kappa_weighted_avg: true
+  two_stage:
+    enabled: false
+  fusion:
+    enabled: false
+  tri_fusion:
+    enabled: false
+
+inference:
+  use_mean_for_retrieval: true

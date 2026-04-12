@@ -70,6 +70,7 @@ from fmri2img.losses.component_legacy_compact_distill import ComponentLegacyComp
 from fmri2img.losses.legacy_teacher_distill import LegacyTeacherDistillLoss
 from fmri2img.losses.shortlist_teacher_distill import ShortlistTeacherDistillLoss
 from fmri2img.losses.tri_teacher_distill import TriTeacherDistillLoss
+from fmri2img.losses.fusion_ranking_distill import FusionRankingDistillLoss
 from fmri2img.losses.hierarchical_clip_loss import HierarchicalCLIPLoss
 from fmri2img.losses.cka_loss import CKALoss
 from fmri2img.losses.direct_alignment import DirectAlignmentLoss
@@ -520,6 +521,96 @@ def _write_scfr_diagnostics(
     if best_metrics is not None:
         payload["best_full_validation"] = best_metrics
     with open(metrics_dir / "scfr_diagnostics.json", "w") as f:
+        json.dump(payload, f, indent=2, default=str)
+
+
+def _load_fusion_distill_recipe(
+    config: Dict[str, Any],
+) -> Dict[str, Any]:
+    loss_cfg = (config.get("loss", {}) or {}).get("fusion_ranking_distill", {}) or {}
+    recipe_path = Path(
+        loss_cfg.get(
+            "recipe_summary_path",
+            "docs/thesis/results/final_outputs/best_system/final_metrics_summary.json",
+        )
+    )
+    strict_recipe = bool(loss_cfg.get("strict_recipe", True))
+    if not recipe_path.exists():
+        raise FileNotFoundError(
+            "fusion_ranking_distill requires the frozen best-system summary JSON, "
+            f"but it was not found: {recipe_path}"
+        )
+    with open(recipe_path, "r") as f:
+        payload = json.load(f)
+    system = payload.get("system", {}) or {}
+    frozen_cfg = system.get("frozen_tri_fusion_config", {}) or {}
+    required = ["compact_score", "legacy_score", "family", "normalization", "shortlist_k", "alpha", "beta", "gamma"]
+    missing = [k for k in required if k not in frozen_cfg]
+    if strict_recipe and missing:
+        raise KeyError(
+            "fusion_ranking_distill strict_recipe=true but frozen recipe is missing keys "
+            f"{missing} in {recipe_path}"
+        )
+    recipe = {
+        "recipe_summary_path": str(recipe_path),
+        "tri_results_dir": system.get("tri_results_dir"),
+        "legacy_results_dir": system.get("legacy_results_dir"),
+        "frozen_setting_source": system.get("frozen_setting_source"),
+        "compact_score": str(frozen_cfg.get("compact_score", "csls")),
+        "legacy_score": str(frozen_cfg.get("legacy_score", "csls")),
+        "rerank_score": str(loss_cfg.get("rerank_score", "raw_cosine")),
+        "family": str(frozen_cfg.get("family", "normalized_weighted")),
+        "normalization": str(frozen_cfg.get("normalization", "zscore")),
+        "shortlist_k": int(frozen_cfg.get("shortlist_k", loss_cfg.get("teacher_topk", 32))),
+        "alpha": float(frozen_cfg.get("alpha", 0.3)),
+        "beta": float(frozen_cfg.get("beta", 0.0)),
+        "gamma": float(frozen_cfg.get("gamma", 0.7)),
+        "expected_shared1000_r@1": float(system.get("expected_shared1000_r@1", 0.0) or 0.0),
+        "saved_shared1000_r@1": float(system.get("saved_shared1000_r@1", 0.0) or 0.0),
+    }
+    return recipe
+
+
+def _write_fusion_distill_diagnostics(
+    metrics_dir: Path,
+    config: Dict[str, Any],
+    recipe: Dict[str, Any],
+    latest_metrics: Dict[str, Any],
+    best_metrics: Optional[Dict[str, Any]] = None,
+) -> None:
+    loss_cfg = (config.get("loss", {}) or {}).get("fusion_ranking_distill", {}) or {}
+    payload = {
+        "loss_name": "fusion_ranking_distill",
+        "recipe": {
+            "recipe_summary_path": recipe.get("recipe_summary_path"),
+            "tri_results_dir": recipe.get("tri_results_dir"),
+            "legacy_results_dir": recipe.get("legacy_results_dir"),
+            "frozen_setting_source": recipe.get("frozen_setting_source"),
+            "compact_score": recipe.get("compact_score"),
+            "legacy_score": recipe.get("legacy_score"),
+            "rerank_score": recipe.get("rerank_score"),
+            "family": recipe.get("family"),
+            "normalization": recipe.get("normalization"),
+            "shortlist_k": int(recipe.get("shortlist_k", 0) or 0),
+            "alpha": float(recipe.get("alpha", 0.0) or 0.0),
+            "beta": float(recipe.get("beta", 0.0) or 0.0),
+            "gamma": float(recipe.get("gamma", 0.0) or 0.0),
+        },
+        "config": {
+            "start_epoch": int(loss_cfg.get("start_epoch", 6)),
+            "weight": float(loss_cfg.get("weight", 0.15)),
+            "compact_topk": int(loss_cfg.get("compact_topk", loss_cfg.get("compact_k", 16))),
+            "teacher_topk": int(loss_cfg.get("teacher_topk", loss_cfg.get("teacher_k", 32))),
+            "teacher_tau": float(loss_cfg.get("teacher_tau", loss_cfg.get("teacher_temperature", 0.07))),
+            "student_tau": float(loss_cfg.get("student_tau", loss_cfg.get("student_temperature", 0.07))),
+            "gate_max_rank": int(loss_cfg.get("gate_max_rank", loss_cfg.get("teacher_rank_gate", 20))),
+            "topk_overlap_k": int(loss_cfg.get("topk_overlap_k", 10)),
+        },
+        "latest_full_validation": latest_metrics,
+    }
+    if best_metrics is not None:
+        payload["best_full_validation"] = best_metrics
+    with open(metrics_dir / "fusion_distill_diagnostics.json", "w") as f:
         json.dump(payload, f, indent=2, default=str)
 
 
@@ -1607,6 +1698,50 @@ def setup_losses(config: Dict[str, Any], device: str,
             c.get("symmetric", False),
         )
 
+    # --- V45: frozen-fusion ranking distillation over batch-local target spaces ---
+    if loss_cfg.get("fusion_ranking_distill", {}).get("enabled", False):
+        c = loss_cfg["fusion_ranking_distill"]
+        recipe = _load_fusion_distill_recipe(config)
+        losses["fusion_ranking_distill"] = FusionRankingDistillLoss(
+            compact_score=recipe.get("compact_score", "csls"),
+            legacy_score=recipe.get("legacy_score", "csls"),
+            rerank_score=recipe.get("rerank_score", "raw_cosine"),
+            family=recipe.get("family", "normalized_weighted"),
+            normalization=recipe.get("normalization", "zscore"),
+            alpha=float(recipe.get("alpha", 0.3)),
+            beta=float(recipe.get("beta", 0.0)),
+            gamma=float(recipe.get("gamma", 0.7)),
+            csls_k=int(c.get("csls_k", 10)),
+            compact_topk=int(c.get("compact_topk", c.get("compact_k", 16))),
+            teacher_topk=int(c.get("teacher_topk", c.get("teacher_k", recipe.get("shortlist_k", 32)))),
+            teacher_temperature=float(c.get("teacher_tau", c.get("teacher_temperature", 0.07))),
+            student_temperature=float(c.get("student_tau", c.get("student_temperature", 0.07))),
+            teacher_rank_gate=int(c.get("gate_max_rank", c.get("teacher_rank_gate", 20))),
+            topk_overlap_k=int(c.get("topk_overlap_k", 10)),
+            symmetric=bool(c.get("symmetric", False)),
+        )
+        setattr(losses["fusion_ranking_distill"], "recipe_metadata", recipe)
+        logger.info(
+            "Fusion-ranking distill enabled "
+            "(weight=%.3f, compact_score=%s, legacy_score=%s, family=%s, normalization=%s, "
+            "alpha/beta/gamma=%.2f/%.2f/%.2f, compact_topk=%d, teacher_topk=%d, teacher_tau=%.3f, student_tau=%.3f, start_epoch=%d, gate<=%d, recipe=%s)",
+            c.get("weight", 0.15),
+            recipe.get("compact_score", "csls"),
+            recipe.get("legacy_score", "csls"),
+            recipe.get("family", "normalized_weighted"),
+            recipe.get("normalization", "zscore"),
+            float(recipe.get("alpha", 0.3)),
+            float(recipe.get("beta", 0.0)),
+            float(recipe.get("gamma", 0.7)),
+            int(c.get("compact_topk", c.get("compact_k", 16))),
+            int(c.get("teacher_topk", c.get("teacher_k", recipe.get("shortlist_k", 32)))),
+            float(c.get("teacher_tau", c.get("teacher_temperature", 0.07))),
+            float(c.get("student_tau", c.get("student_temperature", 0.07))),
+            int(c.get("start_epoch", 6)),
+            int(c.get("gate_max_rank", c.get("teacher_rank_gate", 20))),
+            recipe.get("recipe_summary_path"),
+        )
+
     # --- N3/N4: MultiTask vMF-NCE ---
     if loss_cfg.get("vmf_nce_multitask", {}).get("enabled", False):
         c = loss_cfg["vmf_nce_multitask"]
@@ -2392,6 +2527,36 @@ def train_epoch(
                 batch_metrics["tri_combined_teacher_pos_rank_median"] = _tri_stats["combined_teacher_pos_rank_median"]
                 batch_metrics["tri_student_pos_rank_mean"] = _tri_stats["student_pos_rank_mean"]
                 batch_metrics["tri_student_pos_rank_median"] = _tri_stats["student_pos_rank_median"]
+
+            # --- V45: frozen-fusion ranking distillation over target spaces ---
+            _frd_cfg = (config_ref or {}).get("loss", {}).get("fusion_ranking_distill", {})
+            if "fusion_ranking_distill" in losses:
+                _frd_loss, _frd_stats = losses["fusion_ranking_distill"](
+                    compact_pred=pred,
+                    retrieval_target=gt_embedding,
+                    legacy_target=_rich_target,
+                    rerank_target=_rerank_target,
+                    return_stats=True,
+                )
+                _frd_start_epoch = int(_frd_cfg.get("start_epoch", 6))
+                if current_epoch > _frd_start_epoch:
+                    _frd_w = loss_weights.get(
+                        "fusion_ranking_distill",
+                        _frd_cfg.get("weight", 0.15),
+                    )
+                    total_loss = total_loss + _frd_w * _frd_loss
+                    batch_metrics["fusion_ranking_distill"] = _frd_loss.item()
+                else:
+                    batch_metrics["fusion_ranking_distill"] = 0.0
+                batch_metrics["fusion_teacher_gate_frac"] = _frd_stats["gate_frac"]
+                batch_metrics["fusion_teacher_candidate_size_mean"] = _frd_stats["candidate_size_mean"]
+                batch_metrics["fusion_teacher_pos_rank_mean"] = _frd_stats["teacher_pos_rank_mean"]
+                batch_metrics["fusion_teacher_pos_rank_median"] = _frd_stats["teacher_pos_rank_median"]
+                batch_metrics["fusion_student_pos_rank_mean"] = _frd_stats["student_pos_rank_mean"]
+                batch_metrics["fusion_student_pos_rank_median"] = _frd_stats["student_pos_rank_median"]
+                batch_metrics["fusion_teacher_student_topk_overlap"] = _frd_stats["teacher_student_topk_overlap"]
+                batch_metrics["fusion_teacher_top1_agreement"] = _frd_stats["teacher_top1_agreement"]
+                batch_metrics["fusion_teacher_coverage"] = _frd_stats["teacher_coverage"]
 
             # --- Kappa regularizer ---
             kappa_reg_cfg = config_ref.get("loss", {}).get("kappa_reg", {}) if config_ref else {}
@@ -3647,6 +3812,34 @@ def validate(
                 bm["tri_student_pos_rank_mean"] = _tri_stats["student_pos_rank_mean"]
                 bm["tri_student_pos_rank_median"] = _tri_stats["student_pos_rank_median"]
 
+            _frd_cfg = (config_ref or {}).get("loss", {}).get("fusion_ranking_distill", {})
+            if "fusion_ranking_distill" in losses:
+                _frd_l, _frd_stats = losses["fusion_ranking_distill"](
+                    compact_pred=pred,
+                    retrieval_target=gt_embedding,
+                    legacy_target=_rich_target,
+                    rerank_target=_rerank_target,
+                    return_stats=True,
+                )
+                _frd_start_epoch = int(_frd_cfg.get("start_epoch", 6))
+                if current_epoch > _frd_start_epoch:
+                    total_loss = total_loss + loss_weights.get(
+                        "fusion_ranking_distill",
+                        _frd_cfg.get("weight", 0.15),
+                    ) * _frd_l
+                    bm["fusion_ranking_distill"] = _frd_l.item()
+                else:
+                    bm["fusion_ranking_distill"] = 0.0
+                bm["fusion_teacher_gate_frac"] = _frd_stats["gate_frac"]
+                bm["fusion_teacher_candidate_size_mean"] = _frd_stats["candidate_size_mean"]
+                bm["fusion_teacher_pos_rank_mean"] = _frd_stats["teacher_pos_rank_mean"]
+                bm["fusion_teacher_pos_rank_median"] = _frd_stats["teacher_pos_rank_median"]
+                bm["fusion_student_pos_rank_mean"] = _frd_stats["student_pos_rank_mean"]
+                bm["fusion_student_pos_rank_median"] = _frd_stats["student_pos_rank_median"]
+                bm["fusion_teacher_student_topk_overlap"] = _frd_stats["teacher_student_topk_overlap"]
+                bm["fusion_teacher_top1_agreement"] = _frd_stats["teacher_top1_agreement"]
+                bm["fusion_teacher_coverage"] = _frd_stats["teacher_coverage"]
+
             # --- V11 val losses ---
             if "direct_alignment" in losses and is_vmf:
                 da_l = losses["direct_alignment"](_vmf_pred_head, gt_embedding)
@@ -4661,6 +4854,33 @@ def main() -> None:
         fmri_dim = sample_fmri.shape[0]
         embedding_dim = sample_emb.shape[0]
         logger.info("Dimensions: fMRI=%d, Embedding=%d", fmri_dim, embedding_dim)
+
+    _frd_cfg = (config.get("loss", {}) or {}).get("fusion_ranking_distill", {}) or {}
+    if _frd_cfg.get("enabled", False):
+        if not _dual_target_mode:
+            raise ValueError(
+                "fusion_ranking_distill requires data.dual_target=true so rich and optional rerank "
+                "teacher spaces are available in-batch"
+            )
+        if "rich_target" not in sample:
+            raise KeyError("fusion_ranking_distill requires rich_target in the dual_target batch")
+        _frd_recipe = _load_fusion_distill_recipe(config)
+        if float(_frd_recipe.get("gamma", 0.0)) > 0.0 and "rich_target" not in sample:
+            raise KeyError("fusion_ranking_distill recipe requires rich_target because gamma > 0")
+        if float(_frd_recipe.get("beta", 0.0)) > 0.0 and "rerank_target" not in sample:
+            raise KeyError("fusion_ranking_distill recipe requires rerank_target because beta > 0")
+        logger.info(
+            "Fusion distill recipe check: compact_score=%s legacy_score=%s family=%s normalization=%s "
+            "alpha/beta/gamma=%.2f/%.2f/%.2f source=%s",
+            _frd_recipe.get("compact_score"),
+            _frd_recipe.get("legacy_score"),
+            _frd_recipe.get("family"),
+            _frd_recipe.get("normalization"),
+            float(_frd_recipe.get("alpha", 0.0)),
+            float(_frd_recipe.get("beta", 0.0)),
+            float(_frd_recipe.get("gamma", 0.0)),
+            _frd_recipe.get("recipe_summary_path"),
+        )
 
     # --- Model ---
     model_config = config["model"]
@@ -5790,6 +6010,10 @@ def main() -> None:
 
     metrics_logger = MetricsLogger(output_dir)
     _scfr_diag_best: Optional[Dict[str, Any]] = None
+    _fusion_distill_diag_best: Optional[Dict[str, Any]] = None
+    _fusion_distill_recipe = None
+    if "fusion_ranking_distill" in losses:
+        _fusion_distill_recipe = getattr(losses["fusion_ranking_distill"], "recipe_metadata", None)
     early_stop_patience = config["training"].get("early_stop_patience", 15)
     early_stop_min_delta = config["training"].get("early_stop_min_delta", 0.001)
     save_frequency = config["training"].get("save_frequency", 0)
@@ -6700,6 +6924,30 @@ def main() -> None:
                 latest_metrics=_scfr_latest_metrics,
                 best_metrics=_scfr_diag_best,
             )
+        _fusion_distill_latest_metrics = None
+        if _run_full_validation and _fusion_distill_recipe is not None and "fusion_ranking_distill" in losses:
+            _fusion_distill_latest_metrics = {
+                "epoch": int(epoch),
+                "checkpoint_metric": str(_ckpt_metric_name),
+                "checkpoint_metric_value": float(val_metrics.get(_ckpt_metric_name, val_metrics.get("r@1", 0.0))),
+                "r@1": float(val_metrics.get("r@1", 0.0)),
+                "csls_r@1": float(val_metrics.get("csls_r@1", 0.0)),
+                "fusion_ranking_distill": float(val_metrics.get("fusion_ranking_distill", 0.0)),
+                "fusion_teacher_gate_frac": float(val_metrics.get("fusion_teacher_gate_frac", 0.0)),
+                "fusion_teacher_candidate_size_mean": float(val_metrics.get("fusion_teacher_candidate_size_mean", 0.0)),
+                "fusion_teacher_pos_rank_mean": float(val_metrics.get("fusion_teacher_pos_rank_mean", 0.0)),
+                "fusion_student_pos_rank_mean": float(val_metrics.get("fusion_student_pos_rank_mean", 0.0)),
+                "fusion_teacher_student_topk_overlap": float(val_metrics.get("fusion_teacher_student_topk_overlap", 0.0)),
+                "fusion_teacher_top1_agreement": float(val_metrics.get("fusion_teacher_top1_agreement", 0.0)),
+                "fusion_teacher_coverage": float(val_metrics.get("fusion_teacher_coverage", 0.0)),
+            }
+            _write_fusion_distill_diagnostics(
+                output_dir / "metrics",
+                config,
+                recipe=_fusion_distill_recipe,
+                latest_metrics=_fusion_distill_latest_metrics,
+                best_metrics=_fusion_distill_diag_best,
+            )
 
         # Free large val arrays before checkpoint save to reduce RAM peak.
         # With 329K-D token targets, val_preds alone is ~3 GB RAM.
@@ -6771,6 +7019,15 @@ def main() -> None:
                     config,
                     latest_metrics=_scfr_latest_metrics,
                     best_metrics=_scfr_diag_best,
+                )
+            if _fusion_distill_latest_metrics is not None and _fusion_distill_recipe is not None:
+                _fusion_distill_diag_best = dict(_fusion_distill_latest_metrics)
+                _write_fusion_distill_diagnostics(
+                    output_dir / "metrics",
+                    config,
+                    recipe=_fusion_distill_recipe,
+                    latest_metrics=_fusion_distill_latest_metrics,
+                    best_metrics=_fusion_distill_diag_best,
                 )
             logger.info("New best: %s=%.4f (R@1=%.4f, val_loss=%.4f)",
                         _ckpt_metric_name, _cur_metric, val_r1, val_loss)

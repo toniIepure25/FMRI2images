@@ -100,6 +100,20 @@ loss:
     weight: 0.15
     recipe_summary_path: "docs/thesis/results/final_outputs/best_system/final_metrics_summary.json"
     strict_recipe: true
+    fallback_recipe:
+      tri_results_dir: "experimental_results/V35_legacy_teacher_distill/subj01"
+      legacy_results_dir: "experimental_results/N1v28a_dual_head/subj01"
+      frozen_setting_source: "experimental_results/V35_legacy_teacher_distill/subj01/diagnostics/tri_fusion_sweep.json"
+      compact_score: "csls"
+      legacy_score: "csls"
+      family: "normalized_weighted"
+      normalization: "zscore"
+      shortlist_k: 150
+      alpha: 0.3
+      beta: 0.0
+      gamma: 0.7
+      expected_shared1000_r@1: 0.772
+      saved_shared1000_r@1: 0.772
     compact_topk: 16
     teacher_topk: 32
     teacher_tau: 0.07

@@ -528,6 +528,7 @@ def _load_fusion_distill_recipe(
     config: Dict[str, Any],
 ) -> Dict[str, Any]:
     loss_cfg = (config.get("loss", {}) or {}).get("fusion_ranking_distill", {}) or {}
+    fallback_recipe = (loss_cfg.get("fallback_recipe", {}) or {})
     recipe_path = Path(
         loss_cfg.get(
             "recipe_summary_path",
@@ -536,9 +537,38 @@ def _load_fusion_distill_recipe(
     )
     strict_recipe = bool(loss_cfg.get("strict_recipe", True))
     if not recipe_path.exists():
+        if fallback_recipe:
+            logger.warning(
+                "fusion_ranking_distill recipe summary not found at %s; using config-embedded fallback recipe",
+                recipe_path,
+            )
+            required = ["compact_score", "legacy_score", "family", "normalization", "shortlist_k", "alpha", "beta", "gamma"]
+            missing = [k for k in required if k not in fallback_recipe]
+            if strict_recipe and missing:
+                raise KeyError(
+                    "fusion_ranking_distill strict_recipe=true but fallback_recipe is missing keys "
+                    f"{missing}"
+                )
+            return {
+                "recipe_summary_path": str(recipe_path),
+                "tri_results_dir": fallback_recipe.get("tri_results_dir"),
+                "legacy_results_dir": fallback_recipe.get("legacy_results_dir"),
+                "frozen_setting_source": fallback_recipe.get("frozen_setting_source"),
+                "compact_score": str(fallback_recipe.get("compact_score", "csls")),
+                "legacy_score": str(fallback_recipe.get("legacy_score", "csls")),
+                "rerank_score": str(fallback_recipe.get("rerank_score", loss_cfg.get("rerank_score", "raw_cosine"))),
+                "family": str(fallback_recipe.get("family", "normalized_weighted")),
+                "normalization": str(fallback_recipe.get("normalization", "zscore")),
+                "shortlist_k": int(fallback_recipe.get("shortlist_k", loss_cfg.get("teacher_topk", 32))),
+                "alpha": float(fallback_recipe.get("alpha", 0.3)),
+                "beta": float(fallback_recipe.get("beta", 0.0)),
+                "gamma": float(fallback_recipe.get("gamma", 0.7)),
+                "expected_shared1000_r@1": float(fallback_recipe.get("expected_shared1000_r@1", 0.0) or 0.0),
+                "saved_shared1000_r@1": float(fallback_recipe.get("saved_shared1000_r@1", 0.0) or 0.0),
+            }
         raise FileNotFoundError(
-            "fusion_ranking_distill requires the frozen best-system summary JSON, "
-            f"but it was not found: {recipe_path}"
+            "fusion_ranking_distill requires the frozen best-system summary JSON or a config fallback recipe, "
+            f"but neither was available at: {recipe_path}"
         )
     with open(recipe_path, "r") as f:
         payload = json.load(f)

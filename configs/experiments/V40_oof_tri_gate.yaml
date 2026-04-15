@@ -44,10 +44,27 @@ shortlist:
   shared_cache_name: "shared1000"
 
 reranker:
-  architecture: "candidate_mlp"
-  hidden_dim: 64
-  num_layers: 2
-  dropout: 0.1
+  wave_a:
+    architecture: "candidate_mlp"
+    hidden_dim: 128
+    num_layers: 2
+    dropout: 0.1
+    pairwise_margin_weight: 0.1
+    pairwise_margin: 0.2
+    pairwise_hard_neg_k: 5
+  wave_b:
+    architecture: "vmf_evidence"
+    hidden_dim: 96
+    num_layers: 2
+    dropout: 0.1
+    pairwise_margin_weight: 0.1
+  wave_c:
+    architecture: "set_transformer"
+    hidden_dim: 128
+    num_layers: 2
+    dropout: 0.15
+    num_heads: 4
+    pairwise_margin_weight: 0.1
 
 training:
   lr: 1.0e-3
@@ -57,8 +74,28 @@ training:
   batch_size: 256
   seed: 42
 
+feature_ablation:
+  enabled: true
+  max_epochs: 80
+  patience: 20
+
+reconstruction_routing:
+  enabled: true
+  calibrate_on_val: true
+  routes:
+    identity_pass: { confidence_min: 0.85 }
+    low_strength_refine: { confidence_min: 0.65 }
+    guided_refine: { confidence_min: 0.40 }
+    exploratory_refine: { confidence_min: 0.0 }
+
 success_criteria:
   real_win: "shared1000 R@1 >= 78.5% and >= +1.0pp over fixed tri-fusion"
   major_win: "shared1000 R@1 >= 82%"
   negative: "shared1000 R@1 <= 77.2%"
   practical_default_if_negative: "fixed tri-fusion remains final practical system"
+
+kill_criteria:
+  wave_a: "SHARED1000 R@1 < 75% -> kill candidate reranking entirely"
+  wave_b: "VAL-SHARED1000 gap > 5pp -> overfit, simplify"
+  wave_c: "Does not beat Wave B by 2pp -> complexity not justified"
+  oof_cache: "Disagreement rate < 30% -> OOF fold training failed"

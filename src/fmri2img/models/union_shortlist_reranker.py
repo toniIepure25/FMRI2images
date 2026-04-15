@@ -201,6 +201,98 @@ class ShortlistSetTransformerReranker(nn.Module):
         return logits
 
 
+class PlattCalibrator:
+    """Post-hoc Platt scaling for reranker logits.
+
+    Learns a sigmoid calibration (temperature + bias) on VAL logits
+    so that the output approximates P(GT | candidate).
+
+    Args:
+        lr: Learning rate for calibration parameters.
+        max_iter: Maximum optimization steps.
+    """
+
+    def __init__(self, lr: float = 0.01, max_iter: int = 200) -> None:
+        self.lr = lr
+        self.max_iter = max_iter
+        self.temperature: float = 1.0
+        self.bias: float = 0.0
+
+    def fit(
+        self,
+        logits: torch.Tensor,
+        labels: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> "PlattCalibrator":
+        """Fit calibration parameters on validation data.
+
+        Args:
+            logits: (B, K) raw reranker logits.
+            labels: (B, K) binary GT labels.
+            mask: (B, K) bool mask for valid candidates.
+        """
+        temp = torch.nn.Parameter(torch.tensor(1.5))
+        bias = torch.nn.Parameter(torch.tensor(0.0))
+        optimizer = torch.optim.LBFGS([temp, bias], lr=self.lr, max_iter=self.max_iter)
+
+        flat_logits = logits[mask].detach()
+        flat_labels = labels[mask].float().detach()
+
+        def closure() -> torch.Tensor:
+            optimizer.zero_grad()
+            calibrated = flat_logits * temp + bias
+            loss = F.binary_cross_entropy_with_logits(calibrated, flat_labels)
+            loss.backward()
+            return loss
+
+        optimizer.step(closure)
+        self.temperature = temp.item()
+        self.bias = bias.item()
+        return self
+
+    def calibrate(
+        self,
+        logits: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """Apply calibration to produce per-candidate probabilities.
+
+        Args:
+            logits: (B, K) raw reranker logits.
+            mask: (B, K) bool mask for valid candidates.
+
+        Returns:
+            probs: (B, K) calibrated probabilities (softmax over valid).
+        """
+        scaled = logits * self.temperature + self.bias
+        scaled = scaled.masked_fill(~mask, float("-inf"))
+        return torch.softmax(scaled, dim=-1)
+
+    def confidence(
+        self,
+        logits: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """Per-query confidence: max calibrated probability.
+
+        Args:
+            logits: (B, K) raw reranker logits.
+            mask: (B, K) bool mask for valid candidates.
+
+        Returns:
+            conf: (B,) scalar confidence per query.
+        """
+        probs = self.calibrate(logits, mask)
+        return probs.max(dim=-1).values
+
+    def state_dict(self) -> dict[str, float]:
+        return {"temperature": self.temperature, "bias": self.bias}
+
+    def load_state_dict(self, d: dict[str, float]) -> None:
+        self.temperature = d["temperature"]
+        self.bias = d["bias"]
+
+
 def shortlist_cross_entropy(
     logits: torch.Tensor,
     labels: torch.Tensor,

@@ -348,6 +348,41 @@ def _extract_candidate_features(
     component_weight_gap_q = component_block["component_weight_gap_q"]
     component_kappa_max_q = component_block["component_kappa_max_q"]
 
+    # ── L. Per-query calibration features (Wave B) ───────────────────
+    # Score entropy: how spread are candidate scores across experts
+    _all_scores = np.stack([
+        _shortlist_zscore(local_compact_csls, mask),
+        _shortlist_zscore(local_legacy_csls, mask),
+        _shortlist_zscore(local_rerank, mask),
+    ], axis=-1)  # (N, max_size, 3)
+    _score_var = np.var(_all_scores, axis=-1)  # (N, max_size)
+    expert_score_entropy_q = np.broadcast_to(
+        np.mean(_score_var * mask.astype(np.float32), axis=1, keepdims=True)
+        / np.maximum(mask.sum(axis=1, keepdims=True).astype(np.float32), 1.0),
+        (n, max_size),
+    ).copy().astype(np.float32)
+
+    # Top-K overlap: fraction of top-K shared between compact and legacy
+    _overlap_counts = np.zeros(n, dtype=np.float32)
+    _overlap_k = min(10, max_size)
+    for qi in range(n):
+        c_set = set(np.argsort(-local_compact_csls[qi] * mask[qi].astype(np.float32))[:_overlap_k])
+        l_set = set(np.argsort(-local_legacy_csls[qi] * mask[qi].astype(np.float32))[:_overlap_k])
+        _overlap_counts[qi] = len(c_set & l_set) / max(_overlap_k, 1)
+    expert_topk_overlap_q = np.broadcast_to(
+        _overlap_counts[:, None], (n, max_size),
+    ).copy().astype(np.float32)
+
+    # Margin-to-second: score gap between rank-1 and rank-2 per expert (per-query)
+    margin_to_second_compact_q = np.broadcast_to(
+        _top_margin(np.where(mask, local_compact_csls, -np.inf), 2)[:, None],
+        (n, max_size),
+    ).copy().astype(np.float32)
+    margin_to_second_legacy_q = np.broadcast_to(
+        _top_margin(np.where(mask, local_legacy_csls, -np.inf), 2)[:, None],
+        (n, max_size),
+    ).copy().astype(np.float32)
+
     # ── Stack all features: (N, max_size, F) ─────────────────────────
     feature_list = [
         # Raw scores (5)
@@ -416,6 +451,11 @@ def _extract_candidate_features(
         agree_cv_bc,                # 50
         rank_vmf_csls_norm,         # 51
         margin_vmf_csls,            # 52
+        # Per-query calibration (4)
+        expert_score_entropy_q,     # 53
+        expert_topk_overlap_q,      # 54
+        margin_to_second_compact_q, # 55
+        margin_to_second_legacy_q,  # 56
     ]
     features = np.stack(feature_list, axis=-1).astype(np.float32)
 
@@ -480,6 +520,11 @@ FEATURE_NAMES = [
     "agree_compact_vmf_top1",
     "vmf_csls_rank_norm",
     "margin_vmf_csls",
+    # Per-query calibration (4)
+    "expert_score_entropy",
+    "expert_topk_overlap",
+    "margin_to_second_compact",
+    "margin_to_second_legacy",
 ]
 
 

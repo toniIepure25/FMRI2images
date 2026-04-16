@@ -1,0 +1,117 @@
+# V40 OOF Fast VMF — Lightweight model for generating OOF fold predictions
+#
+# This is a stripped-down vMF-NCE model designed to train quickly (~15 min/fold)
+# while producing predictions with realistic error patterns for the reranker
+# training pipeline. NOT intended for production retrieval.
+
+experiment:
+  name: "V40_oof_fast_vmf"
+  description: "Fast vMF-NCE for OOF fold predictions"
+  tags: ["vmf", "oof", "fast"]
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [4096, 2048]
+    activation: "gelu"
+    dropout: 0.2
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    label_smoothing: 0.05
+
+  softclip:
+    enabled: true
+    weight: 0.3
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  r_drop:
+    enabled: false
+  vmf_nll:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 8192
+
+training:
+  batch_size: 128
+  gradient_accumulation_steps: 1
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 60
+  optimizer:
+    type: "adamw"
+    lr: 2.0e-4
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 5
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 10
+  early_stop_min_delta: 0.002
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: false
+  ema:
+    enabled: false
+
+inference:
+  use_mean_for_retrieval: true
+  seed: 42
+
+evaluation:
+  gallery_sizes: [100, 1000]
+  use_csls: true
+  csls_k: 10
+  compute_probabilistic: false
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/V40_oof_fast_vmf"

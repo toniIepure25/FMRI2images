@@ -1,0 +1,203 @@
+# V52: Production-matched V35-quality OOF fold training (Roadmap Wave V52)
+#
+# Hypothesis: The V40 reranker failed because the OOF compact model was too weak
+# (13% R@1). With V35-quality OOF predictions (expected ~50% R@1), the reranker
+# can learn meaningful per-query fusion with ~45% expert disagreement.
+#
+# This config trains a single V35-quality fold. The OOF pipeline creates 5 folds,
+# each using this config with a different data.split_file.
+#
+# Kill criteria:
+#   - OOF train disagreement < 30% → fold predictions too degenerate
+#   - SHARED1000 reranker R@1 < 78.5%
+#
+# Pipeline:
+#   1. scripts/preprocessing/build_oof_split_folds.py (create 5 folds)
+#   2. Train 5 fold models with this config (modify split_file per fold)
+#   3. scripts/preprocessing/merge_oof_expert_predictions.py
+#   4. scripts/preprocessing/build_union_shortlist_cache.py --use-gpu
+#   5. scripts/training/train_union_shortlist_reranker.py
+
+experiment:
+  name: "V52_production_oof_fold"
+  description: "V52: V35-quality fold model for production-matched OOF reranker training"
+  tags:
+    - vmf_triple
+    - v52
+    - oof_fold
+    - production_matched
+    - legacy_teacher_distill
+    - compact_retrieval
+    - rerank_head
+    - regression
+    - token_targets
+    - dual_target
+    - pca_rerank
+    - roadmap_wave_v52
+  parent: "V35_legacy_teacher_distill"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.80
+  val_split: 0.20
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+  rerank_cache_method: "pca"
+  rerank_cache_path: "outputs/rerank_cache/pca_trainonly_dim2048_seed42.npz"
+  dual_target: true
+
+model:
+  type: "vmf_triple"
+  posterior: "vmf"
+  pretrained_model_path: "experimental_results/V35_legacy_teacher_distill/subj01/checkpoint_best.pt"
+  require_pretrained_model: true
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.25
+    use_residual: true
+  decoder:
+    retrieval_dim: 768
+    rerank_enabled: true
+    rerank_dim: 2048
+    num_tokens: 257
+    token_dim_per: 768
+    perceptual_enabled: false
+    perceptual_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.25
+    kappa_mode: "softplus"
+    kappa_min: 0.001
+    kappa_max: 500.0
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  regression_mse:
+    enabled: true
+    weight: 0.5
+
+  rerank_softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.07
+    symmetric: true
+
+  legacy_teacher_distill:
+    enabled: true
+    weight: 0.15
+    teacher_checkpoint_path: "experimental_results/N1v28a_dual_head/subj01/checkpoint_best.pt"
+    compact_k: 16
+    teacher_k: 16
+    teacher_temperature: 0.07
+    student_temperature: 0.07
+    start_epoch: 10
+    teacher_rank_gate: 20
+
+  shortlist_teacher_distill:
+    enabled: false
+
+  fusion_ranking_distill:
+    enabled: false
+
+  tri_teacher_distill:
+    enabled: false
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 128
+  gradient_accumulation_steps: 2
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 80
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 5
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 20
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: false
+  checkpoint_metric: "fused_r@1"
+  best_checkpoints: [csls_r@1, fused_r@1]
+  mc_tta_samples: 1
+  kappa_weighted_avg: true
+  two_stage:
+    enabled: true
+  fusion:
+    enabled: true
+    compact_score: "csls"
+    family: "weighted"
+    normalization: "none"
+    shortlist_k: 100
+    alpha: 0.75
+    csls_k: 10
+
+inference:
+  use_mean_for_retrieval: true

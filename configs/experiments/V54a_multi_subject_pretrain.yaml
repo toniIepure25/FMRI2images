@@ -1,0 +1,193 @@
+# V54a: Multi-subject pre-training Phase 1 (Roadmap Wave V51 Phase 1)
+#
+# Hypothesis: The primary bottleneck is data volume. Pre-training on 4 subjects
+# (subj01/02/05/07) gives ~4x image diversity (~40K unique images total),
+# improving generalization of the brain-to-CLIP mapping.
+#
+# Architecture: Shared MLP backbone with per-subject linear adapters
+# (cross_subject mode). Backbone pre-initialized from V35 checkpoint.
+# Only contrastive losses (no regression/distillation) in Phase 1.
+#
+# Phase 2 (V54b) will fine-tune subj01 with dual-head + legacy distillation.
+#
+# Kill criteria:
+#   - subj01 val R@1 CSLS < 50% after 40 epochs → abort
+#
+# Run:
+#   make train CONFIG=configs/experiments/V54a_multi_subject_pretrain.yaml
+
+experiment:
+  name: "V54a_multi_subject_pretrain"
+  description: "V54a: 4-subject shared-backbone pre-training with contrastive objectives (MindEye2-style data scaling)"
+  tags:
+    - vmf_triple
+    - v54a
+    - multi_subject
+    - cross_subject
+    - contrastive_only
+    - phase1_pretrain
+    - 4subject
+    - data_scaling
+    - roadmap_wave_v51
+  parent: "V35_legacy_teacher_distill"
+
+data:
+  subjects: [subj01, subj02, subj05, subj07]
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  exclude_parent_train_from_val: true
+  normalize_fmri: true
+  average_repetitions: false
+  one_trial_per_image_per_epoch: true
+  max_unique_images_per_epoch: 40000
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  dual_target: false
+
+model:
+  type: "vmf_triple"
+  posterior: "vmf"
+  require_pretrained_model: false
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.25
+    use_residual: true
+  decoder:
+    retrieval_dim: 768
+    rerank_enabled: false
+    rerank_dim: 2048
+    regression_enabled: false
+    num_tokens: 257
+    token_dim_per: 768
+    perceptual_enabled: false
+    perceptual_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.25
+    kappa_mode: "softplus"
+    kappa_min: 0.001
+    kappa_max: 500.0
+  projection_head:
+    enabled: false
+  cross_subject:
+    enabled: true
+    canonical_subject: subj01
+    pretrained_checkpoint: "experimental_results/V35_legacy_teacher_distill/subj01/checkpoint_best.pt"
+    freeze_epochs: 10
+    backbone_lr_factor: 0.15
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  regression_mse:
+    enabled: false
+
+  rerank_softclip:
+    enabled: false
+
+  fusion_ranking_distill:
+    enabled: false
+
+  legacy_teacher_distill:
+    enabled: false
+
+  shortlist_teacher_distill:
+    enabled: false
+
+  tri_teacher_distill:
+    enabled: false
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 128
+  gradient_accumulation_steps: 2
+  lightweight_best_checkpoint: false
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 80
+  optimizer:
+    type: "adamw"
+    lr: 5.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 8
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 20
+  early_stop_min_delta: 0.001
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  best_checkpoints: [csls_r@1]
+  proxy_val_every_epochs: 1
+  proxy_val_num_images: 2048
+  full_val_every_epochs: 3
+  mc_tta_samples: 1
+  kappa_weighted_avg: true
+  two_stage:
+    enabled: false
+  fusion:
+    enabled: false
+  tri_fusion:
+    enabled: false
+
+inference:
+  use_mean_for_retrieval: true

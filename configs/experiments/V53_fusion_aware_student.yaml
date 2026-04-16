@@ -1,0 +1,231 @@
+# V53: Fusion-aware student distillation (Roadmap Wave V50)
+#
+# Hypothesis: A compact student trained to mimic the frozen tri-fusion ranking
+# (0.3c + 0.7l CSLS, normalized weighted) can internalize both expert signals,
+# yielding a stronger standalone retrieval head that also improves tri-fusion.
+#
+# Teacher: frozen fusion recipe applied to batch image targets (image-space,
+# no frozen fMRI model needed). FusionRankingDistillLoss uses the batch-local
+# target embeddings to construct the teacher distribution.
+#
+# Pre-initialized from V35 checkpoint (current production compact head).
+#
+# Kill criteria:
+#   - compact_csls R@1 < 55.2% (V35's 53.2% + 2pp) → abort
+#   - tri-fused SHARED1000 R@1 < 78.2% (77.2% + 1pp) → abort
+#
+# Run:
+#   make train CONFIG=configs/experiments/V53_fusion_aware_student.yaml SUBJECT=subj01
+
+experiment:
+  name: "V53_fusion_aware_student"
+  description: "V53: V35 base + fusion ranking distillation from frozen best-system recipe into compact head"
+  tags:
+    - vmf_triple
+    - v53
+    - fusion_distill
+    - ranking_distill
+    - compact_retrieval
+    - rerank_head
+    - regression
+    - token_targets
+    - dual_target
+    - pca_rerank
+    - pretrained_model_required
+    - roadmap_wave_v50
+  parent: "V35_legacy_teacher_distill"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+  rerank_cache_method: "pca"
+  rerank_cache_path: "outputs/rerank_cache/pca_trainonly_dim2048_seed42.npz"
+  dual_target: true
+
+model:
+  type: "vmf_triple"
+  posterior: "vmf"
+  pretrained_model_path: "experimental_results/V35_legacy_teacher_distill/subj01/checkpoint_best.pt"
+  require_pretrained_model: true
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.25
+    use_residual: true
+  decoder:
+    retrieval_dim: 768
+    rerank_enabled: true
+    rerank_dim: 2048
+    num_tokens: 257
+    token_dim_per: 768
+    perceptual_enabled: false
+    perceptual_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.25
+    kappa_mode: "softplus"
+    kappa_min: 0.001
+    kappa_max: 500.0
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  softclip:
+    enabled: true
+    weight: 0.3
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  regression_mse:
+    enabled: true
+    weight: 0.5
+
+  rerank_softclip:
+    enabled: true
+    weight: 0.5
+    tau: 0.07
+    symmetric: true
+
+  fusion_ranking_distill:
+    enabled: true
+    weight: 0.2
+    recipe_summary_path: "docs/thesis/results/final_outputs/best_system/final_metrics_summary.json"
+    strict_recipe: true
+    fallback_recipe:
+      tri_results_dir: "experimental_results/V35_legacy_teacher_distill/subj01"
+      legacy_results_dir: "experimental_results/N1v28a_dual_head/subj01"
+      frozen_setting_source: "experimental_results/V35_legacy_teacher_distill/subj01/diagnostics/tri_fusion_sweep.json"
+      compact_score: "csls"
+      legacy_score: "csls"
+      family: "normalized_weighted"
+      normalization: "zscore"
+      shortlist_k: 150
+      alpha: 0.3
+      beta: 0.0
+      gamma: 0.7
+      expected_shared1000_r@1: 0.772
+      saved_shared1000_r@1: 0.772
+    compact_topk: 16
+    teacher_topk: 32
+    teacher_tau: 0.07
+    student_tau: 0.07
+    gate_max_rank: 20
+    topk_overlap_k: 10
+    start_epoch: 8
+    csls_k: 10
+    symmetric: false
+
+  legacy_teacher_distill:
+    enabled: false
+
+  shortlist_teacher_distill:
+    enabled: false
+
+  tri_teacher_distill:
+    enabled: false
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 128
+  gradient_accumulation_steps: 2
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 100
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 5
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 25
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  best_checkpoints: [csls_r@1, fused_r@1]
+  mc_tta_samples: 1
+  kappa_weighted_avg: true
+  two_stage:
+    enabled: true
+  fusion:
+    enabled: true
+    compact_score: "csls"
+    family: "weighted"
+    normalization: "none"
+    shortlist_k: 100
+    alpha: 0.75
+    csls_k: 10
+  tri_fusion:
+    enabled: true
+    compact_score: "csls"
+    legacy_score: "csls"
+    family: "normalized_weighted"
+    normalization: "zscore"
+    shortlist_k: 150
+    alpha: 0.3
+    beta: 0.0
+    gamma: 0.7
+    csls_k: 10
+
+inference:
+  use_mean_for_retrieval: true

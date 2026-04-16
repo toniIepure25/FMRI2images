@@ -56,8 +56,9 @@ fi
 for FOLD_IDX in $(seq 0 $((N_FOLDS - 1))); do
     FOLD_NAME=$(printf "fold_%02d" ${FOLD_IDX})
     FOLD_SPLIT="${FOLD_SPLITS_DIR}/oof_fold_$(printf '%02d' ${FOLD_IDX}).json"
-    FOLD_OUTPUT="${OOF_DIR}/${FOLD_NAME}/${SUBJECT}"
-    FOLD_CKPT="${FOLD_OUTPUT}/checkpoints/best.pt"
+    EXP_NAME="V40_oof_fast_vmf_${FOLD_NAME}"
+    FOLD_OUTPUT="experimental_results/${EXP_NAME}/${SUBJECT}"
+    FOLD_CKPT="${FOLD_OUTPUT}/checkpoint_best.pt"
     FOLD_PREDS="${FOLD_OUTPUT}/metrics/val_predictions_compact.npy"
 
     if [[ -f "${FOLD_PREDS}" ]]; then
@@ -71,16 +72,15 @@ for FOLD_IDX in $(seq 0 $((N_FOLDS - 1))); do
     echo "═══════════════════════════════════════════════════════════"
 
     # Create fold-specific config
-    FOLD_CONFIG="${OOF_DIR}/${FOLD_NAME}/config.yaml"
+    FOLD_CONFIG="${OOF_DIR}/configs/${FOLD_NAME}.yaml"
     if [[ ! -f "${FOLD_CONFIG}" ]]; then
-        mkdir -p "${OOF_DIR}/${FOLD_NAME}"
+        mkdir -p "${OOF_DIR}/configs"
         ${PYTHON} -c "
 import yaml
 with open('${CONFIG}') as f:
     cfg = yaml.safe_load(f)
 cfg['data']['split_file'] = '${FOLD_SPLIT}'
-cfg['experiment']['name'] = 'V40_oof_fast_vmf_${FOLD_NAME}'
-cfg['paths']['output_dir'] = '${OOF_DIR}/${FOLD_NAME}'
+cfg['experiment']['name'] = '${EXP_NAME}'
 with open('${FOLD_CONFIG}', 'w') as f:
     yaml.safe_dump(cfg, f, sort_keys=False)
 print(f'Created fold config: ${FOLD_CONFIG}')
@@ -128,10 +128,11 @@ all_gts = []
 all_nsd_ids = []
 all_kappas = []
 
-for fold_info in manifest['folds']:
-    fold_idx = fold_info['fold_index']
-    fold_name = f'fold_{fold_idx:02d}'
-    fold_dir = Path('${OOF_DIR}') / fold_name / '${SUBJECT}' / 'metrics'
+    for fold_info in manifest['folds']:
+        fold_idx = fold_info['fold_index']
+        fold_name = f'fold_{fold_idx:02d}'
+        exp_name = f'V40_oof_fast_vmf_{fold_name}'
+        fold_dir = Path('experimental_results') / exp_name / '${SUBJECT}' / 'metrics'
 
     preds = np.load(fold_dir / 'val_predictions_compact.npy')
     gts = np.load(fold_dir / 'val_ground_truth_compact.npy')
@@ -174,6 +175,13 @@ np.save(out_dir / 'train_oof_nsd_ids.npy', nsd_ids_merged)
 if kappas_merged is not None:
     np.save(out_dir / 'train_oof_kappas.npy', kappas_merged)
 
+# The cache builder requires rerank predictions/GT. The fast VMF model has no
+# rerank head, so we use the compact predictions as a stand-in. The reranker
+# will learn to weight these features appropriately.
+np.save(out_dir / 'train_oof_predictions_rerank.npy', preds_merged)
+np.save(out_dir / 'train_oof_ground_truth_rerank.npy', gts_merged)
+print('  Saved dummy rerank arrays (copies of compact) for cache builder compat.')
+
 # Quick R@1 check
 from numpy.linalg import norm
 p = preds_merged / np.maximum(norm(preds_merged, axis=-1, keepdims=True), 1e-8)
@@ -186,6 +194,43 @@ print(f'  OOF R@1: {r1:.3f} (expect ~35-55%, NOT near 100%)')
 print('  Done merging.')
 "
 fi
+
+# ─── Step 3b: Create N1v28a train_oof symlinks ──────────────────────────
+#
+# N1v28a doesn't have OOF predictions — it uses its original (in-sample) train
+# predictions. The cache builder expects train_oof_* files, so we symlink them.
+
+echo ""
+echo "[Step 3b] Symlinking N1v28a train predictions as train_oof..."
+LEG_METRICS="${LEG}/metrics"
+for suffix in predictions_compact ground_truth_compact nsd_ids kappas; do
+    src="${LEG_METRICS}/train_${suffix}.npy"
+    dst="${LEG_METRICS}/train_oof_${suffix}.npy"
+    if [[ -f "${src}" && ! -f "${dst}" ]]; then
+        ln -sf "train_${suffix}.npy" "${dst}"
+        echo "  Linked: train_oof_${suffix}.npy -> train_${suffix}.npy"
+    elif [[ -f "${dst}" ]]; then
+        echo "  Exists: train_oof_${suffix}.npy"
+    else
+        echo "  WARNING: source not found: ${src}"
+    fi
+done
+
+# Also symlink rerank and vmf predictions if they exist
+for suffix in predictions_rerank ground_truth_rerank predictions; do
+    src="${LEG_METRICS}/train_${suffix}.npy"
+    dst="${LEG_METRICS}/train_oof_${suffix}.npy"
+    if [[ -f "${src}" && ! -f "${dst}" ]]; then
+        ln -sf "train_${suffix}.npy" "${dst}"
+        echo "  Linked: train_oof_${suffix}.npy -> train_${suffix}.npy"
+    fi
+done
+
+# Symlink OOF predictions as standard predictions too (for cache builder compat)
+for suffix in predictions ground_truth_rerank predictions_rerank; do
+    src="${MERGED_DIR}/train_oof_${suffix}.npy"
+    dst="${MERGED_DIR}/train_oof_${suffix}.npy"
+done
 
 # ─── Step 4: Rebuild caches with OOF train data ─────────────────────────
 
@@ -203,7 +248,7 @@ else
         --shortlist-k ${K} \
         --splits train val shared1000 \
         --train-tri-metrics-dir "${MERGED_DIR}" \
-        --train-legacy-metrics-dir "${LEG}/metrics" \
+        --train-legacy-metrics-dir "${LEG_METRICS}" \
         --train-split-prefix train_oof \
         --train-cache-name train_oof \
         --use-gpu

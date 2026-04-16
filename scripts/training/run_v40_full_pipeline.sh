@@ -63,7 +63,8 @@ else
         --train-tri-metrics-dir "${TRI}/metrics" \
         --train-legacy-metrics-dir "${LEG}/metrics" \
         --train-split-prefix train_oof \
-        --train-cache-name train_oof
+        --train-cache-name train_oof \
+        --use-gpu
 fi
 
 # ─── Phase 2: Oracle audit ───────────────────────────────────────────────

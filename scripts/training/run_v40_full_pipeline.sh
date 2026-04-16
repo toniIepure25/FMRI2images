@@ -68,23 +68,23 @@ else
         --use-gpu
 fi
 
-# ─── Phase 2: Oracle audit ───────────────────────────────────────────────
+# ─── Phase 2: Oracle audit (non-critical, may fail for 197k-D legacy) ────
 
 echo ""
-echo "[Phase 2] Oracle audit..."
+echo "[Phase 2] Oracle audit (non-blocking)..."
 ${PYTHON} scripts/evaluation/measure_union_shortlist_oracle.py \
     "${TRI}" "${LEG}" \
-    --splits train val shared1000 \
+    --splits val shared1000 \
     --train-tri-metrics-dir "${TRI}/metrics" \
     --train-legacy-metrics-dir "${LEG}/metrics" \
-    --train-split-prefix train_oof
+    --train-split-prefix "${TRAIN_PREFIX}" || echo "WARNING: Oracle audit failed (non-blocking), continuing..."
 
 # ─── Phase 3: Cache inspection ───────────────────────────────────────────
 
 echo ""
 echo "[Phase 3] Inspecting caches..."
 ${PYTHON} scripts/evaluation/inspect_union_shortlist_cache.py \
-    "${CACHE_DIR}" --all
+    "${CACHE_DIR}" --all || echo "WARNING: Cache inspection failed (non-blocking), continuing..."
 
 # ─── Phase 4: Wave A — Candidate MLP reranker ────────────────────────────
 

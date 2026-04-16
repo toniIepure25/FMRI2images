@@ -48,11 +48,12 @@ echo ""
 
 # ─── Phase 1: Build caches (skip if they exist) ──────────────────────────
 
-OOF_CACHE="${CACHE_DIR}/union_shortlist_train_oof_k${K}.npz"
+TRAIN_PREFIX="${TRAIN_PREFIX:-train}"
+TRAIN_CACHE="${CACHE_DIR}/union_shortlist_${TRAIN_PREFIX}_k${K}.npz"
 VAL_CACHE="${CACHE_DIR}/union_shortlist_val_k${K}.npz"
 S1000_CACHE="${CACHE_DIR}/union_shortlist_shared1000_k${K}.npz"
 
-if [[ -f "${OOF_CACHE}" && -f "${VAL_CACHE}" && -f "${S1000_CACHE}" ]]; then
+if [[ -f "${TRAIN_CACHE}" && -f "${VAL_CACHE}" && -f "${S1000_CACHE}" ]]; then
     echo "[Phase 1] Caches already exist, skipping build."
 else
     echo "[Phase 1] Building union shortlist caches..."
@@ -62,8 +63,8 @@ else
         --splits train val shared1000 \
         --train-tri-metrics-dir "${TRI}/metrics" \
         --train-legacy-metrics-dir "${LEG}/metrics" \
-        --train-split-prefix train_oof \
-        --train-cache-name train_oof \
+        --train-split-prefix "${TRAIN_PREFIX}" \
+        --train-cache-name "${TRAIN_PREFIX}" \
         --use-gpu
 fi
 
@@ -94,7 +95,7 @@ echo "════════════════════════�
 ${PYTHON} scripts/training/train_union_shortlist_reranker.py \
     "${TRI}" "${LEG}" \
     --shortlist-k "${K}" \
-    --train-cache-split train_oof \
+    --train-cache-split "${TRAIN_PREFIX}" \
     --val-cache-split val \
     --shared-cache-split shared1000 \
     --model-family candidate_mlp \
@@ -121,7 +122,7 @@ echo "════════════════════════�
 ${PYTHON} scripts/training/train_union_shortlist_reranker.py \
     "${TRI}" "${LEG}" \
     --shortlist-k "${K}" \
-    --train-cache-split train_oof \
+    --train-cache-split "${TRAIN_PREFIX}" \
     --val-cache-split val \
     --shared-cache-split shared1000 \
     --model-family vmf_evidence \
@@ -147,7 +148,7 @@ echo "════════════════════════�
 ${PYTHON} scripts/training/train_union_shortlist_reranker.py \
     "${TRI}" "${LEG}" \
     --shortlist-k "${K}" \
-    --train-cache-split train_oof \
+    --train-cache-split "${TRAIN_PREFIX}" \
     --val-cache-split val \
     --shared-cache-split shared1000 \
     --model-family set_transformer \
@@ -173,7 +174,7 @@ echo "════════════════════════�
 ${PYTHON} scripts/evaluation/ablate_reranker_features.py \
     "${TRI}" "${LEG}" \
     --shortlist-k "${K}" \
-    --train-cache-split train_oof \
+    --train-cache-split "${TRAIN_PREFIX}" \
     --val-cache-split val \
     --hidden-dim 64 \
     --num-layers 2 \

@@ -1,34 +1,36 @@
-# V54b: Subject-01 fine-tuning Phase 2 (Roadmap Wave V51 Phase 2)
+# V55c: Fusion Topology Distillation on V55b Dual-Head Student
 #
-# Hypothesis: Fine-tuning the V54a multi-subject encoder on subj01 with
-# dual-head (contrastive + MSE regression) and legacy teacher distillation
-# will yield a stronger compact head that benefits from 4x pre-training data.
+# Hypothesis: The V55b student can be further improved by distilling the
+# frozen best-system fusion ranking topology. Unlike V53 which used
+# vmf_triple, this uses the simplified vmf dual-head architecture and
+# initializes from the multi-subject pre-trained + fine-tuned V55b checkpoint.
 #
-# Architecture: Same V35 vmf_triple backbone, initialized from V54a Phase 1.
-# Enables regression MSE and legacy teacher distillation on top of contrastive.
+# The dual-head architecture means the fusion distillation signal goes
+# directly to the retrieval head without gradient competition from a
+# separate rerank head, which should improve transfer quality.
 #
 # Kill criteria:
-#   - fused SHARED1000 R@1 < 79% → this wave did not beat V35 meaningfully
+#   - CSLS R@1 on SHARED1000 < V55b's CSLS R@1 -> distillation hurting
+#   - tri_fused R@1 on SHARED1000 < 79% -> not beating V35 frozen fusion
 #
 # Run:
-#   make train CONFIG=configs/experiments/V54b_subj01_finetune.yaml SUBJECT=subj01
+#   make train CONFIG=configs/experiments/V55c_fusion_distill.yaml SUBJECT=subj01
 
 experiment:
-  name: "V54b_subj01_finetune"
-  description: "V54b: single-subject fine-tuning from V54a multi-subject encoder with dual-head + legacy distillation"
+  name: "V55c_fusion_distill"
+  description: "V55c: fusion topology distillation into V55b dual-head student + uniformity"
   tags:
-    - vmf_triple
-    - v54b
-    - phase2_finetune
+    - vmf
+    - v55c
+    - phase3_distill
     - dual_head
-    - legacy_teacher_distill
     - regression
     - token_targets
-    - dual_target
-    - pca_rerank
+    - fusion_distill
+    - uniformity
     - pretrained_model_required
-    - roadmap_wave_v51
-  parent: "V54a_multi_subject_pretrain"
+    - roadmap_ppr
+  parent: "V55b_subj01_finetune"
 
 data:
   subject: "subj01"
@@ -36,43 +38,39 @@ data:
   train_split: 0.90
   val_split: 0.10
   test_split: 0.0
-  split_file: "experimental_results/V54a_multi_subject_pretrain/subj01/split.json"
+  split_by_image: true
+  exclude_shared1000: true
   normalize_fmri: true
   average_repetitions: false
   zscore_mode: "per_session"
   embedding_column: "fused"
   seed: 42
   token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
-  rerank_cache_method: "pca"
-  rerank_cache_path: "outputs/rerank_cache/pca_trainonly_dim2048_seed42.npz"
-  dual_target: true
 
 model:
-  type: "vmf_triple"
+  type: "vmf"
   posterior: "vmf"
-  pretrained_model_path: "experimental_results/V54a_multi_subject_pretrain/subj01/checkpoint_best.pt"
+  pretrained_model_path: "experimental_results/V55b_subj01_finetune/subj01/checkpoint_best.pt"
   require_pretrained_model: true
   encoder:
     encoder_type: "mlp"
     input_dim: null
     hidden_dims: [8192, 8192, 4096, 2048]
     activation: "gelu"
-    dropout: 0.25
+    dropout: 0.20
     use_residual: true
   decoder:
-    retrieval_dim: 768
-    rerank_enabled: true
-    rerank_dim: 2048
-    num_tokens: 257
-    token_dim_per: 768
-    perceptual_enabled: false
-    perceptual_dim: 768
+    input_dim: 2048
+    output_dim: null
     hidden_dims: [2048]
     activation: "gelu"
-    dropout: 0.25
+    dropout: 0.20
     kappa_mode: "softplus"
     kappa_min: 0.001
     kappa_max: 500.0
+    num_tokens: 257
+    token_dim: 768
+    regression_head: true
   projection_head:
     enabled: false
 
@@ -87,43 +85,23 @@ loss:
     use_queue: true
     learnable_temperature: true
 
+  regression_mse:
+    enabled: true
+    weight: 0.3
+
   softclip:
     enabled: true
-    weight: 1.0
+    weight: 0.5
     tau: 0.05
     use_queue: true
     symmetric: true
 
-  regression_mse:
-    enabled: true
-    weight: 0.5
-
-  rerank_softclip:
-    enabled: true
-    weight: 1.0
-    tau: 0.07
-    symmetric: true
-
-  legacy_teacher_distill:
-    enabled: true
-    weight: 0.15
-    teacher_checkpoint_path: "experimental_results/N1v28a_dual_head/subj01/checkpoint_best.pt"
-    compact_k: 16
-    teacher_k: 16
-    teacher_temperature: 0.07
-    student_temperature: 0.07
-    start_epoch: 10
-    teacher_rank_gate: 20
-
   fusion_ranking_distill:
     enabled: true
-    weight: 0.15
+    weight: 0.25
     recipe_summary_path: "docs/thesis/results/final_outputs/best_system/final_metrics_summary.json"
     strict_recipe: true
     fallback_recipe:
-      tri_results_dir: "experimental_results/V35_legacy_teacher_distill/subj01"
-      legacy_results_dir: "experimental_results/N1v28a_dual_head/subj01"
-      frozen_setting_source: "experimental_results/V35_legacy_teacher_distill/subj01/diagnostics/tri_fusion_sweep.json"
       compact_score: "csls"
       legacy_score: "csls"
       family: "normalized_weighted"
@@ -140,23 +118,27 @@ loss:
     student_tau: 0.07
     gate_max_rank: 20
     topk_overlap_k: 10
-    start_epoch: 10
+    start_epoch: 5
     csls_k: 10
     symmetric: false
 
-  shortlist_teacher_distill:
-    enabled: false
-
-  tri_teacher_distill:
-    enabled: false
-
-  vmf_nll:
-    enabled: false
+  uniformity:
+    enabled: true
+    weight: 0.05
+    t: 2.0
 
   kappa_reg:
     enabled: true
     lambda_kappa: 0.01
 
+  legacy_teacher_distill:
+    enabled: false
+  shortlist_teacher_distill:
+    enabled: false
+  tri_teacher_distill:
+    enabled: false
+  vmf_nll:
+    enabled: false
   gaussian_nll:
     enabled: false
   gaussian_nce:
@@ -168,17 +150,17 @@ loss:
 
 queue:
   enabled: true
-  size: 16384
+  size: 4096
 
 training:
-  batch_size: 128
-  gradient_accumulation_steps: 2
+  batch_size: 16
+  gradient_accumulation_steps: 16
   mixed_precision: true
   mixed_precision_dtype: "bf16"
   num_epochs: 60
   optimizer:
     type: "adamw"
-    lr: 1.0e-5
+    lr: 5.0e-6
     weight_decay: 0.05
     betas: [0.9, 0.999]
   warmup_epochs: 3
@@ -187,14 +169,14 @@ training:
   early_stop_patience: 15
   early_stop_min_delta: 0.001
   train_r1_interval: 10
-  fmri_noise_std: 0.1
-  voxel_dropout: 0.1
+  fmri_noise_std: 0.05
+  voxel_dropout: 0.05
   softclip_from_start: true
   mixco:
     enabled: true
     alpha: 0.15
     temperature: 0.07
-    weight: 0.5
+    weight: 0.3
   ema:
     enabled: true
     decay: 0.999
@@ -203,20 +185,16 @@ evaluation:
   use_csls: true
   csls_k: 10
   eval_shared1000: true
-  checkpoint_metric: "fused_r@1"
-  best_checkpoints: [csls_r@1, fused_r@1]
-  mc_tta_samples: 1
+  checkpoint_metric: "csls_r@1"
+  best_checkpoints: [csls_r@1]
+  mc_tta_samples: 8
   kappa_weighted_avg: true
+  ppr:
+    enabled: true
   two_stage:
-    enabled: true
+    enabled: false
   fusion:
-    enabled: true
-    compact_score: "csls"
-    family: "weighted"
-    normalization: "none"
-    shortlist_k: 100
-    alpha: 0.75
-    csls_k: 10
+    enabled: false
   tri_fusion:
     enabled: true
     compact_score: "csls"

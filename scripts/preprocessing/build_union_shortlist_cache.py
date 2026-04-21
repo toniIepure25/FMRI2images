@@ -56,51 +56,6 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 
-# ── GPU-accelerated score computation for high-dimensional vectors ─────────
-# The default numpy _cosine_sim is prohibitively slow for 197K-D vectors
-# (hours on CPU). On GPU, the same matrix multiply takes <1 second.
-
-_USE_GPU_SCORES = False
-
-
-def _cosine_sim_gpu(a: np.ndarray, b: np.ndarray) -> np.ndarray:
-    """GPU-accelerated cosine similarity, falling back to CPU if unavailable."""
-    import torch
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    a_t = torch.from_numpy(np.ascontiguousarray(a, dtype=np.float32)).to(device)
-    b_t = torch.from_numpy(np.ascontiguousarray(b, dtype=np.float32)).to(device)
-    a_t = torch.nn.functional.normalize(a_t, p=2, dim=-1)
-    b_t = torch.nn.functional.normalize(b_t, p=2, dim=-1)
-    sim = (a_t @ b_t.T).cpu().numpy()
-    del a_t, b_t
-    torch.cuda.empty_cache()
-    return sim
-
-
-def _csls_scores_gpu(preds: np.ndarray, gallery: np.ndarray, k: int = 10) -> np.ndarray:
-    sim = _cosine_sim_gpu(preds, gallery)
-    top_k_pred = np.sort(sim, axis=1)[:, -k:].mean(axis=1, keepdims=True)
-    top_k_gal = np.sort(sim, axis=0)[-k:, :].mean(axis=0, keepdims=True)
-    return sim - 0.5 * (top_k_pred + top_k_gal)
-
-
-def _build_split_scores_gpu(split_arrays: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
-    """Same as _build_split_scores but uses GPU for cosine similarity."""
-    logger.info("  Using GPU-accelerated score computation")
-    scores = {
-        "compact_raw": _cosine_sim_gpu(split_arrays["compact_preds"], split_arrays["compact_gts"]),
-        "compact_csls": _csls_scores_gpu(split_arrays["compact_preds"], split_arrays["compact_gts"], k=10),
-        "rerank": _cosine_sim_gpu(split_arrays["rerank_preds"], split_arrays["rerank_gts"]),
-        "legacy_raw": _cosine_sim_gpu(split_arrays["legacy_preds"], split_arrays["legacy_gts"]),
-        "legacy_csls": _csls_scores_gpu(split_arrays["legacy_preds"], split_arrays["legacy_gts"], k=10),
-    }
-    vmf_preds = split_arrays.get("vmf_preds")
-    if vmf_preds is not None:
-        scores["vmf_raw"] = _cosine_sim_gpu(vmf_preds, split_arrays["compact_gts"])
-        scores["vmf_csls"] = _csls_scores_gpu(vmf_preds, split_arrays["compact_gts"], k=10)
-    return scores
-
-
 def _top_margin(local_scores: np.ndarray, top_n: int) -> np.ndarray:
     """Score gap between rank-1 and rank-top_n within each row."""
     if local_scores.shape[1] < 2:
@@ -393,41 +348,6 @@ def _extract_candidate_features(
     component_weight_gap_q = component_block["component_weight_gap_q"]
     component_kappa_max_q = component_block["component_kappa_max_q"]
 
-    # ── L. Per-query calibration features (Wave B) ───────────────────
-    # Score entropy: how spread are candidate scores across experts
-    _all_scores = np.stack([
-        _shortlist_zscore(local_compact_csls, mask),
-        _shortlist_zscore(local_legacy_csls, mask),
-        _shortlist_zscore(local_rerank, mask),
-    ], axis=-1)  # (N, max_size, 3)
-    _score_var = np.var(_all_scores, axis=-1)  # (N, max_size)
-    expert_score_entropy_q = np.broadcast_to(
-        np.mean(_score_var * mask.astype(np.float32), axis=1, keepdims=True)
-        / np.maximum(mask.sum(axis=1, keepdims=True).astype(np.float32), 1.0),
-        (n, max_size),
-    ).copy().astype(np.float32)
-
-    # Top-K overlap: fraction of top-K shared between compact and legacy
-    _overlap_counts = np.zeros(n, dtype=np.float32)
-    _overlap_k = min(10, max_size)
-    for qi in range(n):
-        c_set = set(np.argsort(-local_compact_csls[qi] * mask[qi].astype(np.float32))[:_overlap_k])
-        l_set = set(np.argsort(-local_legacy_csls[qi] * mask[qi].astype(np.float32))[:_overlap_k])
-        _overlap_counts[qi] = len(c_set & l_set) / max(_overlap_k, 1)
-    expert_topk_overlap_q = np.broadcast_to(
-        _overlap_counts[:, None], (n, max_size),
-    ).copy().astype(np.float32)
-
-    # Margin-to-second: score gap between rank-1 and rank-2 per expert (per-query)
-    margin_to_second_compact_q = np.broadcast_to(
-        _top_margin(np.where(mask, local_compact_csls, -np.inf), 2)[:, None],
-        (n, max_size),
-    ).copy().astype(np.float32)
-    margin_to_second_legacy_q = np.broadcast_to(
-        _top_margin(np.where(mask, local_legacy_csls, -np.inf), 2)[:, None],
-        (n, max_size),
-    ).copy().astype(np.float32)
-
     # ── Stack all features: (N, max_size, F) ─────────────────────────
     feature_list = [
         # Raw scores (5)
@@ -496,11 +416,6 @@ def _extract_candidate_features(
         agree_cv_bc,                # 50
         rank_vmf_csls_norm,         # 51
         margin_vmf_csls,            # 52
-        # Per-query calibration (4)
-        expert_score_entropy_q,     # 53
-        expert_topk_overlap_q,      # 54
-        margin_to_second_compact_q, # 55
-        margin_to_second_legacy_q,  # 56
     ]
     features = np.stack(feature_list, axis=-1).astype(np.float32)
 
@@ -565,11 +480,6 @@ FEATURE_NAMES = [
     "agree_compact_vmf_top1",
     "vmf_csls_rank_norm",
     "margin_vmf_csls",
-    # Per-query calibration (4)
-    "expert_score_entropy",
-    "expert_topk_overlap",
-    "margin_to_second_compact",
-    "margin_to_second_legacy",
 ]
 
 
@@ -595,10 +505,7 @@ def _build_cache_for_split(
     n = split_arrays["compact_preds"].shape[0]
     logger.info("Building cache for %s: %d queries, K=%d", split_name, n, shortlist_k)
 
-    if _USE_GPU_SCORES:
-        scores = _build_split_scores_gpu(split_arrays)
-    else:
-        scores = _build_split_scores(split_arrays)
+    scores = _build_split_scores(split_arrays)
 
     # Expert orderings (CSLS for shortlist construction)
     compact_order, compact_gt_rank = _gt_rank_from_scores(scores["compact_csls"])
@@ -756,21 +663,7 @@ def main() -> None:
         default=None,
         help="Optional JSON provenance to embed in TRAIN cache metadata",
     )
-    parser.add_argument(
-        "--use-gpu",
-        action="store_true",
-        help="Use GPU for cosine similarity (essential for high-dim legacy predictions)",
-    )
     args = parser.parse_args()
-
-    global _USE_GPU_SCORES
-    if args.use_gpu:
-        import torch
-        if torch.cuda.is_available():
-            _USE_GPU_SCORES = True
-            logger.info("GPU scoring enabled: %s", torch.cuda.get_device_name(0))
-        else:
-            logger.warning("--use-gpu requested but no CUDA device found, falling back to CPU")
 
     tri_results_dir = Path(args.tri_results_dir)
     legacy_results_dir = Path(args.legacy_results_dir)

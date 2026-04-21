@@ -3981,3 +3981,42 @@ The `V45` wave should be stopped or redesigned if any of the following persist:
 - `V45` is a retrieval-first research extension, not a change to the frozen final reportable system.
 - Any claim that the student has captured the expert ensemble’s ranking knowledge must be grounded in the logged agreement and retrieval metrics.
 - The distillation teacher in `V45` is a practical proxy for the frozen system’s score topology; it should be described as such rather than as a literal online ensemble forward pass.
+
+## 40. V55: Posterior Predictive Neural Retrieval (PPNR) — Roadmap to 90%+
+
+### 40.1 Motivation
+
+Deep analysis of the 77.2% ceiling identified three primary bottlenecks:
+
+1. **Data scale** (estimated 6-10pp contribution): subj01 has ~9K unique images vs MindEye's ~70K multi-subject scale.
+2. **Representation geometry / hubness** (3-5pp): 10-17pp raw-to-CSLS gaps indicate embedding geometry failure.
+3. **Within-shortlist ranking precision** (2-4pp): 55.1% expert disagreement + failed learned gates/rerankers.
+
+Key insight: the vMF model produces (mu, kappa) but kappa is discarded at retrieval time. The full vMF posterior predictive log-likelihood provides principled hubness correction without ad-hoc CSLS.
+
+### 40.2 Architecture: Simplified Dual-Head
+
+V55 returns to N1v28a-style vmf dual-head (contrastive + regression) instead of vmf_triple with 3 heads. N1v28a reaches 70.3% CSLS single-subject; V35 compact reaches only 51.8%. MindEye uses dual-head and reaches 93.2% R@1.
+
+### 40.3 Novel Contribution: PPR Scoring
+
+PPR(z | mu, kappa) = kappa * cos(mu, z) + log C_d(kappa)
+
+Implementation: src/fmri2img/eval/ppr_scoring.py (19 tests passing).
+
+### 40.4 Experiment Phases
+
+| Phase | Config | Expected Outcome |
+|-------|--------|------------------|
+| V55a | V55a_multi_subject_dual_head.yaml | compact CSLS 55-67% |
+| V55b | V55b_subj01_finetune.yaml | CSLS 70-78%, fusion 80-85% |
+| V55c | V55c_fusion_distill.yaml | CSLS 72-80%, fusion 83-88% |
+| V55d | V55d_oof_fold.yaml | OOF prediction quality |
+| V55e | V55e_oof_ppr_resolver.yaml | Resolver 82-90% |
+
+### 40.5 Kill Criteria
+
+- V55a: subj01 CSLS R@1 < 55% after 40 epochs
+- V55b: SHARED1000 CSLS R@1 < 72%
+- V55c: CSLS R@1 < V55b CSLS R@1
+- V55e: SHARED1000 resolver R@1 < 79.2%

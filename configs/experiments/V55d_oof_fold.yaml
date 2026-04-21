@@ -1,0 +1,164 @@
+# V55d: V55-quality OOF Fold Training
+#
+# Trains a V55-quality fold model for production-matched OOF reranker training.
+# Uses the simplified vmf dual-head architecture from V55a/b, keeping the
+# architecture consistent with the production student.
+#
+# The 80/20 split per fold ensures OOF predictions are realistic:
+# each training sample has predictions from a model that never saw it.
+#
+# Kill criteria:
+#   - OOF train disagreement < 30% -> fold predictions too degenerate
+#
+# Pipeline:
+#   1. python scripts/preprocessing/build_oof_split_folds.py --num-folds 5
+#   2. Train 5 fold models with this config (modify split_file per fold)
+#   3. python scripts/preprocessing/merge_oof_expert_predictions.py
+#   4. python scripts/preprocessing/build_union_shortlist_cache.py --use-gpu
+#   5. Train resolver with V55e config
+
+experiment:
+  name: "V55d_oof_fold"
+  description: "V55d: V55-quality dual-head fold model for OOF resolver training"
+  tags:
+    - vmf
+    - v55d
+    - oof_fold
+    - dual_head
+    - regression
+    - token_targets
+    - uniformity
+    - roadmap_ppr
+  parent: "V55b_subj01_finetune"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.80
+  val_split: 0.20
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  pretrained_model_path: "experimental_results/V55b_subj01_finetune/subj01/checkpoint_best.pt"
+  require_pretrained_model: true
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.20
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: null
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.20
+    kappa_mode: "softplus"
+    kappa_min: 0.001
+    kappa_max: 500.0
+    num_tokens: 257
+    token_dim: 768
+    regression_head: true
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  regression_mse:
+    enabled: true
+    weight: 0.5
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  uniformity:
+    enabled: true
+    weight: 0.05
+    t: 2.0
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  vmf_nll:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+  legacy_teacher_distill:
+    enabled: false
+  fusion_ranking_distill:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 4096
+
+training:
+  batch_size: 16
+  gradient_accumulation_steps: 16
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 60
+  optimizer:
+    type: "adamw"
+    lr: 1.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 5
+  min_lr: 1.0e-7
+  gradient_clip: 1.0
+  early_stop_patience: 15
+  early_stop_min_delta: 0.001
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: false
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 4
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

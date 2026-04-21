@@ -1,0 +1,102 @@
+# V55e: OOF PPR-Aware Union-Shortlist Resolver
+#
+# Post-hoc resolver trained on true out-of-fold expert predictions.
+# Extends V41's vMF-evidence architecture with PPR scores as features,
+# making the resolver aware of the full vMF posterior.
+#
+# Feature set per candidate:
+#   - compact CSLS score (z-scored)
+#   - legacy CSLS score (z-scored)
+#   - compact PPR score (kappa * cos + log C)
+#   - compact kappa
+#   - score margin (gap to next candidate)
+#   - rank in compact shortlist
+#   - rank in legacy shortlist
+#   - compact-legacy score gap
+#
+# The resolver is a Set Transformer operating over the shortlist candidates,
+# producing per-candidate logits for the ranking loss.
+#
+# Kill criteria:
+#   - SHARED1000 resolver R@1 < 79.2% (77.2% + 2pp)
+#
+# Pipeline:
+#   1. Run V55d OOF folds (5 folds)
+#   2. Merge OOF predictions
+#   3. Build union shortlist cache
+#   4. Train this resolver
+#
+# Canonical run:
+#   bash scripts/training/run_v55_oof_ppr_resolver.sh
+
+experiment:
+  name: "V55e_oof_ppr_resolver"
+  description: "PPR-aware set-transformer resolver on true OOF predictions from V55d folds"
+  tags: ["v55e", "oof", "ppr", "resolver", "set_transformer", "post_hoc", "roadmap_ppr"]
+  parent: "V55d_oof_fold"
+  type: "post_hoc_evaluation"
+
+experts:
+  compact:
+    base_results_dir: "experimental_results/V55b_subj01_finetune/subj01"
+    required_outputs:
+      - "train_oof_predictions_compact.npy"
+      - "train_oof_ground_truth_compact.npy"
+      - "train_oof_nsd_ids.npy"
+      - "train_oof_kappas.npy"
+  legacy:
+    base_results_dir: "experimental_results/N1v28a_dual_head/subj01"
+    required_outputs:
+      - "train_oof_predictions_compact.npy"
+      - "train_oof_ground_truth_compact.npy"
+      - "train_oof_nsd_ids.npy"
+
+folding:
+  num_folds: 5
+  seed: 42
+  holdout_split_name: "val"
+  merged_train_prefix: "train_oof"
+  required_train_pool_size: 8100
+
+shortlist:
+  k: 150
+  train_cache_name: "train_oof"
+  val_cache_name: "val"
+  shared_cache_name: "shared1000"
+  sources: ["compact_csls", "legacy_csls", "compact_ppr"]
+
+reranker:
+  architecture: "set_transformer"
+  feature_dim: 8
+  hidden_dim: 128
+  num_heads: 4
+  num_layers: 2
+  dropout: 0.15
+  pairwise_margin_weight: 0.10
+  pairwise_margin: 0.20
+  pairwise_hard_neg_k: 5
+  ppr_features: true
+
+training:
+  lr: 5.0e-4
+  weight_decay: 1.0e-4
+  max_epochs: 300
+  patience: 40
+  batch_size: 256
+  seed: 42
+
+evaluation:
+  shortlist_k_default: 150
+  shortlist_k_fallback: 200
+  success_gate_gain_over_fixed_tri_pp: 2.0
+  fixed_tri_shared1000_r1: 0.772
+
+sanity_checks:
+  require_unique_train_oof_ids: true
+  require_complete_train_pool_coverage: true
+  require_disagreement_fraction_min: 0.20
+  forbid_near_perfect_train_oof_experts: true
+
+success_criteria:
+  realistic: "shared1000 resolver R@1 in the 82-87% range"
+  stretch: "shared1000 resolver R@1 above 87%"

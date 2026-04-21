@@ -76,6 +76,10 @@ from fmri2img.losses.cka_loss import CKALoss
 from fmri2img.losses.direct_alignment import DirectAlignmentLoss
 from fmri2img.losses.uniformity import UniformityLoss
 from fmri2img.losses.scfr_losses import CrossCovarianceOrthogonalityLoss
+from fmri2img.eval.ppr_scoring import (
+    ppr_score_matrix as _ppr_score_matrix,
+    ppr_csls_score_matrix as _ppr_csls_score_matrix,
+)
 from fmri2img.eval.embedding_eval import (
     compute_retrieval_metrics as _compute_retrieval,
     compute_retrieval_metrics_csls as _compute_retrieval_csls,
@@ -6702,6 +6706,48 @@ def main() -> None:
                 csls_ret["top1_accuracy"], csls_ret["top5_accuracy"],
                 csls_ret["top10_accuracy"],
             )
+
+        # --- PPR (Posterior Predictive Retrieval) scoring (V55) ---
+        _ppr_enabled = config.get("evaluation", {}).get("ppr", {}).get("enabled", False)
+        _ppr_kappas_src = mc_kappas  # from MC-TTA or None
+        if _ppr_kappas_src is None and "kappas" in _epoch_val_extras:
+            _ppr_kappas_src = _epoch_val_extras["kappas"]
+        if _ppr_enabled and _ppr_kappas_src is not None and len(_ppr_kappas_src) > 0:
+            _ppr_src = img_preds if _eval_nsd_ids is not None else val_preds
+            _ppr_tgt = img_gts if _eval_nsd_ids is not None else val_gts
+            if _eval_nsd_ids is not None:
+                _ppr_u_ids = np.unique(_eval_nsd_ids)
+                _ppr_img_kappas = np.zeros(len(_ppr_u_ids), dtype=np.float32)
+                for _pi, _pu in enumerate(_ppr_u_ids):
+                    _pm = _eval_nsd_ids == _pu
+                    _ppr_img_kappas[_pi] = _ppr_kappas_src[_pm[:len(_ppr_kappas_src)]].mean()
+                _ppr_kappas_eval = _ppr_img_kappas
+            else:
+                _ppr_kappas_eval = _ppr_kappas_src
+            if len(_ppr_kappas_eval) == len(_ppr_src):
+                _ppr_d = _ppr_src.shape[1]
+                try:
+                    _ppr_full_scores = _ppr_score_matrix(_ppr_src, _ppr_tgt, _ppr_kappas_eval, d=_ppr_d)
+                    _ppr_ranks = np.argsort(-_ppr_full_scores, axis=1)
+                    _ppr_correct = np.array([np.where(_ppr_ranks[i] == i)[0][0] for i in range(len(_ppr_src))])
+                    val_metrics["ppr_r@1"] = float((_ppr_correct < 1).mean())
+                    val_metrics["ppr_r@5"] = float((_ppr_correct < 5).mean())
+                    val_metrics["ppr_r@10"] = float((_ppr_correct < 10).mean())
+                    _ppr_csls_k = config.get("evaluation", {}).get("csls_k", 10)
+                    _ppr_csls_scores = _ppr_csls_score_matrix(
+                        _ppr_src, _ppr_tgt, _ppr_kappas_eval, k=_ppr_csls_k, d=_ppr_d,
+                    )
+                    _pprc_ranks = np.argsort(-_ppr_csls_scores, axis=1)
+                    _pprc_correct = np.array([np.where(_pprc_ranks[i] == i)[0][0] for i in range(len(_ppr_src))])
+                    val_metrics["ppr_csls_r@1"] = float((_pprc_correct < 1).mean())
+                    val_metrics["ppr_csls_r@5"] = float((_pprc_correct < 5).mean())
+                    logger.info(
+                        "PPR Retrieval: R@1=%.4f  PPR+CSLS_R@1=%.4f  (kappa_mean=%.1f)",
+                        val_metrics["ppr_r@1"], val_metrics["ppr_csls_r@1"],
+                        float(np.mean(_ppr_kappas_eval)),
+                    )
+                except Exception as _ppr_err:
+                    logger.warning("PPR scoring failed: %s", _ppr_err)
 
         if "vmf_preds" in _epoch_val_extras and "vmf_kappas" in _epoch_val_extras:
             _vmf_preds_val = _epoch_val_extras["vmf_preds"]

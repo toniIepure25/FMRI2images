@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # V55 Multi-Subject Dual-Head Pipeline: 77.2% -> 90%+ R@1
 #
-# Phase A: V55a — 4-subject dual-head pretraining with uniformity
+# Phase A: V55a — 8-subject dual-head pretraining with uniformity (all NSD subjects)
 # Phase B: V55b — subj01 fine-tuning with legacy + fusion distillation
 # Phase C: PPR evaluation — vMF Posterior Predictive Retrieval scoring
 #
@@ -26,7 +26,7 @@ log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 if [[ -z "${SKIP_V55A:-}" ]]; then
     log "=== Phase A: V55a multi-subject dual-head pretraining ==="
 
-    for subj in subj01 subj02 subj05 subj07; do
+    for subj in subj01 subj02 subj03 subj04 subj05 subj06 subj07 subj08; do
         FEAT="cache/preextracted/subject=${subj}/fmri_features.npy"
         if [[ ! -f "$FEAT" ]]; then
             log "Pre-extracting fMRI for $subj..."
@@ -34,7 +34,7 @@ if [[ -z "${SKIP_V55A:-}" ]]; then
         fi
     done
 
-    log "Starting V55a training (4-subject, dual-head + uniformity)..."
+    log "Starting V55a training (8-subject when preextracted, dual-head + uniformity)..."
     python scripts/training/train_unified.py \
         --config configs/experiments/V55a_multi_subject_dual_head.yaml
 

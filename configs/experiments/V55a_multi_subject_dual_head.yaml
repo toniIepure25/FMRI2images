@@ -3,7 +3,8 @@
 # Hypothesis: The primary bottleneck is data volume combined with gradient
 # dilution from the vmf_triple 3-head architecture. Simplifying to N1v28a-
 # style dual-head (L2-norm contrastive + un-normalised regression) while
-# training on 4 subjects (~36K unique images, 4x single-subject) should
+# training on all 8 NSD subjects when data is available (~70K+ image-trial
+# diversity vs single-subject) should
 # close much of the 16pp gap to MindEye.
 #
 # Key design choices vs V54a:
@@ -27,7 +28,7 @@
 
 experiment:
   name: "V55a_multi_subject_dual_head"
-  description: "V55a: 4-subject dual-head vMF (no triple-head) + uniformity regularization (Route 1+2+6)"
+  description: "V55a: 8-subject dual-head vMF (no triple-head) + uniformity — uses all NSD subjects when preextracted"
   tags:
     - vmf
     - v55a
@@ -39,13 +40,16 @@ experiment:
     - uniformity
     - anti_hubness
     - phase1_pretrain
-    - 4subject
+    - all8
     - data_scaling
     - roadmap_ppr
   parent: "N1v28a_dual_head"
 
 data:
-  subjects: [subj01, subj02, subj05, subj07]
+  # All 8 NSD subjects (same list as V50). MultiSubjectPreextractedDataset
+  # requires fmri_features.npy + index.parquet for EVERY listed subject —
+  # run `make index` + `make preextract` for subj01..subj08 before training.
+  subjects: [subj01, subj02, subj03, subj04, subj05, subj06, subj07, subj08]
   subject: "subj01"
   roi: "nsdgeneral"
   train_split: 0.90

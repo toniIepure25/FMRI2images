@@ -4008,7 +4008,7 @@ Implementation: src/fmri2img/eval/ppr_scoring.py (19 tests passing).
 
 | Phase | Config | Expected Outcome |
 |-------|--------|------------------|
-| V55a | V55a_multi_subject_dual_head.yaml | compact CSLS 55-67% |
+| V55a | V55a_multi_subject_dual_head.yaml | all 8 subjects (subj01--subj08) when preextracted; compact CSLS 55-67% |
 | V55b | V55b_subj01_finetune.yaml | CSLS 70-78%, fusion 80-85% |
 | V55c | V55c_fusion_distill.yaml | CSLS 72-80%, fusion 83-88% |
 | V55d | V55d_oof_fold.yaml | OOF prediction quality |

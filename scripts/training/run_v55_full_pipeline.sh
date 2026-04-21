@@ -3,7 +3,7 @@
 #
 # Posterior Predictive Neural Retrieval (PPNR) — complete experiment pipeline:
 #
-#   Phase A: V55a — 4-subject dual-head pretraining + uniformity (Wave 1)
+#   Phase A: V55a — 8-subject dual-head pretraining + uniformity (Wave 1)
 #   Phase B: V55b — subj01 fine-tuning + legacy/fusion distillation (Wave 2)
 #   Phase C: V55c — fusion topology distillation refinement (Wave 2)
 #   Phase D: PPR evaluation — compare PPR vs CSLS on all checkpoints
@@ -36,9 +36,9 @@ log "=========================================="
 # ─── Phase A: Multi-Subject Dual-Head Pretraining ────────────────────────
 if [[ -z "${SKIP_V55A:-}" ]]; then
     log "=== Phase A: V55a multi-subject dual-head pretraining ==="
-    log "Training on 4 subjects with dual-head + uniformity..."
+    log "Training on all 8 NSD subjects (when preextracted) with dual-head + uniformity..."
 
-    for subj in subj01 subj02 subj05 subj07; do
+    for subj in subj01 subj02 subj03 subj04 subj05 subj06 subj07 subj08; do
         FEAT="cache/preextracted/subject=${subj}/fmri_features.npy"
         if [[ ! -f "$FEAT" ]]; then
             log "Pre-extracting fMRI for $subj..."

@@ -187,7 +187,7 @@ evaluation:
   eval_shared1000: true
   checkpoint_metric: "csls_r@1"
   best_checkpoints: [csls_r@1]
-  mc_tta_samples: 8
+  mc_tta_samples: 1
   kappa_weighted_avg: true
   ppr:
     enabled: true

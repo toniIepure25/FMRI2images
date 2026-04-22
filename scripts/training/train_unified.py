@@ -6624,6 +6624,9 @@ def main() -> None:
             ema.restore(model)
         logger.info("%s val: %s", _eval_label.capitalize(), " | ".join(f"{k}={v:.4f}" for k, v in val_metrics.items()))
 
+        # Free GPU cache before CPU-heavy retrieval phase
+        torch.cuda.empty_cache()
+
         # --- MC-Dropout TTA (V9) ---
         _mc_tta_cfg = config.get("evaluation", {})
         _mc_tta_n = _mc_tta_cfg.get("mc_tta_samples", 0)
@@ -6666,6 +6669,14 @@ def main() -> None:
             # Re-normalise after averaging
             norms = np.linalg.norm(img_preds, axis=-1, keepdims=True)
             img_preds = img_preds / np.maximum(norms, 1e-8)
+
+            # Free trial-level arrays — img_preds/img_gts are sufficient for retrieval
+            _val_preds_d = val_preds.shape[1] if val_preds is not None else 0
+            if _val_preds_d > 2048:
+                del val_preds, val_gts
+                val_preds = val_gts = None
+                gc.collect()
+
             img_retrieval = _compute_retrieval(img_preds, img_gts, ks=(1, 5, 10))
             val_metrics["r@1"] = img_retrieval["top1_accuracy"]
             val_metrics["r@5"] = img_retrieval["top5_accuracy"]
@@ -6676,7 +6687,7 @@ def main() -> None:
                 "Retrieval: R@1=%.4f  R@5=%.4f  R@10=%.4f  MedR=%.1f  MRR=%.4f  (N=%d img, %d trial)",
                 img_retrieval["top1_accuracy"], img_retrieval["top5_accuracy"],
                 img_retrieval["top10_accuracy"], img_retrieval["median_rank"],
-                img_retrieval["mrr"], len(unique_ids), len(val_preds),
+                img_retrieval["mrr"], len(unique_ids), len(img_preds) * 3,
             )
         else:
             val_metrics["r@1"] = retrieval["top1_accuracy"]
@@ -6708,10 +6719,14 @@ def main() -> None:
             )
 
         # --- PPR (Posterior Predictive Retrieval) scoring (V55) ---
+        # PPR is only meaningful on low-D (768-D mu), not on 197K-D token space
         _ppr_enabled = config.get("evaluation", {}).get("ppr", {}).get("enabled", False)
         _ppr_kappas_src = mc_kappas  # from MC-TTA or None
         if _ppr_kappas_src is None and "kappas" in _epoch_val_extras:
             _ppr_kappas_src = _epoch_val_extras["kappas"]
+        _ppr_dim = img_preds.shape[1] if (_eval_nsd_ids is not None and img_preds is not None) else (val_preds.shape[1] if val_preds is not None else 0)
+        if _ppr_dim > 2048:
+            _ppr_enabled = False
         if _ppr_enabled and _ppr_kappas_src is not None and len(_ppr_kappas_src) > 0:
             _ppr_src = img_preds if _eval_nsd_ids is not None else val_preds
             _ppr_tgt = img_gts if _eval_nsd_ids is not None else val_gts

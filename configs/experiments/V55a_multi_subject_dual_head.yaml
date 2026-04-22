@@ -182,7 +182,7 @@ evaluation:
   proxy_val_every_epochs: 1
   proxy_val_num_images: 2048
   full_val_every_epochs: 3
-  mc_tta_samples: 4
+  mc_tta_samples: 1
   kappa_weighted_avg: true
   ppr:
     enabled: true

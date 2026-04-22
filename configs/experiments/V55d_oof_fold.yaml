@@ -157,7 +157,7 @@ evaluation:
   csls_k: 10
   eval_shared1000: false
   checkpoint_metric: "csls_r@1"
-  mc_tta_samples: 4
+  mc_tta_samples: 1
   kappa_weighted_avg: true
 
 inference:

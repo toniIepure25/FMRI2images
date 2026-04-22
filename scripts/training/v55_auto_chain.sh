@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -uo pipefail
 
 ###############################################################################
-# v55_auto_chain.sh — Sequential V55 Pipeline Auto-Chainer
+# v55_auto_chain.sh — Crash-Resilient V55 Pipeline Auto-Chainer
 #
-# Monitors a running V55a training process, then automatically chains:
+# Runs V55a with automatic restart from checkpoint on OOM/crash, then chains:
 #   V55a (multi-subject pretrain) -> V55b (subj01 finetune) -> V55c (fusion distill)
 #   -> PPR evaluation -> fusion sweep
 #
@@ -12,7 +12,6 @@ set -euo pipefail
 #   nohup bash scripts/training/v55_auto_chain.sh > runtime_logs/v55_chain.log 2>&1 &
 #
 # Prerequisites:
-#   - V55a must already be running (PID detected automatically)
 #   - Environment sourced: set -a && source .env && set +a
 #   - Package installed: pip install -e ".[train]"
 ###############################################################################
@@ -29,42 +28,17 @@ V55A_CONFIG="configs/experiments/V55a_multi_subject_dual_head.yaml"
 V55B_CONFIG="configs/experiments/V55b_subj01_finetune.yaml"
 V55C_CONFIG="configs/experiments/V55c_fusion_distill.yaml"
 
-V55A_CKPT="experimental_results/V55a_multi_subject_dual_head/subj01/checkpoint_best.pt"
+V55A_DIR="experimental_results/V55a_multi_subject_dual_head/subj01"
+V55A_CKPT_BEST="$V55A_DIR/checkpoint_best.pt"
+V55A_CKPT_LAST="$V55A_DIR/checkpoint_last.pt"
 V55B_CKPT="experimental_results/V55b_subj01_finetune/subj01/checkpoint_best.pt"
 V55C_CKPT="experimental_results/V55c_fusion_distill/subj01/checkpoint_best.pt"
 
-POLL_INTERVAL=120  # seconds between status checks
+MAX_RESTARTS=10
+POLL_INTERVAL=120
 
 timestamp() { date "+%Y-%m-%d %H:%M:%S"; }
-
 log() { echo "[$(timestamp)] [CHAIN] $*"; }
-
-wait_for_process() {
-    local pid="$1"
-    local name="$2"
-    local logfile="$3"
-
-    log "Waiting for $name (PID=$pid) to complete..."
-    log "Monitoring log: $logfile"
-
-    local checks=0
-    while kill -0 "$pid" 2>/dev/null; do
-        checks=$((checks + 1))
-        if (( checks % 10 == 0 )); then
-            local last_epoch
-            last_epoch=$(grep -oP "Epoch \d+/\d+" "$logfile" 2>/dev/null | tail -1 || echo "unknown")
-            local last_r1
-            last_r1=$(grep "CSLS Retrieval" "$logfile" 2>/dev/null | tail -1 | grep -oP "R@1=[\d.]+" || echo "R@1=pending")
-            log "[$name] Still running — $last_epoch — $last_r1 (check #$checks)"
-        fi
-        sleep "$POLL_INTERVAL"
-    done
-
-    wait "$pid" 2>/dev/null
-    local exit_code=$?
-    log "$name process finished with exit code: $exit_code"
-    return $exit_code
-}
 
 check_checkpoint() {
     local ckpt="$1"
@@ -75,7 +49,7 @@ check_checkpoint() {
         log "$name checkpoint exists: $ckpt ($size)"
         return 0
     else
-        log "ERROR: $name checkpoint NOT found at $ckpt"
+        log "$name checkpoint NOT found at $ckpt"
         return 1
     fi
 }
@@ -83,16 +57,68 @@ check_checkpoint() {
 report_final_metrics() {
     local name="$1"
     local logfile="$2"
-
     log "=== $name Final Metrics ==="
-    grep -E "CSLS Retrieval|PPR Retrieval|Retrieval:" "$logfile" 2>/dev/null | tail -6
-    grep -E "SHARED.?1000|shared_1000" "$logfile" 2>/dev/null | tail -3
+    grep -E "CSLS Retrieval|PPR Retrieval|Retrieval.*high-D|Retrieval:" "$logfile" 2>/dev/null | tail -6
     grep -E "New best|best.*csls" "$logfile" 2>/dev/null | tail -1
     log "=== End $name Metrics ==="
 }
 
+run_with_retry() {
+    local config="$1"
+    local name="$2"
+    local logfile="$3"
+    local ckpt_last="$4"
+    local ckpt_best="$5"
+    local attempt=0
+
+    while (( attempt < MAX_RESTARTS )); do
+        attempt=$((attempt + 1))
+        log "--- $name attempt $attempt/$MAX_RESTARTS ---"
+
+        local resume_flag=""
+        if [[ -f "$ckpt_last" ]]; then
+            resume_flag="--resume $ckpt_last"
+            log "$name: Resuming from $ckpt_last"
+        elif [[ $attempt -gt 1 ]]; then
+            log "$name: No checkpoint_last.pt found after crash — restarting from scratch"
+        fi
+
+        $TRAIN_CMD --config "$config" --subject subj01 $resume_flag \
+            >> "$logfile" 2>&1
+        local exit_code=$?
+
+        if [[ $exit_code -eq 0 ]]; then
+            log "$name completed successfully on attempt $attempt"
+            report_final_metrics "$name" "$logfile"
+            return 0
+        fi
+
+        log "$name died with exit code $exit_code on attempt $attempt"
+
+        if [[ $exit_code -eq 137 ]]; then
+            log "$name was OOMKilled (signal 9). Will restart from checkpoint after cooldown."
+        else
+            log "$name failed with non-OOM exit code $exit_code."
+        fi
+
+        if ! check_checkpoint "$ckpt_last" "$name-last" && ! check_checkpoint "$ckpt_best" "$name-best"; then
+            if [[ $attempt -ge 3 ]]; then
+                log "FATAL: $name has crashed $attempt times with no checkpoint saved. Aborting."
+                return 1
+            fi
+        fi
+
+        local cooldown=$((30 + attempt * 15))
+        log "Cooling down for ${cooldown}s before restart..."
+        sleep "$cooldown"
+    done
+
+    log "FATAL: $name exhausted $MAX_RESTARTS restart attempts."
+    return 1
+}
+
 ###############################################################################
-# PHASE 1: Wait for V55a
+# PHASE 1: V55a with crash recovery
 ###############################################################################
 
 log "=========================================="
@@ -101,66 +127,61 @@ log "=========================================="
 
 V55A_PID=$(ps aux | grep "train_unified.*V55a" | grep -v grep | awk '{print $2}' | head -1)
 
-if [[ -z "$V55A_PID" ]]; then
-    log "WARNING: No running V55a process detected."
-    if check_checkpoint "$V55A_CKPT" "V55a"; then
-        log "V55a checkpoint already exists — skipping to V55b."
+if [[ -n "$V55A_PID" ]]; then
+    log "Detected existing V55a process: PID=$V55A_PID — waiting for it"
+    while kill -0 "$V55A_PID" 2>/dev/null; do
+        local_epoch=$(grep -oP "Epoch \d+/\d+" "$LOG_DIR/v55a_training.log" 2>/dev/null | tail -1 || echo "unknown")
+        log "[V55a] Still running — $local_epoch (PID=$V55A_PID)"
+        sleep "$POLL_INTERVAL"
+    done
+    wait "$V55A_PID" 2>/dev/null || true
+    log "Existing V55a process finished."
+fi
+
+if check_checkpoint "$V55A_CKPT_BEST" "V55a-best"; then
+    log "V55a best checkpoint already exists — checking if training completed."
+    v55a_last_epoch=$(grep -oP "Epoch \d+" "$LOG_DIR/v55a_training.log" 2>/dev/null | tail -1 | grep -oP "\d+" || echo "0")
+    if (( v55a_last_epoch >= 50 )); then
+        log "V55a reached epoch $v55a_last_epoch (>=50). Skipping to V55b."
     else
-        log "ERROR: V55a not running and no checkpoint found. Cannot proceed."
-        log "Start V55a first: nohup $TRAIN_CMD --config $V55A_CONFIG --subject subj01 > $LOG_DIR/v55a_training.log 2>&1 &"
-        exit 1
+        log "V55a only reached epoch $v55a_last_epoch. Will resume."
+        run_with_retry "$V55A_CONFIG" "V55a" "$LOG_DIR/v55a_training.log" "$V55A_CKPT_LAST" "$V55A_CKPT_BEST"
     fi
 else
-    log "Detected V55a training process: PID=$V55A_PID"
-    wait_for_process "$V55A_PID" "V55a" "$LOG_DIR/v55a_training.log" || true
-    report_final_metrics "V55a" "$LOG_DIR/v55a_training.log"
+    run_with_retry "$V55A_CONFIG" "V55a" "$LOG_DIR/v55a_training.log" "$V55A_CKPT_LAST" "$V55A_CKPT_BEST"
+fi
 
-    if ! check_checkpoint "$V55A_CKPT" "V55a"; then
-        log "FATAL: V55a finished but no checkpoint produced. Pipeline aborted."
-        exit 1
-    fi
+if ! check_checkpoint "$V55A_CKPT_BEST" "V55a" && ! check_checkpoint "$V55A_CKPT_LAST" "V55a-last"; then
+    log "FATAL: V55a produced no checkpoint. Pipeline aborted."
+    exit 1
 fi
 
 ###############################################################################
-# PHASE 2: Run V55b (subj01 fine-tuning from V55a)
+# PHASE 2: V55b (subj01 fine-tuning)
 ###############################################################################
 
 log ""
 log "=========================================="
-log "PHASE 2: Starting V55b (subj01 fine-tuning)"
+log "PHASE 2: V55b (subj01 fine-tuning)"
 log "=========================================="
 
-$TRAIN_CMD --config "$V55B_CONFIG" --subject subj01 \
-    > "$LOG_DIR/v55b_training.log" 2>&1 &
-V55B_PID=$!
-log "V55b launched: PID=$V55B_PID"
-
-wait_for_process "$V55B_PID" "V55b" "$LOG_DIR/v55b_training.log" || true
-report_final_metrics "V55b" "$LOG_DIR/v55b_training.log"
-
-if ! check_checkpoint "$V55B_CKPT" "V55b"; then
-    log "WARNING: V55b checkpoint not found. Attempting V55c anyway (may fail)."
-fi
+V55B_LAST="experimental_results/V55b_subj01_finetune/subj01/checkpoint_last.pt"
+run_with_retry "$V55B_CONFIG" "V55b" "$LOG_DIR/v55b_training.log" "$V55B_LAST" "$V55B_CKPT" || true
 
 ###############################################################################
-# PHASE 3: Run V55c (fusion topology distillation)
+# PHASE 3: V55c (fusion distillation)
 ###############################################################################
 
 log ""
 log "=========================================="
-log "PHASE 3: Starting V55c (fusion distillation)"
+log "PHASE 3: V55c (fusion distillation)"
 log "=========================================="
 
-$TRAIN_CMD --config "$V55C_CONFIG" --subject subj01 \
-    > "$LOG_DIR/v55c_training.log" 2>&1 &
-V55C_PID=$!
-log "V55c launched: PID=$V55C_PID"
-
-wait_for_process "$V55C_PID" "V55c" "$LOG_DIR/v55c_training.log" || true
-report_final_metrics "V55c" "$LOG_DIR/v55c_training.log"
+V55C_LAST="experimental_results/V55c_fusion_distill/subj01/checkpoint_last.pt"
+run_with_retry "$V55C_CONFIG" "V55c" "$LOG_DIR/v55c_training.log" "$V55C_LAST" "$V55C_CKPT" || true
 
 ###############################################################################
-# PHASE 4: PPR Evaluation on best available checkpoint
+# PHASE 4: PPR Evaluation
 ###############################################################################
 
 log ""
@@ -169,7 +190,7 @@ log "PHASE 4: PPR Evaluation"
 log "=========================================="
 
 BEST_CKPT=""
-for ckpt in "$V55C_CKPT" "$V55B_CKPT" "$V55A_CKPT"; do
+for ckpt in "$V55C_CKPT" "$V55B_CKPT" "$V55A_CKPT_BEST" "$V55A_CKPT_LAST"; do
     if [[ -f "$ckpt" ]]; then
         BEST_CKPT="$ckpt"
         break
@@ -183,13 +204,13 @@ if [[ -n "$BEST_CKPT" ]]; then
         --subject subj01 \
         > "$LOG_DIR/v55_ppr_eval.log" 2>&1 || \
         log "WARNING: PPR evaluation failed (non-critical)"
-    log "PPR evaluation complete. Results in $LOG_DIR/v55_ppr_eval.log"
+    log "PPR evaluation complete."
 else
     log "No checkpoint found for PPR evaluation."
 fi
 
 ###############################################################################
-# PHASE 5: Fusion sweep (if applicable)
+# PHASE 5: Fusion sweep
 ###############################################################################
 
 log ""
@@ -197,7 +218,7 @@ log "=========================================="
 log "PHASE 5: Fusion Sweep"
 log "=========================================="
 
-if [[ -f "$BEST_CKPT" ]]; then
+if [[ -n "$BEST_CKPT" ]]; then
     log "Running fusion sweep..."
     python3 scripts/evaluation/sweep_fusion_ppr.py \
         --compact-checkpoint "$BEST_CKPT" \
@@ -205,7 +226,7 @@ if [[ -f "$BEST_CKPT" ]]; then
         --subject subj01 \
         > "$LOG_DIR/v55_fusion_sweep.log" 2>&1 || \
         log "WARNING: Fusion sweep failed (non-critical)"
-    log "Fusion sweep complete. Results in $LOG_DIR/v55_fusion_sweep.log"
+    log "Fusion sweep complete."
 fi
 
 ###############################################################################
@@ -216,9 +237,10 @@ log ""
 log "=========================================="
 log "V55 AUTO-CHAIN PIPELINE COMPLETE"
 log "=========================================="
-log "V55a checkpoint: $(ls -lh "$V55A_CKPT" 2>/dev/null | awk '{print $5, $6, $7, $8}' || echo 'MISSING')"
-log "V55b checkpoint: $(ls -lh "$V55B_CKPT" 2>/dev/null | awk '{print $5, $6, $7, $8}' || echo 'MISSING')"
-log "V55c checkpoint: $(ls -lh "$V55C_CKPT" 2>/dev/null | awk '{print $5, $6, $7, $8}' || echo 'MISSING')"
+log "V55a best : $(ls -lh "$V55A_CKPT_BEST" 2>/dev/null | awk '{print $5, $6, $7, $8}' || echo 'MISSING')"
+log "V55a last : $(ls -lh "$V55A_CKPT_LAST" 2>/dev/null | awk '{print $5, $6, $7, $8}' || echo 'MISSING')"
+log "V55b best : $(ls -lh "$V55B_CKPT" 2>/dev/null | awk '{print $5, $6, $7, $8}' || echo 'MISSING')"
+log "V55c best : $(ls -lh "$V55C_CKPT" 2>/dev/null | awk '{print $5, $6, $7, $8}' || echo 'MISSING')"
 log ""
 log "All logs in: $LOG_DIR/v55_*.log"
 log "Pipeline finished at $(timestamp)"

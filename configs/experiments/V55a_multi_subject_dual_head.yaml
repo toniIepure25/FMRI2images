@@ -66,6 +66,7 @@ data:
   embedding_column: "fused"
   seed: 42
   token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+  num_workers: 0
 
 model:
   type: "vmf"
@@ -142,7 +143,7 @@ loss:
 
 queue:
   enabled: true
-  size: 4096
+  size: 2048
 
 training:
   batch_size: 16
@@ -150,6 +151,7 @@ training:
   mixed_precision: true
   mixed_precision_dtype: "bf16"
   num_epochs: 120
+  save_checkpoints: "all"
   optimizer:
     type: "adamw"
     lr: 5.0e-5
@@ -180,8 +182,8 @@ evaluation:
   checkpoint_metric: "csls_r@1"
   best_checkpoints: [csls_r@1]
   proxy_val_every_epochs: 1
-  proxy_val_num_images: 2048
-  full_val_every_epochs: 3
+  proxy_val_num_images: 1024
+  full_val_every_epochs: 10
   mc_tta_samples: 1
   kappa_weighted_avg: true
   ppr:

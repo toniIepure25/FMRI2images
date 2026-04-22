@@ -32,6 +32,7 @@ import sys
 import gc
 import time
 import tempfile
+import ctypes
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -2712,6 +2713,14 @@ def train_epoch(
             epoch_metrics.setdefault(k, []).append(v)
         global_step += 1
 
+        if step_in_epoch > 0 and step_in_epoch % 500 == 0:
+            gc.collect()
+            try:
+                ctypes.CDLL("libc.so.6").malloc_trim(0)
+            except Exception:
+                pass
+            torch.cuda.empty_cache()
+
     return {k: float(np.mean(v)) for k, v in epoch_metrics.items()}, global_step
 
 
@@ -3380,6 +3389,8 @@ def validate(
     all_compact_component_logits: List[np.ndarray] = []
     all_nsd_ids: List[np.ndarray] = []
 
+    _collect_fp16 = False  # determined after first batch
+
     with torch.no_grad():
         for batch_idx, batch in enumerate(dataloader):
             _rich_target = None
@@ -3405,6 +3416,8 @@ def validate(
                             assert _rerank_target.shape[-1] == _dec.rerank_dim, (
                                 f"rerank_target dim ({_rerank_target.shape[-1]}) != decoder.rerank_dim ({_dec.rerank_dim})"
                             )
+                if batch_idx == 0:
+                    _collect_fp16 = gt_embedding.shape[-1] > 2048
             elif len(batch) == 4:
                 fmri, gt_embedding, subject_ids, _ = batch
                 subject_ids = subject_ids.to(device)
@@ -3438,8 +3451,9 @@ def validate(
                 pred, aux = output, None
             _vmf_pred_head, _vmf_aux_head = _extract_vmf_outputs_for_losses(model_type, pred, aux)
 
-            all_preds.append(pred.detach().cpu().numpy())
-            all_gts.append(gt_embedding.detach().cpu().numpy())
+            _np_dtype = np.float16 if _collect_fp16 else np.float32
+            all_preds.append(pred.detach().cpu().numpy().astype(_np_dtype))
+            all_gts.append(gt_embedding.detach().cpu().numpy().astype(_np_dtype))
             if _vmf_pred_head is not None and _vmf_aux_head is not None:
                 all_vmf_preds.append(_vmf_pred_head.detach().cpu().numpy())
                 _vk = _vmf_aux_head
@@ -5842,7 +5856,7 @@ def main() -> None:
 
     batch_size = config["training"]["batch_size"]
     use_preextracted = isinstance(full_dataset, PreextractedNSDDataset) or _is_multi_subject
-    dl_workers = 2 if use_preextracted else 0
+    dl_workers = config.get("data", {}).get("num_workers", 2 if use_preextracted else 0)
     dl_pin = device.startswith("cuda")
     _one_trial_per_image = bool(
         config.get("data", {}).get("one_trial_per_image_per_epoch", False)
@@ -6624,9 +6638,6 @@ def main() -> None:
             ema.restore(model)
         logger.info("%s val: %s", _eval_label.capitalize(), " | ".join(f"{k}={v:.4f}" for k, v in val_metrics.items()))
 
-        # Free GPU cache before CPU-heavy retrieval phase
-        torch.cuda.empty_cache()
-
         # --- MC-Dropout TTA (V9) ---
         _mc_tta_cfg = config.get("evaluation", {})
         _mc_tta_n = _mc_tta_cfg.get("mc_tta_samples", 0)
@@ -6644,35 +6655,38 @@ def main() -> None:
         else:
             mc_kappas = None
 
-        _use_kappa_avg = _mc_tta_cfg.get("kappa_weighted_avg", False)
-        _tok_dim = int(val_preds.shape[1])
-        _token_high_d = _tok_dim > 2048
+        _pred_dim = int(val_preds.shape[1])
+        _is_high_d = _pred_dim > 2048
 
-        img_preds: Optional[np.ndarray] = None
-        img_gts: Optional[np.ndarray] = None
-
-        if _eval_nsd_ids is not None and _token_high_d:
-            # 197K-D token regression head: trial-level retrieval does a full (N,N) similarity
-            # path on 10800 x 197376 tensors while validate()'s arrays still live — OOM at ~100Gi.
-            # Aggregate to image level first (3600 x 197376), then drop trial tensors.
+        if _is_high_d and _eval_nsd_ids is not None:
+            # High-D (197K token targets): skip trial-level similarity matrix
+            # (N_trial x N_trial at 197K-D is ~17 GB float32).
+            # Aggregate to image level first, then compute retrieval and free
+            # the large trial arrays immediately.
+            _n_trials = len(val_preds)
             unique_ids = np.unique(_eval_nsd_ids)
-            img_preds = np.zeros((len(unique_ids), _tok_dim), dtype=np.float32)
+            img_preds = np.zeros((len(unique_ids), _pred_dim), dtype=np.float32)
             img_gts = np.zeros((len(unique_ids), val_gts.shape[1]), dtype=np.float32)
+            _use_kappa_avg = _mc_tta_cfg.get("kappa_weighted_avg", False)
             for i, uid in enumerate(unique_ids):
                 mask = _eval_nsd_ids == uid
                 if _use_kappa_avg and mc_kappas is not None:
                     k_w = mc_kappas[mask]
                     k_w = k_w / (k_w.sum() + 1e-8)
-                    img_preds[i] = (val_preds[mask] * k_w[:, None]).sum(axis=0)
+                    img_preds[i] = val_preds[mask].astype(np.float32).dot(k_w) if k_w.ndim == 1 and val_preds[mask].shape[0] == 1 else (val_preds[mask].astype(np.float32) * k_w[:, None]).sum(axis=0)
                 else:
-                    img_preds[i] = val_preds[mask].mean(axis=0)
-                img_gts[i] = val_gts[mask][0]
+                    img_preds[i] = val_preds[mask].astype(np.float32).mean(axis=0)
+                img_gts[i] = val_gts[mask].astype(np.float32)[0]
+
+            del val_preds, val_gts
+            gc.collect()
+            try:
+                ctypes.CDLL("libc.so.6").malloc_trim(0)
+            except Exception:
+                pass
+
             norms = np.linalg.norm(img_preds, axis=-1, keepdims=True)
             img_preds = img_preds / np.maximum(norms, 1e-8)
-            del val_preds, val_gts
-            val_preds = val_gts = None
-            gc.collect()
-
             img_retrieval = _compute_retrieval(img_preds, img_gts, ks=(1, 5, 10))
             val_metrics["r@1_trial"] = img_retrieval["top1_accuracy"]
             val_metrics["r@5_trial"] = img_retrieval["top5_accuracy"]
@@ -6683,54 +6697,52 @@ def main() -> None:
             val_metrics["median_rank"] = img_retrieval["median_rank"]
             val_metrics["mrr"] = img_retrieval["mrr"]
             logger.info(
-                "Retrieval (197K-D, trial matmul skipped): R@1=%.4f  R@5=%.4f  R@10=%.4f  "
-                "MedR=%.1f  MRR=%.4f  (N=%d img)",
+                "Retrieval (high-D %d, img-level): R@1=%.4f  R@5=%.4f  R@10=%.4f  "
+                "MedR=%.1f  MRR=%.4f  (N=%d img, %d trial)",
+                _pred_dim,
                 img_retrieval["top1_accuracy"], img_retrieval["top5_accuracy"],
                 img_retrieval["top10_accuracy"], img_retrieval["median_rank"],
-                img_retrieval["mrr"], len(unique_ids),
-            )
-        elif _eval_nsd_ids is not None:
-            retrieval = _compute_retrieval(val_preds, val_gts, ks=(1, 5, 10))
-            val_metrics["r@1_trial"] = retrieval["top1_accuracy"]
-            val_metrics["r@5_trial"] = retrieval["top5_accuracy"]
-            val_metrics["r@10_trial"] = retrieval["top10_accuracy"]
-
-            unique_ids = np.unique(_eval_nsd_ids)
-            img_preds = np.zeros((len(unique_ids), val_preds.shape[1]), dtype=np.float32)
-            img_gts = np.zeros((len(unique_ids), val_gts.shape[1]), dtype=np.float32)
-            for i, uid in enumerate(unique_ids):
-                mask = _eval_nsd_ids == uid
-                if _use_kappa_avg and mc_kappas is not None:
-                    k_w = mc_kappas[mask]
-                    k_w = k_w / (k_w.sum() + 1e-8)
-                    img_preds[i] = (val_preds[mask] * k_w[:, None]).sum(axis=0)
-                else:
-                    img_preds[i] = val_preds[mask].mean(axis=0)
-                img_gts[i] = val_gts[mask][0]
-            norms = np.linalg.norm(img_preds, axis=-1, keepdims=True)
-            img_preds = img_preds / np.maximum(norms, 1e-8)
-
-            img_retrieval = _compute_retrieval(img_preds, img_gts, ks=(1, 5, 10))
-            val_metrics["r@1"] = img_retrieval["top1_accuracy"]
-            val_metrics["r@5"] = img_retrieval["top5_accuracy"]
-            val_metrics["r@10"] = img_retrieval["top10_accuracy"]
-            val_metrics["median_rank"] = img_retrieval["median_rank"]
-            val_metrics["mrr"] = img_retrieval["mrr"]
-            logger.info(
-                "Retrieval: R@1=%.4f  R@5=%.4f  R@10=%.4f  MedR=%.1f  MRR=%.4f  (N=%d img, %d trial)",
-                img_retrieval["top1_accuracy"], img_retrieval["top5_accuracy"],
-                img_retrieval["top10_accuracy"], img_retrieval["median_rank"],
-                img_retrieval["mrr"], len(unique_ids), len(val_preds),
+                img_retrieval["mrr"], len(unique_ids), _n_trials,
             )
         else:
             retrieval = _compute_retrieval(val_preds, val_gts, ks=(1, 5, 10))
             val_metrics["r@1_trial"] = retrieval["top1_accuracy"]
             val_metrics["r@5_trial"] = retrieval["top5_accuracy"]
             val_metrics["r@10_trial"] = retrieval["top10_accuracy"]
-            val_metrics["r@1"] = retrieval["top1_accuracy"]
-            val_metrics["r@5"] = retrieval["top5_accuracy"]
-            val_metrics["r@10"] = retrieval["top10_accuracy"]
-            val_metrics["median_rank"] = retrieval["median_rank"]
+
+            if _eval_nsd_ids is not None:
+                unique_ids = np.unique(_eval_nsd_ids)
+                img_preds = np.zeros((len(unique_ids), val_preds.shape[1]), dtype=np.float32)
+                img_gts = np.zeros((len(unique_ids), val_gts.shape[1]), dtype=np.float32)
+                _use_kappa_avg = _mc_tta_cfg.get("kappa_weighted_avg", False)
+                for i, uid in enumerate(unique_ids):
+                    mask = _eval_nsd_ids == uid
+                    if _use_kappa_avg and mc_kappas is not None:
+                        k_w = mc_kappas[mask]
+                        k_w = k_w / (k_w.sum() + 1e-8)
+                        img_preds[i] = (val_preds[mask] * k_w[:, None]).sum(axis=0)
+                    else:
+                        img_preds[i] = val_preds[mask].mean(axis=0)
+                    img_gts[i] = val_gts[mask][0]
+                norms = np.linalg.norm(img_preds, axis=-1, keepdims=True)
+                img_preds = img_preds / np.maximum(norms, 1e-8)
+                img_retrieval = _compute_retrieval(img_preds, img_gts, ks=(1, 5, 10))
+                val_metrics["r@1"] = img_retrieval["top1_accuracy"]
+                val_metrics["r@5"] = img_retrieval["top5_accuracy"]
+                val_metrics["r@10"] = img_retrieval["top10_accuracy"]
+                val_metrics["median_rank"] = img_retrieval["median_rank"]
+                val_metrics["mrr"] = img_retrieval["mrr"]
+                logger.info(
+                    "Retrieval: R@1=%.4f  R@5=%.4f  R@10=%.4f  MedR=%.1f  MRR=%.4f  (N=%d img, %d trial)",
+                    img_retrieval["top1_accuracy"], img_retrieval["top5_accuracy"],
+                    img_retrieval["top10_accuracy"], img_retrieval["median_rank"],
+                    img_retrieval["mrr"], len(unique_ids), len(val_preds),
+                )
+            else:
+                val_metrics["r@1"] = retrieval["top1_accuracy"]
+                val_metrics["r@5"] = retrieval["top5_accuracy"]
+                val_metrics["r@10"] = retrieval["top10_accuracy"]
+                val_metrics["median_rank"] = retrieval["median_rank"]
             val_metrics["mrr"] = retrieval["mrr"]
             logger.info(
                 "Retrieval: R@1=%.4f  R@5=%.4f  R@10=%.4f  MedR=%.1f  MRR=%.4f  (N=%d)",
@@ -6756,14 +6768,10 @@ def main() -> None:
             )
 
         # --- PPR (Posterior Predictive Retrieval) scoring (V55) ---
-        # PPR is only meaningful on low-D (768-D mu), not on 197K-D token space
         _ppr_enabled = config.get("evaluation", {}).get("ppr", {}).get("enabled", False)
         _ppr_kappas_src = mc_kappas  # from MC-TTA or None
         if _ppr_kappas_src is None and "kappas" in _epoch_val_extras:
             _ppr_kappas_src = _epoch_val_extras["kappas"]
-        _ppr_dim = img_preds.shape[1] if (_eval_nsd_ids is not None and img_preds is not None) else (val_preds.shape[1] if val_preds is not None else 0)
-        if _ppr_dim > 2048:
-            _ppr_enabled = False
         if _ppr_enabled and _ppr_kappas_src is not None and len(_ppr_kappas_src) > 0:
             _ppr_src = img_preds if _eval_nsd_ids is not None else val_preds
             _ppr_tgt = img_gts if _eval_nsd_ids is not None else val_gts
@@ -7077,25 +7085,32 @@ def main() -> None:
                 best_metrics=_fusion_distill_diag_best,
             )
 
-        # Free large val arrays before checkpoint save to reduce RAM peak.
-        # With 329K-D token targets, val_preds alone is ~3 GB RAM.
-        del val_preds, val_gts
-        try:
-            del img_preds, img_gts
-        except NameError:
-            pass
-        try:
-            del mc_kappas
-        except NameError:
-            pass
+        for _var_name in ("val_preds", "val_gts", "img_preds", "img_gts", "mc_kappas"):
+            try:
+                del locals()[_var_name]
+            except (KeyError, NameError):
+                pass
         gc.collect()
+        try:
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except Exception:
+            pass
 
         if not _run_full_validation:
-            logger.info(
-                "Proxy validation only at epoch %d; checkpointing and early stopping wait for the next full validation",
-                epoch,
-            )
+            if args.save_checkpoints == "all":
+                save_checkpoint(
+                    output_dir / "checkpoint_last.pt", model, optimizer, lr_sched,
+                    scaler, epoch, val_metrics.get("loss", float("inf")), config,
+                    global_step, subject=subject, roi_mask_path=str(roi_mask_path),
+                    losses=losses, meta=_ckpt_meta, ema=ema,
+                )
+                logger.info("Proxy-val checkpoint saved at epoch %d", epoch)
             torch.cuda.empty_cache()
+            gc.collect()
+            try:
+                ctypes.CDLL("libc.so.6").malloc_trim(0)
+            except Exception:
+                pass
             continue
 
         # --- Checkpointing (early-stop on configurable metric) ---
@@ -7205,11 +7220,11 @@ def main() -> None:
                 losses=losses, meta=_ckpt_meta, ema=ema,
             )
 
-        # Free fragmented GPU memory before next epoch.  Adam's
-        # _multi_tensor_adam allocates large temporaries (exp_avg_sq_sqrt)
-        # that can OOM on fragmented heaps.  gc.collect() drops Python
-        # ref-cycles so the caching allocator can reclaim blocks.
         gc.collect()
+        try:
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except Exception:
+            pass
         torch.cuda.empty_cache()
 
     wall_time = time.time() - wall_start

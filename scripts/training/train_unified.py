@@ -6644,19 +6644,20 @@ def main() -> None:
         else:
             mc_kappas = None
 
-        retrieval = _compute_retrieval(val_preds, val_gts, ks=(1, 5, 10))
-        val_metrics["r@1_trial"] = retrieval["top1_accuracy"]
-        val_metrics["r@5_trial"] = retrieval["top5_accuracy"]
-        val_metrics["r@10_trial"] = retrieval["top10_accuracy"]
+        _use_kappa_avg = _mc_tta_cfg.get("kappa_weighted_avg", False)
+        _tok_dim = int(val_preds.shape[1])
+        _token_high_d = _tok_dim > 2048
 
-        # Image-level retrieval: average predictions per unique nsdId.
-        # With kappa-weighted averaging (V9), repetitions with higher
-        # confidence contribute more to the image-level prediction.
-        if _eval_nsd_ids is not None:
+        img_preds: Optional[np.ndarray] = None
+        img_gts: Optional[np.ndarray] = None
+
+        if _eval_nsd_ids is not None and _token_high_d:
+            # 197K-D token regression head: trial-level retrieval does a full (N,N) similarity
+            # path on 10800 x 197376 tensors while validate()'s arrays still live — OOM at ~100Gi.
+            # Aggregate to image level first (3600 x 197376), then drop trial tensors.
             unique_ids = np.unique(_eval_nsd_ids)
-            img_preds = np.zeros((len(unique_ids), val_preds.shape[1]), dtype=np.float32)
+            img_preds = np.zeros((len(unique_ids), _tok_dim), dtype=np.float32)
             img_gts = np.zeros((len(unique_ids), val_gts.shape[1]), dtype=np.float32)
-            _use_kappa_avg = _mc_tta_cfg.get("kappa_weighted_avg", False)
             for i, uid in enumerate(unique_ids):
                 mask = _eval_nsd_ids == uid
                 if _use_kappa_avg and mc_kappas is not None:
@@ -6666,16 +6667,48 @@ def main() -> None:
                 else:
                     img_preds[i] = val_preds[mask].mean(axis=0)
                 img_gts[i] = val_gts[mask][0]
-            # Re-normalise after averaging
             norms = np.linalg.norm(img_preds, axis=-1, keepdims=True)
             img_preds = img_preds / np.maximum(norms, 1e-8)
+            del val_preds, val_gts
+            val_preds = val_gts = None
+            gc.collect()
 
-            # Free trial-level arrays — img_preds/img_gts are sufficient for retrieval
-            _val_preds_d = val_preds.shape[1] if val_preds is not None else 0
-            if _val_preds_d > 2048:
-                del val_preds, val_gts
-                val_preds = val_gts = None
-                gc.collect()
+            img_retrieval = _compute_retrieval(img_preds, img_gts, ks=(1, 5, 10))
+            val_metrics["r@1_trial"] = img_retrieval["top1_accuracy"]
+            val_metrics["r@5_trial"] = img_retrieval["top5_accuracy"]
+            val_metrics["r@10_trial"] = img_retrieval["top10_accuracy"]
+            val_metrics["r@1"] = img_retrieval["top1_accuracy"]
+            val_metrics["r@5"] = img_retrieval["top5_accuracy"]
+            val_metrics["r@10"] = img_retrieval["top10_accuracy"]
+            val_metrics["median_rank"] = img_retrieval["median_rank"]
+            val_metrics["mrr"] = img_retrieval["mrr"]
+            logger.info(
+                "Retrieval (197K-D, trial matmul skipped): R@1=%.4f  R@5=%.4f  R@10=%.4f  "
+                "MedR=%.1f  MRR=%.4f  (N=%d img)",
+                img_retrieval["top1_accuracy"], img_retrieval["top5_accuracy"],
+                img_retrieval["top10_accuracy"], img_retrieval["median_rank"],
+                img_retrieval["mrr"], len(unique_ids),
+            )
+        elif _eval_nsd_ids is not None:
+            retrieval = _compute_retrieval(val_preds, val_gts, ks=(1, 5, 10))
+            val_metrics["r@1_trial"] = retrieval["top1_accuracy"]
+            val_metrics["r@5_trial"] = retrieval["top5_accuracy"]
+            val_metrics["r@10_trial"] = retrieval["top10_accuracy"]
+
+            unique_ids = np.unique(_eval_nsd_ids)
+            img_preds = np.zeros((len(unique_ids), val_preds.shape[1]), dtype=np.float32)
+            img_gts = np.zeros((len(unique_ids), val_gts.shape[1]), dtype=np.float32)
+            for i, uid in enumerate(unique_ids):
+                mask = _eval_nsd_ids == uid
+                if _use_kappa_avg and mc_kappas is not None:
+                    k_w = mc_kappas[mask]
+                    k_w = k_w / (k_w.sum() + 1e-8)
+                    img_preds[i] = (val_preds[mask] * k_w[:, None]).sum(axis=0)
+                else:
+                    img_preds[i] = val_preds[mask].mean(axis=0)
+                img_gts[i] = val_gts[mask][0]
+            norms = np.linalg.norm(img_preds, axis=-1, keepdims=True)
+            img_preds = img_preds / np.maximum(norms, 1e-8)
 
             img_retrieval = _compute_retrieval(img_preds, img_gts, ks=(1, 5, 10))
             val_metrics["r@1"] = img_retrieval["top1_accuracy"]
@@ -6687,9 +6720,13 @@ def main() -> None:
                 "Retrieval: R@1=%.4f  R@5=%.4f  R@10=%.4f  MedR=%.1f  MRR=%.4f  (N=%d img, %d trial)",
                 img_retrieval["top1_accuracy"], img_retrieval["top5_accuracy"],
                 img_retrieval["top10_accuracy"], img_retrieval["median_rank"],
-                img_retrieval["mrr"], len(unique_ids), len(img_preds) * 3,
+                img_retrieval["mrr"], len(unique_ids), len(val_preds),
             )
         else:
+            retrieval = _compute_retrieval(val_preds, val_gts, ks=(1, 5, 10))
+            val_metrics["r@1_trial"] = retrieval["top1_accuracy"]
+            val_metrics["r@5_trial"] = retrieval["top5_accuracy"]
+            val_metrics["r@10_trial"] = retrieval["top10_accuracy"]
             val_metrics["r@1"] = retrieval["top1_accuracy"]
             val_metrics["r@5"] = retrieval["top5_accuracy"]
             val_metrics["r@10"] = retrieval["top10_accuracy"]

@@ -109,7 +109,7 @@ loss:
     t: 2.0
 
   legacy_teacher_distill:
-    enabled: true
+    enabled: false
     weight: 0.15
     teacher_checkpoint_path: "experimental_results/N1v28a_dual_head/subj01/checkpoint_best.pt"
     compact_k: 16
@@ -170,8 +170,8 @@ queue:
   size: 2048
 
 training:
-  batch_size: 16
-  gradient_accumulation_steps: 16
+  batch_size: 8
+  gradient_accumulation_steps: 32
   mixed_precision: true
   mixed_precision_dtype: "bf16"
   num_epochs: 80

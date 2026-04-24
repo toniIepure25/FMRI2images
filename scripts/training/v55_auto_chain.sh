@@ -19,6 +19,18 @@ set -uo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
 
+# Activate persistent PVC venv if it exists (zero ephemeral writes)
+VENV_DIR="/home/jovyan/work/.venv-train"
+if [[ -f "$VENV_DIR/bin/activate" ]]; then
+    source "$VENV_DIR/bin/activate"
+fi
+
+# Redirect caches to PVC
+export PIP_CACHE_DIR="/home/jovyan/work/.cache/pip"
+export TMPDIR="/home/jovyan/work/.tmp"
+export XDG_CACHE_HOME="/home/jovyan/work/.cache"
+mkdir -p "$PIP_CACHE_DIR" "$TMPDIR" "$XDG_CACHE_HOME" 2>/dev/null || true
+
 LOG_DIR="runtime_logs"
 mkdir -p "$LOG_DIR"
 

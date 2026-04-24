@@ -25,14 +25,21 @@ if [[ -f "$VENV_DIR/bin/activate" ]]; then
     source "$VENV_DIR/bin/activate"
 fi
 
-# Redirect caches to PVC
-export PIP_CACHE_DIR="/home/jovyan/work/.cache/pip"
-export TMPDIR="/home/jovyan/work/.tmp"
-export XDG_CACHE_HOME="/home/jovyan/work/.cache"
-mkdir -p "$PIP_CACHE_DIR" "$TMPDIR" "$XDG_CACHE_HOME" 2>/dev/null || true
-
-# Prevent CUDA OOM from fragmentation with H100 80GB
+# Redirect ALL caches/temp to PVC (zero ephemeral overlay writes)
+PVC="/home/jovyan/work"
+export PIP_CACHE_DIR="$PVC/.cache/pip"
+export TMPDIR="$PVC/.tmp"
+export TEMP="$PVC/.tmp"
+export TMP="$PVC/.tmp"
+export XDG_CACHE_HOME="$PVC/.cache"
+export TORCH_HOME="$PVC/.cache/torch"
+export TORCH_EXTENSIONS_DIR="$PVC/.cache/torch_extensions"
+export HF_HOME="$PVC/.cache/huggingface"
+export MPLCONFIGDIR="$PVC/.cache/matplotlib"
+export PYTHONDONTWRITEBYTECODE=1
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+mkdir -p "$PIP_CACHE_DIR" "$TMPDIR" "$XDG_CACHE_HOME" "$TORCH_HOME" "$TORCH_EXTENSIONS_DIR" "$MPLCONFIGDIR" 2>/dev/null || true
+rm -rf /root/.cache 2>/dev/null; ln -sf "$PVC/.cache" /root/.cache 2>/dev/null || true
 
 LOG_DIR="runtime_logs"
 mkdir -p "$LOG_DIR"

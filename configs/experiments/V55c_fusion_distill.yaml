@@ -40,6 +40,8 @@ data:
   test_split: 0.0
   split_by_image: true
   exclude_shared1000: true
+  split_file: "experimental_results/V55a_multi_subject_dual_head/subj01/split.json"
+  exclude_parent_train_from_val: true
   normalize_fmri: true
   average_repetitions: false
   zscore_mode: "per_session"
@@ -53,6 +55,7 @@ model:
   posterior: "vmf"
   pretrained_model_path: "experimental_results/V55b_subj01_finetune/subj01/checkpoint_best.pt"
   require_pretrained_model: true
+  require_parent_split_match: true
   encoder:
     encoder_type: "mlp"
     input_dim: null

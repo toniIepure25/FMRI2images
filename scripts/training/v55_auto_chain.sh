@@ -31,6 +31,9 @@ export TMPDIR="/home/jovyan/work/.tmp"
 export XDG_CACHE_HOME="/home/jovyan/work/.cache"
 mkdir -p "$PIP_CACHE_DIR" "$TMPDIR" "$XDG_CACHE_HOME" 2>/dev/null || true
 
+# Prevent CUDA OOM from fragmentation with H100 80GB
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
 LOG_DIR="runtime_logs"
 mkdir -p "$LOG_DIR"
 

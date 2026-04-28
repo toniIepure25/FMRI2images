@@ -1,0 +1,231 @@
+# V56c: Projection Head + R-Drop + Stronger Regularization
+#
+# Builds on V56a (vmf_triple + dual_target + fusion_ranking_distill) and adds:
+#   - ContrastiveProjectionHead: separates contrastive optimization from retrieval
+#   - R-Drop regularization: symmetric KL between two dropout-perturbed forward passes
+#   - Stronger dropout (0.25 vs 0.20)
+#   - Label smoothing on vmf_nce (0.1)
+#
+# The projection head means contrastive losses (vmf_nce, softclip, mixco) operate
+# on a 768->2048->768 projected space, while retrieval metrics use the raw
+# encoder -> decoder output. This prevents contrastive loss gradients from
+# distorting the retrieval embedding geometry.
+#
+# Kill criteria:
+#   - compact CSLS R@1 < 55% after 20 epochs → architecture regression
+#   - fusion shared1000 R@1 < 78% → no gain over frozen system
+#
+# Run:
+#   make train CONFIG=configs/experiments/V56c_projection_rdrop.yaml SUBJECT=subj01
+
+experiment:
+  name: "V56c_projection_rdrop"
+  description: "V56c: vmf_triple + projection head + R-Drop + fusion distill"
+  tags:
+    - vmf_triple
+    - v56c
+    - dual_target
+    - fusion_distill
+    - projection_head
+    - r_drop
+    - phase2_distillation
+    - roadmap_ppr
+  parent: "V56a_fusion_distill_fixed"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  split_file: "experimental_results/V55a_multi_subject_dual_head/subj01/split.json"
+  exclude_parent_train_from_val: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+  num_workers: 0
+  dual_target: true
+
+model:
+  type: "vmf_triple"
+  posterior: "vmf"
+  pretrained_model_path: "experimental_results/V55b_subj01_finetune/subj01/checkpoint_best.pt"
+  require_pretrained_model: true
+  require_parent_split_match: true
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.25
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    retrieval_dim: 768
+    token_dim: 197376
+    rerank_dim: 1024
+    rerank_enabled: false
+    regression_enabled: true
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.25
+    kappa_mode: "softplus"
+    kappa_min: 0.001
+    kappa_max: 500.0
+  projection_head:
+    enabled: true
+    hidden_dim: 2048
+    out_dim: 768
+    dropout: 0.1
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    label_smoothing: 0.1
+
+  regression_mse:
+    enabled: true
+    weight: 0.5
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  uniformity:
+    enabled: true
+    weight: 0.05
+    t: 2.0
+
+  r_drop:
+    enabled: true
+    weight: 0.5
+    start_epoch: 3
+
+  fusion_ranking_distill:
+    enabled: true
+    weight: 0.15
+    recipe_summary_path: "docs/thesis/results/final_outputs/best_system/final_metrics_summary.json"
+    strict_recipe: false
+    fallback_recipe:
+      compact_score: "csls"
+      legacy_score: "csls"
+      family: "normalized_weighted"
+      normalization: "zscore"
+      shortlist_k: 150
+      alpha: 0.3
+      beta: 0.0
+      gamma: 0.7
+      expected_shared1000_r@1: 0.772
+      saved_shared1000_r@1: 0.772
+    compact_topk: 16
+    teacher_topk: 32
+    teacher_tau: 0.07
+    student_tau: 0.07
+    gate_max_rank: 20
+    topk_overlap_k: 10
+    start_epoch: 3
+    csls_k: 10
+    symmetric: false
+
+  legacy_teacher_distill:
+    enabled: false
+  shortlist_teacher_distill:
+    enabled: false
+  tri_teacher_distill:
+    enabled: false
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 2048
+
+training:
+  batch_size: 8
+  gradient_accumulation_steps: 32
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 60
+  optimizer:
+    type: "adamw"
+    lr: 5.0e-6
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 3
+  min_lr: 1.0e-7
+  gradient_clip: 1.0
+  early_stop_patience: 15
+  early_stop_min_delta: 0.001
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  best_checkpoints: [csls_r@1]
+  proxy_val_every_epochs: 1
+  proxy_val_num_images: 1024
+  full_val_every_epochs: 10
+  mc_tta_samples: 1
+  kappa_weighted_avg: true
+  save_checkpoints: "all"
+  ppr:
+    enabled: true
+  two_stage:
+    enabled: false
+  fusion:
+    enabled: false
+  tri_fusion:
+    enabled: true
+    compact_score: "csls"
+    legacy_score: "csls"
+    family: "normalized_weighted"
+    normalization: "zscore"
+    shortlist_k: 150
+    alpha: 0.3
+    beta: 0.0
+    gamma: 0.7
+    csls_k: 10
+
+inference:
+  use_mean_for_retrieval: true

@@ -1,0 +1,220 @@
+# V57a: ROI Transformer + Multi-Subject Dual-Head (Paper Novelty)
+#
+# Brain-topology-aware transformer encoding: fMRI voxels are tokenized into
+# 17 neuroanatomical ROI tokens (V1v-d, V2v-d, V3v-d, V3A/B, V4, FFA1/2,
+# PPA, EBA, OFA, OPA, RSC, nsdgeneral_other) processed by a 6-layer
+# Transformer with cross-ROI attention.
+#
+# This is the paper's primary architectural contribution: the first principled
+# pipeline that jointly leverages neuroscientific brain structure and
+# probabilistic retrieval theory (vMF + PPR scoring).
+#
+# Architecture: multi_subject_roi_transformer + vmf_triple
+#   - ROI tokenization (17 tokens x d_model=768)
+#   - 6-layer Transformer with 12 heads
+#   - Stochastic depth (drop_path_rate=0.15)
+#   - Compact retrieval head (768-D CLS) + rich regression head (197K-D)
+#   - Multi-subject with per-subject ROI projections
+#   - Dual-target mode for fusion distillation
+#
+# Kill criteria:
+#   - compact CSLS R@1 < 45% after 30 epochs → architecture not learning
+#   - R@1 plateaus below V56a → MLP is strictly better, no novelty value
+#
+# Run:
+#   make train CONFIG=configs/experiments/V57a_roi_transformer_dual_head.yaml
+
+experiment:
+  name: "V57a_roi_transformer_dual_head"
+  description: "V57a: ROI Transformer + vmf_triple dual-head — paper novelty"
+  tags:
+    - roi_transformer
+    - vmf_triple
+    - v57a
+    - multi_subject
+    - dual_target
+    - brain_topology
+    - paper_novelty
+    - roadmap_ppr
+  parent: null
+
+data:
+  subjects: [subj01, subj02, subj03, subj04, subj05, subj06, subj07, subj08]
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  exclude_parent_train_from_val: true
+  normalize_fmri: true
+  average_repetitions: false
+  one_trial_per_image_per_epoch: true
+  max_unique_images_per_epoch: 40000
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+  num_workers: 0
+  dual_target: true
+
+model:
+  type: "vmf_triple"
+  posterior: "vmf"
+  require_pretrained_model: false
+  encoder:
+    encoder_type: "multi_subject_roi_transformer"
+    input_dim: null
+    d_model: 768
+    nhead: 12
+    num_layers: 6
+    dim_feedforward: 3072
+    dropout: 0.15
+    drop_path_rate: 0.15
+    roi_dims:
+      V1v: 500
+      V1d: 500
+      V2v: 500
+      V2d: 500
+      V3v: 300
+      V3d: 300
+      V3A: 200
+      V3B: 200
+      V4: 300
+      FFA1: 100
+      FFA2: 100
+      PPA: 200
+      EBA: 200
+      OFA: 100
+      OPA: 200
+      RSC: 200
+      nsdgeneral_other: 8000
+  decoder:
+    input_dim: 768
+    retrieval_dim: 768
+    token_dim: 197376
+    rerank_dim: 1024
+    rerank_enabled: false
+    regression_enabled: true
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.20
+    kappa_mode: "softplus"
+    kappa_min: 0.001
+    kappa_max: 500.0
+  projection_head:
+    enabled: false
+  cross_subject:
+    enabled: true
+    canonical_subject: subj01
+    freeze_epochs: 10
+    backbone_lr_factor: 0.15
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  regression_mse:
+    enabled: true
+    weight: 0.5
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  uniformity:
+    enabled: true
+    weight: 0.1
+    t: 2.0
+
+  fusion_ranking_distill:
+    enabled: false
+  legacy_teacher_distill:
+    enabled: false
+  shortlist_teacher_distill:
+    enabled: false
+  tri_teacher_distill:
+    enabled: false
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 2048
+
+training:
+  batch_size: 16
+  gradient_accumulation_steps: 16
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 120
+  save_checkpoints: "all"
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 15
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  early_stop_min_delta: 0.001
+  train_r1_interval: 10
+  fmri_noise_std: 0.05
+  voxel_dropout: 0.05
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  best_checkpoints: [csls_r@1]
+  proxy_val_every_epochs: 1
+  proxy_val_num_images: 1024
+  full_val_every_epochs: 10
+  mc_tta_samples: 1
+  kappa_weighted_avg: true
+  ppr:
+    enabled: true
+  two_stage:
+    enabled: false
+  fusion:
+    enabled: false
+  tri_fusion:
+    enabled: false
+
+inference:
+  use_mean_for_retrieval: true

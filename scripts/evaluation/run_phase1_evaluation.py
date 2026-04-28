@@ -208,24 +208,42 @@ def load_model(experiment_dir: Path, subject: str):
 
 
 def run_inference_on_features(model, features_np, device, batch_size=128):
-    """Run model on raw numpy features, return (mu, kappa)."""
+    """Run model on raw numpy features, return (mu_full, mu_compact, kappa).
+
+    mu_full: (N, D) full model output (197K-D for token models)
+    mu_compact: (N, 768) first-token CLS prediction (for compact retrieval)
+    kappa: (N,) concentration parameters
+    """
     n = len(features_np)
-    all_preds, all_kappas = [], []
+    all_full, all_compact, all_kappas = [], [], []
+    token_dim = getattr(model.decoder, "token_dim", None)
+    num_tokens = getattr(model.decoder, "num_tokens", 0)
 
     with torch.no_grad(), torch.amp.autocast("cuda", dtype=torch.bfloat16):
         for start in range(0, n, batch_size):
             end = min(start + batch_size, n)
             fmri = torch.from_numpy(features_np[start:end]).to(device, dtype=torch.float32)
-            pred, aux = model(fmri)
+            out = model(fmri)
+            pred = out[0]
+            aux = out[1] if len(out) > 1 else None
+
             pred_np = pred.cpu().float().numpy()
             pred_np /= np.linalg.norm(pred_np, axis=-1, keepdims=True) + 1e-8
-            all_preds.append(pred_np)
-            if aux is not None:
-                all_kappas.append(aux.squeeze(-1).cpu().float().numpy())
+            all_full.append(pred_np)
 
-    predictions = np.concatenate(all_preds, axis=0)
+            if token_dim and num_tokens > 1 and pred_np.shape[1] > token_dim:
+                compact = pred_np[:, :token_dim].copy()
+                compact /= np.linalg.norm(compact, axis=-1, keepdims=True) + 1e-8
+                all_compact.append(compact)
+
+            if aux is not None:
+                k = aux.squeeze(-1).cpu().float().numpy()
+                all_kappas.append(k)
+
+    full_preds = np.concatenate(all_full, axis=0)
+    compact_preds = np.concatenate(all_compact, axis=0) if all_compact else None
     kappas = np.concatenate(all_kappas, axis=0) if all_kappas else None
-    return predictions, kappas
+    return full_preds, compact_preds, kappas
 
 
 def aggregate_to_images(preds, kappas, nsd_ids, gt_embeddings_map):
@@ -385,7 +403,6 @@ def compute_fusion_sweep(
 def evaluate_experiment(experiment_dir: Path, subject: str, name: str):
     """Run val + shared1000 evaluation for one experiment."""
     model, config, device = load_model(experiment_dir, subject)
-    data_cfg = config.get("data", {})
     metrics_dir = experiment_dir / "metrics"
     metrics_dir.mkdir(parents=True, exist_ok=True)
 
@@ -416,26 +433,49 @@ def evaluate_experiment(experiment_dir: Path, subject: str, name: str):
             log.error("Failed to load %s data for %s: %s", split, name, e)
             continue
 
-        preds, kappas = run_inference_on_features(model, features, device)
+        full_preds, compact_preds, kappas = run_inference_on_features(
+            model, features, device,
+        )
         nsd_ids = df["nsdId"].values
 
-        img_preds, img_gts, img_kappas, img_nsd_ids = aggregate_to_images(
-            preds, kappas, nsd_ids, nsd_to_emb,
-        )
+        # Compact retrieval (768-D CLS space) — used for fusion
+        if compact_preds is not None:
+            c_preds, c_gts, c_kappas, c_ids = aggregate_to_images(
+                compact_preds, kappas, nsd_ids, nsd_to_emb,
+            )
+            np.save(metrics_dir / f"{split}_predictions_compact.npy", c_preds)
+            np.save(metrics_dir / f"{split}_ground_truth_compact.npy", c_gts)
+            np.save(metrics_dir / f"{split}_nsd_ids.npy", c_ids)
+            if kappas is not None:
+                np.save(metrics_dir / f"{split}_kappas.npy", c_kappas)
 
-        np.save(metrics_dir / f"{split}_predictions.npy", img_preds)
-        np.save(metrics_dir / f"{split}_ground_truth.npy", img_gts)
-        np.save(metrics_dir / f"{split}_nsd_ids.npy", img_nsd_ids)
-        if kappas is not None:
-            np.save(metrics_dir / f"{split}_kappas.npy", img_kappas)
+            m_compact = compute_retrieval(c_preds, c_gts, c_kappas)
+            all_metrics[f"{split}_compact"] = m_compact
+            log.info(
+                "%s %s (compact 768-D): raw_R@1=%.3f  csls_R@1=%.3f  ppr_csls_R@1=%.3f  (n=%d)",
+                name, split, m_compact["raw_r@1"], m_compact["csls_r@1"],
+                m_compact.get("ppr_csls_r@1", 0), m_compact["n_images"],
+            )
+        else:
+            # Model outputs 768-D directly (no token decomposition)
+            c_preds, c_gts, c_kappas, c_ids = aggregate_to_images(
+                full_preds, kappas, nsd_ids, nsd_to_emb,
+            )
+            np.save(metrics_dir / f"{split}_predictions_compact.npy", c_preds)
+            np.save(metrics_dir / f"{split}_ground_truth_compact.npy", c_gts)
+            np.save(metrics_dir / f"{split}_nsd_ids.npy", c_ids)
+            if kappas is not None:
+                np.save(metrics_dir / f"{split}_kappas.npy", c_kappas)
+
+            m_compact = compute_retrieval(c_preds, c_gts, c_kappas)
+            all_metrics[f"{split}_compact"] = m_compact
+            log.info(
+                "%s %s (compact %d-D): raw_R@1=%.3f  csls_R@1=%.3f",
+                name, split, full_preds.shape[1],
+                m_compact["raw_r@1"], m_compact["csls_r@1"],
+            )
+
         log.info("Saved predictions to %s", metrics_dir)
-
-        m = compute_retrieval(img_preds, img_gts, img_kappas)
-        all_metrics[split] = m
-        log.info(
-            "%s %s: raw_R@1=%.3f  csls_R@1=%.3f  ppr_csls_R@1=%.3f  (n=%d)",
-            name, split, m["raw_r@1"], m["csls_r@1"], m.get("ppr_csls_r@1", 0), m["n_images"],
-        )
 
     with open(metrics_dir / "phase1_metrics.json", "w") as f:
         json.dump(all_metrics, f, indent=2)
@@ -475,8 +515,8 @@ def main():
     n1v28a_m = Path("experimental_results/N1v28a_dual_head/subj01/metrics")
 
     for split in ["shared1000", "val"]:
-        c_pred = v55b_m / f"{split}_predictions.npy"
-        c_gt = v55b_m / f"{split}_ground_truth.npy"
+        c_pred = v55b_m / f"{split}_predictions_compact.npy"
+        c_gt = v55b_m / f"{split}_ground_truth_compact.npy"
         c_kappa = v55b_m / f"{split}_kappas.npy"
 
         l_pred = n1v28a_m / f"{split}_predictions_compact.npy"
@@ -549,11 +589,13 @@ def main():
     log.info("PHASE 1 SUMMARY")
     log.info("=" * 70)
     for exp_name, exp_data in results.items():
-        if isinstance(exp_data, dict) and any(k in exp_data for k in ["val", "shared1000"]):
+        if isinstance(exp_data, dict) and any(
+            k in exp_data for k in ["val_compact", "shared1000_compact"]
+        ):
             for split, m in exp_data.items():
                 if isinstance(m, dict):
                     log.info(
-                        "  %-8s %-12s  raw=%.3f  csls=%.3f  ppr_csls=%.3f  (n=%d)",
+                        "  %-8s %-20s  raw=%.3f  csls=%.3f  ppr_csls=%.3f  (n=%d)",
                         exp_name, split,
                         m.get("raw_r@1", 0), m.get("csls_r@1", 0),
                         m.get("ppr_csls_r@1", 0), m.get("n_images", 0),

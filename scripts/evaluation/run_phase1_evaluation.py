@@ -185,6 +185,10 @@ def load_model(experiment_dir: Path, subject: str):
         n_voxels = np.load(feat_path, mmap_mode="r").shape[1]
         model_cfg.setdefault("encoder", {})["input_dim"] = n_voxels
 
+    dec_cfg = model_cfg.get("decoder", {})
+    if dec_cfg.get("output_dim") is None:
+        dec_cfg["output_dim"] = dec_cfg.get("token_dim", 768)
+
     model = create_model(model_cfg)
     ckpt_path = experiment_dir / "checkpoint_best.pt"
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)

@@ -224,6 +224,46 @@ with open('${FOLD_CONFIG}', 'w') as f:
 print('Generated ${FOLD_CONFIG}')
 "
             run_training "$FOLD_CONFIG" "$FOLD_NAME" || true
+
+            # Create compatibility files for cache builder:
+            # If val_predictions_compact.npy doesn't exist, create it from val_predictions.npy
+            # Also create val_predictions_rerank.npy as a copy of compact (for cache builder compat)
+            FOLD_METRICS="$RESULTS_ROOT/$FOLD_NAME/$SUBJECT/metrics"
+            if [[ -d "$FOLD_METRICS" ]]; then
+                python3 -c "
+import numpy as np
+from pathlib import Path
+d = Path('$FOLD_METRICS')
+# Ensure compact files exist
+if not (d / 'val_predictions_compact.npy').exists() and (d / 'val_predictions.npy').exists():
+    p = np.load(d / 'val_predictions.npy')
+    # If predictions are 197K-D, extract first 768-D as compact
+    if p.shape[1] > 768:
+        compact = p[:, :768].copy()
+        compact = compact / (np.linalg.norm(compact, axis=-1, keepdims=True) + 1e-8)
+        np.save(d / 'val_predictions_compact.npy', compact)
+        print(f'Created val_predictions_compact.npy: {compact.shape}')
+    else:
+        np.save(d / 'val_predictions_compact.npy', p)
+        print(f'Copied val_predictions_compact.npy: {p.shape}')
+if not (d / 'val_ground_truth_compact.npy').exists() and (d / 'val_ground_truth.npy').exists():
+    g = np.load(d / 'val_ground_truth.npy')
+    if g.shape[1] > 768:
+        gc = g[:, :768].copy()
+        gc = gc / (np.linalg.norm(gc, axis=-1, keepdims=True) + 1e-8)
+        np.save(d / 'val_ground_truth_compact.npy', gc)
+    else:
+        np.save(d / 'val_ground_truth_compact.npy', g)
+# Create rerank files (needed by cache builder) from compact
+for src, dst in [('val_predictions_compact.npy', 'val_predictions_rerank.npy'),
+                 ('val_ground_truth_compact.npy', 'val_ground_truth_rerank.npy')]:
+    if not (d / dst).exists() and (d / src).exists():
+        import shutil
+        shutil.copy2(d / src, d / dst)
+        print(f'Created {dst} from {src}')
+print('Fold compatibility files ready')
+" 2>&1 || true
+            fi
         done
 
         # Step 3: Merge OOF predictions
@@ -284,22 +324,50 @@ print('Generated ${FOLD_CONFIG}')
 fi
 
 # ===========================================================================
-# PHASE 3c: PPR-Aware Resolver
+# PHASE 3c: PPR-Aware Resolver (Set Transformer on shortlist features)
 # ===========================================================================
 log ""
 log "============ PHASE 3c: PPR-AWARE RESOLVER ============"
-RESOLVER_BEST="$RESULTS_ROOT/V55e_oof_ppr_resolver/$SUBJECT/checkpoint_best.pt"
-if [[ -f "$RESOLVER_BEST" ]]; then
-    log "SKIP V55e resolver — checkpoint_best.pt exists"
+
+# The resolver trains on pre-computed shortlist features, NOT fMRI data.
+# It uses train_union_shortlist_reranker.py, not train_unified.py.
+
+COMPACT_RESULTS="$RESULTS_ROOT/V55b_subj01_finetune/$SUBJECT"
+LEGACY_RESULTS="$RESULTS_ROOT/N1v28a_dual_head/$SUBJECT"
+RESOLVER_SUMMARY="$COMPACT_RESULTS/diagnostics/v55e_oof_ppr_reranker_summary.json"
+
+if [[ -f "$RESOLVER_SUMMARY" ]]; then
+    log "SKIP V55e resolver — summary already exists at $RESOLVER_SUMMARY"
 else
-    CACHE_FILE="$RESULTS_ROOT/V55b_subj01_finetune/$SUBJECT/cache/union_shortlist_train_oof_k150.npz"
-    if [[ -f "$CACHE_FILE" ]]; then
-        log "Training PPR-aware resolver (V55e)..."
-        run_training \
-            "configs/experiments/V55e_oof_ppr_resolver.yaml" \
-            "V55e_oof_ppr_resolver" || true
+    CACHE_FILE="$COMPACT_RESULTS/cache/union_shortlist_train_oof_k150.npz"
+    if [[ -f "$CACHE_FILE" ]] && [[ -d "$COMPACT_RESULTS" ]] && [[ -d "$LEGACY_RESULTS" ]]; then
+        log "Training PPR-aware Set Transformer resolver (V55e)..."
+        python3 scripts/training/train_union_shortlist_reranker.py \
+            "$COMPACT_RESULTS" \
+            "$LEGACY_RESULTS" \
+            --shortlist-k 150 \
+            --model-family set_transformer \
+            --hidden-dim 128 \
+            --num-layers 2 \
+            --dropout 0.15 \
+            --pairwise-margin-weight 0.10 \
+            --pairwise-margin 0.20 \
+            --pairwise-hard-neg-k 5 \
+            --lr 5e-4 \
+            --weight-decay 1e-4 \
+            --max-epochs 300 \
+            --patience 40 \
+            --batch-size 256 \
+            --seed 42 \
+            --train-cache-split "train_oof" \
+            --run-tag "v55e_oof_ppr" \
+            2>&1 | tee "$LOG_DIR/V55e_resolver.log"
+        log "V55e resolver training complete"
     else
-        log "WARNING: Shortlist cache not found at $CACHE_FILE. Skipping resolver."
+        log "WARNING: Shortlist cache or expert results missing. Skipping resolver."
+        log "  Cache: $CACHE_FILE (exists=$(test -f "$CACHE_FILE" && echo yes || echo no))"
+        log "  Compact: $COMPACT_RESULTS (exists=$(test -d "$COMPACT_RESULTS" && echo yes || echo no))"
+        log "  Legacy: $LEGACY_RESULTS (exists=$(test -d "$LEGACY_RESULTS" && echo yes || echo no))"
     fi
 fi
 

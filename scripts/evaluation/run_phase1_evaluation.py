@@ -187,7 +187,12 @@ def load_model(experiment_dir: Path, subject: str):
 
     dec_cfg = model_cfg.get("decoder", {})
     if dec_cfg.get("output_dim") is None:
-        dec_cfg["output_dim"] = dec_cfg.get("token_dim", 768)
+        num_tokens = dec_cfg.get("num_tokens", 1)
+        token_dim = dec_cfg.get("token_dim", 768)
+        if dec_cfg.get("regression_head", False) and num_tokens > 1:
+            dec_cfg["output_dim"] = num_tokens * token_dim
+        else:
+            dec_cfg["output_dim"] = token_dim
 
     model = create_model(model_cfg)
     ckpt_path = experiment_dir / "checkpoint_best.pt"

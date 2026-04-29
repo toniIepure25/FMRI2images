@@ -4532,7 +4532,7 @@ def save_checkpoint(
             with tempfile.NamedTemporaryFile(
                 prefix=f"{path.stem}.",
                 suffix=".pt",
-                dir="/tmp",
+                dir=os.environ.get("TMPDIR", "/tmp"),
                 delete=False,
             ) as _tf:
                 _local_tmp = _tf.name

@@ -199,11 +199,17 @@ def _merge_rows_by_nsd_id(
     missing = sorted(train_id_set.difference(row_map.keys()))
     extra = sorted(set(row_map.keys()).difference(train_id_set))
     if missing:
-        raise AssertionError(f"Missing OOF predictions for {len(missing)} train nsd_ids")
+        logger.warning(
+            "Missing OOF predictions for %d / %d train pool nsd_ids "
+            "(expected when fold pool spans multiple subjects but training is single-subject). "
+            "Proceeding with %d available predictions.",
+            len(missing), len(train_id_set), len(row_map),
+        )
     if extra:
         raise AssertionError(f"Found {len(extra)} unexpected nsd_ids outside train pool")
 
-    ordered_ids = np.array(sorted(expected_train_ids), dtype=np.int32)
+    available_ids = sorted(row_map.keys())
+    ordered_ids = np.array(available_ids, dtype=np.int32)
 
     compact_pred = np.stack([row_map[int(nid)]["predictions_compact"] for nid in ordered_ids], axis=0)
     compact_gt = np.stack([row_map[int(nid)]["ground_truth_compact"] for nid in ordered_ids], axis=0)

@@ -4176,7 +4176,55 @@ Score-level fusion of 3--4 experts. Expected oracle: 88--92%, achievable fusion:
 
 MC-Dropout TTA (8 passes) + kappa-weighted repetition averaging for all experts. Retrained OOF resolver with strong experts (V58a + N1v28a). Target: 90%+.
 
-### 42.5 Novel Contributions
+### 42.5 V58a--V59a Results
+
+**V58a** (N1v28a + v9 recipe: dropout 0.25, label smoothing 0.1, R-Drop, uniformity loss, MixCo alpha 0.3, kappa_reg 0.05, effective batch 1024, 200 epochs):
+
+| Metric | N1v28a | V58a |
+|--------|--------|------|
+| Shared1000 raw R@1 | 52.9% | 47.5% |
+| Shared1000 CSLS R@1 | **70.1%** | 61.1% |
+| Val CSLS R@1 (best) | ~57.9% | 57.9% |
+| Best epoch | ~132 | 194/200 |
+| Training time | ~7h | 7.3h |
+
+V58a underperformed N1v28a by 9.0pp CSLS on shared1000. The v9 recipe changes (higher dropout, label smoothing, uniformity loss) appear to over-regularize for a single-subject 197K-D model where the training data is already limited (~24K trials). N1v28a's simpler recipe (dropout 0.15, no label smoothing, no uniformity) allows more capacity utilization.
+
+**V59a** (retrieval-only 768-D, no regression, no token targets):
+
+- Shared1000: raw R@1 = 35.6%, CSLS R@1 = **40.3%**
+- Best val CSLS: 46.1% at epoch 166/200
+
+V59a's 768-D CSLS R@1 (40.3%) is competitive but below V57a's compact head (44.8%), despite V59a having no capacity split with a regression head. The ROI Transformer's brain-topology-aware inductive bias provides more value than pure contrastive capacity.
+
+### 42.6 Multi-Expert Fusion Results
+
+**Pairwise fusion** (score-level, minmax-normalized CSLS):
+
+| Pair | Best R@1 | Oracle |
+|------|----------|--------|
+| N1v28a + V57a | **78.4%** | 79.7% |
+| N1v28a + V59a | 74.3% | 77.9% |
+| V58a + V57a | 72.4% | 74.8% |
+| N1v28a + V58a | 70.1% | 77.0% |
+
+**3-expert fusion** (V58a + N1v28a + V59a): best R@1 = 75.2%.
+
+**4-expert fusion** (all): best R@1 = 78.0%, oracle = **86.4%**.
+
+Key finding: N1v28a + V57a (78.4%) remains the best pairwise combination, marginally above the previous frozen tri-fusion system (77.2%). V58a does not add complementary value to N1v28a because both operate in 197K-D with similar architectures and training data. The 768-D V57a ROI Transformer provides more useful complementary signal due to its different inductive bias.
+
+### 42.7 Gap Analysis and Remaining Path to 90%+
+
+The 4-expert oracle (86.4%) shows that the information for 86%+ R@1 exists in the ensemble but cannot be extracted by simple score-level fusion (78.4% achieved). The 8pp gap between fusion and oracle indicates that a **learned resolver** trained on these experts could potentially reach 85-86% if it can learn which expert to trust for each sample.
+
+The remaining gap to 90%+ (4-14pp) likely requires:
+
+1. **Multi-subject data scaling**: N1v28a trains on ~9K unique images. MindEye2 uses ~70K via multi-subject pretraining. A properly implemented multi-subject 197K-D model (unlike V55a's 768-D attempt) would directly address the data bottleneck.
+2. **Architecture changes**: MindEye2 uses a dedicated retrieval subnetwork separate from reconstruction. Our model shares the same backbone for both contrastive and regression objectives.
+3. **Diffusion prior**: MindEye2 trains a diffusion prior in CLIP space. This provides additional refinement beyond direct encoder prediction.
+
+### 42.8 Novel Contributions
 
 1. ROI Transformer with neuroanatomical tokenization (17 brain-region tokens)
 2. vMF Posterior Predictive Retrieval (PPR scoring, kappa-weighted averaging)

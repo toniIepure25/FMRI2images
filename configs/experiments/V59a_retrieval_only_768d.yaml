@@ -1,0 +1,158 @@
+# V59a: Retrieval-Only 768-D Contrastive Expert
+#
+# Pure contrastive model with NO regression head, NO token targets.
+# All model capacity goes to discriminative 768-D CLS retrieval.
+#
+# Rationale: N1v28a splits ~1.08B params between contrastive mu_head and
+# regression_head (each ~404M). V59a uses the same encoder but all decoder
+# capacity targets a single 768-D output with strong contrastive losses.
+# This produces a maximally diverse expert for ensemble fusion with
+# 197K-D experts (N1v28a, V58a).
+#
+# Architecture:
+#   - Same 4-layer residual MLP [8192, 8192, 4096, 2048]
+#   - vMF decoder: mu_head (2048 -> 768) L2-normed, kappa_head (2048 -> 1)
+#   - NO regression_head, NO token_cache
+#   - Total: ~130M params (much lighter than N1v28a's 1.08B)
+#
+# Memory: ~8 GB total -- very fast training on H100.
+#
+# Run:
+#   python scripts/training/train_unified.py --config configs/experiments/V59a_retrieval_only_768d.yaml
+
+experiment:
+  name: "V59a_retrieval_only_768d"
+  description: "v59a: Pure contrastive 768-D retrieval expert for ensemble diversity"
+  tags: ["vmf", "vmf_nce", "v59", "retrieval_only", "768d", "csls", "shared1000"]
+  parent: "N1v28a_dual_head"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.25
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.25
+    kappa_mode: "softplus"
+    regression_head: false
+
+  projection_head:
+    enabled: true
+    hidden_dim: 2048
+    out_dim: 768
+    dropout: 0.15
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    label_smoothing: 0.1
+
+  regression_mse:
+    enabled: false
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.05
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  r_drop:
+    enabled: true
+    weight: 0.1
+    start_epoch: 5
+
+  uniformity:
+    enabled: true
+    weight: 0.05
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 4096
+
+training:
+  batch_size: 128
+  gradient_accumulation_steps: 8
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 10
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 40
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.3
+    temperature: 0.07
+    weight: 0.5
+    use_slerp: true
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

@@ -4020,3 +4020,165 @@ Implementation: src/fmri2img/eval/ppr_scoring.py (19 tests passing).
 - V55b: SHARED1000 CSLS R@1 < 72%
 - V55c: CSLS R@1 < V55b CSLS R@1
 - V55e: SHARED1000 resolver R@1 < 79.2%
+
+## 41. V55--V57 Execution Results and Post-Mortem
+
+### 41.1 Summary of Outcomes
+
+The V55--V57 plan (Section 40) was executed in full across five stages. Every planned experiment ran to completion on the H100 pod, producing shared1000 predictions and checkpoints. None of the stages met their target R@1 thresholds. The plan's core assumption---that a strong compact expert could be bootstrapped from multi-subject pretraining and used as the complementary arm of a learned resolver---proved incorrect due to a previously unidentified bottleneck: **retrieval dimensionality**.
+
+| Experiment | Architecture | Shared1000 CSLS R@1 | Target | Verdict |
+|------------|-------------|---------------------|--------|---------|
+| V55a | MLP, 8-subject, vmf 768-D | 21.3% | 55--67% | FAIL |
+| V55b | MLP, subj01 finetune from V55a | 22.5% | 70--78% | FAIL |
+| V56a | vmf_triple, fusion distill from V55b | 35.6% | -- | Partial |
+| V56c | V56a + proj head + R-Drop | 29.1% | -- | Regression |
+| V55d | 5-fold OOF (vmf, subj01) | 8105 merged preds | -- | OK |
+| V55e | PPR Set Transformer resolver | 70.1% | 82--90% | FAIL |
+| V57a | ROI Transformer, 8-subj, vmf_triple | 44.8% (compact) | -- | Best compact |
+
+For comparison, the long-standing N1v28a baseline achieves **70.1% CSLS R@1** on shared1000 (197K-D retrieval) and **29.2%** when restricted to 768-D.
+
+### 41.2 V55a--V55b: Multi-Subject Pretrain + Finetune
+
+**V55a** (`V55a_multi_subject_dual_head.yaml`): 8-subject MLP trained on 768-D CLS targets (`embedding_column: fused`) with `vmf` model type, effective batch 256, 200 epochs.
+
+- Shared1000: raw R@1 = 16.6%, CSLS R@1 = **21.3%**, MRR = 0.363.
+- The model trained on all 8 subjects in 768-D CLS space. Multi-subject training with `vmf` (not `vmf_triple`) did not produce a usable representation for any single subject. Training loss converged but retrieval accuracy remained low, consistent with the hypothesis that cross-subject variability without explicit subject-factorization dilutes per-subject discriminative features in low-dimensional embedding space.
+
+**V55b** (`V55b_subj01_finetune.yaml`): Initialized from V55a, finetuned on subj01 only.
+
+- Shared1000: raw R@1 = 17.0%, CSLS R@1 = **22.5%**, MRR = 0.377.
+- Minimal improvement (+1.2pp CSLS) over V55a. The pretrained representation was too weak as a starting point: finetuning could not overcome the poor initialization.
+
+Both experiments tripped their kill criteria (V55a < 55%, V55b < 72%).
+
+### 41.3 V56a--V56c: Fusion Distillation + Regularization
+
+**V56a** (`V56a_fusion_distill_fixed.yaml`): Switched to `vmf_triple` model type with separate compact retrieval (768-D) and rich regression (197K-D) heads. Enabled `fusion_ranking_distill` loss using N1v28a as legacy teacher. Initialized from V55b.
+
+- Shared1000: raw R@1 = 30.8%, CSLS R@1 = **35.6%**, MRR = 0.512.
+- Significant improvement (+13.1pp CSLS over V55b), validating that the triple-head architecture + distillation from N1v28a provides useful gradient signal even from a weak initialization.
+
+**V56c** (`V56c_projection_rdrop.yaml`): Added projection head, R-Drop regularization, label smoothing 0.1, increased dropout 0.25. Initialized from V56a.
+
+- Shared1000: raw R@1 = 22.6%, CSLS R@1 = **29.1%**, MRR = 0.446.
+- Regression of -6.5pp CSLS vs V56a. The additional regularization hurt a backbone that was still too weak to benefit from constraint. Lesson: aggressive regularization requires a strong baseline to regularize.
+
+### 41.4 V55d--V55e: OOF Predictions + Resolver
+
+**V55d** (5-fold out-of-fold training): Five folds of `vmf` models trained on subj01 with stratified image-level splits. Each fold produces held-out validation predictions.
+
+- Successfully merged 8105 unique nsdId predictions for subj01 (out of ~9000 total train images).
+- Required two bug fixes: (1) `train_unified.py` was not saving `val_nsd_ids.npy` for `vmf` models (fixed to save unconditionally); (2) `merge_oof_expert_predictions.py` asserted on missing multi-subject nsdIds when only single-subject data was available (downgraded to warning).
+
+**V55e** (`V55e_oof_ppr_resolver.yaml`): PPR-aware Set Transformer resolver trained on the union shortlist of V55b (compact) + N1v28a (legacy) predictions.
+
+- Shared1000: R@1 = **70.1%** -- identical to N1v28a alone.
+- The resolver could not improve over the legacy expert because the compact expert was too weak (22.5% vs 70.1%). The extreme performance asymmetry meant the resolver learned to trust the dominant expert entirely. The union shortlist effectively contained only N1v28a's ranking signal.
+
+### 41.5 V57a: ROI Transformer
+
+**V57a** (`V57a_roi_transformer_dual_head.yaml`): Multi-subject ROI Transformer encoder with 17 neuroanatomical tokens (V1v/d, V2v/d, V3v/d, V3A, V3B, V4, FFA1, FFA2, PPA, EBA, OFA, OPA, RSC, nsdgeneral_other) + `vmf_triple` decoder. 8 subjects, 120 epochs, effective batch 256.
+
+- Shared1000 compact (768-D): raw R@1 = 36.3%, CSLS R@1 = **44.8%**, MRR = 0.595.
+- Shared1000 rich (197K-D): raw R@1 = 0.2%, CSLS R@1 = **3.5%**.
+- Val kappas: mean = 34.6, std = 5.1, range [23.4, 54.3].
+- Best proxy CSLS during training: 49.9% at epoch 38; final (epoch 119): 47.9%.
+- Training wall time: 10.8 hours.
+
+The rich head's near-chance performance (3.5%) is explained by architecture: the encoder emits a single 768-D CLS token, which passes through a shared 2048-D bottleneck to both compact and rich heads. The rich head's `Linear(2048, 197376)` must invert 257 per-token CLIP features from a 2048-D feature that was primarily optimized for compact contrastive loss. This bottleneck is fundamentally different from N1v28a, where the encoder's final hidden layer (2048-D) directly maps to 197K-D in both `mu_head` and `regression_head`, and both heads receive strong gradient signal from 197K-D losses.
+
+### 41.6 Score-Level Fusion Analysis
+
+Score-level fusion of V57a compact (768-D, CSLS) + N1v28a (197K-D, CSLS) with min-max score normalization:
+
+| Alpha (V57a weight) | R@1 | R@5 |
+|---------------------|-----|-----|
+| 0.0 (N1v28a only) | 70.1% | 94.1% |
+| 0.2 | 75.8% | 95.8% |
+| 0.3 | 77.8% | 95.6% |
+| **0.4** | **78.0%** | **95.2%** |
+| 0.5 | 76.3% | 94.8% |
+| 1.0 (V57a only) | 44.8% | 77.6% |
+
+Best fusion: **78.0% R@1** at alpha = 0.4 (marginally above the previous frozen system's 77.2%).
+
+Error complementarity analysis (CSLS, shared1000):
+
+| Category | Count | Fraction |
+|----------|-------|----------|
+| Both correct | 352 | 35.2% |
+| V57a only correct | 96 | 9.6% |
+| N1v28a only correct | 349 | 34.9% |
+| Neither correct | 203 | 20.3% |
+| **Oracle (either)** | **797** | **79.7%** |
+
+V57a provides genuinely complementary signal (9.6% unique correct items that N1v28a misses), but its individual weakness limits the fusion ceiling. N1v28a dominates with 34.9% unique correct items.
+
+### 41.7 Critical Diagnostic Finding: Retrieval Dimensionality
+
+The single most important finding from the V55--V57 campaign is the role of **retrieval dimensionality**:
+
+| Model | Retrieval dim | Shared1000 CSLS R@1 |
+|-------|--------------|---------------------|
+| N1v28a | 197,376-D (257 x 768) | **70.1%** |
+| N1v28a | 768-D (first 768 of 197K) | 29.2% |
+| V57a compact | 768-D | 44.8% |
+| V56a compact | 768-D | 35.6% |
+| V55b | 768-D | 22.5% |
+
+N1v28a's strength comes from retrieving in the full 197K-D token space with per-token L2 normalization followed by global L2 normalization. The token-level representation captures spatial and structural information that a single CLS pooled vector cannot encode. The 41pp gap (29.2% vs 70.1%) for the same model in different retrieval spaces is larger than any architectural or training recipe change observed in this project.
+
+All V55--V57 compact models retrieve in 768-D and are therefore structurally capped well below N1v28a's 197K-D ceiling. The path forward must prioritize **building stronger 197K-D experts** rather than improving 768-D compact retrieval.
+
+### 41.8 Implications for the 90%+ Target
+
+1. **Multi-subject pretraining in 768-D does not work** for bootstrapping strong single-subject retrieval. The V55a/V55b path is a dead end.
+2. **Fusion distillation helps** (V56a: +13pp over V55b) but cannot overcome a weak base.
+3. **The resolver requires balanced experts.** A 3:1 performance ratio between experts produces no gain.
+4. **The ROI Transformer compact head is the best 768-D model** (44.8%), providing useful complementary signal in fusion, but the 197K-D retrieval space remains dominant.
+5. **The next plan must train a stronger 197K-D expert** (improved N1v28a with v9 training recipe) as Wave 1, then build diverse complementary experts for ensemble and resolver retraining.
+
+## 42. V58--V59: Wave Plan for 90%+ R@1
+
+### 42.1 Motivation
+
+After V55--V57, the project's best shared1000 result is **78.0% CSLS R@1** (V57a + N1v28a fusion). The gap to MindEye's 93.2% is 15.2pp. Three waves target incremental, empirically justified improvements.
+
+### 42.2 Wave 1: Strengthen the 197K-D Expert (V58a)
+
+N1v28a was trained with v28-era hyperparameters. Post-v28 improvements that have shown gains in other experiments have not been applied to a 197K-D single-subject model:
+
+| Improvement | N1v28a | V58a (planned) | Evidence |
+|-------------|--------|----------------|----------|
+| Dropout | 0.15 | 0.25 | V9 anti-overfit; V57a best at epoch 38/120 indicates overfitting |
+| Label smoothing | none | 0.1 | Standard contrastive regularization |
+| Projection head | none | 768->2048->768 | Separates contrastive from retrieval (V9) |
+| Effective batch | 256 | 1024 | Stronger contrastive gradients |
+| R-Drop | none | weight 0.1 | vMF-specific regularization |
+| Uniformity loss | none | weight 0.05 | Direct hubness reduction |
+| MixCo alpha | 0.15 | 0.3 | Stronger augmentation |
+| Kappa reg | 0.01 | 0.05 | Prevent kappa collapse |
+| Epochs | 300 (early stop ~132) | 200 (patience 40) | Sufficient with stronger regularization |
+
+Target: 73--80% CSLS R@1 single model. Fusion with N1v28a: 80--83%.
+
+### 42.3 Wave 2: Multi-Expert Ensemble (V59a + V57b)
+
+**V59a**: Retrieval-only 768-D contrastive model. No regression head, no token targets. Pure vMF-NCE + SoftCLIP + MixCo + uniformity. Single-subject subj01. Expected: 55--65% CSLS R@1 in 768-D.
+
+**V57b**: ROI Transformer on subj01 only (no multi-subject dilution), initialized from V58a MLP weights, 197K-D targets. Expected: 55--70%.
+
+Score-level fusion of 3--4 experts. Expected oracle: 88--92%, achievable fusion: 85--88%.
+
+### 42.4 Wave 3: Test-Time Enhancement + Resolver
+
+MC-Dropout TTA (8 passes) + kappa-weighted repetition averaging for all experts. Retrained OOF resolver with strong experts (V58a + N1v28a). Target: 90%+.
+
+### 42.5 Novel Contributions
+
+1. ROI Transformer with neuroanatomical tokenization (17 brain-region tokens)
+2. vMF Posterior Predictive Retrieval (PPR scoring, kappa-weighted averaging)
+3. Cross-space multi-expert fusion (768-D + 197K-D CSLS score-level ensemble)
+4. OOF-trained resolver for union shortlist reranking

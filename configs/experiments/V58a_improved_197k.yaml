@@ -5,7 +5,7 @@
 #
 # Key changes from N1v28a:
 #   - dropout: 0.15 -> 0.25 (anti-overfit, validated by V57a overfitting at epoch 38/120)
-#   - projection_head: enabled (separates contrastive from retrieval, v9)
+#   - projection_head: disabled (incompatible with 197K-D MixCo; regression head provides separation)
 #   - label_smoothing: 0.1 on vMF-NCE (softer contrastive targets)
 #   - effective batch: 256 -> 1024 (batch_size 128 x grad_accum 8, H100 can handle MLP)
 #   - r_drop: enabled weight 0.1 (vMF-specific dropout regularization)
@@ -71,10 +71,7 @@ model:
     regression_head: true
 
   projection_head:
-    enabled: true
-    hidden_dim: 2048
-    out_dim: 768
-    dropout: 0.15
+    enabled: false
 
 preprocessing:
   enabled: false

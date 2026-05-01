@@ -91,6 +91,7 @@ loss:
     enabled: true
     weight: 1.0
     tau: 0.05
+    vmf_mode: true
     use_queue: true
     symmetric: true
 

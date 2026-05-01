@@ -2170,25 +2170,37 @@ def train_epoch(
 
             # --- V60c: Kappa-Gated Cross-Subject Sample Weights ---
             _kappa_gate_weights = None
-            if (_kappa_gated_enabled and is_vmf
-                    and current_epoch >= _kappa_gate_start_epoch
-                    and subject_ids is not None
-                    and _canonical_subject_int is not None):
-                with torch.no_grad():
-                    _kg_kappa = _vmf_aux_head.squeeze(-1).float()
-                    if _vmf_is_log:
-                        _kg_kappa = _kg_kappa.exp()
-                    _is_canon = (subject_ids == _canonical_subject_int)
-                    _kappa_gate_weights = torch.ones(
-                        _kg_kappa.shape[0], device=device, dtype=torch.float32,
-                    )
-                    _nc_mask = ~_is_canon
-                    if _nc_mask.any():
-                        _nc_kappa = _kg_kappa[_nc_mask]
-                        _kappa_gate_weights[_nc_mask] = torch.sigmoid(
-                            _kappa_gate_temp * (_nc_kappa - _nc_kappa.median())
+            _kg_cfg = (config_ref or {}).get("model", {}).get("kappa_gated", {})
+            _kg_enabled = _kg_cfg.get("enabled", False)
+            _kg_temp = float(_kg_cfg.get("temperature", 0.5))
+            _kg_start = int(_kg_cfg.get("start_epoch", 31))
+            _kg_canon_subj = (config_ref or {}).get("model", {}).get(
+                "cross_subject", {},
+            ).get("canonical_subject", "subj01")
+            if (_kg_enabled and is_vmf
+                    and current_epoch >= _kg_start
+                    and subject_ids is not None):
+                _kg_canon_int = None
+                if hasattr(dataloader.dataset, "subject_to_int"):
+                    _kg_canon_int = dataloader.dataset.subject_to_int.get(_kg_canon_subj)
+                elif hasattr(dataloader.dataset, "dataset") and hasattr(dataloader.dataset.dataset, "subject_to_int"):
+                    _kg_canon_int = dataloader.dataset.dataset.subject_to_int.get(_kg_canon_subj)
+                if _kg_canon_int is not None:
+                    with torch.no_grad():
+                        _kg_kappa = _vmf_aux_head.squeeze(-1).float()
+                        if vmf_is_log:
+                            _kg_kappa = _kg_kappa.exp()
+                        _is_canon = (subject_ids == _kg_canon_int)
+                        _kappa_gate_weights = torch.ones(
+                            _kg_kappa.shape[0], device=device, dtype=torch.float32,
                         )
-                    _kappa_gate_weights = _kappa_gate_weights / _kappa_gate_weights.mean().clamp(min=1e-6)
+                        _nc_mask = ~_is_canon
+                        if _nc_mask.any():
+                            _nc_kappa = _kg_kappa[_nc_mask]
+                            _kappa_gate_weights[_nc_mask] = torch.sigmoid(
+                                _kg_temp * (_nc_kappa - _nc_kappa.median())
+                            )
+                        _kappa_gate_weights = _kappa_gate_weights / _kappa_gate_weights.mean().clamp(min=1e-6)
 
             # --- SoftCLIP knowledge distillation (works for all model types) ---
             if "softclip" in losses:

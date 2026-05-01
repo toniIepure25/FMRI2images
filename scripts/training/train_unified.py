@@ -2168,10 +2168,35 @@ def train_epoch(
                 total_loss = total_loss + loss_weights.get("infonce", 1.0) * l
                 batch_metrics["infonce"] = l.item()
 
+            # --- V60c: Kappa-Gated Cross-Subject Sample Weights ---
+            _kappa_gate_weights = None
+            if (_kappa_gated_enabled and is_vmf
+                    and current_epoch >= _kappa_gate_start_epoch
+                    and subject_ids is not None
+                    and _canonical_subject_int is not None):
+                with torch.no_grad():
+                    _kg_kappa = _vmf_aux_head.squeeze(-1).float()
+                    if _vmf_is_log:
+                        _kg_kappa = _kg_kappa.exp()
+                    _is_canon = (subject_ids == _canonical_subject_int)
+                    _kappa_gate_weights = torch.ones(
+                        _kg_kappa.shape[0], device=device, dtype=torch.float32,
+                    )
+                    _nc_mask = ~_is_canon
+                    if _nc_mask.any():
+                        _nc_kappa = _kg_kappa[_nc_mask]
+                        _kappa_gate_weights[_nc_mask] = torch.sigmoid(
+                            _kappa_gate_temp * (_nc_kappa - _nc_kappa.median())
+                        )
+                    _kappa_gate_weights = _kappa_gate_weights / _kappa_gate_weights.mean().clamp(min=1e-6)
+
             # --- SoftCLIP knowledge distillation (works for all model types) ---
             if "softclip" in losses:
                 if isinstance(losses["softclip"], VMFSoftCLIPLoss) and is_vmf:
-                    l = losses["softclip"](_vmf_pred_head, _vmf_aux_head, gt_embedding, queue=queue)
+                    l = losses["softclip"](
+                        _vmf_pred_head, _vmf_aux_head, gt_embedding,
+                        queue=queue, sample_weights=_kappa_gate_weights,
+                    )
                 else:
                     l = losses["softclip"](pred_for_contrast, gt_embedding, queue=queue)
                 total_loss = total_loss + loss_weights.get("softclip", 1.0) * l
@@ -2195,7 +2220,10 @@ def train_epoch(
                 batch_metrics["vmf_nll"] = l.item()
 
             if "vmf_nce" in losses and is_vmf:
-                l = losses["vmf_nce"](_vmf_pred_head, _vmf_aux_head, gt_embedding, queue=queue)
+                l = losses["vmf_nce"](
+                    _vmf_pred_head, _vmf_aux_head, gt_embedding,
+                    queue=queue, sample_weights=_kappa_gate_weights,
+                )
                 total_loss = total_loss + loss_weights.get("vmf_nce", 1.0) * l
                 batch_metrics["vmf_nce"] = l.item()
 
@@ -5311,6 +5339,23 @@ def main() -> None:
                 _cs_ckpt_path,
             )
 
+    # --- V60c: Kappa-Gated Cross-Subject Alignment ---
+    _kappa_gated_cfg = model_config.get("kappa_gated", {})
+    _kappa_gated_enabled = _kappa_gated_cfg.get("enabled", False) and _cross_subject_enabled
+    _kappa_gate_temp = float(_kappa_gated_cfg.get("temperature", 0.5))
+    _kappa_gate_start_epoch = int(_kappa_gated_cfg.get("start_epoch", _cs_freeze_epochs + 1))
+    _canonical_subject_int: Optional[int] = None
+    if _kappa_gated_enabled:
+        _cs_canon = _cross_subject_cfg.get("canonical_subject", "subj01")
+        if hasattr(full_dataset, "subject_to_int"):
+            _canonical_subject_int = full_dataset.subject_to_int.get(_cs_canon)
+        logger.info(
+            "Kappa-Gated Alignment (V60c): temp=%.2f, start_epoch=%d, "
+            "canonical=%s (int=%s)",
+            _kappa_gate_temp, _kappa_gate_start_epoch,
+            _cs_canon, _canonical_subject_int,
+        )
+
     # --- EMA ---
     _ema_cfg = config.get("training", {}).get("ema", {})
     ema = None
@@ -7314,9 +7359,6 @@ def main() -> None:
     if _save_kappas is not None:
         np.save(_metrics_save_dir / "val_kappas.npy", _save_kappas)
         logger.info("Saved val kappas %s to %s", _save_kappas.shape, _metrics_save_dir)
-    if _val_img_ids is not None:
-        np.save(_metrics_save_dir / "val_nsd_ids.npy", _val_img_ids)
-        logger.info("Saved val nsd_ids %s to %s", _val_img_ids.shape, _metrics_save_dir)
 
     # --- Compact-family separated outputs for vmf_triple / dense_vmf_hybrid ---
     if _save_model_type in ("vmf_triple", "dense_vmf_hybrid", "scfr_vmf"):

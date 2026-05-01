@@ -297,6 +297,7 @@ class VonMisesFisherNCELoss(nn.Module):
         kappa_or_log_kappa_query: torch.Tensor,
         key_embeddings: torch.Tensor,
         queue: Optional[nn.Module] = None,
+        sample_weights: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
         Args:
@@ -304,6 +305,9 @@ class VonMisesFisherNCELoss(nn.Module):
             kappa_or_log_kappa_query:    (B, 1) concentration or log-concentration
             key_embeddings:              (B, D) unit-norm GT keys (positives on diagonal)
             queue:                       optional MemoryQueue for extra negatives
+            sample_weights:              (B,) per-sample importance weights for
+                                         kappa-gated alignment (V60c). If None,
+                                         uniform weighting (standard mean reduction).
         """
         if self.kappa_is_log:
             kappa = kappa_or_log_kappa_query.exp().squeeze(-1)
@@ -321,14 +325,19 @@ class VonMisesFisherNCELoss(nn.Module):
 
         logits = self._score(mu_query, kappa, all_keys, positive_idx=labels)
 
-        # Kappa-adaptive additive margin on positive pairs (CosFace-style)
         if self.margin_base > 0:
             adaptive_margin = self.margin_base * kappa / (
                 kappa + self.margin_kappa_ref
             )  # (B,)
             logits[torch.arange(B, device=logits.device), labels] -= adaptive_margin
 
-        std_loss = F.cross_entropy(logits, labels, label_smoothing=self.label_smoothing)
+        if sample_weights is not None:
+            per_sample = F.cross_entropy(
+                logits, labels, label_smoothing=self.label_smoothing, reduction="none",
+            )
+            std_loss = (per_sample * sample_weights).mean()
+        else:
+            std_loss = F.cross_entropy(logits, labels, label_smoothing=self.label_smoothing)
 
         if self.isf_weight > 0:
             log_prob_isf = F.log_softmax(logits, dim=0)  # column-normalise

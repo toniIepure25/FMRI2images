@@ -1,0 +1,182 @@
+# V60c: Multi-Subject 197K-D with Kappa-Gated Alignment (Novel Contribution)
+#
+# NOVEL CONTRIBUTION: Kappa-Gated Cross-Subject Alignment
+#
+# In standard multi-subject training, every sample from every subject
+# contributes equally to the loss gradient regardless of alignment quality.
+# This is problematic because:
+#   1. Cross-subject linear adapters are imperfect, especially early on
+#   2. Poorly-aligned samples inject noise into backbone gradients
+#   3. The backbone cannot distinguish "hard but learnable" from "noisy"
+#
+# Our insight: the vMF concentration parameter kappa is a direct measure
+# of prediction confidence. For cross-subject data, low kappa indicates
+# the adapter has not yet aligned this sample well. High kappa means
+# the adapter transformation is reliable for this sample.
+#
+# Implementation:
+#   During the backbone-unfrozen phase (epoch > freeze_epochs), each
+#   non-canonical-subject sample's loss contribution is gated by:
+#
+#     w_i = sigmoid(temperature * (kappa_i - median(kappa_batch)))
+#
+#   Canonical subject samples always have w_i = 1.0. Weights are
+#   normalized to preserve total gradient magnitude.
+#
+#   This creates an implicit curriculum: well-aligned samples (high kappa)
+#   dominate backbone updates early in unfreezing; as adapters improve,
+#   more samples exceed the median threshold and contribute.
+#
+# Novelty claim: No prior fMRI decoding work uses model uncertainty to
+# modulate cross-subject alignment gradients. This is a natural extension
+# of the vMF framework that exploits the probabilistic output (kappa)
+# for training dynamics, not just inference.
+#
+# Architecture: IDENTICAL to V60a (for clean A/B comparison)
+#
+# Run:
+#   python scripts/training/train_unified.py --config configs/experiments/V60c_kappa_gated_197k.yaml
+
+experiment:
+  name: "V60c_kappa_gated_197k"
+  description: "v60c: 8-subject 197K-D with kappa-gated cross-subject alignment"
+  tags: ["vmf", "vmf_nce", "v60", "cross_subject", "multi_subject", "adapter",
+         "dual_head", "regression", "token_targets", "197k", "csls", "shared1000",
+         "kappa_gated", "novel"]
+  parent: "V60a_cross_subject_197k"
+
+data:
+  subjects: ["subj01", "subj02", "subj03", "subj04", "subj05", "subj06", "subj07", "subj08"]
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  pretrained_encoder_path: "experimental_results/N1v28a_dual_head/subj01/checkpoint_best.pt"
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.15
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: null
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+    num_tokens: 257
+    token_dim: 768
+    regression_head: true
+
+  projection_head:
+    enabled: false
+
+  cross_subject:
+    enabled: true
+    canonical_subject: "subj01"
+    freeze_epochs: 30
+    backbone_lr_factor: 0.1
+
+  # === NOVEL: Kappa-Gated Alignment ===
+  kappa_gated:
+    enabled: true
+    temperature: 0.5
+    start_epoch: 31
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  regression_mse:
+    enabled: true
+    weight: 0.5
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    vmf_mode: true
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 4096
+
+training:
+  batch_size: 16
+  gradient_accumulation_steps: 16
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 20
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 50
+  early_stop_min_delta: 0.002
+  train_r1_interval: 10
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

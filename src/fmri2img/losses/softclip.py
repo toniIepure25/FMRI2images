@@ -140,6 +140,7 @@ class VMFSoftCLIPLoss(nn.Module):
         kappa: torch.Tensor,
         gt_embeddings: torch.Tensor,
         queue: Optional[nn.Module] = None,
+        sample_weights: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Compute vMF-SoftCLIP loss.
 
@@ -148,6 +149,9 @@ class VMFSoftCLIPLoss(nn.Module):
             kappa: (B, 1) predicted concentration parameters.
             gt_embeddings: (B, D) ground-truth CLIP embeddings.
             queue: Optional MemoryQueue with additional negatives.
+            sample_weights: (B,) per-sample importance weights for
+                            kappa-gated alignment (V60c). If None,
+                            uniform weighting.
 
         Returns:
             Scalar loss.
@@ -161,19 +165,20 @@ class VMFSoftCLIPLoss(nn.Module):
             queue_embs = F.normalize(queue.get_queue().float(), dim=1, p=2)
             all_keys = torch.cat([gt_norm, queue_embs], dim=0)
 
-        # Teacher: fixed-temperature CLIP-CLIP similarity
         teacher_logits = torch.matmul(gt_norm, all_keys.T) / self.teacher_tau
         teacher_dist = F.softmax(teacher_logits, dim=-1)
 
-        # Student: kappa-scaled cosine similarity (per-sample temperature)
         cos_sim = torch.matmul(mu_norm, all_keys.T)  # (B, M)
         student_logits = kappa_flat.unsqueeze(1) * cos_sim  # (B, M)
         student_log_dist = F.log_softmax(student_logits, dim=-1)
 
-        loss_fwd = -(teacher_dist * student_log_dist).sum(dim=-1).mean()
+        per_sample_fwd = -(teacher_dist * student_log_dist).sum(dim=-1)  # (B,)
+        if sample_weights is not None:
+            loss_fwd = (per_sample_fwd * sample_weights).mean()
+        else:
+            loss_fwd = per_sample_fwd.mean()
 
         if self.symmetric:
-            # Reverse: keys-to-batch (use mean kappa for reverse direction)
             mean_kappa = kappa_flat.mean()
             teacher_logits_rev = torch.matmul(all_keys, gt_norm.T) / self.teacher_tau
             teacher_dist_rev = F.softmax(teacher_logits_rev, dim=-1)

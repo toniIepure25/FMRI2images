@@ -4828,7 +4828,6 @@ def main() -> None:
         _token_cache = TokenCLIPCache(_token_cache_path)
         _is_multi = len(_multi_subjects) > 1
         if _is_multi:
-            import pandas as pd
             _subj_nsd_ids: set[int] = set()
             for _s in (_multi_subjects if _multi_subjects else [subject]):
                 _idx_path = resolve_index_path(_s)

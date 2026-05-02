@@ -167,8 +167,7 @@ training:
     temperature: 0.07
     weight: 0.5
   ema:
-    enabled: true
-    decay: 0.999
+    enabled: false
 
 evaluation:
   use_csls: true

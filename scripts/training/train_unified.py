@@ -4551,6 +4551,10 @@ def save_checkpoint(
     if ema is not None and not lightweight:
         payload["ema_shadow"] = {k: v.cpu() for k, v in ema.shadow.items()}
     path.parent.mkdir(parents=True, exist_ok=True)
+    import gc
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     for _attempt in range(3):
         _local_tmp: Optional[str] = None
         _remote_tmp = path.with_suffix(path.suffix + f".tmp.{os.getpid()}")
@@ -4558,7 +4562,7 @@ def save_checkpoint(
             with tempfile.NamedTemporaryFile(
                 prefix=f"{path.stem}.",
                 suffix=".pt",
-                dir="/tmp",
+                dir=os.environ.get("TMPDIR", "/tmp"),
                 delete=False,
             ) as _tf:
                 _local_tmp = _tf.name
@@ -5906,7 +5910,7 @@ def main() -> None:
 
     batch_size = config["training"]["batch_size"]
     use_preextracted = isinstance(full_dataset, PreextractedNSDDataset) or _is_multi_subject
-    dl_workers = 2 if use_preextracted else 0
+    dl_workers = 0 if _is_multi_subject else (2 if use_preextracted else 0)
     dl_pin = device.startswith("cuda")
     _one_trial_per_image = bool(
         config.get("data", {}).get("one_trial_per_image_per_epoch", False)

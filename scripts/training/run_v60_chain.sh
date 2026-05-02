@@ -82,6 +82,7 @@ check_prerequisites() {
 run_training() {
     local config="$1"
     local name="$2"
+    local extra_args="${3:-}"
     local logfile="$LOG_DIR/${name}.log"
 
     log "=== Starting $name ==="
@@ -89,7 +90,7 @@ run_training() {
     log "Log: $logfile"
 
     python scripts/training/train_unified.py \
-        --config "$config" \
+        --config "$config" $extra_args \
         2>&1 | tee "$logfile"
 
     local exit_code=${PIPESTATUS[0]}
@@ -107,9 +108,15 @@ run_standard() {
     log "STANDARD BRANCH: V60a -> V60b"
     log "=========================================="
 
-    run_training "configs/experiments/V60a_cross_subject_197k.yaml" "V60a" || return 1
-
     local v60a_ckpt="experimental_results/V60a_cross_subject_197k/subj01/checkpoint_best.pt"
+    local v60a_args="--save-checkpoints best"
+    if [ -f "$v60a_ckpt" ]; then
+        log "V60a checkpoint found — resuming from $v60a_ckpt"
+        v60a_args="$v60a_args --resume $v60a_ckpt"
+    fi
+
+    run_training "configs/experiments/V60a_cross_subject_197k.yaml" "V60a" "$v60a_args" || return 1
+
     if [ ! -f "$v60a_ckpt" ]; then
         log "ERROR: V60a checkpoint not found: $v60a_ckpt"
         return 1
@@ -125,9 +132,15 @@ run_kappa() {
     log "KAPPA-GATED BRANCH: V60c -> V60d"
     log "=========================================="
 
-    run_training "configs/experiments/V60c_kappa_gated_197k.yaml" "V60c" || return 1
-
     local v60c_ckpt="experimental_results/V60c_kappa_gated_197k/subj01/checkpoint_best.pt"
+    local v60c_args="--save-checkpoints best"
+    if [ -f "$v60c_ckpt" ]; then
+        log "V60c checkpoint found — resuming from $v60c_ckpt"
+        v60c_args="$v60c_args --resume $v60c_ckpt"
+    fi
+
+    run_training "configs/experiments/V60c_kappa_gated_197k.yaml" "V60c" "$v60c_args" || return 1
+
     if [ ! -f "$v60c_ckpt" ]; then
         log "ERROR: V60c checkpoint not found: $v60c_ckpt"
         return 1

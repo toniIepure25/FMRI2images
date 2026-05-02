@@ -5799,6 +5799,9 @@ def main() -> None:
             subj_local = local_idxs[subj_rows]
             subj_train_rows = np.array([r for r in subj_rows if r in train_set])
             feats = full_dataset.features_list[s_idx]
+            if not feats.flags.writeable:
+                feats = feats.copy()
+                full_dataset.features_list[s_idx] = feats
 
             if len(subj_train_rows) == 0:
                 logger.warning("Subject %s: no training trials — skipping z-score", subj_name)

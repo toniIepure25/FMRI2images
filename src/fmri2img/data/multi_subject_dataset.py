@@ -140,7 +140,8 @@ class MultiSubjectPreextractedDataset(Dataset):
                     f"Run: make index SUBJECT={subj}"
                 )
 
-            feats = np.load(feat_path, mmap_mode=None)
+            _use_mmap = len(self.subjects) > 4
+            feats = np.load(feat_path, mmap_mode="r" if _use_mmap else None)
             idx_df = pd.read_parquet(idx_path).reset_index(drop=True)
 
             if len(feats) != len(idx_df):

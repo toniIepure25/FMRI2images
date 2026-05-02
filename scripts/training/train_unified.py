@@ -5072,8 +5072,10 @@ def main() -> None:
     _require_parent_split_match = bool(model_config.get("require_parent_split_match", False))
     _pm_loaded_ok = False
     if _pm_path and os.path.isfile(_pm_path):
-        _pm_ckpt = torch.load(_pm_path, map_location=device, weights_only=False)
+        _pm_ckpt = torch.load(_pm_path, map_location="cpu", weights_only=False)
         _pm_sd = _pm_ckpt.get("model_state_dict", _pm_ckpt.get("state_dict", {}))
+        del _pm_ckpt
+        import gc; gc.collect()
         if not _pm_sd:
             if _require_pm:
                 raise KeyError(
@@ -5164,9 +5166,11 @@ def main() -> None:
     _pe_loaded_ok = False
     _matched_encoder_key_count = 0
     if _pe_path and os.path.isfile(_pe_path):
-        _pe_ckpt = torch.load(_pe_path, map_location=device, weights_only=False)
+        _pe_ckpt = torch.load(_pe_path, map_location="cpu", weights_only=False)
         _pe_sd = _pe_ckpt.get("model_state_dict", _pe_ckpt.get("state_dict", {}))
         _pe_keys = {k: v for k, v in _pe_sd.items() if k.startswith("encoder.")}
+        del _pe_ckpt, _pe_sd
+        import gc; gc.collect()
         _model_sd = model.state_dict()
         _model_encoder_keys = {k for k in _model_sd if k.startswith("encoder.")}
         _matched_encoder_keys = sorted(_model_encoder_keys.intersection(_pe_keys))

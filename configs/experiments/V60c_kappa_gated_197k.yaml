@@ -139,7 +139,7 @@ loss:
 
 queue:
   enabled: true
-  size: 4096
+  size: 2048
 
 training:
   batch_size: 16

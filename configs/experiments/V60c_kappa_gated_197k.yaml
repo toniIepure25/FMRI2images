@@ -155,6 +155,7 @@ training:
   warmup_epochs: 20
   min_lr: 1.0e-6
   gradient_clip: 1.0
+  lightweight_best_checkpoint: true
   early_stop_patience: 50
   early_stop_min_delta: 0.002
   train_r1_interval: 10

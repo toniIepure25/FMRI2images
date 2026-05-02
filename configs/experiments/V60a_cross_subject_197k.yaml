@@ -1,49 +1,42 @@
-# V60a: Multi-Subject 197K-D Pretraining with Learned Neural Alignment
+# V60a: Multi-Subject CLS Pretraining with Learned Neural Alignment
 #
-# THE KEY EXPERIMENT: N1v28a's proven 197K-D dual-head architecture trained
-# on all 8 NSD subjects via end-to-end learned linear adapters.
+# Phase 1 of V60 pipeline: 4-subject pretraining with 768-D CLS targets.
+# The adapters learn cross-subject alignment on the CLIP CLS representation,
+# which is fast and memory-efficient (~862M params, batch_size=64).
 #
-# Previous multi-subject attempts (V55a, V57a) all used 768-D CLS targets
-# and failed (21-45% CSLS R@1). N1v28a's 197K-D single-subject baseline is
-# 70.1%. This config combines 8-subject data scaling (~70K unique images)
-# with 197K-D token targets -- the combination never attempted before.
+# Phase 2 (V60b): subj01 finetuning with 197K-D token targets from N1v28a.
+#
+# This mirrors MindEye2's two-phase approach:
+#   Phase 1: cross-subject pretraining (CLS)  -- this config
+#   Phase 2: single-subject finetuning (tokens) -- V60b
 #
 # Architecture:
 #   fMRI (subject-specific voxels)
 #     -> Per-subject Linear adapter: nn.Linear(subj_vox, 15724, bias=False)
-#        (canonical subj01: slice identity, no adapter)
+#        (canonical subj01: identity, no adapter)
 #     -> Shared MLP encoder: [8192, 8192, 4096, 2048] + residual + GELU
-#     -> vMF decoder:
-#        * mu_head: (2048 -> 197376) L2-norm -> vMF-NCE + SoftCLIP + MixCo
-#        * regression_head: (2048 -> 197376) raw -> MSE
-#        * kappa_head: (2048 -> 1) softplus -> concentration/uncertainty
+#     -> vMF decoder: 768-D CLS direction + kappa (concentration)
 #
-# Training protocol (MindEye2-style two-phase):
-#   Phase A (epochs 1-30): BACKBONE FROZEN. Only adapters + kappa_head train.
-#     N1v28a's proven encoder provides stable gradient for alignment learning.
+# Training protocol:
+#   Phase A (epochs 1-30): BACKBONE FROZEN. Only adapters + kappa train.
 #   Phase B (epochs 31-200): Backbone UNFROZEN at 0.1x base LR.
-#     Joint optimization: adapters refine + backbone learns from 8x data.
 #
-# Memory estimate (H100 80GB):
-#   Model (bf16):    ~2.4 GB encoder + ~0.8 GB regr head
-#   Optimizer:       ~12.9 GB (AdamW fp32)
-#   7 adapters:      ~3.1 GB (7 x 15K x 15K x 2B)
-#   Queue:           ~3.2 GB (4096 x 197376 x 4B)
-#   Activations:     ~4.0 GB (bs=16)
-#   Total:           ~26.4 GB -- fits safely
-#
-# Uses N1v28a's PROVEN recipe (not v9): V58a showed v9 regularization hurts
-# 197K-D models (-9pp vs N1v28a). Keep: dropout 0.15, no label smoothing,
-# no R-Drop, no uniformity, kappa_reg 0.01, MixCo alpha 0.15.
+# Memory estimate (H100 80GB, 100GiB cgroup):
+#   Model (bf16): ~862M params → ~1.7 GB
+#   Optimizer:    ~862M × 8B → ~6.9 GB
+#   fMRI data:    4 subjects × ~1.5 GB = ~6 GB
+#   CLIP (768-D): ~20 MB (CLS only, no token cache!)
+#   Queue:        4096 × 768 × 4B = ~12 MB
+#   Total:        ~15 GB GPU + ~8 GB CPU — well within limits
 #
 # Run:
 #   python scripts/training/train_unified.py --config configs/experiments/V60a_cross_subject_197k.yaml
 
 experiment:
   name: "V60a_cross_subject_197k"
-  description: "v60a: 4-subject 197K-D pretraining with learned neural alignment"
+  description: "v60a: 4-subject CLS pretraining with learned neural alignment"
   tags: ["vmf", "vmf_nce", "v60", "cross_subject", "multi_subject", "adapter",
-         "dual_head", "regression", "token_targets", "197k", "csls", "shared1000"]
+         "csls", "shared1000", "phase1"]
   parent: "N1v28a_dual_head"
 
 data:
@@ -60,7 +53,6 @@ data:
   zscore_mode: "per_session"
   embedding_column: "fused"
   seed: 42
-  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
 
 model:
   type: "vmf"
@@ -75,14 +67,11 @@ model:
     use_residual: true
   decoder:
     input_dim: 2048
-    output_dim: null
+    output_dim: 768
     hidden_dims: [2048]
     activation: "gelu"
     dropout: 0.2
     kappa_mode: "softplus"
-    num_tokens: 257
-    token_dim: 768
-    regression_head: true
 
   projection_head:
     enabled: false
@@ -105,8 +94,7 @@ loss:
     learnable_temperature: true
 
   regression_mse:
-    enabled: true
-    weight: 0.5
+    enabled: false
 
   vmf_nll:
     enabled: false
@@ -134,11 +122,11 @@ loss:
 
 queue:
   enabled: true
-  size: 2048
+  size: 4096
 
 training:
-  batch_size: 16
-  gradient_accumulation_steps: 16
+  batch_size: 64
+  gradient_accumulation_steps: 4
   mixed_precision: true
   mixed_precision_dtype: "bf16"
   num_epochs: 200

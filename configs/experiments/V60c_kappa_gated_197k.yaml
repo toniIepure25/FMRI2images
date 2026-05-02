@@ -59,7 +59,6 @@ data:
   zscore_mode: "per_session"
   embedding_column: "fused"
   seed: 42
-  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
 
 model:
   type: "vmf"
@@ -74,14 +73,11 @@ model:
     use_residual: true
   decoder:
     input_dim: 2048
-    output_dim: null
+    output_dim: 768
     hidden_dims: [2048]
     activation: "gelu"
     dropout: 0.2
     kappa_mode: "softplus"
-    num_tokens: 257
-    token_dim: 768
-    regression_head: true
 
   projection_head:
     enabled: false
@@ -110,8 +106,7 @@ loss:
     learnable_temperature: true
 
   regression_mse:
-    enabled: true
-    weight: 0.5
+    enabled: false
 
   vmf_nll:
     enabled: false
@@ -139,11 +134,11 @@ loss:
 
 queue:
   enabled: true
-  size: 2048
+  size: 4096
 
 training:
-  batch_size: 16
-  gradient_accumulation_steps: 16
+  batch_size: 64
+  gradient_accumulation_steps: 4
   mixed_precision: true
   mixed_precision_dtype: "bf16"
   num_epochs: 200

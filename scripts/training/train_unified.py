@@ -4828,8 +4828,16 @@ def main() -> None:
         _token_cache = TokenCLIPCache(_token_cache_path)
         _is_multi = len(_multi_subjects) > 1
         if _is_multi:
-            _needed_ids = embeddings_df["nsdId"].unique().tolist()
-            _token_cache.load(preload_ids=_needed_ids)
+            import pandas as pd
+            _subj_nsd_ids: set[int] = set()
+            for _s in (_multi_subjects if _multi_subjects else [subject]):
+                _idx_path = resolve_index_path(_s)
+                if _idx_path.exists():
+                    _idx_df = pd.read_parquet(_idx_path, columns=["nsdId"])
+                    _subj_nsd_ids.update(int(x) for x in _idx_df["nsdId"].unique())
+            logger.info("Token preload: %d unique nsdIds from %d subjects",
+                        len(_subj_nsd_ids), len(_multi_subjects))
+            _token_cache.load(preload_ids=sorted(_subj_nsd_ids))
         else:
             _token_cache.load(mmap=False)
         logger.info(

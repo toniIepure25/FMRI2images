@@ -68,12 +68,20 @@ class TokenCLIPCache:
             return self._tokens.shape
         return (0, self.num_tokens, self.token_dim)
 
-    def load(self, mmap: bool = False) -> "TokenCLIPCache":
+    def load(
+        self,
+        mmap: bool = False,
+        preload_ids: Optional[list[int]] = None,
+    ) -> "TokenCLIPCache":
         """Load cache from disk.
 
         Args:
             mmap: If True keep HDF5 file open and read lazily (saves RAM).
                   If False (default), load entire array into RAM for speed.
+            preload_ids: If given, load only these nsdIds into RAM (ignores
+                         *mmap*). Avoids 29+ GB page cache from mmapping the
+                         full file -- only the needed subset (~8 GB for 10K
+                         images) is resident.
 
         Returns:
             self (fluent API)
@@ -90,17 +98,47 @@ class TokenCLIPCache:
         logger.info("Loading token CLIP cache from %s", self.cache_path)
         f = h5py.File(self.cache_path, "r")
 
-        # Read metadata
         for key in f.attrs:
             self._meta[key] = f.attrs[key]
 
-        self._nsd_ids = f["nsd_ids"][:]
+        all_nsd_ids = f["nsd_ids"][:]
+
+        if preload_ids is not None:
+            needed = set(int(x) for x in preload_ids)
+            disk_indices = [
+                i for i, nid in enumerate(all_nsd_ids) if int(nid) in needed
+            ]
+            disk_indices.sort()
+            self._nsd_ids = all_nsd_ids[disk_indices]
+            self._id_to_idx = {
+                int(nid): j for j, nid in enumerate(self._nsd_ids)
+            }
+            self._tokens = np.empty(
+                (len(disk_indices), f["tokens"].shape[1], f["tokens"].shape[2]),
+                dtype=np.float32,
+            )
+            _chunk = 500
+            for start in range(0, len(disk_indices), _chunk):
+                batch_idx = disk_indices[start : start + _chunk]
+                self._tokens[start : start + len(batch_idx)] = f["tokens"][batch_idx]
+            f.close()
+            self._is_loaded = True
+            _t = self._tokens.shape[1]
+            _d = self._tokens.shape[2]
+            _gb = len(self._nsd_ids) * _t * _d * 4 / 1e9
+            logger.info(
+                "TokenCLIPCache loaded (preload_ids): %d/%d images, "
+                "%d tokens × %d dim (%.2f GB RAM)",
+                len(self._nsd_ids), len(all_nsd_ids), _t, _d, _gb,
+            )
+            return self
+
+        self._nsd_ids = all_nsd_ids
         self._id_to_idx = {int(nid): i for i, nid in enumerate(self._nsd_ids)}
 
         if mmap:
-            # Keep file handle open, read lazily
             self._tokens = f["tokens"]
-            self._h5file = f  # prevent GC from closing file
+            self._h5file = f
         else:
             self._tokens = f["tokens"][:]
             f.close()

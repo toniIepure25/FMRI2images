@@ -4826,14 +4826,16 @@ def main() -> None:
     if _token_cache_path:
         from fmri2img.data.token_clip_cache import TokenCLIPCache
         _token_cache = TokenCLIPCache(_token_cache_path)
-        # Use mmap (lazy HDF5) for multi-subject to avoid 29+ GB RAM usage.
-        # Single-subject (~7 GB) loads into RAM for speed.
-        _use_mmap = len(_multi_subjects) > 1
-        _token_cache.load(mmap=_use_mmap)
+        _is_multi = len(_multi_subjects) > 1
+        if _is_multi:
+            _needed_ids = embeddings_df["nsdId"].unique().tolist()
+            _token_cache.load(preload_ids=_needed_ids)
+        else:
+            _token_cache.load(mmap=False)
         logger.info(
-            "TOKEN MODE: Loaded %d images from %s (%d tokens × %d dim, mmap=%s)",
+            "TOKEN MODE: Loaded %d images from %s (%d tokens × %d dim)",
             len(_token_cache), _token_cache_path,
-            _token_cache.num_tokens, _token_cache.token_dim, _use_mmap,
+            _token_cache.num_tokens, _token_cache.token_dim,
         )
 
     # --- Rerank cache (V30d+): compressed token targets ---

@@ -26,9 +26,9 @@ export function DuaCfgVisualPanel({ dua }: { dua: DemoCase['duaCfg'] }) {
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       <div className="rounded-xl border border-white/10 bg-black/25 p-4">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-200/85">Guidance scale</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-200/85">Guidance scale</p>
         <p className="mt-1 font-mono text-xl font-semibold tabular-nums text-white">{dua.guidanceScale.toFixed(2)}</p>
-        <p className="mt-0.5 text-[10px] text-slate-500">
+        <p className="mt-0.5 text-[11px] text-slate-500">
           Range [{GUIDE_MIN}, {GUIDE_MAX}] — uncertainty-aware CFG strength
         </p>
         <div className="relative mt-4 h-4 w-full overflow-hidden rounded-full bg-[#0f172a] ring-1 ring-white/10">
@@ -46,16 +46,16 @@ export function DuaCfgVisualPanel({ dua }: { dua: DemoCase['duaCfg'] }) {
             transition={{ duration: 0.5, delay: 0.15 }}
           />
         </div>
-        <div className="mt-1 flex justify-between text-[9px] tabular-nums text-slate-500">
+        <div className="mt-1 flex justify-between text-[11px] tabular-nums text-slate-500">
           <span>{GUIDE_MIN}</span>
           <span>{GUIDE_MAX}</span>
         </div>
       </div>
 
       <div className="rounded-xl border border-white/10 bg-black/25 p-4">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-200/85">Diffusion steps</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-amber-200/85">Diffusion steps</p>
         <p className="mt-1 font-mono text-xl font-semibold tabular-nums text-white">{dua.diffusionSteps}</p>
-        <p className="mt-0.5 text-[10px] text-slate-500">Sampling depth budget modulated by joint (κ, δ)</p>
+        <p className="mt-0.5 text-[11px] text-slate-500">Sampling depth budget modulated by joint (κ, δ)</p>
         <div className="mt-4 flex gap-0.5">
           {Array.from({ length: STEP_SEGMENTS }, (_, i) => (
             <motion.div
@@ -74,9 +74,9 @@ export function DuaCfgVisualPanel({ dua }: { dua: DemoCase['duaCfg'] }) {
       </div>
 
       <div className="rounded-xl border border-white/10 bg-black/25 p-4">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-violet-200/85">Ensemble K</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-violet-200/85">Ensemble K</p>
         <p className="mt-1 font-mono text-xl font-semibold tabular-nums text-white">{dua.ensembleK}</p>
-        <p className="mt-0.5 text-[10px] text-slate-500">Monte-Carlo / multi-sample breadth (max {ensMax})</p>
+        <p className="mt-0.5 text-[11px] text-slate-500">Monte-Carlo / multi-sample breadth (max {ensMax})</p>
         <div className="mt-4 flex flex-wrap gap-2">
           {Array.from({ length: ensMax }, (_, i) => (
             <motion.div
@@ -95,18 +95,19 @@ export function DuaCfgVisualPanel({ dua }: { dua: DemoCase['duaCfg'] }) {
       </div>
 
       <div className="rounded-xl border border-white/10 bg-black/25 p-4">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-300">Abstain</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-300">Abstain</p>
         <div className="mt-3 flex items-center gap-3">
           <motion.div
             className={`h-3 w-3 rounded-full ${dua.abstain ? 'bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.7)]' : 'bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.55)]'}`}
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ duration: 2, repeat: Infinity, repeatDelay: 0.5 }}
+            initial={{ scale: 0.85, opacity: 0.6 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           />
           <div>
             <p className={`text-sm font-semibold ${dua.abstain ? 'text-red-300' : 'text-emerald-300'}`}>
               {dua.abstain ? 'Abstaining' : 'Active'}
             </p>
-            <p className="text-[10px] text-slate-500">
+            <p className="text-[11px] text-slate-500">
               {dua.abstain ? 'Pipeline defers aggressive commit on this trial' : 'Full decoding trajectory enabled'}
             </p>
           </div>
@@ -163,12 +164,12 @@ export function UncertaintyMappingGrid({ case_ }: { case_: DemoCase }) {
             >
               →
             </motion.span>
-            <span className="text-center text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:text-left">
+            <span className="text-center text-[11px] font-semibold uppercase tracking-wider text-slate-400 sm:text-left">
               {row.to}
             </span>
           </div>
           <p className="mt-3 text-center font-mono text-2xl font-bold tabular-nums text-white sm:text-left">{row.value}</p>
-          <p className="mt-2 text-center font-mono text-[10px] leading-relaxed text-slate-500 sm:text-left">{row.hint}</p>
+          <p className="mt-2 text-center font-mono text-[11px] leading-relaxed text-slate-500 sm:text-left">{row.hint}</p>
         </motion.div>
       ))}
     </div>

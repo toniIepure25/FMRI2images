@@ -1,4 +1,3 @@
-import { Fragment } from 'react';
 import { motion } from 'framer-motion';
 
 export interface PipelineProgressBarProps {
@@ -13,15 +12,20 @@ const steps = [
 
 export function PipelineProgressBar({ currentPhase }: PipelineProgressBarProps) {
   return (
-    <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-r from-slate-900/80 via-brain-navy/40 to-slate-900/80 px-4 py-4 backdrop-blur-xl sm:px-6 sm:py-5">
-      <div className="mx-auto flex max-w-3xl items-start">
+    <nav aria-label="Pipeline progress" className="rounded-2xl border border-white/[0.06] bg-gradient-to-r from-slate-900/80 via-brain-navy/40 to-slate-900/80 px-4 py-4 backdrop-blur-xl sm:px-6 sm:py-5">
+      <ol className="mx-auto flex max-w-3xl list-none items-start">
         {steps.map((step, i) => {
           const isComplete = currentPhase > step.phase;
           const isActive = currentPhase === step.phase;
           const lineDone = currentPhase > step.phase;
+          const isPending = !isComplete && !isActive;
 
           return (
-            <Fragment key={step.phase}>
+            <li
+              key={step.phase}
+              aria-current={isActive ? 'step' : undefined}
+              className="flex min-w-0 flex-1 items-start"
+            >
               <div className="flex w-[100px] shrink-0 flex-col items-center sm:w-[140px]">
                 <motion.div
                   className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 text-sm font-bold sm:h-12 sm:w-12 ${
@@ -43,6 +47,10 @@ export function PipelineProgressBar({ currentPhase }: PipelineProgressBarProps) 
                   {isComplete ? (
                     <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}
                       className="text-lg font-bold text-emerald-400">✓</motion.span>
+                  ) : isPending ? (
+                    <span className="max-w-[2.75rem] text-center text-[7px] font-semibold uppercase leading-tight tracking-wide text-slate-500 sm:text-[8px]">
+                      Pending
+                    </span>
                   ) : (
                     <span className="font-mono text-xs">{step.num}</span>
                   )}
@@ -62,18 +70,18 @@ export function PipelineProgressBar({ currentPhase }: PipelineProgressBarProps) 
 
               {i < steps.length - 1 && (
                 <div
-                  className="mx-1 mt-[20px] h-[2px] min-h-[2px] flex-1 self-start rounded-full sm:mt-[24px]"
-                  style={{
-                    background: lineDone
-                      ? 'linear-gradient(90deg, rgba(16,185,129,0.85), rgba(0,212,255,0.7))'
-                      : 'linear-gradient(90deg, rgba(30,42,74,0.8), rgba(51,65,85,0.4))',
-                  }}
+                  role="presentation"
+                  className={`mx-1 mt-[20px] h-[2px] min-h-[2px] flex-1 self-start rounded-full sm:mt-[24px] ${
+                    lineDone
+                      ? 'bg-gradient-to-r from-emerald-500/85 via-teal-400/75 to-cyan-400/75'
+                      : 'bg-gradient-to-r from-slate-800/90 to-slate-700/45'
+                  }`}
                 />
               )}
-            </Fragment>
+            </li>
           );
         })}
-      </div>
-    </div>
+      </ol>
+    </nav>
   );
 }

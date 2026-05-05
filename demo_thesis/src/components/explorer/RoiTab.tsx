@@ -79,7 +79,7 @@ export function RoiTab({ case_ }: RoiTabProps) {
                 dataKey="name"
                 width={108}
                 stroke="#64748b"
-                tick={{ fill: '#e2e8f0', fontSize: 10 }}
+                tick={{ fill: '#e2e8f0', fontSize: 11 }}
                 tickLine={false}
               />
               <Tooltip
@@ -104,17 +104,17 @@ export function RoiTab({ case_ }: RoiTabProps) {
       </div>
 
       <div className="glass-panel p-5">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Auto summary</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Auto summary</p>
         <p className="mt-2 text-sm leading-relaxed text-slate-300">{interpretation}</p>
       </div>
 
       <div className="glass-panel overflow-hidden">
         <div className="border-b border-brain-border/30 px-5 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">All ROI scores</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">All ROI scores</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-left text-xs text-slate-300">
-            <thead className="bg-black/30 text-[10px] uppercase tracking-wider text-slate-500">
+            <thead className="bg-black/30 text-[11px] uppercase tracking-wider text-slate-500">
               <tr>
                 <th className="px-4 py-3">ROI</th>
                 <th className="px-4 py-3">Hemisphere</th>
@@ -141,7 +141,7 @@ export function RoiTab({ case_ }: RoiTabProps) {
       </div>
 
       <div className="space-y-3">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
           What each region means
         </p>
         <div className="space-y-2">
@@ -152,17 +152,19 @@ export function RoiTab({ case_ }: RoiTabProps) {
                 <button
                   type="button"
                   onClick={() => setExpanded((e) => ({ ...e, [def.name]: !open }))}
-                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-white/[0.03]"
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brain-accent focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex min-w-0 items-center gap-3">
                     <span
                       className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
                       style={{ backgroundColor: resolveRoiColor(def.category, layout ?? undefined, def.color) }}
                     />
                     <span className="truncate text-sm font-medium text-white">{def.fullName}</span>
-                    <span className="hidden text-[10px] text-slate-500 sm:inline">{def.category}</span>
+                    <span className="hidden text-[11px] text-slate-500 sm:inline">{def.category}</span>
                   </div>
-                  <span className="text-slate-500">{open ? '−' : '+'}</span>
+                  <span className="tabular-nums text-slate-400" aria-hidden>
+                    {open ? '\u25BE' : '\u25B8'}
+                  </span>
                 </button>
                 {open && (
                   <div className="border-t border-brain-border/30 bg-black/20 px-4 py-3 text-xs leading-relaxed text-slate-400">

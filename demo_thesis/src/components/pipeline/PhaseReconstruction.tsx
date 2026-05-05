@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import type { DemoCase, UncertaintyData } from '@/types';
+import type { DemoCase } from '@/types';
 import { SemiCircleUncertaintyGauge } from '@/components/uncertainty/SemiCircleUncertaintyGauge';
 import { DuaCfgVisualPanel } from '@/components/uncertainty/DuaMappingPanels';
 
@@ -14,9 +14,36 @@ function clamp01(x: number) { return Math.max(0, Math.min(1, x)); }
 
 function SafeImg({ src, alt, className }: { src?: string; alt: string; className?: string }) {
   const [ok, setOk] = useState(true);
-  useEffect(() => { setOk(true); }, [src]);
-  if (!src || !ok) return <div className={`flex items-center justify-center bg-slate-900/90 text-slate-600 text-xs ${className ?? ''}`}>—</div>;
-  return <img src={src} alt={alt} className={className} onError={() => setOk(false)} />;
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    setOk(true);
+    setLoaded(false);
+  }, [src]);
+  if (!src || !ok) {
+    return (
+      <div className={`relative overflow-hidden bg-slate-900/90 ${className ?? ''}`}>
+        <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800" aria-hidden />
+        <span className="relative flex min-h-[3rem] w-full items-center justify-center text-xs text-slate-600">—</span>
+      </div>
+    );
+  }
+  return (
+    <div className={`relative overflow-hidden ${className ?? ''}`}>
+      {!loaded && (
+        <div
+          className="pointer-events-none absolute inset-0 z-10 animate-pulse bg-gradient-to-br from-slate-800 via-slate-700/90 to-slate-800"
+          aria-hidden
+        />
+      )}
+      <img
+        src={src}
+        alt={alt}
+        className={`relative z-0 h-full w-full object-cover transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        onLoad={() => setLoaded(true)}
+        onError={() => setOk(false)}
+      />
+    </div>
+  );
 }
 
 function useCountUp(target: number, enabled: boolean, ms: number, dec: number): number {
@@ -51,14 +78,34 @@ export function PhaseReconstruction({ case_, onReset }: PhaseReconstructionProps
   const reconPrior = case_.diffusionPrior;
   const hasPriorFinal = Boolean(reconPrior && reconFinal);
 
+  const animationSkipRef = useRef(false);
   const [stage, setStage] = useState<'dua' | 'diffusion' | 'reveal' | 'metrics'>('dua');
   const [diffStep, setDiffStep] = useState(0);
   const [diffDone, setDiffDone] = useState(false);
   const [diffBlend, setDiffBlend] = useState(0);
+  const [showSkipAnimBtn, setShowSkipAnimBtn] = useState(false);
+  const [metricsInteractReady, setMetricsInteractReady] = useState(false);
+
+  const skipAnimation = useCallback(() => {
+    animationSkipRef.current = true;
+    setStage('metrics');
+    setDiffDone(true);
+    setDiffBlend(1);
+    setDiffStep(150);
+  }, []);
 
   useEffect(() => {
+    animationSkipRef.current = false;
     setStage('dua'); setDiffStep(0); setDiffDone(false); setDiffBlend(0);
-    const t = window.setTimeout(() => setStage('diffusion'), 1200);
+    const t = window.setTimeout(() => {
+      if (!animationSkipRef.current) setStage('diffusion');
+    }, 1200);
+    return () => clearTimeout(t);
+  }, [case_.id]);
+
+  useEffect(() => {
+    setShowSkipAnimBtn(false);
+    const t = window.setTimeout(() => setShowSkipAnimBtn(true), 2000);
     return () => clearTimeout(t);
   }, [case_.id]);
 
@@ -83,6 +130,15 @@ export function PhaseReconstruction({ case_, onReset }: PhaseReconstructionProps
     if (stage !== 'reveal') return;
     const t = window.setTimeout(() => setStage('metrics'), 1000);
     return () => clearTimeout(t);
+  }, [stage]);
+
+  useEffect(() => {
+    if (stage !== 'metrics') {
+      setMetricsInteractReady(false);
+      return;
+    }
+    const id = window.setTimeout(() => setMetricsInteractReady(true), 1000);
+    return () => clearTimeout(id);
   }, [stage]);
 
   const showMetrics = stage === 'metrics';
@@ -132,11 +188,28 @@ export function PhaseReconstruction({ case_, onReset }: PhaseReconstructionProps
         {showDiff && (
           <motion.section className="overflow-hidden rounded-2xl border border-cyan-500/15 bg-gradient-to-b from-cyan-950/12 to-slate-900/40 p-5"
             initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">Diffusion Process</h3>
-              <span className="font-mono text-[11px] tabular-nums text-slate-500">
-                {diffDone ? 'Complete' : `Step ${diffStep} / 150`}
-              </span>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <AnimatePresence>
+                  {showSkipAnimBtn && stage !== 'metrics' && (
+                    <motion.button
+                      type="button"
+                      initial={{ opacity: 0, x: 8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-300 transition hover:border-slate-500/35 hover:text-white"
+                      onClick={skipAnimation}
+                    >
+                      Skip Animation
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+                <span className="font-mono text-[11px] tabular-nums text-slate-500">
+                  {diffDone ? 'Complete' : `Step ${diffStep} / 150`}
+                </span>
+              </div>
             </div>
             {/* Progress bar */}
             <div className="mb-4 h-1 w-full overflow-hidden rounded-full bg-black/30">
@@ -154,9 +227,16 @@ export function PhaseReconstruction({ case_, onReset }: PhaseReconstructionProps
                 </>
               ) : (
                 <>
-                  <motion.div className="absolute inset-0" style={{
-                    background: `linear-gradient(135deg, rgb(15,23,42), rgb(30,41,59) ${30 + diffBlend * 40}%, rgba(0,212,255,${0.1 + diffBlend * 0.2}))`
-                  }} />
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-800 to-slate-900"
+                    animate={{ opacity: 1 - diffBlend * 0.35 }}
+                    transition={{ duration: 0.08 }}
+                  />
+                  <motion.div
+                    className="pointer-events-none absolute inset-0 bg-gradient-to-br from-cyan-500/15 via-transparent to-brain-accent/30"
+                    animate={{ opacity: 0.45 + diffBlend * 0.35 }}
+                    transition={{ duration: 0.08 }}
+                  />
                   <motion.div className="absolute inset-0" animate={{ opacity: diffBlend }}>
                     <SafeImg src={reconFinal} alt="Reconstruction" className="h-full w-full object-cover" />
                   </motion.div>
@@ -211,8 +291,14 @@ export function PhaseReconstruction({ case_, onReset }: PhaseReconstructionProps
                         </motion.div>
                         <motion.div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
                           initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ delay: 0.4, duration: 0.5 }}>
-                          <motion.span className="font-mono text-4xl font-bold text-white"
-                            animate={{ scale: [1, 1.1, 1], opacity: [1, 0.5, 1] }} transition={{ duration: 1, repeat: 2 }}>?</motion.span>
+                          <motion.span
+                            className="font-mono text-4xl font-bold text-white"
+                            initial={{ scale: 0.92, opacity: 0.85 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+                          >
+                            ?
+                          </motion.span>
                         </motion.div>
                       </>
                     ) : (
@@ -235,9 +321,14 @@ export function PhaseReconstruction({ case_, onReset }: PhaseReconstructionProps
             <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-b from-slate-900/60 to-slate-900/40 p-5 sm:p-6">
               <div className="mb-5 flex flex-col items-center justify-between gap-3 sm:flex-row">
                 <h3 className="text-sm font-semibold text-white">Trial Metrics</h3>
-                <span className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold ${verdict.cls}`}>
+                <motion.span
+                  className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold ${verdict.cls}`}
+                  initial={{ opacity: 0, scale: 0.94 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+                >
                   <span>{verdict.icon}</span> {verdict.text} — Rank #{m.rank}
-                </span>
+                </motion.span>
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {([
@@ -259,16 +350,16 @@ export function PhaseReconstruction({ case_, onReset }: PhaseReconstructionProps
 
             {/* Actions */}
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <button type="button" onClick={onReset}
-                className="rounded-xl border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-slate-300 transition hover:border-brain-accent/30 hover:text-white">
+              <button type="button" onClick={onReset} disabled={!metricsInteractReady}
+                className="rounded-xl border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-slate-300 transition hover:border-brain-accent/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-50">
                 Try Another Trial
               </button>
-              <button type="button" onClick={() => navigate(`/explorer/${case_.id}`)}
-                className="rounded-xl border border-violet-500/30 bg-violet-950/20 px-6 py-3 text-sm font-semibold text-violet-200 transition hover:border-violet-400/50">
+              <button type="button" onClick={() => navigate(`/explorer/${case_.id}`)} disabled={!metricsInteractReady}
+                className="rounded-xl border border-violet-500/30 bg-violet-950/20 px-6 py-3 text-sm font-semibold text-violet-200 transition hover:border-violet-400/50 disabled:cursor-not-allowed disabled:opacity-50">
                 Explore in Detail →
               </button>
-              <button type="button" onClick={() => navigate('/challenge')}
-                className="rounded-xl border border-brain-accent/30 bg-brain-accent/8 px-6 py-3 text-sm font-semibold text-brain-accent transition hover:bg-brain-accent/15">
+              <button type="button" onClick={() => navigate('/challenge')} disabled={!metricsInteractReady}
+                className="rounded-xl border border-brain-accent/30 bg-brain-accent/8 px-6 py-3 text-sm font-semibold text-brain-accent transition hover:bg-brain-accent/15 disabled:cursor-not-allowed disabled:opacity-50">
                 Take the Challenge →
               </button>
             </div>

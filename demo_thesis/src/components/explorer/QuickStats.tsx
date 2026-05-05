@@ -8,7 +8,7 @@ export interface QuickStatsProps {
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-3 border-b border-brain-border/20 py-2.5 last:border-b-0">
-      <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">{label}</span>
+      <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">{label}</span>
       <span className={`text-right text-xs text-slate-200 ${mono ? 'font-mono' : ''}`}>{value}</span>
     </div>
   );
@@ -20,7 +20,7 @@ export function QuickStats({ case_ }: QuickStatsProps) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">At a glance</h2>
+      <h2 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">At a glance</h2>
 
       <div
         className="glass-panel px-3 py-2 text-center"
@@ -29,7 +29,7 @@ export function QuickStats({ case_ }: QuickStatsProps) {
           background: `linear-gradient(135deg, ${confColor}12, transparent)`,
         }}
       >
-        <p className="text-[9px] uppercase tracking-wider text-slate-500">Confidence</p>
+        <p className="text-[11px] uppercase tracking-wider text-slate-500">Confidence</p>
         <p className="mt-1 text-xs font-semibold" style={{ color: confColor }}>
           {getConfidenceLabel(case_.uncertainty.confidenceLevel)}
         </p>
@@ -46,9 +46,9 @@ export function QuickStats({ case_ }: QuickStatsProps) {
         <Row label="Ensemble K" value={String(case_.duaCfg.ensembleK)} mono />
         <Row label="Subject" value={case_.subject} />
         <div className="flex items-center justify-between gap-3 border-b border-brain-border/20 py-2.5 last:border-b-0">
-          <span className="text-[10px] font-medium uppercase tracking-wider text-slate-500">Difficulty</span>
+          <span className="text-[11px] font-medium uppercase tracking-wider text-slate-500">Difficulty</span>
           <span
-            className="rounded-md border px-2 py-0.5 text-[10px] font-semibold capitalize"
+            className="rounded-md border px-2 py-0.5 text-[11px] font-semibold capitalize"
             style={{ borderColor: `${diffColor}55`, color: diffColor }}
           >
             {case_.difficulty}

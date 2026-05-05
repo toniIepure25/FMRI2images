@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { DemoCase, RetrievedImage } from '@/types';
+import { IconPlay } from '@/components/ui/Icon';
 
 export interface PhaseEncodingRetrievalProps {
   case_: DemoCase;
@@ -20,13 +21,46 @@ const STEPS: { phase: Subphase; label: string; detail: string; duration: number 
 ];
 
 const ROI_TOKENS = [
-  { name: 'V1v', c: '#22d3ee' }, { name: 'V1d', c: '#38bdf8' }, { name: 'V2v', c: '#818cf8' },
-  { name: 'V2d', c: '#a78bfa' }, { name: 'V3v', c: '#c084fc' }, { name: 'V3d', c: '#e879f9' },
-  { name: 'V3A', c: '#f472b6' }, { name: 'V3B', c: '#34d399' }, { name: 'V4',  c: '#4ade80' },
-  { name: 'FFA1', c: '#fbbf24' }, { name: 'FFA2', c: '#fb923c' }, { name: 'PPA', c: '#f87171' },
-  { name: 'EBA', c: '#94a3b8' }, { name: 'OFA', c: '#64748b' }, { name: 'OPA', c: '#2dd4bf' },
-  { name: 'RSC', c: '#60a5fa' }, { name: 'other', c: '#f59e0b' },
-];
+  { name: 'V1v', fullName: 'Ventral V1 — primary visual cortex, ventral division', c: '#22d3ee' },
+  { name: 'V1d', fullName: 'Dorsal V1 — primary visual cortex, dorsal division', c: '#38bdf8' },
+  { name: 'V2v', fullName: 'Ventral V2 — secondary visual cortex, ventral division', c: '#818cf8' },
+  { name: 'V2d', fullName: 'Dorsal V2 — secondary visual cortex, dorsal division', c: '#a78bfa' },
+  { name: 'V3v', fullName: 'Ventral V3 — tertiary visual cortex, ventral division', c: '#c084fc' },
+  { name: 'V3d', fullName: 'Dorsal V3 — tertiary visual cortex, dorsal division', c: '#e879f9' },
+  { name: 'V3A', fullName: 'Visual area V3A — dorsal stream association', c: '#f472b6' },
+  { name: 'V3B', fullName: 'Visual area V3B — dorsal stream association', c: '#34d399' },
+  { name: 'V4', fullName: 'Fourth visual area — intermediate shape/color processing', c: '#4ade80' },
+  { name: 'FFA1', fullName: 'Fusiform face area 1 — category-selective cortex', c: '#fbbf24' },
+  { name: 'FFA2', fullName: 'Fusiform face area 2 — category-selective cortex', c: '#fb923c' },
+  { name: 'PPA', fullName: 'Parahippocampal place area — scene-selective cortex', c: '#f87171' },
+  { name: 'EBA', fullName: 'Extrastriate body area — body-selective cortex', c: '#94a3b8' },
+  { name: 'OFA', fullName: 'Occipital face area — face-selective cortex', c: '#64748b' },
+  { name: 'OPA', fullName: 'Occipital place area — scene-selective cortex', c: '#2dd4bf' },
+  { name: 'RSC', fullName: 'Retrosplenial cortex — navigation / spatial context', c: '#60a5fa' },
+  { name: 'other', fullName: 'Residual masked cortex within nsdgeneral (non-atlas overlap)', c: '#f59e0b' },
+] as const;
+
+const CLIP_SEGMENT_GRADS = [
+  'bg-gradient-to-t from-indigo-950/95 via-violet-700/90 to-fuchsia-400/70',
+  'bg-gradient-to-t from-violet-950/95 via-purple-700/85 to-pink-400/65',
+  'bg-gradient-to-t from-fuchsia-950/95 via-fuchsia-600/85 to-rose-400/65',
+  'bg-gradient-to-t from-slate-900/95 via-indigo-600/85 to-violet-400/70',
+  'bg-gradient-to-t from-violet-950/95 via-blue-700/80 to-cyan-400/65',
+  'bg-gradient-to-t from-purple-950/95 via-violet-600/85 to-fuchsia-300/60',
+  'bg-gradient-to-t from-indigo-950/95 via-sky-700/85 to-teal-400/65',
+  'bg-gradient-to-t from-fuchsia-950/95 via-purple-700/85 to-indigo-400/65',
+] as const;
+
+function clipGroupedMeans(raw768: number[], segments = 64, chunk = 12): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < segments; i++) {
+    let s = 0;
+    const base = i * chunk;
+    for (let j = 0; j < chunk; j++) s += raw768[base + j] ?? 0;
+    out.push(s / chunk);
+  }
+  return out;
+}
 
 function preview64(c: DemoCase): number[] {
   const p = c.fmriPreview;
@@ -82,7 +116,8 @@ export function PhaseEncodingRetrieval({ case_, onComplete }: PhaseEncodingRetri
   const [kappaStr, setKappaStr] = useState<string | null>(null);
 
   const heights = useMemo(() => normalize(preview64(case_)), [case_]);
-  const clipH = useMemo(() => makeClipBars(case_.id, 768), [case_.id]);
+  const clipH768 = useMemo(() => makeClipBars(case_.id, 768), [case_.id]);
+  const clipGrouped64 = useMemo(() => clipGroupedMeans(clipH768), [clipH768]);
   const topK = useMemo(() => [...case_.retrievedImages].sort((a, b) => a.rank - b.rank).slice(0, 5), [case_.retrievedImages]);
 
   const pushT = useCallback((fn: () => void, ms: number) => {
@@ -173,23 +208,23 @@ export function PhaseEncodingRetrieval({ case_, onComplete }: PhaseEncodingRetri
       </motion.div>
 
       {/* Pipeline progress chips */}
-      <div className="flex flex-wrap gap-1.5 rounded-xl border border-white/[0.04] bg-black/20 px-3 py-2.5">
+      <div className="flex flex-wrap gap-1.5 rounded-xl border border-white/[0.04] bg-black/20 px-2 py-2 sm:px-3 sm:py-2.5">
         {STEPS.map((step, i) => {
           const s = st(step.phase);
           return (
             <div
               key={step.phase}
-              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider transition-all duration-300 ${
+              className={`flex min-w-0 max-w-[calc(100%-0.25rem)] items-center gap-1 rounded-lg px-2 py-1.5 text-[8px] font-bold uppercase leading-snug tracking-wide transition-all duration-300 sm:gap-1.5 sm:px-2.5 sm:text-[9px] sm:tracking-wider ${
                 s === 'a' ? 'bg-brain-accent/12 text-brain-accent ring-1 ring-brain-accent/25'
                 : s === 'd' ? 'bg-emerald-500/8 text-emerald-400'
                 : 'text-slate-600'
               }`}
             >
-              {s === 'd' ? <span className="text-emerald-400">✓</span>
-                : s === 'a' ? <motion.span className="inline-block h-1.5 w-1.5 rounded-full bg-brain-accent" animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />
-                : <span className="inline-block h-1 w-1 rounded-full bg-slate-700" />}
-              <span className="hidden sm:inline">{step.label}</span>
-              <span className="sm:hidden">{i + 1}</span>
+              {s === 'd' ? <span className="shrink-0 text-emerald-400">✓</span>
+                : s === 'a' ? <motion.span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-brain-accent" animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 0.8, repeat: Infinity }} />
+                : <span className="inline-block h-1 w-1 shrink-0 rounded-full bg-slate-700" />}
+              <span className="min-w-0 break-words">{step.label}</span>
+              <span className="shrink-0 text-[7px] font-mono opacity-60 sm:hidden">{String(i + 1).padStart(2, '0')}</span>
             </div>
           );
         })}
@@ -249,8 +284,12 @@ export function PhaseEncodingRetrieval({ case_, onComplete }: PhaseEncodingRetri
                     initial={{ scale: 0 }} animate={{ scale: 1 }}
                     transition={{ delay: i * 0.03, type: 'spring', stiffness: 300, damping: 20 }}
                   >
-                    <div className="h-6 w-6 rounded-full border border-white/15" style={{ backgroundColor: `${r.c}77` }} />
-                    <span className="mt-0.5 text-[6px] font-bold text-slate-600">{r.name}</span>
+                    <div
+                      title={r.fullName}
+                      className="h-6 w-6 rounded-full border border-white/15"
+                      style={{ backgroundColor: `${r.c}77` }}
+                    />
+                    <span className="mt-0.5 text-[9px] font-bold leading-tight text-slate-600">{r.name}</span>
                   </motion.div>
                 ))}
               </div>
@@ -277,13 +316,12 @@ export function PhaseEncodingRetrieval({ case_, onComplete }: PhaseEncodingRetri
           {clipReveal && (
             <>
               <div className="mt-2 flex h-14 w-full items-end gap-px overflow-hidden rounded-lg bg-black/30 p-1 ring-1 ring-white/[0.04]">
-                {clipH.map((u, i) => (
+                {clipGrouped64.map((u, i) => (
                   <motion.div key={i}
-                    className="min-w-0 flex-1 rounded-[1px] bg-gradient-to-t from-violet-800/80 to-fuchsia-400/60"
+                    className={`min-h-[2px] min-w-0 flex-1 rounded-[1px] ${CLIP_SEGMENT_GRADS[i % CLIP_SEGMENT_GRADS.length]}`}
                     initial={{ height: '2%' }}
-                    animate={{ height: `${Math.max(4, u * 100)}%` }}
-                    transition={{ delay: i * 0.0006, duration: 0.18 }}
-                    style={{ minHeight: 1 }}
+                    animate={{ height: `${Math.max(6, u * 100)}%` }}
+                    transition={{ delay: i * 0.012, duration: 0.22 }}
                   />
                 ))}
               </div>
@@ -329,7 +367,7 @@ export function PhaseEncodingRetrieval({ case_, onComplete }: PhaseEncodingRetri
               const vis = visRanks.includes(item.rank);
               return (
                 <motion.div key={item.rank}
-                  className="overflow-hidden rounded-xl border border-white/[0.06] bg-black/20"
+                  className="overflow-hidden rounded-xl border border-white/[0.06] bg-black/20 transition-transform duration-300 hover:scale-105 hover:transition-transform"
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: vis ? 1 : 0, scale: vis ? 1 : 0.9 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 25 }}
@@ -364,7 +402,9 @@ export function PhaseEncodingRetrieval({ case_, onComplete }: PhaseEncodingRetri
             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }}>
             <button type="button" onClick={onComplete}
               className="flex items-center gap-3 rounded-2xl border border-emerald-400/40 bg-emerald-950/40 px-8 py-4 text-sm font-bold text-emerald-200 shadow-[0_8px_40px_rgba(16,185,129,0.15)] backdrop-blur-xl transition hover:border-emerald-400/60">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20 text-xs">▶</span>
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20">
+                <IconPlay className="h-4 w-4 text-emerald-200" aria-hidden />
+              </span>
               Proceed to Reconstruction
             </button>
           </motion.div>

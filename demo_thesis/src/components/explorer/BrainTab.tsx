@@ -42,7 +42,7 @@ export function BrainTab({ case_ }: BrainTabProps) {
   }, [selectedRoi, roiDefByName, scoreByName]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-4">
       <div className="glass-panel p-4">
         <p className="text-sm text-slate-300">
           Interactive glass brain with ROI markers. Marker dynamics reflect activation, contribution, and regional
@@ -65,25 +65,33 @@ export function BrainTab({ case_ }: BrainTabProps) {
         <button
           type="button"
           onClick={() => setViewerKey((k) => k + 1)}
-          className="rounded-lg border border-brain-border/60 bg-brain-panel/80 px-4 py-2 text-xs font-medium text-slate-200 transition hover:border-brain-accent/40 hover:text-white"
+          className="rounded-lg border border-brain-border/60 bg-slate-950/70 px-4 py-2 text-xs font-medium text-slate-200 transition hover:border-brain-accent/40 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brain-accent"
         >
           Reset camera
         </button>
         <button
           type="button"
           onClick={() => setConsensusMode((v) => !v)}
-          className={`rounded-lg border px-4 py-2 text-xs font-medium transition ${
+          className={`rounded-lg border px-4 py-2 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brain-accent ${
             consensusMode
               ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-200'
-              : 'border-brain-border/60 bg-brain-panel/80 text-slate-200 hover:border-brain-accent/40'
+              : 'border-brain-border/60 bg-slate-950/70 text-slate-200 hover:border-brain-accent/40'
           }`}
         >
           {consensusMode ? 'Consensus mode on' : 'Consensus mode off'}
         </button>
-        <span className="text-[10px] text-slate-600">
+        <span className="text-[11px] text-slate-500">
           δ (trial) = {case_.uncertainty.delta.toFixed(4)} → viewer: {deltaForViewer.toFixed(3)}
         </span>
       </div>
+
+      {!selectedDetail && (
+        <div className="glass-panel px-5 py-10 text-center">
+          <p className="text-sm leading-relaxed text-slate-400">
+            Select an ROI marker on the brain viewer to open activation, contribution, and agreement details for that region.
+          </p>
+        </div>
+      )}
 
       {selectedDetail && layout && (
         <div className="glass-panel p-5">
@@ -94,7 +102,7 @@ export function BrainTab({ case_ }: BrainTabProps) {
               </p>
               {selectedDetail.def?.category && (
                 <span
-                  className="mt-2 inline-flex items-center rounded-md border px-2 py-0.5 text-[10px]"
+                  className="mt-2 inline-flex items-center rounded-md border px-2 py-0.5 text-[11px]"
                   style={{
                     borderColor: `${resolveRoiColor(selectedDetail.def.category, layout, selectedDetail.def.color)}55`,
                     color: resolveRoiColor(selectedDetail.def.category, layout, selectedDetail.def.color),
@@ -107,7 +115,7 @@ export function BrainTab({ case_ }: BrainTabProps) {
             <button
               type="button"
               onClick={() => setSelectedRoi(null)}
-              className="shrink-0 rounded-md border border-slate-600/80 bg-slate-900/60 px-2 py-1 text-[10px] text-slate-400 transition hover:text-slate-200"
+              className="shrink-0 rounded-md border border-slate-600/80 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-400 transition hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brain-accent"
             >
               Clear
             </button>
@@ -136,7 +144,7 @@ export function BrainTab({ case_ }: BrainTabProps) {
 function MetricChip({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-brain-border/40 bg-black/25 px-3 py-2">
-      <p className="text-[9px] uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="text-[11px] uppercase tracking-wider text-slate-500">{label}</p>
       <p className="mt-0.5 font-mono text-sm text-slate-200">{value}</p>
     </div>
   );

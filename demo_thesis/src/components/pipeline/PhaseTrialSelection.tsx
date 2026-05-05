@@ -111,9 +111,9 @@ export function PhaseTrialSelection({ cases, onSelect }: PhaseTrialSelectionProp
             <motion.div
               key={case_.id}
               initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: selectedId && !isSel ? 0.4 : 1, y: 0 }}
+              animate={{ opacity: selectedId && !isSel ? 0.6 : 1, y: 0 }}
               transition={{ delay: Math.min(idx * 0.03, 0.6), duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className={`group relative cursor-pointer overflow-hidden rounded-2xl border bg-gradient-to-b from-slate-900/90 to-brain-dark/95 backdrop-blur transition-all duration-300 ${
+              className={`group relative cursor-pointer overflow-hidden rounded-2xl border bg-gradient-to-b from-slate-900/90 to-brain-dark/95 backdrop-blur transition-all duration-300 hover:scale-[1.015] hover:transition-transform ${
                 isSel
                   ? 'border-brain-accent/50 shadow-[0_0_30px_rgba(0,212,255,0.15)] ring-1 ring-brain-accent/20'
                   : 'border-white/[0.06] hover:border-white/[0.12] hover:shadow-lg'
@@ -161,10 +161,10 @@ export function PhaseTrialSelection({ cases, onSelect }: PhaseTrialSelectionProp
               <div className="p-3.5">
                 {/* fMRI preview */}
                 <div className="mb-3">
-                  <p className="mb-1.5 text-[8px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
                     fMRI voxel activity
                   </p>
-                  <div className="flex h-8 items-end gap-[1px] rounded-md bg-black/40 px-0.5 py-0.5 ring-1 ring-white/[0.04]">
+                  <div className="flex h-12 items-end gap-[1px] rounded-md bg-black/40 px-0.5 py-0.5 ring-1 ring-white/[0.04]">
                     {heights.map((h, i) => (
                       <motion.div
                         key={i}
@@ -218,7 +218,9 @@ export function PhaseTrialSelection({ cases, onSelect }: PhaseTrialSelectionProp
                   if (c) onSelect(c);
                 }}
               >
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brain-accent/20 text-xs">▶</span>
+                <span className="rounded-full bg-brain-accent/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brain-accent">
+                  Start
+                </span>
                 Start Decoding Pipeline
               </button>
             </div>

@@ -37,12 +37,6 @@ import numpy as np
 logger = logging.getLogger("cortex2canvas")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s: %(message)s")
 
-# ---------------------------------------------------------------------------
-# Lazy imports — torch, model classes, etc. are only loaded when the backend
-# actually starts on the GPU pod.  On a local machine without torch this file
-# can still be imported for type-checking / testing the FastAPI skeleton.
-# ---------------------------------------------------------------------------
-
 _TORCH_AVAILABLE = False
 _MODEL = None
 _DEVICE = "cpu"
@@ -53,6 +47,8 @@ _CLIP_NSD_IDS: Optional[np.ndarray] = None
 _SUBJECT = "subj01"
 _ROI_INDICES = None
 _CONFIG: Dict[str, Any] = {}
+_ZSCORE_STATS: Optional[Dict[str, np.ndarray]] = None
+_EMB_PREPROCESSOR = None
 _READY = False
 
 try:
@@ -64,7 +60,7 @@ except ImportError:
     logger.warning("FastAPI not installed — run: pip install fastapi uvicorn sse-starlette")
     raise
 
-app = FastAPI(title="Cortex2Canvas Live Inference", version="2.0.0")
+app = FastAPI(title="Cortex2Canvas Live Inference", version="2.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -80,7 +76,8 @@ app.add_middleware(
 def load_inference_engine(checkpoint_path: str, subject: str = "subj01"):
     """Load checkpoint, fMRI features, CLIP gallery — call once at startup."""
     global _TORCH_AVAILABLE, _MODEL, _DEVICE, _FMRI_FEATURES, _TRIAL_INDEX
-    global _CLIP_GALLERY, _CLIP_NSD_IDS, _SUBJECT, _ROI_INDICES, _CONFIG, _READY
+    global _CLIP_GALLERY, _CLIP_NSD_IDS, _SUBJECT, _ROI_INDICES, _CONFIG
+    global _ZSCORE_STATS, _EMB_PREPROCESSOR, _READY
 
     import torch
 
@@ -115,17 +112,44 @@ def load_inference_engine(checkpoint_path: str, subject: str = "subj01"):
         except Exception as e:
             logger.warning("Could not build ROI indices: %s", e)
 
-    # --- Create model ---
+    # --- Create model (config uses "type", not "model_type") ---
     from fmri2img.models.unified_model import create_model
 
     _MODEL = create_model(model_config, roi_indices=_ROI_INDICES)
     _MODEL.load_state_dict(ckpt["model_state_dict"])
     _MODEL.to(_DEVICE)
     _MODEL.eval()
-    logger.info("Model loaded: type=%s, encoder=%s", model_config.get("model_type"), encoder_type)
+
+    model_type = model_config.get("type", model_config.get("model_type", "vmf"))
+    logger.info("Model loaded: type=%s, encoder=%s", model_type, encoder_type)
+
+    # --- Load per-voxel z-score stats (matches train_unified.py normalisation) ---
+    cache_root = os.environ.get("CACHE_ROOT", "cache")
+    zscore_dir = Path(cache_root) / "preproc" / f"subject={_SUBJECT}" / "zscore_stats"
+    if zscore_dir.exists():
+        try:
+            vmean = np.load(str(zscore_dir / "voxel_mean.npy"))
+            vstd = np.load(str(zscore_dir / "voxel_std.npy"))
+            _ZSCORE_STATS = {"mean": vmean, "std": vstd}
+            logger.info("Z-score stats loaded: %d voxels", len(vmean))
+        except Exception as e:
+            logger.warning("Could not load z-score stats: %s", e)
+    else:
+        logger.info("No z-score stats at %s — will skip per-voxel normalization", zscore_dir)
+
+    # --- Load EmbeddingPreprocessor if experiment used one ---
+    preproc_dir = Path(cache_root) / "embedding_preproc"
+    if preproc_dir.exists():
+        try:
+            from fmri2img.embedding_preproc import EmbeddingPreprocessor
+            pkl_files = list(preproc_dir.glob(f"{_SUBJECT}_*.pkl"))
+            if pkl_files:
+                _EMB_PREPROCESSOR = EmbeddingPreprocessor.load(str(pkl_files[0]))
+                logger.info("EmbeddingPreprocessor loaded: %s", pkl_files[0].name)
+        except Exception as e:
+            logger.warning("Could not load EmbeddingPreprocessor: %s", e)
 
     # --- Load pre-extracted fMRI features ---
-    cache_root = os.environ.get("CACHE_ROOT", "cache")
     feat_path = Path(cache_root) / "preextracted" / f"subject={_SUBJECT}" / "fmri_features.npy"
     if feat_path.exists():
         _FMRI_FEATURES = np.load(str(feat_path))
@@ -170,10 +194,62 @@ def load_inference_engine(checkpoint_path: str, subject: str = "subj01"):
     logger.info("Inference engine ready.")
 
 
+# ===================== Helpers =====================
+
+def _apply_zscore(fmri_vec: np.ndarray) -> Tuple[np.ndarray, str]:
+    """Apply per-voxel z-scoring if stats are available, matching train_unified.py."""
+    if _ZSCORE_STATS is not None:
+        mean = _ZSCORE_STATS["mean"]
+        std = _ZSCORE_STATS["std"]
+        std_safe = np.where(std > 1e-6, std, 1.0)
+        fmri_vec = (fmri_vec - mean) / std_safe
+        return fmri_vec, f"Per-voxel z-scored ({len(mean)} voxels)"
+    return fmri_vec, "Skipped (pre-extracted data already normalized)"
+
+
+def _csls_retrieval(query: np.ndarray, k: int = 20, csls_k: int = 10) -> List[Dict]:
+    """CSLS-corrected retrieval matching fmri2img.eval.embedding_eval."""
+    if _CLIP_GALLERY is None:
+        return []
+
+    cosine_scores = _CLIP_GALLERY @ query
+    gallery_size = _CLIP_GALLERY.shape[0]
+
+    top_hub_idx = np.argsort(-cosine_scores)[:csls_k]
+    r_s = float(np.mean(cosine_scores[top_hub_idx]))
+    csls_scores = 2.0 * cosine_scores - r_s
+
+    top_idx = np.argsort(-csls_scores)[:k]
+    results = []
+    for rank, idx in enumerate(top_idx):
+        nid = int(_CLIP_NSD_IDS[idx]) if _CLIP_NSD_IDS is not None else int(idx)
+        results.append({
+            "rank": rank + 1,
+            "nsd_id": nid,
+            "cosine": float(cosine_scores[idx]),
+            "csls": float(csls_scores[idx]),
+        })
+    return results
+
+
+def _get_model_type() -> str:
+    """Read model type correctly from config (key is 'type', not 'model_type')."""
+    model_cfg = _CONFIG.get("model", {})
+    return model_cfg.get("type", model_cfg.get("model_type", "vmf"))
+
+
+def _get_subject_id_tensor():
+    """Build subject_ids tensor for multi-subject encoders."""
+    import torch
+    subj_map = {"subj01": 0, "subj02": 1, "subj05": 2, "subj07": 3}
+    sid = subj_map.get(_SUBJECT, 0)
+    return torch.tensor([sid], dtype=torch.long, device=_DEVICE)
+
+
 # ===================== Inference Logic =====================
 
 def run_inference(trial_idx: int) -> Dict[str, Any]:
-    """Run the full forward pass for a single trial. Returns dict with all results."""
+    """Run the full forward pass for a single trial."""
     import torch
 
     if _FMRI_FEATURES is None or _MODEL is None:
@@ -188,34 +264,41 @@ def run_inference(trial_idx: int) -> Dict[str, Any]:
     results["step_times"] = {}
     results["step_times"]["load_betas"] = time.time() - t0
 
-    # Step 2: Z-score (already done in pre-extraction for most setups)
+    # Step 2: Per-voxel z-score (matching train_unified.py)
     t1 = time.time()
-    mean_val = float(np.mean(fmri_vec))
-    std_val = float(np.std(fmri_vec))
-    if std_val > 0:
-        fmri_vec = (fmri_vec - mean_val) / std_val
+    fmri_vec, zscore_detail = _apply_zscore(fmri_vec)
     results["step_times"]["zscore"] = time.time() - t1
+    results["zscore_detail"] = zscore_detail
 
     # Step 3: ROI masking (already applied in pre-extraction)
     t2 = time.time()
     results["step_times"]["roi_mask"] = time.time() - t2
 
-    # Step 4 + 5: Forward pass through model (ROI encode + vMF decode combined)
+    # Step 4 + 5: Forward pass (encode + decode in one call)
     t3 = time.time()
     x = torch.from_numpy(fmri_vec).unsqueeze(0).float().to(_DEVICE)
 
+    encoder_type = _CONFIG.get("model", {}).get("encoder", {}).get("encoder_type", "mlp")
+    model_type = _get_model_type()
+
     with torch.no_grad():
-        mu, kappa_or_aux = _MODEL(x)
+        if encoder_type == "multi_subject_roi_transformer":
+            subject_ids = _get_subject_id_tensor()
+            mu, kappa_or_aux = _MODEL(x, subject_ids=subject_ids)
+        else:
+            mu, kappa_or_aux = _MODEL(x)
 
     mu_np = mu.cpu().numpy().squeeze()
     mu_norm = mu_np / (np.linalg.norm(mu_np) + 1e-8)
 
     kappa_val = None
     delta_val = None
-    model_type = _CONFIG.get("model", {}).get("model_type", "vmf")
 
     if kappa_or_aux is not None:
-        kappa_val = float(kappa_or_aux.cpu().numpy().squeeze())
+        if isinstance(kappa_or_aux, dict):
+            kappa_val = float(kappa_or_aux.get("kappa", torch.tensor(0.0)).cpu().numpy().squeeze())
+        else:
+            kappa_val = float(kappa_or_aux.cpu().numpy().squeeze())
 
     if model_type == "vmf_dcf" and hasattr(_MODEL, "_last_dcf_extras"):
         extras = _MODEL._last_dcf_extras
@@ -228,17 +311,10 @@ def run_inference(trial_idx: int) -> Dict[str, Any]:
     results["kappa"] = kappa_val
     results["delta"] = delta_val
 
-    # Step 6: Gallery search (CSLS)
+    # Step 6: CSLS-corrected gallery search
     t4 = time.time()
     if _CLIP_GALLERY is not None:
-        cosine_scores = _CLIP_GALLERY @ mu_norm
-        top_k_idx = np.argsort(-cosine_scores)[:20]
-        top_k_scores = cosine_scores[top_k_idx].tolist()
-        top_k_nsd_ids = _CLIP_NSD_IDS[top_k_idx].tolist() if _CLIP_NSD_IDS is not None else top_k_idx.tolist()
-        results["top_k"] = [
-            {"rank": i + 1, "nsd_id": int(nid), "cosine": float(s)}
-            for i, (nid, s) in enumerate(zip(top_k_nsd_ids, top_k_scores))
-        ]
+        results["top_k"] = _csls_retrieval(mu_norm, k=20)
         results["gallery_size"] = int(_CLIP_GALLERY.shape[0])
     else:
         results["top_k"] = []
@@ -264,6 +340,8 @@ def health():
         "gallery_loaded": _CLIP_GALLERY is not None,
         "gallery_size": int(_CLIP_GALLERY.shape[0]) if _CLIP_GALLERY is not None else 0,
         "model_loaded": _MODEL is not None,
+        "zscore_stats_loaded": _ZSCORE_STATS is not None,
+        "preprocessor_loaded": _EMB_PREPROCESSOR is not None,
     }
 
 
@@ -322,40 +400,45 @@ async def infer_stream(trial_idx: int):
             "n_voxels": n_voxels
         })}
 
-        # Step 2: Z-score
+        # Step 2: Per-voxel z-score (matching train_unified.py)
         yield {"event": "step", "data": json.dumps({
             "step": "zscore", "status": "running",
-            "detail": "Applying z-score normalization..."
+            "detail": "Applying per-voxel z-score normalization..."
         })}
-        mean_val, std_val = float(np.mean(fmri_vec)), float(np.std(fmri_vec))
-        if std_val > 0:
-            fmri_vec = (fmri_vec - mean_val) / std_val
+        fmri_vec, zscore_detail = _apply_zscore(fmri_vec)
         await asyncio.sleep(0.05)
         yield {"event": "step", "data": json.dumps({
             "step": "zscore", "status": "done",
-            "detail": f"Z-scored: μ={mean_val:.3f}, σ={std_val:.3f}"
+            "detail": zscore_detail
         })}
 
-        # Step 3: ROI mask
+        # Step 3: ROI mask (pre-applied in fmri_features.npy)
         yield {"event": "step", "data": json.dumps({
             "step": "roi_mask", "status": "running",
-            "detail": "Applying nsdgeneral ROI mask..."
+            "detail": "Verifying nsdgeneral ROI mask (pre-applied)..."
         })}
         await asyncio.sleep(0.03)
         yield {"event": "step", "data": json.dumps({
             "step": "roi_mask", "status": "done",
-            "detail": f"{n_voxels} voxels retained"
+            "detail": f"{n_voxels} visual cortex voxels (pre-masked)"
         })}
 
-        # Step 4: ROI encode
+        # Step 4: Forward pass
         yield {"event": "step", "data": json.dumps({
             "step": "roi_encode", "status": "running",
-            "detail": "Forward pass through ROI Transformer..."
+            "detail": "Forward pass through encoder..."
         })}
         x = torch.from_numpy(fmri_vec).unsqueeze(0).float().to(_DEVICE)
         t_fwd = time.time()
+
+        encoder_type = _CONFIG.get("model", {}).get("encoder", {}).get("encoder_type", "mlp")
         with torch.no_grad():
-            mu, kappa_or_aux = _MODEL(x)
+            if encoder_type == "multi_subject_roi_transformer":
+                subject_ids = _get_subject_id_tensor()
+                mu, kappa_or_aux = _MODEL(x, subject_ids=subject_ids)
+            else:
+                mu, kappa_or_aux = _MODEL(x)
+
         fwd_ms = (time.time() - t_fwd) * 1000
         yield {"event": "step", "data": json.dumps({
             "step": "roi_encode", "status": "done",
@@ -365,14 +448,22 @@ async def infer_stream(trial_idx: int):
         # Step 5: vMF decode
         yield {"event": "step", "data": json.dumps({
             "step": "vmf_decode", "status": "running",
-            "detail": "Extracting (μ, κ) from vMF decoder..."
+            "detail": "Extracting (mu, kappa) from vMF decoder..."
         })}
         mu_np = mu.cpu().numpy().squeeze()
         mu_norm = mu_np / (np.linalg.norm(mu_np) + 1e-8)
 
-        kappa_val = float(kappa_or_aux.cpu().numpy().squeeze()) if kappa_or_aux is not None else None
+        kappa_val = None
         delta_val = None
-        if hasattr(_MODEL, "_last_dcf_extras"):
+        model_type = _get_model_type()
+
+        if kappa_or_aux is not None:
+            if isinstance(kappa_or_aux, dict):
+                kappa_val = float(kappa_or_aux.get("kappa", torch.tensor(0.0)).cpu().numpy().squeeze())
+            else:
+                kappa_val = float(kappa_or_aux.cpu().numpy().squeeze())
+
+        if model_type == "vmf_dcf" and hasattr(_MODEL, "_last_dcf_extras"):
             extras = getattr(_MODEL, "_last_dcf_extras", None)
             if extras and "delta" in extras:
                 delta_val = float(extras["delta"].cpu().numpy().squeeze())
@@ -380,37 +471,26 @@ async def infer_stream(trial_idx: int):
         await asyncio.sleep(0.02)
         yield {"event": "step", "data": json.dumps({
             "step": "vmf_decode", "status": "done",
-            "detail": f"κ={kappa_val:.1f}" + (f", δ={delta_val:.4f}" if delta_val else ""),
+            "detail": f"kappa={kappa_val:.1f}" + (f", delta={delta_val:.4f}" if delta_val else ""),
             "kappa": kappa_val,
             "delta": delta_val,
             "embedding_dim": int(mu_norm.shape[0]),
         })}
 
-        # Step 6: Gallery search
+        # Step 6: CSLS gallery search
         yield {"event": "step", "data": json.dumps({
             "step": "gallery_search", "status": "running",
-            "detail": "Computing cosine similarity..."
+            "detail": "CSLS-corrected cosine similarity search..."
         })}
-        top_k_results = []
-        gallery_size = 0
-        if _CLIP_GALLERY is not None:
-            gallery_size = int(_CLIP_GALLERY.shape[0])
-            t_search = time.time()
-            scores = _CLIP_GALLERY @ mu_norm
-            top_idx = np.argsort(-scores)[:20]
-            search_ms = (time.time() - t_search) * 1000
-            for rank, idx in enumerate(top_idx[:5]):
-                nid = int(_CLIP_NSD_IDS[idx]) if _CLIP_NSD_IDS is not None else int(idx)
-                top_k_results.append({
-                    "rank": rank + 1,
-                    "nsd_id": nid,
-                    "cosine": float(scores[idx]),
-                })
+        t_search = time.time()
+        top_k_results = _csls_retrieval(mu_norm, k=5)
+        search_ms = (time.time() - t_search) * 1000
+        gallery_size = int(_CLIP_GALLERY.shape[0]) if _CLIP_GALLERY is not None else 0
 
         await asyncio.sleep(0.02)
         yield {"event": "step", "data": json.dumps({
             "step": "gallery_search", "status": "done",
-            "detail": f"Searched {gallery_size} embeddings in {search_ms:.1f}ms" if gallery_size else "No gallery",
+            "detail": f"CSLS search over {gallery_size} embeddings in {search_ms:.1f}ms",
             "gallery_size": gallery_size,
             "top_k": top_k_results,
         })}

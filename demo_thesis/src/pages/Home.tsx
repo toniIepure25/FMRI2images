@@ -5,6 +5,15 @@ import { MetricCard } from '@/components/MetricCard';
 import { GlassCard } from '@/components/GlassCard';
 import { useMetrics } from '@/lib/hooks';
 import type { MetricEntry, MetricsSummary } from '@/types';
+import {
+  IconAtom,
+  IconBrain,
+  IconChevronDown,
+  IconChevronRight,
+  IconEye,
+  IconLayers,
+  IconSparkles,
+} from '@/components/ui/Icon';
 
 type SummaryWithExtras = MetricsSummary & {
   architecture?: { roi_tokens?: number; roiTokens?: number };
@@ -133,22 +142,27 @@ function HeroOrbs() {
   );
 }
 
-function CtaButton({
-  to,
-  children,
-  glowClass,
-}: {
-  to: string;
-  children: ReactNode;
-  glowClass: string;
-}) {
+function PrimaryCta({ to, children }: { to: string; children: ReactNode }) {
   return (
-    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto min-w-[12rem]">
+    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
       <Link
         to={to}
-        className={`relative block w-full text-center rounded-2xl px-8 py-4 font-semibold tracking-tight border border-white/10 bg-brain-panel/40 backdrop-blur-md transition-shadow duration-300 ${glowClass}`}
+        className="relative block min-w-[min(100%,14rem)] rounded-2xl bg-brain-accent px-10 py-5 text-center text-lg font-semibold tracking-tight text-brain-dark shadow-[0_14px_44px_-14px_rgba(0,212,255,0.55)] transition-shadow duration-300 hover:shadow-[0_18px_52px_-12px_rgba(0,212,255,0.62)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brain-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brain-dark"
       >
-        <span className="relative z-10 text-white">{children}</span>
+        {children}
+      </Link>
+    </motion.div>
+  );
+}
+
+function SecondaryCta({ to, children }: { to: string; children: ReactNode }) {
+  return (
+    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="w-full sm:w-auto">
+      <Link
+        to={to}
+        className="block min-w-[min(100%,11rem)] rounded-xl border border-slate-600/70 bg-brain-panel/45 px-5 py-3 text-center text-sm font-semibold text-slate-100 backdrop-blur-md transition-colors duration-300 hover:border-brain-accent/40 hover:bg-brain-panel/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brain-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brain-dark"
+      >
+        {children}
       </Link>
     </motion.div>
   );
@@ -156,19 +170,19 @@ function CtaButton({
 
 function PipelineConnector() {
   return (
-    <div className="hidden md:flex flex-col items-center justify-center shrink-0 w-10 lg:w-14" aria-hidden>
+    <div className="hidden w-10 shrink-0 flex-col items-center justify-center md:flex lg:w-14" aria-hidden>
       <motion.div
-        className="h-0.5 w-full rounded-full bg-gradient-to-r from-transparent via-brain-accent/80 to-transparent origin-left"
+        className="h-0.5 w-full origin-left rounded-full bg-gradient-to-r from-transparent via-brain-accent/80 to-transparent"
         initial={{ scaleX: 0.2, opacity: 0.4 }}
         animate={{ scaleX: [0.5, 1, 0.85], opacity: [0.5, 1, 0.65] }}
         transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
       />
       <motion.div
-        className="mt-[-2px] text-brain-accent/90 text-lg leading-none"
+        className="mt-[-2px] text-brain-accent"
         animate={{ x: [0, 3, 0], opacity: [0.7, 1, 0.7] }}
         transition={{ duration: 1.8, repeat: Infinity }}
       >
-        →
+        <IconChevronRight className="mx-auto h-5 w-5" />
       </motion.div>
     </div>
   );
@@ -184,20 +198,34 @@ function PipeCard({
   description: string;
 }) {
   return (
-    <motion.div variants={itemVariants} className="flex-1 min-w-[10rem] max-w-md mx-auto w-full">
+    <motion.div variants={itemVariants} className="mx-auto w-full max-w-md min-w-[10rem] flex-1">
       <GlassCard
         hover
         glow
-        className="p-5 h-full flex flex-col items-center text-center gap-3 border-brain-border/60"
+        className="flex h-full flex-col items-center gap-3 border-brain-border/60 p-5 text-center"
         initial={false}
       >
-        <div className="w-12 h-12 rounded-xl bg-brain-navy/80 border border-brain-border/50 flex items-center justify-center text-brain-accent">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-brain-border/50 bg-brain-navy/80 text-brain-accent">
           {icon}
         </div>
-        <h3 className="text-sm font-semibold text-white tracking-tight">{title}</h3>
-        <p className="text-xs text-gray-500 leading-relaxed">{description}</p>
+        <h3 className="text-sm font-semibold tracking-tight text-white">{title}</h3>
+        <p className="text-xs leading-relaxed text-slate-300">{description}</p>
       </GlassCard>
     </motion.div>
+  );
+}
+
+function MetricsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="glass-panel rounded-xl border border-brain-border/55 p-6" aria-hidden>
+          <div className="mb-4 h-3 w-16 rounded-full bg-slate-800/70 shimmer-bg" />
+          <div className="mb-3 h-10 w-[42%] rounded-lg bg-slate-800/70 shimmer-bg" />
+          <div className="h-3 w-[88%] rounded-full bg-slate-800/60 shimmer-bg" />
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -205,50 +233,26 @@ const pipelineSteps = [
   {
     title: 'fMRI activity',
     description: 'Voxel time-series from NSD trials, z-scored and masked to the visual cortex.',
-    icon: (
-      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M3.75 12h16.5m-7.5 6.75h7.5M3.75 4.5h7.5m7.5 0v15"
-        />
-      </svg>
-    ),
+    icon: <IconBrain className="h-6 w-6" aria-hidden />,
   },
   {
     title: 'Encoder',
     description: 'ROI Transformer maps regional signals into a dense brain representation.',
-    icon: (
-      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 3v18M15.75 3v18M3 8.25h18M3 15.75h18" />
-      </svg>
-    ),
+    icon: <IconLayers className="h-6 w-6" aria-hidden />,
   },
   {
     title: 'CLIP space',
     description: 'Hyperspherical heads produce 768-D embeddings aligned with vision–language geometry.',
-    icon: (
-      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M12 3c4.556 0 8.25 3.694 8.25 8.25S16.556 19.5 12 19.5 3.75 15.806 3.75 11.25 7.444 3 12 3z"
-        />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8.25v7.5M8.25 12h7.5" />
-      </svg>
-    ),
+    icon: <IconAtom className="h-6 w-6" aria-hidden />,
   },
   {
     title: 'Retrieval & reconstruction',
     description: 'Nearest-neighbor gallery ranking plus uncertainty-guided diffusion from decoded CLIP.',
     icon: (
-      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3A1.5 1.5 0 001.5 6v12a1.5 1.5 0 001.5 1.5z"
-        />
-      </svg>
+      <span className="flex items-center justify-center gap-1">
+        <IconEye className="h-6 w-6" aria-hidden />
+        <IconSparkles className="h-6 w-6" aria-hidden />
+      </span>
     ),
   },
 ];
@@ -273,7 +277,7 @@ const contributions = [
 ];
 
 export function Home() {
-  const { metrics } = useMetrics();
+  const { metrics, loading: metricsLoading } = useMetrics();
 
   const r1Entry = findRetrievalEntry(metrics);
   const r1Display = formatR1Percent(r1Entry);
@@ -281,125 +285,105 @@ export function Home() {
   const generation = pickGenerationFields(metrics);
 
   return (
-    <div className="relative min-h-screen bg-brain-dark text-gray-100 overflow-x-hidden">
+    <div className="relative min-h-screen overflow-x-hidden bg-brain-dark text-slate-100">
       <HeroOrbs />
 
       {/* Hero */}
-      <section className="relative z-10 min-h-[100dvh] flex flex-col items-center justify-center px-4 sm:px-6 py-20 text-center">
+      <section className="relative z-10 flex min-h-[85vh] flex-col items-center justify-center px-4 py-20 text-center sm:px-6">
         <motion.div
           variants={containerVariants}
           initial="hidden"
           animate="show"
-          className="max-w-4xl mx-auto flex flex-col items-center"
+          className="mx-auto flex max-w-4xl flex-col items-center"
         >
           <motion.p
             variants={itemVariants}
-            className="mb-4 text-[10px] sm:text-xs font-mono uppercase tracking-[0.35em] text-brain-accent/80"
+            className="mb-4 font-mono text-[10px] uppercase tracking-[0.35em] text-brain-accent/85 sm:text-xs"
           >
             Bachelor thesis demo
           </motion.p>
           <motion.h1
             variants={itemVariants}
-            className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight leading-[1.05] mb-6"
+            className="mb-6 text-4xl leading-[1.05] font-bold tracking-tight sm:text-6xl md:text-7xl lg:text-8xl"
           >
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-brain-accent to-brain-purple drop-shadow-[0_0_40px_rgba(0,212,255,0.25)]">
+            <span className="bg-gradient-to-r from-cyan-400 via-brain-accent to-brain-purple bg-clip-text text-transparent drop-shadow-[0_0_40px_rgba(0,212,255,0.25)]">
               Cortex2Canvas
             </span>
           </motion.h1>
-          <motion.p variants={itemVariants} className="text-lg sm:text-xl md:text-2xl text-gray-300 font-medium mb-5">
+          <motion.p variants={itemVariants} className="mb-5 text-lg font-medium text-slate-300 sm:text-xl md:text-2xl">
             An Interactive fMRI-to-Image Decoding Studio
           </motion.p>
-          <motion.p
-            variants={itemVariants}
-            className="text-sm sm:text-base text-gray-500 max-w-2xl leading-relaxed mb-12"
-          >
+          <motion.p variants={itemVariants} className="mb-12 max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base">
             Decoding visual perception from brain activity using neural networks, von Mises-Fisher distributions, and
             uncertainty-aware generation
           </motion.p>
 
-          <motion.div
-            variants={itemVariants}
-            className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center items-stretch w-full max-w-4xl"
-          >
-            <CtaButton
-              to="/pipeline"
-              glowClass="shadow-[0_0_32px_rgba(0,212,255,0.35)] hover:shadow-[0_0_48px_rgba(0,212,255,0.45)]"
-            >
-              Launch Live Pipeline
-            </CtaButton>
-            <CtaButton
-              to="/explorer"
-              glowClass="shadow-[0_0_32px_rgba(139,92,246,0.35)] hover:shadow-[0_0_48px_rgba(139,92,246,0.45)]"
-            >
-              Open Explorer
-            </CtaButton>
-            <CtaButton
-              to="/challenge"
-              glowClass="shadow-[0_0_32px_rgba(236,72,153,0.35)] hover:shadow-[0_0_48px_rgba(236,72,153,0.45)]"
-            >
-              Blind Committee Challenge
-            </CtaButton>
+          <motion.div variants={itemVariants} className="flex w-full max-w-3xl flex-col items-center gap-5">
+            <PrimaryCta to="/pipeline">Launch Live Pipeline</PrimaryCta>
+            <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
+              <SecondaryCta to="/explorer">Open Explorer</SecondaryCta>
+              <SecondaryCta to="/challenge">Blind Committee Challenge</SecondaryCta>
+            </div>
           </motion.div>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1.2, duration: 0.8 }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 text-gray-600"
+        <div
+          className="pointer-events-none absolute bottom-6 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2 opacity-[0.38]"
           aria-hidden
         >
-          <motion.div animate={{ y: [0, 6, 0] }} transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}>
-            <span className="text-xs tracking-widest uppercase">Scroll</span>
-            <div className="mx-auto mt-1 h-8 w-px bg-gradient-to-b from-brain-accent/50 to-transparent" />
-          </motion.div>
-        </motion.div>
+          <span className="h-px w-14 bg-gradient-to-r from-transparent via-brain-accent/60 to-transparent" />
+          <IconChevronDown className="h-3.5 w-3.5 text-slate-500" />
+        </div>
       </section>
 
       {/* Key metrics */}
-      <section className="relative z-10 border-t border-brain-border/40 bg-brain-navy/30 backdrop-blur-sm px-4 sm:px-6 py-16">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-center text-xs font-semibold uppercase tracking-[0.25em] text-gray-500 mb-10">
+      <section className="relative z-10 border-t border-brain-border/40 bg-brain-navy/30 px-4 py-16 backdrop-blur-sm sm:px-6">
+        <div className="mx-auto max-w-6xl">
+          <h2 className="mb-10 text-center text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">
             Key metrics
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <MetricCard
-              label="R@1"
-              value={r1Display}
-              subtitle="Top-1 Retrieval Accuracy"
-              color="#00d4ff"
-              delay={0}
-            />
-            <MetricCard
-              label="ROI Transformer"
-              value={roiDisplay}
-              subtitle="Brain Region Tokens"
-              color="#8b5cf6"
-              delay={0.08}
-            />
-            <MetricCard
-              label="Uncertainty"
-              value={FALLBACK_UNCERTAINTY.value}
-              subtitle={FALLBACK_UNCERTAINTY.subtitle}
-              color="#ec4899"
-              delay={0.16}
-            />
-            <MetricCard
-              label="Generation"
-              value={generation.value}
-              subtitle={generation.subtitle}
-              color="#34d399"
-              delay={0.24}
-            />
-          </div>
+          {metricsLoading ? (
+            <MetricsSkeleton />
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <MetricCard
+                label="R@1"
+                value={r1Display}
+                subtitle="Top-1 Retrieval Accuracy"
+                color="#00d4ff"
+                delay={0}
+              />
+              <MetricCard
+                label="ROI Transformer"
+                value={roiDisplay}
+                subtitle="Brain Region Tokens"
+                color="#8b5cf6"
+                delay={0.08}
+              />
+              <MetricCard
+                label="Uncertainty"
+                value={FALLBACK_UNCERTAINTY.value}
+                subtitle={FALLBACK_UNCERTAINTY.subtitle}
+                color="#ec4899"
+                delay={0.16}
+              />
+              <MetricCard
+                label="Generation"
+                value={generation.value}
+                subtitle={generation.subtitle}
+                color="#34d399"
+                delay={0.24}
+              />
+            </div>
+          )}
         </div>
       </section>
 
       {/* Pipeline */}
-      <section className="relative z-10 px-4 sm:px-6 py-20">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-center text-2xl sm:text-3xl font-bold text-white mb-3">Pipeline overview</h2>
-          <p className="text-center text-sm text-gray-500 max-w-xl mx-auto mb-12">
+      <section className="relative z-10 px-4 py-20 sm:px-6">
+        <div className="mx-auto max-w-6xl">
+          <h2 className="mb-3 text-center text-2xl font-bold text-white sm:text-3xl">Pipeline overview</h2>
+          <p className="mx-auto mb-12 max-w-xl text-center text-sm text-slate-400">
             From cortical activity to semantic vision embeddings and generative image candidates.
           </p>
 
@@ -408,17 +392,19 @@ export function Home() {
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, margin: '-80px' }}
-            className="flex flex-col md:flex-row md:items-stretch md:justify-center gap-4 md:gap-0"
+            className="flex flex-col gap-4 md:flex-row md:items-stretch md:justify-center md:gap-0"
           >
             {pipelineSteps.map((step, i) => (
               <div key={step.title} className="contents md:flex md:flex-row md:items-stretch">
                 <PipeCard {...step} />
-                {i < pipelineSteps.length - 1 && (
+                {i < pipelineSteps.length - 1 ? (
                   <>
                     <PipelineConnector />
-                    <div className="md:hidden flex justify-center py-1 text-brain-accent/60 text-lg">↓</div>
+                    <div className="flex justify-center py-1 text-brain-accent/65 md:hidden">
+                      <IconChevronDown className="h-5 w-5" aria-hidden />
+                    </div>
                   </>
-                )}
+                ) : null}
               </div>
             ))}
           </motion.div>
@@ -426,10 +412,10 @@ export function Home() {
       </section>
 
       {/* Contributions */}
-      <section className="relative z-10 px-4 sm:px-6 py-20 bg-gradient-to-b from-transparent to-brain-navy/40">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-center text-2xl sm:text-3xl font-bold text-white mb-12">Contributions</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <section className="relative z-10 bg-gradient-to-b from-transparent to-brain-navy/40 px-4 py-20 sm:px-6">
+        <div className="mx-auto max-w-6xl">
+          <h2 className="mb-12 text-center text-2xl font-bold text-white sm:text-3xl">Contributions</h2>
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             {contributions.map((c, i) => (
               <motion.div
                 key={c.title}
@@ -438,9 +424,9 @@ export function Home() {
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.06, duration: 0.45 }}
               >
-                <GlassCard hover className="p-6 h-full border-brain-border/50">
-                  <h3 className="text-base font-semibold text-brain-accent mb-2">{c.title}</h3>
-                  <p className="text-sm text-gray-400 leading-relaxed">{c.text}</p>
+                <GlassCard hover className="h-full border-brain-border/50 p-6">
+                  <h3 className="mb-2 text-base font-semibold text-brain-accent">{c.title}</h3>
+                  <p className="text-sm leading-relaxed text-slate-300">{c.text}</p>
                 </GlassCard>
               </motion.div>
             ))}
@@ -449,13 +435,13 @@ export function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-brain-border/40 px-4 py-12 text-center text-sm text-gray-500">
-        <p className="font-medium text-gray-400">Cortex2Canvas</p>
-        <p className="mt-2 max-w-lg mx-auto">
+      <footer className="relative z-10 border-t border-brain-border/40 px-4 py-12 text-center text-sm text-slate-500">
+        <p className="font-medium text-slate-400">Cortex2Canvas</p>
+        <p className="mx-auto mt-2 max-w-lg">
           Interactive demonstration supporting a bachelor thesis on fMRI-to-image neural decoding with the Natural Scenes
           Dataset (Allen et al., 2022).
         </p>
-        <p className="mt-4 text-xs text-gray-600">Research prototype — not for clinical use.</p>
+        <p className="mt-4 text-xs text-slate-600">Research prototype — not for clinical use.</p>
       </footer>
     </div>
   );

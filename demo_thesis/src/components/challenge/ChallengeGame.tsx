@@ -167,14 +167,14 @@ export function ChallengeGame() {
       <div className="space-y-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Round</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Round</p>
             <p className="font-mono text-2xl text-white">{gameStarted ? roundNumber : '—'}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={handleStartNewGame}
-              className="rounded-lg border border-brain-accent/40 bg-brain-accent/10 px-4 py-2 text-xs font-semibold text-brain-accent transition hover:bg-brain-accent/20"
+              className="rounded-lg border border-brain-accent/40 bg-brain-accent/10 px-4 py-2 text-xs font-semibold text-brain-accent transition hover:bg-brain-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brain-accent"
             >
               Start new game
             </button>
@@ -182,7 +182,7 @@ export function ChallengeGame() {
               type="button"
               onClick={handleNextRound}
               disabled={nextDisabled}
-              className="rounded-lg border border-brain-border/60 bg-brain-panel/80 px-4 py-2 text-xs font-semibold text-slate-200 transition enabled:hover:border-fuchsia-400/50 enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-35"
+              className="rounded-lg border border-brain-border/60 bg-slate-950/70 px-4 py-2 text-xs font-semibold text-slate-200 transition enabled:hover:border-fuchsia-400/50 enabled:hover:text-white disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brain-accent"
             >
               Next round
             </button>
@@ -199,7 +199,7 @@ export function ChallengeGame() {
             <button
               type="button"
               onClick={handleStartNewGame}
-              className="mt-6 rounded-lg bg-gradient-to-r from-brain-purple to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-900/30 transition hover:brightness-110"
+              className="mt-6 rounded-lg bg-gradient-to-r from-brain-purple to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-fuchsia-900/30 transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
             >
               Begin challenge
             </button>

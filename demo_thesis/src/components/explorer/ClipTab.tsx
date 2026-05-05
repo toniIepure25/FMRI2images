@@ -17,7 +17,7 @@ export function ClipTab({ case_ }: ClipTabProps) {
   if (error) return <ErrorState message={error} />;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div className="mx-auto max-w-6xl space-y-4">
       <div className="glass-panel p-4">
         <h2 className="text-sm font-semibold text-white">CLIP latent space</h2>
         <p className="mt-2 text-xs leading-relaxed text-slate-400">

@@ -1,9 +1,8 @@
 import { motion } from 'framer-motion';
-import type { UncertaintyData } from '@/types';
+import type { DemoCase, UncertaintyData } from '@/types';
 import { getConfidenceColor, getConfidenceLabel } from '@/lib/data';
 import { SemiCircleUncertaintyGauge } from '@/components/uncertainty/SemiCircleUncertaintyGauge';
 import { DuaCfgVisualPanel, UncertaintyMappingGrid } from '@/components/uncertainty/DuaMappingPanels';
-import type { DemoCase } from '@/types';
 
 export interface UncertaintyTabProps {
   case_: DemoCase;
@@ -81,7 +80,7 @@ export function UncertaintyTab({ case_ }: UncertaintyTabProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.5 }}
       >
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">DUA-CFG parameters</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400">DUA-CFG parameters</p>
         <p className="mt-1 text-xs text-slate-500">
           Uncertainty-aware classifier-free guidance: each knob is read from κ, δ, and safety flags for this trial.
         </p>
@@ -96,7 +95,7 @@ export function UncertaintyTab({ case_ }: UncertaintyTabProps) {
         animate={{ opacity: 1, scale: 1 }}
         transition={{ delay: 0.15, type: 'spring', stiffness: 120, damping: 20 }}
       >
-        <p className="text-center text-[10px] font-bold uppercase tracking-[0.25em] text-slate-400">Confidence level</p>
+        <p className="text-center text-[11px] font-bold uppercase tracking-[0.25em] text-slate-400">Confidence level</p>
         <div className="mt-4 flex flex-col items-center gap-3 sm:flex-row sm:justify-between">
           <p className="text-center text-sm text-slate-300 sm:text-left">{confLabel}</p>
           <motion.div
@@ -107,15 +106,9 @@ export function UncertaintyTab({ case_ }: UncertaintyTabProps) {
               color: confColor,
               boxShadow: `0 0 28px ${confColor}40`,
             }}
-            animate={{
-              scale: [1, 1.045, 1],
-              boxShadow: [
-                `0 0 28px ${confColor}40`,
-                `0 0 42px ${confColor}66`,
-                `0 0 28px ${confColor}40`,
-              ],
-            }}
-            transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+            initial={{ opacity: 0, scale: 0.94 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
           >
             {badge}
           </motion.div>
@@ -128,7 +121,7 @@ export function UncertaintyTab({ case_ }: UncertaintyTabProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.08, duration: 0.5 }}
       >
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-200/80">κ / δ → DUA-CFG mapping</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-200/80">κ / δ → DUA-CFG mapping</p>
         <p className="mt-1 text-xs text-slate-500">
           Each arrow summarizes how decoder statistics set the operating point for this reconstruction (illustrative
           functional form).
@@ -144,7 +137,7 @@ export function UncertaintyTab({ case_ }: UncertaintyTabProps) {
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2, duration: 0.5 }}
       >
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-400/90">Interpretation</p>
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400/90">Interpretation</p>
         <ul className="mt-4 space-y-3 text-sm leading-relaxed text-slate-300">
           <li className="flex gap-3">
             <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.7)]" />

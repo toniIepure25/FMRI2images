@@ -48,7 +48,7 @@ export function ReportTab({ case_ }: ReportTabProps) {
           <button
             type="button"
             onClick={() => window.print()}
-            className="rounded-lg border border-brain-accent/40 bg-brain-accent/15 px-4 py-2 text-xs font-semibold text-brain-accent transition hover:bg-brain-accent/25"
+            className="rounded-lg border border-brain-accent/40 bg-brain-accent/15 px-4 py-2 text-xs font-semibold text-brain-accent transition hover:bg-brain-accent/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brain-accent"
           >
             Print / Save PDF
           </button>
@@ -87,13 +87,13 @@ export function ReportTab({ case_ }: ReportTabProps) {
           <h2 className="text-sm font-semibold text-white print:text-slate-900">Visual evidence</h2>
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <figure className="overflow-hidden rounded-lg border border-brain-border/40 bg-black/30 print:border-slate-300 print:bg-white">
-              <figcaption className="border-b border-brain-border/30 px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 print:border-slate-200 print:text-slate-600">
+              <figcaption className="border-b border-brain-border/30 px-3 py-2 text-[11px] uppercase tracking-wider text-slate-500 print:border-slate-200 print:text-slate-600">
                 Target
               </figcaption>
               <img src={case_.targetImage} alt="Target" className="w-full object-cover" />
             </figure>
             <figure className="overflow-hidden rounded-lg border border-brain-border/40 bg-black/30 print:border-slate-300 print:bg-white">
-              <figcaption className="border-b border-brain-border/30 px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 print:border-slate-200 print:text-slate-600">
+              <figcaption className="border-b border-brain-border/30 px-3 py-2 text-[11px] uppercase tracking-wider text-slate-500 print:border-slate-200 print:text-slate-600">
                 Top-1 retrieval
               </figcaption>
               {top1 ? (
@@ -103,7 +103,7 @@ export function ReportTab({ case_ }: ReportTabProps) {
               )}
             </figure>
             <figure className="overflow-hidden rounded-lg border border-brain-border/40 bg-black/30 print:border-slate-300 print:bg-white">
-              <figcaption className="border-b border-brain-border/30 px-3 py-2 text-[10px] uppercase tracking-wider text-slate-500 print:border-slate-200 print:text-slate-600">
+              <figcaption className="border-b border-brain-border/30 px-3 py-2 text-[11px] uppercase tracking-wider text-slate-500 print:border-slate-200 print:text-slate-600">
                 Reconstruction
               </figcaption>
               <img src={case_.reconstructionImage} alt="Reconstruction" className="w-full object-cover" />
@@ -154,7 +154,7 @@ export function ReportTab({ case_ }: ReportTabProps) {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-left text-xs">
-              <thead className="bg-black/25 text-[10px] uppercase tracking-wider text-slate-500 print:bg-slate-100 print:text-slate-600">
+              <thead className="bg-black/25 text-[11px] uppercase tracking-wider text-slate-500 print:bg-slate-100 print:text-slate-600">
                 <tr>
                   <th className="px-4 py-2">ROI</th>
                   <th className="px-4 py-2">Contribution</th>

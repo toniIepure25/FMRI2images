@@ -1,17 +1,7 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo } from 'react';
 import type { DemoCase } from '@/types';
 import { getConfidenceColor, getConfidenceLabel } from '@/lib/data';
-
-function SafeImg({ src, alt, className }: { src: string; alt: string; className?: string }) {
-  const [ok, setOk] = useState(true);
-  const onErr = useCallback(() => setOk(false), []);
-  if (!src || !ok) {
-    return (
-      <div className={`flex items-center justify-center bg-slate-900/60 text-xs text-slate-600 ${className ?? ''}`}>\u2014</div>
-    );
-  }
-  return <img src={src} alt={alt} className={className} onError={onErr} />;
-}
+import { SafeImg } from '@/components/ui/SafeImg';
 
 export interface OverviewTabProps {
   case_: DemoCase;
@@ -72,34 +62,34 @@ export function OverviewTab({ case_ }: OverviewTabProps) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="glass-panel overflow-hidden p-4 lg:col-span-1">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        <figure className="glass-panel overflow-hidden p-4 lg:col-span-1">
+          <figcaption className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
             Ground truth
-          </p>
+          </figcaption>
           <div className="relative aspect-square overflow-hidden rounded-lg border border-brain-border/40 bg-black/40">
-            <SafeImg src={case_.targetImage} alt="Target stimulus" className="h-full w-full object-cover" />
+            <SafeImg src={case_.targetImage} alt="Target stimulus" className="block h-full w-full object-cover" />
           </div>
-        </div>
-        <div className="glass-panel overflow-hidden p-4 lg:col-span-1">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        </figure>
+        <figure className="glass-panel overflow-hidden p-4 lg:col-span-1">
+          <figcaption className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
             Reconstruction
-          </p>
+          </figcaption>
           <div className="relative aspect-square overflow-hidden rounded-lg border border-brain-border/40 bg-black/40">
-            <SafeImg src={case_.reconstructionImage} alt="Model reconstruction" className="h-full w-full object-cover" />
+            <SafeImg src={case_.reconstructionImage} alt="Model reconstruction" className="block h-full w-full object-cover" />
           </div>
-        </div>
-        <div className="glass-panel overflow-hidden p-4 lg:col-span-1">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        </figure>
+        <figure className="glass-panel overflow-hidden p-4 lg:col-span-1">
+          <figcaption className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
             Top-1 retrieval
-          </p>
+          </figcaption>
           <div className="relative aspect-square overflow-hidden rounded-lg border border-brain-border/40 bg-black/40">
             {top1 ? (
-              <SafeImg src={top1.image} alt={`Retrieval rank ${top1.rank}`} className="h-full w-full object-cover" />
+              <SafeImg src={top1.image} alt={`Retrieval rank ${top1.rank}`} className="block h-full w-full object-cover" />
             ) : (
               <div className="flex h-full items-center justify-center text-sm text-slate-500">No retrieval</div>
             )}
           </div>
-        </div>
+        </figure>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -114,20 +104,20 @@ export function OverviewTab({ case_ }: OverviewTabProps) {
           { label: 'Confidence', value: confLabel, hint: 'decoder certainty' },
         ].map((m) => (
           <div key={m.label} className="glass-panel px-4 py-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">{m.label}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{m.label}</p>
             <p className="mt-1 text-lg font-semibold text-white">{m.value}</p>
-            <p className="mt-0.5 text-[10px] text-slate-600">{m.hint}</p>
+            <p className="mt-0.5 text-[11px] text-slate-600">{m.hint}</p>
           </div>
         ))}
       </div>
 
       <div className="glass-panel p-5">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Interpretation</p>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Interpretation</p>
         <p className="mt-2 text-sm leading-relaxed text-slate-300">{case_.interpretation}</p>
       </div>
 
       <div className="glass-panel p-5">
-        <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
           fMRI preview (ROI activity strip)
         </p>
         <div className="flex h-10 w-full overflow-hidden rounded-md border border-brain-border/40 bg-[#050914]">
@@ -140,7 +130,7 @@ export function OverviewTab({ case_ }: OverviewTabProps) {
             />
           ))}
         </div>
-        <p className="mt-2 text-[10px] text-slate-600">
+        <p className="mt-2 text-[11px] text-slate-600">
           Normalized voxel-response snapshot for this trial (qualitative; not anatomical).
         </p>
       </div>

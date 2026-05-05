@@ -1,0 +1,158 @@
+# V61a: Subject-01 Finetuning with Differential Learning Rate
+#
+# Addresses the val-to-shared1000 gap identified in V60b:
+#   V60b val CSLS R@1 = 96.3% vs shared1000 CSLS R@1 = 73.6%
+#   Root cause: token decoder head under-trained (lr=1e-5, 87 epochs)
+#   N1v28a used lr=3e-5 for 181 epochs and achieved 70.1% shared1000
+#
+# Fix: differential LR for encoder (pretrained, preserve) vs decoder
+# (randomly initialized token head, needs high LR to learn).
+#
+# Key changes from V60b:
+#   - encoder_lr: 3e-6 (10x lower, preserve pretrained encoder features)
+#   - decoder_lr: 3e-5 (match N1v28a's proven LR for token head)
+#   - warmup_epochs: 20 (longer warmup for new decoder head)
+#   - num_epochs: 200 (more training time)
+#   - early_stop_patience: 50 (wider patience for gradual improvement)
+#   - dropout: 0.20 encoder, 0.25 decoder (stronger regularization)
+#
+# Expected:
+#   - Token cosine similarity: 0.049 (V60b) -> 0.15-0.18 (target)
+#   - Shared1000 CSLS R@1: 73.6% (V60b) -> 78-85% (target)
+#
+# Run:
+#   python scripts/training/train_unified.py --config configs/experiments/V61a_finetune_difflr.yaml
+
+experiment:
+  name: "V61a_finetune_difflr"
+  description: "v61a: Subj01 finetune from V60a with differential LR (enc=3e-6, dec=3e-5)"
+  tags: ["vmf", "vmf_nce", "v61", "finetune", "single_subject", "dual_head",
+         "regression", "token_targets", "197k", "csls", "shared1000",
+         "differential_lr"]
+  parent: "V60a_cross_subject_197k"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  pretrained_model_path: "experimental_results/V60a_cross_subject_197k/subj01/checkpoint_best.pt"
+  require_pretrained_model: true
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.20
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: null
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.25
+    kappa_mode: "softplus"
+    num_tokens: 257
+    token_dim: 768
+    regression_head: true
+
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  regression_mse:
+    enabled: true
+    weight: 0.5
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    vmf_mode: true
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 4096
+
+training:
+  batch_size: 16
+  gradient_accumulation_steps: 16
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5
+    encoder_lr: 3.0e-6
+    decoder_lr: 3.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 20
+  min_lr: 1.0e-7
+  gradient_clip: 1.0
+  early_stop_patience: 50
+  early_stop_min_delta: 0.001
+  train_r1_interval: 5
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

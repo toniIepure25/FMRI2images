@@ -5414,21 +5414,47 @@ def main() -> None:
 
     # --- Optimizer ---
     opt_cfg = config["training"]["optimizer"]
-    # When cross-subject freeze is active, only include trainable params initially
-    _opt_params = [p for p in model.parameters() if p.requires_grad]
     _opt_type = str(opt_cfg.get("type", "adamw")).lower()
     _opt_lr = float(opt_cfg.get("lr", 1e-4))
     _opt_weight_decay = float(opt_cfg.get("weight_decay", 0.01))
+    _opt_betas = opt_cfg.get("betas", [0.9, 0.999])
+
+    # Differential LR: separate encoder vs decoder param groups
+    _encoder_lr = float(opt_cfg.get("encoder_lr", 0))
+    _decoder_lr = float(opt_cfg.get("decoder_lr", 0))
+    _use_diff_lr = _encoder_lr > 0 and _decoder_lr > 0
+
+    if _use_diff_lr:
+        _enc_params = [
+            p for n, p in model.named_parameters()
+            if p.requires_grad and n.startswith("encoder")
+        ]
+        _dec_params = [
+            p for n, p in model.named_parameters()
+            if p.requires_grad and not n.startswith("encoder")
+        ]
+        _opt_param_groups = [
+            {"params": _enc_params, "lr": _encoder_lr},
+            {"params": _dec_params, "lr": _decoder_lr},
+        ]
+        _opt_lr = _decoder_lr  # reference LR for logging / loss params
+        logger.info(
+            "Differential LR: encoder_lr=%.2e (%d params), decoder_lr=%.2e (%d params)",
+            _encoder_lr, len(_enc_params), _decoder_lr, len(_dec_params),
+        )
+    else:
+        _opt_param_groups = [p for p in model.parameters() if p.requires_grad]
+
     if _opt_type == "adamw":
         optimizer = torch.optim.AdamW(
-            _opt_params,
+            _opt_param_groups,
             lr=_opt_lr,
             weight_decay=_opt_weight_decay,
-            betas=opt_cfg.get("betas", [0.9, 0.999]),
+            betas=_opt_betas,
         )
     elif _opt_type == "sgd":
         optimizer = torch.optim.SGD(
-            _opt_params,
+            _opt_param_groups,
             lr=_opt_lr,
             momentum=float(opt_cfg.get("momentum", 0.0)),
             dampening=float(opt_cfg.get("dampening", 0.0)),
@@ -6086,7 +6112,7 @@ def main() -> None:
     total_steps = num_epochs * len(train_loader) // grad_accum_steps
     warmup_steps = config["training"].get("warmup_epochs", 5) * len(train_loader) // grad_accum_steps
     min_lr = float(config["training"].get("min_lr", 1e-6))
-    base_lr = float(opt_cfg.get("lr", 1e-4))
+    base_lr = max(_decoder_lr, _encoder_lr, float(opt_cfg.get("lr", 1e-4))) if _use_diff_lr else float(opt_cfg.get("lr", 1e-4))
 
     def lr_lambda(step: int) -> float:
         if step < warmup_steps and warmup_steps > 0:
@@ -6534,7 +6560,14 @@ def main() -> None:
             _cs_backbone_frozen = False  # prevent re-triggering
 
         _stage_prefix = "[STAGE 2] " if _stage2_activated else ""
-        logger.info("\n%sEpoch %d/%d | lr=%.2e", _stage_prefix, epoch, num_epochs, optimizer.param_groups[0]["lr"])
+        if _use_diff_lr and len(optimizer.param_groups) >= 2:
+            logger.info(
+                "\n%sEpoch %d/%d | enc_lr=%.2e | dec_lr=%.2e",
+                _stage_prefix, epoch, num_epochs,
+                optimizer.param_groups[0]["lr"], optimizer.param_groups[1]["lr"],
+            )
+        else:
+            logger.info("\n%sEpoch %d/%d | lr=%.2e", _stage_prefix, epoch, num_epochs, optimizer.param_groups[0]["lr"])
 
         # Phase-switch: MixCo warmup -> SoftCLIP distillation
         if _softclip_from_start and _softclip_loss_obj is not None:

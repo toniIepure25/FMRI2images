@@ -1,0 +1,6 @@
+{
+  "tri_results_dir": "experimental_results/V35_legacy_teacher_distill/subj01",
+  "legacy_results_dir": "experimental_results/N1v28a_dual_head/subj01",
+  "stimuli_hdf5": "/home/jovyan/work/data/nsd/nsddata_stimuli/stimuli/nsd/nsd_stimuli.hdf5",
+  "examples_per_split": 20
+}

@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-brain-dark text-gray-100;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-brain-dark;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-brain-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-brain-accent/50;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-brain-panel/80 backdrop-blur-md border border-brain-border/50 rounded-xl;
+  }
+  .glass-panel-hover {
+    @apply glass-panel transition-all duration-300 hover:border-brain-accent/30 hover:shadow-lg hover:shadow-brain-accent/5;
+  }
+  .glow-text {
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.3), 0 0 40px rgba(0, 212, 255, 0.1);
+  }
+  .glow-accent {
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.15), 0 0 30px rgba(0, 212, 255, 0.05);
+  }
+  .neon-border {
+    @apply border border-brain-accent/30;
+    box-shadow: inset 0 0 15px rgba(0, 212, 255, 0.05), 0 0 15px rgba(0, 212, 255, 0.1);
+  }
+  .metric-badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-brain-navy border border-brain-border/50;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-brain-accent via-brain-purple to-brain-pink;
+  }
+  .text-gradient-subtle {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-brain-accent to-brain-purple;
+  }
+}

@@ -2878,6 +2878,7 @@ def _evaluate_shared1000(
     rerank_cache=None,
     retrieval_projector=None,
     legacy_teacher_model: Optional[nn.Module] = None,
+    mc_tta_samples: int = 1,
 ) -> Optional[Tuple[Dict[str, float], np.ndarray, np.ndarray]]:
     """Evaluate on NSD shared1000 benchmark for community-standard comparison.
 
@@ -2986,29 +2987,74 @@ def _evaluate_shared1000(
     _vmf_preds_img: Optional[np.ndarray] = None
     _vmf_kappas_img: Optional[np.ndarray] = None
 
+    _do_mc_tta = mc_tta_samples > 1 and is_vmf_model
+    if _do_mc_tta:
+        logger.info("Shared1000: MC-TTA enabled with %d samples", mc_tta_samples)
+
     if is_vmf_model:
         # --- vMF path: run ALL individual trials, fuse with kappa weights ---
         tensor_ds = torch.utils.data.TensorDataset(torch.from_numpy(s1000_features))
         loader = DataLoader(tensor_ds, batch_size=batch_size, shuffle=False)
         all_preds: List[np.ndarray] = []
         all_kappas: List[np.ndarray] = []
+
+        if _do_mc_tta:
+            model.train()  # enable dropout for MC-TTA
+
         with torch.no_grad():
             for (batch_fmri,) in loader:
                 batch_fmri = batch_fmri.to(device, dtype=torch.float32)
-                if is_multi_subject:
-                    sid = torch.full((batch_fmri.shape[0],), subject_id,
-                                     dtype=torch.long, device=device)
-                    out = model(batch_fmri, subject_ids=sid)
+
+                if _do_mc_tta:
+                    # MC-TTA: N forward passes, average on sphere
+                    _mc_preds_sum = None
+                    _mc_kappas_sum = None
+                    for _mc_i in range(mc_tta_samples):
+                        if is_multi_subject:
+                            sid = torch.full((batch_fmri.shape[0],), subject_id,
+                                             dtype=torch.long, device=device)
+                            out = model(batch_fmri, subject_ids=sid)
+                        else:
+                            out = model(batch_fmri)
+                        pred, aux = (out if isinstance(out, tuple) else (out, None))
+                        _p = pred.cpu().numpy()
+                        if _mc_preds_sum is None:
+                            _mc_preds_sum = _p
+                        else:
+                            _mc_preds_sum += _p
+                        if aux is not None:
+                            _k = aux.squeeze(-1)
+                            if vmf_is_log:
+                                _k = _k.exp()
+                            _kn = _k.cpu().numpy()
+                            if _mc_kappas_sum is None:
+                                _mc_kappas_sum = _kn
+                            else:
+                                _mc_kappas_sum += _kn
+                    # Average and re-normalize
+                    _mc_mu = _mc_preds_sum / mc_tta_samples
+                    _mc_norms = np.linalg.norm(_mc_mu, axis=-1, keepdims=True)
+                    _mc_mu = _mc_mu / np.maximum(_mc_norms, 1e-8)
+                    all_preds.append(_mc_mu)
+                    if _mc_kappas_sum is not None:
+                        all_kappas.append(_mc_kappas_sum / mc_tta_samples)
                 else:
-                    out = model(batch_fmri)
-                pred, aux = (out if isinstance(out, tuple) else (out, None))
-                all_preds.append(pred.cpu().numpy())
-                if aux is not None:
-                    k = aux.squeeze(-1)
-                    if vmf_is_log:
-                        k = k.exp()
-                    all_kappas.append(k.cpu().numpy())
-                if _uses_compact_cls_space:
+                    if is_multi_subject:
+                        sid = torch.full((batch_fmri.shape[0],), subject_id,
+                                         dtype=torch.long, device=device)
+                        out = model(batch_fmri, subject_ids=sid)
+                    else:
+                        out = model(batch_fmri)
+                    pred, aux = (out if isinstance(out, tuple) else (out, None))
+                    all_preds.append(pred.cpu().numpy())
+                    if aux is not None:
+                        k = aux.squeeze(-1)
+                        if vmf_is_log:
+                            k = k.exp()
+                        all_kappas.append(k.cpu().numpy())
+
+                # Collect auxiliary outputs (compact/rich/rerank) — single pass
+                if _uses_compact_cls_space and not _do_mc_tta:
                     _vmf_pred_head, _vmf_aux_head = _extract_vmf_outputs_for_losses(model_type, pred, aux)
                     if _vmf_pred_head is not None and _vmf_aux_head is not None:
                         _all_vmf_preds_s1000.append(_vmf_pred_head.detach().cpu().numpy())
@@ -3016,7 +3062,7 @@ def _evaluate_shared1000(
                         if vmf_is_log:
                             _vk = _vk.exp()
                         _all_vmf_kappas_s1000.append(_vk.squeeze(-1).detach().cpu().numpy())
-                if _uses_compact_cls_space:
+                if _uses_compact_cls_space and not _do_mc_tta:
                     _rp = getattr(model, "_last_rich_pred", None)
                     if _rp is not None:
                         _all_rich_preds_s1000.append(_rp.detach().cpu().numpy())
@@ -3039,6 +3085,9 @@ def _evaluate_shared1000(
                         )
                         _legacy_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
                         _all_legacy_preds_s1000.append(_legacy_pred.detach().cpu().numpy())
+
+        if _do_mc_tta:
+            model.eval()  # restore eval mode after MC-TTA
 
         trial_preds = np.concatenate(all_preds)
         trial_kappas = np.concatenate(all_kappas) if all_kappas else None
@@ -4325,6 +4374,7 @@ def _run_post_training_shared1000_eval(
     logger.info("=" * 60)
     logger.info("Running shared1000 benchmark evaluation...")
     _s1000_zscore_mode = config["data"].get("zscore_mode", "global")
+    _s1000_mc_tta = config.get("evaluation", {}).get("mc_tta_samples", 1)
     _s1000_result = _evaluate_shared1000(
         model=model,
         subject=subject,
@@ -4340,6 +4390,7 @@ def _run_post_training_shared1000_eval(
         rerank_cache=rerank_cache,
         retrieval_projector=retrieval_projector,
         legacy_teacher_model=legacy_teacher_model,
+        mc_tta_samples=_s1000_mc_tta,
     )
     if _s1000_result is None:
         logger.info("Shared1000 evaluation skipped (data unavailable)")

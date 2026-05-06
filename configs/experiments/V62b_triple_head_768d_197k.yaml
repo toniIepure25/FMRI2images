@@ -1,0 +1,177 @@
+# V62b: vmf_triple Dual-Head — 768-D Retrieval + 197K-D Reconstruction
+#
+# Production model for paper: combines the best of both worlds:
+#   - 768-D compact retrieval head (CSLS R@1 comparable to MindEye2)
+#   - 197K-D regression head (token-level reconstruction quality)
+#
+# Architecture:
+#   fMRI (subj01 voxels)
+#     -> MLP encoder: [8192, 8192, 4096, 2048] + residual
+#     -> TripleHeadVMFDecoder:
+#         shared_backbone: 2048 -> [2048] -> features
+#         retrieval_mu_head:    features -> 768-D (L2-norm, vMF contrastive)
+#         retrieval_kappa_head: features -> 1 (concentration)
+#         regression_head:      features -> 197376-D (token-level regression)
+#
+# Training strategy:
+#   - Pretrained from V62a (768-D CLS) via pretrained_encoder_path
+#     * Encoder loads directly (same architecture)
+#     * Decoder backbone partially matches; retrieval heads can init from V62a
+#     * Regression head randomly initialized
+#   - Differential LR: encoder=3e-6, decoder=3e-5
+#     (regression head is random → needs higher LR, encoder is well-trained)
+#   - Multi-objective: vMF-NCE (compact) + SoftCLIP + regression MSE (tokens)
+#
+# Shared1000 evaluation:
+#   - _uses_compact_cls_space = True → headline metrics are 768-D
+#   - Rich (197K-D) metrics saved separately as shared1000_metrics_rich.json
+#
+# Run:
+#   python scripts/training/train_unified.py --config configs/experiments/V62b_triple_head_768d_197k.yaml
+
+experiment:
+  name: "V62b_triple_head_768d_197k"
+  description: "V62b: vmf_triple 768-D retrieval + 197K-D regression from V62a encoder"
+  tags: ["vmf_triple", "vmf_nce", "v62", "finetune", "single_subject",
+         "dual_head", "compact_retrieval", "regression", "token_targets",
+         "768d", "197k", "csls", "shared1000", "differential_lr"]
+  parent: "V62a_cls_retrieval_768d"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+  dual_target: true
+
+model:
+  type: "vmf_triple"
+  posterior: "vmf"
+  pretrained_encoder_path: "experimental_results/V62a_cls_retrieval_768d/subj01/checkpoint_best.pt"
+  require_pretrained_model: false
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.15
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    retrieval_dim: 768
+    token_dim: 197376
+    rerank_dim: 1024
+    rerank_enabled: false
+    regression_enabled: true
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.20
+    kappa_mode: "softplus"
+    kappa_min: 0.001
+    kappa_max: 500.0
+
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  regression_mse:
+    enabled: true
+    weight: 0.5
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    vmf_mode: true
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+  fusion_ranking_distill:
+    enabled: false
+  legacy_teacher_distill:
+    enabled: false
+  shortlist_teacher_distill:
+    enabled: false
+  tri_teacher_distill:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 4096
+
+training:
+  batch_size: 16
+  gradient_accumulation_steps: 16
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5
+    encoder_lr: 3.0e-6
+    decoder_lr: 3.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 20
+  min_lr: 1.0e-7
+  gradient_clip: 1.0
+  early_stop_patience: 50
+  early_stop_min_delta: 0.001
+  train_r1_interval: 5
+  fmri_noise_std: 0.10
+  voxel_dropout: 0.10
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

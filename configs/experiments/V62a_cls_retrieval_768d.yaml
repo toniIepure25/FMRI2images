@@ -1,0 +1,160 @@
+# V62a: Pure 768-D CLS Retrieval — Shared1000 Sprint
+#
+# Diagnosis (V61a post-mortem):
+#   - V61a achieves 79.1% CSLS R@1 on shared1000 in 197K-D space
+#   - MindEye2 reports 93.2% in 768-D CLS space — apples-to-oranges
+#   - Retrieval in 197K-D suffers curse of dimensionality:
+#       * mean_pos_sim = 0.052 (vs 0.38 in 768-D)
+#       * CSLS less effective, metric ceiling lower
+#   - Ensemble of 3 models in 197K-D HURTS performance (79.1% → 78.6%)
+#
+# Strategy:
+#   Train a dedicated 768-D CLS retrieval model from V60a pretrained weights.
+#   V60a already trained encoder+decoder on 768-D CLS targets (4-subject).
+#   Both encoder AND decoder load from checkpoint (architecture matches).
+#   Single-subject finetuning specializes for subj01.
+#
+# Key design decisions:
+#   - NO token_cache: pure 768-D, fast training (~3h vs 8h+ with tokens)
+#   - Differential LR: encoder=3e-6, decoder=1e-5
+#     (decoder is pretrained too, not random → lower LR than V61a's 3e-5)
+#   - EMA enabled: model averaging for stability
+#   - Aggressive augmentation: fmri_noise + voxel_dropout + MixCo
+#
+# Expected:
+#   - Shared1000 CSLS R@1: 42.1% (V60a) → 85-93% (target)
+#   - Comparable to MindEye2 (93.2%) in same evaluation space
+#
+# Run:
+#   python scripts/training/train_unified.py --config configs/experiments/V62a_cls_retrieval_768d.yaml
+
+experiment:
+  name: "V62a_cls_retrieval_768d"
+  description: "V62a: Pure 768-D CLS retrieval from V60a, differential LR, subj01 finetune"
+  tags: ["vmf", "vmf_nce", "v62", "finetune", "single_subject",
+         "cls_retrieval", "768d", "csls", "shared1000",
+         "differential_lr", "pretrained_decoder"]
+  parent: "V60a_cross_subject_197k"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  # NO token_cache_path → pure 768-D CLS targets
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  pretrained_model_path: "experimental_results/V60a_cross_subject_197k/subj01/checkpoint_best.pt"
+  require_pretrained_model: true
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.15
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.15
+    kappa_mode: "softplus"
+
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  regression_mse:
+    enabled: true
+    weight: 0.5
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    vmf_mode: true
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 8192
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 4
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 1.0e-5
+    encoder_lr: 3.0e-6
+    decoder_lr: 1.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 15
+  min_lr: 1.0e-7
+  gradient_clip: 1.0
+  early_stop_patience: 50
+  early_stop_min_delta: 0.001
+  train_r1_interval: 5
+  fmri_noise_std: 0.10
+  voxel_dropout: 0.10
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

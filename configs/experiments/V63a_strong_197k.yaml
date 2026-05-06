@@ -1,0 +1,155 @@
+# V63a: Stronger 197K-D Single Model — Push Ceiling for Fusion
+#
+# V61a achieved 79.1% CSLS R@1 in 197K-D. Analysis shows:
+#   - Decoder has only ONE hidden layer (2048) for 197K-D output → bottleneck
+#   - LR was conservative for the decoder (3e-5)
+#   - Effective batch size was 256 (contrastive benefits from larger batches)
+#   - Fusion with V62a (768-D) reached 82.0% → complementary information exists
+#
+# V63a improvements over V61a:
+#   1. Deeper decoder: [4096, 2048] (two hidden layers, more capacity for 197K-D)
+#   2. Higher decoder LR: 5e-5 (more aggressive token head training)
+#   3. Larger effective batch: batch=32, accum=32 = 1024 (4x V61a)
+#   4. Stronger augmentation: fmri_noise=0.15, voxel_dropout=0.15
+#   5. Stronger regularization: enc_dropout=0.25, dec_dropout=0.30
+#   6. Higher regression_mse weight: 1.0 (stronger token-level supervision)
+#   7. Longer training: 300 epochs, patience 60
+#
+# Expected: 82-85% CSLS R@1 → with fusion targeting 88-92%
+#
+# Run:
+#   python scripts/training/train_unified.py --config configs/experiments/V63a_strong_197k.yaml
+
+experiment:
+  name: "V63a_strong_197k"
+  description: "V63a: Stronger 197K-D model — deeper decoder, bigger batch, more augmentation"
+  tags: ["vmf", "vmf_nce", "v63", "finetune", "single_subject", "dual_head",
+         "regression", "token_targets", "197k", "csls", "shared1000",
+         "differential_lr", "deep_decoder", "strong_aug"]
+  parent: "V60a_cross_subject_197k"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  pretrained_model_path: "experimental_results/V60a_cross_subject_197k/subj01/checkpoint_best.pt"
+  require_pretrained_model: true
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.25
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: null
+    hidden_dims: [4096, 2048]
+    activation: "gelu"
+    dropout: 0.30
+    kappa_mode: "softplus"
+    num_tokens: 257
+    token_dim: 768
+    regression_head: true
+
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  regression_mse:
+    enabled: true
+    weight: 1.0
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    vmf_mode: true
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 8192
+
+training:
+  batch_size: 32
+  gradient_accumulation_steps: 32
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 300
+  optimizer:
+    type: "adamw"
+    lr: 5.0e-5
+    encoder_lr: 1.0e-5
+    decoder_lr: 5.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 25
+  min_lr: 1.0e-7
+  gradient_clip: 1.0
+  early_stop_patience: 60
+  early_stop_min_delta: 0.001
+  train_r1_interval: 5
+  fmri_noise_std: 0.15
+  voxel_dropout: 0.15
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.20
+    temperature: 0.07
+    weight: 0.75
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

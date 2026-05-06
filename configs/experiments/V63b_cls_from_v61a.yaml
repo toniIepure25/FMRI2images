@@ -1,0 +1,150 @@
+# V63b: 768-D CLS from V61a's Finetuned Encoder
+#
+# V62a used V60a's pretrained encoder (multi-subject, never finetuned for subj01)
+# and got 48.3% CSLS R@1 in 768-D. The encoder was the bottleneck.
+#
+# V61a's encoder was finetuned on subj01 with 197K-D targets for 126 epochs.
+# It learned much richer fMRI→CLIP representations than V60a's encoder.
+# Using V61a's encoder for 768-D retrieval should give a much stronger
+# 768-D model, which in turn improves cross-space fusion with V63a.
+#
+# Strategy:
+#   - Load V61a's encoder via pretrained_encoder_path (decoder mismatch is fine)
+#   - New 768-D decoder initialized randomly
+#   - High decoder LR (3e-5) to quickly learn CLS mapping
+#   - Low encoder LR (1e-6) to preserve V61a's strong features
+#
+# Expected: 55-65% CSLS R@1 (768-D) → fusion with V63a targeting 90%+
+#
+# Run:
+#   python scripts/training/train_unified.py --config configs/experiments/V63b_cls_from_v61a.yaml
+
+experiment:
+  name: "V63b_cls_from_v61a"
+  description: "V63b: 768-D CLS retrieval from V61a's finetuned encoder"
+  tags: ["vmf", "vmf_nce", "v63", "finetune", "single_subject",
+         "cls_retrieval", "768d", "csls", "shared1000",
+         "differential_lr", "v61a_encoder"]
+  parent: "V61a_finetune_difflr"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  pretrained_encoder_path: "experimental_results/V61a_finetune_difflr/subj01/checkpoint_best.pt"
+  require_pretrained_model: false
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.15
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: 768
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.15
+    kappa_mode: "softplus"
+
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+
+  regression_mse:
+    enabled: true
+    weight: 0.5
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    vmf_mode: true
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 8192
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 4
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-5
+    encoder_lr: 1.0e-6
+    decoder_lr: 3.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 15
+  min_lr: 1.0e-7
+  gradient_clip: 1.0
+  early_stop_patience: 50
+  early_stop_min_delta: 0.001
+  train_r1_interval: 5
+  fmri_noise_std: 0.10
+  voxel_dropout: 0.10
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

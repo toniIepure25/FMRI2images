@@ -24,28 +24,13 @@ export default {
         sans: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
-      animation: {
-        'pulse-glow': 'pulseGlow 2s ease-in-out infinite',
-        'float': 'float 3s ease-in-out infinite',
-        'scan-line': 'scanLine 2s linear infinite',
-      },
-      keyframes: {
-        pulseGlow: {
-          '0%, 100%': { opacity: '0.4', transform: 'scale(1)' },
-          '50%': { opacity: '1', transform: 'scale(1.05)' },
-        },
-        float: {
-          '0%, 100%': { transform: 'translateY(0px)' },
-          '50%': { transform: 'translateY(-10px)' },
-        },
-        scanLine: {
-          '0%': { transform: 'translateY(-100%)' },
-          '100%': { transform: 'translateY(100%)' },
-        },
+      borderRadius: {
+        '2xl': '1rem',
+        '3xl': '1.25rem',
       },
       backdropBlur: {
         xs: '2px',
-      }
+      },
     },
   },
   plugins: [],

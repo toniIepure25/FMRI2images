@@ -32,7 +32,7 @@ export function Layout() {
 
   return (
     <div className="flex min-h-screen flex-col bg-brain-dark">
-      <nav className="fixed inset-x-0 top-0 z-50 glass-panel rounded-none border-x-0 border-t-0">
+      <nav className="fixed inset-x-0 top-0 z-50 rounded-none border-b border-brain-border/40 bg-brain-dark/85 shadow-[0_4px_24px_-8px_rgb(0_0_0_/_0.5)] backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
           <Link
             to="/"

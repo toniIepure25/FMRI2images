@@ -47,14 +47,10 @@ function buildRoundOptions(case_: DemoCase, allCases: DemoCase[]): RoundOption[]
   }
 
   const options: RoundOption[] = [
-    { src: targetingPath(target), isCorrect: true },
-    ...distractorPaths.slice(0, 3).map((src) => ({ src: targetingPath(src), isCorrect: false })),
+    { src: target?.trim() ?? '', isCorrect: true },
+    ...distractorPaths.slice(0, 3).map((s) => ({ src: s?.trim() ?? '', isCorrect: false })),
   ];
   return shuffle(options);
-}
-
-function targetingPath(src: string): string {
-  return src?.trim() ?? '';
 }
 
 function pickCase(pool: DemoCase[], allCases: DemoCase[], excludeId?: string | null): DemoCase | null {

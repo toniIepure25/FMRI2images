@@ -1,0 +1,153 @@
+# V64b: Frozen Encoder + Deep Decoder
+#
+# Hypothesis: V61a's encoder is excellent but V63a showed higher enc_lr
+# hurts performance. What if we freeze the encoder ENTIRELY and invest
+# all capacity into a deeper decoder?
+#
+# Design:
+#   - Encoder: loaded from V61a, FROZEN (freeze_encoder: true)
+#   - Decoder: deeper [4096, 2048] (2 hidden layers instead of 1)
+#   - Since encoder is frozen, decoder trains from scratch with aggressive LR
+#   - No encoder_lr needed (frozen)
+#   - decoder_lr: 1e-4 (5x V61a, decoder-only training allows this)
+#   - Larger batch (64 x 16 = 1024 effective) since no encoder gradients
+#   - Same loss recipe as V61a
+#
+# Risk: decoder architecture differs from V61a, so decoder weights won't
+# load. But since we're training decoder from scratch with frozen encoder
+# features, this is by design.
+
+experiment:
+  name: "V64b_frozen_encoder_deep_decoder"
+  description: "v64b: V61a encoder frozen, deep decoder [4096,2048], aggressive decoder LR"
+  tags: ["vmf", "vmf_nce", "v64", "frozen_encoder", "deep_decoder",
+         "single_subject", "token_targets", "197k"]
+  parent: "V61a_finetune_difflr"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  pretrained_model_path: "experimental_results/V61a_finetune_difflr/subj01/checkpoint_best.pt"
+  require_pretrained_model: true
+  freeze_encoder: true
+  encoder:
+    encoder_type: "mlp"
+    input_dim: null
+    hidden_dims: [8192, 8192, 4096, 2048]
+    activation: "gelu"
+    dropout: 0.0
+    use_residual: true
+  decoder:
+    input_dim: 2048
+    output_dim: null
+    hidden_dims: [4096, 2048]
+    activation: "gelu"
+    dropout: 0.30
+    kappa_mode: "softplus"
+    num_tokens: 257
+    token_dim: 768
+    regression_head: true
+
+  projection_head:
+    enabled: false
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    label_smoothing: 0.05
+
+  regression_mse:
+    enabled: true
+    weight: 1.0
+
+  vmf_nll:
+    enabled: false
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  softclip:
+    enabled: true
+    weight: 1.0
+    tau: 0.05
+    vmf_mode: true
+    use_queue: true
+    symmetric: true
+
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 4096
+
+training:
+  batch_size: 64
+  gradient_accumulation_steps: 16
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 300
+  optimizer:
+    type: "adamw"
+    lr: 1.0e-4
+    encoder_lr: 0.0
+    decoder_lr: 1.0e-4
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 15
+  min_lr: 1.0e-7
+  gradient_clip: 1.0
+  early_stop_patience: 60
+  early_stop_min_delta: 0.001
+  train_r1_interval: 5
+  fmri_noise_std: 0.10
+  voxel_dropout: 0.10
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 16
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

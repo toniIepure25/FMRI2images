@@ -11,6 +11,11 @@
   }
 }
 
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.75; }
+}
+
 @layer base {
   body {
     @apply bg-brain-dark text-slate-100 antialiased;
@@ -85,15 +90,11 @@
 
 @layer components {
   .glass-panel {
-    @apply rounded-xl border border-brain-border/40 bg-brain-panel/75 shadow-[0_12px_40px_-24px_rgb(0_0_0_/_0.65)] backdrop-blur-md;
+    @apply rounded-2xl border border-brain-border/40 bg-brain-panel/75 shadow-[0_12px_40px_-24px_rgb(0_0_0_/_0.65)] backdrop-blur-md;
   }
 
   .glass-panel-hover {
-    @apply glass-panel transition-colors duration-300 hover:border-brain-accent/35 hover:shadow-[0_18px_48px_-20px_rgb(0_212_255_/_0.08)];
-  }
-
-  .glow-text {
-    text-shadow: 0 0 20px rgba(0, 212, 255, 0.3), 0 0 40px rgba(0, 212, 255, 0.1);
+    @apply glass-panel transition-all duration-300 hover:border-brain-accent/35 hover:shadow-[0_18px_48px_-20px_rgb(0_212_255_/_0.08)] hover:-translate-y-0.5;
   }
 
   .glow-accent {
@@ -103,10 +104,6 @@
   .neon-border {
     @apply border border-brain-accent/30;
     box-shadow: inset 0 0 15px rgba(0, 212, 255, 0.05), 0 0 15px rgba(0, 212, 255, 0.1);
-  }
-
-  .metric-badge {
-    @apply inline-flex items-center gap-1.5 rounded-full border border-brain-border/50 bg-brain-navy px-3 py-1.5 text-xs font-medium;
   }
 
   /** Skeleton shimmer for SafeImg and metric placeholders */
@@ -120,6 +117,28 @@
     background-size: 200% 100%;
     animation: shimmer-slide 1.25s ease-in-out infinite;
   }
+
+  /* ─── Pipeline premium surfaces ─── */
+  .pip-surface {
+    @apply rounded-[1.375rem] border border-white/[0.05] bg-white/[0.02];
+  }
+
+  .pip-surface-raised {
+    @apply rounded-[1.375rem] border border-white/[0.06] bg-white/[0.03];
+    box-shadow: 0 2px 12px -4px rgb(0 0 0 / 0.25);
+  }
+
+  .pip-stat {
+    @apply rounded-2xl bg-white/[0.025] px-4 py-3;
+  }
+
+  .pip-page-bg {
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgb(15 23 42 / 0.45), transparent),
+      radial-gradient(ellipse 60% 40% at 80% 10%, rgb(30 27 75 / 0.12), transparent),
+      radial-gradient(ellipse 60% 40% at 20% 10%, rgb(8 47 73 / 0.12), transparent),
+      #060913;
+  }
 }
 
 @layer utilities {
@@ -129,5 +148,9 @@
 
   .text-gradient-subtle {
     @apply bg-gradient-to-r from-brain-accent to-brain-purple bg-clip-text text-transparent;
+  }
+
+  .pulse-dot {
+    animation: pulse-soft 2.4s ease-in-out infinite;
   }
 }

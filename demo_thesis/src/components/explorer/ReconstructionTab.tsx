@@ -154,7 +154,7 @@ function CompareCard({
       </div>
       <div className="relative aspect-square bg-[#050914]">
         {empty ? (
-          <div className="flex h-full items-center justify-center text-sm text-slate-600">\u2014</div>
+          <div className="flex h-full items-center justify-center text-sm text-slate-600">—</div>
         ) : (
           <SafeImg src={src} alt={title} className="block h-full w-full object-cover" />
         )}

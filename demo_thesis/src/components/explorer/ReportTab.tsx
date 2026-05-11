@@ -1,5 +1,6 @@
 import type { DemoCase } from '@/types';
 import { getConfidenceColor, getConfidenceLabel, getDifficultyColor } from '@/lib/data';
+import { SafeImg } from '@/components/ui/SafeImg';
 
 export interface ReportTabProps {
   case_: DemoCase;
@@ -90,14 +91,14 @@ export function ReportTab({ case_ }: ReportTabProps) {
               <figcaption className="border-b border-brain-border/30 px-3 py-2 text-[11px] uppercase tracking-wider text-slate-500 print:border-slate-200 print:text-slate-600">
                 Target
               </figcaption>
-              <img src={case_.targetImage} alt="Target" className="w-full object-cover" />
+              <SafeImg src={case_.targetImage} alt="Target" className="block w-full" />
             </figure>
             <figure className="overflow-hidden rounded-lg border border-brain-border/40 bg-black/30 print:border-slate-300 print:bg-white">
               <figcaption className="border-b border-brain-border/30 px-3 py-2 text-[11px] uppercase tracking-wider text-slate-500 print:border-slate-200 print:text-slate-600">
                 Top-1 retrieval
               </figcaption>
               {top1 ? (
-                <img src={top1.image} alt="Top-1" className="w-full object-cover" />
+                <SafeImg src={top1.image} alt="Top-1" className="block w-full" />
               ) : (
                 <div className="p-6 text-center text-sm text-slate-500">—</div>
               )}
@@ -106,7 +107,7 @@ export function ReportTab({ case_ }: ReportTabProps) {
               <figcaption className="border-b border-brain-border/30 px-3 py-2 text-[11px] uppercase tracking-wider text-slate-500 print:border-slate-200 print:text-slate-600">
                 Reconstruction
               </figcaption>
-              <img src={case_.reconstructionImage} alt="Reconstruction" className="w-full object-cover" />
+              <SafeImg src={case_.reconstructionImage} alt="Reconstruction" className="block w-full" />
             </figure>
           </div>
         </section>
@@ -122,10 +123,10 @@ export function ReportTab({ case_ }: ReportTabProps) {
               <ReportRow label="CSLS" value={case_.metrics.csls.toFixed(4)} />
               <ReportRow label="R@1 correct" value={case_.metrics.r1Correct ? 'Yes' : 'No'} />
               <ReportRow label="R@5 correct" value={case_.metrics.r5Correct ? 'Yes' : 'No'} />
-              <ReportRow label="PixCorr" value={case_.metrics.pixcorr.toFixed(3)} />
-              <ReportRow label="SSIM" value={case_.metrics.ssim.toFixed(3)} />
-              <ReportRow label="AlexNet-2" value={case_.metrics.alex2.toFixed(3)} />
-              <ReportRow label="AlexNet-5" value={case_.metrics.alex5.toFixed(3)} />
+              <ReportRow label="PixCorr" value={case_.metrics.pixcorr?.toFixed(3) ?? '—'} />
+              <ReportRow label="SSIM" value={case_.metrics.ssim?.toFixed(3) ?? '—'} />
+              <ReportRow label="AlexNet-2" value={case_.metrics.alex2?.toFixed(3) ?? '—'} />
+              <ReportRow label="AlexNet-5" value={case_.metrics.alex5?.toFixed(3) ?? '—'} />
             </tbody>
           </table>
         </section>

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import math
-import random
 import shutil
 import statistics
 import sys
@@ -23,8 +22,6 @@ BUCKET_TO_DIFFICULTY: dict[str, str] = {
     "near_good": "medium",
     "hard": "hard",
 }
-
-ROI_PLACEHOLDER_NAMES = ["V1v", "FFA1", "PPA", "EBA", "V4"]
 
 
 def _demo_root() -> Path:
@@ -106,39 +103,14 @@ def interpretation_for_bucket(bucket: str, fused_gt_rank: int) -> str:
     return f"Natural-scene trial (fused rank {r}, bucket {bucket})."
 
 
-def fmri_preview_64(nsd_id: int) -> list[float]:
-    rng = random.Random(int(nsd_id) & 0xFFFFFFFF)
-    return [round(rng.uniform(-2.0, 3.0), 4) for _ in range(64)]
+def fmri_preview_fallback(nsd_id: int) -> list[float]:
+    """Empty fallback when real fMRI preview is not available."""
+    return []
 
 
-def placeholder_roi_scores(nsd_id: int) -> list[dict[str, Any]]:
-    rng = random.Random((int(nsd_id) + 711) & 0xFFFFFFFF)
-    rows: list[dict[str, Any]] = []
-    interp_bits = [
-        "Early visual field drive from this ROI token.",
-        "Category-selective tuning contributes moderate weight.",
-        "Scene-layout sensitive responses support the retrieval direction.",
-        "Body/form channels add supporting evidence.",
-        "Mid-level form/color pooling for natural scenes.",
-    ]
-    for i, name in enumerate(ROI_PLACEHOLDER_NAMES):
-        act = float(rng.uniform(0.35, 0.92))
-        contr = float(rng.uniform(0.28, 0.62))
-        conf = float(rng.uniform(0.55, 0.95))
-        agr = float(rng.uniform(0.72, 0.96))
-        hem = "left" if i % 2 == 0 else "right"
-        rows.append(
-            {
-                "name": name,
-                "hemisphere": hem,
-                "activation": round(act, 4),
-                "contribution": round(contr, 4),
-                "confidence": round(conf, 4),
-                "agreement": round(agr, 4),
-                "interpretation": interp_bits[i],
-            }
-        )
-    return rows
+def empty_roi_scores() -> list[dict[str, Any]]:
+    """Return empty list — real ROI scores require live model inference."""
+    return []
 
 
 def build_retrieved_images(
@@ -172,7 +144,8 @@ def build_retrieved_images(
     return out
 
 
-def _safe_float(x: Any, default: float = 0.0) -> float:
+def _safe_float(x: Any, default: float | None = None) -> float | None:
+    """Return a finite float, or *default* (None) when missing/invalid."""
     if x is None:
         return default
     try:
@@ -198,8 +171,8 @@ def build_case_from_example(
     topk_scores = [float(s) for s in ex.get("topk_fused_scores", [])]
 
     clip_sim = _safe_float(ex.get("diffusion_clip_image_similarity"), 0.5)
-    pixcorr = _safe_float(ex.get("diffusion_pixcorr"))
-    ssim = _safe_float(ex.get("diffusion_ssim"))
+    pixcorr = _safe_float(ex.get("diffusion_pixcorr"), None)
+    ssim = _safe_float(ex.get("diffusion_ssim"), None)
 
     unc = uncertainty_from_rank(fused_rank)
     kappa_norm = float(unc["kappaNorm"])
@@ -219,7 +192,10 @@ def build_case_from_example(
         "nsdId": qid,
         "session": (qid % 40) + 1,
         "repetition": 1,
-        "fmriPreview": fmri_preview_64(qid),
+        "fmriPreview": fmri_preview_fallback(qid),
+        "fmriPreviewMeta": {"kind": "unknown", "source": None},
+        "clipPreview": None,
+        "clipPreviewMeta": {"kind": "unknown", "source": None},
         "targetImage": f"/assets/cases/{case_id}/target.png",
         "retrievedImages": build_retrieved_images(case_id, topk, topk_scores, gt),
         "reconstructionImage": f"/assets/cases/{case_id}/reconstruction.png",
@@ -232,14 +208,31 @@ def build_case_from_example(
             "csls": round(cosine0 * 0.95, 6),
             "r1Correct": fused_rank == 1,
             "r5Correct": fused_rank <= 5,
-            "pixcorr": round(pixcorr, 6),
-            "ssim": round(ssim, 6),
-            "alex2": round(0.85 + clip_sim * 0.1, 6),
-            "alex5": round(0.90 + clip_sim * 0.08, 6),
+            "pixcorr": round(pixcorr, 6) if pixcorr is not None else None,
+            "ssim": round(ssim, 6) if ssim is not None else None,
+            "alex2": round(0.85 + clip_sim * 0.1, 6) if clip_sim is not None else None,
+            "alex5": round(0.90 + clip_sim * 0.08, 6) if clip_sim is not None else None,
+        },
+        "assetProvenance": {
+            "stimulus": "replay",
+            "retrieval": "replay",
+            "reconstruction": "replay",
+            "fmriPreview": "placeholder",
+        },
+        "metricProvenance": {
+            "pixcorr": "replay" if pixcorr is not None else "unknown",
+            "ssim": "replay" if ssim is not None else "unknown",
+            "cosine": "replay",
+            "rank": "replay",
+        },
+        "policyProvenance": {
+            "kappa": "derived",
+            "delta": "derived",
+            "duaCfg": "derived",
         },
         "uncertainty": unc,
         "duaCfg": dua,
-        "roiScores": placeholder_roi_scores(qid),
+        "roiScores": empty_roi_scores(),
         "clipSpace": {
             "queryPointId": f"q_{qid}",
             "targetPointId": f"t_{qid}",

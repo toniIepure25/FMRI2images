@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useState, type ImgHTMLAttributes, type SyntheticEvent } from 'react';
+import { forwardRef, useCallback, useEffect, useState, type ImgHTMLAttributes, type SyntheticEvent } from 'react';
 
 export type SafeImgProps = ImgHTMLAttributes<HTMLImageElement>;
 
@@ -8,10 +8,14 @@ export type SafeImgProps = ImgHTMLAttributes<HTMLImageElement>;
  * Use `className` for layout/size on the wrapper; the inner image fills it (`object-cover`).
  */
 export const SafeImg = forwardRef<HTMLImageElement, SafeImgProps>(function SafeImg(
-  { className, onLoad, onError, alt = '', ...rest },
+  { className, onLoad, onError, alt = '', src, ...rest },
   ref
 ) {
   const [phase, setPhase] = useState<'loading' | 'loaded' | 'error'>('loading');
+
+  useEffect(() => {
+    setPhase('loading');
+  }, [src]);
 
   const handleLoad = useCallback(
     (e: SyntheticEvent<HTMLImageElement>) => {
@@ -49,6 +53,7 @@ export const SafeImg = forwardRef<HTMLImageElement, SafeImgProps>(function SafeI
       <img
         ref={ref}
         alt={alt}
+        src={src}
         className={`block h-full w-full max-w-full object-cover transition-opacity duration-300 ${
           phase === 'loading' ? 'opacity-0' : 'opacity-100'
         }`}

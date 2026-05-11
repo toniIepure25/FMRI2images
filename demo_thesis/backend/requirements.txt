@@ -2,3 +2,12 @@ fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 pydantic>=2.5.0
 sse-starlette>=1.6.0
+numpy>=1.24.0
+pandas>=2.0.0
+pyarrow>=14.0.0
+
+# PyTorch is required for live inference but NOT listed here because
+# the install command differs by platform (CPU vs CUDA).
+# Install separately:
+#   CPU:  pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   CUDA: pip install torch --index-url https://download.pytorch.org/whl/cu121

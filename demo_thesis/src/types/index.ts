@@ -1,3 +1,42 @@
+export interface PreviewMeta {
+  kind: 'live' | 'replay' | 'derived' | 'placeholder' | 'unknown';
+  source: string | null;
+  note?: string;
+  stats?: {
+    n_voxels?: number;
+    mean?: number;
+    std?: number;
+    min?: number;
+    max?: number;
+    abs_mean?: number;
+    trial_idx?: number;
+  } | null;
+}
+
+export type ClipPreviewKind = 'reference_clip' | 'predicted_clip' | 'unknown';
+
+export interface AssetProvenance {
+  stimulus?: string;
+  retrieval?: string;
+  reconstruction?: string;
+  fmriPreview?: string;
+  clipPreview?: string;
+  roiScores?: string;
+}
+
+export interface MetricProvenance {
+  pixcorr?: string;
+  ssim?: string;
+  cosine?: string;
+  rank?: string;
+}
+
+export interface PolicyProvenance {
+  kappa?: string;
+  delta?: string;
+  duaCfg?: string;
+}
+
 export interface DemoCase {
   id: string;
   subject: string;
@@ -8,6 +47,10 @@ export interface DemoCase {
   session: number;
   repetition: number;
   fmriPreview: number[];
+  fmriPreviewMeta?: PreviewMeta;
+  clipPreview?: number[] | null;
+  clipPreviewMeta?: PreviewMeta;
+  clipPreviewKind?: ClipPreviewKind;
   targetImage: string;
   retrievedImages: RetrievedImage[];
   reconstructionImage: string;
@@ -22,6 +65,9 @@ export interface DemoCase {
   interpretation: string;
   challengeDistractors: string[];
   semanticCategory: string;
+  assetProvenance?: AssetProvenance;
+  metricProvenance?: MetricProvenance;
+  policyProvenance?: PolicyProvenance;
   /** Optional thesis demo assets */
   comparisonPanel?: string;
   topkStrip?: string;
@@ -43,10 +89,10 @@ export interface CaseMetrics {
   csls: number;
   r1Correct: boolean;
   r5Correct: boolean;
-  pixcorr: number;
-  ssim: number;
-  alex2: number;
-  alex5: number;
+  pixcorr: number | null;
+  ssim: number | null;
+  alex2: number | null;
+  alex5: number | null;
 }
 
 export interface UncertaintyData {

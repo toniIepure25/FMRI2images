@@ -10,7 +10,7 @@ export interface StepClipSpaceProps {
 }
 
 export function StepClipSpace({ case_ }: StepClipSpaceProps) {
-  const { projection, loading } = useClipProjection();
+  const { projection, loading, error } = useClipProjection();
   const [flyToQuery, setFlyToQuery] = useState(false);
   const [showWorkspace, setShowWorkspace] = useState(false);
 
@@ -64,8 +64,13 @@ export function StepClipSpace({ case_ }: StepClipSpaceProps) {
         transition={{ delay: showWorkspace ? 0.08 : 0, duration: 0.55 }}
       >
         <GlassCard className={`p-4 sm:p-5 transition-opacity ${showWorkspace ? 'opacity-100' : 'pointer-events-none opacity-25'}`}>
-          {loading || !projection ? (
-            <div className="flex h-[420px] items-center justify-center text-sm text-slate-500">
+          {error ? (
+            <div className="flex h-[420px] flex-col items-center justify-center gap-2 text-sm text-red-400/80">
+              <span className="text-xs text-slate-600">Failed to load CLIP projection</span>
+            </div>
+          ) : loading || !projection ? (
+            <div className="flex h-[420px] items-center justify-center gap-3 text-sm text-slate-500">
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-brain-accent/60" />
               Loading CLIP projection…
             </div>
           ) : (

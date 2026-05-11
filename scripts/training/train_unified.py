@@ -5463,6 +5463,20 @@ def main() -> None:
 
     kl_scheduler = setup_kl_scheduler(config)
 
+    # --- Freeze encoder (V64b) ---
+    _freeze_encoder = bool(model_config.get("freeze_encoder", False))
+    if _freeze_encoder:
+        for name, param in model.named_parameters():
+            if name.startswith("encoder."):
+                param.requires_grad = False
+        n_frozen = sum(1 for n, p in model.named_parameters()
+                       if n.startswith("encoder.") and not p.requires_grad)
+        n_trainable = sum(1 for p in model.parameters() if p.requires_grad)
+        logger.info(
+            "freeze_encoder=true: %d encoder params frozen, %d trainable remaining",
+            n_frozen, n_trainable,
+        )
+
     # --- Optimizer ---
     opt_cfg = config["training"]["optimizer"]
     _opt_type = str(opt_cfg.get("type", "adamw")).lower()
@@ -5473,7 +5487,7 @@ def main() -> None:
     # Differential LR: separate encoder vs decoder param groups
     _encoder_lr = float(opt_cfg.get("encoder_lr", 0))
     _decoder_lr = float(opt_cfg.get("decoder_lr", 0))
-    _use_diff_lr = _encoder_lr > 0 and _decoder_lr > 0
+    _use_diff_lr = _encoder_lr > 0 and _decoder_lr > 0 and not _freeze_encoder
 
     if _use_diff_lr:
         _enc_params = [

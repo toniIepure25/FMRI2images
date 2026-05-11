@@ -196,19 +196,19 @@ export function StepConclusion({ case_, onTryAnotherCase }: StepConclusionProps)
             </div>
             <div>
               <dt className="text-slate-500">PixCorr</dt>
-              <dd className="font-mono text-white">{m.pixcorr.toFixed(3)}</dd>
+              <dd className="font-mono text-white">{m.pixcorr?.toFixed(3) ?? '—'}</dd>
             </div>
             <div>
               <dt className="text-slate-500">SSIM</dt>
-              <dd className="font-mono text-white">{m.ssim.toFixed(3)}</dd>
+              <dd className="font-mono text-white">{m.ssim?.toFixed(3) ?? '—'}</dd>
             </div>
             <div>
               <dt className="text-slate-500">Alex(2)</dt>
-              <dd className="font-mono text-white">{m.alex2.toFixed(3)}</dd>
+              <dd className="font-mono text-white">{m.alex2?.toFixed(3) ?? '—'}</dd>
             </div>
             <div>
               <dt className="text-slate-500">Alex(5)</dt>
-              <dd className="font-mono text-white">{m.alex5.toFixed(3)}</dd>
+              <dd className="font-mono text-white">{m.alex5?.toFixed(3) ?? '—'}</dd>
             </div>
           </dl>
         </GlassCard>

@@ -1,15 +1,6 @@
 import { useId } from 'react';
 import { motion } from 'framer-motion';
 
-const VB_H = 180;
-const CX = 150;
-const CY = 160;
-const R = 120;
-const NEEDLE_LEN = R - 22;
-const GAUGE_ARC_PATH = `M ${CX - R} ${CY} A ${R} ${R} 0 0 1 ${CX + R} ${CY}`;
-const GAUGE_ARC_LEN = Math.PI * R;
-const STROKE_W = 18;
-
 export interface SemiCircleUncertaintyGaugeProps {
   fraction: number;
   centerValue: string;
@@ -19,18 +10,38 @@ export interface SemiCircleUncertaintyGaugeProps {
   accent: 'cyan' | 'amber';
   animationDelay?: number;
   className?: string;
-  /** Extra classes for the SVG element (e.g. larger cinematic size). */
   svgClassName?: string;
 }
-
-const accentTitle: Record<SemiCircleUncertaintyGaugeProps['accent'], string> = {
-  cyan: 'text-cyan-300/95',
-  amber: 'text-amber-300/95',
-};
 
 function clamp01(x: number): number {
   return Math.max(0, Math.min(1, x));
 }
+
+const SIZE = 160;
+const STROKE = 12;
+const R = (SIZE - STROKE) / 2;
+const C = SIZE / 2;
+const CIRCUMFERENCE = 2 * Math.PI * R;
+const ARC_FRACTION = 0.75;
+const ARC_LEN = CIRCUMFERENCE * ARC_FRACTION;
+const START_ANGLE = 135;
+
+const ACCENT_COLORS = {
+  cyan: {
+    ring: 'border-cyan-500/20 shadow-[0_0_24px_-6px_rgba(34,211,238,0.2)]',
+    title: 'text-cyan-300',
+    stroke: '#22d3ee',
+    glow: 'rgba(34,211,238,0.4)',
+    trackStroke: 'rgba(34,211,238,0.08)',
+  },
+  amber: {
+    ring: 'border-amber-500/20 shadow-[0_0_24px_-6px_rgba(251,191,36,0.2)]',
+    title: 'text-amber-300',
+    stroke: '#fbbf24',
+    glow: 'rgba(251,191,36,0.4)',
+    trackStroke: 'rgba(251,191,36,0.08)',
+  },
+};
 
 export function SemiCircleUncertaintyGauge({
   fraction,
@@ -41,145 +52,96 @@ export function SemiCircleUncertaintyGauge({
   accent,
   animationDelay = 0,
   className = '',
-  svgClassName = '',
 }: SemiCircleUncertaintyGaugeProps) {
   const uid = useId().replace(/:/g, '');
-  const gradId = `u-grad-${uid}`;
-  const glowFId = `u-glow-${uid}`;
+  const gradId = `gauge-grad-${uid}`;
   const f = clamp01(fraction);
-  const dashTarget = `${f * GAUGE_ARC_LEN} ${GAUGE_ARC_LEN}`;
-
-  const accentRing =
-    accent === 'cyan'
-      ? 'shadow-[0_0_32px_-8px_rgba(34,211,238,0.35)] border-cyan-500/25'
-      : 'shadow-[0_0_32px_-8px_rgba(251,191,36,0.3)] border-amber-500/25';
+  const filledLen = f * ARC_LEN;
+  const gap = CIRCUMFERENCE - ARC_LEN;
+  const colors = ACCENT_COLORS[accent];
 
   return (
     <motion.div
-      className={`glass-panel flex flex-col items-center border px-5 pb-6 pt-6 ${accentRing} ${className}`}
-      initial={{ opacity: 0, y: 22 }}
+      className={`glass-panel flex flex-col items-center border px-6 py-6 ${colors.ring} ${className}`}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{
-        duration: 0.55,
-        delay: animationDelay,
-        ease: [0.22, 1, 0.36, 1],
-      }}
+      transition={{ duration: 0.5, delay: animationDelay, ease: [0.22, 1, 0.36, 1] }}
     >
-      <p
-        className={`text-center text-[11px] font-bold uppercase tracking-[0.2em] ${accentTitle[accent]}`}
-        style={{ textShadow: accent === 'cyan' ? '0 0 18px rgba(34,211,238,0.35)' : '0 0 18px rgba(251,191,36,0.3)' }}
-      >
+      <p className={`text-[10px] font-bold uppercase tracking-[0.22em] ${colors.title}`}>
         {title}
       </p>
 
-      <svg
-        viewBox={`0 0 300 ${VB_H}`}
-        className={`mx-auto mt-3 block w-full ${svgClassName ? svgClassName : 'h-[180px] min-w-[280px] max-w-[340px]'}`}
-        role="img"
-        aria-label={`${title}: ${centerValue}, ${percentLabel}`}
-      >
-        <defs>
-          <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#22c55e" />
-            <stop offset="48%" stopColor="#eab308" />
-            <stop offset="100%" stopColor="#ef4444" />
-          </linearGradient>
-          <filter id={glowFId} x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="4" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-
-        <path
-          d={GAUGE_ARC_PATH}
-          fill="none"
-          stroke="#1e2a4a"
-          strokeWidth={STROKE_W}
-          strokeLinecap="round"
-          opacity={0.95}
-        />
-
-        <motion.path
-          d={GAUGE_ARC_PATH}
-          fill="none"
-          stroke={`url(#${gradId})`}
-          strokeWidth={STROKE_W + 6}
-          strokeLinecap="round"
-          opacity={0.28}
-          filter={`url(#${glowFId})`}
-          initial={{ strokeDasharray: `0 ${GAUGE_ARC_LEN}` }}
-          animate={{ strokeDasharray: dashTarget }}
-          transition={{
-            duration: 1.35,
-            delay: animationDelay + 0.12,
-            ease: [0.22, 1, 0.36, 1],
-          }}
-        />
-
-        <motion.path
-          d={GAUGE_ARC_PATH}
-          fill="none"
-          stroke={`url(#${gradId})`}
-          strokeWidth={STROKE_W}
-          strokeLinecap="round"
-          filter={`url(#${glowFId})`}
-          initial={{ strokeDasharray: `0 ${GAUGE_ARC_LEN}` }}
-          animate={{ strokeDasharray: dashTarget }}
-          transition={{
-            duration: 1.35,
-            delay: animationDelay + 0.12,
-            ease: [0.22, 1, 0.36, 1],
-          }}
-        />
-
-        <motion.g
-          style={{ transformOrigin: `${CX}px ${CY}px` }}
-          initial={{ rotate: 180 }}
-          animate={{ rotate: 180 - f * 180 }}
-          transition={{
-            duration: 1.4,
-            delay: animationDelay + 0.1,
-            ease: [0.22, 1, 0.36, 1],
-          }}
+      <div className="relative mt-4 mb-2" style={{ width: SIZE, height: SIZE }}>
+        <svg
+          width={SIZE}
+          height={SIZE}
+          viewBox={`0 0 ${SIZE} ${SIZE}`}
+          className="block"
+          role="img"
+          aria-label={`${title}: ${centerValue}, ${percentLabel}`}
         >
-          <line
-            x1={CX}
-            y1={CY}
-            x2={CX + NEEDLE_LEN}
-            y2={CY}
-            stroke="rgba(248,250,252,0.98)"
-            strokeWidth={3}
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={colors.stroke} stopOpacity="0.3" />
+              <stop offset="100%" stopColor={colors.stroke} />
+            </linearGradient>
+          </defs>
+
+          {/* Track */}
+          <circle
+            cx={C}
+            cy={C}
+            r={R}
+            fill="none"
+            stroke={colors.trackStroke}
+            strokeWidth={STROKE}
+            strokeDasharray={`${ARC_LEN} ${gap}`}
+            strokeDashoffset={-gap / 2}
             strokeLinecap="round"
+            transform={`rotate(${START_ANGLE} ${C} ${C})`}
           />
-          <circle cx={CX + NEEDLE_LEN} cy={CY} r={6} fill="#ffffff" filter={`url(#${glowFId})`} />
-        </motion.g>
 
-        <circle cx={CX} cy={CY} r={7} fill="#0f172a" stroke="rgba(148,163,184,0.55)" strokeWidth={2} />
+          {/* Filled arc */}
+          <motion.circle
+            cx={C}
+            cy={C}
+            r={R}
+            fill="none"
+            stroke={`url(#${gradId})`}
+            strokeWidth={STROKE}
+            strokeLinecap="round"
+            strokeDasharray={`${ARC_LEN} ${gap}`}
+            strokeDashoffset={-gap / 2}
+            transform={`rotate(${START_ANGLE} ${C} ${C})`}
+            initial={{ strokeDasharray: `0 ${CIRCUMFERENCE}`, strokeDashoffset: -gap / 2 }}
+            animate={{ strokeDasharray: `${filledLen} ${CIRCUMFERENCE - filledLen}`, strokeDashoffset: -gap / 2 }}
+            transition={{ duration: 1.2, delay: animationDelay + 0.15, ease: [0.22, 1, 0.36, 1] }}
+            style={{ filter: `drop-shadow(0 0 6px ${colors.glow})` }}
+          />
+        </svg>
 
-        <text
-          x={CX}
-          y={112}
-          textAnchor="middle"
-          fill="#ffffff"
-          style={{ font: '700 34px ui-sans-serif, system-ui, sans-serif' }}
-        >
-          {centerValue}
-        </text>
-        <text
-          x={CX}
-          y={138}
-          textAnchor="middle"
-          fill="#94a3b8"
-          style={{ font: '500 14px ui-monospace, monospace' }}
-        >
-          {percentLabel}
-        </text>
-      </svg>
+        {/* Center text */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <motion.span
+            className="font-mono text-2xl font-bold text-white"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: animationDelay + 0.3 }}
+          >
+            {centerValue}
+          </motion.span>
+          <motion.span
+            className="mt-0.5 font-mono text-xs text-slate-400"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4, delay: animationDelay + 0.45 }}
+          >
+            {percentLabel}
+          </motion.span>
+        </div>
+      </div>
 
-      <p className="mt-2 max-w-sm text-center text-[12px] leading-relaxed text-slate-400">{description}</p>
+      <p className="max-w-[220px] text-center text-[11px] leading-relaxed text-slate-500">{description}</p>
     </motion.div>
   );
 }

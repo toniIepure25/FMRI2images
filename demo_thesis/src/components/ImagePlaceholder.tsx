@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface ImagePlaceholderProps {
   src: string;
@@ -25,6 +25,10 @@ const borderColors: Record<string, string> = {
 export function ImagePlaceholder({ src, alt, className = '', type = 'target', label }: ImagePlaceholderProps) {
   const [failed, setFailed] = useState(false);
 
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
   return (
     <div className={`relative overflow-hidden rounded-lg ${borderColors[type]} border ${className}`}>
       {!failed ? (
@@ -39,16 +43,14 @@ export function ImagePlaceholder({ src, alt, className = '', type = 'target', la
           className={`placeholder-inner w-full min-h-[120px] h-full bg-gradient-to-br ${gradients[type]} flex items-center justify-center`}
         >
           <div className="text-center p-4">
-            <div className="text-2xl mb-2 opacity-50" aria-hidden>
-              🧠
-            </div>
-            <div className="text-xs text-gray-500">{alt}</div>
+            <div className="mb-2 h-6 w-6 mx-auto rounded-full bg-slate-700/50" aria-hidden />
+            <div className="text-xs text-slate-500">{alt}</div>
           </div>
         </div>
       )}
       {label && (
         <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm px-2 py-1">
-          <span className="text-[10px] font-medium text-gray-300">{label}</span>
+          <span className="text-[10px] font-medium text-slate-300">{label}</span>
         </div>
       )}
     </div>

@@ -2,370 +2,372 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import type { DemoCase } from '@/types';
-import { SemiCircleUncertaintyGauge } from '@/components/uncertainty/SemiCircleUncertaintyGauge';
-import { DuaCfgVisualPanel } from '@/components/uncertainty/DuaMappingPanels';
+import { isMetricAvailable } from '@/lib/metrics';
+import {
+  REPLAY_PROV,
+  LIVE_PROV,
+  DERIVED_PROV,
+  UNKNOWN_PROV,
+  type Provenance,
+} from '@/lib/provenance';
+import {
+  metricProvenance,
+  uncertaintyProvenance,
+  duaCfgProvenance,
+  reconstructionProvenance,
+} from '@/lib/pipelineNormalize';
+import { ProvenanceBadge } from './ProvenanceBadge';
+import { MetricCell } from './MetricCell';
+import { ComparisonTriptych } from './ComparisonTriptych';
 
 export interface PhaseReconstructionProps {
   case_: DemoCase;
+  liveMode?: boolean;
   onReset: () => void;
 }
 
-function clamp01(x: number) { return Math.max(0, Math.min(1, x)); }
-
-function SafeImg({ src, alt, className }: { src?: string; alt: string; className?: string }) {
-  const [ok, setOk] = useState(true);
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => {
-    setOk(true);
-    setLoaded(false);
-  }, [src]);
-  if (!src || !ok) {
-    return (
-      <div className={`relative overflow-hidden bg-slate-900/90 ${className ?? ''}`}>
-        <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800" aria-hidden />
-        <span className="relative flex min-h-[3rem] w-full items-center justify-center text-xs text-slate-600">—</span>
-      </div>
-    );
-  }
-  return (
-    <div className={`relative overflow-hidden ${className ?? ''}`}>
-      {!loaded && (
-        <div
-          className="pointer-events-none absolute inset-0 z-10 animate-pulse bg-gradient-to-br from-slate-800 via-slate-700/90 to-slate-800"
-          aria-hidden
-        />
-      )}
-      <img
-        src={src}
-        alt={alt}
-        className={`relative z-0 h-full w-full object-cover transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-        onLoad={() => setLoaded(true)}
-        onError={() => setOk(false)}
-      />
-    </div>
-  );
+function clamp01(x: number) {
+  return Math.max(0, Math.min(1, x));
 }
 
-function useCountUp(target: number, enabled: boolean, ms: number, dec: number): number {
-  const [v, setV] = useState(0);
-  useEffect(() => {
-    if (!enabled) { setV(0); return; }
-    let raf = 0;
-    const t0 = performance.now();
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - t0) / ms);
-      setV(target * (1 - (1 - t) ** 3));
-      if (t < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target, enabled, ms]);
-  return dec <= 0 ? Math.round(v) : Number(v.toFixed(dec));
+function kappaLabel(kn: number): string {
+  if (kn > 0.7) return 'High directional certainty';
+  if (kn > 0.3) return 'Moderate certainty';
+  return 'Low certainty';
 }
 
-export function PhaseReconstruction({ case_, onReset }: PhaseReconstructionProps) {
+function deltaLabel(d: number): string {
+  if (d < 0.1) return 'Low ROI disagreement';
+  if (d < 0.4) return 'Moderate disagreement';
+  return 'High disagreement';
+}
+
+export function PhaseReconstruction({
+  case_,
+  liveMode = false,
+  onReset,
+}: PhaseReconstructionProps) {
   const navigate = useNavigate();
   const { uncertainty: u, duaCfg, metrics: m } = case_;
 
   const deltaNorm = u.delta <= 1 ? u.delta : clamp01(u.delta / (u.delta + 1));
   const kappa01 = clamp01(u.kappaNorm);
 
+  const uncProv = uncertaintyProvenance(case_);
+  const duaProv = duaCfgProvenance(case_);
+  const reconProv = reconstructionProvenance(case_);
+
   const top1 = useMemo(
     () => case_.retrievedImages.find((r) => r.rank === 1) ?? case_.retrievedImages[0],
     [case_.retrievedImages],
   );
   const reconFinal = case_.diffusionFinal ?? case_.reconstructionImage;
-  const reconPrior = case_.diffusionPrior;
-  const hasPriorFinal = Boolean(reconPrior && reconFinal);
+  const hasReconstruction = !!reconFinal;
 
   const animationSkipRef = useRef(false);
-  const [stage, setStage] = useState<'dua' | 'diffusion' | 'reveal' | 'metrics'>('dua');
-  const [diffStep, setDiffStep] = useState(0);
-  const [diffDone, setDiffDone] = useState(false);
-  const [diffBlend, setDiffBlend] = useState(0);
-  const [showSkipAnimBtn, setShowSkipAnimBtn] = useState(false);
-  const [metricsInteractReady, setMetricsInteractReady] = useState(false);
+  const [stage, setStage] = useState<'uncertainty' | 'triptych' | 'metrics'>('uncertainty');
 
   const skipAnimation = useCallback(() => {
     animationSkipRef.current = true;
     setStage('metrics');
-    setDiffDone(true);
-    setDiffBlend(1);
-    setDiffStep(150);
   }, []);
 
   useEffect(() => {
     animationSkipRef.current = false;
-    setStage('dua'); setDiffStep(0); setDiffDone(false); setDiffBlend(0);
-    const t = window.setTimeout(() => {
-      if (!animationSkipRef.current) setStage('diffusion');
-    }, 1200);
-    return () => clearTimeout(t);
+    setStage('uncertainty');
+    const t1 = setTimeout(() => { if (!animationSkipRef.current) setStage('triptych'); }, 1600);
+    const t2 = setTimeout(() => { if (!animationSkipRef.current) setStage('metrics'); }, 3000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [case_.id]);
 
-  useEffect(() => {
-    setShowSkipAnimBtn(false);
-    const t = window.setTimeout(() => setShowSkipAnimBtn(true), 2000);
-    return () => clearTimeout(t);
-  }, [case_.id]);
-
-  useEffect(() => {
-    if (stage !== 'diffusion') return;
-    let killed = false;
-    let raf = 0, timer = 0;
-    const totalMs = 2200, t0 = performance.now();
-    const tick = (now: number) => {
-      if (killed) return;
-      const t = Math.min(1, (now - t0) / totalMs);
-      setDiffBlend(1 - (1 - t) ** 2);
-      setDiffStep(Math.min(150, Math.max(1, Math.round(t * 150))));
-      if (t < 1) { raf = requestAnimationFrame(tick); }
-      else { setDiffDone(true); timer = window.setTimeout(() => { if (!killed) setStage('reveal'); }, 800); }
-    };
-    raf = requestAnimationFrame(tick);
-    return () => { killed = true; cancelAnimationFrame(raf); clearTimeout(timer); };
-  }, [stage, case_.id]);
-
-  useEffect(() => {
-    if (stage !== 'reveal') return;
-    const t = window.setTimeout(() => setStage('metrics'), 1000);
-    return () => clearTimeout(t);
-  }, [stage]);
-
-  useEffect(() => {
-    if (stage !== 'metrics') {
-      setMetricsInteractReady(false);
-      return;
-    }
-    const id = window.setTimeout(() => setMetricsInteractReady(true), 1000);
-    return () => clearTimeout(id);
-  }, [stage]);
-
+  const showTriptych = stage === 'triptych' || stage === 'metrics';
   const showMetrics = stage === 'metrics';
-  const rankV = useCountUp(m.rank, showMetrics, 600, 0);
-  const pixV = useCountUp(m.pixcorr, showMetrics, 900, 3);
-  const ssimV = useCountUp(m.ssim, showMetrics, 900, 3);
-  const clipV = useCountUp(m.cosine, showMetrics, 900, 3);
 
   const verdict = useMemo(() => {
-    if (m.rank === 1) return { text: 'Perfect Decode', cls: 'border-emerald-400/50 bg-emerald-500/12 text-emerald-200', icon: '◆' };
-    if (m.rank <= 5) return { text: 'Near Miss', cls: 'border-amber-400/50 bg-amber-500/12 text-amber-200', icon: '◇' };
-    return { text: 'Challenging Trial', cls: 'border-red-400/40 bg-red-500/10 text-red-200', icon: '△' };
+    if (m.rank === 1) return { text: 'Exact match', cls: 'bg-emerald-500/10 text-emerald-300 ring-1 ring-emerald-500/20' };
+    if (m.rank <= 5) return { text: 'Near miss', cls: 'bg-amber-500/8 text-amber-300 ring-1 ring-amber-500/20' };
+    return { text: 'Hard case', cls: 'bg-red-500/8 text-red-300 ring-1 ring-red-500/15' };
   }, [m.rank]);
 
-  const showDiff = stage === 'diffusion' || stage === 'reveal' || stage === 'metrics';
-  const showReveal = stage === 'reveal' || stage === 'metrics';
+  function getMetricProv(field: 'pixcorr' | 'ssim' | 'cosine' | 'rank'): Provenance {
+    if (liveMode) {
+      if (field === 'rank') return LIVE_PROV;
+      if (field === 'cosine') return LIVE_PROV;
+      if (field === 'pixcorr') {
+        if (!isMetricAvailable(m.pixcorr)) return { kind: 'unknown', detail: 'Not available — requires reconstruction asset' };
+        return { kind: 'replay', detail: 'From cached reconstruction, not current live retrieval' };
+      }
+      if (field === 'ssim') {
+        if (!isMetricAvailable(m.ssim)) return { kind: 'unknown', detail: 'Not available — requires reconstruction asset' };
+        return { kind: 'replay', detail: 'From cached reconstruction, not current live retrieval' };
+      }
+    }
+    const p = metricProvenance(case_, field);
+    if (field === 'pixcorr' && !isMetricAvailable(m.pixcorr)) {
+      return { kind: 'unknown', detail: 'Not available — requires reconstruction asset' };
+    }
+    if (field === 'ssim' && !isMetricAvailable(m.ssim)) {
+      return { kind: 'unknown', detail: 'Not available — requires reconstruction asset' };
+    }
+    return p;
+  }
 
   return (
     <div className="space-y-5 pb-16">
-      {/* Header */}
+      {/* ── Phase header ── */}
       <motion.div
-        className="rounded-2xl border border-white/[0.06] bg-gradient-to-r from-slate-900/80 via-brain-navy/60 to-slate-900/80 p-5 backdrop-blur-xl"
-        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-between"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
       >
-        <h2 className="text-base font-semibold text-white sm:text-lg">Reconstruction & Reveal</h2>
-        <p className="mt-0.5 text-xs text-slate-400">Uncertainty-aware diffusion → side-by-side comparison</p>
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h2 className="text-[22px] font-semibold tracking-tight text-white">
+              Reconstruct & compare
+            </h2>
+            <ProvenanceBadge provenance={liveMode ? { kind: 'derived', detail: 'Live retrieval + cached reconstruction' } : REPLAY_PROV} />
+          </div>
+          <p className="text-[13px] text-slate-500">
+            {hasReconstruction ? 'Cached qualitative reconstruction · retrieval comparison' : 'No reconstruction asset · retrieval comparison only'}
+          </p>
+        </div>
+        {stage !== 'metrics' && (
+          <button type="button" onClick={skipAnimation}
+            className="rounded-full px-4 py-1.5 text-[11px] font-medium text-slate-500 ring-1 ring-white/[0.06] transition hover:text-white hover:ring-white/[0.15]">
+            Skip animation
+          </button>
+        )}
       </motion.div>
 
-      {/* DUA-CFG section */}
-      <section className="space-y-4">
-        <div className="grid gap-4 lg:grid-cols-2">
-          <SemiCircleUncertaintyGauge fraction={kappa01} centerValue={u.kappa.toFixed(1)} percentLabel={`${(kappa01 * 100).toFixed(0)}%`}
-            title="κ CONCENTRATION" description="Directional certainty on the CLIP hypersphere" accent="cyan" animationDelay={0.02} />
-          <SemiCircleUncertaintyGauge fraction={deltaNorm} centerValue={u.delta.toFixed(3)} percentLabel={`${(deltaNorm * 100).toFixed(0)}%`}
-            title="δ DISAGREEMENT" description="Cross-ROI directional tension" accent="amber" animationDelay={0.08} />
-        </div>
+      {/* ── Uncertainty + Diffusion policy row ── */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Uncertainty summary */}
+        <motion.div
+          className="pip-surface p-5"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-[12px] font-semibold text-white">Uncertainty summary</p>
+            <ProvenanceBadge provenance={uncProv} />
+          </div>
+          <div className="space-y-4">
+            {/* κ */}
+            <div>
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-[11px] text-slate-500">κ</span>
+                  <span className="font-mono text-xl font-semibold text-white">{u.kappa.toFixed(1)}</span>
+                </div>
+                <span className="text-[10px] text-slate-500">{kappaLabel(kappa01)}</span>
+              </div>
+              <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/[0.04]">
+                <motion.div
+                  className="h-full rounded-full bg-cyan-400/40"
+                  initial={{ width: '0%' }}
+                  animate={{ width: `${kappa01 * 100}%` }}
+                  transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+                />
+              </div>
+              <p className="mt-1 text-[9px] text-slate-600">Directional certainty in CLIP space</p>
+            </div>
 
-        <motion.div className="rounded-2xl border border-white/[0.06] bg-gradient-to-b from-slate-900/60 to-slate-900/40 p-5"
-          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-          <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-brain-accent">DUA-CFG Computation</p>
-          <DuaCfgVisualPanel dua={duaCfg} />
-        </motion.div>
-      </section>
-
-      {/* Diffusion */}
-      <AnimatePresence>
-        {showDiff && (
-          <motion.section className="overflow-hidden rounded-2xl border border-cyan-500/15 bg-gradient-to-b from-cyan-950/12 to-slate-900/40 p-5"
-            initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">Diffusion Process</h3>
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <AnimatePresence>
-                  {showSkipAnimBtn && stage !== 'metrics' && (
-                    <motion.button
-                      type="button"
-                      initial={{ opacity: 0, x: 8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.25 }}
-                      className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-300 transition hover:border-slate-500/35 hover:text-white"
-                      onClick={skipAnimation}
-                    >
-                      Skip Animation
-                    </motion.button>
+            {/* δ */}
+            <div>
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="flex items-baseline gap-2">
+                  <span className="font-mono text-[11px] text-slate-500">δ</span>
+                  {liveMode ? (
+                    <span className="font-mono text-xl font-semibold text-slate-600">N/A</span>
+                  ) : (
+                    <span className="font-mono text-xl font-semibold text-white">{u.delta.toFixed(3)}</span>
                   )}
-                </AnimatePresence>
-                <span className="font-mono text-[11px] tabular-nums text-slate-500">
-                  {diffDone ? 'Complete' : `Step ${diffStep} / 150`}
+                </div>
+                <span className="text-[10px] text-slate-500">
+                  {liveMode ? 'V62a MLP — no per-ROI δ' : deltaLabel(u.delta)}
                 </span>
               </div>
-            </div>
-            {/* Progress bar */}
-            <div className="mb-4 h-1 w-full overflow-hidden rounded-full bg-black/30">
-              <motion.div className="h-full rounded-full bg-gradient-to-r from-cyan-600 to-brain-accent"
-                animate={{ width: `${(diffStep / 150) * 100}%` }} transition={{ duration: 0.05 }} />
-            </div>
-
-            <div className="relative mx-auto aspect-square w-full max-w-lg overflow-hidden rounded-xl ring-1 ring-white/10">
-              {hasPriorFinal ? (
-                <>
-                  <SafeImg src={reconPrior} alt="Prior" className="absolute inset-0 h-full w-full object-cover" />
-                  <motion.div className="absolute inset-0" animate={{ opacity: diffBlend }}>
-                    <SafeImg src={reconFinal} alt="Reconstruction" className="h-full w-full object-cover" />
-                  </motion.div>
-                </>
-              ) : (
-                <>
+              {!liveMode && (
+                <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-white/[0.04]">
                   <motion.div
-                    className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-800 to-slate-900"
-                    animate={{ opacity: 1 - diffBlend * 0.35 }}
-                    transition={{ duration: 0.08 }}
+                    className="h-full rounded-full bg-amber-400/35"
+                    initial={{ width: '0%' }}
+                    animate={{ width: `${deltaNorm * 100}%` }}
+                    transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
                   />
-                  <motion.div
-                    className="pointer-events-none absolute inset-0 bg-gradient-to-br from-cyan-500/15 via-transparent to-brain-accent/30"
-                    animate={{ opacity: 0.45 + diffBlend * 0.35 }}
-                    transition={{ duration: 0.08 }}
-                  />
-                  <motion.div className="absolute inset-0" animate={{ opacity: diffBlend }}>
-                    <SafeImg src={reconFinal} alt="Reconstruction" className="h-full w-full object-cover" />
-                  </motion.div>
-                </>
+                </div>
               )}
+              <p className="mt-1 text-[9px] text-slate-600">Cross-ROI directional tension</p>
             </div>
-          </motion.section>
-        )}
-      </AnimatePresence>
+          </div>
+        </motion.div>
 
-      {/* Grand Reveal */}
+        {/* Diffusion policy */}
+        <motion.div
+          className="pip-surface p-5"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-[12px] font-semibold text-white">Diffusion policy</p>
+              <p className="mt-0.5 text-[9px] text-slate-600">Derived from uncertainty estimate</p>
+            </div>
+            <ProvenanceBadge provenance={duaProv} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <PolicyCell label="Guidance scale" value={duaCfg.guidanceScale.toFixed(2)} detail="Classifier-free guidance" />
+            <PolicyCell label="Diffusion steps" value={String(duaCfg.diffusionSteps)} detail="Sampling budget" />
+            <PolicyCell label="Ensemble K" value={String(duaCfg.ensembleK)} detail="Reconstruction samples" />
+            <PolicyCell
+              label="Abstain"
+              value={duaCfg.abstain ? 'Abstaining' : 'Active'}
+              detail={duaCfg.abstain ? 'Policy abstained' : 'Full decoding enabled'}
+              valueColor={duaCfg.abstain ? 'text-rose-300' : 'text-emerald-300'}
+            />
+          </div>
+        </motion.div>
+      </div>
+
+      {/* ── Comparison triptych ── */}
       <AnimatePresence>
-        {showReveal && (
-          <motion.section className="space-y-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <h3 className="text-center text-[10px] font-bold uppercase tracking-[0.3em] text-slate-400">
-              Grand Reveal
-            </h3>
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              {([
-                { key: 'gt', title: 'Subject perceived', subtitle: 'Ground truth stimulus', src: case_.targetImage, accent: 'emerald', delay: 0 },
-                { key: 'ret', title: 'Model retrieved', subtitle: `Rank #${top1?.rank ?? 1} from gallery`, src: top1?.image, accent: 'violet', delay: 0.1 },
-                { key: 'rec', title: 'Model reconstructed', subtitle: 'Diffusion output', src: reconFinal, accent: 'cyan', delay: 0.2 },
-              ] as const).map((col) => (
-                <motion.div key={col.key}
-                  className={`overflow-hidden rounded-2xl border-2 transition-shadow ${
-                    col.accent === 'emerald' ? 'border-emerald-500/40 shadow-[0_0_30px_rgba(16,185,129,0.08)]'
-                    : col.accent === 'violet' ? 'border-violet-500/40 shadow-[0_0_30px_rgba(139,92,246,0.1)]'
-                    : 'border-cyan-500/40 shadow-[0_0_30px_rgba(0,212,255,0.1)]'
-                  }`}
-                  initial={{ opacity: 0, y: 28, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 240, damping: 22, delay: col.delay }}
-                >
-                  <div className={`border-b px-4 py-2.5 ${
-                    col.accent === 'emerald' ? 'border-emerald-500/20 bg-emerald-950/20'
-                    : col.accent === 'violet' ? 'border-violet-500/20 bg-violet-950/20'
-                    : 'border-cyan-500/20 bg-cyan-950/20'
-                  }`}>
-                    <p className={`text-[11px] font-semibold ${
-                      col.accent === 'emerald' ? 'text-emerald-200' : col.accent === 'violet' ? 'text-violet-200' : 'text-cyan-200'
-                    }`}>{col.title}</p>
-                    <p className="text-[9px] text-slate-500">{col.subtitle}</p>
-                  </div>
-                  <div className="relative aspect-square w-full bg-black/40">
-                    {col.key === 'gt' ? (
-                      <>
-                        <motion.div className="absolute inset-0"
-                          initial={{ scale: 1.08, filter: 'blur(16px)', opacity: 0 }}
-                          animate={{ scale: 1, filter: 'blur(0px)', opacity: 1 }}
-                          transition={{ delay: 0.5, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}>
-                          <SafeImg src={col.src} alt={col.title} className="h-full w-full object-cover" />
-                        </motion.div>
-                        <motion.div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-                          initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ delay: 0.4, duration: 0.5 }}>
-                          <motion.span
-                            className="font-mono text-4xl font-bold text-white"
-                            initial={{ scale: 0.92, opacity: 0.85 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-                          >
-                            ?
-                          </motion.span>
-                        </motion.div>
-                      </>
-                    ) : (
-                      <SafeImg src={col.src} alt={col.title} className="h-full w-full object-cover" />
-                    )}
-                  </div>
-                </motion.div>
-              ))}
+        {showTriptych && (
+          <motion.section
+            className="space-y-3"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 220, damping: 24 }}
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-[12px] font-semibold text-white">Comparison</p>
+              {!liveMode && <span className="text-[9px] text-slate-600">Cached assets</span>}
             </div>
+            <ComparisonTriptych
+              panels={[
+                {
+                  title: 'Subject perceived',
+                  subtitle: 'Reference stimulus (cached)',
+                  imageSrc: case_.targetImage,
+                  provenance: { kind: 'replay', detail: 'Cached NSD stimulus image' },
+                  accent: 'emerald',
+                  revealBlur: true,
+                },
+                {
+                  title: 'Model retrieved',
+                  subtitle: `Top-1 gallery image · Rank #${top1?.rank ?? '—'}`,
+                  imageSrc: top1?.image,
+                  provenance: liveMode ? { kind: 'derived', detail: 'Live retrieval rank · cached gallery image' } : REPLAY_PROV,
+                  accent: 'violet',
+                },
+                {
+                  title: hasReconstruction ? 'Cached reconstruction' : 'Reconstruction',
+                  subtitle: hasReconstruction ? 'Qualitative AI reconstruction' : 'No reconstruction asset',
+                  imageSrc: reconFinal,
+                  provenance: reconProv,
+                  accent: 'cyan',
+                  emptyText: 'No reconstruction asset available for this trial.',
+                },
+              ]}
+            />
           </motion.section>
         )}
       </AnimatePresence>
 
-      {/* Metrics */}
+      {/* ── Trial metrics ── */}
       <AnimatePresence>
         {showMetrics && (
-          <motion.div className="space-y-5" initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 24 }}>
-
-            <div className="rounded-2xl border border-white/[0.06] bg-gradient-to-b from-slate-900/60 to-slate-900/40 p-5 sm:p-6">
+          <motion.div
+            className="space-y-5"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 220, damping: 24 }}
+          >
+            <div className="pip-surface p-5 sm:p-6">
               <div className="mb-5 flex flex-col items-center justify-between gap-3 sm:flex-row">
-                <h3 className="text-sm font-semibold text-white">Trial Metrics</h3>
+                <h3 className="text-[15px] font-semibold text-white">Trial metrics</h3>
                 <motion.span
-                  className={`flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold ${verdict.cls}`}
-                  initial={{ opacity: 0, scale: 0.94 }}
+                  className={`flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[11px] font-semibold ${verdict.cls}`}
+                  initial={{ opacity: 0, scale: 0.96 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 26 }}
                 >
-                  <span>{verdict.icon}</span> {verdict.text} — Rank #{m.rank}
+                  {verdict.text} · Rank #{m.rank}
                 </motion.span>
               </div>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {([
-                  { label: 'Rank', value: String(rankV), hint: 'Gallery retrieval rank', color: m.rank === 1 ? 'text-emerald-300' : m.rank <= 5 ? 'text-amber-300' : 'text-red-300' },
-                  { label: 'PixCorr', value: pixV.toFixed(3), hint: 'Pixel correlation', color: 'text-white' },
-                  { label: 'SSIM', value: ssimV.toFixed(3), hint: 'Structural similarity', color: 'text-white' },
-                  { label: 'CLIP cos', value: clipV.toFixed(3), hint: 'Embedding cosine', color: 'text-white' },
-                ] as const).map((metric, i) => (
-                  <motion.div key={metric.label}
-                    className="rounded-xl border border-white/[0.06] bg-black/20 p-3 sm:p-4"
-                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * i }}>
-                    <p className="text-[9px] font-bold uppercase tracking-wider text-slate-500">{metric.label}</p>
-                    <p className={`mt-1 font-mono text-xl font-bold tabular-nums sm:text-2xl ${metric.color}`}>{metric.value}</p>
-                    <p className="mt-0.5 text-[8px] text-slate-600">{metric.hint}</p>
-                  </motion.div>
-                ))}
+                <MetricCell
+                  label="Rank"
+                  value={String(m.rank)}
+                  description="Gallery retrieval rank"
+                  provenance={getMetricProv('rank')}
+                  valueColor={m.rank === 1 ? 'text-emerald-300' : m.rank <= 5 ? 'text-amber-300' : 'text-red-300'}
+                />
+                <MetricCell
+                  label="PixCorr"
+                  value={m.pixcorr}
+                  description="Pixel correlation"
+                  provenance={getMetricProv('pixcorr')}
+                />
+                <MetricCell
+                  label="SSIM"
+                  value={m.ssim}
+                  description="Structural similarity"
+                  provenance={getMetricProv('ssim')}
+                />
+                <MetricCell
+                  label={isMetricAvailable(m.cosine) ? 'Cosine' : 'CSLS'}
+                  value={isMetricAvailable(m.cosine) ? m.cosine : m.csls}
+                  description={isMetricAvailable(m.cosine) ? 'Top-1 cosine similarity' : 'Top-1 CSLS retrieval score'}
+                  provenance={getMetricProv('cosine')}
+                />
               </div>
+              {!hasReconstruction && (
+                <p className="mt-3 text-center text-[10px] text-slate-600">
+                  PixCorr and SSIM require a reconstruction asset.
+                  {!isMetricAvailable(m.pixcorr) && ' Values shown as — because no reconstruction was available.'}
+                </p>
+              )}
             </div>
 
-            {/* Actions */}
+            {/* ── Actions ── */}
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-              <button type="button" onClick={onReset} disabled={!metricsInteractReady}
-                className="rounded-xl border border-white/10 bg-white/[0.03] px-6 py-3 text-sm font-semibold text-slate-300 transition hover:border-brain-accent/30 hover:text-white disabled:cursor-not-allowed disabled:opacity-50">
-                Try Another Trial
+              <button type="button" onClick={onReset}
+                className="rounded-xl px-6 py-3 text-[13px] font-medium text-slate-400 ring-1 ring-white/[0.06] transition hover:text-white hover:ring-white/[0.15]">
+                ← Try another trial
               </button>
-              <button type="button" onClick={() => navigate(`/explorer/${case_.id}`)} disabled={!metricsInteractReady}
-                className="rounded-xl border border-violet-500/30 bg-violet-950/20 px-6 py-3 text-sm font-semibold text-violet-200 transition hover:border-violet-400/50 disabled:cursor-not-allowed disabled:opacity-50">
-                Explore in Detail →
+              <button type="button" onClick={() => navigate(`/explorer/${case_.id}`)}
+                className="rounded-xl px-6 py-3 text-[13px] font-medium text-slate-400 ring-1 ring-white/[0.06] transition hover:text-white hover:ring-white/[0.15]">
+                Explore in detail →
               </button>
-              <button type="button" onClick={() => navigate('/challenge')} disabled={!metricsInteractReady}
-                className="rounded-xl border border-brain-accent/30 bg-brain-accent/8 px-6 py-3 text-sm font-semibold text-brain-accent transition hover:bg-brain-accent/15 disabled:cursor-not-allowed disabled:opacity-50">
-                Take the Challenge →
+              <button type="button" onClick={() => navigate('/challenge')}
+                className="rounded-xl px-6 py-3 text-[13px] font-medium text-slate-400 ring-1 ring-white/[0.06] transition hover:text-white hover:ring-white/[0.15]">
+                Take the challenge →
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function PolicyCell({
+  label,
+  value,
+  detail,
+  valueColor = 'text-white',
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  valueColor?: string;
+}) {
+  return (
+    <div className="rounded-xl bg-white/[0.025] p-3.5">
+      <p className="text-[9px] font-medium text-slate-500">{label}</p>
+      <p className={`mt-1 font-mono text-lg font-bold tabular-nums ${valueColor}`}>{value}</p>
+      <p className="mt-0.5 text-[8px] text-slate-600">{detail}</p>
     </div>
   );
 }

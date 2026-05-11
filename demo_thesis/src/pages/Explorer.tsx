@@ -146,7 +146,7 @@ export function Explorer() {
       </div>
 
       {selectedCase && (
-        <div className="w-64 flex-shrink-0 overflow-y-auto border-l border-brain-border/30 p-4">
+        <div className="hidden w-64 flex-shrink-0 overflow-y-auto border-l border-brain-border/30 p-4 xl:block">
           <QuickStats case_={selectedCase} />
         </div>
       )}

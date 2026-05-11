@@ -42,8 +42,6 @@ export function StepUncertainty({ case_ }: StepUncertaintyProps) {
 
   const gallery = (case_.ensembleImages ?? []).slice(0, 8);
 
-  const gaugeSvg = 'min-w-[300px] max-w-[400px] h-[200px] sm:h-[220px]';
-
   return (
     <div className="flex h-full min-h-0 flex-col gap-5 px-2 py-2 sm:gap-7 sm:px-4 md:gap-8">
       <motion.h2
@@ -77,7 +75,6 @@ export function StepUncertainty({ case_ }: StepUncertaintyProps) {
               description="How tightly the brain evidence points in one direction on the CLIP hypersphere."
               accent="cyan"
               animationDelay={0.02}
-              svgClassName={gaugeSvg}
             />
             <p className="mt-2 text-center font-mono text-[10px] text-slate-500">κ̂ (norm) = {u.kappaNorm.toFixed(3)}</p>
           </GlassCard>
@@ -100,7 +97,6 @@ export function StepUncertainty({ case_ }: StepUncertaintyProps) {
               description="How much cortical ROI experts conflict before directional consensus fusion."
               accent="amber"
               animationDelay={0.08}
-              svgClassName={gaugeSvg}
             />
           </GlassCard>
         </motion.div>

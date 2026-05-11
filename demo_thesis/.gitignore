@@ -34,3 +34,7 @@ tsconfig.tsbuildinfo
 # Playwright
 test-results/
 playwright-report/
+
+# Backend artifacts (large binary files fetched from K8s pod)
+local_backend_data/
+backend/.env

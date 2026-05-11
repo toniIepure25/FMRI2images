@@ -319,7 +319,7 @@ export function Home() {
           </motion.p>
 
           <motion.div variants={itemVariants} className="flex w-full max-w-3xl flex-col items-center gap-5">
-            <PrimaryCta to="/pipeline">Launch Live Pipeline</PrimaryCta>
+            <PrimaryCta to="/pipeline">Launch Pipeline</PrimaryCta>
             <div className="flex w-full flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:justify-center">
               <SecondaryCta to="/explorer">Open Explorer</SecondaryCta>
               <SecondaryCta to="/challenge">Blind Committee Challenge</SecondaryCta>
@@ -337,11 +337,14 @@ export function Home() {
       </section>
 
       {/* Key metrics */}
-      <section className="relative z-10 border-t border-brain-border/40 bg-brain-navy/30 px-4 py-16 backdrop-blur-sm sm:px-6">
+      <section className="relative z-10 border-t border-brain-border/40 bg-brain-navy/30 px-4 py-20 backdrop-blur-sm sm:px-6">
         <div className="mx-auto max-w-6xl">
-          <h2 className="mb-10 text-center text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">
+          <h2 className="mb-3 text-center text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">
             Key metrics
           </h2>
+          <p className="mx-auto mb-12 max-w-lg text-center text-sm text-slate-400">
+            Performance highlights from the best-performing model configuration across NSD subjects.
+          </p>
           {metricsLoading ? (
             <MetricsSkeleton />
           ) : (

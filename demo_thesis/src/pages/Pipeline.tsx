@@ -64,8 +64,8 @@ export function Pipeline() {
   const liveMode = isBackendAvailable();
 
   return (
-    <div className="pip-page-bg min-h-screen px-4 py-8 sm:px-6 lg:px-10">
-      <div className="mx-auto max-w-[1280px] space-y-4">
+    <div className="pip-page-bg min-h-screen px-4 pt-20 pb-16 sm:px-6 lg:px-12">
+      <div className="mx-auto max-w-[1440px] space-y-5">
         <PipelineStatusHeader
           runMode={runMode}
           backendHealth={backendHealth}
@@ -87,7 +87,7 @@ export function Pipeline() {
             >
               <button
                 type="button"
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium text-slate-500 transition hover:text-white"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium text-text-muted transition hover:text-text-primary"
                 onClick={backToSelection}
               >
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

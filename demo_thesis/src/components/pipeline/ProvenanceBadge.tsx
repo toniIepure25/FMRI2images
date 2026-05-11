@@ -2,19 +2,19 @@ import type { Provenance, ProvenanceKind } from '@/lib/provenance';
 import { provenanceLabel, provenanceTone } from '@/lib/provenance';
 
 const TONE_CLASSES: Record<ProvenanceKind, string> = {
-  live: 'bg-emerald-500/8 text-emerald-400',
-  replay: 'bg-cyan-500/6 text-cyan-400',
-  derived: 'bg-amber-500/6 text-amber-400',
-  placeholder: 'bg-rose-500/6 text-rose-400',
-  unknown: 'bg-slate-500/6 text-slate-500',
+  live:        'bg-accent/[0.07] text-accent ring-1 ring-accent/15',
+  replay:      'bg-surface-active text-text-secondary ring-1 ring-border-subtle',
+  derived:     'bg-status-info/8 text-status-info ring-1 ring-status-info/12',
+  placeholder: 'bg-status-error/6 text-status-error ring-1 ring-status-error/12',
+  unknown:     'bg-surface-raised text-text-muted ring-1 ring-border-subtle',
 };
 
 const DOT_CLASSES: Record<ProvenanceKind, string> = {
-  live: 'bg-emerald-400',
-  replay: 'bg-cyan-400',
-  derived: 'bg-amber-400',
-  placeholder: 'bg-rose-400',
-  unknown: 'bg-slate-500',
+  live:        'bg-accent',
+  replay:      'bg-text-muted',
+  derived:     'bg-status-info',
+  placeholder: 'bg-status-error',
+  unknown:     'bg-border-emphasis',
 };
 
 interface ProvenanceBadgeProps {
@@ -29,7 +29,7 @@ export function ProvenanceBadge({ provenance, className = '' }: ProvenanceBadgeP
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[8px] font-semibold ${TONE_CLASSES[tone]} ${className}`}
+      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-medium ${TONE_CLASSES[tone]} ${className}`}
       title={detail}
     >
       <span className={`h-1 w-1 rounded-full ${DOT_CLASSES[tone]}`} />

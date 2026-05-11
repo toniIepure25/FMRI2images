@@ -18,68 +18,80 @@ const navItems = [
   { path: '/challenge', label: 'Challenge', Icon: IconChallenge },
 ] as const;
 
-const navLinkClass =
-  'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brain-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brain-dark';
+const navLinkBase =
+  'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base';
 
 export function Layout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const pathActive = (path: string) =>
-    path === '/' ? location.pathname === '/' : location.pathname === path || location.pathname.startsWith(`${path}/`);
+    path === '/'
+      ? location.pathname === '/'
+      : location.pathname === path || location.pathname.startsWith(`${path}/`);
 
   const closeMobile = () => setMobileOpen(false);
 
   return (
-    <div className="flex min-h-screen flex-col bg-brain-dark">
-      <nav className="fixed inset-x-0 top-0 z-50 rounded-none border-b border-brain-border/40 bg-brain-dark/85 shadow-[0_4px_24px_-8px_rgb(0_0_0_/_0.5)] backdrop-blur-xl">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
+    <div className="flex min-h-screen flex-col bg-surface-base">
+      {/* ── Top navigation ── */}
+      <nav className="fixed inset-x-0 top-0 z-50 border-b border-border-subtle bg-surface-base/95 backdrop-blur-sm">
+        <div className="mx-auto flex h-12 max-w-[1440px] items-center justify-between px-4 sm:px-6">
+          {/* Logo */}
           <Link
             to="/"
             onClick={closeMobile}
-            className="group flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brain-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brain-dark"
+            className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brain-accent to-brain-purple text-xs font-bold text-white shadow-md shadow-brain-accent/15">
-              C2C
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-[11px] font-bold text-text-inverse">
+              C2
             </div>
-            <span className="text-sm font-semibold text-slate-300 transition-colors group-hover:text-white">
+            <span className="hidden text-sm font-semibold tracking-tight text-text-primary sm:inline">
               Cortex2Canvas
             </span>
           </Link>
 
-          <div className="hidden items-center gap-1 md:flex">
+          {/* Desktop nav links */}
+          <div className="hidden items-center gap-0.5 md:flex">
             {navItems.map(({ path, label, Icon }) => (
               <Link
                 key={path}
                 to={path}
-                className={`${navLinkClass} ${
+                className={`${navLinkBase} ${
                   pathActive(path)
-                    ? 'border border-brain-accent/25 bg-brain-accent/10 text-brain-accent'
-                    : 'border border-transparent text-slate-400 hover:bg-white/5 hover:text-slate-100'
+                    ? 'bg-surface-active text-text-primary'
+                    : 'text-text-secondary hover:bg-surface-raised hover:text-text-primary'
                 }`}
               >
-                <Icon className="h-4 w-4 shrink-0 opacity-90" aria-hidden />
+                <Icon className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
                 {label}
               </Link>
             ))}
           </div>
 
+          {/* Mobile menu toggle */}
           <button
             type="button"
-            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium text-slate-200 transition-colors md:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brain-accent focus-visible:ring-offset-2 focus-visible:ring-offset-brain-dark ${
-              mobileOpen ? 'border-brain-accent/35 bg-brain-accent/10 text-white' : 'border-brain-border/55 bg-white/[0.04]'
+            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[13px] font-medium transition-colors md:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base ${
+              mobileOpen
+                ? 'border-accent/30 bg-accent/10 text-text-primary'
+                : 'border-border-subtle bg-surface-raised text-text-secondary'
             }`}
             aria-expanded={mobileOpen}
             aria-controls="mobile-primary-nav"
             onClick={() => setMobileOpen((o) => !o)}
           >
             Menu
-            <motion.span animate={{ rotate: mobileOpen ? 180 : 0 }} transition={{ duration: 0.22 }}>
-              <IconChevronDown className="h-4 w-4 text-brain-accent" aria-hidden />
+            <motion.span
+              animate={{ rotate: mobileOpen ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <IconChevronDown className="h-4 w-4 text-accent" aria-hidden />
             </motion.span>
           </button>
         </div>
 
+        {/* Mobile dropdown */}
         <AnimatePresence initial={false}>
           {mobileOpen ? (
             <motion.div
@@ -87,22 +99,22 @@ export function Layout() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-              className="overflow-hidden border-t border-brain-border/35 md:hidden"
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="overflow-hidden border-t border-border-subtle md:hidden"
             >
-              <div className="flex flex-col gap-1 px-4 py-3">
+              <div className="flex flex-col gap-0.5 px-3 py-2">
                 {navItems.map(({ path, label, Icon }) => (
                   <Link
                     key={path}
                     to={path}
                     onClick={closeMobile}
-                    className={`${navLinkClass} ${
+                    className={`${navLinkBase} ${
                       pathActive(path)
-                        ? 'border border-brain-accent/25 bg-brain-accent/10 text-brain-accent'
-                        : 'border border-transparent text-slate-300 hover:bg-white/5 hover:text-white'
+                        ? 'bg-surface-active text-text-primary'
+                        : 'text-text-secondary hover:bg-surface-raised hover:text-text-primary'
                     }`}
                   >
-                    <Icon className="h-5 w-5 shrink-0 opacity-90" aria-hidden />
+                    <Icon className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
                     {label}
                   </Link>
                 ))}
@@ -112,14 +124,15 @@ export function Layout() {
         </AnimatePresence>
       </nav>
 
-      <main className="flex-1 pt-14">
+      {/* ── Page content ── */}
+      <main className="flex-1 pt-12">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
           >
             <Outlet />
           </motion.div>

@@ -10,32 +10,22 @@ interface PipelineStatusHeaderProps {
   phase: string;
 }
 
-const MODE_LABELS: Record<PipelineRunMode, { label: string; detail: string }> =
-  {
-    checking: {
-      label: 'Checking',
-      detail: 'Verifying backend availability',
-    },
-    live: { label: 'Live inference', detail: 'Live model inference active' },
-    replay: { label: 'Replay', detail: 'Backend online, replay assets active' },
-    'offline-replay': {
-      label: 'Offline replay',
-      detail: 'Backend unavailable',
-    },
-    hybrid: {
-      label: 'Hybrid',
-      detail: 'Live retrieval + cached reconstruction',
-    },
-    error: { label: 'Error', detail: 'Connection failed' },
-  };
+const MODE_LABELS: Record<PipelineRunMode, { label: string; detail: string }> = {
+  checking:       { label: 'Checking',          detail: 'Verifying backend availability' },
+  live:           { label: 'Live inference',    detail: 'Live model inference active' },
+  replay:         { label: 'Replay',            detail: 'Backend online, replay assets active' },
+  'offline-replay': { label: 'Offline replay',  detail: 'Backend unavailable — cached results' },
+  hybrid:         { label: 'Hybrid',            detail: 'Live retrieval + cached reconstruction' },
+  error:          { label: 'Error',             detail: 'Connection failed' },
+};
 
 const MODE_DOT: Record<PipelineRunMode, string> = {
-  checking: 'bg-slate-400',
-  live: 'bg-emerald-400',
-  replay: 'bg-cyan-400',
-  'offline-replay': 'bg-amber-400',
-  hybrid: 'bg-blue-400',
-  error: 'bg-red-400',
+  checking:       'bg-text-muted',
+  live:           'bg-status-success',
+  replay:         'bg-accent',
+  'offline-replay': 'bg-status-warning',
+  hybrid:         'bg-status-info',
+  error:          'bg-status-error',
 };
 
 export function PipelineStatusHeader({
@@ -48,69 +38,70 @@ export function PipelineStatusHeader({
 
   return (
     <motion.header
-      className="mb-2"
+      className="mb-1 space-y-4"
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
     >
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      {/* Title row */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-white">
+          <h1 className="text-[30px] font-semibold tracking-tight text-text-primary sm:text-[34px]">
             Cortex2Canvas Pipeline
           </h1>
-          <p className="mt-1 text-[13px] text-slate-500">
-            fMRI activity → live CLIP retrieval → cached qualitative reconstruction
+          <p className="mt-1.5 text-sm text-text-muted">
+            Neural decoding workbench &middot; fMRI &rarr; CLIP &rarr; reconstruction
           </p>
         </div>
 
-        {/* Status chip — compact */}
+        {/* Run mode chip */}
         <span
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white/[0.04] px-3 py-1.5 text-[11px] font-medium text-slate-400 ring-1 ring-white/[0.06]"
+          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-surface-raised px-3.5 py-2 text-[12px] font-medium text-text-secondary ring-1 ring-border-subtle"
           title={mode.detail}
         >
           <motion.span
-            className={`inline-block h-1.5 w-1.5 rounded-full ${dotStyle}`}
+            className={`inline-block h-2 w-2 rounded-full ${dotStyle}`}
             animate={
               runMode === 'live' || runMode === 'checking'
-                ? { opacity: [1, 0.4, 1] }
+                ? { opacity: [1, 0.35, 1] }
                 : {}
             }
             transition={{ duration: 1.5, repeat: Infinity }}
           />
-          {mode.label} · {mode.detail}
+          {mode.label}
         </span>
       </div>
 
-      {/* Trial metadata — shown when a case is selected */}
-      {selectedCase && (
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-slate-500">
-          <span>{selectedCase.subject}</span>
-          <span>nsdId {selectedCase.nsdId}</span>
-          <span>session {selectedCase.session}</span>
-          {selectedCase.metrics.rank != null && (
-            <span
-              className={
-                selectedCase.metrics.rank === 1
-                  ? 'text-emerald-400'
-                  : selectedCase.metrics.rank <= 5
-                    ? 'text-amber-400'
-                    : 'text-slate-400'
-              }
-            >
-              rank #{selectedCase.metrics.rank}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Backend chip — only if online */}
-      {backendHealth && (
-        <div className="mt-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/5 px-2.5 py-1 text-[10px] text-emerald-400/80 ring-1 ring-emerald-500/15">
-            <span className="h-1 w-1 rounded-full bg-emerald-400" />
-            Backend · {backendHealth.device}
+      {/* Trial metadata + backend strip */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-surface-raised px-4 py-2.5">
+        {selectedCase ? (
+          <>
+            <span className="font-mono text-[13px] font-medium text-text-primary">{selectedCase.subject}</span>
+            <span className="text-border-emphasis">&middot;</span>
+            <span className="font-mono text-[13px] text-text-secondary">nsdId {selectedCase.nsdId}</span>
+            <span className="text-border-emphasis">&middot;</span>
+            <span className="font-mono text-[13px] text-text-secondary">session {selectedCase.session}</span>
+            {selectedCase.metrics.rank != null && (
+              <>
+                <span className="text-border-emphasis">&middot;</span>
+                <span className={`font-mono text-[13px] font-semibold ${
+                  selectedCase.metrics.rank === 1 ? 'text-status-success' : selectedCase.metrics.rank <= 5 ? 'text-status-warning' : 'text-text-muted'
+                }`}>
+                  rank #{selectedCase.metrics.rank}
+                </span>
+              </>
+            )}
+          </>
+        ) : (
+          <span className="text-[12px] text-text-muted">Select a trial to begin</span>
+        )}
+        {/* Backend chip inline */}
+        {backendHealth && (
+          <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-accent/[0.06] px-2.5 py-1 text-[10px] text-accent">
+            <span className="h-1 w-1 rounded-full bg-accent" />
+            {backendHealth.device}
           </span>
-        </div>
-      )}
+        )}
+      </div>
     </motion.header>
   );
 }

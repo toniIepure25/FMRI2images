@@ -12,11 +12,8 @@ const steps = [
 
 export function PipelineProgressBar({ currentPhase }: PipelineProgressBarProps) {
   return (
-    <nav
-      aria-label="Pipeline progress"
-      className="py-2"
-    >
-      <ol className="mx-auto flex max-w-xl list-none items-center justify-center">
+    <nav aria-label="Pipeline progress" className="py-3">
+      <ol className="mx-auto flex max-w-2xl list-none items-center justify-center gap-0">
         {steps.map((step, i) => {
           const isComplete = currentPhase > step.phase;
           const isActive = currentPhase === step.phase;
@@ -27,15 +24,14 @@ export function PipelineProgressBar({ currentPhase }: PipelineProgressBarProps) 
               aria-current={isActive ? 'step' : undefined}
               className="flex min-w-0 flex-1 items-center"
             >
-              <div className="flex shrink-0 flex-col items-center gap-1">
-                {/* Step indicator */}
+              <div className="flex shrink-0 flex-col items-center gap-2">
                 <div
-                  className={`flex h-6 w-6 items-center justify-center rounded-lg font-mono text-[10px] font-semibold transition-all duration-300 ${
+                  className={`flex h-9 w-9 items-center justify-center rounded-full font-mono text-xs font-semibold transition-all duration-300 ${
                     isActive
-                      ? 'bg-white/[0.1] text-white ring-1 ring-white/[0.15]'
+                      ? 'bg-accent text-white shadow-[0_0_0_4px_rgba(77,124,255,0.15)]'
                       : isComplete
-                        ? 'bg-emerald-500/10 text-emerald-400'
-                        : 'bg-white/[0.03] text-slate-600'
+                        ? 'bg-accent/15 text-accent ring-1 ring-accent/25'
+                        : 'bg-surface-raised text-text-muted ring-1 ring-border-subtle'
                   }`}
                 >
                   {isComplete ? (
@@ -43,39 +39,36 @@ export function PipelineProgressBar({ currentPhase }: PipelineProgressBarProps) 
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
                       transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                      className="text-[11px] text-emerald-400"
                     >
-                      ✓
+                      &#10003;
                     </motion.span>
                   ) : (
                     <span>{String(step.phase).padStart(2, '0')}</span>
                   )}
                 </div>
-
-                {/* Label */}
                 <p
-                  className={`text-center text-[10px] font-medium leading-tight ${
+                  className={`text-center text-xs font-medium ${
                     isActive
-                      ? 'text-white'
+                      ? 'text-text-primary'
                       : isComplete
-                        ? 'text-emerald-400/70'
-                        : 'text-slate-600'
+                        ? 'text-text-secondary'
+                        : 'text-text-muted'
                   }`}
                 >
                   {step.label}
                 </p>
               </div>
 
-              {/* Connector line */}
               {i < steps.length - 1 && (
-                <div
-                  role="presentation"
-                  className={`mx-3 mt-[-14px] h-px flex-1 transition-colors duration-500 ${
-                    currentPhase > step.phase
-                      ? 'bg-emerald-500/40'
-                      : 'bg-white/[0.06]'
-                  }`}
-                />
+                <div className="mx-3 mb-8 h-px flex-1">
+                  <div
+                    className={`h-full rounded-full transition-colors duration-500 ${
+                      currentPhase > step.phase
+                        ? 'bg-accent/35'
+                        : 'bg-border-subtle'
+                    }`}
+                  />
+                </div>
               )}
             </li>
           );

@@ -2,33 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Keyframes ── */
 @keyframes shimmer-slide {
-  0% {
-    background-position: 100% 0;
-  }
-  100% {
-    background-position: -100% 0;
-  }
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
 }
 
 @keyframes pulse-soft {
-  0%, 100% { opacity: 0.45; }
-  50% { opacity: 0.75; }
+  0%, 100% { opacity: 0.40; }
+  50%      { opacity: 0.65; }
 }
 
+/* ── Base layer ── */
 @layer base {
   body {
-    @apply bg-brain-dark text-slate-100 antialiased;
+    @apply bg-surface-base text-text-primary antialiased;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
 
   ::selection {
-    @apply bg-brain-accent/35 text-white;
+    @apply bg-accent-soft text-text-primary;
   }
 
-  /**
-   * Keyboard focus — cyan ring aligned with brain-accent tokens.
-   */
   :where(
       a,
       button,
@@ -39,118 +34,178 @@
       [role='button'],
       [tabindex]:not([tabindex='-1'])
     ):focus-visible {
-    @apply rounded outline-none ring-2 ring-brain-accent ring-offset-2 ring-offset-brain-dark;
+    @apply rounded outline-none ring-2 ring-accent ring-offset-2 ring-offset-surface-base;
   }
 
   * {
-    scrollbar-color: rgb(51 65 85 / 0.65) rgb(10 14 26);
+    scrollbar-color: rgb(45 45 60 / 0.60) rgb(9 9 11);
     scrollbar-width: thin;
   }
 
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-brain-dark;
+    background: #09090b;
   }
 
   ::-webkit-scrollbar-thumb {
     @apply rounded-full border-[3px] border-transparent bg-clip-padding;
-    background-image: linear-gradient(180deg, rgb(71 85 105 / 0.95), rgb(51 65 85 / 0.85));
-    box-shadow: inset 0 0 0 1px rgb(148 163 184 / 0.12);
+    background-image: linear-gradient(180deg, rgb(55 55 72 / 0.85), rgb(40 40 55 / 0.75));
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background-image: linear-gradient(180deg, rgb(100 116 139 / 0.98), rgb(71 85 105 / 0.92));
-    box-shadow: inset 0 0 0 1px rgb(0 212 255 / 0.22);
+    background-image: linear-gradient(180deg, rgb(72 72 90 / 0.90), rgb(55 55 72 / 0.82));
   }
 
   ::-webkit-scrollbar-corner {
-    @apply bg-brain-dark;
+    background: #09090b;
   }
 }
 
+/* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-
   .shimmer-bg {
     animation: none !important;
     background-position: 50% 0 !important;
   }
 }
 
+/* ── Component layer ── */
 @layer components {
+  /* ─── Primary surface cards (replaces old glass-panel look) ─── */
   .glass-panel {
-    @apply rounded-2xl border border-brain-border/40 bg-brain-panel/75 shadow-[0_12px_40px_-24px_rgb(0_0_0_/_0.65)] backdrop-blur-md;
+    @apply rounded-xl border border-border-subtle bg-surface-elevated shadow-surface;
   }
 
   .glass-panel-hover {
-    @apply glass-panel transition-all duration-300 hover:border-brain-accent/35 hover:shadow-[0_18px_48px_-20px_rgb(0_212_255_/_0.08)] hover:-translate-y-0.5;
+    @apply glass-panel transition-all duration-200 hover:border-border-emphasis hover:shadow-surface-lg;
   }
 
+  /* ─── New surface primitives ─── */
+  .surface-card {
+    @apply rounded-xl border border-border-subtle bg-surface-elevated shadow-surface;
+  }
+
+  .surface-card-raised {
+    @apply rounded-xl border border-border-emphasis bg-surface-overlay shadow-surface-lg;
+  }
+
+  .surface-card-hover {
+    @apply surface-card transition-all duration-200 hover:border-accent/25 hover:bg-surface-overlay;
+  }
+
+  .surface-flat {
+    @apply rounded-xl bg-surface-raised;
+  }
+
+  /* ─── Ghost accent glow — now a subtle, edge-only hint (NOT cyberpunk) ─── */
   .glow-accent {
-    box-shadow: 0 0 15px rgba(0, 212, 255, 0.15), 0 0 30px rgba(0, 212, 255, 0.05);
+    box-shadow: 0 0 0 1px rgb(77 124 255 / 0.12);
   }
 
+  /* ─── Neon border → subdued accent ring ─── */
   .neon-border {
-    @apply border border-brain-accent/30;
-    box-shadow: inset 0 0 15px rgba(0, 212, 255, 0.05), 0 0 15px rgba(0, 212, 255, 0.1);
+    @apply border border-accent/20;
+    box-shadow: inset 0 0 0 1px rgb(77 124 255 / 0.06);
   }
 
-  /** Skeleton shimmer for SafeImg and metric placeholders */
+  /* ─── Shimmer skeleton (kept, with new dark-tone gradient) ─── */
   .shimmer-bg {
     background: linear-gradient(
       90deg,
-      rgb(30 41 59 / 0.35) 0%,
-      rgb(51 65 85 / 0.65) 45%,
-      rgb(30 41 59 / 0.35) 100%
+      rgb(20 20 30 / 0.40) 0%,
+      rgb(38 38 52 / 0.70) 45%,
+      rgb(20 20 30 / 0.40) 100%
     );
     background-size: 200% 100%;
     animation: shimmer-slide 1.25s ease-in-out infinite;
   }
 
-  /* ─── Pipeline premium surfaces ─── */
+  /* ─── Pipeline-specific surfaces (remapped to new system) ─── */
   .pip-surface {
-    @apply rounded-[1.375rem] border border-white/[0.05] bg-white/[0.02];
+    @apply rounded-xl border border-border-subtle bg-surface-elevated;
   }
 
   .pip-surface-raised {
-    @apply rounded-[1.375rem] border border-white/[0.06] bg-white/[0.03];
-    box-shadow: 0 2px 12px -4px rgb(0 0 0 / 0.25);
+    @apply rounded-xl border border-border-emphasis bg-surface-overlay shadow-surface;
   }
 
   .pip-stat {
-    @apply rounded-2xl bg-white/[0.025] px-4 py-3;
+    @apply rounded-lg bg-surface-raised px-4 py-3;
   }
 
   .pip-page-bg {
     background:
-      radial-gradient(ellipse 80% 50% at 50% -10%, rgb(15 23 42 / 0.45), transparent),
-      radial-gradient(ellipse 60% 40% at 80% 10%, rgb(30 27 75 / 0.12), transparent),
-      radial-gradient(ellipse 60% 40% at 20% 10%, rgb(8 47 73 / 0.12), transparent),
-      #060913;
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgb(30 35 55 / 0.30), transparent),
+      radial-gradient(ellipse 50% 30% at 80% 10%, rgb(25 25 45 / 0.15), transparent),
+      radial-gradient(ellipse 50% 30% at 20% 10%, rgb(20 25 40 / 0.12), transparent),
+      #09090b;
+  }
+
+  /* ─── Provenance / status badges ─── */
+  .provenance-chip {
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium;
+  }
+
+  .provenance-chip-live {
+    @apply bg-accent/10 text-accent ring-1 ring-accent/20;
+  }
+
+  .provenance-chip-replay {
+    @apply bg-surface-active text-text-secondary ring-1 ring-border-subtle;
+  }
+
+  .provenance-chip-derived {
+    @apply bg-status-info/10 text-status-info ring-1 ring-status-info/15;
+  }
+
+  .provenance-chip-unavailable {
+    @apply bg-surface-raised text-text-muted ring-1 ring-border-subtle;
+  }
+
+  /* ─── Data display ─── */
+  .data-value {
+    @apply font-mono text-sm font-medium tabular-nums text-text-primary;
+  }
+
+  .data-label {
+    @apply text-2xs font-medium uppercase tracking-wider text-text-muted;
+  }
+
+  .data-row {
+    @apply flex items-center justify-between gap-4 py-2;
+  }
+
+  .data-divider {
+    @apply border-t border-border-subtle;
   }
 }
 
+/* ── Utility layer ── */
 @layer utilities {
   .text-gradient {
-    @apply bg-gradient-to-r from-brain-accent via-brain-purple to-brain-pink bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-accent via-accent-hover to-accent bg-clip-text text-transparent;
   }
 
   .text-gradient-subtle {
-    @apply bg-gradient-to-r from-brain-accent to-brain-purple bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-accent to-accent-hover bg-clip-text text-transparent;
   }
 
   .pulse-dot {
     animation: pulse-soft 2.4s ease-in-out infinite;
+  }
+
+  /* ─── Divider line ─── */
+  .divider {
+    @apply border-t border-border-subtle;
   }
 }

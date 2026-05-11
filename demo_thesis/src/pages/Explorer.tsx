@@ -86,41 +86,41 @@ export function Explorer() {
   };
 
   return (
-    <div className="relative flex h-[calc(100vh-3.5rem)]">
+    <div className="relative flex h-[calc(100vh-3rem)]">
       {casesSidebarOpen ? (
         <button
           type="button"
           aria-label="Close cases list"
-          className="fixed inset-0 z-30 bg-slate-950/70 backdrop-blur-[2px] lg:hidden"
+          className="fixed inset-0 z-30 bg-black/60 backdrop-blur-[1px] lg:hidden"
           onClick={() => setCasesSidebarOpen(false)}
         />
       ) : null}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-shrink-0 flex-col overflow-y-auto border-r border-brain-border/30 bg-slate-950/98 p-4 shadow-xl backdrop-blur-md transition-transform duration-300 ease-out lg:static lg:z-auto lg:bg-transparent lg:shadow-none lg:backdrop-blur-none ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-shrink-0 flex-col overflow-y-auto border-r border-border-subtle bg-surface-base p-4 shadow-surface-lg transition-transform duration-300 ease-out lg:static lg:z-auto lg:bg-transparent lg:shadow-none ${
           casesSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         <div className="mb-4 flex items-center justify-between lg:hidden">
-          <h2 className="text-sm font-semibold text-slate-200">Cases</h2>
+          <h2 className="text-sm font-semibold text-text-primary">Cases</h2>
           <button
             type="button"
             onClick={() => setCasesSidebarOpen(false)}
-            className="rounded-lg border border-slate-600/80 bg-slate-900/80 px-2.5 py-1 text-xs font-medium text-slate-300 transition hover:border-slate-500 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brain-accent"
+            className="rounded-lg border border-border-subtle bg-surface-raised px-2.5 py-1 text-xs font-medium text-text-secondary transition hover:border-border-emphasis hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             Close
           </button>
         </div>
-        <h2 className="mb-4 hidden text-sm font-semibold text-slate-200 lg:block">Cases</h2>
+        <h2 className="mb-4 hidden text-sm font-semibold text-text-primary lg:block">Cases</h2>
         <CaseSelector cases={cases} selectedId={selectedCase?.id} onSelect={handleCaseSelect} />
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="flex items-stretch gap-2 border-b border-brain-border/30 p-3">
+        <div className="flex items-stretch gap-2 border-b border-border-subtle p-3">
           <button
             type="button"
             onClick={() => setCasesSidebarOpen(true)}
-            className="shrink-0 rounded-lg border border-brain-border/50 bg-slate-900/70 px-3 py-2 text-xs font-medium text-slate-200 transition hover:border-brain-accent/35 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brain-accent lg:hidden"
+            className="shrink-0 rounded-lg border border-border-subtle bg-surface-raised px-3 py-2 text-xs font-medium text-text-secondary transition hover:border-accent/25 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent lg:hidden"
           >
             Cases
           </button>
@@ -146,7 +146,7 @@ export function Explorer() {
       </div>
 
       {selectedCase && (
-        <div className="hidden w-64 flex-shrink-0 overflow-y-auto border-l border-brain-border/30 p-4 xl:block">
+        <div className="hidden w-64 flex-shrink-0 overflow-y-auto border-l border-border-subtle p-4 xl:block">
           <QuickStats case_={selectedCase} />
         </div>
       )}

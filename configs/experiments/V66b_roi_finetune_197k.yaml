@@ -1,0 +1,185 @@
+# V66b: ROI Transformer Finetune to 197K-D Tokens (Single-Subject)
+#
+# Track B Phase 2 of "Path to 90%+" plan.
+# Takes V66a's pretrained ROI Transformer encoder and finetunes for subj01
+# with a 197K-D token decoder, using SPCL + differential LR.
+#
+# Design:
+#   - Encoder: loaded from V66a, near-frozen (encoder_lr: 1e-6)
+#   - Decoder: new 197K-D token decoder (decoder_lr: 5e-5)
+#   - SPCL: kappa-guided curriculum (V9 signature innovation)
+#   - R-Drop + projection head + uniformity (full V9 recipe)
+#   - regression_mse weight 1.0: strong token alignment
+#
+# Target: 75-82% CSLS R@1 on shared1000 (197K-D).
+
+experiment:
+  name: "V66b_roi_finetune_197k"
+  description: "v66b: ROI Transformer finetune to 197K-D, SPCL + diff LR, from V66a"
+  tags: ["roi_transformer", "vmf", "spcl", "v66", "finetune", "single_subject",
+         "dual_head", "regression", "token_targets", "197k",
+         "differential_lr", "rdrop", "projection_head"]
+  parent: "V66a_roi_pretrain"
+
+data:
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+  token_cache_path: "outputs/clip_cache/tokens_ViT-L-14_projected.h5"
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  pretrained_encoder_path: "PLACEHOLDER_V66A_BEST_CHECKPOINT"
+  require_pretrained_encoder: true
+  encoder:
+    encoder_type: "multi_subject_roi_transformer"
+    input_dim: null
+    roi_dims:
+      V1v: 700
+      V1d: 700
+      V2v: 600
+      V2d: 600
+      V3v: 500
+      V3d: 500
+      V3A: 350
+      V3B: 350
+      V4: 500
+      FFA1: 200
+      FFA2: 200
+      PPA: 300
+      EBA: 400
+      OFA: 200
+      OPA: 250
+      RSC: 250
+      nsdgeneral_other: 9374
+    d_model: 768
+    nhead: 12
+    num_layers: 6
+    dim_feedforward: 3072
+    dropout: 0.15
+    activation: "gelu"
+    drop_path_rate: 0.15
+  decoder:
+    input_dim: 768
+    output_dim: null
+    hidden_dims: [2048]
+    activation: "gelu"
+    dropout: 0.25
+    kappa_mode: "softplus"
+    num_tokens: 257
+    token_dim: 768
+    regression_head: true
+
+  projection_head:
+    enabled: true
+    hidden_dim: 2048
+    out_dim: 768
+    dropout: 0.1
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce_spcl:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    initial_curriculum_t: 50.0
+    final_curriculum_t: 1.0
+    warmup_epochs: 15
+    anneal_strategy: "cosine"
+
+  regression_mse:
+    enabled: true
+    weight: 1.0
+
+  softclip:
+    enabled: true
+    weight: 0.3
+    tau: 0.05
+    vmf_mode: true
+    use_queue: true
+    symmetric: true
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  r_drop:
+    enabled: true
+    weight: 0.5
+    start_epoch: 15
+
+  uniformity:
+    enabled: true
+    weight: 0.1
+
+  vmf_nce:
+    enabled: false
+  vmf_nll:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 8192
+
+training:
+  batch_size: 32
+  gradient_accumulation_steps: 16
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 250
+  optimizer:
+    type: "adamw"
+    lr: 5.0e-5
+    encoder_lr: 1.0e-6
+    decoder_lr: 5.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 20
+  min_lr: 1.0e-7
+  gradient_clip: 1.0
+  early_stop_patience: 50
+  early_stop_min_delta: 0.001
+  train_r1_interval: 5
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 16
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

@@ -1,0 +1,165 @@
+# V66a: Multi-Subject ROI Transformer Pretrain (768-D CLS)
+#
+# Track B of "Path to 90%+" plan.
+# Multi-subject pretraining with ROI Transformer encoder — structurally
+# different from V60a's MLP encoder to provide fusion complementarity.
+#
+# Based on N2v9 architecture with V60+ data pipeline improvements:
+#   - 4 subjects (subj01, subj02, subj05, subj07)
+#   - 768-D CLS targets (no token cache needed, saves memory)
+#   - R-Drop + projection head + label smoothing (V9 recipe)
+#   - Drop path 0.15 (stochastic depth)
+#   - 17 ROI tokens for brain-topology awareness
+#
+# V57a achieved 44.8% CSLS R@1 in 768-D with ROI Transformer.
+# With V60+ improvements, target: 45-55% CSLS R@1 (768-D pretrain).
+
+experiment:
+  name: "V66a_roi_pretrain"
+  description: "v66a: Multi-subject ROI Transformer pretrain, 768-D CLS, R-Drop + proj head"
+  tags: ["roi_transformer", "vmf", "vmf_nce", "v66", "multi_subject",
+         "768d", "pretrain", "rdrop", "projection_head", "drop_path"]
+  parent: null
+
+data:
+  subjects: ["subj01", "subj02", "subj05", "subj07"]
+  subject: "subj01"
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "vmf"
+  posterior: "vmf"
+  encoder:
+    encoder_type: "multi_subject_roi_transformer"
+    input_dim: null
+    roi_dims:
+      V1v: 700
+      V1d: 700
+      V2v: 600
+      V2d: 600
+      V3v: 500
+      V3d: 500
+      V3A: 350
+      V3B: 350
+      V4: 500
+      FFA1: 200
+      FFA2: 200
+      PPA: 300
+      EBA: 400
+      OFA: 200
+      OPA: 250
+      RSC: 250
+      nsdgeneral_other: 9374
+    d_model: 768
+    nhead: 12
+    num_layers: 6
+    dim_feedforward: 3072
+    dropout: 0.2
+    activation: "gelu"
+    drop_path_rate: 0.15
+  decoder:
+    input_dim: 768
+    output_dim: 768
+    hidden_dims: [1024]
+    activation: "gelu"
+    dropout: 0.2
+    kappa_mode: "softplus"
+
+  projection_head:
+    enabled: true
+    hidden_dim: 2048
+    out_dim: 768
+    dropout: 0.1
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    dim: 768
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    label_smoothing: 0.05
+
+  softclip:
+    enabled: true
+    weight: 0.3
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  r_drop:
+    enabled: true
+    weight: 0.5
+    start_epoch: 15
+
+  vmf_nll:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 128
+  gradient_accumulation_steps: 8
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 1.0e-4
+    weight_decay: 0.05
+    betas: [0.9, 0.95]
+  warmup_epochs: 15
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  early_stop_min_delta: 0.002
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+evaluation:
+  use_csls: true
+  csls_k: 10
+  eval_shared1000: true
+  checkpoint_metric: "csls_r@1"
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+
+inference:
+  use_mean_for_retrieval: true

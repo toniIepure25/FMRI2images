@@ -2701,8 +2701,9 @@ def train_epoch(
                 pred_mix = model(fmri_mix, subject_ids=subject_ids)
                 if isinstance(pred_mix, tuple):
                     pred_mix = pred_mix[0]
+                pred_mix_c = _proj_head(pred_mix) if _proj_head is not None else pred_mix
                 mc_loss = mixco_nce_loss(
-                    pred_mix, gt_mix, soft_labels,
+                    pred_mix_c, gt_mix, soft_labels,
                     temperature=mixco_cfg.get("temperature", 0.006),
                 )
                 total_loss = total_loss + mixco_cfg.get("weight", 1.0) * mc_loss
@@ -2877,7 +2878,6 @@ def _evaluate_shared1000(
     rerank_cache=None,
     retrieval_projector=None,
     legacy_teacher_model: Optional[nn.Module] = None,
-    mc_tta_samples: int = 1,
 ) -> Optional[Tuple[Dict[str, float], np.ndarray, np.ndarray]]:
     """Evaluate on NSD shared1000 benchmark for community-standard comparison.
 
@@ -2986,74 +2986,29 @@ def _evaluate_shared1000(
     _vmf_preds_img: Optional[np.ndarray] = None
     _vmf_kappas_img: Optional[np.ndarray] = None
 
-    _do_mc_tta = mc_tta_samples > 1 and is_vmf_model
-    if _do_mc_tta:
-        logger.info("Shared1000: MC-TTA enabled with %d samples", mc_tta_samples)
-
     if is_vmf_model:
         # --- vMF path: run ALL individual trials, fuse with kappa weights ---
         tensor_ds = torch.utils.data.TensorDataset(torch.from_numpy(s1000_features))
         loader = DataLoader(tensor_ds, batch_size=batch_size, shuffle=False)
         all_preds: List[np.ndarray] = []
         all_kappas: List[np.ndarray] = []
-
-        if _do_mc_tta:
-            model.train()  # enable dropout for MC-TTA
-
         with torch.no_grad():
             for (batch_fmri,) in loader:
                 batch_fmri = batch_fmri.to(device, dtype=torch.float32)
-
-                if _do_mc_tta:
-                    # MC-TTA: N forward passes, average on sphere
-                    _mc_preds_sum = None
-                    _mc_kappas_sum = None
-                    for _mc_i in range(mc_tta_samples):
-                        if is_multi_subject:
-                            sid = torch.full((batch_fmri.shape[0],), subject_id,
-                                             dtype=torch.long, device=device)
-                            out = model(batch_fmri, subject_ids=sid)
-                        else:
-                            out = model(batch_fmri)
-                        pred, aux = (out if isinstance(out, tuple) else (out, None))
-                        _p = pred.cpu().numpy()
-                        if _mc_preds_sum is None:
-                            _mc_preds_sum = _p
-                        else:
-                            _mc_preds_sum += _p
-                        if aux is not None:
-                            _k = aux.squeeze(-1)
-                            if vmf_is_log:
-                                _k = _k.exp()
-                            _kn = _k.cpu().numpy()
-                            if _mc_kappas_sum is None:
-                                _mc_kappas_sum = _kn
-                            else:
-                                _mc_kappas_sum += _kn
-                    # Average and re-normalize
-                    _mc_mu = _mc_preds_sum / mc_tta_samples
-                    _mc_norms = np.linalg.norm(_mc_mu, axis=-1, keepdims=True)
-                    _mc_mu = _mc_mu / np.maximum(_mc_norms, 1e-8)
-                    all_preds.append(_mc_mu)
-                    if _mc_kappas_sum is not None:
-                        all_kappas.append(_mc_kappas_sum / mc_tta_samples)
+                if is_multi_subject:
+                    sid = torch.full((batch_fmri.shape[0],), subject_id,
+                                     dtype=torch.long, device=device)
+                    out = model(batch_fmri, subject_ids=sid)
                 else:
-                    if is_multi_subject:
-                        sid = torch.full((batch_fmri.shape[0],), subject_id,
-                                         dtype=torch.long, device=device)
-                        out = model(batch_fmri, subject_ids=sid)
-                    else:
-                        out = model(batch_fmri)
-                    pred, aux = (out if isinstance(out, tuple) else (out, None))
-                    all_preds.append(pred.cpu().numpy())
-                    if aux is not None:
-                        k = aux.squeeze(-1)
-                        if vmf_is_log:
-                            k = k.exp()
-                        all_kappas.append(k.cpu().numpy())
-
-                # Collect auxiliary outputs (compact/rich/rerank) — single pass
-                if _uses_compact_cls_space and not _do_mc_tta:
+                    out = model(batch_fmri)
+                pred, aux = (out if isinstance(out, tuple) else (out, None))
+                all_preds.append(pred.cpu().numpy())
+                if aux is not None:
+                    k = aux.squeeze(-1)
+                    if vmf_is_log:
+                        k = k.exp()
+                    all_kappas.append(k.cpu().numpy())
+                if _uses_compact_cls_space:
                     _vmf_pred_head, _vmf_aux_head = _extract_vmf_outputs_for_losses(model_type, pred, aux)
                     if _vmf_pred_head is not None and _vmf_aux_head is not None:
                         _all_vmf_preds_s1000.append(_vmf_pred_head.detach().cpu().numpy())
@@ -3061,7 +3016,7 @@ def _evaluate_shared1000(
                         if vmf_is_log:
                             _vk = _vk.exp()
                         _all_vmf_kappas_s1000.append(_vk.squeeze(-1).detach().cpu().numpy())
-                if _uses_compact_cls_space and not _do_mc_tta:
+                if _uses_compact_cls_space:
                     _rp = getattr(model, "_last_rich_pred", None)
                     if _rp is not None:
                         _all_rich_preds_s1000.append(_rp.detach().cpu().numpy())
@@ -3084,9 +3039,6 @@ def _evaluate_shared1000(
                         )
                         _legacy_pred = _legacy_out[0] if isinstance(_legacy_out, tuple) else _legacy_out
                         _all_legacy_preds_s1000.append(_legacy_pred.detach().cpu().numpy())
-
-        if _do_mc_tta:
-            model.eval()  # restore eval mode after MC-TTA
 
         trial_preds = np.concatenate(all_preds)
         trial_kappas = np.concatenate(all_kappas) if all_kappas else None
@@ -4373,7 +4325,6 @@ def _run_post_training_shared1000_eval(
     logger.info("=" * 60)
     logger.info("Running shared1000 benchmark evaluation...")
     _s1000_zscore_mode = config["data"].get("zscore_mode", "global")
-    _s1000_mc_tta = config.get("evaluation", {}).get("mc_tta_samples", 1)
     _s1000_result = _evaluate_shared1000(
         model=model,
         subject=subject,
@@ -4389,7 +4340,6 @@ def _run_post_training_shared1000_eval(
         rerank_cache=rerank_cache,
         retrieval_projector=retrieval_projector,
         legacy_teacher_model=legacy_teacher_model,
-        mc_tta_samples=_s1000_mc_tta,
     )
     if _s1000_result is None:
         logger.info("Shared1000 evaluation skipped (data unavailable)")
@@ -4601,7 +4551,6 @@ def save_checkpoint(
     if ema is not None and not lightweight:
         payload["ema_shadow"] = {k: v.cpu() for k, v in ema.shadow.items()}
     path.parent.mkdir(parents=True, exist_ok=True)
-    import gc
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
@@ -4876,23 +4825,14 @@ def main() -> None:
     if _token_cache_path:
         from fmri2img.data.token_clip_cache import TokenCLIPCache
         _token_cache = TokenCLIPCache(_token_cache_path)
-        _is_multi = len(_multi_subjects) > 1
-        if _is_multi:
-            _subj_nsd_ids: set[int] = set()
-            for _s in (_multi_subjects if _multi_subjects else [subject]):
-                _idx_path = resolve_index_path(_s)
-                if _idx_path.exists():
-                    _idx_df = pd.read_parquet(_idx_path, columns=["nsdId"])
-                    _subj_nsd_ids.update(int(x) for x in _idx_df["nsdId"].unique())
-            logger.info("Token preload: %d unique nsdIds from %d subjects",
-                        len(_subj_nsd_ids), len(_multi_subjects))
-            _token_cache.load(preload_ids=sorted(_subj_nsd_ids))
-        else:
-            _token_cache.load(mmap=False)
+        # Use mmap (lazy HDF5) for multi-subject to avoid 29+ GB RAM usage.
+        # Single-subject (~7 GB) loads into RAM for speed.
+        _use_mmap = len(_multi_subjects) > 1
+        _token_cache.load(mmap=_use_mmap)
         logger.info(
-            "TOKEN MODE: Loaded %d images from %s (%d tokens × %d dim)",
+            "TOKEN MODE: Loaded %d images from %s (%d tokens × %d dim, mmap=%s)",
             len(_token_cache), _token_cache_path,
-            _token_cache.num_tokens, _token_cache.token_dim,
+            _token_cache.num_tokens, _token_cache.token_dim, _use_mmap,
         )
 
     # --- Rerank cache (V30d+): compressed token targets ---
@@ -5138,7 +5078,7 @@ def main() -> None:
         _pm_ckpt = torch.load(_pm_path, map_location="cpu", weights_only=False)
         _pm_sd = _pm_ckpt.get("model_state_dict", _pm_ckpt.get("state_dict", {}))
         del _pm_ckpt
-        import gc; gc.collect()
+        gc.collect()
         if not _pm_sd:
             if _require_pm:
                 raise KeyError(
@@ -5233,7 +5173,7 @@ def main() -> None:
         _pe_sd = _pe_ckpt.get("model_state_dict", _pe_ckpt.get("state_dict", {}))
         _pe_keys = {k: v for k, v in _pe_sd.items() if k.startswith("encoder.")}
         del _pe_ckpt, _pe_sd
-        import gc; gc.collect()
+        gc.collect()
         _model_sd = model.state_dict()
         _model_encoder_keys = {k for k in _model_sd if k.startswith("encoder.")}
         _matched_encoder_keys = sorted(_model_encoder_keys.intersection(_pe_keys))
@@ -5462,63 +5402,23 @@ def main() -> None:
 
     kl_scheduler = setup_kl_scheduler(config)
 
-    # --- Freeze encoder (V64b) ---
-    _freeze_encoder = bool(model_config.get("freeze_encoder", False))
-    if _freeze_encoder:
-        for name, param in model.named_parameters():
-            if name.startswith("encoder."):
-                param.requires_grad = False
-        n_frozen = sum(1 for n, p in model.named_parameters()
-                       if n.startswith("encoder.") and not p.requires_grad)
-        n_trainable = sum(1 for p in model.parameters() if p.requires_grad)
-        logger.info(
-            "freeze_encoder=true: %d encoder params frozen, %d trainable remaining",
-            n_frozen, n_trainable,
-        )
-
     # --- Optimizer ---
     opt_cfg = config["training"]["optimizer"]
+    # When cross-subject freeze is active, only include trainable params initially
+    _opt_params = [p for p in model.parameters() if p.requires_grad]
     _opt_type = str(opt_cfg.get("type", "adamw")).lower()
     _opt_lr = float(opt_cfg.get("lr", 1e-4))
     _opt_weight_decay = float(opt_cfg.get("weight_decay", 0.01))
-    _opt_betas = opt_cfg.get("betas", [0.9, 0.999])
-
-    # Differential LR: separate encoder vs decoder param groups
-    _encoder_lr = float(opt_cfg.get("encoder_lr", 0))
-    _decoder_lr = float(opt_cfg.get("decoder_lr", 0))
-    _use_diff_lr = _encoder_lr > 0 and _decoder_lr > 0 and not _freeze_encoder
-
-    if _use_diff_lr:
-        _enc_params = [
-            p for n, p in model.named_parameters()
-            if p.requires_grad and n.startswith("encoder")
-        ]
-        _dec_params = [
-            p for n, p in model.named_parameters()
-            if p.requires_grad and not n.startswith("encoder")
-        ]
-        _opt_param_groups = [
-            {"params": _enc_params, "lr": _encoder_lr},
-            {"params": _dec_params, "lr": _decoder_lr},
-        ]
-        _opt_lr = _decoder_lr  # reference LR for logging / loss params
-        logger.info(
-            "Differential LR: encoder_lr=%.2e (%d params), decoder_lr=%.2e (%d params)",
-            _encoder_lr, len(_enc_params), _decoder_lr, len(_dec_params),
-        )
-    else:
-        _opt_param_groups = [p for p in model.parameters() if p.requires_grad]
-
     if _opt_type == "adamw":
         optimizer = torch.optim.AdamW(
-            _opt_param_groups,
+            _opt_params,
             lr=_opt_lr,
             weight_decay=_opt_weight_decay,
-            betas=_opt_betas,
+            betas=opt_cfg.get("betas", [0.9, 0.999]),
         )
     elif _opt_type == "sgd":
         optimizer = torch.optim.SGD(
-            _opt_param_groups,
+            _opt_params,
             lr=_opt_lr,
             momentum=float(opt_cfg.get("momentum", 0.0)),
             dampening=float(opt_cfg.get("dampening", 0.0)),
@@ -6176,7 +6076,7 @@ def main() -> None:
     total_steps = num_epochs * len(train_loader) // grad_accum_steps
     warmup_steps = config["training"].get("warmup_epochs", 5) * len(train_loader) // grad_accum_steps
     min_lr = float(config["training"].get("min_lr", 1e-6))
-    base_lr = max(_decoder_lr, _encoder_lr, float(opt_cfg.get("lr", 1e-4))) if _use_diff_lr else float(opt_cfg.get("lr", 1e-4))
+    base_lr = float(opt_cfg.get("lr", 1e-4))
 
     def lr_lambda(step: int) -> float:
         if step < warmup_steps and warmup_steps > 0:
@@ -6624,14 +6524,7 @@ def main() -> None:
             _cs_backbone_frozen = False  # prevent re-triggering
 
         _stage_prefix = "[STAGE 2] " if _stage2_activated else ""
-        if _use_diff_lr and len(optimizer.param_groups) >= 2:
-            logger.info(
-                "\n%sEpoch %d/%d | enc_lr=%.2e | dec_lr=%.2e",
-                _stage_prefix, epoch, num_epochs,
-                optimizer.param_groups[0]["lr"], optimizer.param_groups[1]["lr"],
-            )
-        else:
-            logger.info("\n%sEpoch %d/%d | lr=%.2e", _stage_prefix, epoch, num_epochs, optimizer.param_groups[0]["lr"])
+        logger.info("\n%sEpoch %d/%d | lr=%.2e", _stage_prefix, epoch, num_epochs, optimizer.param_groups[0]["lr"])
 
         # Phase-switch: MixCo warmup -> SoftCLIP distillation
         if _softclip_from_start and _softclip_loss_obj is not None:

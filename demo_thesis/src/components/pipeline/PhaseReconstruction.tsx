@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import type { DemoCase } from '@/types';
@@ -13,6 +13,12 @@ import {
 import { ProvenanceBadge } from './ProvenanceBadge';
 import { MetricCell } from './MetricCell';
 import { ComparisonTriptych } from './ComparisonTriptych';
+import {
+  isBackendAvailable,
+  resolveNsdIdToTrial,
+  fetchInferenceWithRecon,
+  type ReconstructionResult,
+} from '@/lib/api';
 
 export interface PhaseReconstructionProps {
   case_: DemoCase;
@@ -49,12 +55,44 @@ export function PhaseReconstruction({
   const duaProv = duaCfgProvenance(case_);
   const reconProv = reconstructionProvenance(case_);
 
+  // ── Live reconstruction from backend ──
+  const [liveRecon, setLiveRecon] = useState<ReconstructionResult | null>(null);
+  const [reconLoading, setReconLoading] = useState(false);
+
+  useEffect(() => {
+    if (!liveMode || !isBackendAvailable()) return;
+    let cancelled = false;
+
+    async function tryLiveRecon() {
+      setReconLoading(true);
+      try {
+        const trialIdx = await resolveNsdIdToTrial(case_.nsdId);
+        if (cancelled || trialIdx == null) return;
+        const result = await fetchInferenceWithRecon(trialIdx);
+        if (cancelled || !result?.reconstruction) return;
+        setLiveRecon(result.reconstruction);
+      } finally {
+        if (!cancelled) setReconLoading(false);
+      }
+    }
+    tryLiveRecon();
+    return () => { cancelled = true; };
+  }, [case_.nsdId, liveMode]);
+
+  // Determine effective reconstruction source
+  const hasLiveRecon = liveRecon?.ok && liveRecon.mode === 'LIVE_LOCAL_RECONSTRUCTION';
+  const hasCachedRecon = !!case_.diffusionFinal || !!case_.reconstructionImage;
+  const reconImageSrc = hasLiveRecon ? liveRecon.image_url : (case_.diffusionFinal ?? case_.reconstructionImage);
+  const effectiveReconProv: Provenance = hasLiveRecon
+    ? LIVE_PROV
+    : hasCachedRecon
+      ? reconProv
+      : { kind: 'unknown', detail: 'No reconstruction asset available' };
+
   const top1 = useMemo(
     () => case_.retrievedImages.find((r) => r.rank === 1) ?? case_.retrievedImages[0],
     [case_.retrievedImages],
   );
-  const reconFinal = case_.diffusionFinal ?? case_.reconstructionImage;
-  const hasReconstruction = !!reconFinal;
 
   const verdict = useMemo(() => {
     if (m.rank === 1) return { text: 'Exact match', cls: 'text-accent', bg: 'bg-accent/8' };
@@ -85,10 +123,20 @@ export function PhaseReconstruction({
               <h2 className="text-[22px] font-semibold tracking-tight text-text-primary">
                 Reconstruct &amp; compare
               </h2>
-              <ProvenanceBadge provenance={liveMode ? { kind: 'derived', detail: 'Live retrieval + cached reconstruction' } : REPLAY_PROV} />
+              {hasLiveRecon ? (
+                <span className="inline-flex items-center gap-1 rounded bg-accent/10 px-2 py-0.5 text-[9px] font-semibold text-accent">
+                  Karlo UnCLIP &middot; live
+                </span>
+              ) : (
+                <ProvenanceBadge provenance={liveMode ? { kind: 'derived', detail: 'Live retrieval + cached reconstruction' } : REPLAY_PROV} />
+              )}
             </div>
             <p className="text-[13px] text-text-muted">
-              {hasReconstruction ? 'Cached qualitative reconstruction' : 'No reconstruction asset'} &middot; retrieval comparison
+              {hasLiveRecon
+                ? `Live local reconstruction · generated from V62a CLIP embedding · ${liveRecon?.generation_ms?.toFixed(0) ?? '?'}ms`
+                : hasCachedRecon
+                  ? 'Cached qualitative reconstruction'
+                  : 'No reconstruction asset'} &middot; retrieval comparison
             </p>
           </div>
         </div>
@@ -96,55 +144,55 @@ export function PhaseReconstruction({
 
       {/* ── RESULT SUMMARY HERO ── */}
       <motion.div
-        className="rounded-xl border border-border-subtle bg-surface-elevated p-6"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
+        className="rounded-xl border border-border-subtle bg-surface-elevated p-6 sm:p-7"
+        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          {/* Verdict */}
-          <div className="space-y-1">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-text-muted">Result</p>
-            <div className="flex items-baseline gap-3">
-              <span className={`font-mono text-5xl font-bold tabular-nums leading-none ${
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-text-muted">Retrieval result</p>
+            <div className="flex items-baseline gap-4">
+              <span className={`font-mono text-[64px] font-bold tabular-nums leading-none ${
                 m.rank === 1 ? 'text-accent' : m.rank <= 5 ? 'text-status-warning' : 'text-text-primary'
               }`}>
                 #{m.rank}
               </span>
-              <span className={`rounded-full px-3 py-1 text-[13px] font-semibold ${verdict.bg} ${verdict.cls}`}>
+              <span className={`inline-flex rounded-full px-4 py-1.5 text-base font-semibold ${verdict.bg} ${verdict.cls}`}>
                 {verdict.text}
               </span>
             </div>
-            <p className="text-[12px] text-text-muted">10,000-gallery CSLS ranking &middot; {case_.subject}</p>
+            <p className="text-[13px] text-text-muted">10,000-gallery CSLS ranking &middot; {case_.subject}</p>
           </div>
-
-          {/* Key metrics inline */}
-          <div className="flex flex-wrap gap-4 sm:gap-6">
-            <div className="text-center">
-              <p className="text-[10px] font-medium text-text-muted">κ</p>
-              <p className="font-mono text-2xl font-semibold text-accent">{u.kappa.toFixed(1)}</p>
-              <p className="text-[9px] text-text-muted">{kappaLabel(kappa01)}</p>
+          <div className="flex flex-wrap gap-5 sm:gap-8">
+            <div className="text-center min-w-[70px]">
+              <p className="text-[11px] font-semibold text-text-muted">κ</p>
+              <p className="font-mono text-3xl font-bold text-accent">{u.kappa.toFixed(1)}</p>
+              <p className="text-[10px] text-text-muted">{kappaLabel(kappa01)}</p>
             </div>
-            <div className="text-center">
-              <p className="text-[10px] font-medium text-text-muted">δ</p>
-              <p className="font-mono text-2xl font-semibold text-text-primary">
-                {liveMode ? 'N/A' : u.delta.toFixed(3)}
-              </p>
-              <p className="text-[9px] text-text-muted">{liveMode ? 'no per-ROI' : deltaLabel(u.delta)}</p>
+            <div className="text-center min-w-[70px]">
+              <p className="text-[11px] font-semibold text-text-muted">δ</p>
+              <p className="font-mono text-3xl font-bold text-text-primary">{liveMode ? 'N/A' : u.delta.toFixed(3)}</p>
+              <p className="text-[10px] text-text-muted">{liveMode ? 'no per-ROI' : deltaLabel(u.delta)}</p>
             </div>
-            <div className="text-center">
-              <p className="text-[10px] font-medium text-text-muted">CSLS</p>
-              <p className="font-mono text-2xl font-semibold text-text-primary">
+            <div className="text-center min-w-[70px]">
+              <p className="text-[11px] font-semibold text-text-muted">CSLS</p>
+              <p className="font-mono text-3xl font-bold text-text-primary">
                 {top1?.csls != null ? top1.csls.toFixed(3) : '—'}
               </p>
-              <p className="text-[9px] text-text-muted">top-1 score</p>
+              <p className="text-[10px] text-text-muted">top-1 score</p>
             </div>
           </div>
         </div>
-
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-[10px]">
-          <ProvenanceBadge provenance={uncProv} />
+        <div className="mt-5 flex flex-wrap items-center gap-3 pt-4 border-t border-border-subtle">
+          {hasLiveRecon ? (
+            <ProvenanceBadge provenance={LIVE_PROV} />
+          ) : (
+            <ProvenanceBadge provenance={uncProv} />
+          )}
           <ProvenanceBadge provenance={duaProv} />
-          <ProvenanceBadge provenance={reconProv} />
+          <ProvenanceBadge provenance={effectiveReconProv} />
+          {reconLoading && (
+            <span className="text-[10px] text-text-muted">&middot; loading live reconstruction...</span>
+          )}
         </div>
       </motion.div>
 
@@ -172,12 +220,22 @@ export function PhaseReconstruction({
               accent: 'violet',
             },
             {
-              title: hasReconstruction ? 'Reconstruction' : 'Reconstruction',
-              subtitle: hasReconstruction ? 'Stable Diffusion 2.1 output' : 'Asset not available',
-              imageSrc: reconFinal,
-              provenance: reconProv,
+              title: hasLiveRecon
+                ? 'Live reconstruction'
+                : hasCachedRecon
+                  ? 'Cached reconstruction'
+                  : 'Reconstruction',
+              subtitle: hasLiveRecon
+                ? `Karlo UnCLIP · ${liveRecon?.steps ?? '?'} steps, seed ${liveRecon?.seed ?? '?'}`
+                : hasCachedRecon
+                  ? 'Stable Diffusion 2.1 output (cached)'
+                  : 'Asset not available',
+              imageSrc: reconImageSrc,
+              provenance: effectiveReconProv,
               accent: 'cyan',
-              emptyText: 'No reconstruction asset was cached for this trial.\nThis replay contains retrieval evidence only.',
+              emptyText: hasLiveRecon
+                ? undefined
+                : 'No reconstruction asset was cached for this trial.\nThis replay contains retrieval evidence only.',
             },
           ]}
         />
@@ -203,7 +261,7 @@ export function PhaseReconstruction({
             description={isMetricAvailable(m.cosine) ? 'Top-1 cosine similarity' : 'Top-1 CSLS score'}
             provenance={getMetricProv('cosine')} />
         </div>
-        {!hasReconstruction && (
+        {!hasLiveRecon && !hasCachedRecon && (
           <p className="mt-3 text-center text-[11px] text-text-muted">
             PixCorr and SSIM require a reconstruction asset.
           </p>
@@ -225,18 +283,6 @@ export function PhaseReconstruction({
           Take the challenge &rarr;
         </button>
       </div>
-    </div>
-  );
-}
-
-function PolicyCell({
-  label, value, detail, valueColor = 'text-text-primary',
-}: { label: string; value: string; detail: string; valueColor?: string }) {
-  return (
-    <div className="rounded-lg bg-surface-raised p-3.5">
-      <p className="text-[9px] font-medium text-text-muted">{label}</p>
-      <p className={`mt-1 font-mono text-lg font-bold tabular-nums ${valueColor}`}>{value}</p>
-      <p className="mt-0.5 text-[8px] text-text-muted">{detail}</p>
     </div>
   );
 }

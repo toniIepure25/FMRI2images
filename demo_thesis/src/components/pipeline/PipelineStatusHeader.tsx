@@ -45,10 +45,10 @@ export function PipelineStatusHeader({
       {/* Title row */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-[30px] font-semibold tracking-tight text-text-primary sm:text-[34px]">
+          <h1 className="text-[32px] font-semibold tracking-tight text-text-primary sm:text-[36px]">
             Cortex2Canvas Pipeline
           </h1>
-          <p className="mt-1.5 text-sm text-text-muted">
+          <p className="mt-1.5 text-sm text-text-secondary">
             Neural decoding workbench &middot; fMRI &rarr; CLIP &rarr; reconstruction
           </p>
         </div>

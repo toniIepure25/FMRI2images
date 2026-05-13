@@ -43,21 +43,21 @@ export function EvidenceIntegrityPanel({ selectedCase, liveMode, backendHealth }
       {/* Always-visible labeled strip */}
       <button
         type="button"
-        className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left"
+        className="flex w-full items-center justify-between gap-3 px-5 py-3 text-left"
         onClick={() => setOpen((v) => !v)}
       >
-        <div className="flex items-center gap-4 overflow-hidden">
+        <div className="flex items-center gap-5 overflow-hidden">
           {selectedCase ? (
-            <div className="flex items-center gap-3 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="flex items-center gap-5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none]">
               {rows.map((r) => (
-                <span key={r.element} className="inline-flex items-center gap-2 whitespace-nowrap">
-                  <span className="text-[11px] font-medium text-text-muted">{r.element}</span>
+                <span key={r.element} className="inline-flex items-center gap-2.5 whitespace-nowrap">
+                  <span className="text-xs font-semibold text-text-secondary">{r.element}</span>
                   <ProvenanceBadge provenance={r.provenance} />
                 </span>
               ))}
             </div>
           ) : (
-            <span className="text-[11px] text-text-muted">Select a trial to view evidence provenance</span>
+            <span className="text-[12px] text-text-muted">Select a trial to view evidence provenance</span>
           )}
         </div>
         <motion.span

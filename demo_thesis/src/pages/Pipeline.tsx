@@ -64,7 +64,7 @@ export function Pipeline() {
   const liveMode = isBackendAvailable();
 
   return (
-    <div className="pip-page-bg min-h-screen px-4 pt-20 pb-16 sm:px-6 lg:px-12">
+    <div className="pip-page-bg min-h-screen px-4 pt-24 pb-16 sm:px-6 lg:px-12">
       <div className="mx-auto max-w-[1440px] space-y-5">
         <PipelineStatusHeader
           runMode={runMode}

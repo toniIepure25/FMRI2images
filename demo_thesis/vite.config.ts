@@ -9,12 +9,14 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 3000,
-    /** Listen on LAN so http://localhost:3000 works from the host browser (not only inside sandboxes). */
     host: true,
     strictPort: true,
     proxy: {
       '/api': 'http://localhost:8000'
-    }
+    },
+    watch: {
+      ignored: ['**/results/**', '**/local_backend_data/**', '**/node_modules/**', '**/dist/**', '**/.git/**'],
+    },
   },
   resolve: {
     alias: {

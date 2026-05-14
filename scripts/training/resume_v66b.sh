@@ -35,4 +35,4 @@ grep "pretrained_encoder_path:" "$CFG" | head -1
 
 LOG="logs/v65_v66/v66b_train_resume.log"
 mkdir -p "$(dirname "$LOG")"
-exec python3 scripts/training/train_unified.py --config "$CFG" 2>&1 | tee "$LOG"
+python3 scripts/training/train_unified.py --config "$CFG" 2>&1 | tee "$LOG"

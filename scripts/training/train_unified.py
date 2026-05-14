@@ -2701,9 +2701,10 @@ def train_epoch(
                 pred_mix = model(fmri_mix, subject_ids=subject_ids)
                 if isinstance(pred_mix, tuple):
                     pred_mix = pred_mix[0]
-                pred_mix_c = _proj_head(pred_mix) if _proj_head is not None else pred_mix
+                # MixCo must stay in the same space as gt_mix (e.g. 197K token targets).
+                # The contrastive projection head (197K->768) breaks MixCo if applied here.
                 mc_loss = mixco_nce_loss(
-                    pred_mix_c, gt_mix, soft_labels,
+                    pred_mix, gt_mix, soft_labels,
                     temperature=mixco_cfg.get("temperature", 0.006),
                 )
                 total_loss = total_loss + mixco_cfg.get("weight", 1.0) * mc_loss

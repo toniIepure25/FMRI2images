@@ -5997,9 +5997,20 @@ def main() -> None:
             has_hier = len(first) == 4
             if has_hier:
                 fmri_list, emb_list, subj_ids, hier_list = zip(*batch)
-            else:
+            elif len(first) == 3:
                 fmri_list, emb_list, subj_ids = zip(*batch)
                 hier_list = None
+            elif len(first) == 2:
+                # Single-subject PreextractedNSDDataset with multi_subject_roi_transformer
+                # (e.g. V66b): no subject_id column — use canonical index 0.
+                fmri_list, emb_list = zip(*batch)
+                subj_ids = (0,) * len(batch)
+                hier_list = None
+            else:
+                raise ValueError(
+                    f"multi_subject_collate: unexpected sample arity {len(first)} "
+                    f"(expected 2, 3, or 4-tuple, or dict)"
+                )
             max_v = max(f.shape[0] for f in fmri_list)
             padded = [F.pad(f, (0, max_v - f.shape[0])) for f in fmri_list]
             result = (

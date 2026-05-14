@@ -5176,15 +5176,65 @@ def main() -> None:
         gc.collect()
         _model_sd = model.state_dict()
         _model_encoder_keys = {k for k in _model_sd if k.startswith("encoder.")}
-        _matched_encoder_keys = sorted(_model_encoder_keys.intersection(_pe_keys))
         _missing_encoder_keys = sorted(_model_encoder_keys.difference(_pe_keys))
         _extra_source_encoder_keys = sorted(set(_pe_keys).difference(_model_encoder_keys))
-        _pe_missing, _pe_unexpected = model.load_state_dict(_pe_keys, strict=False)
+
+        # Shape-safe encoder transfer (V66b): multi-subject checkpoints can have
+        # e.g. encoder.subject_embedding.weight [N, D] while a single-subject
+        # finetune model expects [1, D]. PyTorch load_state_dict errors on shape
+        # mismatch even with strict=False, so we filter / slice explicitly.
+        _pe_loadable: Dict[str, torch.Tensor] = {}
+        _subj_row = int(model_config.get("pretrained_encoder_subject_row", 0))
+        for _k, _src in _pe_keys.items():
+            if _k not in _model_sd:
+                continue
+            _tgt = _model_sd[_k]
+            if _src.shape == _tgt.shape:
+                _pe_loadable[_k] = _src
+            elif _k == "encoder.subject_embedding.weight" and _src.dim() == 2 and _tgt.dim() == 2:
+                if _src.shape[1] == _tgt.shape[1] and _src.shape[0] >= _tgt.shape[0] >= 1:
+                    _sl = _subj_row
+                    if _sl + _tgt.shape[0] > _src.shape[0]:
+                        logger.warning(
+                            "pretrained_encoder_subject_row=%d incompatible with "
+                            "source rows=%d; using row 0",
+                            _subj_row,
+                            _src.shape[0],
+                        )
+                        _sl = 0
+                    _pe_loadable[_k] = _src[_sl : _sl + _tgt.shape[0]].clone().detach()
+                    logger.info(
+                        "Sliced %s from %s -> %s (pretrained_encoder_subject_row=%d)",
+                        _k,
+                        tuple(_src.shape),
+                        tuple(_tgt.shape),
+                        _sl,
+                    )
+                else:
+                    logger.warning(
+                        "Skipping pretrained encoder key %s: cannot slice "
+                        "subject_embedding (src %s, tgt %s)",
+                        _k,
+                        tuple(_src.shape),
+                        tuple(_tgt.shape),
+                    )
+            else:
+                logger.warning(
+                    "Skipping pretrained encoder key %s: shape mismatch src %s vs tgt %s",
+                    _k,
+                    tuple(_src.shape),
+                    tuple(_tgt.shape),
+                )
+
+        _matched_encoder_keys = sorted(_model_encoder_keys.intersection(_pe_loadable))
+        _pe_missing, _pe_unexpected = model.load_state_dict(_pe_loadable, strict=False)
         logger.info(
-            "Pretrained encoder transfer from %s: source_encoder_keys=%d, "
-            "model_encoder_keys=%d, matched=%d, missing_in_source=%d, extra_in_source=%d",
+            "Pretrained encoder transfer from %s: raw_source_encoder_keys=%d, "
+            "loadable_encoder_keys=%d, model_encoder_keys=%d, applied=%d, "
+            "missing_in_source=%d, extra_in_source=%d",
             _pe_path,
             len(_pe_keys),
+            len(_pe_loadable),
             len(_model_encoder_keys),
             len(_matched_encoder_keys),
             len(_missing_encoder_keys),

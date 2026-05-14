@@ -41,6 +41,9 @@ model:
   posterior: "vmf"
   pretrained_encoder_path: "PLACEHOLDER_V66A_BEST_CHECKPOINT"
   require_pretrained_encoder: true
+  # Row in V66a encoder.subject_embedding for data.subject (V66a uses sorted
+  # subjects: subj01=0, subj02=1, subj05=2, subj07=3).
+  pretrained_encoder_subject_row: 0
   encoder:
     encoder_type: "multi_subject_roi_transformer"
     input_dim: null

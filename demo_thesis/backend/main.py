@@ -425,6 +425,263 @@ def _get_encoder_type(config: Dict[str, Any]) -> str:
 
 # =========== Inference pipeline ===========
 
+def _add_diagnostics(results: Dict[str, Any]):
+    """Add retrieval diagnostic metrics to results."""
+    top_k = results.get("top_k", [])
+    if not top_k or len(top_k) < 2:
+        results["diagnostics"] = {"available": False, "reason": "Insufficient top-K results"}
+        results["reliability_features"] = {"rank": top_k[0]["rank"] if top_k else None}
+        return
+    K = len(top_k)
+    s1 = top_k[0].get("csls", 0)
+    s2 = top_k[1].get("csls", 0)
+    csls_margin = s1 - s2
+    # Softmax entropy with temp=1.0
+    scores = np.array([float(r.get("csls", 0)) for r in top_k])
+    scores_shift = scores - np.max(scores)
+    exp_scores = np.exp(scores_shift)
+    probs = exp_scores / exp_scores.sum()
+    entropy = -float(np.sum(probs * np.log(probs + 1e-12)))
+    entropy_norm = entropy / np.log(K) if K > 1 else 0.0
+    concentration = float(s1 / scores.sum()) if scores.sum() > 0 else 0
+    results["diagnostics"] = {
+        "available": True,
+        "csls_margin": round(csls_margin, 6),
+        "topk_entropy": round(entropy, 4),
+        "topk_entropy_norm": round(entropy_norm, 4),
+        "topk_score_concentration": round(concentration, 4),
+        "retrieved_rank": top_k[0]["rank"],
+        "gallery_size": results.get("gallery_size", 0),
+    }
+    results["reliability_features"] = {
+        "kappa": results.get("kappa"),
+        "csls_margin": round(csls_margin, 6),
+        "topk_entropy": round(entropy, 4),
+        "topk_entropy_norm": round(entropy_norm, 4),
+        "topk_score_concentration": round(concentration, 4),
+        "rank": top_k[0]["rank"],
+        "reconstruction_available": False,
+    }
+
+
+def _normalize_kappa(k: float) -> float:
+    """Map raw kappa to [0,1] using sigmoid-like transform (0→0, ∞→1)."""
+    return float(np.clip(1.0 / (1.0 + np.exp(-k / 50.0 + 2.0)), 0.0, 1.0))
+
+
+def _add_reliability_score(results: Dict[str, Any]):
+    """Compute heuristic reliability score (0-1) from multiple signals."""
+    rf = results.get("reliability_features", {})
+    d = results.get("diagnostics", {})
+    m = results.get("manifold_metrics", {})
+
+    kappa = rf.get("kappa")
+    margin = d.get("csls_margin", 0)
+    entropy_norm = d.get("topk_entropy_norm", 1.0)
+    concentration = d.get("topk_score_concentration", 0)
+    on_manifold = m.get("on_manifold_score", 0.5)
+
+    # Normalized components
+    k_norm = _normalize_kappa(kappa) if kappa is not None else 0.5
+    m_norm = float(np.clip(margin / 2.0, 0.0, 1.0)) if margin else 0.0
+    e_norm = 1.0 - float(np.clip(entropy_norm, 0.0, 1.0))
+
+    score = (
+        0.25 * k_norm
+        + 0.25 * m_norm
+        + 0.20 * on_manifold
+        + 0.15 * e_norm
+        + 0.15 * concentration
+    )
+    score = float(np.clip(score, 0.0, 1.0))
+    label = "high" if score >= 0.65 else "moderate" if score >= 0.35 else "low"
+
+    results["reliability_score"] = round(score, 4)
+    results["reliability_label"] = label
+    results["reliability_breakdown"] = {
+        "kappa_norm": round(k_norm, 4),
+        "csls_margin_norm": round(m_norm, 4),
+        "on_manifold_score": round(on_manifold, 4),
+        "entropy_inv_norm": round(e_norm, 4),
+        "concentration": round(concentration, 4),
+    }
+
+
+def _add_manifold_metrics(results: Dict[str, Any], trial_idx: int):
+    """Compute manifold metrics: neighborhood overlap, density, on-manifold score.
+    Target neighborhood excludes the target image itself."""
+    top_k = results.get("top_k", [])
+    if not top_k:
+        results["manifold_metrics"] = {"available": False, "reason": "No retrieval results"}
+        return
+    g, ids = (_CLIP_GALLERY_768, _CLIP_NSD_IDS_768)
+    if g is None or ids is None:
+        g, ids = (_CLIP_GALLERY_197K, _CLIP_NSD_IDS_197K)
+    if g is None or ids is None:
+        results["manifold_metrics"] = {"available": False, "reason": "No gallery loaded"}
+        return
+    predicted_mu = results.get("_mu_for_recon")
+    if predicted_mu is None:
+        results["manifold_metrics"] = {"available": False, "reason": "Predicted mu not available"}
+        return
+    predicted_mu = np.array(predicted_mu)
+    predicted_mu = predicted_mu / (np.linalg.norm(predicted_mu) + 1e-8)
+
+    nsd_id = None
+    if _TRIAL_INDEX is not None:
+        nsd_col = "nsdId" if "nsdId" in _TRIAL_INDEX.columns else "nsd_id"
+        if trial_idx < len(_TRIAL_INDEX):
+            nsd_id = int(_TRIAL_INDEX.iloc[trial_idx][nsd_col])
+
+    # Raw manifold density: mean cosine similarity to top-50 gallery embeddings
+    k_nn = min(50, len(g))
+    pred_sims = g @ predicted_mu
+    # Exclude the predicted embedding itself from neighborhood if present
+    pred_nn_idx = np.argsort(-pred_sims)[:k_nn]
+    pred_nn_ids_excl = set(int(ids[i]) for i in pred_nn_idx)
+    top_sims = np.sort(pred_sims)[-k_nn:]
+    manifold_density_raw = float(np.mean(top_sims))
+
+    # Normalize to [0,1]
+    on_manifold_score = float(np.clip((manifold_density_raw + 1.0) / 2.0, 0.0, 1.0))
+    distance_to_manifold = 1.0 - on_manifold_score
+
+    overlap_at_5 = overlap_at_10 = overlap_at_20 = target_local_rank = None
+    target_emb = None
+    if nsd_id is not None:
+        target_mask = ids == nsd_id
+        if target_mask.any():
+            target_idx = int(np.where(target_mask)[0][0])
+            target_emb = g[target_idx] / (np.linalg.norm(g[target_idx]) + 1e-8)
+
+    if target_emb is not None and nsd_id is not None:
+        tgt_sims = g @ target_emb
+        # Exclude target itself from its own neighborhood
+        tgt_sims_excl = tgt_sims.copy()
+        tgt_sims_excl[target_idx] = -np.inf
+        tgt_nn_idx_5 = np.argsort(-tgt_sims_excl)[:5]
+        tgt_nn_idx_10 = np.argsort(-tgt_sims_excl)[:10]
+        tgt_nn_idx_20 = np.argsort(-tgt_sims_excl)[:20]
+        tgt_nn_5 = set(int(ids[i]) for i in tgt_nn_idx_5)
+        tgt_nn_10 = set(int(ids[i]) for i in tgt_nn_idx_10)
+        tgt_nn_20 = set(int(ids[i]) for i in tgt_nn_idx_20)
+
+        overlap_at_5 = len(pred_nn_ids_excl & tgt_nn_5) / 5
+        overlap_at_10 = len(pred_nn_ids_excl & tgt_nn_10) / 10
+        overlap_at_20 = len(pred_nn_ids_excl & tgt_nn_20) / 20
+
+        tgt_sim_to_pred = float(target_emb @ predicted_mu)
+        target_local_rank = int(np.sum(np.sort(-pred_sims) < -tgt_sim_to_pred)) + 1
+
+    if target_emb is not None:
+        if (overlap_at_5 or 0) >= 0.4:
+            interp = "Prediction lands in the correct semantic neighborhood. Local topology is well-preserved."
+        elif (overlap_at_5 or 0) >= 0.2:
+            interp = "Prediction shows partial semantic overlap with the target neighborhood."
+        else:
+            interp = "Local semantic topology is weak: the prediction neighborhood differs from target."
+    else:
+        interp = "Target embedding not available for neighborhood comparison."
+
+    results["manifold_metrics"] = {
+        "available": True,
+        "manifold_density_raw": round(manifold_density_raw, 4),
+        "manifold_density_norm": round(on_manifold_score, 4),
+        "on_manifold_score": round(on_manifold_score, 4),
+        "distance_to_manifold": round(distance_to_manifold, 4),
+        "neighborhood_overlap_at_5": round(overlap_at_5, 4) if overlap_at_5 is not None else None,
+        "neighborhood_overlap_at_10": round(overlap_at_10, 4) if overlap_at_10 is not None else None,
+        "neighborhood_overlap_at_20": round(overlap_at_20, 4) if overlap_at_20 is not None else None,
+        "target_local_rank": target_local_rank,
+        "interpretation": interp,
+    }
+
+
+# ── Semantic Text Probe ──
+
+_SEMANTIC_CONCEPTS = [
+    "person", "animal", "vehicle", "indoor room", "outdoor scene",
+    "forest", "road", "sky", "water", "food",
+    "building", "face", "dog", "cat", "beach",
+    "mountain", "city street", "natural scene", "object",
+    "snow", "grass", "tree",
+]
+
+_TEXT_EMBEDDINGS: Optional[np.ndarray] = None
+_TEXT_CONCEPT_ORDER: List[str] = []
+
+
+def _load_text_embeddings() -> bool:
+    """Load or compute CLIP text embeddings for concept library."""
+    global _TEXT_EMBEDDINGS, _TEXT_CONCEPT_ORDER
+    if _TEXT_EMBEDDINGS is not None:
+        return True
+    # Check cache
+    cache_path = Path("local_backend_data/clip/text_concepts.npz")
+    if cache_path.exists():
+        try:
+            data = np.load(str(cache_path))
+            _TEXT_EMBEDDINGS = data["embeddings"]
+            _TEXT_CONCEPT_ORDER = list(data["concepts"])
+            logger.info("Loaded %d text concept embeddings from cache", len(_TEXT_CONCEPT_ORDER))
+            return True
+        except Exception as e:
+            logger.warning("Text concept cache load failed: %s", e)
+    # Try to compute live using open_clip
+    try:
+        # Ensure venv site-packages for open_clip if available
+        _venv = Path(__file__).resolve().parents[2] / ".venv" / "lib" / "python3.10" / "site-packages"
+        if _venv.exists() and str(_venv) not in __import__("sys").path:
+            __import__("sys").path.insert(0, str(_venv))
+        import open_clip, torch
+        model, _, _ = open_clip.create_model_and_transforms("ViT-L-14", pretrained="openai")
+        model = model.to(_DEVICE)
+        model.eval()
+        tokenizer = open_clip.get_tokenizer("ViT-L-14")
+        texts = [f"a photo of a {c}" for c in _SEMANTIC_CONCEPTS]
+        with torch.no_grad():
+            tokens = tokenizer(texts).to(_DEVICE)
+            text_embeds = model.encode_text(tokens).cpu().numpy()
+        norms = np.linalg.norm(text_embeds, axis=1, keepdims=True)
+        text_embeds = text_embeds / (norms + 1e-8)
+        _TEXT_EMBEDDINGS = text_embeds.astype(np.float32)
+        _TEXT_CONCEPT_ORDER = list(_SEMANTIC_CONCEPTS)
+        # Cache
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(str(cache_path), embeddings=_TEXT_EMBEDDINGS, concepts=_TEXT_CONCEPT_ORDER)
+        logger.info("Computed and cached %d text concept embeddings", len(_SEMANTIC_CONCEPTS))
+        return True
+    except Exception as e:
+        logger.warning("Text concept embedding not available: %s", str(e)[:100])
+        return False
+
+
+def _add_semantic_probe(results: Dict[str, Any]):
+    """Compute semantic text probe: top concepts from predicted embedding."""
+    predicted_mu = results.get("_mu_for_recon")
+    if predicted_mu is None or not _load_text_embeddings():
+        results["semantic_probe"] = {"available": False, "reason": "Text concept embeddings not available"}
+        return
+    predicted_mu = np.array(predicted_mu)
+    predicted_mu = predicted_mu / (np.linalg.norm(predicted_mu) + 1e-8)
+    sims = _TEXT_EMBEDDINGS @ predicted_mu
+    top_idx = np.argsort(-sims)[:5]
+    top_concepts = [
+        {"concept": _TEXT_CONCEPT_ORDER[int(i)], "score": float(sims[i])}
+        for i in top_idx
+    ]
+    # Concept entropy
+    probs = np.exp(sims - np.max(sims))
+    probs = probs / probs.sum()
+    concept_entropy = -float(np.sum(probs * np.log(probs + 1e-12)))
+    results["semantic_probe"] = {
+        "available": True,
+        "top_concepts_pred": top_concepts,
+        "concept_distribution_entropy": round(concept_entropy, 4),
+        "num_concepts": len(_TEXT_CONCEPT_ORDER),
+    }
+
+
 def run_inference(trial_idx: int) -> Dict[str, Any]:
     import torch
     if _FMRI_FEATURES is None:
@@ -591,6 +848,12 @@ def run_inference(trial_idx: int) -> Dict[str, Any]:
     total_ms = (time.time() - t0) * 1000
     results["total_ms"] = total_ms
     results["provenance"] = prov
+
+    # ── Diagnostic metrics ──
+    _add_diagnostics(results)
+    _add_manifold_metrics(results, trial_idx)
+    _add_reliability_score(results)
+    _add_semantic_probe(results)
     return results
 
 
@@ -940,6 +1203,16 @@ def serve_recon_asset(filename: str):
     if cached_path.exists():
         return FileResponse(str(cached_path))
     raise HTTPException(404, f"Reconstruction asset not found: {filename}")
+
+
+@app.get("/api/reconstruction/warmup")
+def recon_warmup():
+    """Explicitly load the reconstruction pipeline. Useful for triggering model download."""
+    r = _get_recon()
+    if not r or not hasattr(r, 'warmup'):
+        return JSONResponse(content={"ok": False, "error": "Reconstruction module not available"})
+    result = r.warmup()
+    return JSONResponse(content=result)
 
 
 # =========== CLI ===========

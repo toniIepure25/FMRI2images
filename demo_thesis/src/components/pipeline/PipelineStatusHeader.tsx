@@ -10,31 +10,39 @@ interface PipelineStatusHeaderProps {
   phase: string;
 }
 
-const MODE_LABELS: Record<PipelineRunMode, { label: string; detail: string }> = {
-  checking:       { label: 'Checking',          detail: 'Verifying backend availability' },
-  live:           { label: 'Live inference',    detail: 'Live model inference active' },
-  replay:         { label: 'Replay',            detail: 'Backend online, replay assets active' },
-  'offline-replay': { label: 'Offline replay',  detail: 'Backend unavailable — cached results' },
-  hybrid:         { label: 'Hybrid',            detail: 'Live retrieval + cached reconstruction' },
-  error:          { label: 'Error',             detail: 'Connection failed' },
-};
-
-const MODE_DOT: Record<PipelineRunMode, string> = {
-  checking:       'bg-text-muted',
-  live:           'bg-status-success',
-  replay:         'bg-accent',
-  'offline-replay': 'bg-status-warning',
-  hybrid:         'bg-status-info',
-  error:          'bg-status-error',
-};
+function statusSummary(h: BackendHealth | null): string {
+  if (!h) return 'Backend unreachable — offline replay mode';
+  const parts: string[] = [];
+  if (h.live_retrieval_available) {
+    parts.push(`Live encoder · live CSLS retrieval · ${h.gallery_size ?? h.gallery_768_size ?? '?'}-image gallery`);
+  } else if (h.inference_available) {
+    parts.push('Model loaded · gallery ready · inference available');
+  } else if (h.features_loaded) {
+    parts.push('fMRI data loaded · model pending');
+  } else {
+    parts.push('Data loading');
+  }
+  if (h.reconstruction_available) {
+    parts.push('reconstruction live');
+  } else if (h.reconstruction_mode === 'live_pending_download') {
+    parts.push('reconstruction pending download');
+  } else if (h.reconstruction_mode === 'cached_local_reconstruction') {
+    parts.push('cached reconstruction');
+  } else {
+    parts.push('reconstruction unavailable');
+  }
+  parts.push(h.device || 'cpu');
+  return parts.join(' · ');
+}
 
 export function PipelineStatusHeader({
   runMode,
   backendHealth,
   selectedCase,
 }: PipelineStatusHeaderProps) {
-  const mode = MODE_LABELS[runMode];
-  const dotStyle = MODE_DOT[runMode];
+  const h = backendHealth;
+  const isLive = h?.live_retrieval_available === true;
+  const summary = statusSummary(h);
 
   return (
     <motion.header
@@ -49,29 +57,87 @@ export function PipelineStatusHeader({
             Cortex2Canvas Pipeline
           </h1>
           <p className="mt-1.5 text-sm text-text-secondary">
-            Neural decoding workbench &middot; fMRI &rarr; CLIP &rarr; reconstruction
+            Neural decoding workbench · fMRI → CLIP → retrieval → reconstruction
           </p>
         </div>
 
-        {/* Run mode chip */}
-        <span
-          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-surface-raised px-3.5 py-2 text-[12px] font-medium text-text-secondary ring-1 ring-border-subtle"
-          title={mode.detail}
-        >
-          <motion.span
-            className={`inline-block h-2 w-2 rounded-full ${dotStyle}`}
-            animate={
-              runMode === 'live' || runMode === 'checking'
-                ? { opacity: [1, 0.35, 1] }
-                : {}
-            }
-            transition={{ duration: 1.5, repeat: Infinity }}
-          />
-          {mode.label}
-        </span>
+        {/* Live status badge */}
+        {h && (
+          <span
+            className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-3.5 py-2 text-[12px] font-medium ring-1 ${
+              isLive
+                ? 'bg-accent/8 text-accent ring-accent/20'
+                : h.server_online
+                  ? 'bg-surface-raised text-text-secondary ring-border-subtle'
+                  : 'bg-status-warning/6 text-status-warning ring-status-warning/15'
+            }`}
+          >
+            <span className={`inline-block h-2 w-2 rounded-full ${
+              isLive ? 'bg-accent animate-pulse' : h.server_online ? 'bg-text-muted' : 'bg-status-warning'
+            }`} />
+            {isLive ? 'Live' : h.server_online ? 'Online' : 'Offline'}
+          </span>
+        )}
       </div>
 
-      {/* Trial metadata + backend strip */}
+      {/* Rich scientific status card */}
+      {h && (
+        <div className="rounded-xl border border-border-subtle bg-surface-elevated p-4 space-y-3">
+          {/* Summary line */}
+          <p className="text-[13px] leading-relaxed text-text-secondary">{summary}</p>
+
+          {/* Status chips grid */}
+          <div className="flex flex-wrap items-center gap-2 text-[10px]">
+            {h.effective_mode && (
+              <span className="rounded bg-surface-raised px-2 py-0.5 font-mono text-text-muted">
+                mode: {h.effective_mode}
+              </span>
+            )}
+            {h.device && (
+              <span className="rounded bg-surface-raised px-2 py-0.5 font-mono text-text-muted">
+                device: {h.device}
+              </span>
+            )}
+            {h.v62_model_loaded && (
+              <span className="rounded bg-accent/10 px-2 py-0.5 font-medium text-accent">
+                V62a loaded
+              </span>
+            )}
+            {h.v61_model_loaded && (
+              <span className="rounded bg-accent/10 px-2 py-0.5 font-medium text-accent">
+                V61a loaded
+              </span>
+            )}
+            {h.gallery_768_loaded && (
+              <span className="rounded bg-surface-raised px-2 py-0.5 text-text-muted">
+                gallery: {h.gallery_768_size?.toLocaleString()} × {h.gallery_768_dim}D
+              </span>
+            )}
+            {h.reconstruction_mode && h.reconstruction_mode !== 'unavailable' && (
+              <span className="rounded bg-status-success/10 px-2 py-0.5 font-medium text-status-success">
+                recon: {h.reconstruction_mode.replace(/_/g, ' ')}
+              </span>
+            )}
+            {h.reconstruction_mode === 'unavailable' && (
+              <span className="rounded bg-surface-raised px-2 py-0.5 text-text-muted">
+                recon: unavailable
+              </span>
+            )}
+            {h.fallback_used && (
+              <span className="rounded bg-status-warning/8 px-2 py-0.5 text-status-warning">
+                fallback: {h.fallback_reason}
+              </span>
+            )}
+            {h.missing && h.missing.length > 0 && (
+              <span className="rounded bg-status-error/6 px-2 py-0.5 text-status-error">
+                missing: {h.missing.join(', ')}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Trial metadata strip */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-surface-raised px-4 py-2.5">
         {selectedCase ? (
           <>
@@ -93,13 +159,6 @@ export function PipelineStatusHeader({
           </>
         ) : (
           <span className="text-[12px] text-text-muted">Select a trial to begin</span>
-        )}
-        {/* Backend chip inline */}
-        {backendHealth && (
-          <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-accent/[0.06] px-2.5 py-1 text-[10px] text-accent">
-            <span className="h-1 w-1 rounded-full bg-accent" />
-            {backendHealth.device}
-          </span>
         )}
       </div>
     </motion.header>

@@ -234,7 +234,7 @@ export function PhaseReconstruction({
               provenance: effectiveReconProv,
               accent: 'cyan',
               emptyText: hasLiveRecon
-                ? undefined
+                ? (liveRecon?.reason || liveRecon?.last_error || undefined)
                 : 'No reconstruction asset was cached for this trial.\nThis replay contains retrieval evidence only.',
             },
           ]}

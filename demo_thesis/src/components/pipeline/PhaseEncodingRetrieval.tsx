@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { DemoCase, RetrievedImage } from '@/types';
-import { resolveNsdIdToTrial, streamInference, type InferenceStepEvent } from '@/lib/api';
+import { resolveNsdIdToTrial, streamInference, fetchInference, isBackendAvailable, type InferenceStepEvent, type InferenceResponse } from '@/lib/api';
 import { ProvenanceBadge } from './ProvenanceBadge';
 import { REPLAY_PROV, LIVE_PROV, DERIVED_PROV, UNKNOWN_PROV, type Provenance } from '@/lib/provenance';
 import { hasFmriPreview, hasClipPreview, fmriPreviewProvenance, clipPreviewProvenance } from '@/lib/pipelineNormalize';
+import { ScientificVerdict } from './ScientificVerdict';
+import { AnalysisTabs } from './AnalysisTabs';
 
 export interface PhaseEncodingRetrievalProps {
   case_: DemoCase;
@@ -119,6 +121,11 @@ export function PhaseEncodingRetrieval({
   const [showProceed, setShowProceed] = useState(false);
   const [kappaStr, setKappaStr] = useState<string | null>(null);
 
+  // Live inference response from backend (population from /api/infer after live retrieval completes)
+  const [liveInference, setLiveInference] = useState<InferenceResponse | null>(null);
+  const [liveReconAvailable, setLiveReconAvailable] = useState(false);
+  const [liveReconMode, setLiveReconMode] = useState<string>('unavailable');
+
   const hasRealFmri = hasFmriPreview(case_);
   const hasRealClip = hasClipPreview(case_);
   const fmriProv = fmriPreviewProvenance(case_);
@@ -207,6 +214,28 @@ export function PhaseEncodingRetrieval({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [case_.id, case_.nsdId, liveMode]);
+
+  // Fetch full live inference response when live retrieval completes
+  useEffect(() => {
+    if (!isLiveInference || !isBackendAvailable()) return;
+    let cancelled = false;
+    async function fetchLiveData() {
+      try {
+        const trialIdx = await resolveNsdIdToTrial(case_.nsdId);
+        if (cancelled || trialIdx == null) return;
+        const data = await fetchInference(trialIdx);
+        if (cancelled || !data) return;
+        setLiveInference(data);
+        setLiveReconAvailable(data.reconstruction?.ok ?? false);
+        setLiveReconMode(data.reconstruction?.mode ?? 'unavailable');
+      } catch { /* silently ignore — live data is best-effort */ }
+    }
+    if (sub === 'done' && isLiveInference) {
+      fetchLiveData();
+    }
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sub, isLiveInference, case_.nsdId]);
 
   const ci = stepIdx(sub);
   const getStatus = (p: Subphase): StepStatus => {
@@ -726,6 +755,55 @@ export function PhaseEncodingRetrieval({
                   ))}
                 </div>
 
+                {/* ── Scientific Verdict ── */}
+                <ScientificVerdict
+                  rank={case_.metrics.rank ?? 0}
+                  verdictText={case_.metrics.rank === 1 ? 'Exact match' : case_.metrics.rank != null && case_.metrics.rank <= 5 ? 'Near match' : 'Candidate identified'}
+                  verdictCls={case_.metrics.rank === 1 ? 'text-accent bg-accent/8' : case_.metrics.rank != null && case_.metrics.rank <= 5 ? 'text-status-warning bg-status-warning/8' : 'text-text-secondary bg-surface-raised'}
+                  kappa={kappaStr ? parseFloat(kappaStr) : null}
+                  delta={case_.uncertainty.delta}
+                  top1Csls={topK[0]?.csls ?? null}
+                  top2Csls={topK[1]?.csls ?? null}
+                  topKEntropy={null}
+                  gallerySize={10000}
+                  provenance={isLiveInference ? LIVE_PROV : { kind: 'replay', detail: 'Cached retrieval ranking' }}
+                />
+
+                {/* ── Top-K Score Chart ── */}
+                <div className="rounded-xl bg-surface-raised p-4">
+                  <p className="text-[11px] font-semibold text-text-muted mb-3">Top-5 CSLS scores</p>
+                  <div className="space-y-2">
+                    {topK.map((item) => {
+                      const maxCsls = topK[0]?.csls ?? 1;
+                      const barWidth = Math.max(2, ((item.csls ?? 0) / Math.max(maxCsls, 0.001)) * 100);
+                      return (
+                        <div key={item.rank} className="flex items-center gap-3">
+                          <span className={`w-8 text-right font-mono text-[11px] font-semibold ${
+                            item.rank === 1 ? 'text-accent' : 'text-text-muted'
+                          }`}>#{item.rank}</span>
+                          <div className="flex-1 h-5 rounded bg-surface-base overflow-hidden">
+                            <motion.div
+                              className={`h-full rounded flex items-center px-2 ${
+                                item.rank === 1 ? 'bg-accent/40' : 'bg-border-subtle'
+                              }`}
+                              initial={{ width: 0 }}
+                              animate={{ width: `${barWidth}%` }}
+                              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                            >
+                              <span className="text-[9px] font-mono font-semibold text-text-primary whitespace-nowrap">
+                                {item.csls?.toFixed(4)}
+                              </span>
+                            </motion.div>
+                          </div>
+                          <span className="w-16 text-right font-mono text-[10px] text-text-muted">
+                            nsdId {item.csls != null ? '' : '—'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* κ + δ strip */}
                 {kappaStr && (
                   <div className="flex items-center gap-3 rounded-lg bg-surface-raised px-4 py-2.5">
@@ -748,6 +826,57 @@ export function PhaseEncodingRetrieval({
                     </span>
                   ))}
                 </div>
+
+                {/* ── Prediction Intelligence strip ── */}
+                <div className="rounded-xl border border-border-subtle bg-surface-elevated p-4">
+                  <p className="text-[11px] font-semibold text-text-muted mb-3">Prediction intelligence</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <div className="rounded-lg bg-surface-raised px-3 py-2 text-center">
+                      <p className="text-[9px] text-text-muted">κ</p>
+                      <p className="font-mono text-sm font-bold text-accent">{kappaStr ? parseFloat(kappaStr).toFixed(0) : '—'}</p>
+                      <p className="text-[8px] text-text-muted">{kappaStr && parseFloat(kappaStr) > 100 ? 'sharp' : 'moderate'}</p>
+                    </div>
+                    <div className="rounded-lg bg-surface-raised px-3 py-2 text-center">
+                      <p className="text-[9px] text-text-muted">CSLS margin</p>
+                      <p className="font-mono text-sm font-bold text-text-primary">
+                        {topK[0]?.csls != null && topK[1]?.csls != null ? (topK[0].csls - topK[1].csls).toFixed(4) : '—'}
+                      </p>
+                      <p className="text-[8px] text-text-muted">1–2 gap</p>
+                    </div>
+                    <div className="rounded-lg bg-surface-raised px-3 py-2 text-center">
+                      <p className="text-[9px] text-text-muted">Top-1 CSLS</p>
+                      <p className="font-mono text-sm font-bold text-text-primary">{topK[0]?.csls?.toFixed(3) ?? '—'}</p>
+                      <p className="text-[8px] text-text-muted">rank #{case_.metrics.rank}</p>
+                    </div>
+                    <div className="rounded-lg bg-surface-raised px-3 py-2 text-center">
+                      <p className="text-[9px] text-text-muted">Score conc</p>
+                      <p className="font-mono text-sm font-bold text-text-primary">
+                        {topK.length > 0 ? ((topK[0]?.csls ?? 0) / topK.reduce((s, r) => s + (r.csls ?? 0), 1e-8) * 100).toFixed(0) + '%' : '—'}
+                      </p>
+                      <p className="text-[8px] text-text-muted">of top-5</p>
+                    </div>
+                    <div className="rounded-lg bg-surface-raised px-3 py-2 text-center">
+                      <p className="text-[9px] text-text-muted">Gallery</p>
+                      <p className="font-mono text-sm font-bold text-text-primary">10,000</p>
+                      <p className="text-[8px] text-text-muted">CSLS indexed</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Analysis Tabs ── */}
+                <AnalysisTabs
+                  inference={liveInference}
+                  liveMode={isLiveInference}
+                  reconstructionAvailable={liveReconAvailable}
+                  reconstructionMode={liveReconMode}
+                  kappa={liveInference?.kappa ?? (kappaStr ? parseFloat(kappaStr) : null)}
+                  delta={liveInference?.delta ?? case_.uncertainty.delta}
+                >
+                  {/* Retrieval tab content is the existing hero + scores above */}
+                  <div className="text-[12px] text-text-muted text-center py-4">
+                    Retrieval details shown above — rank #{case_.metrics.rank} among 10,000 gallery images via CSLS ranking.
+                  </div>
+                </AnalysisTabs>
               </motion.div>
             )}
           </AnimatePresence>

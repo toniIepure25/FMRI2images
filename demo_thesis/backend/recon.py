@@ -26,10 +26,17 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 import numpy as np
 
-# Auto-detect venv's site-packages if available (needed for diffusers)
+# Auto-detect venv's site-packages if available (needed for diffusers + transformers)
 _VENV_SITE = Path(__file__).resolve().parents[2] / ".venv" / "lib" / "python3.10" / "site-packages"
-if _VENV_SITE.exists() and str(_VENV_SITE) not in __import__("sys").path:
-    __import__("sys").path.insert(0, str(_VENV_SITE))
+if _VENV_SITE.exists():
+    import sys as _sys
+    if str(_VENV_SITE) not in _sys.path:
+        _sys.path.insert(0, str(_VENV_SITE))
+    # Force venv's transformers to be found first
+    for p in list(_sys.path):
+        if 'site-packages' in p and '.venv' not in p:
+            _sys.path.remove(p)
+            _sys.path.append(p)  # Move system packages to end
 
 logger = logging.getLogger("cortex2canvas.recon")
 
@@ -75,7 +82,7 @@ def get_status() -> Dict[str, Any]:
     global _PIPE_LOADED, _MODEL_CACHED, _LAST_ERROR, _DEVICE, _HAS_VALID_PATH
 
     _MODEL_CACHED = _check_model_cached()
-    live_available = _PIPE_LOADED and _MODEL_CACHED and _HAS_VALID_PATH
+    live_available = _PIPE_LOADED and _MODEL_CACHED
     cached_available = Path(RECON_CACHE_DIR).exists() and any(Path(RECON_CACHE_DIR).glob("*.png"))
 
     effective_mode = RECON_MODE
@@ -84,11 +91,15 @@ def get_status() -> Dict[str, Any]:
             effective_mode = "live_local_reconstruction"
         elif cached_available:
             effective_mode = "cached_local_reconstruction"
+        elif RECON_ALLOW_DOWNLOAD:
+            effective_mode = "live_pending_download"
         else:
             effective_mode = "unavailable"
-    elif effective_mode == "live" and not live_available:
-        if cached_available:
-            effective_mode = "cached_local_reconstruction"
+    elif effective_mode == "live":
+        if live_available:
+            effective_mode = "live_local_reconstruction"
+        elif RECON_ALLOW_DOWNLOAD:
+            effective_mode = "live_pending_download"
         else:
             effective_mode = "unavailable"
 
@@ -135,15 +146,15 @@ def load_pipeline() -> Tuple[bool, Optional[str]]:
         msg = f"Model {RECON_MODEL_ID} not cached locally (~5 GB download needed)"
         if not RECON_ALLOW_DOWNLOAD:
             _LAST_ERROR = msg + ". Set C2C_RECON_ALLOW_DOWNLOAD=true to download."
+            logger.warning("load_pipeline: %s", _LAST_ERROR)
             return False, _LAST_ERROR
-        logger.info("Downloading %s...", RECON_MODEL_ID)
+        logger.info("load_pipeline: downloading %s (RECON_ALLOW_DOWNLOAD=true)...", RECON_MODEL_ID)
 
     try:
         import torch
         from diffusers import UnCLIPImageVariationPipeline
-
         torch_dtype = torch.float32 if RECON_DTYPE == "float32" else torch.float16
-        logger.info("Loading %s (dtype=%s, device=%s)...", RECON_MODEL_ID, RECON_DTYPE, _DEVICE)
+        logger.info("load_pipeline: Loading UnCLIPImageVariationPipeline (dtype=%s, device=%s)...", RECON_DTYPE, _DEVICE)
         t0 = time.time()
 
         _PIPE = UnCLIPImageVariationPipeline.from_pretrained(
@@ -354,43 +365,72 @@ def get_cached_reconstruction(trial_idx: int, nsd_id: Optional[int] = None) -> T
 def reconstruct(trial_idx: int, clip_embedding: np.ndarray,
                 nsd_id: Optional[int] = None,
                 retrieved_image_path: Optional[str] = None) -> Dict[str, Any]:
-    """Main entry point. Tries live embedding→image first, falls back to cached."""
-    status = get_status()
-    effective = status["reconstruction_mode"]
+    """Main entry point. ALWAYS attempts live generation when RECON_MODE=live."""
+    logger.info("Reconstruction requested: mode=%s allow_download=%s cached=%s",
+                RECON_MODE, RECON_ALLOW_DOWNLOAD, _MODEL_CACHED)
 
-    if effective in ("unavailable", "disabled"):
-        return {"ok": False, "mode": "UNAVAILABLE", "provenance": "UNAVAILABLE",
-                "reason": status.get("reconstruction_scientific_warning", "Reconstruction unavailable"),
-                "image_path": None}
-
-    # Mode 1: Direct embedding → image (LIVE_LOCAL_RECONSTRUCTION)
-    if effective == "live_local_reconstruction":
+    # Mode 1: Live — always attempt generate_from_embedding when RECON_MODE=live
+    # or RECON_ALLOW_DOWNLOAD=true. generate_from_embedding() internally calls
+    # load_pipeline() which handles download if needed.
+    if RECON_MODE in ("live", "auto") and RECON_ALLOW_DOWNLOAD:
+        logger.info("Calling generate_from_embedding() (will call load_pipeline if needed)...")
         path, meta = generate_from_embedding(clip_embedding)
         if path:
             return {**meta, "image_path": path}
-
-        # Live failed → try cached
+        logger.warning("Live generation failed: %s", meta.get("error", "unknown"))
+        # Live failed — fall through to cached
+        status = get_status()
         if status.get("reconstruction_cached_local_available"):
             cpath, cmeta = get_cached_reconstruction(trial_idx, nsd_id)
             if cpath:
                 return {"ok": True, **cmeta, "image_path": cpath,
                         "fallback_used": True,
                         "fallback_reason": f"Live generation failed: {meta.get('error')}"}
+        return {"ok": False, "mode": "UNAVAILABLE", "provenance": "UNAVAILABLE",
+                "reason": meta.get("error", "Generation failed"),
+                "last_error": _LAST_ERROR, "image_path": None}
 
+    # If pipeline already loaded, use it
+    if _PIPE_LOADED and RECON_MODE != "disabled":
+        path, meta = generate_from_embedding(clip_embedding)
+        if path:
+            return {**meta, "image_path": path}
         return {"ok": False, "mode": "UNAVAILABLE", "provenance": "UNAVAILABLE",
                 "reason": meta.get("error", "Generation failed"), "image_path": None}
 
     # Mode 2: Cached only
-    if effective == "cached_local_reconstruction":
+    status = get_status()
+    if status["reconstruction_mode"] == "cached_local_reconstruction":
         cpath, cmeta = get_cached_reconstruction(trial_idx, nsd_id)
         if cpath:
             return {"ok": True, **cmeta, "image_path": cpath}
         return {"ok": False, "mode": "UNAVAILABLE", "provenance": "UNAVAILABLE",
                 "reason": "No cached reconstruction for this trial", "image_path": None}
 
+    # Mode 3: Unavailable
+    reason = status.get("reconstruction_scientific_warning", "Reconstruction unavailable")
+    if RECON_MODE == "live" and not RECON_ALLOW_DOWNLOAD:
+        reason = "Set C2C_RECON_ALLOW_DOWNLOAD=true to enable Karlo model download."
     return {"ok": False, "mode": "UNAVAILABLE", "provenance": "UNAVAILABLE",
-            "reason": f"Unknown mode: {effective}", "image_path": None}
+            "reason": reason, "image_path": None, "last_error": _LAST_ERROR}
 
 
 # Initialize
 _MODEL_CACHED = _check_model_cached()
+
+
+def warmup() -> Dict[str, Any]:
+    """Explicitly load pipeline and return status. Used by /api/reconstruction/warmup."""
+    global _MODEL_CACHED
+    _MODEL_CACHED = _check_model_cached()
+    success, err = load_pipeline()
+    return {
+        "ok": success,
+        "model_cached": _MODEL_CACHED,
+        "model_loaded": _PIPE_LOADED,
+        "allow_download": RECON_ALLOW_DOWNLOAD,
+        "requires_download": not _MODEL_CACHED,
+        "device": _DEVICE,
+        "recon_mode": RECON_MODE,
+        "error": err if not success else None,
+    }

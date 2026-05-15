@@ -20,11 +20,13 @@ pip install -r requirements.txt
 The backend requires PyTorch. Install one of:
 
 **CPU only** (smaller, works everywhere):
+
 ```bash
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 ```
 
 **CUDA 12.1** (if you have an NVIDIA GPU):
+
 ```bash
 pip install torch --index-url https://download.pytorch.org/whl/cu121
 ```
@@ -53,9 +55,9 @@ demo_thesis/local_backend_data/
 
 ### Currently available checkpoint
 
-| Checkpoint | Experiment | Output dim | CSLS R@1 (shared1000) | Size |
-|------------|-----------|------------|----------------------|------|
-| V62a_model_only.pt | V62a_cls_retrieval_768d | 768 | 48.3% | 2.1 GB |
+| Checkpoint         | Experiment              | Output dim | CSLS R@1 (shared1000) | Size   |
+| ------------------ | ----------------------- | ---------- | --------------------- | ------ |
+| V62a_model_only.pt | V62a_cls_retrieval_768d | 768        | 48.3%                 | 2.1 GB |
 
 The original N1v28a + V55b fusion model (76% R@1) operated in 197k-D space
 and those checkpoints are no longer available on the pod. V62a is the best
@@ -69,6 +71,7 @@ python verify_artifacts.py
 ```
 
 Expected output when everything is ready:
+
 ```
   PyTorch:  OK v2.x.x  cuda=yes  device=NVIDIA ...
   fMRI features: OK ../local_backend_data/subj01/fmri_features.npy (1803.4 MB)
@@ -119,12 +122,12 @@ Open http://localhost:3000/pipeline
 
 ## 8. Expected mode labels
 
-| Backend state | Frontend shows |
-|--------------|----------------|
-| Backend unreachable | Offline replay · Backend unavailable |
-| Backend online, no data/model | Replay · Backend online, replay assets active |
-| Backend online, data loaded, no model | Replay · Backend online, replay assets active |
-| Backend online, data + model loaded | Hybrid · Live retrieval + cached reconstruction |
+| Backend state                         | Frontend shows                                  |
+| ------------------------------------- | ----------------------------------------------- |
+| Backend unreachable                   | Offline replay · Backend unavailable            |
+| Backend online, no data/model         | Replay · Backend online, replay assets active   |
+| Backend online, data loaded, no model | Replay · Backend online, replay assets active   |
+| Backend online, data + model loaded   | Hybrid · Live retrieval + cached reconstruction |
 
 The "Hybrid" label means the encoding and CSLS retrieval run live through
 the model, but reconstruction images remain cached because real-time diffusion
@@ -133,24 +136,30 @@ sampling takes minutes per image.
 ## 9. Troubleshooting
 
 ### "torch_available: false"
+
 PyTorch is not installed in your Python environment. See step 1.
 
 ### "features_loaded: false"
+
 `fmri_features.npy` not found. Check that `local_backend_data/subj01/fmri_features.npy` exists.
 
 ### "model: Checkpoint load failed"
+
 The checkpoint format may not match the installed fmri2img version.
 Ensure the repo's `fmri2img` package is installed:
+
 ```bash
 cd ~/Desktop/Bachelor\ V2
 pip install -e ".[train]"
 ```
 
 ### Backend starts but model import fails
+
 The model architecture (`create_model`) comes from `fmri2img.models.unified_model`.
 If this import fails, install the main package as above.
 
 ### OOM on model loading
+
 The V62a model has 554M parameters (~2.1 GB). With features (1.8 GB) and gallery,
 total memory usage is ~5 GB. Ensure at least 8 GB RAM available, or use GPU.
 
@@ -159,3 +168,37 @@ total memory usage is ~5 GB. Ensure at least 8 GB RAM available, or use GPU.
 - `local_backend_data/` is gitignored — never commit large binary artifacts
 - `backend/.env` is gitignored — never commit credentials
 - No NGC tokens or API keys are used by the demo backend
+
+(.venv) tonystark@pop-os:~/Desktop/Bachelor V2$ export KUBECONFIG="$HOME/Downloads/antoniu_iepure.yaml"
+
+kubectl exec -n runai-romania-dev orchestraiq-jupyter-54644cff87-nxd9x -- bash -lc \
+'rm -rf /home/jovyan/work/FMRI2images/src/analysis'
+
+kubectl cp \
+ ./src/analysis \
+ runai-romania-dev/orchestraiq-jupyter-54644cff87-nxd9x:/home/jovyan/work/FMRI2images/src/analysis
+(.venv) tonystark@pop-os:~/Desktop/Bachelor V2$ cd "/home/tonystark/Desktop/Bachelor V2/demo_thesis"
+
+../.venv/bin/python -c "
+import diffusers, transformers, torch
+from transformers import CLIPImageProcessor
+from diffusers import UnCLIPImageVariationPipeline
+print('diffusers:', diffusers.**version**, diffusers.**file**)
+print('transformers:', transformers.**version**, transformers.**file**)
+print('torch:', torch.**version**, 'cuda=', torch.cuda.is_available())
+print('imports ok')
+"
+diffusers: 0.35.2 /home/tonystark/Desktop/Bachelor V2/.venv/lib/python3.10/site-packages/diffusers/**init**.py
+transformers: 4.57.1 /home/tonystark/Desktop/Bachelor V2/.venv/lib/python3.10/site-packages/transformers/**init**.py
+torch: 2.8.0+cu128 cuda= True
+imports ok
+(.venv) tonystark@pop-os:~/Desktop/Bachelor V2/demo_thesis$ cd "/home/tonystark/Desktop/Bachelor V2/demo_thesis"
+
+PYTHONPATH="../src:backend" \
+C2C_BACKEND_MODE=v62_single \
+C2C_RECON_MODE=live \
+C2C_RECON_ALLOW_DOWNLOAD=true \
+C2C_RECON_STEPS=25 \
+C2C_RECON_GUIDANCE=8.0 \
+C2C_RECON_SEED=42 \
+../.venv/bin/python -m uvicorn backend.main:app --host 0.0.0.0 --port 8000

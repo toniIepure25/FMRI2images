@@ -1,0 +1,48 @@
+# Example: manifold analysis for V61a SHARED1000 in flat token space (197376-D),
+# matching training / MC-TTA retrieval (CSLS k=3 in eval).  Copy and adjust paths.
+#
+# Prerequisite:
+#   python scripts/analysis/materialize_shared1000_nsd_ids.py \
+#     --subject subj01 --output experimental_results/V61a_finetune_difflr/subj01/metrics/shared1000_nsd_ids.npy
+
+artifacts:
+  z_pred_path: experimental_results/V61a_finetune_difflr/subj01/metrics/shared1000_predictions_mctta16.npy
+  z_target_path: experimental_results/V61a_finetune_difflr/subj01/metrics/shared1000_ground_truth.npy
+  target_ids_path: experimental_results/V61a_finetune_difflr/subj01/metrics/shared1000_nsd_ids.npy
+  gallery_embeddings_path: outputs/clip_cache/clip.parquet
+  gallery_token_h5_path: outputs/clip_cache/tokens_ViT-L-14_projected.h5
+  gallery_id_column: "nsdId"
+  gallery_token_mmap: false
+  kappa_path: null
+  experiment_id: V61a_finetune_difflr
+  subject: subj01
+
+output:
+  output_dir: null
+  save_formats: ["png"]
+
+analysis:
+  seed: 42
+  csls_k: 3
+  rsa_max_samples: 1000
+  top_k: [1, 5, 10, 20, 50, 100]
+  gallery_mode: full
+  allow_diagonal_fallback: false
+  bootstrap_n: 500
+
+modules:
+  retrieval: true
+  hubness: true
+  rsa: true
+  neighborhood: true
+  repeat_stability: false
+  uncertainty: false
+  manifold_density: true
+  reliability: true
+  semantic_probes: false
+  semantic_axes: false
+  vector_field: true
+  counterfactuals: false
+  interpolation: false
+  roi_axes: false
+  nmas: true

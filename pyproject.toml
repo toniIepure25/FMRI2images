@@ -60,7 +60,7 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["fmri2img*"]
+include = ["fmri2img*", "analysis*"]
 namespaces = false
 
 [tool.black]

@@ -1,0 +1,99 @@
+# V62a SHARED1000 benchmark-style manifold analysis.
+#
+# Uses the saved SHARED1000 target embeddings themselves as the 1000-candidate
+# gallery. This is the most direct reproduction path for
+# shared1000_metrics.json, which reports gallery_size=1000.
+
+artifacts:
+  z_pred_path: /home/jovyan/work/FMRI2images/experimental_results/V62a_cls_retrieval_768d/subj01/metrics/shared1000_predictions.npy
+  z_target_path: /home/jovyan/work/FMRI2images/experimental_results/V62a_cls_retrieval_768d/subj01/metrics/shared1000_ground_truth.npy
+  target_ids_path: /home/jovyan/work/FMRI2images/experimental_results/V62a_cls_retrieval_768d/subj01/metrics/shared1000_nsd_ids.npy
+  kappa_path: null
+  gallery_embeddings_path: null
+  text_embeddings_path: cache/clip_embeddings/text_probe_concepts_vitl14.npz
+  experiment_id: V62a_cls_retrieval_768d_shared1000_target_embeddings
+  subject: subj01
+
+output:
+  output_dir: null
+  save_formats: ["png"]
+
+analysis:
+  gallery_mode: target_embeddings
+  allow_diagonal_fallback: false
+  normalize_embeddings: true
+  seed: 42
+  bootstrap_n: 500
+  top_k: [1, 5, 10, 20, 50, 100]
+  csls_k: 10
+  rsa_max_samples: 1000
+  neighborhood_ks: [5, 10, 20, 50, 100]
+  manifold_density_k: 20
+  calibration_n_bins: 10
+  coverage_levels: [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
+
+semantic_probes:
+  temperature: 0.07
+  top_k: [1, 3, 5, 10]
+  max_examples: 12
+
+semantic_axes:
+  axes:
+    - name: animal_vs_inanimate
+      positive: animal
+      negative: object
+    - name: indoor_vs_outdoor
+      positive: indoor room
+      negative: outdoor landscape
+    - name: face_vs_landscape
+      positive: human face
+      negative: natural scene
+    - name: natural_vs_urban
+      positive: natural scene
+      negative: urban scene
+    - name: vehicle_vs_animal
+      positive: vehicle
+      negative: animal
+    - name: food_vs_object
+      positive: food
+      negative: object
+    - name: water_vs_land
+      positive: water
+      negative: road
+    - name: person_vs_empty_scene
+      positive: person
+      negative: outdoor landscape
+    - name: road_vs_nature
+      positive: road
+      negative: forest
+    - name: building_vs_natural_landscape
+      positive: building
+      negative: natural scene
+  max_examples: 12
+
+modules:
+  retrieval: true
+  hubness: true
+  rsa: true
+  neighborhood: true
+  repeat_stability: false
+  uncertainty: false
+  manifold_density: true
+  reliability: true
+  semantic_probes: true
+  semantic_axes: true
+  vector_field: true
+  counterfactuals: true
+  interpolation: true
+  roi_axes: false
+  nmas: true
+
+counterfactual:
+  alphas: [-2.0, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0]
+  max_cases: 24
+  axes: auto
+
+interpolation:
+  steps: 21
+  max_pairs: 20
+  pair_strategy: mixed

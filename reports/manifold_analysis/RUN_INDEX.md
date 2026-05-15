@@ -2,67 +2,48 @@
 
 Updated: 2026-05-15.
 
-Final semantic manifold archive SHA256:
+This index separates validation, SHARED1000 full-gallery, SHARED1000 target-gallery, and token-space reports. It also marks diagnostic reports that must not be used for final scientific claims.
 
-`1c13d11a6ac0b6d6e3bc9d7c35b807e948be500f1f96bfd67477004a46e16359`
+| Report directory | Model/run | Split/protocol | Status | N | Gallery size | Prediction dim | Cosine R@1 | CSLS R@1 | RSA Spearman | Notes |
+|---|---|---|---|---:|---:|---:|---:|---:|---:|---|
+| `reports/manifold_analysis/20260514_V62a_val_subj01_hardened/` | V62a CLS retrieval, subj01 | validation, full 10k gallery | valid | 900 | 10000 | 768 | 0.9178 | 0.9189 | 0.5832 | Hardened 768-D CLIP manifold report with valid `target_ids`, full gallery mapping, bootstrap CIs, RDM error metrics, neighborhood random baselines, kappa, reliability, NMAS, vector field, and claim tests. |
+| `reports/manifold_analysis/20260514_V62a_shared1000_subj01_hardened_with_ids/` | V62a CLS retrieval, subj01 | SHARED1000 queries over full 10k gallery | valid, not directly comparable to `shared1000_metrics.json` | 1000 | 10000 | 768 | not locally extracted | not locally extracted | not locally extracted | Cluster run loaded valid `(1000,768)` predictions/targets and `shared1000_nsd_ids.npy`, with `has_gallery_indices=True`. It had no kappa/text/axis artifacts. Claims: 3 supported, 2 partial, 2 not supported, 7 unavailable. Detailed metrics were not present in this local workspace at update time. |
+| `reports/manifold_analysis/20260514_V62a_shared1000_subj01_hardened/` | V62a CLS retrieval, subj01 | SHARED1000 full 10k gallery attempt | invalid/diagnostic | 1000 | 10000 | 768 | excluded | excluded | excluded | Ran before `shared1000_nsd_ids.npy` existed and used diagonal fallback: "No target_gallery_indices and N (1000) != G (10000); assuming diagonal". Exclude retrieval, hubness, neighborhood, and claim conclusions. |
+| `reports/manifold_analysis/20260514_V62a_shared1000_1k_gallery_hardened/` | V62a CLS retrieval, subj01 | attempted SHARED1000 target-ID parquet gallery | diagnostic/misconfigured unless regenerated | 1000 | expected 1000, but cluster log still showed 10000 loaded before final mode logging existed | 768 | 0.1160 | 0.1340 | not indexed | This run did not reproduce `shared1000_metrics.json` (`cosine R@1 0.399`, `CSLS R@1 0.483`). Treat as diagnostic until regenerated with a confirmed final gallery shape `(1000,768)`. |
+| `reports/manifold_analysis/20260514_V62a_shared1000_target_embeddings_hardened/` | V62a CLS retrieval, subj01 | SHARED1000 target-embeddings 1k gallery | valid protocol; report pending cluster rerun | 1000 expected | 1000 expected | 768 | expected/manual check 0.399 | expected about 0.483 | pending | New direct benchmark-reproduction config: `configs/manifold_analysis_V62a_shared1000_target_embeddings.template.yaml`. Uses `z_target` itself as the 1000-candidate gallery and `target_indices=arange(N)`. Manual cluster check reproduced cosine `shared1000_metrics.json` exactly: R@1 0.399, R@5 0.732, R@10 0.837, median rank 2.0. |
+| `reports/manifold_analysis/20260514_V61a_shared1000_mctta_token/` | V61a MC-TTA token-space | SHARED1000-like token-space full gallery | valid token-space report | 1000 | 10000 inferred | 197376 | 0.0920 | 0.1650 | 0.1658 | 197376-D token-space report. It is not a 768-D CLIP manifold report and must not be mixed with V62a 768-D CLIP results. |
+| `reports/manifold_analysis/20260514_V61a_shared1000_mctta_token_full/` | V61a MC-TTA token-space | SHARED1000-like token-space full gallery | valid token-space report | 1000 | 10000 inferred | 197376 | 0.0920 | 0.1650 | 0.1658 | Same visible retrieval/hubness/RSA metrics as the token report, with additional figures. |
+| `20260514_V62a_val_subj01/` | V62a CLS retrieval, subj01 | historical validation report at repo root | historical | 900 | 10000 inferred | 768 | 0.9178 | 0.9189 | 0.5832 | Older local copy before final hardened report path. Legacy summary displayed ranks as 0-indexed; future reports use 1-indexed ranks. |
 
-This index separates final semantic reports, benchmark-only reports, diagnostic reports, and token-space reports. Do not mix protocols or embedding spaces.
+## V62a SHARED1000 Artifacts
 
-| Report directory | Model/run | Split/protocol | Status | N | Gallery size | Prediction dim | Cosine R@1 | CSLS R@1 | RSA Spearman | C09 | C10 | C12 | C13 | Notes |
-|---|---|---|---|---:|---:|---:|---:|---:|---:|---|---|---|---|---|
-| `20260515_V62a_val_full_semantic/` | V62a CLS retrieval, subj01 | validation, full 10k gallery | valid final semantic report | 900 | 10000 | 768 | 0.9178 | 0.9189 | 0.5832 | supported | supported | supported | supported | Final validation report with text probes, semantic axes, counterfactuals, interpolation, kappa, reliability, NMAS, and claim tests. Claim counts: 9 supported, 1 partial, 2 not supported, 2 unavailable. |
-| `20260515_V62a_shared1000_full_semantic/` | V62a CLS retrieval, subj01 | official SHARED1000 target-embeddings 1k gallery | valid final semantic report | 1000 | 1000 | 768 | 0.3990 | 0.4830 | 0.3890 | supported | supported | supported | supported | Final SHARED1000 report. It exactly reproduces `shared1000_metrics.json` using `shared1000_ground_truth.npy` as the 1000-image gallery. Claim counts: 8 supported, 1 partial, 2 not supported, 3 unavailable. |
-| `20260515_V62a_val_text_probe/` | V62a CLS retrieval, subj01 | validation, text-probe extension | valid semantic probe report | 900 | 10000 | 768 | 0.9178 | 0.9189 | 0.5832 | supported | not included | not included | not included | Intermediate C09 report superseded by `20260515_V62a_val_full_semantic/`. |
-| `20260515_V62a_shared1000_text_probe/` | V62a CLS retrieval, subj01 | SHARED1000 target-embeddings, text-probe extension | valid semantic probe report | 1000 | 1000 | 768 | 0.3990 | 0.4830 | 0.3890 | supported | not included | not included | not included | Intermediate C09 report superseded by `20260515_V62a_shared1000_full_semantic/`. |
-| `20260514_V62a_val_subj01_hardened/` | V62a CLS retrieval, subj01 | validation, full 10k gallery | valid hardened benchmark report | 900 | 10000 | 768 | 0.9178 | 0.9189 | 0.5832 | unavailable | unavailable | unavailable | unavailable | Valid pre-semantic hardened report. NeighborhoodOverlap@10 `0.5142`, lift@10 `514.22x`. |
-| `20260514_V62a_shared1000_target_embeddings_hardened/` | V62a CLS retrieval, subj01 | official SHARED1000 target-embeddings 1k gallery | valid official benchmark reproduction | 1000 | 1000 | 768 | 0.3990 | 0.4830 | 0.3890 | unavailable | unavailable | unavailable | unavailable | Valid pre-semantic report. Cosine R@5/R@10 `0.732/0.837`; CSLS R@5/R@10 `0.802/0.897`; NeighborhoodOverlap@10 `0.3998`; Gini `0.3861 -> 0.2265`; NMAS `0.4119`. |
-| `20260514_V62a_shared1000_subj01_hardened_with_ids/` | V62a CLS retrieval, subj01 | SHARED1000 queries over full 10k gallery | valid different benchmark | 1000 | 10000 | 768 | not extracted locally | not extracted locally | not extracted locally | unavailable | unavailable | unavailable | unavailable | Valid target-ID mapping, but not comparable to `shared1000_metrics.json`; harder 1000-query over 10k-gallery protocol. Cluster log: 3 supported, 2 partial, 7 unavailable. |
-| `20260514_V62a_shared1000_subj01_hardened/` | V62a CLS retrieval, subj01 | SHARED1000 full 10k gallery attempt | invalid/diagnostic | 1000 | 10000 | 768 | excluded | excluded | excluded | excluded | excluded | excluded | excluded | Ran before `shared1000_nsd_ids.npy` existed and used diagonal fallback. Exclude retrieval, hubness, neighborhood, and claim conclusions. |
-| `20260514_V62a_shared1000_1k_gallery_hardened/` | V62a CLS retrieval, subj01 | attempted SHARED1000 target-ID parquet gallery | diagnostic/misconfigured | 1000 | expected 1000, but loaded 10k-style gallery | 768 | 0.1160 | 0.1340 | not indexed | excluded | excluded | excluded | excluded | Did not reproduce `shared1000_metrics.json`; treat as diagnostic unless regenerated after confirmed final gallery shape `(1000, 768)`. |
-| `20260514_V61a_shared1000_mctta_token/` | V61a MC-TTA token-space | SHARED1000-like token-space full gallery | valid token-space report | 1000 | 10000 inferred | 197376 | 0.0920 | 0.1650 | 0.1658 | unavailable | unavailable | unavailable | unavailable | Valid 197376-D token-space report. Not a 768-D CLIP manifold report. |
-| `20260514_V61a_shared1000_mctta_token_full/` | V61a MC-TTA token-space | SHARED1000-like token-space full gallery | valid token-space report | 1000 | 10000 inferred | 197376 | 0.0920 | 0.1650 | 0.1658 | unavailable | unavailable | unavailable | unavailable | Same visible retrieval/hubness/RSA metrics as token report, with additional figures. Do not mix with V62a 768-D CLIP analysis. |
+Expected cluster base path:
 
-## Final Full-Semantic Metrics
+`experimental_results/V62a_cls_retrieval_768d/subj01/metrics/`
 
-| Metric | Validation `20260515_V62a_val_full_semantic` | SHARED1000 `20260515_V62a_shared1000_full_semantic` |
-|---|---:|---:|
-| Cosine R@1/R@5/R@10 | 0.9178 / 0.9344 / 0.9467 | 0.3990 / 0.7320 / 0.8370 |
-| CSLS R@1/R@5/R@10 | 0.9189 / 0.9444 / 0.9478 | 0.4830 / 0.8020 / 0.8970 |
-| Cosine MRR | 0.9260650745486166 | 0.5452108744517535 |
-| CSLS MRR | 0.928962536964556 | 0.6207708890365495 |
-| RSA Spearman | 0.5831830506873594 | 0.3890413340912553 |
-| RSA Pearson | 0.6187697649002075 | 0.4608447253704071 |
-| NeighborhoodOverlap@10 | 0.5142222222222221 | 0.39980000000000004 |
-| Random baseline@10 | 0.001 | 0.01 |
-| Lift@10 | 514.2222222222222x | 39.980000000000004x |
-| Hubness Gini cosine -> CSLS | 0.6001102666666667 -> 0.5173008 | 0.3860652 -> 0.2264522 |
-| Semantic probe agreement@1/@5/@10 | 0.5067 / 0.8989 / 0.9767 | 0.4540 / 0.8330 / 0.9520 |
-| Text-score Spearman / Pearson | 0.5706 / 0.6636 | 0.4614 / 0.5657 |
-| Semantic axes mean Spearman / Pearson | 0.7643 / 0.8118 | 0.6730 / 0.7322 |
-| Semantic axes mean preservation | 0.8385 | 0.7968 |
-| Counterfactual robustness margin mean | 0.5167 | 0.5083 |
-| Counterfactual transition rate | 1.0 | 1.0 |
-| Interpolation mean smoothness | 0.9998768 | 0.9998487 |
-| Interpolation abrupt transition rate | 0.0175 | 0.0075 |
-| NMAS | 0.5306517203072261 | 0.41187460775327206 |
+Files:
 
-## SHARED1000 Protocol Finding
+- `shared1000_predictions.npy`: shape `(1000, 768)`, dtype `float32`
+- `shared1000_ground_truth.npy`: shape `(1000, 768)`, dtype `float32`
+- `shared1000_nsd_ids.npy`: shape `(1000,)`, copied from the matching V61a run after verifying other shared1000 ID files had identical shape/first values
+- `shared1000_metrics.json`: benchmark metadata and 1k-gallery retrieval metrics
+- `shared1000_kappas.npy`: unavailable
 
-The official saved benchmark `experimental_results/V62a_cls_retrieval_768d/subj01/metrics/shared1000_metrics.json` is reproduced exactly by using:
+First verified `shared1000_nsd_ids.npy` values:
 
-```python
-gallery = shared1000_ground_truth.npy
-target_indices = np.arange(1000)
-```
+`[2950, 2990, 3049, 3077, 3146, 3157, 3164, 3171, 3181, 3386, ...]`
 
-It is not reproduced by filtering `clip.parquet` by `nsdId`, and it is not the full 10k gallery protocol.
+ID range: min `2950`, max `72948`, unique `1000`.
 
-## Caveats
+`shared1000_metrics.json` reports `gallery_size=1000`, `r@1=0.399`, `r@5=0.732`, `r@10=0.837`, `median_rank=2.0`, `mrr=0.5452108744517535`, `csls_r@1=0.483`, `csls_r@5=0.802`, `csls_r@10=0.897`, `r@1_avg=0.401`, and `csls_r@1_avg=0.486`.
 
-- The evidence is from visual-stimulus-related fMRI responses to observed images.
-- Text probes and semantic axes interpret decoded CLIP embeddings relative to CLIP language concepts; they do not decode thoughts, dreams, or consciousness.
-- Counterfactual edits operate on decoded CLIP latent vectors and do not manipulate brain activity.
-- Interpolation paths are latent-space paths, not real neural trajectories.
-- SHARED1000 kappa uncertainty remains unavailable because `shared1000_kappas.npy` is missing.
-- Repeat stability requires per-trial predictions.
-- ROI-axis mapping requires ROI masks and ROI-masked inference/export.
+Critical protocol finding: the saved benchmark is reproduced exactly for cosine retrieval by using `shared1000_ground_truth.npy` as the 1000-image gallery and `target_indices=np.arange(1000)`. It is not reproduced by filtering `clip.parquet` by `nsdId`.
+
+## Protocol Caveats
+
+- V62a validation hardened is a valid 768-D CLIP manifold report over a full 10k gallery.
+- V62a SHARED1000 with IDs over the full 10k gallery is valid, but it is a harder/different protocol than the saved `shared1000_metrics.json`.
+- V62a SHARED1000 target-ID parquet mode is useful when the desired gallery is a subset of `clip.parquet`, but the observed `20260514_V62a_shared1000_1k_gallery_hardened` metrics (`0.116/0.134` R@1) do not match `shared1000_metrics.json` and should be treated as diagnostic unless regenerated with a confirmed final 1000-row gallery.
+- V62a SHARED1000 target-embeddings mode is the most direct comparable benchmark protocol for `shared1000_metrics.json`; it uses `shared1000_ground_truth.npy` as the gallery and should produce gallery size 1000.
+- V61a MC-TTA reports are valid token-space analyses, not 768-D CLIP manifold analyses.
+- `fusion_v61_v62` is score/rank-level fusion. No true fused 768-D embedding export was found, so fusion RSA/neighborhood/manifold geometry remains unavailable.

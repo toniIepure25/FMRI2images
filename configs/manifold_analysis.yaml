@@ -1,0 +1,160 @@
+# =============================================================
+# Manifold Analysis Configuration
+# =============================================================
+# Default config for the Neural Manifold Alignment analysis
+# framework.  Override paths and flags per experiment.
+
+artifacts:
+  z_pred_path: null            # (N, 768) .npy
+  z_target_path: null          # (N, 768) .npy
+  gallery_embeddings_path: null  # .npy or .parquet (G, 768)
+  target_ids_path: null        # (N,) nsdId .npy
+  metadata_path: null          # .parquet with nsdId, repeat_index, cocoId
+  kappa_path: null             # (N,) .npy, optional
+  roi_masks_path: null         # .npy or dir, optional
+  per_trial_pred_path: null    # (T, 768) per-trial preds, optional
+  per_trial_nsd_ids_path: null # (T,) per-trial nsdIds, optional
+  text_embeddings_path: cache/clip_embeddings/text_probe_concepts_vitl14.npz
+                              # .npz cache built by scripts/build/build_text_probe_embeddings.py
+  semantic_axes_path: null     # (A, 768) precomputed semantic axis dirs
+  # Flat token gallery (197376-D): set token HDF5 + a parquet listing nsdId order
+  # (typically outputs/clip_cache/clip.parquet).  Omit for standard 768-D CLIP gallery.
+  gallery_token_h5_path: null
+  gallery_id_column: "nsdId"
+  gallery_token_mmap: false    # mmap HDF5 (slower per-vector; saves RAM)
+  experiment_dir: null         # auto-discover artifacts here
+  subject: null
+  experiment_id: null
+
+output:
+  output_dir: null             # default: reports/manifold_analysis/<timestamp>/
+  save_formats: ["png"]
+  dpi: 300
+
+analysis:
+  seed: 42
+  top_k: [1, 5, 10, 20, 50, 100]
+  csls_k: 10
+  rsa_max_samples: 1500
+  neighborhood_ks: [5, 10, 20, 50, 100]
+  normalize_embeddings: true
+  # Gallery modes:
+  #   full              use full gallery and map target_ids into it
+  #   target_ids        filter/reorder gallery rows by target_ids
+  #   target_embeddings use z_target itself as the candidate gallery
+  gallery_mode: full
+  allow_diagonal_fallback: false
+  manifold_density_k: 20
+  calibration_n_bins: 10
+  coverage_levels: [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1]
+  bootstrap_n: 500
+
+modules:
+  retrieval: true
+  hubness: true
+  rsa: true
+  neighborhood: true
+  repeat_stability: true
+  uncertainty: true
+  manifold_density: true
+  reliability: true
+  semantic_probes: true
+  semantic_axes: true
+  vector_field: true
+  counterfactuals: true
+  interpolation: true
+  roi_axes: false
+  nmas: true
+
+text_probes:
+  concepts:
+    - person
+    - human face
+    - animal
+    - dog
+    - cat
+    - vehicle
+    - car
+    - indoor room
+    - outdoor landscape
+    - natural scene
+    - city street
+    - forest
+    - mountain
+    - beach
+    - water
+    - sky
+    - building
+    - kitchen
+    - living room
+    - food
+    - road
+    - text sign
+    - object
+    - tool
+    - furniture
+    - sports
+    - human body
+    - grass
+    - urban scene
+  templates:
+    - "a photo of a {concept}"
+    - "an image of a {concept}"
+    - "a natural image containing {concept}"
+
+semantic_probes:
+  temperature: 0.07
+  top_k: [1, 3, 5, 10]
+  max_examples: 12
+
+semantic_axes:
+  axes:
+    - name: animal_vs_inanimate
+      positive: animal
+      negative: object
+    - name: indoor_vs_outdoor
+      positive: indoor room
+      negative: outdoor landscape
+    - name: face_vs_landscape
+      positive: human face
+      negative: natural scene
+    - name: natural_vs_urban
+      positive: natural scene
+      negative: urban scene
+    - name: vehicle_vs_animal
+      positive: vehicle
+      negative: animal
+    - name: food_vs_object
+      positive: food
+      negative: object
+    - name: water_vs_land
+      positive: water
+      negative: road
+    - name: person_vs_empty_scene
+      positive: person
+      negative: outdoor landscape
+    - name: road_vs_nature
+      positive: road
+      negative: forest
+    - name: building_vs_natural_landscape
+      positive: building
+      negative: natural scene
+  max_examples: 12
+
+reliability_weights:
+  kappa: 1.0
+  csls_margin: 1.0
+  manifold_density: 1.0
+  semantic_probe_agreement: 0.5
+  topk_entropy: 1.0
+  hubness_score: 0.5
+
+counterfactual:
+  alphas: [-2.0, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0]
+  max_cases: 24
+  axes: auto
+
+interpolation:
+  steps: 21
+  max_pairs: 20
+  pair_strategy: mixed

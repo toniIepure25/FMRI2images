@@ -196,3 +196,14 @@ checkpoints/
 data/
 docs/PBT/
 docs/Thesis/
+
+# Large transferred report archives
+*.tar.gz
+*.tar.gz.b64
+*.tar.gz.part-*
+manifold_reports_*
+V62a_val_manifold_report*
+
+# Local extracted analysis report folders at repository root
+20260514_*/
+20260515_*/

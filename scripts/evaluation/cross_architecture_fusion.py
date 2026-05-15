@@ -35,28 +35,40 @@ MODEL_DIRS = {
     "V66a": f"{RESULTS_ROOT}/V66a_roi_pretrain/subj01/metrics",
 }
 
-MCTTA_SUFFIX = "_mctta"
-
 all_preds = {}
 all_gts = {}
 all_kappas = {}
 
 
 def load_model(name, d):
-    for suffix in [MCTTA_SUFFIX, ""]:
-        pp = f"{d}/shared1000_predictions{suffix}.npy"
-        gp = f"{d}/shared1000_ground_truth{suffix}.npy"
-        kp = f"{d}/shared1000_kappas{suffix}.npy"
+    """Load shared1000 prediction matrices; MC-TTA uses distinct filenames on disk."""
+    gp_default = f"{d}/shared1000_ground_truth.npy"
+    variants = [
+        ("_mctta16", "shared1000_predictions_mctta16.npy"),
+        ("_mctta", "shared1000_predictions_mctta.npy"),
+        ("", "shared1000_predictions.npy"),
+    ]
+    for suffix, pred_fn in variants:
+        pp = os.path.join(d, pred_fn)
         tag = f"{name}{suffix}" if suffix else name
-        if os.path.exists(pp):
-            all_preds[tag] = np.load(pp)
-            if os.path.exists(gp):
-                all_gts[tag] = np.load(gp)
+        if not os.path.exists(pp):
+            continue
+        all_preds[tag] = np.load(pp)
+        if os.path.exists(gp_default):
+            all_gts[tag] = np.load(gp_default)
+        kp_candidates = [
+            os.path.join(d, f"shared1000_kappas{suffix}.npy") if suffix else os.path.join(d, "shared1000_kappas.npy"),
+        ]
+        if suffix == "_mctta16":
+            kp_candidates.insert(0, os.path.join(d, "shared1000_kappas_mctta16.npy"))
+        kp_candidates.append(os.path.join(d, "shared1000_kappas.npy"))
+        for kp in kp_candidates:
             if os.path.exists(kp):
                 all_kappas[tag] = np.load(kp)
-            dim = all_preds[tag].shape[1] if all_preds[tag].ndim == 2 else 0
-            label = f"{dim}-D" if dim > 0 else "?"
-            print(f"  Loaded {tag}: shape={all_preds[tag].shape} ({label})")
+                break
+        dim = all_preds[tag].shape[1] if all_preds[tag].ndim == 2 else 0
+        label = f"{dim}-D" if dim > 0 else "?"
+        print(f"  Loaded {tag}: shape={all_preds[tag].shape} ({label})")
 
 
 print("=== Loading predictions ===")
@@ -146,7 +158,12 @@ print("=" * 60)
 
 sim_matrices = {}
 for name, preds in all_preds.items():
-    gt_key = name if name in all_gts else name.replace(MCTTA_SUFFIX, "").replace("_mctta_standalone", "")
+    gt_key = name
+    if name not in all_gts:
+        for suf in ("_mctta16", "_mctta_standalone", "_mctta"):
+            if name.endswith(suf):
+                gt_key = name[: -len(suf)]
+                break
     if gt_key not in all_gts:
         gt_key = list(all_gts.keys())[0]
     gts = all_gts[gt_key]
@@ -237,7 +254,7 @@ key_triples = []
 for n1, n2, n3 in combinations(sim_matrices.keys(), 3):
     key_triples.append((n1, n2, n3))
 
-for n1, n2, n3 in key_triples[:15]:
+for n1, n2, n3 in key_triples:
     z1 = zscore_normalize(sim_matrices[n1])
     z2 = zscore_normalize(sim_matrices[n2])
     z3 = zscore_normalize(sim_matrices[n3])

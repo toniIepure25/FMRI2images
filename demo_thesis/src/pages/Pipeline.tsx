@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { usePipelineCases } from '@/lib/hooks';
 import type { DemoCase } from '@/types';
 import type { PipelineRunMode } from '@/types/pipeline';
-import { PipelineProgressBar } from '@/components/pipeline/PipelineProgressBar';
+import { DecodingStageRail } from '@/components/pipeline/DecodingStageRail';
 import { PipelineStatusHeader } from '@/components/pipeline/PipelineStatusHeader';
 import { PhaseTrialSelection } from '@/components/pipeline/PhaseTrialSelection';
 import { PhaseEncodingRetrieval } from '@/components/pipeline/PhaseEncodingRetrieval';
@@ -73,9 +73,11 @@ export function Pipeline() {
           phase={phase}
         />
 
-        <PipelineProgressBar currentPhase={progressBarPhase} />
+        <DecodingStageRail currentPhase={progressBarPhase} />
 
-        <EvidenceIntegrityPanel selectedCase={selectedCase} liveMode={liveMode} backendHealth={backendHealth} />
+        {selectedCase ? (
+          <EvidenceIntegrityPanel selectedCase={selectedCase} liveMode={liveMode} backendHealth={backendHealth} />
+        ) : null}
 
         {/* Back button */}
         <AnimatePresence>
@@ -87,7 +89,7 @@ export function Pipeline() {
             >
               <button
                 type="button"
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium text-text-muted transition hover:text-text-primary"
+                className="inline-flex items-center gap-2 rounded-xl border border-border-subtle bg-surface-raised/70 px-3 py-2 text-[12px] font-semibold text-text-secondary transition hover:border-border-emphasis hover:text-text-primary"
                 onClick={backToSelection}
               >
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

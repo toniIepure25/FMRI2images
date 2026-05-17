@@ -86,7 +86,7 @@ export function Explorer() {
   };
 
   return (
-    <div className="relative flex h-[calc(100vh-3rem)]">
+    <div className="premium-page-bg relative flex h-[calc(100vh-4rem)]">
       {casesSidebarOpen ? (
         <button
           type="button"
@@ -97,7 +97,7 @@ export function Explorer() {
       ) : null}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-72 flex-shrink-0 flex-col overflow-y-auto border-r border-border-subtle bg-surface-base p-4 shadow-surface-lg transition-transform duration-300 ease-out lg:static lg:z-auto lg:bg-transparent lg:shadow-none ${
+        className={`fixed inset-y-0 left-0 z-40 flex w-80 flex-shrink-0 flex-col overflow-y-auto border-r border-border-subtle bg-surface-base/95 p-4 shadow-surface-lg backdrop-blur-xl transition-transform duration-300 ease-out lg:static lg:z-auto lg:bg-surface-base/25 lg:shadow-none ${
           casesSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
@@ -111,12 +111,15 @@ export function Explorer() {
             Close
           </button>
         </div>
-        <h2 className="mb-4 hidden text-sm font-semibold text-text-primary lg:block">Cases</h2>
+        <div className="mb-5 hidden lg:block">
+          <p className="premium-kicker mb-2">Dataset gallery</p>
+          <h2 className="text-lg font-semibold tracking-tight text-text-primary">Cases</h2>
+        </div>
         <CaseSelector cases={cases} selectedId={selectedCase?.id} onSelect={handleCaseSelect} />
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <div className="flex items-stretch gap-2 border-b border-border-subtle p-3">
+        <div className="flex items-stretch gap-2 border-b border-border-subtle bg-surface-base/35 p-3 backdrop-blur">
           <button
             type="button"
             onClick={() => setCasesSidebarOpen(true)}
@@ -133,7 +136,7 @@ export function Explorer() {
             />
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4 lg:p-6">
           <motion.div
             key={activeTab}
             initial={{ opacity: 0 }}
@@ -146,7 +149,7 @@ export function Explorer() {
       </div>
 
       {selectedCase && (
-        <div className="hidden w-64 flex-shrink-0 overflow-y-auto border-l border-border-subtle p-4 xl:block">
+        <div className="hidden w-72 flex-shrink-0 overflow-y-auto border-l border-border-subtle bg-surface-base/25 p-4 xl:block">
           <QuickStats case_={selectedCase} />
         </div>
       )}

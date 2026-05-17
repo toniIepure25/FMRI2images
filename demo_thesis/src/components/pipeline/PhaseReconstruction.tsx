@@ -82,6 +82,7 @@ export function PhaseReconstruction({
   // Determine effective reconstruction source
   const hasLiveRecon = liveRecon?.ok && liveRecon.mode === 'LIVE_LOCAL_RECONSTRUCTION';
   const hasCachedRecon = !!case_.diffusionFinal || !!case_.reconstructionImage;
+  const hasRecon = hasLiveRecon || hasCachedRecon;
   const reconImageSrc = hasLiveRecon ? liveRecon.image_url : (case_.diffusionFinal ?? case_.reconstructionImage);
   const effectiveReconProv: Provenance = hasLiveRecon
     ? LIVE_PROV
@@ -117,41 +118,52 @@ export function PhaseReconstruction({
     <div className="space-y-6 pb-16">
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex items-center justify-between">
+        <div className="premium-panel premium-panel-hero flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
-              <h2 className="text-[22px] font-semibold tracking-tight text-text-primary">
-                Reconstruct &amp; compare
+              <h2 className="text-3xl font-semibold tracking-tight text-text-primary">
+                {hasRecon ? 'Compare retrieval evidence' : 'Retrieval-only evidence review'}
               </h2>
               {hasLiveRecon ? (
-                <span className="inline-flex items-center gap-1 rounded bg-accent/10 px-2 py-0.5 text-[9px] font-semibold text-accent">
+                <span className="inline-flex items-center gap-1 rounded bg-accent/15 px-2.5 py-0.5 text-[10px] font-semibold text-accent">
                   Karlo UnCLIP &middot; live
                 </span>
               ) : (
                 <ProvenanceBadge provenance={liveMode ? { kind: 'derived', detail: 'Live retrieval + cached reconstruction' } : REPLAY_PROV} />
               )}
             </div>
-            <p className="text-[13px] text-text-muted">
+            <p className="max-w-3xl text-[13px] leading-relaxed text-text-secondary">
               {hasLiveRecon
                 ? `Live local reconstruction · generated from V62a CLIP embedding · ${liveRecon?.generation_ms?.toFixed(0) ?? '?'}ms`
                 : hasCachedRecon
                   ? 'Cached qualitative reconstruction'
-                  : 'No reconstruction asset'} &middot; retrieval comparison
+                  : 'Target stimulus and top-ranked retrieval are shown side by side. No reconstruction asset is cached for this trial.'}
             </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`rounded-xl px-3 py-2 text-[11px] font-semibold ${verdict.bg} ${verdict.cls}`}>
+              Rank #{m.rank} · {verdict.text}
+            </span>
+            <span className="rounded-xl border border-border-subtle bg-surface-raised px-3 py-2 font-mono text-[11px] text-text-secondary">
+              CSLS {top1?.csls != null ? top1.csls.toFixed(3) : 'n/a'}
+            </span>
+            <span className="rounded-xl border border-border-subtle bg-surface-raised px-3 py-2 font-mono text-[11px] text-text-secondary">
+              κ {u.kappa.toFixed(1)}
+            </span>
           </div>
         </div>
       </motion.div>
 
       {/* ── RESULT SUMMARY HERO ── */}
       <motion.div
-        className="rounded-xl border border-border-subtle bg-surface-elevated p-6 sm:p-7"
+        className="premium-panel p-6 sm:p-7"
         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
       >
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-text-muted">Retrieval result</p>
+            <p className="premium-kicker">Retrieval result</p>
             <div className="flex items-baseline gap-4">
-              <span className={`font-mono text-[64px] font-bold tabular-nums leading-none ${
+              <span className={`font-mono text-[76px] font-semibold tabular-nums leading-none ${
                 m.rank === 1 ? 'text-accent' : m.rank <= 5 ? 'text-status-warning' : 'text-text-primary'
               }`}>
                 #{m.rank}
@@ -199,7 +211,7 @@ export function PhaseReconstruction({
       {/* Comparison triptych */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-[13px] font-semibold text-text-primary">Comparison</p>
+          <p className="text-[13px] font-semibold text-text-primary">{hasRecon ? 'Visual comparison' : 'Retrieval evidence'}</p>
           {!liveMode && <span className="text-[10px] text-text-muted">Cached assets</span>}
         </div>
         <ComparisonTriptych
@@ -209,22 +221,24 @@ export function PhaseReconstruction({
               subtitle: 'Reference stimulus',
               imageSrc: case_.targetImage,
               provenance: { kind: 'replay', detail: 'Cached NSD stimulus image' },
-              accent: 'emerald',
+              accent: 'emerald' as const,
               revealBlur: true,
+              isMatch: m.rank === 1,
             },
             {
               title: 'Model retrieved',
-              subtitle: `Top-1 gallery · Rank #${top1?.rank ?? '—'}`,
+              subtitle: liveMode ? 'Live retrieval · CUDA' : `Top-1 gallery · Rank #${top1?.rank ?? '—'}`,
               imageSrc: top1?.image,
-              provenance: liveMode ? { kind: 'derived', detail: 'Live retrieval rank · cached gallery image' } : REPLAY_PROV,
-              accent: 'violet',
+              provenance: liveMode ? { kind: 'derived', detail: 'Live CSLS ranking' } : REPLAY_PROV,
+              accent: 'violet' as const,
+              isMatch: m.rank === 1,
             },
             {
               title: hasLiveRecon
                 ? 'Live reconstruction'
                 : hasCachedRecon
                   ? 'Cached reconstruction'
-                  : 'Reconstruction',
+                  : 'Reconstruction not cached',
               subtitle: hasLiveRecon
                 ? `Karlo UnCLIP · ${liveRecon?.steps ?? '?'} steps, seed ${liveRecon?.seed ?? '?'}`
                 : hasCachedRecon
@@ -232,19 +246,56 @@ export function PhaseReconstruction({
                   : 'Asset not available',
               imageSrc: reconImageSrc,
               provenance: effectiveReconProv,
-              accent: 'cyan',
+              accent: 'cyan' as const,
+              isMatch: false,
               emptyText: hasLiveRecon
                 ? (liveRecon?.reason || liveRecon?.last_error || undefined)
-                : 'No reconstruction asset was cached for this trial.\nThis replay contains retrieval evidence only.',
+                : 'This replay contains retrieval evidence only. Enable local reconstruction export to compare generated assets.',
             },
           ]}
         />
       </div>
 
+      {/* ── Reconstruction Status Panel (shown when reconstruction unavailable) ── */}
+      {!hasLiveRecon && !hasCachedRecon && (
+        <div className="rounded-2xl border border-border-subtle bg-surface-raised/75 p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-text-primary">Reconstruction not cached</h3>
+              <p className="mt-1 text-[11px] text-text-muted">This replay contains retrieval evidence only.</p>
+            </div>
+            <span className="rounded-lg border border-border-subtle bg-surface-base px-2.5 py-1 text-[10px] font-semibold text-text-muted">Unavailable</span>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap text-[11px] mb-3">
+            <span className="rounded bg-surface-raised px-2 py-1 font-mono text-text-secondary">15,724 voxels</span>
+            <span className="text-border-emphasis">&rarr;</span>
+            <span className="rounded bg-accent/10 px-2 py-1 font-mono text-accent">V62a MLP</span>
+            <span className="text-border-emphasis">&rarr;</span>
+            <span className="rounded bg-surface-raised px-2 py-1 font-mono text-text-secondary">μ ∈ R⁷⁶⁸</span>
+            <span className="text-border-emphasis">&rarr;</span>
+            <span className="rounded bg-surface-raised px-2 py-1 font-mono text-text-secondary">CSLS 10k</span>
+            <span className="text-border-emphasis">&rarr;</span>
+            <span className="rounded bg-surface-raised px-2 py-1 font-mono text-text-secondary">Rank #{m.rank}</span>
+            <span className="text-border-emphasis">&rarr;</span>
+            <span className="rounded bg-surface-raised px-1.5 py-1 text-[10px] text-text-muted">optional reconstruction</span>
+          </div>
+
+          <div className="flex items-center gap-x-4 gap-y-1 flex-wrap text-[11px]">
+            <span className="text-status-success text-xs">✓</span><span className="text-text-secondary">μ available</span>
+            <span className="text-status-success text-xs ml-3">✓</span><span className="text-text-secondary">pipeline valid</span>
+            <span className="text-text-muted ml-3">—</span><span className="text-text-muted">weights not cached</span>
+            <span className="text-[10px] text-text-muted sm:ml-auto">
+              Set <span className="font-mono text-accent/70">C2C_RECON_ALLOW_DOWNLOAD=true</span> for live local reconstruction.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Trial metrics */}
-      <div className="surface-card p-5 sm:p-6">
+      <div className="premium-panel p-5 sm:p-6">
         <div className="mb-5 flex flex-col items-center justify-between gap-3 sm:flex-row">
-          <h3 className="text-base font-semibold text-text-primary">Trial metrics</h3>
+          <h3 className="text-base font-semibold text-text-primary">Evidence summary</h3>
           <span className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[11px] font-semibold ${verdict.bg} ${verdict.cls}`}>
             {verdict.text} &middot; Rank #{m.rank}
           </span>
@@ -253,17 +304,23 @@ export function PhaseReconstruction({
           <MetricCell label="Rank" value={String(m.rank)} description="Gallery retrieval rank"
             provenance={getMetricProv('rank')}
             valueColor={m.rank === 1 ? 'text-accent' : m.rank <= 5 ? 'text-status-warning' : 'text-status-error'} />
-          <MetricCell label="PixCorr" value={m.pixcorr} description="Pixel correlation" provenance={getMetricProv('pixcorr')} />
-          <MetricCell label="SSIM" value={m.ssim} description="Structural similarity" provenance={getMetricProv('ssim')} />
           <MetricCell
             label={isMetricAvailable(m.cosine) ? 'Cosine' : 'CSLS'}
             value={isMetricAvailable(m.cosine) ? m.cosine : m.csls}
             description={isMetricAvailable(m.cosine) ? 'Top-1 cosine similarity' : 'Top-1 CSLS score'}
             provenance={getMetricProv('cosine')} />
+          <MetricCell label="κ" value={u.kappa} description="Directional concentration" provenance={uncProv} />
+          <MetricCell label="δ" value={liveMode ? null : u.delta} description="ROI disagreement" provenance={uncProv} />
+          {isMetricAvailable(m.pixcorr) ? (
+            <MetricCell label="PixCorr" value={m.pixcorr} description="Pixel correlation" provenance={getMetricProv('pixcorr')} />
+          ) : null}
+          {isMetricAvailable(m.ssim) ? (
+            <MetricCell label="SSIM" value={m.ssim} description="Structural similarity" provenance={getMetricProv('ssim')} />
+          ) : null}
         </div>
-        {!hasLiveRecon && !hasCachedRecon && (
-          <p className="mt-3 text-center text-[11px] text-text-muted">
-            PixCorr and SSIM require a reconstruction asset.
+        {(!isMetricAvailable(m.pixcorr) || !isMetricAvailable(m.ssim)) && (
+          <p className="mt-4 rounded-xl border border-border-subtle bg-surface-raised/70 px-4 py-3 text-[11px] leading-relaxed text-text-muted">
+            PixCorr and SSIM are hidden from the primary metric row when no reconstruction asset is available. This replay is evaluated through retrieval rank, CSLS score, and uncertainty evidence.
           </p>
         )}
       </div>

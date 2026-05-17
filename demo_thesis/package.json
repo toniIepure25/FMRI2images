@@ -8,7 +8,10 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "prepare-demo-data": "cd scripts && python3 prepare_demo_data.py"
+    "prepare-demo-data": "cd scripts && python3 prepare_demo_data.py",
+    "export:manifold-evidence": "node scripts/export_manifold_evidence_data.mjs",
+    "sync:manifold-figures": "node scripts/sync_manifold_figures.mjs",
+    "verify:manifold-evidence": "node scripts/verify_manifold_evidence.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.114.0",

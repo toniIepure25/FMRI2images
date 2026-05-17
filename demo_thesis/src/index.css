@@ -13,11 +13,21 @@
   50%      { opacity: 0.65; }
 }
 
+@keyframes premium-sheen {
+  0% { transform: translateX(-120%); opacity: 0; }
+  18% { opacity: 0.45; }
+  52% { opacity: 0.12; }
+  100% { transform: translateX(140%); opacity: 0; }
+}
+
 /* ── Base layer ── */
 @layer base {
   body {
     @apply bg-surface-base text-text-primary antialiased;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    background:
+      radial-gradient(ellipse 90% 55% at 50% -18%, rgb(66 103 173 / 0.18), transparent 68%),
+      linear-gradient(180deg, #07080c 0%, #090b10 46%, #07080c 100%);
   }
 
   ::selection {
@@ -145,10 +155,9 @@
 
   .pip-page-bg {
     background:
-      radial-gradient(ellipse 80% 50% at 50% -10%, rgb(30 35 55 / 0.30), transparent),
-      radial-gradient(ellipse 50% 30% at 80% 10%, rgb(25 25 45 / 0.15), transparent),
-      radial-gradient(ellipse 50% 30% at 20% 10%, rgb(20 25 40 / 0.12), transparent),
-      #09090b;
+      radial-gradient(ellipse 80% 48% at 50% -12%, rgb(66 103 173 / 0.22), transparent 68%),
+      radial-gradient(ellipse 40% 28% at 82% 16%, rgb(103 232 249 / 0.055), transparent 72%),
+      linear-gradient(180deg, #07080c 0%, #0a0d14 46%, #07080c 100%);
   }
 
   /* ─── Provenance / status badges ─── */
@@ -187,6 +196,117 @@
 
   .data-divider {
     @apply border-t border-border-subtle;
+  }
+
+  /* ─── Premium scientific workbench primitives ─── */
+  .premium-page-bg {
+    background:
+      radial-gradient(ellipse 82% 52% at 50% -14%, rgb(82 122 205 / 0.20), transparent 68%),
+      radial-gradient(ellipse 42% 26% at 78% 12%, rgb(103 232 249 / 0.055), transparent 72%),
+      linear-gradient(180deg, #07080c 0%, #0a0d14 44%, #07080c 100%);
+  }
+
+  .premium-shell-grid {
+    background-image:
+      linear-gradient(rgb(255 255 255 / 0.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.016) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: linear-gradient(to bottom, black 0%, transparent 72%);
+  }
+
+  .premium-panel {
+    @apply relative overflow-hidden rounded-[18px] border border-border-subtle bg-surface-elevated shadow-surface-xl;
+    box-shadow:
+      0 24px 80px -48px rgb(0 0 0 / 0.92),
+      inset 0 1px 0 rgb(255 255 255 / 0.045);
+  }
+
+  .premium-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(180deg, rgb(255 255 255 / 0.045), transparent 34%);
+  }
+
+  .premium-panel > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .premium-panel-hero {
+    border-color: rgb(148 163 184 / 0.16);
+    background:
+      linear-gradient(180deg, rgb(23 28 41 / 0.96), rgb(16 20 30 / 0.96));
+  }
+
+  .premium-panel-inset {
+    @apply bg-surface-base shadow-none;
+  }
+
+  .premium-panel-muted {
+    @apply bg-surface-raised shadow-surface;
+  }
+
+  .premium-metric {
+    @apply rounded-xl border border-border-subtle bg-surface-raised/75 px-4 py-3;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.035);
+  }
+
+  .premium-kicker {
+    @apply text-[10px] font-semibold uppercase tracking-[0.18em] text-text-muted;
+  }
+
+  .premium-empty {
+    @apply flex min-h-[12rem] flex-col items-center justify-center gap-3 rounded-2xl border border-border-subtle bg-surface-raised/60 p-8 text-center;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.035);
+  }
+
+  .premium-empty-compact {
+    @apply min-h-0 flex-row justify-start gap-4 p-4 text-left;
+  }
+
+  .premium-image-card {
+    @apply rounded-2xl border border-border-subtle bg-surface-elevated p-2 transition duration-300;
+    box-shadow:
+      0 18px 54px -38px rgb(0 0 0 / 0.85),
+      inset 0 1px 0 rgb(255 255 255 / 0.04);
+  }
+
+  .premium-image-card:hover {
+    @apply -translate-y-0.5 border-border-emphasis bg-surface-overlay;
+  }
+
+  .premium-image-card-emphasis {
+    border-color: rgb(74 222 128 / 0.24);
+    box-shadow:
+      0 22px 62px -40px rgb(74 222 128 / 0.34),
+      inset 0 1px 0 rgb(255 255 255 / 0.055);
+  }
+
+  .premium-rank-badge {
+    @apply inline-flex rounded-md border border-white/10 bg-black/40 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/80 backdrop-blur;
+  }
+
+  .premium-rank-badge-primary {
+    @apply border-status-success/30 bg-status-success/15 text-status-success;
+  }
+
+  .premium-nav-link {
+    @apply inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-[13px] font-medium text-text-secondary transition duration-200 hover:bg-white/[0.035] hover:text-text-primary;
+  }
+
+  .premium-nav-link-active {
+    @apply bg-white/[0.055] text-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.04)];
+  }
+
+  .premium-button-primary {
+    @apply inline-flex items-center justify-center rounded-xl border border-accent/25 bg-accent px-5 py-3 text-sm font-semibold text-text-inverse shadow-[0_18px_42px_-24px_rgba(111,168,255,0.9)] transition hover:bg-accent-hover focus-visible:ring-accent;
+  }
+
+  .premium-button-secondary {
+    @apply inline-flex items-center justify-center rounded-xl border border-border-subtle bg-surface-elevated px-5 py-3 text-sm font-semibold text-text-secondary transition hover:border-border-emphasis hover:bg-surface-overlay hover:text-text-primary;
   }
 }
 

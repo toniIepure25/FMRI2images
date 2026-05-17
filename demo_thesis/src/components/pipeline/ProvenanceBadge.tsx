@@ -2,11 +2,11 @@ import type { Provenance, ProvenanceKind } from '@/lib/provenance';
 import { provenanceLabel, provenanceTone } from '@/lib/provenance';
 
 const TONE_CLASSES: Record<ProvenanceKind, string> = {
-  live:        'bg-accent/[0.07] text-accent ring-1 ring-accent/15',
-  replay:      'bg-surface-active text-text-secondary ring-1 ring-border-subtle',
-  derived:     'bg-status-info/8 text-status-info ring-1 ring-status-info/12',
-  placeholder: 'bg-status-error/6 text-status-error ring-1 ring-status-error/12',
-  unknown:     'bg-surface-raised text-text-muted ring-1 ring-border-subtle',
+  live:        'border-accent/25 bg-accent/10 text-accent',
+  replay:      'border-border-subtle bg-surface-raised/85 text-text-secondary',
+  derived:     'border-status-info/20 bg-status-info/10 text-status-info',
+  placeholder: 'border-status-error/20 bg-status-error/10 text-status-error',
+  unknown:     'border-border-subtle bg-surface-raised/70 text-text-muted',
 };
 
 const DOT_CLASSES: Record<ProvenanceKind, string> = {
@@ -29,7 +29,7 @@ export function ProvenanceBadge({ provenance, className = '' }: ProvenanceBadgeP
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-medium ${TONE_CLASSES[tone]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${TONE_CLASSES[tone]} ${className}`}
       title={detail}
     >
       <span className={`h-1 w-1 rounded-full ${DOT_CLASSES[tone]}`} />

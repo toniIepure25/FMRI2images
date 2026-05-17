@@ -7,6 +7,9 @@ import { REPLAY_PROV, LIVE_PROV, DERIVED_PROV, UNKNOWN_PROV, type Provenance } f
 import { hasFmriPreview, hasClipPreview, fmriPreviewProvenance, clipPreviewProvenance } from '@/lib/pipelineNormalize';
 import { ScientificVerdict } from './ScientificVerdict';
 import { AnalysisTabs } from './AnalysisTabs';
+import { HeroResultPanel } from '@/components/premium/HeroResultPanel';
+import { RetrievalCandidatesStrip } from '@/components/premium/RetrievalCandidatesStrip';
+import { EmptyState } from '@/components/premium/EmptyState';
 
 export interface PhaseEncodingRetrievalProps {
   case_: DemoCase;
@@ -25,7 +28,7 @@ function buildSteps(isLive: boolean, encoderType?: string): StepDef[] {
     { phase: 'load_betas',    label: 'Load fMRI betas',  detail: 'ROI-masked beta vector for selected trial', duration: 1200 },
     { phase: 'zscore',        label: 'Preprocessing',     detail: isLive ? 'Pre-extracted features (z-score N/A)' : 'Per-session z-score normalization', duration: 900 },
     { phase: 'roi_mask',      label: 'ROI masking',       detail: isMlp ? 'Retain nsdgeneral visual cortex voxels' : 'Retain visual cortex voxels as ROI tokens', duration: 700 },
-    { phase: 'roi_encode',    label: isMlp ? 'MLP encoder' : 'ROI transformer', detail: isMlp ? '15,724 → [8192, 8192, 4096, 2048] residual MLP' : '17 ROI tokens → transformer encoder → [CLS]', duration: 1600 },
+    { phase: 'roi_encode',    label: isMlp ? 'MLP encoder' : 'ROI transformer', detail: isMlp ? '15,724 → 8192 → 8192 → 4096 → 2048 → 768' : '17 ROI tokens → transformer encoder → [CLS]', duration: 1600 },
     { phase: 'vmf_decode',    label: 'vMF projection',    detail: 'Directional embedding on the unit hypersphere', duration: 1200 },
     { phase: 'gallery_search',label: 'CSLS gallery search', detail: 'Rank 10,000 CLIP embeddings with CSLS', duration: 1600 },
     { phase: 'results',       label: 'Top-K hypotheses',  detail: 'Select top visual hypotheses from gallery', duration: 1400 },
@@ -65,17 +68,6 @@ function SafeImg({ src, alt, className }: { src?: string; alt: string; className
     </div>
   );
   return <img src={src} alt={alt} className={className} onError={() => setOk(false)} loading="lazy" />;
-}
-
-function LabelBadge({ label }: { label: RetrievedImage['label'] }) {
-  const m = label === 'correct'
-    ? { t: 'Match', cls: 'bg-status-success/10 text-status-success ring-1 ring-status-success/20' }
-    : label === 'semantic_neighbor'
-      ? { t: 'Neighbor', cls: 'bg-status-warning/8 text-status-warning ring-1 ring-status-warning/15' }
-      : { t: 'Distractor', cls: 'bg-surface-active text-text-muted' };
-  return (
-    <span className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${m.cls}`}>{m.t}</span>
-  );
 }
 
 type StepStatus = 'pending' | 'active' | 'done';
@@ -251,18 +243,20 @@ export function PhaseEncodingRetrieval({
     <div className="relative space-y-5">
       {/* ── Phase header ── */}
       <motion.header
-        className="flex items-center justify-between surface-card px-6 py-4"
+        className="flex flex-col gap-4 premium-panel px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
       >
         <div className="space-y-0.5">
           <div className="flex items-center gap-3">
-            <h2 className="text-xl font-semibold tracking-tight text-text-primary">Encoding &amp; retrieval</h2>
+            <h2 className="text-2xl font-semibold tracking-tight text-text-primary">Decode replay</h2>
             <ProvenanceBadge provenance={isLiveInference ? LIVE_PROV : { kind: 'replay', detail: 'Replayed computation trace' }} />
           </div>
-          <p className="font-mono text-[12px] text-text-muted">{case_.subject} &middot; nsdId {case_.nsdId} &middot; session {case_.session}</p>
+          <p className="text-[13px] text-text-secondary">
+            {case_.subject} · nsdId {case_.nsdId} · session {case_.session} · visual cortex → CLIP retrieval
+          </p>
         </div>
         <button type="button" onClick={skip}
-          className="rounded-lg border border-border-subtle bg-surface-raised px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted transition hover:border-accent/25 hover:text-accent">
+          className="rounded-xl border border-border-subtle bg-surface-raised/80 px-4 py-2 text-[12px] font-semibold text-text-muted transition hover:border-border-emphasis hover:text-text-primary">
           Skip animation
         </button>
       </motion.header>
@@ -271,9 +265,9 @@ export function PhaseEncodingRetrieval({
       <div className="flex flex-col gap-5 lg:flex-row">
 
         {/* Zone A: Execution rail */}
-        <div className="w-full shrink-0 lg:w-64 xl:w-72">
-          <div className="sticky top-4 rounded-xl border border-border-subtle bg-surface-raised px-3 py-4">
-            <p className="mb-3 px-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">
+        <div className="w-full shrink-0 lg:w-72 xl:w-80">
+          <div className="sticky top-20 rounded-2xl border border-border-subtle bg-surface-raised/80 px-3 py-4 shadow-surface">
+            <p className="mb-4 px-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-muted">
               {isLiveInference ? 'Backend inference' : 'Computation replay'}
             </p>
             <div className="relative space-y-px">
@@ -283,10 +277,10 @@ export function PhaseEncodingRetrieval({
                 return (
                   <motion.div
                     key={step.phase}
-                    className={`relative flex items-start gap-2.5 rounded-lg px-2 py-[7px] transition-colors duration-200 ${
-                      s === 'active' ? 'bg-accent/[0.06]' : ''
+                    className={`relative flex items-start gap-3 rounded-xl px-2.5 py-3 transition-colors duration-200 ${
+                      s === 'active' ? 'bg-surface-elevated ring-1 ring-accent/15' : ''
                     }`}
-                    animate={{ opacity: s === 'pending' ? 0.35 : 1 }}
+                    animate={{ opacity: s === 'pending' ? 0.48 : 1 }}
                   >
                     <div className="relative z-10 mt-[3px] flex h-[16px] w-[16px] shrink-0 items-center justify-center">
                       {s === 'done' ? (
@@ -301,14 +295,14 @@ export function PhaseEncodingRetrieval({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
-                        <span className={`font-mono text-[9px] tabular-nums ${s === 'pending' ? 'text-text-muted/50' : 'text-text-muted'}`}>
+                          <span className={`font-mono text-[10px] tabular-nums ${s === 'pending' ? 'text-text-muted/50' : 'text-text-muted'}`}>
                           {String(si + 1).padStart(2, '0')}
                         </span>
-                        <span className={`text-[11px] font-medium leading-snug ${
+                        <span className={`text-[12px] font-semibold leading-snug ${
                           s === 'active' ? 'text-text-primary' : s === 'done' ? 'text-text-secondary' : 'text-text-muted'
                         }`}>{step.label}</span>
                       </div>
-                      {s !== 'pending' && <p className="mt-0.5 text-[9px] leading-snug text-text-muted">{step.detail}</p>}
+                      {s !== 'pending' && <p className="mt-1 text-[10px] leading-snug text-text-muted">{step.detail}</p>}
                     </div>
                   </motion.div>
                 );
@@ -323,7 +317,7 @@ export function PhaseEncodingRetrieval({
         </div>
 
         {/* Zone B: Evidence canvas */}
-        <div className="min-h-[400px] flex-1 rounded-xl border border-border-subtle bg-surface-elevated px-6 py-6">
+        <div className="premium-panel min-h-[560px] flex-1 px-6 py-6">
           <AnimatePresence mode="wait">
 
             {/* ── 01 / 02 / 03: fMRI signal + prep ── */}
@@ -349,7 +343,7 @@ export function PhaseEncodingRetrieval({
                 {hasRealFmri && fmriHeights ? (
                   <div className="space-y-4">
                     {/* ── fMRI waveform ── */}
-                    <div className="overflow-hidden rounded-xl border border-border-subtle bg-surface-base p-5">
+                    <div className="overflow-hidden rounded-2xl border border-border-subtle bg-surface-base p-5">
                       <div className="flex items-center justify-between mb-3">
                         <p className="text-[12px] font-semibold text-text-primary">ROI feature vector</p>
                         <p className="font-mono text-[12px] text-text-secondary">{fmriStats?.n_voxels?.toLocaleString() ?? '~15,724'} voxels</p>
@@ -422,27 +416,35 @@ export function PhaseEncodingRetrieval({
 
                     {/* ROI masking visual */}
                     {sub === 'roi_mask' && (
-                      <div className="rounded-xl border border-border-subtle bg-surface-raised p-5">
-                        <p className="text-[12px] font-semibold text-text-primary mb-4">nsdgeneral ROI mask</p>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <div className="flex flex-col items-center gap-1 rounded-lg bg-surface-elevated px-4 py-3">
-                            <span className="font-mono text-text-secondary">Full brain</span>
-                            <span className="text-[9px] text-text-muted">~150,000+ voxels</span>
+                      <div className="rounded-2xl border border-border-subtle bg-surface-raised p-5">
+                        <div className="mb-4 flex items-center justify-between gap-4">
+                          <div>
+                            <p className="text-[13px] font-semibold text-text-primary">Visual cortex ROI extraction</p>
+                            <p className="mt-1 text-[11px] text-text-muted">Full-volume activity is reduced to the nsdgeneral ROI vector used by V62a.</p>
                           </div>
-                          <span className="text-border-emphasis text-lg font-bold">&rarr;</span>
-                          <div className="flex flex-col items-center gap-1 rounded-lg border border-accent/15 bg-accent/[0.04] px-4 py-3">
-                            <span className="font-mono text-accent">nsdgeneral ROI</span>
-                            <span className="text-[9px] text-text-muted">visual cortex mask</span>
+                          <span className="rounded-lg border border-border-subtle bg-surface-base px-3 py-1.5 font-mono text-[11px] text-text-secondary">nsdgeneral</span>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-stretch">
+                          <div className="flex min-h-24 flex-col justify-between rounded-xl bg-surface-elevated px-4 py-4">
+                            <span className="text-[11px] font-semibold text-text-secondary">Full brain volume</span>
+                            <span className="font-mono text-2xl font-semibold text-text-primary">~150k</span>
+                            <span className="text-[10px] text-text-muted">source voxel field</span>
                           </div>
-                          <span className="text-border-emphasis text-lg font-bold">&rarr;</span>
-                          <div className="flex flex-col items-center gap-1 rounded-lg bg-surface-elevated px-4 py-3">
-                            <span className="font-mono text-text-secondary font-bold">
+                          <span className="hidden text-border-emphasis md:flex md:items-center">&rarr;</span>
+                          <div className="flex min-h-24 flex-col justify-between rounded-xl border border-accent/15 bg-accent/[0.045] px-4 py-4">
+                            <span className="text-[11px] font-semibold text-accent">ROI mask</span>
+                            <span className="font-mono text-2xl font-semibold text-text-primary">visual</span>
+                            <span className="text-[10px] text-text-muted">stimulus-responsive cortex</span>
+                          </div>
+                          <span className="hidden text-border-emphasis md:flex md:items-center">&rarr;</span>
+                          <div className="flex min-h-24 flex-col justify-between rounded-xl bg-surface-elevated px-4 py-4">
+                            <span className="text-[11px] font-semibold text-text-secondary">Model input</span>
+                            <span className="font-mono text-2xl font-semibold text-text-primary">
                               {fmriStats?.n_voxels ? `${fmriStats.n_voxels.toLocaleString()}` : '15,724'}
                             </span>
-                            <span className="text-[9px] text-text-muted">retained voxels</span>
+                            <span className="text-[10px] text-text-muted">retained voxels</span>
                           </div>
                         </div>
-                        <p className="mt-3 text-[11px] text-text-muted">The model uses only the nsdgeneral visual cortex ROI rather than all brain voxels.</p>
                       </div>
                     )}
                   </div>
@@ -465,12 +467,13 @@ export function PhaseEncodingRetrieval({
 
                 {isMlpEncoder ? (
                   <div className="space-y-4">
-                    <p className="text-[12px] font-medium text-text-muted">Architecture — residual MLP</p>
+                    <p className="text-[12px] font-medium text-text-muted">Residual MLP architecture</p>
 
                     {/* ── Single continuous horizontal flow ── */}
+                    <div className="rounded-2xl border border-border-subtle bg-surface-base p-3">
                     <div className="flex flex-wrap items-stretch gap-2 xl:flex-nowrap">
                       {/* Input */}
-                      <div className="flex min-w-[120px] flex-shrink-0 flex-col items-center justify-center rounded-xl border border-accent/20 bg-accent/[0.05] px-4 py-5">
+                      <div className="flex min-w-[128px] flex-shrink-0 flex-col items-center justify-center rounded-xl border border-border-subtle bg-surface-elevated px-4 py-5">
                         <span className="text-[10px] font-semibold text-accent">Input</span>
                         <span className="mt-1 font-mono text-2xl font-bold text-text-primary">15,724</span>
                         <span className="text-[9px] text-text-muted">ROI voxels</span>
@@ -482,15 +485,15 @@ export function PhaseEncodingRetrieval({
                       </div>
 
                       {/* Residual MLP block — all hidden layers inside one container */}
-                      <div className="flex flex-1 flex-col gap-1 rounded-xl border border-border-subtle bg-surface-base p-3">
+                      <div className="flex flex-1 flex-col gap-1 rounded-xl border border-accent/10 bg-accent/[0.025] p-3">
                         <p className="mb-1 text-center text-[9px] font-semibold uppercase tracking-[0.12em] text-text-muted">Residual MLP</p>
                         <div className="flex flex-1 items-stretch gap-1">
                           {(modelMeta?.encoder_hidden ?? [8192, 8192, 4096, 2048]).map((d, i) => (
                             <div key={i} className="flex flex-1 items-center gap-1">
-                              <div className="flex flex-1 flex-col items-center justify-center rounded-lg bg-surface-raised px-2 py-3">
+                              <div className="flex flex-1 flex-col items-center justify-center rounded-lg border border-border-subtle bg-surface-elevated px-2 py-3">
                                 <span className="font-mono text-sm font-bold tabular-nums text-text-primary">{d.toLocaleString()}</span>
                                 <span className="mt-0.5 text-[9px] text-text-muted">Layer {i + 1}</span>
-                                <span className="text-[8px] text-text-muted">GELU+res</span>
+                                <span className="text-[9px] text-text-muted">GELU+res</span>
                               </div>
                               {i < (modelMeta?.encoder_hidden ?? [8192, 8192, 4096, 2048]).length - 1 && (
                                 <div className="flex w-5 shrink-0 items-center justify-center">
@@ -508,10 +511,11 @@ export function PhaseEncodingRetrieval({
                       </div>
 
                       {/* Output */}
-                      <div className="flex min-w-[100px] flex-shrink-0 flex-col items-center justify-center rounded-xl border border-accent/20 bg-accent/[0.05] px-4 py-5">
+                      <div className="flex min-w-[116px] flex-shrink-0 flex-col items-center justify-center rounded-xl border border-accent/20 bg-accent/[0.06] px-4 py-5">
                         <span className="text-[10px] font-semibold text-accent">CLIP latent</span>
                         <span className="mt-1 font-mono text-2xl font-bold text-text-primary">{modelMeta?.embedding_dim ?? 768}-D</span>
                       </div>
+                    </div>
                     </div>
 
                     {/* vMF head note */}
@@ -536,7 +540,7 @@ export function PhaseEncodingRetrieval({
                     <div className="flex items-center gap-2">
                       <div className="rounded-lg border border-accent/20 bg-accent/[0.05] px-3 py-2"><p className="text-[10px] font-semibold text-accent">17 ROI tokens</p></div>
                       <svg className="h-3 w-5 shrink-0 text-border-emphasis" viewBox="0 0 20 12" fill="none"><path d="M0 6h16m0 0l-4-4m4 4l-4 4" stroke="currentColor" strokeWidth="1.5" /></svg>
-                      <div className="rounded-lg border border-accent/15 bg-accent/[0.04] px-3 py-2"><p className="text-[10px] font-semibold text-text-secondary">Transformer ×6</p><p className="text-[8px] text-text-muted">d=768, 12 heads</p></div>
+                        <div className="rounded-lg border border-accent/15 bg-accent/[0.04] px-3 py-2"><p className="text-[10px] font-semibold text-text-secondary">Transformer ×6</p><p className="text-[9px] text-text-muted">d=768, 12 heads</p></div>
                       <svg className="h-3 w-5 shrink-0 text-border-emphasis" viewBox="0 0 20 12" fill="none"><path d="M0 6h16m0 0l-4-4m4 4l-4 4" stroke="currentColor" strokeWidth="1.5" /></svg>
                       <div className="rounded-lg border border-accent/20 bg-accent/[0.05] px-3 py-2"><p className="text-[10px] font-semibold text-accent">[CLS] 768-D</p></div>
                     </div>
@@ -555,7 +559,7 @@ export function PhaseEncodingRetrieval({
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
                   {/* SVG unit hypersphere — larger */}
                   <div className="flex shrink-0 items-center justify-center">
-                    <svg viewBox="0 0 160 160" className="h-44 w-44">
+                    <svg viewBox="0 0 180 180" className="h-56 w-56">
                       {/* Sphere */}
                       <defs>
                         <radialGradient id="sphereGrad2" cx="35%" cy="35%">
@@ -564,19 +568,19 @@ export function PhaseEncodingRetrieval({
                           <stop offset="100%" stopColor="rgb(77,124,255)" stopOpacity="0" />
                         </radialGradient>
                       </defs>
-                      <circle cx="80" cy="80" r="70" fill="url(#sphereGrad2)" stroke="rgb(77,124,255)" strokeWidth="1.5" strokeOpacity="0.3" />
-                      <circle cx="80" cy="80" r="70" fill="none" stroke="rgb(77,124,255)" strokeWidth="0.5" strokeOpacity="0.1" strokeDasharray="4 6" />
+                      <circle cx="90" cy="90" r="76" fill="url(#sphereGrad2)" stroke="rgb(77,124,255)" strokeWidth="1.5" strokeOpacity="0.24" />
+                      <circle cx="90" cy="90" r="76" fill="none" stroke="rgb(77,124,255)" strokeWidth="0.5" strokeOpacity="0.1" strokeDasharray="4 6" />
                       {/* Equator hint */}
-                      <ellipse cx="80" cy="80" rx="70" ry="25" fill="none" stroke="rgb(77,124,255)" strokeWidth="0.5" strokeOpacity="0.08" />
+                      <ellipse cx="90" cy="90" rx="76" ry="27" fill="none" stroke="rgb(77,124,255)" strokeWidth="0.5" strokeOpacity="0.08" />
                       {/* Direction μ */}
-                      <line x1="80" y1="80" x2="120" y2="32" stroke="rgb(77,124,255)" strokeWidth="2.5" strokeOpacity="0.7" strokeLinecap="round" />
-                      <circle cx="120" cy="32" r="5" fill="rgb(77,124,255)" fillOpacity="0.9" />
-                      <text x="128" y="30" className="fill-accent text-[11px] font-mono font-bold" style={{ fontFamily: 'JetBrains Mono' }}>μ</text>
+                      <line x1="90" y1="90" x2="132" y2="36" stroke="rgb(77,124,255)" strokeWidth="2.5" strokeOpacity="0.72" strokeLinecap="round" />
+                      <circle cx="132" cy="36" r="5" fill="rgb(77,124,255)" fillOpacity="0.9" />
+                      <text x="140" y="34" className="fill-accent text-[11px] font-mono font-bold" style={{ fontFamily: 'JetBrains Mono' }}>μ</text>
                       {/* κ ring */}
-                      <circle cx="120" cy="32" r="16" fill="none" stroke="rgb(77,124,255)" strokeWidth="1.2" strokeOpacity="0.25" strokeDasharray="3 2" />
+                      <circle cx="132" cy="36" r="18" fill="none" stroke="rgb(77,124,255)" strokeWidth="1.2" strokeOpacity="0.25" strokeDasharray="3 2" />
                       {/* Origin */}
-                      <circle cx="80" cy="80" r="3" fill="rgb(148,163,184)" />
-                      <text x="80" y="100" textAnchor="middle" className="fill-text-secondary text-[9px] font-mono" style={{ fontFamily: 'JetBrains Mono' }}>CLIP S²</text>
+                      <circle cx="90" cy="90" r="3" fill="rgb(148,163,184)" />
+                      <text x="90" y="113" textAnchor="middle" className="fill-text-secondary text-[9px] font-mono" style={{ fontFamily: 'JetBrains Mono' }}>unit sphere</text>
                     </svg>
                   </div>
 
@@ -585,7 +589,7 @@ export function PhaseEncodingRetrieval({
                     <div>
                       <p className="text-[14px] font-semibold text-text-primary">Unit hypersphere projection</p>
                       <p className="mt-1 text-[12px] leading-relaxed text-text-muted">
-                        The encoder output is mapped to a direction μ on the CLIP unit hypersphere. The vMF concentration κ measures how sharply the distribution peaks around μ.
+                        The encoder output is mapped to a direction μ on the CLIP unit hypersphere. Higher κ means sharper directional confidence around that decoded embedding.
                       </p>
                     </div>
 
@@ -642,7 +646,8 @@ export function PhaseEncodingRetrieval({
               <motion.div key="gallery" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-5">
                 <SectionHeader title="CSLS gallery search" provenance={stepProv} />
 
-                <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
+                <div className="rounded-2xl border border-border-subtle bg-surface-base p-5">
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
                   <div className="space-y-3">
                     <div className="flex items-baseline gap-3">
                       <span className="font-mono text-[56px] font-bold tabular-nums leading-none text-text-primary">{galCount.toLocaleString()}</span>
@@ -678,8 +683,9 @@ export function PhaseEncodingRetrieval({
                     </svg>
                   </div>
                 </div>
+                </div>
 
-                <div className="flex items-center gap-4 rounded-lg bg-surface-raised px-4 py-3">
+                <div className="flex flex-wrap items-center gap-4 rounded-xl bg-surface-raised px-4 py-3">
                   <span className="rounded bg-surface-elevated px-2 py-1 font-mono text-[11px] text-text-secondary">Query</span>
                   <span className="text-border-emphasis">&rarr;</span>
                   <span className="rounded bg-surface-elevated px-2 py-1 font-mono text-[11px] text-text-secondary">CSLS scan</span>
@@ -696,64 +702,19 @@ export function PhaseEncodingRetrieval({
               <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
                 <SectionHeader title="Retrieval complete" provenance={isLiveInference ? LIVE_PROV : { kind: 'replay', detail: 'Cached retrieval ranking' }} />
 
-                {/* ── HERO RANK VERDICT ── */}
-                <motion.div
-                  className={`rounded-xl p-7 ${
-                    case_.metrics.rank === 1
-                      ? 'border border-accent/25 bg-accent/[0.05]'
-                      : case_.metrics.rank != null && case_.metrics.rank <= 5
-                        ? 'border border-status-warning/20 bg-status-warning/[0.04]'
-                        : 'border border-border-subtle bg-surface-raised'
-                  }`}
-                  initial={{ scale: 0.97, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 24 }}
-                >
-                  <div className="flex items-start gap-6">
-                    {topK[0]?.image && (
-                      <div className="shrink-0 overflow-hidden rounded-xl border-2 border-border-subtle">
-                        <SafeImg src={topK[0].image} alt="Top-1 retrieval" className="h-36 w-36 object-cover" />
-                      </div>
-                    )}
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-baseline gap-4">
-                        <span className={`font-mono text-[64px] font-bold tabular-nums leading-none ${
-                          case_.metrics.rank === 1 ? 'text-accent' : case_.metrics.rank != null && case_.metrics.rank <= 5 ? 'text-status-warning' : 'text-text-primary'
-                        }`}>
-                          #{case_.metrics.rank ?? '?'}
-                        </span>
-                        <div>
-                          <p className={`text-2xl font-semibold ${
-                            case_.metrics.rank === 1 ? 'text-accent' : case_.metrics.rank != null && case_.metrics.rank <= 5 ? 'text-status-warning' : 'text-text-secondary'
-                          }`}>
-                            {case_.metrics.rank === 1 ? 'Exact match' : case_.metrics.rank != null && case_.metrics.rank <= 5 ? 'Near match' : 'Candidate identified'}
-                          </p>
-                          <p className="text-sm text-text-secondary">10,000 gallery images via CSLS ranking</p>
-                        </div>
-                      </div>
-                      {case_.metrics.r1Correct && (
-                        <span className="inline-flex items-center gap-1.5 rounded bg-accent/10 px-2.5 py-1 text-xs font-semibold text-accent">
-                          <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                          Recall@1 correct
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-
-                {/* Stats grid */}
-                <div className="grid gap-3 sm:grid-cols-4">
-                  {([
-                    ['Gallery', '10,000'],
-                    ['Method', 'CSLS'],
-                    ['Top-1 CSLS', topK[0]?.csls != null ? topK[0].csls.toFixed(3) : '—'],
-                    ['Candidates', String(topK.length)],
-                  ] as [string, string][]).map(([label, val]) => (
-                    <div key={label} className="rounded-lg bg-surface-raised px-4 py-3">
-                      <p className="text-[11px] font-medium text-text-secondary">{label}</p>
-                      <p className="mt-0.5 font-mono text-xl font-semibold text-text-primary">{val}</p>
-                    </div>
-                  ))}
-                </div>
+                <HeroResultPanel
+                  case_={case_}
+                  top1={topK[0]}
+                  provenance={<ProvenanceBadge provenance={isLiveInference ? LIVE_PROV : { kind: 'replay', detail: 'Cached retrieval ranking' }} />}
+                  liveLabel={
+                    isLiveInference ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/20 bg-accent/10 px-2.5 py-1 text-[10px] font-semibold text-accent">
+                        <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+                        LIVE CUDA
+                      </span>
+                    ) : null
+                  }
+                />
 
                 {/* ── Scientific Verdict ── */}
                 <ScientificVerdict
@@ -827,38 +788,60 @@ export function PhaseEncodingRetrieval({
                   ))}
                 </div>
 
+                {/* ── Neural path instrument trace ── */}
+                <div className="rounded-xl bg-surface-raised px-5 py-4 overflow-hidden">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted mb-3">Neural decoding path</p>
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
+                    {/* Group: Input */}
+                    <span className="flex items-center">
+                      <span className="rounded-l-lg bg-surface-active px-2.5 py-1.5 text-[11px] font-medium text-text-secondary border-l-2 border-accent/25">15,724</span>
+                      <span className="rounded-r-lg bg-surface-active px-2.5 py-1.5 text-[11px] font-medium text-text-muted">voxels</span>
+                    </span>
+                    <svg className="h-3.5 w-3.5 shrink-0 text-border-emphasis" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    <span className="rounded-lg bg-accent/15 text-accent px-2.5 py-1.5 text-[11px] font-medium ring-1 ring-accent/25">MLP encoder</span>
+                    <svg className="h-3.5 w-3.5 shrink-0 text-border-emphasis" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    <span className="rounded-lg bg-accent/10 text-accent px-2.5 py-1.5 text-[11px] font-medium">μ ∈ R⁷⁶⁸</span>
+                    <svg className="h-3.5 w-3.5 shrink-0 text-border-emphasis" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    <span className="rounded-lg bg-accent/10 text-accent px-2.5 py-1.5 text-[11px] font-medium">CSLS 10k</span>
+                    <svg className="h-3.5 w-3.5 shrink-0 text-border-emphasis" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    <span className={`rounded-lg px-2.5 py-1.5 text-[11px] font-medium ${case_.metrics.rank === 1 ? 'bg-accent/15 text-accent ring-1 ring-accent/25' : 'bg-accent/10 text-accent'}`}>Rank #{case_.metrics.rank}</span>
+                    <svg className="h-3.5 w-3.5 shrink-0 text-border-emphasis" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    <span className="rounded-lg bg-surface-elevated px-2.5 py-1.5 text-[11px] text-text-muted">Reconstruction</span>
+                  </div>
+                </div>
+
                 {/* ── Prediction Intelligence strip ── */}
                 <div className="rounded-xl border border-border-subtle bg-surface-elevated p-4">
-                  <p className="text-[11px] font-semibold text-text-muted mb-3">Prediction intelligence</p>
+                  <p className="text-[12px] font-semibold text-text-secondary mb-3">Prediction intelligence</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                    <div className="rounded-lg bg-surface-raised px-3 py-2 text-center">
-                      <p className="text-[9px] text-text-muted">κ</p>
-                      <p className="font-mono text-sm font-bold text-accent">{kappaStr ? parseFloat(kappaStr).toFixed(0) : '—'}</p>
-                      <p className="text-[8px] text-text-muted">{kappaStr && parseFloat(kappaStr) > 100 ? 'sharp' : 'moderate'}</p>
+                    <div className="rounded-lg bg-surface-raised px-3 py-2.5 text-center">
+                      <p className="text-[11px] font-medium text-text-muted">κ</p>
+                      <p className="font-mono text-base font-bold text-accent">{kappaStr ? parseFloat(kappaStr).toFixed(0) : '—'}</p>
+                      <p className="text-[10px] text-text-muted">{kappaStr && parseFloat(kappaStr) > 100 ? 'sharp' : 'moderate'}</p>
                     </div>
-                    <div className="rounded-lg bg-surface-raised px-3 py-2 text-center">
-                      <p className="text-[9px] text-text-muted">CSLS margin</p>
-                      <p className="font-mono text-sm font-bold text-text-primary">
+                    <div className="rounded-lg bg-surface-raised px-3 py-2.5 text-center">
+                      <p className="text-[11px] font-medium text-text-muted">CSLS margin</p>
+                      <p className="font-mono text-base font-bold text-text-primary">
                         {topK[0]?.csls != null && topK[1]?.csls != null ? (topK[0].csls - topK[1].csls).toFixed(4) : '—'}
                       </p>
-                      <p className="text-[8px] text-text-muted">1–2 gap</p>
+                      <p className="text-[10px] text-text-muted">1–2 gap</p>
                     </div>
-                    <div className="rounded-lg bg-surface-raised px-3 py-2 text-center">
-                      <p className="text-[9px] text-text-muted">Top-1 CSLS</p>
-                      <p className="font-mono text-sm font-bold text-text-primary">{topK[0]?.csls?.toFixed(3) ?? '—'}</p>
-                      <p className="text-[8px] text-text-muted">rank #{case_.metrics.rank}</p>
+                    <div className="rounded-lg bg-surface-raised px-3 py-2.5 text-center">
+                      <p className="text-[11px] font-medium text-text-muted">Top-1 CSLS</p>
+                      <p className="font-mono text-base font-bold text-text-primary">{topK[0]?.csls?.toFixed(3) ?? '—'}</p>
+                      <p className="text-[10px] text-text-muted">rank #{case_.metrics.rank}</p>
                     </div>
-                    <div className="rounded-lg bg-surface-raised px-3 py-2 text-center">
-                      <p className="text-[9px] text-text-muted">Score conc</p>
-                      <p className="font-mono text-sm font-bold text-text-primary">
+                    <div className="rounded-lg bg-surface-raised px-3 py-2.5 text-center">
+                      <p className="text-[11px] font-medium text-text-muted">Score conc</p>
+                      <p className="font-mono text-base font-bold text-text-primary">
                         {topK.length > 0 ? ((topK[0]?.csls ?? 0) / topK.reduce((s, r) => s + (r.csls ?? 0), 1e-8) * 100).toFixed(0) + '%' : '—'}
                       </p>
-                      <p className="text-[8px] text-text-muted">of top-5</p>
+                      <p className="text-[10px] text-text-muted">of top-5</p>
                     </div>
-                    <div className="rounded-lg bg-surface-raised px-3 py-2 text-center">
-                      <p className="text-[9px] text-text-muted">Gallery</p>
-                      <p className="font-mono text-sm font-bold text-text-primary">10,000</p>
-                      <p className="text-[8px] text-text-muted">CSLS indexed</p>
+                    <div className="rounded-lg bg-surface-raised px-3 py-2.5 text-center">
+                      <p className="text-[11px] font-medium text-text-muted">Gallery</p>
+                      <p className="font-mono text-base font-bold text-text-primary">10,000</p>
+                      <p className="text-[10px] text-text-muted">CSLS indexed</p>
                     </div>
                   </div>
                 </div>
@@ -905,69 +888,25 @@ export function PhaseEncodingRetrieval({
           )}
         </div>
 
-        {/* ── PREMIUM AWAITING STATE (ghost cards with visible labels) ── */}
+        {/* ── Compact awaiting state ── */}
         {!visRanks.length && getStatus('results') !== 'done' && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              {[1, 2, 3, 4, 5].map((rank) => (
-                <div key={rank} className="overflow-hidden rounded-lg border border-border-subtle bg-surface-base">
-                  <div className="relative aspect-square w-full">
-                    <div className="absolute inset-0 bg-surface-raised shimmer-bg" />
-                    <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-surface-base/90 to-transparent pt-5 pb-2 px-2">
-                      <span className="rounded bg-surface-overlay/50 px-2 py-0.5 text-[10px] font-bold text-text-muted">#{rank}</span>
-                    </div>
-                  </div>
-                  <div className="px-3 py-2.5 space-y-1.5">
-                    <div className="h-2.5 w-10 rounded bg-surface-active shimmer-bg" />
-                    <div className="h-2.5 w-16 rounded bg-surface-active shimmer-bg" />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="flex flex-col items-center gap-2 text-center">
-              <p className="text-sm font-medium text-text-secondary">Awaiting retrieval candidates</p>
-              <p className="text-[12px] text-text-muted">
-                Top-K hypotheses will appear after CSLS gallery search completes.
-                <br />
-                <span className="text-accent/70">Current step: {STEPS.find((s) => s.phase === sub)?.label ?? 'Processing...'}</span>
-              </p>
-            </div>
-          </div>
+          <EmptyState
+            compact
+            title="Awaiting Top-K candidates"
+            detail={
+              <>
+                Top-K hypotheses will appear after CSLS ranking completes.
+                <span className="mt-1 block text-accent/70">
+                  Current step: {STEPS.find((s) => s.phase === sub)?.label ?? 'Processing'}
+                </span>
+              </>
+            }
+          />
         )}
 
         {/* ── CANDIDATE GRID ── */}
         {visRanks.length > 0 && (
-          <div className={`grid gap-3 ${topK.length <= 3 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5'}`}>
-            {topK.map((item) => {
-              const vis = visRanks.includes(item.rank);
-              return (
-                <motion.div
-                  key={item.rank}
-                  className={`group overflow-hidden rounded-lg border bg-surface-base transition-all duration-200 ${
-                    item.rank === 1 ? 'border-accent/30 ring-1 ring-accent/10' : 'border-border-subtle'
-                  }`}
-                  initial={{ opacity: 0, scale: 0.92 }}
-                  animate={{ opacity: vis ? 1 : 0, scale: vis ? 1 : 0.92 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 25 }}
-                >
-                  <div className="relative aspect-square w-full overflow-hidden">
-                    <SafeImg src={item.image} alt={`Rank ${item.rank}`} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent pt-5 pb-2 px-2">
-                      <div className="flex items-center justify-between">
-                        <span className={`rounded px-2 py-0.5 text-[10px] font-bold text-white ${item.rank === 1 ? 'bg-accent' : 'bg-surface-overlay/60'}`}>#{item.rank}</span>
-                        <LabelBadge label={item.label} />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="px-3 py-2.5">
-                    <p className="font-mono text-[11px] leading-relaxed text-text-muted">
-                      {item.score <= 1.0 ? `cos ${item.score.toFixed(3)} · ` : ''}csls {item.csls.toFixed(3)}
-                    </p>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
+          <RetrievalCandidatesStrip candidates={topK} visibleRanks={visRanks} />
         )}
       </motion.section>
 
@@ -975,7 +914,7 @@ export function PhaseEncodingRetrieval({
       <details className="group rounded-xl border border-border-subtle bg-surface-raised">
         <summary className="flex cursor-pointer items-center justify-between px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted select-none">
           <span>Computation details</span>
-          <span className="text-[8px] transition-transform group-open:rotate-180">&#9660;</span>
+          <span className="text-[10px] transition-transform group-open:rotate-180">&#9660;</span>
         </summary>
         <div className="space-y-1.5 border-t border-border-subtle px-4 py-3 text-[10px] text-text-muted">
           <p><span className="font-medium text-text-secondary">Mode:</span> {isLiveInference ? 'Live backend inference via /api/infer-stream' : 'Replay of real experiment outputs from cached JSON'}</p>

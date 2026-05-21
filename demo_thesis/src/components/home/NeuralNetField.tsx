@@ -66,14 +66,15 @@ interface Pulse {
 
 function buildField(width: number, height: number) {
   const rand = mulberry32(0x42424242);
-  // Density scales with area, capped so we never overrun.
+  // Density scales with area, capped so we never overrun. Field now covers
+  // the whole viewport, so the cap rises with it.
   const area = width * height;
-  const target = Math.max(36, Math.min(72, Math.round(area / 22000)));
+  const target = Math.max(48, Math.min(110, Math.round(area / 18000)));
 
   const nodes: Node[] = [];
   // Poisson-ish placement: reject too-close candidates so the mesh looks
   // even rather than clumpy.
-  const minDist = Math.sqrt(area / (target * 1.6));
+  const minDist = Math.sqrt(area / (target * 1.55));
   let attempts = 0;
   while (nodes.length < target && attempts < target * 60) {
     attempts++;
@@ -188,40 +189,48 @@ export function NeuralNetField({ className = '' }: { className?: string }) {
         // Fade edges that stretch too far past their initial length —
         // keeps the mesh visually local even as nodes drift.
         const stretch = d / e.baseDist;
-        const alpha = Math.max(0, 0.085 - (stretch - 1.0) * 0.07);
+        const alpha = Math.max(0, 0.125 - (stretch - 1.0) * 0.09);
         if (alpha <= 0.005) continue;
         // Depth weighting — edges between deeper nodes are dimmer.
         const depth = (nodes[e.a].layer + nodes[e.b].layer) / 4; // 0..1
         const finalAlpha = alpha * (0.55 + depth * 0.55);
-        ctx!.strokeStyle = `${PALETTE.edgeBase.slice(0, -1)} / ${finalAlpha.toFixed(3)})`;
-        // Convert "rgb(...)" to "rgb(... / a)" — replace last paren via regex
         ctx!.strokeStyle = PALETTE.edgeBase.replace('rgb(', 'rgba(').replace(')', `, ${finalAlpha.toFixed(3)})`);
-        ctx!.lineWidth = 0.55 + depth * 0.25;
+        ctx!.lineWidth = 0.55 + depth * 0.30;
         ctx!.beginPath();
         ctx!.moveTo(a.x, a.y);
         ctx!.lineTo(b.x, b.y);
         ctx!.stroke();
       }
 
-      // Nodes — front layer bigger and brighter
+      // Nodes — front layer bigger and brighter, with a touch more spread
       const breath = reducedMotion ? 0 : Math.sin(t * 0.0008);
       for (const n of nodes) {
         const layerFactor = 0.55 + n.layer * 0.30;            // 0.55, 0.85, 1.15
-        const r = (0.9 + n.layer * 0.55) * layerFactor;
-        const localPulse = reducedMotion ? 1 : (Math.sin(t * 0.0012 + n.phase) * 0.18 + 1);
-        const alpha = (0.18 + n.layer * 0.10 + breath * 0.04) * localPulse;
+        const r = (0.95 + n.layer * 0.70) * layerFactor;
+        const localPulse = reducedMotion ? 1 : (Math.sin(t * 0.0012 + n.phase) * 0.20 + 1);
+        const alpha = (0.24 + n.layer * 0.13 + breath * 0.05) * localPulse;
         ctx!.fillStyle = PALETTE.nodeBase.replace('rgb(', 'rgba(').replace(')', `, ${alpha.toFixed(3)})`);
         ctx!.beginPath();
         ctx!.arc(n.x, n.y, r, 0, Math.PI * 2);
         ctx!.fill();
+        // Halo on the front-layer nodes only — gives the field depth
+        // without lighting up every dot.
+        if (n.layer === 2) {
+          const haloAlpha = 0.10 * localPulse;
+          ctx!.fillStyle = PALETTE.nodeBase.replace('rgb(', 'rgba(').replace(')', `, ${haloAlpha.toFixed(3)})`);
+          ctx!.beginPath();
+          ctx!.arc(n.x, n.y, r * 2.4, 0, Math.PI * 2);
+          ctx!.fill();
+        }
       }
 
-      // Pulses — spawn occasionally
+      // Pulses — spawn occasionally. Slightly higher rate / cap so the
+      // larger field has visible signal traffic without ever looking busy.
       if (!reducedMotion) {
-        if (t - lastSpawn > 850 && pulses.length < 5 && rand() < 0.45) {
+        if (t - lastSpawn > 650 && pulses.length < 7 && rand() < 0.55) {
           lastSpawn = t;
           const ei = Math.floor(rand() * edges.length);
-          pulses.push({ edge: ei, t: 0, speed: 0.004 + rand() * 0.004 });
+          pulses.push({ edge: ei, t: 0, speed: 0.0035 + rand() * 0.004 });
         }
         for (let i = pulses.length - 1; i >= 0; i--) {
           const p = pulses[i];

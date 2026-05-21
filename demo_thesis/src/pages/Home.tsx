@@ -60,15 +60,24 @@ export function Home() {
 
   return (
     <div className="premium-page-bg relative min-h-screen overflow-hidden px-4 pb-20 pt-10 sm:px-6 lg:px-8">
-      {/* ── Canvas neural field — animated mesh behind the hero. ── */}
+      {/* ── Canvas neural field — animated mesh covering the entire page.
+             A composite mask: a soft vertical fade at the very edges +
+             a gentle radial dim behind the hero text so the content stays
+             dominant without hiding the field everywhere else. ── */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 h-[820px]"
+        className="pointer-events-none absolute inset-0"
         aria-hidden
         style={{
-          maskImage:
-            'radial-gradient(ellipse 70% 60% at 50% 35%, black 0%, rgba(0,0,0,0.55) 55%, transparent 100%)',
-          WebkitMaskImage:
-            'radial-gradient(ellipse 70% 60% at 50% 35%, black 0%, rgba(0,0,0,0.55) 55%, transparent 100%)',
+          maskImage: [
+            'radial-gradient(ellipse 60% 38% at 26% 32%, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.85) 45%, black 80%)',
+            'linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%)',
+          ].join(', '),
+          WebkitMaskImage: [
+            'radial-gradient(ellipse 60% 38% at 26% 32%, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.85) 45%, black 80%)',
+            'linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%)',
+          ].join(', '),
+          maskComposite: 'intersect',
+          WebkitMaskComposite: 'source-in',
         }}
       >
         <NeuralNetField />
@@ -104,24 +113,13 @@ export function Home() {
             provenance.
           </p>
 
-          {/* CTA cluster — primary button visually dominates; secondaries
-              quieter; metadata badge anchors the cluster on the right. */}
-          <div className="mt-9 flex flex-col gap-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Cta to="/pipeline" primary>
-                Launch decoding replay
-              </Cta>
-              <Cta to="/explorer">Open trial explorer</Cta>
-              <Cta to="/evidence">Review evidence</Cta>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-text-muted">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-status-success pulse-dot" aria-hidden />
-                Cached replay always available
-              </span>
-              <span className="text-border-emphasis" aria-hidden>·</span>
-              <span className="font-mono tabular-nums">V62a · CLIP ViT-L/14 · 10k gallery</span>
-            </div>
+          {/* CTA cluster — primary dominates, secondaries quieter. */}
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Cta to="/pipeline" primary>
+              Launch decoding replay
+            </Cta>
+            <Cta to="/explorer">Open trial explorer</Cta>
+            <Cta to="/evidence">Review evidence</Cta>
           </div>
         </motion.div>
 

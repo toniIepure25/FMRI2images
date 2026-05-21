@@ -635,40 +635,41 @@ export function PhaseEncodingRetrieval({
                             );
                           })}
 
-                          {/* ─── (2) Residual skip arc — L1 → L4. One clean
-                                  curve, anchored to the layer tops, with a
-                                  quiet "residual skip" label above it. ─── */}
+                          {/* ─── (2) Residual skip arc — L1 → L4. One clean,
+                                  taller curve anchored just above the layer
+                                  tops; an open-ring origin and a filled
+                                  confluence dot read as source → arrival. ── */}
                           {(() => {
                             const a = stages[1]; // L1
                             const b = stages[4]; // L4
                             const ax = a.cx;
-                            const ay = Y_TOP(a.dim) - 4;
+                            const ay = Y_TOP(a.dim) - 6;
                             const bx = b.cx;
-                            const by = Y_TOP(b.dim) - 4;
-                            const apexY = Math.min(ay, by) - 36;
+                            const by = Y_TOP(b.dim) - 6;
+                            const apexY = Math.min(ay, by) - 46;
                             const midX = (ax + bx) / 2;
                             return (
                               <g>
                                 <path
                                   d={`M ${ax} ${ay} Q ${midX} ${apexY} ${bx} ${by}`}
                                   stroke="rgb(123,156,255)"
-                                  strokeOpacity="0.65"
+                                  strokeOpacity="0.72"
                                   strokeWidth="1"
                                   fill="none"
                                   strokeLinecap="round"
                                 />
-                                {/* Start marker — open ring */}
-                                <circle cx={ax} cy={ay} r="2" fill="none" stroke="rgb(123,156,255)" strokeOpacity="0.7" strokeWidth="0.9" />
-                                {/* Arrival marker — filled dot (confluence) */}
-                                <circle cx={bx} cy={by} r="2.4" fill="rgb(123,156,255)" fillOpacity="0.85" />
-                                {/* Quiet label */}
+                                {/* Source — open ring */}
+                                <circle cx={ax} cy={ay} r="2.2" fill="none" stroke="rgb(123,156,255)" strokeOpacity="0.78" strokeWidth="1" />
+                                {/* Arrival — filled dot (confluence) */}
+                                <circle cx={bx} cy={by} r="2.6" fill="rgb(123,156,255)" fillOpacity="0.9" />
+                                {/* Quiet label, sits inside the apex curl */}
                                 <text
                                   x={midX}
-                                  y={apexY - 4}
+                                  y={apexY + 1}
                                   textAnchor="middle"
                                   fill="rgb(123,156,255)"
-                                  fillOpacity="0.7"
-                                  style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 9.5, letterSpacing: '0.16em', textTransform: 'uppercase' }}
+                                  fillOpacity="0.72"
+                                  style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 9, letterSpacing: '0.20em', textTransform: 'uppercase' }}
                                 >
                                   residual skip
                                 </text>
@@ -712,12 +713,20 @@ export function PhaseEncodingRetrieval({
                                     strokeOpacity="0.18"
                                     strokeWidth="0.6"
                                   />
-                                  {/* Bars — deterministic but smooth heights;
-                                      every 5th bar is "active" and tinted
-                                      accent so it reads as a sparse fMRI
-                                      activation. */}
+                                  {/* Bars — deterministic, calmed amplitude
+                                      so the histogram looks designed rather
+                                      than noisy. A smooth Gaussian envelope
+                                      shapes the overall profile; a tiny
+                                      sample-noise term keeps it textured.
+                                      Every 5th bar is "active" and tinted
+                                      accent so the glyph reads as a sparse
+                                      ROI activation pattern. */}
                                   {Array.from({ length: barCount }).map((_, i) => {
-                                    const bh = 6 + ((i * 41 + 11) % (h - 18));
+                                    const center = (barCount - 1) / 2;
+                                    const sigma = barCount * 0.35;
+                                    const env = Math.exp(-((i - center) ** 2) / (2 * sigma * sigma));
+                                    const noise = ((i * 41 + 11) % 23) / 23 * 0.22;
+                                    const bh = (h - 14) * (0.28 + env * 0.50 + noise);
                                     const bx = x + 4 + i * barW;
                                     const isActive = i % 5 === 2;
                                     return (
@@ -728,7 +737,7 @@ export function PhaseEncodingRetrieval({
                                         width={Math.max(1, barW - 1)}
                                         height={bh}
                                         fill={isActive ? 'rgb(123,156,255)' : 'rgb(220,225,235)'}
-                                        fillOpacity={isActive ? 0.72 : 0.32}
+                                        fillOpacity={isActive ? 0.78 : 0.30}
                                         rx={0.6}
                                       />
                                     );
@@ -770,17 +779,22 @@ export function PhaseEncodingRetrieval({
                                   <circle cx={cx + R * 0.72} cy={cy - R * 0.66} r="2.2" fill="rgb(123,156,255)" />
                                   {/* Origin marker */}
                                   <circle cx={cx} cy={cy} r="1.2" fill="rgb(220,225,235)" fillOpacity="0.7" />
-                                  {/* Compact latent strip — 8 cells */}
-                                  {Array.from({ length: 8 }).map((_, i) => {
-                                    const cellW = (s.w - 10) / 8;
+                                  {/* Compact latent strip — 10 cells with a
+                                      smooth deterministic envelope so the
+                                      token feels calibrated, not random. */}
+                                  {Array.from({ length: 10 }).map((_, i) => {
+                                    const cellCount = 10;
+                                    const cellW = (s.w - 10) / cellCount;
                                     const cx2 = x + 5 + i * cellW;
-                                    const intensity = 0.22 + ((i * 47 + 13) % 60) / 110;
+                                    const env = 0.55 + 0.35 * Math.sin((i + 0.8) * 0.9);
+                                    const noise = ((i * 47 + 13) % 21) / 21 * 0.12;
+                                    const intensity = Math.max(0.18, Math.min(0.78, env + noise));
                                     return (
                                       <rect
                                         key={i}
                                         x={cx2}
                                         y={stripY}
-                                        width={cellW - 1.5}
+                                        width={cellW - 1.2}
                                         height={stripH}
                                         rx={0.8}
                                         fill="rgb(123,156,255)"
@@ -810,11 +824,17 @@ export function PhaseEncodingRetrieval({
                                   strokeOpacity="0.36"
                                   strokeWidth="0.8"
                                 />
-                                {/* Hair-thin top highlight — implies a head row */}
+                                {/* Hair-thin top + bottom rules — a calibrated
+                                    frame inside the layer block. */}
                                 <line x1={x + 2} y1={yT + 1} x2={x + s.w - 2} y2={yT + 1} stroke="rgb(255,255,255)" strokeOpacity="0.12" strokeWidth="0.7" />
-                                {/* Vertical unit ticks */}
+                                <line x1={x + 2} y1={yB - 1} x2={x + s.w - 2} y2={yB - 1} stroke="rgb(255,255,255)" strokeOpacity="0.05" strokeWidth="0.5" />
+                                {/* Vertical unit ticks — uniform low opacity,
+                                    with the middle column slightly stronger
+                                    to suggest a layer "spine". */}
                                 {Array.from({ length: units }).map((_, i) => {
                                   const ux = x + 4 + ((s.w - 8) * (i + 0.5)) / units;
+                                  const distFromCenter = Math.abs(i - (units - 1) / 2);
+                                  const isSpine = distFromCenter < 0.6;
                                   return (
                                     <line
                                       key={i}
@@ -823,8 +843,8 @@ export function PhaseEncodingRetrieval({
                                       x2={ux}
                                       y2={yB - 4}
                                       stroke="rgb(123,156,255)"
-                                      strokeOpacity={0.16 + ((i * 11) % 9) / 80}
-                                      strokeWidth="0.55"
+                                      strokeOpacity={isSpine ? 0.34 : 0.16}
+                                      strokeWidth={isSpine ? 0.7 : 0.5}
                                     />
                                   );
                                 })}
@@ -1171,122 +1191,156 @@ export function PhaseEncodingRetrieval({
                   const scanFrac = Math.min(1, galCount / 10000);
                   const dotsScanned = Math.floor(scanFrac * dots.length);
                   const top3 = topK.slice(0, 3);
+
+                  // Query latent profile — deterministic envelope so the
+                  // glyph reads as a calibrated latent vector rather than
+                  // random bars. Not the predicted μ; this is a stylized
+                  // depiction of the cached/predicted CLIP direction.
+                  const QUERY_BANDS = 18;
+                  const queryProfile = Array.from({ length: QUERY_BANDS }).map((_, i) => {
+                    const t = i / (QUERY_BANDS - 1);
+                    const env = 0.5 + 0.4 * Math.sin((t - 0.15) * Math.PI * 2.2);
+                    const noise = ((i * 47 + 19) % 17) / 17 * 0.18 - 0.09;
+                    return Math.max(0.20, Math.min(0.92, env + noise));
+                  });
+
                   return (
                     <div className="workbench-inset !p-5">
-                      <div className="grid items-stretch gap-5 lg:grid-cols-[minmax(120px,0.7fr)_minmax(0,2fr)_minmax(150px,1fr)]">
+                      <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(140px,0.72fr)_minmax(0,2fr)_minmax(160px,0.95fr)]">
 
-                        {/* A · QUERY EMBEDDING — latent vector as horizontal
-                            channel strips. Reads as a 768-D direction, not a
-                            game-board. */}
+                        {/* ────────────────────────────────────────────────
+                            A · QUERY EMBEDDING — refined latent-band glyph.
+                            Each band uses a 2-stop horizontal gradient so
+                            the profile shows magnitude direction at-a-glance,
+                            without resorting to variable-length bars. ──── */}
                         <div className="flex flex-col">
                           <p className="premium-kicker">Query embedding</p>
                           <div
-                            className="relative mt-3 flex-1 overflow-hidden rounded-md px-2 py-2"
+                            className="relative mt-3 flex-1 overflow-hidden rounded-md"
                             aria-hidden
                             style={{
-                              minHeight: 170,
-                              background: 'rgb(77 124 255 / 0.045)',
-                              boxShadow: 'inset 0 0 0 1px rgb(77 124 255 / 0.32)',
+                              minHeight: 188,
+                              background: 'rgb(77 124 255 / 0.030)',
+                              boxShadow: 'inset 0 0 0 1px rgb(77 124 255 / 0.22)',
                             }}
                           >
-                            <div className="flex h-full w-full flex-col justify-between gap-[3px]">
-                              {Array.from({ length: 10 }).map((_, i) => {
-                                const intensity = 0.28 + ((i * 41 + 17) % 60) / 110;
-                                const len = 48 + ((i * 31 + 19) % 52);
+                            {/* Hair-thin zero baseline on the left */}
+                            <div className="pointer-events-none absolute inset-y-3 left-2 w-px bg-white/[0.08]" />
+                            <svg
+                              viewBox="0 0 100 100"
+                              preserveAspectRatio="none"
+                              className="h-full w-full"
+                            >
+                              <defs>
+                                <linearGradient id="csls-q-band" x1="0" y1="0" x2="1" y2="0">
+                                  <stop offset="0%"  stopColor="rgb(77,124,255)" stopOpacity="0.55" />
+                                  <stop offset="100%" stopColor="rgb(77,124,255)" stopOpacity="0.08" />
+                                </linearGradient>
+                              </defs>
+                              {queryProfile.map((amp, i) => {
+                                const bandH = (100 - 12) / QUERY_BANDS;
+                                const y = 6 + i * bandH;
+                                const w = 6 + amp * 86;
                                 return (
-                                  <div
+                                  <rect
                                     key={i}
-                                    className="flex-1 rounded-[1.5px]"
-                                    style={{
-                                      background: `rgb(77 124 255 / ${intensity.toFixed(3)})`,
-                                      width: `${len}%`,
-                                    }}
+                                    x="6"
+                                    y={y + 0.4}
+                                    width={w}
+                                    height={Math.max(0.8, bandH - 0.8)}
+                                    fill="url(#csls-q-band)"
+                                    rx="0.6"
                                   />
                                 );
                               })}
-                            </div>
+                            </svg>
                           </div>
-                          <p className="mt-2.5 font-mono text-[13px] font-semibold tabular-nums leading-none text-accent">
-                            768-D
-                          </p>
+                          <div className="mt-3 flex items-baseline justify-between gap-2">
+                            <p className="font-mono text-[13px] font-semibold tabular-nums leading-none text-accent">
+                              768-D
+                            </p>
+                            <p className="font-mono text-[10px] tabular-nums text-text-muted">
+                              ViT-L/14
+                            </p>
+                          </div>
                           <p className="mt-1 text-[10px] leading-tight text-text-muted">
-                            {isLiveInference ? 'predicted CLIP direction · μ' : 'cached CLIP direction · μ'}
+                            {isLiveInference ? 'predicted CLIP direction' : 'cached CLIP direction'}
                           </p>
                         </div>
 
-                        {/* B · GALLERY CLOUD with DENSITY RING — embedding-
-                            space figure, faint coordinate plane, refined
-                            μ marker, label as a corner callout. */}
+                        {/* ────────────────────────────────────────────────
+                            B · DENSITY-CORRECTED SCAN — refined embedding-
+                            space figure. Smaller dots, sharper contrast
+                            between scanned / unscanned / query, the in-plot
+                            callout label is gone, replaced by a quiet line
+                            below the canvas. ─────────────────────────── */}
                         <div className="flex flex-col">
                           <div className="mb-2.5 flex items-baseline justify-between gap-3">
                             <p className="premium-kicker">Density-corrected scan</p>
                             <span className="font-mono text-[10.5px] tabular-nums text-text-muted">
                               <span className="text-text-secondary">{galCount.toLocaleString()}</span>
-                              <span className="text-text-muted/70"> / 10,000 scanned</span>
+                              <span className="text-text-muted/70"> / 10,000</span>
                             </span>
                           </div>
                           <div
                             className="relative flex-1 overflow-hidden rounded-md bg-white/[0.012]"
-                            style={{ minHeight: 210, boxShadow: 'inset 0 0 0 1px rgb(255 255 255 / 0.04)' }}
+                            style={{ minHeight: 218, boxShadow: 'inset 0 0 0 1px rgb(255 255 255 / 0.035)' }}
                           >
                             <svg viewBox="0 0 220 180" className="h-full w-full" aria-hidden>
                               <defs>
-                                {/* Faint dot grid to suggest a coordinate plane
-                                    without drawing visible axes. */}
-                                <pattern id="csls-grid" width="11" height="11" patternUnits="userSpaceOnUse">
-                                  <circle cx="0.5" cy="0.5" r="0.4" fill="rgb(255,255,255)" fillOpacity="0.045" />
+                                {/* Refined coordinate dot-grid — finer pitch,
+                                    crisper dots, so the field reads as an
+                                    embedding-space scientific plot. */}
+                                <pattern id="csls-grid" width="14" height="14" patternUnits="userSpaceOnUse">
+                                  <circle cx="0.4" cy="0.4" r="0.35" fill="rgb(255,255,255)" fillOpacity="0.055" />
                                 </pattern>
+                                {/* Subtle radial halo behind the query so the
+                                    eye locks onto the center first. */}
+                                <radialGradient id="csls-q-halo" cx="50%" cy="50%" r="50%">
+                                  <stop offset="0%"  stopColor="rgb(77,124,255)" stopOpacity="0.18" />
+                                  <stop offset="100%" stopColor="rgb(77,124,255)" stopOpacity="0" />
+                                </radialGradient>
                               </defs>
                               <rect x="0" y="0" width="220" height="180" fill="url(#csls-grid)" />
 
-                              {/* Center cross — minimal, almost imperceptible */}
-                              <line x1="6" y1="90" x2="214" y2="90" stroke="rgb(255,255,255)" strokeOpacity="0.030" strokeWidth="0.4" />
-                              <line x1="110" y1="6" x2="110" y2="174" stroke="rgb(255,255,255)" strokeOpacity="0.030" strokeWidth="0.4" />
+                              {/* Quiet axis cross-hairs */}
+                              <line x1="6" y1="90" x2="214" y2="90" stroke="rgb(255,255,255)" strokeOpacity="0.026" strokeWidth="0.4" />
+                              <line x1="110" y1="6" x2="110" y2="174" stroke="rgb(255,255,255)" strokeOpacity="0.026" strokeWidth="0.4" />
 
-                              {/* Density / local-neighborhood ring around the query */}
+                              {/* Query halo — a soft glow behind the marker */}
+                              <circle cx="110" cy="90" r="18" fill="url(#csls-q-halo)" />
+
+                              {/* Local-neighborhood ring */}
                               <circle
                                 cx="110"
                                 cy="90"
                                 r="32"
                                 fill="rgb(77,124,255)"
-                                fillOpacity="0.045"
+                                fillOpacity="0.040"
                                 stroke="rgb(77,124,255)"
-                                strokeOpacity="0.32"
-                                strokeWidth="0.6"
+                                strokeOpacity="0.36"
+                                strokeWidth="0.55"
                                 strokeDasharray="2 2.5"
                               />
 
-                              {/* Tiny callout leader from the ring's edge to a
-                                  corner label — replaces the oversized
-                                  "neighborhood" word in-canvas. */}
-                              <line x1="140" y1="63" x2="172" y2="46" stroke="rgb(123,156,255)" strokeOpacity="0.45" strokeWidth="0.5" />
-                              <text
-                                x="173"
-                                y="44"
-                                className="fill-text-secondary"
-                                style={{ fontFamily: 'Inter', fontSize: 7.5, letterSpacing: '0.06em', textTransform: 'uppercase' }}
-                              >
-                                local density
-                              </text>
-
-                              {/* Gallery dots — smaller, more precise. Scanned
-                                  dots go accent; unscanned stay near-invisible. */}
+                              {/* Gallery dots — small + precise. Scanned dots
+                                  flip to accent; unscanned barely visible. */}
                               {dots.map((p, i) => {
                                 const scanned = i < dotsScanned;
+                                const inNeighborhood = Math.hypot(p.x - 110, p.y - 90) < 32;
                                 return (
                                   <circle
                                     key={i}
                                     cx={p.x}
                                     cy={p.y}
-                                    r={scanned ? 1.4 : 1.1}
+                                    r={scanned ? (inNeighborhood ? 1.3 : 1.1) : 0.95}
                                     fill={scanned ? 'rgb(77,124,255)' : 'rgb(255,255,255)'}
-                                    fillOpacity={scanned ? 0.72 : 0.14}
+                                    fillOpacity={scanned ? (inNeighborhood ? 0.88 : 0.65) : 0.10}
                                   />
                                 );
                               })}
 
-                              {/* Top-3 emerging connectors — drawn to ring-0
-                                  dots after the scan crosses thresholds. */}
+                              {/* Top-3 emerging connectors */}
                               {top3.map((_, idx) => {
                                 const target = dots[idx * 3];
                                 if (!target) return null;
@@ -1301,46 +1355,63 @@ export function PhaseEncodingRetrieval({
                                     y2={target.y}
                                     stroke="rgb(77,124,255)"
                                     strokeOpacity={idx === 0 ? 0.85 : 0.55 - idx * 0.12}
-                                    strokeWidth={idx === 0 ? 1.1 : 0.8}
+                                    strokeWidth={idx === 0 ? 1.0 : 0.7}
                                     strokeLinecap="round"
                                     strokeDasharray={idx === 0 ? '0' : '1 1.5'}
                                   />
                                 );
                               })}
 
-                              {/* Query at center — elegant double dot */}
-                              <circle cx="110" cy="90" r="3.4" fill="rgb(77,124,255)" />
-                              <circle cx="110" cy="90" r="5.6" fill="none" stroke="rgb(77,124,255)" strokeOpacity="0.40" strokeWidth="0.65" />
+                              {/* Query marker — small inner dot + halo ring */}
+                              <circle cx="110" cy="90" r="2.8" fill="rgb(77,124,255)" />
+                              <circle cx="110" cy="90" r="4.8" fill="none" stroke="rgb(77,124,255)" strokeOpacity="0.42" strokeWidth="0.6" />
                               <text
                                 x="116"
                                 y="86"
-                                className="fill-accent"
-                                style={{ fontFamily: 'JetBrains Mono', fontSize: 8.5, fontWeight: 700 }}
+                                fill="rgb(123,156,255)"
+                                style={{ fontFamily: 'JetBrains Mono, ui-monospace, monospace', fontSize: 8, fontWeight: 700 }}
                               >
                                 μ
                               </text>
                             </svg>
 
-                            {/* Hair-thin progress line at the canvas bottom —
-                                no card, no rounded track. Reads as a precise
-                                instrument readout. */}
+                            {/* Hair-thin scan progress at the canvas bottom */}
                             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-white/[0.04]" />
                             <motion.div
-                              className="pointer-events-none absolute bottom-0 left-0 h-px bg-accent/70"
+                              className="pointer-events-none absolute bottom-0 left-0 h-px bg-accent/55"
                               animate={{ width: `${scanFrac * 100}%` }}
                               transition={{ duration: 0.1 }}
                             />
                           </div>
-                          <p className="mt-2.5 text-[10.5px] leading-relaxed text-text-muted">
-                            CSLS re-ranks gallery embeddings by correcting local-neighborhood density, reducing hubness before top-k retrieval.
-                          </p>
+                          {/* Quiet legend — replaces the in-plot LOCAL
+                              DENSITY callout. Single short line, scientific. */}
+                          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-text-muted">
+                            <span className="inline-flex items-center gap-1.5">
+                              <span className="inline-block h-[3px] w-3 rounded-full bg-accent/55" />
+                              local density
+                            </span>
+                            <span className="text-border-emphasis" aria-hidden>·</span>
+                            <span className="inline-flex items-center gap-1.5">
+                              <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
+                              scanned candidate
+                            </span>
+                            <span className="text-border-emphasis" aria-hidden>·</span>
+                            <span>CSLS = cos(x, y) − ½(r_x + r_y)</span>
+                          </div>
                         </div>
 
-                        {/* C · RANKED OUTPUT — refined retrieval list. Thin
-                            tracks, mono numeric values, #1 subtly emphasized. */}
+                        {/* ────────────────────────────────────────────────
+                            C · TOP-K OUTPUT — refined ranked list. #1 gets
+                            a slightly heavier track; values use a fixed
+                            tabular column so all three rows align. ────── */}
                         <div className="flex flex-col">
-                          <p className="premium-kicker">Top-K output</p>
-                          <ol className="mt-3 space-y-2">
+                          <div className="mb-2.5 flex items-baseline justify-between gap-3">
+                            <p className="premium-kicker">Top-K output</p>
+                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-muted/70">
+                              CSLS
+                            </span>
+                          </div>
+                          <ol className="space-y-2.5">
                             {top3.map((item, idx) => {
                               const revealed = scanFrac > 0.55 + idx * 0.12;
                               const maxCsls = top3[0]?.csls ?? 1;
@@ -1352,48 +1423,51 @@ export function PhaseEncodingRetrieval({
                                   className="space-y-1 transition-opacity duration-300"
                                   style={{ opacity: revealed ? 1 : 0.18 }}
                                 >
-                                  <div className="flex items-baseline justify-between gap-2">
+                                  <div className="flex items-baseline justify-between gap-2 font-mono tabular-nums">
                                     <span
-                                      className={`font-mono text-[10.5px] font-semibold tabular-nums ${
+                                      className={`text-[10.5px] font-semibold ${
                                         isTop ? 'text-accent' : 'text-text-muted'
                                       }`}
                                     >
                                       #{item.rank}
                                     </span>
                                     <span
-                                      className={`font-mono text-[10.5px] tabular-nums ${
+                                      className={`text-[11px] ${
                                         isTop ? 'text-text-primary' : 'text-text-secondary'
                                       }`}
                                     >
                                       {item.csls != null ? item.csls.toFixed(3) : '—'}
                                     </span>
                                   </div>
-                                  <div className="relative h-[3px] overflow-hidden rounded-full bg-white/[0.04]">
+                                  <div
+                                    className={`relative overflow-hidden rounded-full bg-white/[0.045] ${
+                                      isTop ? 'h-1' : 'h-[3px]'
+                                    }`}
+                                  >
                                     <motion.div
                                       className={`absolute inset-y-0 left-0 rounded-full ${
-                                        isTop ? 'bg-accent/75' : 'bg-text-secondary/40'
+                                        isTop ? 'bg-accent/80' : 'bg-text-secondary/40'
                                       }`}
                                       initial={{ width: 0 }}
                                       animate={{ width: revealed ? `${pct}%` : 0 }}
-                                      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                                      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
                                     />
                                   </div>
                                 </li>
                               );
                             })}
                           </ol>
-                          {/* Compact metadata — hair divider, aligned bottom */}
+                          {/* Compact metadata anchored to the bottom of the
+                              column — share a baseline with the canvas
+                              legend on its left. */}
                           <div className="mt-auto border-t border-white/[0.04] pt-3">
-                            <dl className="flex items-baseline justify-between gap-3 text-[10.5px]">
-                              <div className="flex items-baseline gap-1.5">
-                                <dt className="text-text-muted/85">Space</dt>
-                                <dd className="font-mono tabular-nums text-text-secondary">ViT-L/14</dd>
-                              </div>
-                              <span className="h-3 w-px bg-white/[0.05]" aria-hidden />
-                              <div className="flex items-baseline gap-1.5">
-                                <dt className="text-text-muted/85">Method</dt>
-                                <dd className="font-mono text-text-secondary">CSLS</dd>
-                              </div>
+                            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[10.5px]">
+                              <dt className="text-text-muted/85">Gallery</dt>
+                              <dd className="text-right font-mono tabular-nums text-text-secondary">10,000</dd>
+                              <dt className="text-text-muted/85">Space</dt>
+                              <dd className="text-right font-mono tabular-nums text-text-secondary">ViT-L/14</dd>
+                              <dt className="text-text-muted/85">Method</dt>
+                              <dd className="text-right font-mono text-text-secondary">CSLS</dd>
                             </dl>
                           </div>
                         </div>

@@ -60,22 +60,28 @@ export function ComparisonTriptych({ panels }: ComparisonTriptychProps) {
         const hasImage = !!panel.imageSrc;
 
         return (
-          <motion.div
+          <motion.figure
             key={panel.title}
-            className={`group overflow-hidden rounded-2xl border bg-surface-elevated transition-all duration-300 hover:-translate-y-0.5 ${
-              panel.isMatch ? 'border-status-success/20 shadow-[0_18px_52px_-42px_rgba(74,222,128,0.34)]' : 'border-border-subtle hover:border-border-emphasis'
+            className={`group overflow-hidden rounded-2xl border bg-surface-elevated/85 transition-all duration-300 hover:-translate-y-0.5 ${
+              panel.isMatch
+                ? 'border-status-success/22'
+                : 'border-white/[0.05] hover:border-white/[0.1]'
             }`}
-            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+            style={{ boxShadow: '0 1px 0 rgb(255 255 255 / 0.025) inset' }}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 240, damping: 24, delay: i * 0.06 }}
           >
-            {/* Image area */}
-            <div className="relative aspect-[4/3] max-h-[520px] w-full bg-surface-base/40 lg:aspect-[16/10]">
+            {/* Image area — kept clean, no heavy overlay */}
+            <div className="relative aspect-[4/3] max-h-[360px] w-full bg-surface-base/40 lg:aspect-[16/10]">
               {hasImage ? (
                 panel.revealBlur ? (
-                  <motion.div className="absolute inset-0"
+                  <motion.div
+                    className="absolute inset-0"
                     initial={{ filter: 'blur(20px)', opacity: 0 }}
                     animate={{ filter: 'blur(0px)', opacity: 1 }}
-                    transition={{ delay: 0.3, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}>
+                    transition={{ delay: 0.3, duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                  >
                     <SafeImg src={panel.imageSrc} alt={panel.title} className="h-full w-full object-cover" />
                   </motion.div>
                 ) : (
@@ -90,18 +96,31 @@ export function ComparisonTriptych({ panels }: ComparisonTriptychProps) {
                 </div>
               )}
 
-              {/* Bottom overlay — deep black gradient for max readability */}
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent pt-14 pb-3 px-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[12px] font-semibold text-white/95">{panel.title}</p>
-                    <p className="text-[10px] text-white/70">{panel.subtitle}</p>
-                  </div>
-                  <ProvenanceBadge provenance={panel.provenance} />
-                </div>
-              </div>
+              {/* Inner ring to soften the image edge */}
+              <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/[0.04]" aria-hidden />
+
+              {/* Tiny "match" indicator (no glow), top-left, only for the
+                  matching panel. Status badges live in the footer below. */}
+              {panel.isMatch ? (
+                <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-md border border-status-success/25 bg-black/45 px-2 py-0.5 text-[10px] font-semibold text-status-success backdrop-blur-md">
+                  <span className="h-1.5 w-1.5 rounded-full bg-status-success" />
+                  Match
+                </span>
+              ) : null}
             </div>
-          </motion.div>
+
+            {/* Clean caption beneath the frame — like a curated scientific
+                triptych, not a marketplace image card. */}
+            <figcaption className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-[12.5px] font-semibold text-text-primary">{panel.title}</p>
+                <p className="mt-0.5 truncate text-[11px] text-text-muted">{panel.subtitle}</p>
+              </div>
+              <div className="shrink-0">
+                <ProvenanceBadge provenance={panel.provenance} />
+              </div>
+            </figcaption>
+          </motion.figure>
         );
       })}
       </div>

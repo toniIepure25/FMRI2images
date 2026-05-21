@@ -29,7 +29,7 @@ export function ProvenanceBadge({ provenance, className = '' }: ProvenanceBadgeP
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[10px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${TONE_CLASSES[tone]} ${className}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${TONE_CLASSES[tone]} ${className}`}
       title={detail}
     >
       <span className={`h-1 w-1 rounded-full ${DOT_CLASSES[tone]}`} />

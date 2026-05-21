@@ -82,7 +82,7 @@ export function AnalysisTabs({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-lg bg-surface-raised px-4 py-4">
                   <p className="text-[10px] font-medium text-text-muted">κ (directional concentration)</p>
-                  <p className="font-mono text-3xl font-bold text-accent mt-2">{kappa != null ? kappa.toFixed(1) : '—'}</p>
+                  <p className="mt-2 font-mono text-3xl font-bold text-accent">{kappa != null ? kappa.toFixed(1) : 'N/A'}</p>
                   <p className="text-[11px] text-text-muted mt-1">
                     {kappa != null
                       ? kappa > 100 ? 'High directional certainty · narrow vMF cone' : kappa > 30 ? 'Moderate certainty' : 'Broad uncertainty · wide vMF cone'
@@ -91,7 +91,7 @@ export function AnalysisTabs({
                 </div>
                 <div className="rounded-lg bg-surface-raised px-4 py-4">
                   <p className="text-[10px] font-medium text-text-muted">δ (ROI disagreement)</p>
-                  <p className="font-mono text-3xl font-bold text-text-primary mt-2">{delta != null ? delta.toFixed(4) : '—'}</p>
+                  <p className="mt-2 font-mono text-3xl font-bold text-text-primary">{delta != null ? delta.toFixed(4) : 'N/A'}</p>
                   <p className="text-[11px] text-text-muted mt-1">
                     {delta != null ? 'Cross-ROI directional tension' : 'V62a MLP has no per-ROI δ'}
                   </p>
@@ -122,7 +122,7 @@ export function AnalysisTabs({
                   </div>
                   <div className="rounded-lg bg-surface-raised px-4 py-2.5 flex items-center justify-between">
                     <span className="text-[11px] text-text-muted">Concept entropy</span>
-                    <span className="font-mono text-[13px] font-semibold text-text-primary">{inference.semantic_probe.concept_distribution_entropy?.toFixed(3) ?? '—'}</span>
+                    <span className="font-mono text-[13px] font-semibold text-text-primary">{inference.semantic_probe.concept_distribution_entropy?.toFixed(3) ?? 'N/A'}</span>
                   </div>
                 </div>
               ) : (

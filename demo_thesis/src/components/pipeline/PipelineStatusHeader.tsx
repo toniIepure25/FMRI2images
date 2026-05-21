@@ -2,12 +2,15 @@ import { motion } from 'framer-motion';
 import type { BackendHealth } from '@/lib/api';
 import type { DemoCase } from '@/types';
 import type { PipelineRunMode } from '@/types/pipeline';
+import { DecodingStageRail } from './DecodingStageRail';
 
 interface PipelineStatusHeaderProps {
   runMode: PipelineRunMode;
   backendHealth: BackendHealth | null;
   selectedCase: DemoCase | null;
   phase: string;
+  currentPhase: 1 | 2 | 3;
+  onBack?: () => void;
 }
 
 function modeLabel(h: BackendHealth | null): string {
@@ -25,25 +28,28 @@ function phaseCopy(phase: string, selectedCase: DemoCase | null) {
   if (phase === 'retrieval' && selectedCase) {
     return {
       eyebrow: 'Decode replay',
-      title: 'Decode replay',
-      subtitle: `${selectedCase.subject} · nsdId ${selectedCase.nsdId} · session ${selectedCase.session} · rank #${selectedCase.metrics.rank}`,
+      title: 'Neural decoding workbench',
+      subtitle: `${selectedCase.subject} · NSD ${selectedCase.nsdId} · session ${selectedCase.session} · rank #${selectedCase.metrics.rank}`,
     };
   }
 
   if (phase === 'reconstruction') {
+    const hasRecon = !!(selectedCase?.diffusionFinal || selectedCase?.reconstructionImage);
     return {
-      eyebrow: 'Visual evidence',
-      title: 'Compare retrieval evidence',
+      eyebrow: 'Evidence audit',
+      title: hasRecon ? 'Visual comparison audit' : 'Retrieval-only audit',
       subtitle: selectedCase
-        ? `Target stimulus, top-ranked retrieval, and available reconstruction metrics for nsdId ${selectedCase.nsdId}.`
+        ? hasRecon
+          ? `Target stimulus, top-ranked retrieval, and available reconstruction metrics for NSD ${selectedCase.nsdId}.`
+          : `Target stimulus and top-ranked retrieval for NSD ${selectedCase.nsdId}. No reconstruction asset cached.`
         : 'Target stimulus, top-ranked retrieval, and available reconstruction metrics.',
     };
   }
 
   return {
     eyebrow: 'Stimulus gallery',
-    title: 'Cortex2Canvas',
-    subtitle: 'Select an NSD stimulus and replay the subject-specific fMRI → CLIP evidence path.',
+    title: 'Select an NSD visual trial',
+    subtitle: 'Choose a recorded stimulus and replay its subject-specific fMRI → CLIP retrieval path.',
   };
 }
 
@@ -52,68 +58,115 @@ export function PipelineStatusHeader({
   backendHealth,
   selectedCase,
   phase,
+  currentPhase,
+  onBack,
 }: PipelineStatusHeaderProps) {
   const h = backendHealth;
   const isLive = h?.live_retrieval_available === true;
+  const isOffline = !h && runMode !== 'checking';
   const copy = phaseCopy(phase, selectedCase);
+  const top1 = selectedCase?.retrievedImages.find((r) => r.rank === 1) ?? selectedCase?.retrievedImages[0];
+  const verdict =
+    selectedCase?.metrics.rank === 1
+      ? 'Exact match'
+      : selectedCase?.metrics.rank != null && selectedCase.metrics.rank <= 5
+      ? 'Near match'
+      : 'Candidate';
+  const compactEvidenceMode = phase === 'reconstruction' && !!selectedCase;
+
+  const stateChipClass = isLive
+    ? 'sci-chip sci-chip-accent'
+    : isOffline
+    ? 'sci-chip sci-chip-warning'
+    : 'sci-chip sci-chip-neutral';
+
+  const stateDotClass = isLive
+    ? 'sci-chip-dot bg-accent pulse-dot'
+    : isOffline
+    ? 'sci-chip-dot bg-status-warning'
+    : 'sci-chip-dot bg-text-muted';
 
   return (
     <motion.header
-      className="rounded-[22px] border border-border-subtle bg-[#0b0e16]/88 p-3 shadow-[0_24px_90px_-60px_rgba(0,0,0,0.95)]"
-      initial={{ opacity: 0, y: -8 }}
+      className="premium-panel-flat px-5 py-4 sm:py-5"
+      initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
     >
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-        <div className="flex min-w-0 items-center gap-4 rounded-2xl border border-white/[0.045] bg-white/[0.018] px-4 py-3">
-          <div className="hidden h-10 w-px bg-gradient-to-b from-transparent via-accent/45 to-transparent sm:block" />
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-text-muted">{copy.eyebrow}</p>
-              {selectedCase ? (
-                <span className="rounded-md bg-surface-raised px-2 py-0.5 font-mono text-[10px] text-text-muted">
-                  nsdId {selectedCase.nsdId}
-                </span>
-              ) : null}
-            </div>
-            <h1 className="mt-1 text-[24px] font-semibold leading-tight tracking-[-0.025em] text-text-primary sm:text-[28px]">
-              {copy.title}
-            </h1>
-            <p className="mt-1 max-w-3xl truncate text-[13px] text-text-secondary">
-              {copy.subtitle}
-            </p>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="premium-kicker">{copy.eyebrow}</p>
+            {selectedCase ? (
+              <span className="sci-chip sci-chip-mono sci-chip-muted">NSD {selectedCase.nsdId}</span>
+            ) : null}
           </div>
+          <h1 className="mt-1 truncate text-[20px] font-semibold leading-tight tracking-[-0.02em] text-text-primary sm:text-[22px]">
+            {copy.title}
+          </h1>
+          <p className="mt-1 max-w-3xl truncate text-[12.5px] leading-relaxed text-text-secondary">
+            {copy.subtitle}
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-          <span
-            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[11px] font-semibold ${
-              isLive
-                ? 'border-accent/25 bg-accent/10 text-accent'
-                : h?.server_online
-                  ? 'border-border-subtle bg-surface-raised text-text-secondary'
-                  : 'border-status-warning/20 bg-status-warning/8 text-status-warning'
-            }`}
-          >
-            <span className={`h-1.5 w-1.5 rounded-full ${isLive ? 'bg-accent' : h?.server_online ? 'bg-text-muted' : 'bg-status-warning'}`} />
-            {modeLabel(h)}
-          </span>
-          <span className="rounded-full border border-border-subtle bg-surface-raised px-3 py-1.5 text-[11px] font-semibold text-text-secondary">
-            V62a · CLIP ViT-L/14
-          </span>
-          {selectedCase ? (
-            <span className="rounded-full border border-border-subtle bg-surface-raised px-3 py-1.5 text-[11px] font-semibold text-text-muted">
-              {selectedCase.subject}
-            </span>
+        <div className="flex flex-wrap items-center gap-2 lg:ml-auto lg:justify-end">
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.025] px-3 py-1 text-[11px] font-semibold text-text-secondary transition hover:border-white/15 hover:text-text-primary"
+            >
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              Gallery
+            </button>
           ) : null}
-          <span className="rounded-full border border-border-subtle bg-surface-raised px-3 py-1.5 text-[11px] font-semibold text-text-muted">
-            {deviceLabel(h)}
-          </span>
-          {runMode === 'checking' ? (
-            <span className="rounded-full border border-border-subtle bg-surface-raised px-3 py-1.5 text-[11px] text-text-muted">
-              checking backend
-            </span>
-          ) : null}
+
+          {compactEvidenceMode ? (
+            <>
+              <span
+                className={
+                  selectedCase.metrics.rank === 1
+                    ? 'sci-chip sci-chip-success'
+                    : 'sci-chip sci-chip-warning'
+                }
+              >
+                Rank #{selectedCase.metrics.rank} · {verdict}
+              </span>
+              <span className="sci-chip sci-chip-mono sci-chip-neutral">
+                CSLS {top1?.csls != null ? top1.csls.toFixed(3) : 'N/A'}
+              </span>
+              <span className="sci-chip sci-chip-mono sci-chip-neutral">
+                κ {selectedCase.uncertainty.kappa.toFixed(1)}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className={stateChipClass}>
+                <span className={stateDotClass} />
+                {modeLabel(h)}
+              </span>
+              <span className="sci-chip sci-chip-mono sci-chip-neutral hidden sm:inline-flex">
+                V62a · CLIP ViT-L/14
+              </span>
+              {selectedCase ? (
+                <span className="sci-chip sci-chip-mono sci-chip-muted">{selectedCase.subject}</span>
+              ) : null}
+              <span className="sci-chip sci-chip-mono sci-chip-muted hidden sm:inline-flex">
+                {deviceLabel(h)}
+              </span>
+              {runMode === 'checking' ? (
+                <span className="sci-chip sci-chip-muted">checking backend</span>
+              ) : null}
+            </>
+          )}
         </div>
+      </div>
+
+      {/* ── Embedded workflow rail — hairline divider, no extra panel chrome
+             so the header reads as one coherent surface. ── */}
+      <div className="mt-4 border-t border-white/[0.04] pt-3.5 sm:mt-5 sm:pt-4">
+        <DecodingStageRail currentPhase={currentPhase} embedded />
       </div>
     </motion.header>
   );

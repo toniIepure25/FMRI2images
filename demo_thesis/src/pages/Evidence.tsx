@@ -8,15 +8,15 @@ import { useState } from 'react';
 function HeroMetric({ label, value, subtitle, color }: { label: string; value: string; subtitle: string; color: string }) {
   return (
     <motion.div
-      className="rounded-2xl border border-border-subtle bg-surface-elevated p-5 text-center"
+      className="rounded-2xl border border-border-subtle bg-surface-elevated/85 p-4"
       initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <div className="w-10 h-10 rounded-xl mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: `${color}15` }}>
+      <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.06]" style={{ backgroundColor: `${color}10` }}>
         <span className="font-mono text-lg font-bold" style={{ color }}>{label.charAt(0)}</span>
       </div>
-      <p className="text-2xl font-bold text-text-primary">{value}</p>
-      <p className="text-[11px] text-text-muted mt-1">{subtitle}</p>
+      <p className="font-mono text-2xl font-semibold text-text-primary">{value}</p>
+      <p className="mt-1 text-[11px] leading-snug text-text-muted">{subtitle}</p>
     </motion.div>
   );
 }
@@ -212,22 +212,29 @@ export function Evidence() {
   return (
     <div className="premium-page-bg min-h-screen">
       {/* ─── Hero ─── */}
-      <section className="px-4 pt-24 pb-8 sm:px-6 lg:px-12">
-        <div className="mx-auto max-w-[1200px]">
+      <section className="px-4 pb-8 pt-10 sm:px-6 lg:px-10">
+        <div className="mx-auto max-w-[1280px]">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-              <p className="premium-kicker mb-3">Research audit</p>
-              <h1 className="text-4xl font-semibold tracking-[-0.025em] text-text-primary sm:text-5xl">
-                Neural Manifold Evidence
-              </h1>
-            <p className="mt-3 text-sm text-text-secondary max-w-3xl">
+            <p className="premium-kicker mb-3">Research audit</p>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <h1 className="text-4xl font-semibold tracking-[-0.025em] text-text-primary sm:text-5xl">
+                  Neural Manifold Evidence
+                </h1>
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-text-secondary">
               Scientific evidence that decoded CLIP embeddings preserve semantic geometry, interpretable
               concept dimensions, and coherent latent structure. All metrics sourced from reproducible
               20260515 report generation against SHARED1000 and validation splits.
-            </p>
+                </p>
+              </div>
+              <span className="w-fit rounded-full border border-border-subtle bg-surface-raised px-3 py-1.5 text-[11px] font-semibold text-text-secondary">
+                SHARED1000 + validation
+              </span>
+            </div>
           </motion.div>
 
           {/* Key metric cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8">
+          <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <HeroMetric label="R@1" value={`${(D.retrieval.shared1000.cslsR1 * 100).toFixed(1)}%`} subtitle="CSLS top-1 on SHARED1000" color="#4d7cff" />
             <HeroMetric label="RSA" value={D.rsa.shared1000.spearmanRho.toFixed(3)} subtitle="Spearman ρ geometry preservation" color="#34d399" />
             <HeroMetric label="Overlap" value={`${(D.neighborhood.shared1000.overlapAt10 * 100).toFixed(0)}%`} subtitle="Neighborhood overlap @10 (40× random)" color="#fbbf24" />
@@ -237,8 +244,8 @@ export function Evidence() {
       </section>
 
       {/* ─── Main evidence content ── */}
-      <section className="px-4 pb-16 sm:px-6 lg:px-12">
-        <div className="mx-auto max-w-[1200px] space-y-6">
+      <section className="px-4 pb-16 sm:px-6 lg:px-10">
+        <div className="mx-auto max-w-[1280px] space-y-5">
 
           {/* Retrieval + Hubness comparison charts */}
           <div className="grid gap-6 lg:grid-cols-2">

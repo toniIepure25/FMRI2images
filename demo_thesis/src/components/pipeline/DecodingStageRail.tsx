@@ -2,75 +2,102 @@ import { motion } from 'framer-motion';
 
 export interface DecodingStageRailProps {
   currentPhase: 1 | 2 | 3;
+  /** When true, omit the surrounding panel chrome so the rail can be embedded
+   *  inside another panel (e.g. the page header). */
+  embedded?: boolean;
 }
 
 const stages = [
-  { phase: 1 as const, number: '01', label: 'Stimulus', detail: 'NSD trial' },
-  { phase: 2 as const, number: '02', label: 'Decode', detail: 'fMRI → CLIP' },
-  { phase: 3 as const, number: '03', label: 'Evidence', detail: 'Retrieval review' },
+  { phase: 1 as const, number: '01', label: 'Stimulus selection', detail: 'NSD trial' },
+  { phase: 2 as const, number: '02', label: 'Neural decoding', detail: 'fMRI → CLIP' },
+  { phase: 3 as const, number: '03', label: 'Evidence audit', detail: 'Result review' },
 ];
 
-export function DecodingStageRail({ currentPhase }: DecodingStageRailProps) {
-  const progressWidth = currentPhase === 1 ? '33.333%' : currentPhase === 2 ? '66.666%' : '100%';
-
+export function DecodingStageRail({ currentPhase, embedded = false }: DecodingStageRailProps) {
   return (
     <nav
       aria-label="Decoding stages"
-      className="relative overflow-hidden rounded-[20px] border border-border-subtle bg-[#080b12]/90 shadow-[0_22px_80px_-54px_rgba(0,0,0,0.95)]"
+      className={embedded ? '' : 'premium-panel-flat px-5 py-2.5'}
     >
-      <div className="absolute inset-x-0 top-0 h-px bg-white/[0.055]" />
-      <motion.div
-        className="absolute left-0 top-0 h-px bg-gradient-to-r from-text-secondary/70 via-accent/45 to-transparent"
-        initial={false}
-        animate={{ width: progressWidth }}
-        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-      />
-
-      <ol className="relative grid list-none grid-cols-1 sm:grid-cols-3">
-        {stages.map((stage) => {
+      <ol className="flex items-center justify-between gap-2">
+        {stages.map((stage, idx) => {
           const isActive = currentPhase === stage.phase;
           const isComplete = currentPhase > stage.phase;
+          const isLast = idx === stages.length - 1;
+
           return (
-            <li key={stage.phase} aria-current={isActive ? 'step' : undefined}>
-              <div
-                className={`relative min-h-[74px] px-5 py-4 transition duration-300 sm:border-r sm:last:border-r-0 ${
-                  isActive
-                    ? 'border-border-subtle bg-white/[0.035] text-text-primary'
-                    : isComplete
-                      ? 'border-border-subtle/70 bg-white/[0.015] text-text-secondary'
-                      : 'border-border-subtle/55 bg-transparent text-text-muted'
-                }`}
-              >
-                <div className="flex items-center gap-4">
+            <li
+              key={stage.phase}
+              className={`relative flex items-center ${isLast ? 'flex-none' : 'flex-1'}`}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`relative flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold tabular-nums transition-colors duration-300 ${
+                    isActive
+                      ? 'bg-accent text-text-inverse'
+                      : isComplete
+                      ? 'border border-accent/30 bg-accent/[0.08] text-accent'
+                      : 'border border-white/[0.07] bg-white/[0.015] text-text-muted'
+                  }`}
+                  aria-current={isActive ? 'step' : undefined}
+                >
+                  {isActive ? (
+                    <span className="pointer-events-none absolute inset-0 -m-1 rounded-full ring-2 ring-accent/20" aria-hidden />
+                  ) : null}
+                  {isComplete ? (
+                    <svg
+                      className="h-3.5 w-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    stage.number
+                  )}
+                </div>
+                <div className="flex flex-col leading-tight">
                   <span
-                    className={`font-mono text-[10px] font-semibold tabular-nums ${
-                      isActive ? 'text-accent' : isComplete ? 'text-text-secondary' : 'text-text-muted/65'
+                    className={`text-[12px] font-semibold tracking-tight ${
+                      isActive
+                        ? 'text-text-primary'
+                        : isComplete
+                        ? 'text-text-secondary'
+                        : 'text-text-muted'
                     }`}
                   >
-                    {stage.number}
+                    {stage.label}
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline gap-2">
-                      <p className="text-[13px] font-semibold leading-tight">{stage.label}</p>
-                      <span
-                        className={`hidden font-mono text-[9px] uppercase tracking-[0.18em] sm:inline ${
-                          isActive ? 'text-accent/80' : isComplete ? 'text-text-muted' : 'text-text-muted/45'
-                        }`}
-                      >
-                        {isActive ? 'active' : isComplete ? 'complete' : 'queued'}
-                      </span>
-                    </div>
-                    <p className="mt-1 truncate text-[11px] text-text-muted">{stage.detail}</p>
-                  </div>
-                  <div className={`h-7 w-px ${isActive ? 'bg-accent/50' : isComplete ? 'bg-text-muted/30' : 'bg-border-subtle/60'}`} aria-hidden />
+                  <span
+                    className={`text-[10px] ${
+                      isActive ? 'text-text-secondary' : 'text-text-muted/70'
+                    }`}
+                  >
+                    {stage.detail}
+                  </span>
                 </div>
-                {isActive ? (
-                  <motion.div
-                    layoutId="decoding-stage-underbar"
-                    className="absolute inset-x-5 bottom-0 h-[2px] rounded-full bg-accent/70"
-                  />
-                ) : null}
               </div>
+              {!isLast && (
+                <div className="relative mx-4 h-px flex-1 overflow-hidden bg-white/[0.05]">
+                  {isComplete ? (
+                    <motion.div
+                      className="absolute inset-y-0 left-0 bg-accent/55"
+                      initial={{ width: 0 }}
+                      animate={{ width: '100%' }}
+                      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                    />
+                  ) : isActive ? (
+                    <motion.div
+                      className="absolute inset-y-0 left-0 bg-accent/45"
+                      initial={{ width: 0 }}
+                      animate={{ width: '42%' }}
+                      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+                    />
+                  ) : null}
+                </div>
+              )}
             </li>
           );
         })}

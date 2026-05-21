@@ -1,11 +1,14 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Home } from '@/pages/Home';
-import { Film } from '@/pages/Film';
-import { Explorer } from '@/pages/Explorer';
-import { Pipeline } from '@/pages/Pipeline';
-import { Evidence } from '@/pages/Evidence';
-import { Challenge } from '@/pages/Challenge';
+import { LoadingState } from '@/components/LoadingState';
+
+const Film = lazy(() => import('@/pages/Film').then((m) => ({ default: m.Film })));
+const Explorer = lazy(() => import('@/pages/Explorer').then((m) => ({ default: m.Explorer })));
+const Pipeline = lazy(() => import('@/pages/Pipeline').then((m) => ({ default: m.Pipeline })));
+const Evidence = lazy(() => import('@/pages/Evidence').then((m) => ({ default: m.Evidence })));
+const Challenge = lazy(() => import('@/pages/Challenge').then((m) => ({ default: m.Challenge })));
 
 export default function App() {
   return (
@@ -13,12 +16,12 @@ export default function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
-          <Route path="/film" element={<Film />} />
-          <Route path="/explorer" element={<Explorer />} />
-          <Route path="/explorer/:caseId" element={<Explorer />} />
-          <Route path="/pipeline" element={<Pipeline />} />
-          <Route path="/evidence" element={<Evidence />} />
-          <Route path="/challenge" element={<Challenge />} />
+          <Route path="/film" element={<Suspense fallback={<LoadingState />}><Film /></Suspense>} />
+          <Route path="/explorer" element={<Suspense fallback={<LoadingState />}><Explorer /></Suspense>} />
+          <Route path="/explorer/:caseId" element={<Suspense fallback={<LoadingState />}><Explorer /></Suspense>} />
+          <Route path="/pipeline" element={<Suspense fallback={<LoadingState />}><Pipeline /></Suspense>} />
+          <Route path="/evidence" element={<Suspense fallback={<LoadingState />}><Evidence /></Suspense>} />
+          <Route path="/challenge" element={<Suspense fallback={<LoadingState />}><Challenge /></Suspense>} />
         </Route>
       </Routes>
     </BrowserRouter>

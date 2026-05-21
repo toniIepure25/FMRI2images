@@ -86,7 +86,7 @@ export function Explorer() {
   };
 
   return (
-    <div className="premium-page-bg relative flex h-[calc(100vh-4rem)]">
+    <div className="premium-page-bg relative flex h-[calc(100vh-68px)] min-h-[640px]">
       {casesSidebarOpen ? (
         <button
           type="button"

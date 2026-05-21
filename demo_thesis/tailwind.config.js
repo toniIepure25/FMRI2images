@@ -7,35 +7,39 @@ export default {
   theme: {
     extend: {
       colors: {
-        // ── Premium dark workbench palette ──
-        // Old brain-* tokens remapped to refined values for backward compat.
+        // ── Premium scientific graphite palette ──
+        // Old brain-* tokens kept for backward compat but values are now
+        // neutralized (R≈G≈B) — no more purple/blue tint.
         brain: {
-          dark:   '#09090b',   // base background  (was #0a0e1a)
-          navy:   '#0f0f14',   // raised section   (was #0d1529)
-          panel:  '#15151c',   // elevated card    (was #131a2e)
-          border: '#252533',   // subtle border    (was #1e2a4a)
-          accent: '#4d7cff',   // restrained blue  (was #00d4ff)
-          purple: '#7c6ff7',   // softened purple  (was #8b5cf6)
-          pink:   '#e8639a',   // softened pink    (was #ec4899)
-          green:  '#34d399',   // muted success    (was #10b981)
-          amber:  '#fbbf24',   // muted warning    (was #f59e0b)
-          glow:   '#4d7cff1a', // accent ghost     (was #00d4ff33)
+          dark:   '#0a0a0b',
+          navy:   '#101011',
+          panel:  '#16171a',
+          border: '#26272b',
+          accent: '#4d7cff',
+          purple: '#7c6ff7',
+          pink:   '#e8639a',
+          green:  '#34d399',
+          amber:  '#fbbf24',
+          glow:   '#4d7cff1a',
         },
-        // ── NEW surface elevation system ──
+        // ── Neutral graphite surface elevation system ──
+        // RGB channels are intentionally close so dark surfaces read as true
+        // graphite, not bluish/purple. Lift through the scale is luminance,
+        // never hue.
         surface: {
-          base:     '#09090b',
-          raised:   '#0f0f14',
-          elevated: '#15151c',
-          overlay:  '#1c1c25',
-          hover:    '#1f1f2a',
-          active:   '#252533',
+          base:     '#0a0a0b',
+          raised:   '#101012',
+          elevated: '#16171a',
+          overlay:  '#1d1e22',
+          hover:    '#22232a',
+          active:   '#282a31',
         },
-        // ── Border hierarchy ──
+        // ── Neutral border hierarchy ──
         border: {
-          subtle:   '#1e1e2a',
-          DEFAULT:  '#252533',
-          emphasis: '#303045',
-          strong:   '#3d3d55',
+          subtle:   '#1f2023',
+          DEFAULT:  '#26272b',
+          emphasis: '#2f3036',
+          strong:   '#3d3d44',
         },
         // ── Single restrained accent ──
         accent: {

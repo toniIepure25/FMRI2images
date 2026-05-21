@@ -1,14 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 import { usePipelineCases } from '@/lib/hooks';
 import type { DemoCase } from '@/types';
 import type { PipelineRunMode } from '@/types/pipeline';
-import { DecodingStageRail } from '@/components/pipeline/DecodingStageRail';
 import { PipelineStatusHeader } from '@/components/pipeline/PipelineStatusHeader';
 import { PhaseTrialSelection } from '@/components/pipeline/PhaseTrialSelection';
 import { PhaseEncodingRetrieval } from '@/components/pipeline/PhaseEncodingRetrieval';
 import { PhaseReconstruction } from '@/components/pipeline/PhaseReconstruction';
-import { EvidenceIntegrityPanel } from '@/components/pipeline/EvidenceIntegrityPanel';
 import { LoadingState } from '@/components/LoadingState';
 import { ErrorState } from '@/components/ErrorState';
 import {
@@ -18,6 +17,18 @@ import {
 } from '@/lib/api';
 
 type PipelinePhase = 'selection' | 'retrieval' | 'reconstruction';
+type PhaseParam = 'select' | 'decode' | 'evidence';
+
+const PHASE_TO_PARAM: Record<PipelinePhase, PhaseParam> = {
+  selection: 'select',
+  retrieval: 'decode',
+  reconstruction: 'evidence',
+};
+const PARAM_TO_PHASE: Record<PhaseParam, PipelinePhase> = {
+  select: 'selection',
+  decode: 'retrieval',
+  evidence: 'reconstruction',
+};
 
 function resolveRunMode(h: BackendHealth | null): PipelineRunMode {
   if (!h) return 'offline-replay';
@@ -29,7 +40,11 @@ function resolveRunMode(h: BackendHealth | null): PipelineRunMode {
 
 export function Pipeline() {
   const { cases, loading, error } = usePipelineCases();
-  const [phase, setPhase] = useState<PipelinePhase>('selection');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [phase, setPhase] = useState<PipelinePhase>(() => {
+    const p = searchParams.get('phase') as PhaseParam | null;
+    return p && PARAM_TO_PHASE[p] ? PARAM_TO_PHASE[p] : 'selection';
+  });
   const [selectedCase, setSelectedCase] = useState<DemoCase | null>(null);
   const [backendHealth, setBackendHealth] = useState<BackendHealth | null>(null);
   const [runMode, setRunMode] = useState<PipelineRunMode>('checking');
@@ -45,18 +60,60 @@ export function Pipeline() {
       });
   }, []);
 
+  // Restore selection from URL once cases load, so the deep-link
+  // /pipeline?case=<id>&phase=<decode|evidence> survives a reload.
+  useEffect(() => {
+    if (cases.length === 0) return;
+    const id = searchParams.get('case');
+    if (!id) return;
+    const found = cases.find((c) => c.id === id);
+    if (found) {
+      setSelectedCase(found);
+      if (phase === 'selection') setPhase('retrieval');
+    } else {
+      // Stale id — clear it to keep the URL honest.
+      const next = new URLSearchParams(searchParams);
+      next.delete('case');
+      next.delete('phase');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cases]);
+
+  const syncUrl = useCallback(
+    (next: { case?: string | null; phase?: PipelinePhase | null }) => {
+      const params = new URLSearchParams(searchParams);
+      if (next.case === null) params.delete('case');
+      else if (next.case) params.set('case', next.case);
+      if (next.phase === null) params.delete('phase');
+      else if (next.phase) params.set('phase', PHASE_TO_PARAM[next.phase]);
+      setSearchParams(params, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
   const progressBarPhase: 1 | 2 | 3 =
     phase === 'selection' ? 1 : phase === 'retrieval' ? 2 : 3;
 
   const backToSelection = useCallback(() => {
     setPhase('selection');
     setSelectedCase(null);
-  }, []);
+    syncUrl({ case: null, phase: null });
+  }, [syncUrl]);
 
-  const handleTrialSelected = useCallback((c: DemoCase) => {
-    setSelectedCase(c);
-    setPhase('retrieval');
-  }, []);
+  const handleTrialSelected = useCallback(
+    (c: DemoCase) => {
+      setSelectedCase(c);
+      setPhase('retrieval');
+      syncUrl({ case: c.id, phase: 'retrieval' });
+    },
+    [syncUrl],
+  );
+
+  const handleAdvanceToEvidence = useCallback(() => {
+    setPhase('reconstruction');
+    syncUrl({ phase: 'reconstruction' });
+  }, [syncUrl]);
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
@@ -64,42 +121,16 @@ export function Pipeline() {
   const liveMode = isBackendAvailable();
 
   return (
-    <div className="pip-page-bg min-h-screen px-4 pt-24 pb-16 sm:px-6 lg:px-12">
-      <div className="mx-auto max-w-[1440px] space-y-5">
+    <div className="pip-page-bg min-h-screen px-4 pb-14 pt-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1360px] space-y-3">
         <PipelineStatusHeader
           runMode={runMode}
           backendHealth={backendHealth}
           selectedCase={selectedCase}
           phase={phase}
+          currentPhase={progressBarPhase}
+          onBack={phase !== 'selection' ? backToSelection : undefined}
         />
-
-        <DecodingStageRail currentPhase={progressBarPhase} />
-
-        {selectedCase ? (
-          <EvidenceIntegrityPanel selectedCase={selectedCase} liveMode={liveMode} backendHealth={backendHealth} />
-        ) : null}
-
-        {/* Back button */}
-        <AnimatePresence>
-          {phase !== 'selection' && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-xl border border-border-subtle bg-surface-raised/70 px-3 py-2 text-[12px] font-semibold text-text-secondary transition hover:border-border-emphasis hover:text-text-primary"
-                onClick={backToSelection}
-              >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                </svg>
-                Back to selection
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Phase content */}
         <AnimatePresence mode="wait">
@@ -128,7 +159,7 @@ export function Pipeline() {
               <PhaseEncodingRetrieval
                 case_={selectedCase}
                 liveMode={liveMode}
-                onComplete={() => setPhase('reconstruction')}
+                onComplete={handleAdvanceToEvidence}
                 modelMeta={backendHealth?.model_meta ?? null}
               />
             </motion.div>

@@ -31,26 +31,24 @@ export function MetricCell({
 
   return (
     <div
-      className={`rounded-xl bg-white/[0.025] p-4 ${className}`}
+      className={`rounded-xl border border-white/[0.05] bg-white/[0.02] px-3.5 py-3 ${className}`}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[9px] font-medium text-slate-500">
-          {label}
-        </p>
+        <p className="premium-kicker">{label}</p>
         <ProvenanceBadge provenance={provenance} />
       </div>
       <p
-        className={`mt-1.5 font-mono text-[22px] font-semibold tabular-nums leading-none ${
-          available ? (valueColor ?? 'text-white') : 'text-slate-600'
+        className={`mt-2 font-mono text-[20px] font-semibold tabular-nums leading-none tracking-tight ${
+          available ? (valueColor ?? 'text-text-primary') : 'text-text-muted'
         }`}
       >
         {displayValue}
       </p>
       {description && (
-        <p className="mt-1.5 text-[9px] text-slate-600">{description}</p>
+        <p className="mt-1.5 text-[10.5px] leading-snug text-text-muted">{description}</p>
       )}
       {caption && (
-        <p className="mt-0.5 text-[8px] text-slate-600">{caption}</p>
+        <p className="mt-0.5 text-[10.5px] leading-snug text-text-muted">{caption}</p>
       )}
     </div>
   );

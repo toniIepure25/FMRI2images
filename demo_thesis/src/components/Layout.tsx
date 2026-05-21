@@ -31,20 +31,20 @@ export function Layout() {
     <div className="premium-page-bg relative flex min-h-screen flex-col bg-surface-base">
       <div className="premium-shell-grid pointer-events-none fixed inset-x-0 top-0 h-[38rem]" aria-hidden />
       {/* ── Top navigation ── */}
-      <nav className="fixed inset-x-0 top-0 z-50 border-b border-white/[0.06] bg-[#07080c]/82 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-[1540px] items-center justify-between px-4 sm:px-6 lg:px-8">
+      <nav className="sticky top-0 z-50 border-b border-white/[0.07] bg-[#07080c]/88 backdrop-blur-xl">
+        <div className="mx-auto flex h-[68px] max-w-[1540px] items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo */}
           <Link
             to="/"
             onClick={closeMobile}
             className="group flex items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-accent/25 bg-accent/12 text-[12px] font-bold text-accent shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition group-hover:border-accent/40">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/22 bg-accent/10 text-[12px] font-bold text-accent shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition group-hover:border-accent/40">
               C2
             </div>
             <div className="hidden sm:block">
-              <span className="block text-sm font-semibold tracking-tight text-text-primary">Cortex2Canvas</span>
-              <span className="block text-[10px] uppercase tracking-[0.18em] text-text-muted">Neural decoding workbench</span>
+              <span className="block text-[15px] font-semibold tracking-tight text-text-primary">Cortex2Canvas</span>
+              <span className="block text-[10px] uppercase tracking-[0.16em] text-text-muted">Neural decoding workbench</span>
             </div>
           </Link>
 
@@ -59,14 +59,14 @@ export function Layout() {
                 <Icon className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
                 <span className="leading-none">
                   <span className="block">{label}</span>
-                  <span className="mt-0.5 hidden text-[9px] font-medium text-text-muted lg:block">{detail}</span>
+                  <span className="mt-0.5 hidden text-[10px] font-medium text-text-muted lg:block">{detail}</span>
                 </span>
               </Link>
             ))}
           </div>
 
           <div className="hidden items-center gap-2 lg:flex">
-            <span className="rounded-lg border border-border-subtle bg-surface-raised/70 px-3 py-1.5 text-[11px] font-medium text-text-secondary">
+            <span className="rounded-full border border-border-subtle bg-surface-raised/75 px-3.5 py-1.5 text-[11px] font-semibold text-text-secondary">
               V62a · CLIP ViT-L/14
             </span>
           </div>
@@ -123,7 +123,7 @@ export function Layout() {
       </nav>
 
       {/* ── Page content ── */}
-      <main className="relative z-10 flex-1 pt-16">
+      <main className="relative z-10 flex flex-1 flex-col">
         <AnimatePresence mode="wait">
           <motion.div
             key={location.pathname}

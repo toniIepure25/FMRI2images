@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import type { DemoCase } from '@/types';
 import { isMetricAvailable } from '@/lib/metrics';
-import { REPLAY_PROV, LIVE_PROV, DERIVED_PROV, UNKNOWN_PROV, type Provenance } from '@/lib/provenance';
+import { REPLAY_PROV, LIVE_PROV, UNKNOWN_PROV, type Provenance } from '@/lib/provenance';
 import {
   metricProvenance,
   uncertaintyProvenance,
@@ -115,105 +115,89 @@ export function PhaseReconstruction({
   }
 
   return (
-    <div className="space-y-6 pb-16">
-      {/* Header */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="premium-panel premium-panel-hero flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-3">
-              <h2 className="text-3xl font-semibold tracking-tight text-text-primary">
-                {hasRecon ? 'Compare retrieval evidence' : 'Retrieval-only evidence review'}
-              </h2>
-              {hasLiveRecon ? (
-                <span className="inline-flex items-center gap-1 rounded bg-accent/15 px-2.5 py-0.5 text-[10px] font-semibold text-accent">
-                  Karlo UnCLIP &middot; live
-                </span>
-              ) : (
-                <ProvenanceBadge provenance={liveMode ? { kind: 'derived', detail: 'Live retrieval + cached reconstruction' } : REPLAY_PROV} />
-              )}
-            </div>
-            <p className="max-w-3xl text-[13px] leading-relaxed text-text-secondary">
-              {hasLiveRecon
-                ? `Live local reconstruction · generated from V62a CLIP embedding · ${liveRecon?.generation_ms?.toFixed(0) ?? '?'}ms`
-                : hasCachedRecon
-                  ? 'Cached qualitative reconstruction'
-                  : 'Target stimulus and top-ranked retrieval are shown side by side. No reconstruction asset is cached for this trial.'}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={`rounded-xl px-3 py-2 text-[11px] font-semibold ${verdict.bg} ${verdict.cls}`}>
-              Rank #{m.rank} · {verdict.text}
-            </span>
-            <span className="rounded-xl border border-border-subtle bg-surface-raised px-3 py-2 font-mono text-[11px] text-text-secondary">
-              CSLS {top1?.csls != null ? top1.csls.toFixed(3) : 'n/a'}
-            </span>
-            <span className="rounded-xl border border-border-subtle bg-surface-raised px-3 py-2 font-mono text-[11px] text-text-secondary">
-              κ {u.kappa.toFixed(1)}
-            </span>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* ── RESULT SUMMARY HERO ── */}
+    <div className="pb-12">
       <motion.div
-        className="premium-panel p-6 sm:p-7"
+        className="premium-panel overflow-hidden"
         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
       >
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="space-y-2">
-            <p className="premium-kicker">Retrieval result</p>
-            <div className="flex items-baseline gap-4">
-              <span className={`font-mono text-[76px] font-semibold tabular-nums leading-none ${
-                m.rank === 1 ? 'text-accent' : m.rank <= 5 ? 'text-status-warning' : 'text-text-primary'
-              }`}>
-                #{m.rank}
-              </span>
-              <span className={`inline-flex rounded-full px-4 py-1.5 text-base font-semibold ${verdict.bg} ${verdict.cls}`}>
-                {verdict.text}
-              </span>
-            </div>
-            <p className="text-[13px] text-text-muted">10,000-gallery CSLS ranking &middot; {case_.subject}</p>
-          </div>
-          <div className="flex flex-wrap gap-5 sm:gap-8">
-            <div className="text-center min-w-[70px]">
-              <p className="text-[11px] font-semibold text-text-muted">κ</p>
-              <p className="font-mono text-3xl font-bold text-accent">{u.kappa.toFixed(1)}</p>
-              <p className="text-[10px] text-text-muted">{kappaLabel(kappa01)}</p>
-            </div>
-            <div className="text-center min-w-[70px]">
-              <p className="text-[11px] font-semibold text-text-muted">δ</p>
-              <p className="font-mono text-3xl font-bold text-text-primary">{liveMode ? 'N/A' : u.delta.toFixed(3)}</p>
-              <p className="text-[10px] text-text-muted">{liveMode ? 'no per-ROI' : deltaLabel(u.delta)}</p>
-            </div>
-            <div className="text-center min-w-[70px]">
-              <p className="text-[11px] font-semibold text-text-muted">CSLS</p>
-              <p className="font-mono text-3xl font-bold text-text-primary">
-                {top1?.csls != null ? top1.csls.toFixed(3) : '—'}
+        {/* ── 1. RESULT SUMMARY HERO ── */}
+        <div className="px-5 py-5 sm:px-6 sm:py-6">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 space-y-2">
+              <p className="premium-kicker">Evidence audit · NSD {case_.nsdId}</p>
+              <div className="flex items-baseline gap-3">
+                <span
+                  className={`font-mono text-[60px] font-semibold tabular-nums leading-none tracking-tight ${
+                    m.rank === 1
+                      ? 'text-status-success'
+                      : m.rank <= 5
+                      ? 'text-status-warning'
+                      : 'text-text-primary'
+                  }`}
+                >
+                  #{m.rank}
+                </span>
+                <span
+                  className={`inline-flex rounded-full px-3 py-0.5 text-[12px] font-semibold ${verdict.bg} ${verdict.cls}`}
+                >
+                  {verdict.text}
+                </span>
+              </div>
+              <p className="text-[12px] text-text-muted">
+                10,000-gallery CSLS ranking · {case_.subject} · session {case_.session}
               </p>
-              <p className="text-[10px] text-text-muted">top-1 score</p>
+            </div>
+
+            {/* Stat readouts — no card chrome; just tight, aligned numbers
+                separated by hairline rules. Reads as instrument data. */}
+            <div className="flex divide-x divide-white/[0.06] self-stretch">
+              <div className="flex flex-col items-center justify-center px-5 first:pl-0">
+                <p className="premium-kicker">κ</p>
+                <p className="mt-1 font-mono text-[22px] font-semibold tabular-nums leading-none text-accent">
+                  {u.kappa.toFixed(1)}
+                </p>
+                <p className="mt-1 text-[10px] text-text-muted">{kappaLabel(kappa01)}</p>
+              </div>
+              <div className="flex flex-col items-center justify-center px-5">
+                <p className="premium-kicker">δ</p>
+                <p className="mt-1 font-mono text-[22px] font-semibold tabular-nums leading-none text-text-primary">
+                  {liveMode ? 'N/A' : u.delta.toFixed(3)}
+                </p>
+                <p className="mt-1 text-[10px] text-text-muted">{liveMode ? 'no per-ROI' : deltaLabel(u.delta)}</p>
+              </div>
+              <div className="flex flex-col items-center justify-center px-5 last:pr-0">
+                <p className="premium-kicker">CSLS</p>
+                <p className="mt-1 font-mono text-[22px] font-semibold tabular-nums leading-none text-text-primary">
+                  {top1?.csls != null ? top1.csls.toFixed(3) : 'N/A'}
+                </p>
+                <p className="mt-1 text-[10px] text-text-muted">top-1 score</p>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="mt-5 flex flex-wrap items-center gap-3 pt-4 border-t border-border-subtle">
-          {hasLiveRecon ? (
-            <ProvenanceBadge provenance={LIVE_PROV} />
-          ) : (
-            <ProvenanceBadge provenance={uncProv} />
-          )}
-          <ProvenanceBadge provenance={duaProv} />
-          <ProvenanceBadge provenance={effectiveReconProv} />
-          {reconLoading && (
-            <span className="text-[10px] text-text-muted">&middot; loading live reconstruction...</span>
-          )}
-        </div>
-      </motion.div>
 
-      {/* Comparison triptych */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-[13px] font-semibold text-text-primary">{hasRecon ? 'Visual comparison' : 'Retrieval evidence'}</p>
-          {!liveMode && <span className="text-[10px] text-text-muted">Cached assets</span>}
+          {/* Provenance row — single hair-rule, no second container */}
+          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/[0.05] pt-3.5">
+            {hasLiveRecon ? (
+              <ProvenanceBadge provenance={LIVE_PROV} />
+            ) : (
+              <ProvenanceBadge provenance={uncProv} />
+            )}
+            <ProvenanceBadge provenance={duaProv} />
+            <ProvenanceBadge provenance={effectiveReconProv} />
+            {reconLoading && (
+              <span className="text-[10px] text-text-muted">· loading live reconstruction…</span>
+            )}
+          </div>
         </div>
+
+        {/* ── 2. COMPARISON TRIPTYCH — inset, hair-rule separators ── */}
+        <div className="border-y border-white/[0.05] bg-white/[0.01] px-5 py-5 sm:px-6 sm:py-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="premium-kicker">
+              {hasRecon ? 'Visual comparison' : 'Retrieval evidence'}
+            </h3>
+            {!liveMode && <span className="text-[10.5px] text-text-muted">Cached assets</span>}
+          </div>
         <ComparisonTriptych
           panels={[
             {
@@ -227,7 +211,7 @@ export function PhaseReconstruction({
             },
             {
               title: 'Model retrieved',
-              subtitle: liveMode ? 'Live retrieval · CUDA' : `Top-1 gallery · Rank #${top1?.rank ?? '—'}`,
+              subtitle: liveMode ? 'Live retrieval · CUDA' : `Top-1 gallery · Rank #${top1?.rank ?? 'N/A'}`,
               imageSrc: top1?.image,
               provenance: liveMode ? { kind: 'derived', detail: 'Live CSLS ranking' } : REPLAY_PROV,
               accent: 'violet' as const,
@@ -254,92 +238,80 @@ export function PhaseReconstruction({
             },
           ]}
         />
-      </div>
+        </div>
 
-      {/* ── Reconstruction Status Panel (shown when reconstruction unavailable) ── */}
-      {!hasLiveRecon && !hasCachedRecon && (
-        <div className="rounded-2xl border border-border-subtle bg-surface-raised/75 p-5">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-text-primary">Reconstruction not cached</h3>
-              <p className="mt-1 text-[11px] text-text-muted">This replay contains retrieval evidence only.</p>
-            </div>
-            <span className="rounded-lg border border-border-subtle bg-surface-base px-2.5 py-1 text-[10px] font-semibold text-text-muted">Unavailable</span>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap text-[11px] mb-3">
-            <span className="rounded bg-surface-raised px-2 py-1 font-mono text-text-secondary">15,724 voxels</span>
-            <span className="text-border-emphasis">&rarr;</span>
-            <span className="rounded bg-accent/10 px-2 py-1 font-mono text-accent">V62a MLP</span>
-            <span className="text-border-emphasis">&rarr;</span>
-            <span className="rounded bg-surface-raised px-2 py-1 font-mono text-text-secondary">μ ∈ R⁷⁶⁸</span>
-            <span className="text-border-emphasis">&rarr;</span>
-            <span className="rounded bg-surface-raised px-2 py-1 font-mono text-text-secondary">CSLS 10k</span>
-            <span className="text-border-emphasis">&rarr;</span>
-            <span className="rounded bg-surface-raised px-2 py-1 font-mono text-text-secondary">Rank #{m.rank}</span>
-            <span className="text-border-emphasis">&rarr;</span>
-            <span className="rounded bg-surface-raised px-1.5 py-1 text-[10px] text-text-muted">optional reconstruction</span>
-          </div>
-
-          <div className="flex items-center gap-x-4 gap-y-1 flex-wrap text-[11px]">
-            <span className="text-status-success text-xs">✓</span><span className="text-text-secondary">μ available</span>
-            <span className="text-status-success text-xs ml-3">✓</span><span className="text-text-secondary">pipeline valid</span>
-            <span className="text-text-muted ml-3">—</span><span className="text-text-muted">weights not cached</span>
-            <span className="text-[10px] text-text-muted sm:ml-auto">
-              Set <span className="font-mono text-accent/70">C2C_RECON_ALLOW_DOWNLOAD=true</span> for live local reconstruction.
+        {/* ── 3. EVIDENCE SUMMARY METRICS ── */}
+        <div className="px-5 py-5 sm:px-6 sm:py-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="premium-kicker">Evidence summary</h3>
+            <span className={`inline-flex items-center gap-2 rounded-full px-3 py-0.5 text-[11px] font-semibold ${verdict.bg} ${verdict.cls}`}>
+              {verdict.text} · Rank #{m.rank}
             </span>
           </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <MetricCell label="Rank" value={String(m.rank)} description="Gallery retrieval rank"
+              provenance={getMetricProv('rank')}
+              valueColor={m.rank === 1 ? 'text-status-success' : m.rank <= 5 ? 'text-status-warning' : 'text-status-error'} />
+            <MetricCell
+              label={isMetricAvailable(m.cosine) ? 'Cosine' : 'CSLS'}
+              value={isMetricAvailable(m.cosine) ? m.cosine : m.csls}
+              description={isMetricAvailable(m.cosine) ? 'Top-1 cosine similarity' : 'Top-1 CSLS score'}
+              provenance={getMetricProv('cosine')} />
+            <MetricCell label="κ" value={u.kappa} description="Directional concentration" provenance={uncProv} />
+            <MetricCell label="δ" value={liveMode ? null : u.delta} description="ROI disagreement" provenance={uncProv} />
+            {isMetricAvailable(m.pixcorr) ? (
+              <MetricCell label="PixCorr" value={m.pixcorr} description="Pixel correlation" provenance={getMetricProv('pixcorr')} />
+            ) : null}
+            {isMetricAvailable(m.ssim) ? (
+              <MetricCell label="SSIM" value={m.ssim} description="Structural similarity" provenance={getMetricProv('ssim')} />
+            ) : null}
+          </div>
+          {(!isMetricAvailable(m.pixcorr) || !isMetricAvailable(m.ssim)) && (
+            <p className="mt-3.5 text-[11px] leading-relaxed text-text-muted">
+              <span className="font-medium text-text-secondary">No reconstruction asset for this trial.</span> PixCorr and SSIM are hidden — this audit relies on retrieval rank, CSLS, and uncertainty evidence.
+            </p>
+          )}
         </div>
-      )}
 
-      {/* Trial metrics */}
-      <div className="premium-panel p-5 sm:p-6">
-        <div className="mb-5 flex flex-col items-center justify-between gap-3 sm:flex-row">
-          <h3 className="text-base font-semibold text-text-primary">Evidence summary</h3>
-          <span className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-[11px] font-semibold ${verdict.bg} ${verdict.cls}`}>
-            {verdict.text} &middot; Rank #{m.rank}
-          </span>
+        {/* ── 4. AUDIT FOOTER: actions integrated into the audit panel itself ── */}
+        <div className="border-t border-white/[0.05] bg-white/[0.012] px-5 py-3.5 sm:px-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              type="button"
+              onClick={onReset}
+              className="inline-flex items-center gap-1.5 self-start rounded-lg border border-border-subtle bg-surface-raised px-3 py-2 text-[12px] font-medium text-text-secondary transition hover:border-border-emphasis hover:text-text-primary sm:self-auto"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              Try another trial
+            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => navigate(`/explorer/${case_.id}`)}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium text-text-secondary transition hover:bg-surface-raised hover:text-text-primary"
+              >
+                Explore in detail
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+              <span className="hidden h-4 w-px bg-border-subtle/60 sm:inline-block" aria-hidden />
+              <button
+                type="button"
+                onClick={() => navigate('/challenge')}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium text-text-secondary transition hover:bg-surface-raised hover:text-text-primary"
+              >
+                Take the challenge
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <MetricCell label="Rank" value={String(m.rank)} description="Gallery retrieval rank"
-            provenance={getMetricProv('rank')}
-            valueColor={m.rank === 1 ? 'text-accent' : m.rank <= 5 ? 'text-status-warning' : 'text-status-error'} />
-          <MetricCell
-            label={isMetricAvailable(m.cosine) ? 'Cosine' : 'CSLS'}
-            value={isMetricAvailable(m.cosine) ? m.cosine : m.csls}
-            description={isMetricAvailable(m.cosine) ? 'Top-1 cosine similarity' : 'Top-1 CSLS score'}
-            provenance={getMetricProv('cosine')} />
-          <MetricCell label="κ" value={u.kappa} description="Directional concentration" provenance={uncProv} />
-          <MetricCell label="δ" value={liveMode ? null : u.delta} description="ROI disagreement" provenance={uncProv} />
-          {isMetricAvailable(m.pixcorr) ? (
-            <MetricCell label="PixCorr" value={m.pixcorr} description="Pixel correlation" provenance={getMetricProv('pixcorr')} />
-          ) : null}
-          {isMetricAvailable(m.ssim) ? (
-            <MetricCell label="SSIM" value={m.ssim} description="Structural similarity" provenance={getMetricProv('ssim')} />
-          ) : null}
-        </div>
-        {(!isMetricAvailable(m.pixcorr) || !isMetricAvailable(m.ssim)) && (
-          <p className="mt-4 rounded-xl border border-border-subtle bg-surface-raised/70 px-4 py-3 text-[11px] leading-relaxed text-text-muted">
-            PixCorr and SSIM are hidden from the primary metric row when no reconstruction asset is available. This replay is evaluated through retrieval rank, CSLS score, and uncertainty evidence.
-          </p>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-        <button type="button" onClick={onReset}
-          className="rounded-xl border border-border-subtle bg-surface-raised px-6 py-3 text-[13px] font-medium text-text-secondary transition hover:border-border-emphasis hover:text-text-primary">
-          &larr; Try another trial
-        </button>
-        <button type="button" onClick={() => navigate(`/explorer/${case_.id}`)}
-          className="rounded-xl border border-border-subtle bg-surface-raised px-6 py-3 text-[13px] font-medium text-text-secondary transition hover:border-border-emphasis hover:text-text-primary">
-          Explore in detail &rarr;
-        </button>
-        <button type="button" onClick={() => navigate('/challenge')}
-          className="rounded-xl border border-border-subtle bg-surface-raised px-6 py-3 text-[13px] font-medium text-text-secondary transition hover:border-border-emphasis hover:text-text-primary">
-          Take the challenge &rarr;
-        </button>
-      </div>
+      </motion.div>
     </div>
   );
 }

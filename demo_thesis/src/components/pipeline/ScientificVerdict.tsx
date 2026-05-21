@@ -49,14 +49,14 @@ export function ScientificVerdict({
 }: ScientificVerdictProps) {
   const margin = (top1Csls != null && top2Csls != null) ? top1Csls - top2Csls : null;
   const reliability = reliabilityLabel(rank, margin ?? 0, kappa ?? null, topKEntropy ?? null);
-  const entropyDisplay = topKEntropy != null ? topKEntropy.toFixed(2) : '—';
+  const entropyDisplay = topKEntropy != null ? topKEntropy.toFixed(2) : 'N/A';
 
   return (
     <motion.div
-      className="rounded-xl border border-border-subtle bg-surface-elevated p-5 sm:p-6"
+      className="rounded-xl border border-border-subtle bg-surface-elevated/85 p-4 sm:p-5"
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
     >
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-text-primary">Scientific verdict</h3>
         <ProvenanceBadge provenance={provenance} />
       </div>
@@ -64,7 +64,7 @@ export function ScientificVerdict({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Rank */}
         <div className="rounded-lg bg-surface-raised px-4 py-3">
-          <p className="text-[10px] font-medium text-text-muted">Rank</p>
+          <p className="text-[11px] font-medium text-text-muted">Rank</p>
           <div className="flex items-baseline gap-2 mt-1">
             <span className={`font-mono text-2xl font-bold ${rank === 1 ? 'text-accent' : 'text-text-primary'}`}>
               #{rank}
@@ -80,8 +80,8 @@ export function ScientificVerdict({
 
         {/* κ confidence */}
         <div className="rounded-lg bg-surface-raised px-4 py-3">
-          <p className="text-[10px] font-medium text-text-muted">κ directional confidence</p>
-          <p className="font-mono text-2xl font-bold text-accent mt-1">{kappa != null ? kappa.toFixed(1) : '—'}</p>
+          <p className="text-[11px] font-medium text-text-muted">κ directional confidence</p>
+          <p className="mt-1 font-mono text-2xl font-bold text-accent">{kappa != null ? kappa.toFixed(1) : 'N/A'}</p>
           <p className="text-[10px] text-text-muted mt-1">
             {kappa != null ? (kappa > 100 ? 'sharp vMF peak' : kappa > 30 ? 'moderate concentration' : 'broad uncertainty') : 'not available'}
           </p>
@@ -89,9 +89,9 @@ export function ScientificVerdict({
 
         {/* CSLS margin */}
         <div className="rounded-lg bg-surface-raised px-4 py-3">
-          <p className="text-[10px] font-medium text-text-muted">CSLS margin (1−2)</p>
-          <p className="font-mono text-2xl font-bold text-text-primary mt-1">
-            {margin != null ? margin.toFixed(4) : '—'}
+          <p className="text-[11px] font-medium text-text-muted">CSLS margin (1−2)</p>
+          <p className="mt-1 font-mono text-2xl font-bold text-text-primary">
+            {margin != null ? margin.toFixed(4) : 'N/A'}
           </p>
           <p className="text-[10px] text-text-muted mt-1">
             {margin != null ? (margin > 1.0 ? 'very well separated' : margin > 0.1 ? 'moderate separation' : 'near tie') : 'not available'}
@@ -100,8 +100,8 @@ export function ScientificVerdict({
 
         {/* Top-K entropy */}
         <div className="rounded-lg bg-surface-raised px-4 py-3">
-          <p className="text-[10px] font-medium text-text-muted">Top-K entropy</p>
-          <p className="font-mono text-2xl font-bold text-text-primary mt-1">{entropyDisplay}</p>
+          <p className="text-[11px] font-medium text-text-muted">Top-K entropy</p>
+          <p className="mt-1 font-mono text-2xl font-bold text-text-primary">{entropyDisplay}</p>
           <p className="text-[10px] text-text-muted mt-1">
             {topKEntropy != null ? (topKEntropy < 1.0 ? 'low uncertainty' : topKEntropy < 2.0 ? 'moderate' : 'high entropy') : 'not available'}
           </p>

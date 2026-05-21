@@ -2,8 +2,6 @@ import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import type { DemoCase } from '@/types';
 import { isDefenseReady } from '@/lib/pipelineNormalize';
-import { SectionHeader } from '@/components/premium/SectionHeader';
-import { ImageEvidenceCard } from '@/components/premium/ImageEvidenceCard';
 import { EmptyState } from '@/components/premium/EmptyState';
 
 export interface PhaseTrialSelectionProps {
@@ -42,9 +40,9 @@ function diffLabel(d: DemoCase['difficulty']): string {
 }
 
 function statusLabel(c: DemoCase): string {
-  if (isDefenseReady(c)) return 'Defense-ready';
   if (c.metrics.r1Correct) return 'Exact match';
   if (c.metrics.r5Correct) return 'Top-5 match';
+  if (isDefenseReady(c)) return 'Ready';
   return diffLabel(c.difficulty);
 }
 
@@ -73,26 +71,30 @@ export function PhaseTrialSelection({ cases, onSelect }: PhaseTrialSelectionProp
       <button
         type="button"
         onClick={() => setDefenseOnly((v) => !v)}
-        className={`rounded-xl border px-3 py-2 text-[12px] font-semibold transition ${
+        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11.5px] font-semibold transition ${
           defenseOnly
-            ? 'border-accent/25 bg-accent/10 text-accent'
-            : 'border-border-subtle bg-surface-elevated text-text-secondary hover:border-border-emphasis hover:text-text-primary'
+            ? 'border-accent/25 bg-accent/[0.08] text-accent'
+            : 'border-white/[0.06] bg-white/[0.025] text-text-secondary hover:border-white/15 hover:text-text-primary'
         }`}
       >
-        Defense set <span className="ml-1 font-mono text-[10px] opacity-70">{defenseCount}</span>
+        Defense set
+        <span className="font-mono text-[10px] opacity-75">{defenseCount}</span>
       </button>
-      <div className="flex flex-wrap items-center gap-1 rounded-xl border border-border-subtle bg-surface-raised p-1">
+      <div className="h-4 w-px bg-white/[0.06]" aria-hidden />
+      <div className="inline-flex items-center gap-0.5 rounded-full border border-white/[0.05] bg-white/[0.02] p-0.5">
         {['all', 'best', 'medium', 'hard'].map((f) => (
           <button
             key={f}
             type="button"
             onClick={() => setFilter(f)}
-            className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition ${
-              filter === f ? 'bg-surface-overlay text-text-primary shadow-surface' : 'text-text-muted hover:text-text-primary'
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+              filter === f
+                ? 'bg-white/[0.06] text-text-primary'
+                : 'text-text-secondary hover:text-text-primary'
             }`}
           >
             {f === 'all' ? 'All' : diffLabel(f as DemoCase['difficulty'])}
-            <span className="ml-1 font-mono text-[9px] opacity-55">{counts[f] || 0}</span>
+            <span className="font-mono text-[10px] tabular-nums opacity-60">{counts[f] || 0}</span>
           </button>
         ))}
       </div>
@@ -101,17 +103,34 @@ export function PhaseTrialSelection({ cases, onSelect }: PhaseTrialSelectionProp
 
   return (
     <div className="pb-14">
-      <SectionHeader
-        eyebrow="Stimulus gallery"
-        title="Select an NSD visual trial"
-        description="Choose a recorded stimulus and replay its subject-specific fMRI → CLIP retrieval path."
-        action={filterAction}
-        className="mb-8"
-      />
+      {/* ── Slim filter row — no card chrome, aligned right; whitespace and
+             typography carry the relationship to the header above. ── */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-1">
+        <p className="text-[11.5px] text-text-muted">
+          Showing{' '}
+          <span className="font-mono tabular-nums text-text-secondary">{filtered.length}</span>{' '}
+          of{' '}
+          <span className="font-mono tabular-nums text-text-secondary">{sorted.length}</span>{' '}
+          trials
+        </p>
+        {filterAction}
+      </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         {filtered.map((case_, idx) => {
           const exact = case_.metrics.rank === 1;
+          const top5 = !exact && case_.metrics.r5Correct;
+          // Refined status tones — dimmer, more elegant, no full bg fill
+          const statusTone = exact
+            ? 'border-status-success/22 bg-black/35 text-status-success/95'
+            : top5
+            ? 'border-status-warning/22 bg-black/35 text-status-warning/95'
+            : 'border-white/[0.08] bg-black/35 text-white/75';
+          const statusDot = exact
+            ? 'bg-status-success'
+            : top5
+            ? 'bg-status-warning'
+            : 'bg-white/60';
           return (
             <motion.button
               key={case_.id}
@@ -123,31 +142,67 @@ export function PhaseTrialSelection({ cases, onSelect }: PhaseTrialSelectionProp
                 duration: 0.35,
                 ease: [0.22, 1, 0.36, 1],
               }}
-              className="group text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="group rounded-[14px] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-surface-base"
               onClick={() => onSelect(case_)}
             >
-              <ImageEvidenceCard
-                imageSrc={case_.targetImage}
-                title={`nsdId ${case_.nsdId}`}
-                subtitle={`${case_.subject} · session ${case_.session}`}
-                emphasis={exact}
-                badge={
-                  <span className={`premium-rank-badge ${exact ? 'premium-rank-badge-primary' : ''}`}>
-                    {statusLabel(case_)}
-                  </span>
-                }
-                footer={
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="text-[12px] font-semibold text-text-primary">{case_.subject} · session {case_.session}</p>
-                      <p className="mt-0.5 text-[11px] text-text-muted">Rank #{case_.metrics.rank} · {exact ? 'exact match' : diffLabel(case_.difficulty)}</p>
-                    </div>
-                    <span className="rounded-lg border border-border-subtle bg-surface-raised px-2.5 py-1 font-mono text-[11px] text-text-muted">
+              <div
+                className={`relative overflow-hidden rounded-[14px] border bg-surface-elevated/80 transition duration-300 group-hover:-translate-y-0.5 group-hover:border-white/[0.12] ${
+                  exact ? 'border-status-success/18' : 'border-white/[0.05]'
+                }`}
+                style={{ boxShadow: '0 1px 0 rgb(255 255 255 / 0.022) inset' }}
+              >
+                {/* Image hero — full-bleed, hair-thin inset ring softens edge */}
+                <div className="relative aspect-[4/3] overflow-hidden">
+                  <img
+                    src={case_.targetImage}
+                    alt={`NSD stimulus ${case_.nsdId}`}
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
+                    loading="lazy"
+                  />
+                  <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/[0.04]" aria-hidden />
+
+                  {/* Status badge — dot + tight label, smaller, dimmer */}
+                  <div className="absolute left-2.5 top-2.5">
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9.5px] font-semibold tracking-tight backdrop-blur-md ${statusTone}`}
+                    >
+                      <span className={`h-1 w-1 shrink-0 rounded-full ${statusDot}`} />
+                      {statusLabel(case_)}
+                    </span>
+                  </div>
+
+                  {/* Rank chip — quiet mono in opposite corner, replaces the
+                      "Rank #N" duplicate in the footer */}
+                  <div className="absolute right-2.5 top-2.5">
+                    <span className="inline-flex items-center rounded-md border border-white/[0.08] bg-black/40 px-1.5 py-0.5 font-mono text-[10px] font-semibold tabular-nums text-white/85 backdrop-blur-md">
+                      #{case_.metrics.rank}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Footer — identity-first, secondary metadata quieter */}
+                <div className="px-3.5 pb-3 pt-2.5">
+                  <p className="text-[13.5px] font-semibold tracking-tight text-text-primary">
+                    NSD {case_.nsdId}
+                  </p>
+                  <div className="mt-1 flex items-baseline justify-between gap-2 text-[11px]">
+                    <span className="text-text-muted">
+                      {case_.subject} · session {case_.session}
+                    </span>
+                    <span className="font-mono tabular-nums text-text-muted">
                       κ {case_.uncertainty.kappa.toFixed(0)}
                     </span>
                   </div>
-                }
-              />
+                </div>
+
+                {/* Exact-match accent — a single hair-thin bottom rule */}
+                {exact ? (
+                  <div
+                    className="pointer-events-none absolute inset-x-4 bottom-0 h-px bg-gradient-to-r from-transparent via-status-success/55 to-transparent"
+                    aria-hidden
+                  />
+                ) : null}
+              </div>
             </motion.button>
           );
         })}

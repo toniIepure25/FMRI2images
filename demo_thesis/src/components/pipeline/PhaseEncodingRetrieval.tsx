@@ -525,128 +525,417 @@ export function PhaseEncodingRetrieval({
                   (() => {
                     const outDim = modelMeta?.embedding_dim ?? 768;
                     const inDim = 15724;
-                    // For the tapered visualization: log-scaled layer heights so
-                    // the dimensionality reduction reads visually.
-                    const maxLog = Math.log10(inDim);
-                    const layerHeight = (d: number) => {
-                      const t = Math.log10(d) / maxLog;
-                      // Map 0..1 → 32..108 px so taper is more pronounced
-                      return Math.round(32 + t * 76);
+                    // ── Architecture figure rendered as a single SVG so the
+                    //    layers, funnel trapezoids, and skip arc share one
+                    //    coordinate system and align perfectly. Cube-root
+                    //    dimension scaling exaggerates the visual compression
+                    //    so 15,724 → 768 reads as a real funnel, not equal
+                    //    rectangles. ──
+                    const VB_W = 720;
+                    const VB_H = 220;
+                    const BASELINE_Y = 130; // vertical center for layer blocks
+                    const maxScale = Math.cbrt(inDim);
+                    const sc = (d: number) => Math.cbrt(d) / maxScale; // 0..1
+                    const halfH = (d: number) => sc(d) * 56;            // px
+
+                    // ── Layout — fixed x positions in viewBox coords. ──
+                    type Stage = {
+                      key: string;
+                      cx: number;
+                      w: number;
+                      dim: number;
+                      label: string;
+                      kind: 'input' | 'layer' | 'output';
+                      idx?: number;
                     };
-                    const outH = layerHeight(outDim);
-                    const canvasH = 116;
+                    const stages: Stage[] = [
+                      { key: 'roi', cx: 56,  w: 64, dim: inDim,           label: 'ROI vector',     kind: 'input' },
+                      { key: 'L1',  cx: 178, w: 52, dim: hiddenDims[0],   label: 'L1',             kind: 'layer', idx: 0 },
+                      { key: 'L2',  cx: 286, w: 52, dim: hiddenDims[1],   label: 'L2',             kind: 'layer', idx: 1 },
+                      { key: 'L3',  cx: 394, w: 52, dim: hiddenDims[2],   label: 'L3',             kind: 'layer', idx: 2 },
+                      { key: 'L4',  cx: 502, w: 52, dim: hiddenDims[3],   label: 'L4',             kind: 'layer', idx: 3 },
+                      { key: 'out', cx: 640, w: 76, dim: outDim,          label: 'CLIP / vMF',     kind: 'output' },
+                    ];
+                    const Y_TOP    = (d: number) => BASELINE_Y - halfH(d);
+                    const Y_BOT    = (d: number) => BASELINE_Y + halfH(d);
+                    const RIGHT    = (s: Stage) => s.cx + s.w / 2;
+                    const LEFT     = (s: Stage) => s.cx - s.w / 2;
+
+                    // Funnel trapezoids between adjacent stages — they
+                    // physically *connect* the layers, so the compression
+                    // reads as a continuous architecture, not 4 isolated
+                    // towers.
+                    const funnels = stages.slice(0, -1).map((s, i) => {
+                      const next = stages[i + 1];
+                      return { from: s, to: next, key: `${s.key}-${next.key}` };
+                    });
+
                     return (
-                      // ── Single architecture canvas: ROI vector · encoder body · CLIP output.
-                      //    No nested cards, one inset, one formula line at the bottom.
+                      // ── Single architecture canvas — one SVG figure for
+                      //    the entire encoder, sitting in a workbench inset.
+                      //    No nested cards, no decorative chrome. ──
                       <div className="workbench-inset !p-6">
-                        <div className="grid items-end gap-5 sm:grid-cols-[minmax(120px,0.85fr)_minmax(0,2.1fr)_minmax(120px,0.85fr)]">
-                          {/* INPUT — ROI activation glyph */}
-                          <div className="flex flex-col">
-                            <p className="premium-kicker">ROI vector</p>
-                            <div
-                              className="mt-3 flex items-end gap-px"
-                              aria-hidden
-                              style={{ height: canvasH }}
-                            >
-                              {Array.from({ length: 14 }).map((_, i) => {
-                                const h = 26 + ((i * 41) % 64);
-                                return (
-                                  <div
-                                    key={i}
-                                    className="min-w-0 flex-1 bg-text-secondary/45"
-                                    style={{ height: `${h}%` }}
-                                  />
-                                );
-                              })}
-                            </div>
-                            <div className="mt-3 flex items-baseline justify-between">
-                              <span className="font-mono text-[17px] font-semibold tabular-nums leading-none text-text-primary">
-                                {inDim.toLocaleString()}
-                              </span>
-                              <span className="text-[10px] text-text-muted">voxels</span>
-                            </div>
-                            <p className="mt-1 text-[10px] text-text-muted">nsdgeneral visual cortex</p>
-                          </div>
-
-                          {/* ENCODER BODY — tapered layer rail + residual skip arcs */}
-                          <div className="relative flex flex-col">
-                            <p className="premium-kicker">Residual MLP · GELU + skip</p>
-                            <div
-                              className="relative mt-3 flex items-end justify-between gap-3"
-                              style={{ height: canvasH }}
-                            >
-                              {/* Residual skip arcs — stronger, more visible */}
-                              <svg
-                                className="pointer-events-none absolute inset-x-0 -top-3 text-accent/55"
-                                height="18"
-                                viewBox="0 0 100 18"
-                                preserveAspectRatio="none"
-                                aria-hidden
-                              >
-                                <path d="M 10 16 Q 30 1 50 16" stroke="currentColor" strokeWidth="0.9" fill="none" strokeLinecap="round" />
-                                <path d="M 35 16 Q 55 1 75 16" stroke="currentColor" strokeWidth="0.9" fill="none" strokeLinecap="round" />
-                                <path d="M 60 16 Q 76 2 92 16" stroke="currentColor" strokeWidth="0.9" fill="none" strokeLinecap="round" />
-                              </svg>
-                              {hiddenDims.map((d, i) => {
-                                const h = layerHeight(d);
-                                return (
-                                  <div key={i} className="flex flex-1 flex-col items-center">
-                                    <div
-                                      className="w-full rounded-md bg-accent/[0.10]"
-                                      style={{
-                                        height: `${(h / canvasH) * 100}%`,
-                                        minHeight: 28,
-                                        boxShadow: 'inset 0 0 0 1px rgb(77 124 255 / 0.22)',
-                                      }}
-                                    />
-                                    <span className="mt-2 font-mono text-[11px] font-semibold tabular-nums leading-none text-text-primary">
-                                      {d.toLocaleString()}
-                                    </span>
-                                    <span className="mt-0.5 text-[9.5px] text-text-muted">L{i + 1}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-
-                          {/* OUTPUT — CLIP/vMF token, emphasized */}
-                          <div className="flex flex-col">
-                            <p className="premium-kicker">CLIP / vMF</p>
-                            <div className="mt-3 flex items-end" aria-hidden style={{ height: canvasH }}>
-                              <div
-                                className="w-full rounded-md bg-accent/[0.18]"
-                                style={{
-                                  height: `${(outH / canvasH) * 100}%`,
-                                  boxShadow:
-                                    'inset 0 0 0 1px rgb(77 124 255 / 0.45), 0 8px 24px -16px rgb(77 124 255 / 0.6)',
-                                }}
-                              />
-                            </div>
-                            <div className="mt-3 flex items-baseline justify-between">
-                              <span className="font-mono text-[18px] font-semibold tabular-nums leading-none text-accent">
-                                {outDim}-D
-                              </span>
-                              <span className="text-[10px] text-text-muted">μ direction</span>
-                            </div>
-                            <p className="mt-1 text-[10px] text-text-muted">unit-norm projection head</p>
-                          </div>
+                        <div className="mb-4 flex items-baseline justify-between">
+                          <p className="premium-kicker">Residual MLP encoder</p>
+                          <p className="text-[9.5px] uppercase tracking-[0.18em] text-text-muted/70">
+                            GELU · LayerNorm · residual skip
+                          </p>
                         </div>
 
-                        {/* ── One clean formula line, inline at the bottom of the
-                               canvas. Replaces the prior nested footer block. ── */}
-                        <p className="mt-6 border-t border-white/[0.04] pt-3.5 font-mono text-[11.5px] leading-relaxed text-text-secondary">
-                          <span className="text-text-primary">{inDim.toLocaleString()}</span>
+                        <svg
+                          viewBox={`0 0 ${VB_W} ${VB_H}`}
+                          preserveAspectRatio="xMidYMid meet"
+                          className="block h-auto w-full"
+                          role="img"
+                          aria-label="MLP encoder architecture: 15,724 ROI voxels into a residual MLP with 8192, 8192, 4096, 2048 hidden units, projecting to a 768-dimensional CLIP direction."
+                        >
+                          <defs>
+                            {/* Subtle vertical gradient inside layer blocks
+                                so they read with a quiet sense of volume,
+                                not flat fills. */}
+                            <linearGradient id="mlp-layer-fill" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%"  stopColor="rgb(123,156,255)" stopOpacity="0.18" />
+                              <stop offset="100%" stopColor="rgb(123,156,255)" stopOpacity="0.07" />
+                            </linearGradient>
+                            <linearGradient id="mlp-input-fill" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%"  stopColor="rgb(170,180,200)" stopOpacity="0.10" />
+                              <stop offset="100%" stopColor="rgb(170,180,200)" stopOpacity="0.04" />
+                            </linearGradient>
+                            <linearGradient id="mlp-output-fill" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%"  stopColor="rgb(123,156,255)" stopOpacity="0.28" />
+                              <stop offset="100%" stopColor="rgb(123,156,255)" stopOpacity="0.12" />
+                            </linearGradient>
+                            <linearGradient id="mlp-funnel-fill" x1="0" y1="0" x2="1" y2="0">
+                              <stop offset="0%"  stopColor="rgb(123,156,255)" stopOpacity="0.06" />
+                              <stop offset="100%" stopColor="rgb(123,156,255)" stopOpacity="0.06" />
+                            </linearGradient>
+                          </defs>
+
+                          {/* ─── (1) Funnels between adjacent stages — drawn
+                                  first so layer blocks sit cleanly on top. ─ */}
+                          {funnels.map(({ from, to, key }) => {
+                            const x1 = RIGHT(from);
+                            const x2 = LEFT(to);
+                            const yt1 = Y_TOP(from.dim);
+                            const yb1 = Y_BOT(from.dim);
+                            const yt2 = Y_TOP(to.dim);
+                            const yb2 = Y_BOT(to.dim);
+                            return (
+                              <g key={key}>
+                                <polygon
+                                  points={`${x1},${yt1} ${x2},${yt2} ${x2},${yb2} ${x1},${yb1}`}
+                                  fill="url(#mlp-funnel-fill)"
+                                />
+                                {/* Hairline edges along the top and bottom
+                                    of the funnel — gives the compression a
+                                    crisp silhouette. */}
+                                <line x1={x1} y1={yt1} x2={x2} y2={yt2} stroke="rgb(123,156,255)" strokeOpacity="0.32" strokeWidth="0.7" />
+                                <line x1={x1} y1={yb1} x2={x2} y2={yb2} stroke="rgb(123,156,255)" strokeOpacity="0.32" strokeWidth="0.7" />
+                              </g>
+                            );
+                          })}
+
+                          {/* ─── (2) Residual skip arc — L1 → L4. One clean
+                                  curve, anchored to the layer tops, with a
+                                  quiet "residual skip" label above it. ─── */}
+                          {(() => {
+                            const a = stages[1]; // L1
+                            const b = stages[4]; // L4
+                            const ax = a.cx;
+                            const ay = Y_TOP(a.dim) - 4;
+                            const bx = b.cx;
+                            const by = Y_TOP(b.dim) - 4;
+                            const apexY = Math.min(ay, by) - 36;
+                            const midX = (ax + bx) / 2;
+                            return (
+                              <g>
+                                <path
+                                  d={`M ${ax} ${ay} Q ${midX} ${apexY} ${bx} ${by}`}
+                                  stroke="rgb(123,156,255)"
+                                  strokeOpacity="0.65"
+                                  strokeWidth="1"
+                                  fill="none"
+                                  strokeLinecap="round"
+                                />
+                                {/* Start marker — open ring */}
+                                <circle cx={ax} cy={ay} r="2" fill="none" stroke="rgb(123,156,255)" strokeOpacity="0.7" strokeWidth="0.9" />
+                                {/* Arrival marker — filled dot (confluence) */}
+                                <circle cx={bx} cy={by} r="2.4" fill="rgb(123,156,255)" fillOpacity="0.85" />
+                                {/* Quiet label */}
+                                <text
+                                  x={midX}
+                                  y={apexY - 4}
+                                  textAnchor="middle"
+                                  fill="rgb(123,156,255)"
+                                  fillOpacity="0.7"
+                                  style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 9.5, letterSpacing: '0.16em', textTransform: 'uppercase' }}
+                                >
+                                  residual skip
+                                </text>
+                              </g>
+                            );
+                          })()}
+
+                          {/* ─── (3) Stage blocks ─── */}
+                          {stages.map((s) => {
+                            const x = LEFT(s);
+                            const yT = Y_TOP(s.dim);
+                            const yB = Y_BOT(s.dim);
+                            const h = yB - yT;
+
+                            if (s.kind === 'input') {
+                              // ROI input — clean bar histogram inside the
+                              // input rectangle. Consistent bar widths, a
+                              // sparse accent pattern for "active voxels".
+                              const barCount = 16;
+                              const barW = (s.w - 8) / barCount;
+                              return (
+                                <g key={s.key}>
+                                  <rect
+                                    x={x}
+                                    y={yT}
+                                    width={s.w}
+                                    height={h}
+                                    rx={4}
+                                    fill="url(#mlp-input-fill)"
+                                    stroke="rgb(255,255,255)"
+                                    strokeOpacity="0.10"
+                                    strokeWidth="0.7"
+                                  />
+                                  {/* Hair-thin baseline */}
+                                  <line
+                                    x1={x + 4}
+                                    y1={yB - 6}
+                                    x2={x + s.w - 4}
+                                    y2={yB - 6}
+                                    stroke="rgb(255,255,255)"
+                                    strokeOpacity="0.18"
+                                    strokeWidth="0.6"
+                                  />
+                                  {/* Bars — deterministic but smooth heights;
+                                      every 5th bar is "active" and tinted
+                                      accent so it reads as a sparse fMRI
+                                      activation. */}
+                                  {Array.from({ length: barCount }).map((_, i) => {
+                                    const bh = 6 + ((i * 41 + 11) % (h - 18));
+                                    const bx = x + 4 + i * barW;
+                                    const isActive = i % 5 === 2;
+                                    return (
+                                      <rect
+                                        key={i}
+                                        x={bx}
+                                        y={yB - 6 - bh}
+                                        width={Math.max(1, barW - 1)}
+                                        height={bh}
+                                        fill={isActive ? 'rgb(123,156,255)' : 'rgb(220,225,235)'}
+                                        fillOpacity={isActive ? 0.72 : 0.32}
+                                        rx={0.6}
+                                      />
+                                    );
+                                  })}
+                                </g>
+                              );
+                            }
+
+                            if (s.kind === 'output') {
+                              // Output token — refined unit-direction marker
+                              // (filled hemisphere of a unit circle with a
+                              // radial vector ending in a dot) sitting above
+                              // a compact latent-channel strip. Together
+                              // they read as "768-D direction · unit-norm".
+                              const cx = s.cx;
+                              const cy = (yT + yB) / 2 - 8;
+                              const R  = Math.min(20, h / 3.2);
+                              const stripY = cy + R + 8;
+                              const stripH = Math.max(6, yB - stripY - 4);
+                              return (
+                                <g key={s.key}>
+                                  <rect
+                                    x={x}
+                                    y={yT}
+                                    width={s.w}
+                                    height={h}
+                                    rx={6}
+                                    fill="url(#mlp-output-fill)"
+                                    stroke="rgb(123,156,255)"
+                                    strokeOpacity="0.40"
+                                    strokeWidth="0.8"
+                                  />
+                                  {/* Unit sphere outline */}
+                                  <circle cx={cx} cy={cy} r={R} fill="none" stroke="rgb(123,156,255)" strokeOpacity="0.45" strokeWidth="0.8" />
+                                  {/* Horizon line */}
+                                  <line x1={cx - R} y1={cy} x2={cx + R} y2={cy} stroke="rgb(123,156,255)" strokeOpacity="0.18" strokeWidth="0.5" />
+                                  {/* μ vector ending in a bright dot */}
+                                  <line x1={cx} y1={cy} x2={cx + R * 0.72} y2={cy - R * 0.66} stroke="rgb(123,156,255)" strokeWidth="1.4" strokeLinecap="round" />
+                                  <circle cx={cx + R * 0.72} cy={cy - R * 0.66} r="2.2" fill="rgb(123,156,255)" />
+                                  {/* Origin marker */}
+                                  <circle cx={cx} cy={cy} r="1.2" fill="rgb(220,225,235)" fillOpacity="0.7" />
+                                  {/* Compact latent strip — 8 cells */}
+                                  {Array.from({ length: 8 }).map((_, i) => {
+                                    const cellW = (s.w - 10) / 8;
+                                    const cx2 = x + 5 + i * cellW;
+                                    const intensity = 0.22 + ((i * 47 + 13) % 60) / 110;
+                                    return (
+                                      <rect
+                                        key={i}
+                                        x={cx2}
+                                        y={stripY}
+                                        width={cellW - 1.5}
+                                        height={stripH}
+                                        rx={0.8}
+                                        fill="rgb(123,156,255)"
+                                        fillOpacity={intensity}
+                                      />
+                                    );
+                                  })}
+                                </g>
+                              );
+                            }
+
+                            // Hidden layer block. Internal vertical tick
+                            // lines suggest a column of hidden units; the
+                            // count scales lightly with the layer's
+                            // dimensionality.
+                            const units = 5 + Math.round(sc(s.dim) * 5); // 5..10
+                            return (
+                              <g key={s.key}>
+                                <rect
+                                  x={x}
+                                  y={yT}
+                                  width={s.w}
+                                  height={h}
+                                  rx={5}
+                                  fill="url(#mlp-layer-fill)"
+                                  stroke="rgb(123,156,255)"
+                                  strokeOpacity="0.36"
+                                  strokeWidth="0.8"
+                                />
+                                {/* Hair-thin top highlight — implies a head row */}
+                                <line x1={x + 2} y1={yT + 1} x2={x + s.w - 2} y2={yT + 1} stroke="rgb(255,255,255)" strokeOpacity="0.12" strokeWidth="0.7" />
+                                {/* Vertical unit ticks */}
+                                {Array.from({ length: units }).map((_, i) => {
+                                  const ux = x + 4 + ((s.w - 8) * (i + 0.5)) / units;
+                                  return (
+                                    <line
+                                      key={i}
+                                      x1={ux}
+                                      y1={yT + 4}
+                                      x2={ux}
+                                      y2={yB - 4}
+                                      stroke="rgb(123,156,255)"
+                                      strokeOpacity={0.16 + ((i * 11) % 9) / 80}
+                                      strokeWidth="0.55"
+                                    />
+                                  );
+                                })}
+                              </g>
+                            );
+                          })}
+
+                          {/* ─── (4) Labels — section labels above, dim
+                                  numbers and stage labels below the rail. ─ */}
+                          {stages.map((s) => {
+                            const sectionLabel =
+                              s.kind === 'input' ? 'ROI vector'
+                              : s.kind === 'output' ? 'CLIP / vMF'
+                              : null;
+                            return (
+                              <g key={`label-${s.key}`}>
+                                {/* Section label above */}
+                                {sectionLabel ? (
+                                  <text
+                                    x={s.cx}
+                                    y={Y_TOP(s.dim) - 12}
+                                    textAnchor="middle"
+                                    fill="rgb(156,163,175)"
+                                    style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 9, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase' }}
+                                  >
+                                    {sectionLabel}
+                                  </text>
+                                ) : null}
+
+                                {/* Stage caption below (L1/L2/L3/L4) */}
+                                {s.kind === 'layer' ? (
+                                  <text
+                                    x={s.cx}
+                                    y={Y_BOT(s.dim) + 14}
+                                    textAnchor="middle"
+                                    fill="rgb(156,163,175)"
+                                    style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase' }}
+                                  >
+                                    {s.label}
+                                  </text>
+                                ) : null}
+
+                                {/* Numeric dim — primary readout */}
+                                <text
+                                  x={s.cx}
+                                  y={s.kind === 'layer' ? Y_BOT(s.dim) + 28 : Y_BOT(s.dim) + 16}
+                                  textAnchor="middle"
+                                  fill={s.kind === 'output' ? 'rgb(123,156,255)' : 'rgb(229,231,235)'}
+                                  style={{
+                                    fontFamily: 'JetBrains Mono, ui-monospace, monospace',
+                                    fontSize: s.kind === 'layer' ? 12 : 14,
+                                    fontWeight: 600,
+                                    fontVariantNumeric: 'tabular-nums',
+                                  }}
+                                >
+                                  {s.dim.toLocaleString()}{s.kind === 'output' ? '-D' : ''}
+                                </text>
+
+                                {/* Sub-caption */}
+                                {s.kind === 'input' ? (
+                                  <text
+                                    x={s.cx}
+                                    y={Y_BOT(s.dim) + 30}
+                                    textAnchor="middle"
+                                    fill="rgb(125,130,140)"
+                                    style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 9 }}
+                                  >
+                                    voxels · nsdgeneral
+                                  </text>
+                                ) : null}
+                                {s.kind === 'output' ? (
+                                  <text
+                                    x={s.cx}
+                                    y={Y_BOT(s.dim) + 30}
+                                    textAnchor="middle"
+                                    fill="rgb(125,130,140)"
+                                    style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 9 }}
+                                  >
+                                    CLIP direction · unit-norm
+                                  </text>
+                                ) : null}
+                              </g>
+                            );
+                          })}
+
+                          {/* ─── (5) Inlet / outlet arrows — sit on the
+                                  baseline so the eye traces ROI → encoder
+                                  → CLIP. ─── */}
+                          <g stroke="rgb(125,130,140)" strokeWidth="0.9" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity="0.7">
+                            <line x1={RIGHT(stages[0]) + 4} y1={BASELINE_Y} x2={LEFT(stages[1]) - 4} y2={BASELINE_Y} />
+                            <path d={`M ${LEFT(stages[1]) - 4} ${BASELINE_Y} l -4 -3 m 4 3 l -4 3`} />
+                            <line x1={RIGHT(stages[4]) + 4} y1={BASELINE_Y} x2={LEFT(stages[5]) - 4} y2={BASELINE_Y} />
+                            <path d={`M ${LEFT(stages[5]) - 4} ${BASELINE_Y} l -4 -3 m 4 3 l -4 3`} />
+                          </g>
+                        </svg>
+
+                        {/* ── Single formula line, integrated under the
+                            figure. Only the final term is accented. ── */}
+                        <p className="mt-5 border-t border-white/[0.04] pt-3.5 font-mono text-[11.5px] leading-relaxed text-text-secondary">
+                          <span className="text-text-primary">{inDim.toLocaleString()} ROI voxels</span>
                           <span className="mx-1.5 text-border-emphasis">→</span>
                           {hiddenDims.map((d, i) => (
                             <span key={i}>
-                              <span className="text-text-primary">{d.toLocaleString()}</span>
+                              <span className="text-text-secondary">{d.toLocaleString()}</span>
                               {i < hiddenDims.length - 1 ? (
                                 <span className="mx-1.5 text-border-emphasis">→</span>
                               ) : null}
                             </span>
                           ))}
                           <span className="mx-1.5 text-border-emphasis">→</span>
-                          <span className="text-accent">{outDim}-D CLIP direction</span>
+                          <span className="font-semibold text-accent">{outDim}-D CLIP direction</span>
                         </p>
                       </div>
                     );
@@ -852,88 +1141,266 @@ export function PhaseEncodingRetrieval({
                 <ComputationCard
                   step="Step 06 · CSLS"
                   title="CSLS gallery search"
-                  subtitle="Re-ranking 10,000 CLIP gallery embeddings with hubness-corrected similarity."
+                  subtitle="Hubness-corrected re-ranking over 10,000 CLIP gallery embeddings."
                   provenance={stepProv}
-                  footer={
-                    <span>
-                      CSLS reduces hubness by comparing local neighborhood density around query and gallery embeddings before producing the ranked gallery. {isLiveInference ? 'Live backend stream is driving this progress.' : 'Progress shown is replay animation; final ranking comes from cached experiment outputs.'}
-                    </span>
-                  }
                 >
 
-                {/* CSLS counter + slim progress + heatmap as one coherent
-                    technical readout. No nested cards. */}
-                <div className="workbench-inset">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0 flex-1 space-y-2.5">
-                      <div className="flex items-baseline gap-2">
-                        <span className="font-mono text-[40px] font-semibold tabular-nums leading-none tracking-tight text-text-primary">
-                          {galCount.toLocaleString()}
-                        </span>
-                        <span className="text-[12.5px] text-text-muted">/ 10,000 scored</span>
-                      </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.05]">
-                        <motion.div
-                          className="h-full rounded-full bg-accent/55"
-                          animate={{ width: `${(galCount / 10000) * 100}%` }}
-                          transition={{ duration: 0.1 }}
-                        />
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                        <span className="sci-chip sci-chip-mono sci-chip-muted">Query</span>
-                        <svg className="h-3 w-3 text-border-emphasis" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
-                        <span className="sci-chip sci-chip-mono sci-chip-muted">CSLS scan</span>
-                        <svg className="h-3 w-3 text-border-emphasis" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
-                        <span className="sci-chip sci-chip-mono sci-chip-muted">Ranked</span>
-                      </div>
-                    </div>
+                {(() => {
+                  // ── Deterministic gallery cloud — 4 concentric rings of dots
+                  //    represent the 10k gallery field around the query at center.
+                  //    Reveal in proportion to scanned count so the cloud truly
+                  //    animates the CSLS scan. ──
+                  const rings = [
+                    { r: 22, n: 10 },
+                    { r: 38, n: 16 },
+                    { r: 56, n: 22 },
+                    { r: 74, n: 28 },
+                  ];
+                  const dots: { x: number; y: number; ring: number }[] = [];
+                  rings.forEach((ring, ri) => {
+                    for (let i = 0; i < ring.n; i++) {
+                      const angle = (i / ring.n) * Math.PI * 2 + ri * 0.27;
+                      const jitter = ((i * 19 + ring.r) % 9) - 4;
+                      dots.push({
+                        x: 110 + Math.cos(angle) * (ring.r + jitter * 0.6),
+                        y: 90 + Math.sin(angle) * (ring.r + jitter * 0.6),
+                        ring: ri,
+                      });
+                    }
+                  });
+                  const scanFrac = Math.min(1, galCount / 10000);
+                  const dotsScanned = Math.floor(scanFrac * dots.length);
+                  const top3 = topK.slice(0, 3);
+                  return (
+                    <div className="workbench-inset !p-5">
+                      <div className="grid items-stretch gap-5 lg:grid-cols-[minmax(120px,0.7fr)_minmax(0,2fr)_minmax(150px,1fr)]">
 
-                    {/* Heatmap — smaller, softer fill. Reads as a precise
-                        readout rather than decoration. */}
-                    <div className="flex shrink-0 items-center" aria-hidden>
-                      <svg viewBox="0 0 110 60" className="h-[60px] w-[110px]">
-                        {Array.from({ length: 100 }).map((_, i) => {
-                          const col = i % 10;
-                          const row = Math.floor(i / 10);
-                          const scanned = (col + row * 10) / 100 <= galCount / 10000;
-                          return (
-                            <rect
-                              key={i}
-                              x={5 + col * 10}
-                              y={4 + row * 5.4}
-                              width={8}
-                              height={4}
-                              rx={0.6}
-                              fill={scanned ? 'rgb(77,124,255)' : 'rgb(255,255,255)'}
-                              fillOpacity={scanned ? 0.55 : 0.05}
+                        {/* A · QUERY EMBEDDING — latent vector as horizontal
+                            channel strips. Reads as a 768-D direction, not a
+                            game-board. */}
+                        <div className="flex flex-col">
+                          <p className="premium-kicker">Query embedding</p>
+                          <div
+                            className="relative mt-3 flex-1 overflow-hidden rounded-md px-2 py-2"
+                            aria-hidden
+                            style={{
+                              minHeight: 170,
+                              background: 'rgb(77 124 255 / 0.045)',
+                              boxShadow: 'inset 0 0 0 1px rgb(77 124 255 / 0.32)',
+                            }}
+                          >
+                            <div className="flex h-full w-full flex-col justify-between gap-[3px]">
+                              {Array.from({ length: 10 }).map((_, i) => {
+                                const intensity = 0.28 + ((i * 41 + 17) % 60) / 110;
+                                const len = 48 + ((i * 31 + 19) % 52);
+                                return (
+                                  <div
+                                    key={i}
+                                    className="flex-1 rounded-[1.5px]"
+                                    style={{
+                                      background: `rgb(77 124 255 / ${intensity.toFixed(3)})`,
+                                      width: `${len}%`,
+                                    }}
+                                  />
+                                );
+                              })}
+                            </div>
+                          </div>
+                          <p className="mt-2.5 font-mono text-[13px] font-semibold tabular-nums leading-none text-accent">
+                            768-D
+                          </p>
+                          <p className="mt-1 text-[10px] leading-tight text-text-muted">
+                            {isLiveInference ? 'predicted CLIP direction · μ' : 'cached CLIP direction · μ'}
+                          </p>
+                        </div>
+
+                        {/* B · GALLERY CLOUD with DENSITY RING — embedding-
+                            space figure, faint coordinate plane, refined
+                            μ marker, label as a corner callout. */}
+                        <div className="flex flex-col">
+                          <div className="mb-2.5 flex items-baseline justify-between gap-3">
+                            <p className="premium-kicker">Density-corrected scan</p>
+                            <span className="font-mono text-[10.5px] tabular-nums text-text-muted">
+                              <span className="text-text-secondary">{galCount.toLocaleString()}</span>
+                              <span className="text-text-muted/70"> / 10,000 scanned</span>
+                            </span>
+                          </div>
+                          <div
+                            className="relative flex-1 overflow-hidden rounded-md bg-white/[0.012]"
+                            style={{ minHeight: 210, boxShadow: 'inset 0 0 0 1px rgb(255 255 255 / 0.04)' }}
+                          >
+                            <svg viewBox="0 0 220 180" className="h-full w-full" aria-hidden>
+                              <defs>
+                                {/* Faint dot grid to suggest a coordinate plane
+                                    without drawing visible axes. */}
+                                <pattern id="csls-grid" width="11" height="11" patternUnits="userSpaceOnUse">
+                                  <circle cx="0.5" cy="0.5" r="0.4" fill="rgb(255,255,255)" fillOpacity="0.045" />
+                                </pattern>
+                              </defs>
+                              <rect x="0" y="0" width="220" height="180" fill="url(#csls-grid)" />
+
+                              {/* Center cross — minimal, almost imperceptible */}
+                              <line x1="6" y1="90" x2="214" y2="90" stroke="rgb(255,255,255)" strokeOpacity="0.030" strokeWidth="0.4" />
+                              <line x1="110" y1="6" x2="110" y2="174" stroke="rgb(255,255,255)" strokeOpacity="0.030" strokeWidth="0.4" />
+
+                              {/* Density / local-neighborhood ring around the query */}
+                              <circle
+                                cx="110"
+                                cy="90"
+                                r="32"
+                                fill="rgb(77,124,255)"
+                                fillOpacity="0.045"
+                                stroke="rgb(77,124,255)"
+                                strokeOpacity="0.32"
+                                strokeWidth="0.6"
+                                strokeDasharray="2 2.5"
+                              />
+
+                              {/* Tiny callout leader from the ring's edge to a
+                                  corner label — replaces the oversized
+                                  "neighborhood" word in-canvas. */}
+                              <line x1="140" y1="63" x2="172" y2="46" stroke="rgb(123,156,255)" strokeOpacity="0.45" strokeWidth="0.5" />
+                              <text
+                                x="173"
+                                y="44"
+                                className="fill-text-secondary"
+                                style={{ fontFamily: 'Inter', fontSize: 7.5, letterSpacing: '0.06em', textTransform: 'uppercase' }}
+                              >
+                                local density
+                              </text>
+
+                              {/* Gallery dots — smaller, more precise. Scanned
+                                  dots go accent; unscanned stay near-invisible. */}
+                              {dots.map((p, i) => {
+                                const scanned = i < dotsScanned;
+                                return (
+                                  <circle
+                                    key={i}
+                                    cx={p.x}
+                                    cy={p.y}
+                                    r={scanned ? 1.4 : 1.1}
+                                    fill={scanned ? 'rgb(77,124,255)' : 'rgb(255,255,255)'}
+                                    fillOpacity={scanned ? 0.72 : 0.14}
+                                  />
+                                );
+                              })}
+
+                              {/* Top-3 emerging connectors — drawn to ring-0
+                                  dots after the scan crosses thresholds. */}
+                              {top3.map((_, idx) => {
+                                const target = dots[idx * 3];
+                                if (!target) return null;
+                                const visible = scanFrac > 0.55 + idx * 0.12;
+                                if (!visible) return null;
+                                return (
+                                  <line
+                                    key={idx}
+                                    x1="110"
+                                    y1="90"
+                                    x2={target.x}
+                                    y2={target.y}
+                                    stroke="rgb(77,124,255)"
+                                    strokeOpacity={idx === 0 ? 0.85 : 0.55 - idx * 0.12}
+                                    strokeWidth={idx === 0 ? 1.1 : 0.8}
+                                    strokeLinecap="round"
+                                    strokeDasharray={idx === 0 ? '0' : '1 1.5'}
+                                  />
+                                );
+                              })}
+
+                              {/* Query at center — elegant double dot */}
+                              <circle cx="110" cy="90" r="3.4" fill="rgb(77,124,255)" />
+                              <circle cx="110" cy="90" r="5.6" fill="none" stroke="rgb(77,124,255)" strokeOpacity="0.40" strokeWidth="0.65" />
+                              <text
+                                x="116"
+                                y="86"
+                                className="fill-accent"
+                                style={{ fontFamily: 'JetBrains Mono', fontSize: 8.5, fontWeight: 700 }}
+                              >
+                                μ
+                              </text>
+                            </svg>
+
+                            {/* Hair-thin progress line at the canvas bottom —
+                                no card, no rounded track. Reads as a precise
+                                instrument readout. */}
+                            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-white/[0.04]" />
+                            <motion.div
+                              className="pointer-events-none absolute bottom-0 left-0 h-px bg-accent/70"
+                              animate={{ width: `${scanFrac * 100}%` }}
+                              transition={{ duration: 0.1 }}
                             />
-                          );
-                        })}
-                      </svg>
-                    </div>
-                  </div>
-                </div>
+                          </div>
+                          <p className="mt-2.5 text-[10.5px] leading-relaxed text-text-muted">
+                            CSLS re-ranks gallery embeddings by correcting local-neighborhood density, reducing hubness before top-k retrieval.
+                          </p>
+                        </div>
 
-                {/* Compact technical metadata strip — single line on wide,
-                    grid on small. Reads like instrument metadata. */}
-                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 px-1 sm:grid-cols-4">
-                  {[
-                    ['Gallery', '10,000', 'images'],
-                    ['Space', 'ViT-L/14', 'CLIP latent'],
-                    ['Method', 'CSLS', 'Hubness corrected'],
-                    ['Output', 'Ranked list', 'Top-K candidates'],
-                  ].map(([label, value, detail]) => (
-                    <div key={label} className="flex flex-col">
-                      <dt className="premium-kicker">{label}</dt>
-                      <dd className="mt-1 font-mono text-[13px] font-semibold tabular-nums text-text-primary">{value}</dd>
-                      <dd className="text-[10.5px] text-text-muted">{detail}</dd>
+                        {/* C · RANKED OUTPUT — refined retrieval list. Thin
+                            tracks, mono numeric values, #1 subtly emphasized. */}
+                        <div className="flex flex-col">
+                          <p className="premium-kicker">Top-K output</p>
+                          <ol className="mt-3 space-y-2">
+                            {top3.map((item, idx) => {
+                              const revealed = scanFrac > 0.55 + idx * 0.12;
+                              const maxCsls = top3[0]?.csls ?? 1;
+                              const pct = Math.max(2, ((item.csls ?? 0) / Math.max(maxCsls, 0.001)) * 100);
+                              const isTop = item.rank === 1;
+                              return (
+                                <li
+                                  key={item.rank}
+                                  className="space-y-1 transition-opacity duration-300"
+                                  style={{ opacity: revealed ? 1 : 0.18 }}
+                                >
+                                  <div className="flex items-baseline justify-between gap-2">
+                                    <span
+                                      className={`font-mono text-[10.5px] font-semibold tabular-nums ${
+                                        isTop ? 'text-accent' : 'text-text-muted'
+                                      }`}
+                                    >
+                                      #{item.rank}
+                                    </span>
+                                    <span
+                                      className={`font-mono text-[10.5px] tabular-nums ${
+                                        isTop ? 'text-text-primary' : 'text-text-secondary'
+                                      }`}
+                                    >
+                                      {item.csls != null ? item.csls.toFixed(3) : '—'}
+                                    </span>
+                                  </div>
+                                  <div className="relative h-[3px] overflow-hidden rounded-full bg-white/[0.04]">
+                                    <motion.div
+                                      className={`absolute inset-y-0 left-0 rounded-full ${
+                                        isTop ? 'bg-accent/75' : 'bg-text-secondary/40'
+                                      }`}
+                                      initial={{ width: 0 }}
+                                      animate={{ width: revealed ? `${pct}%` : 0 }}
+                                      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                                    />
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ol>
+                          {/* Compact metadata — hair divider, aligned bottom */}
+                          <div className="mt-auto border-t border-white/[0.04] pt-3">
+                            <dl className="flex items-baseline justify-between gap-3 text-[10.5px]">
+                              <div className="flex items-baseline gap-1.5">
+                                <dt className="text-text-muted/85">Space</dt>
+                                <dd className="font-mono tabular-nums text-text-secondary">ViT-L/14</dd>
+                              </div>
+                              <span className="h-3 w-px bg-white/[0.05]" aria-hidden />
+                              <div className="flex items-baseline gap-1.5">
+                                <dt className="text-text-muted/85">Method</dt>
+                                <dd className="font-mono text-text-secondary">CSLS</dd>
+                              </div>
+                            </dl>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  ))}
-                </dl>
+                  );
+                })()}
 
                 </ComputationCard>
               </motion.div>
@@ -1053,39 +1520,28 @@ export function PhaseEncodingRetrieval({
           )}
         </AnimatePresence>
 
-        {/* Divider — visually subtle, no second card */}
-        <div className="mt-5 border-t border-border-subtle/70" />
-
-        {/* Details + CTA share one row */}
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <details className="group flex-1 text-[11px] text-text-muted">
-            <summary className="flex cursor-pointer select-none items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-text-muted hover:text-text-secondary">
-              <span>Computation details</span>
-              <span className="transition-transform group-open:rotate-180" aria-hidden>&#9660;</span>
-            </summary>
-            <div className="mt-2 space-y-1 text-[11px] leading-relaxed text-text-muted">
-              <p><span className="font-medium text-text-secondary">Mode:</span> {isLiveInference ? 'Live backend inference via /api/infer-stream' : 'Replay of real experiment outputs from cached JSON'}</p>
-              <p><span className="font-medium text-text-secondary">Encoder:</span> {isLiveInference ? (isMlpEncoder ? 'MLP encoder (V62a)' : 'ROI Transformer') : 'Architecture from replay case'}</p>
-              <p><span className="font-medium text-text-secondary">Retrieval:</span> {isLiveInference ? 'Live CSLS search over 10,000 gallery embeddings' : 'Cached ranking from experiment output'}</p>
-            </div>
-          </details>
-
-          <AnimatePresence>
-            {showProceed && (
-              <motion.button
+        {/* Proceed CTA — alone, no preceding "Computation details" disclosure
+            (the prior Mode/Encoder/Retrieval text was low-value duplication
+            of evidence already carried by the provenance badges and rail). */}
+        <AnimatePresence>
+          {showProceed && (
+            <motion.div
+              className="mt-5 flex justify-end border-t border-border-subtle/70 pt-4"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+            >
+              <button
                 type="button"
                 onClick={onComplete}
-                className="premium-button-primary self-start sm:self-end"
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
+                className="premium-button-primary"
               >
                 {hasReconAsset ? 'Open reconstruction evidence' : 'Open evidence review'}
                 <svg className="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-              </motion.button>
-            )}
-          </AnimatePresence>
-        </div>
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </section>
     </div>
   );

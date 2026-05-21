@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { useMetrics } from '@/lib/hooks';
 import type { MetricEntry, MetricsSummary } from '@/types';
 import { PremiumPanel } from '@/components/premium/PremiumPanel';
-import { MetricTile } from '@/components/premium/MetricTile';
+import { NeuralNetField } from '@/components/home/NeuralNetField';
 import {
   IconAtom,
   IconBrain,
@@ -59,73 +59,111 @@ export function Home() {
   const r1 = formatPercent(findRetrievalEntry(metrics));
 
   return (
-    <div className="premium-page-bg min-h-screen overflow-hidden px-4 pb-16 pt-8 sm:px-6 lg:px-8">
-      <section className="mx-auto grid max-w-[1280px] items-start gap-8 py-10 lg:grid-cols-[1fr_0.92fr] lg:items-center">
+    <div className="premium-page-bg relative min-h-screen overflow-hidden px-4 pb-20 pt-10 sm:px-6 lg:px-8">
+      {/* ── Canvas neural field — animated mesh behind the hero. ── */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-[820px]"
+        aria-hidden
+        style={{
+          maskImage:
+            'radial-gradient(ellipse 70% 60% at 50% 35%, black 0%, rgba(0,0,0,0.55) 55%, transparent 100%)',
+          WebkitMaskImage:
+            'radial-gradient(ellipse 70% 60% at 50% 35%, black 0%, rgba(0,0,0,0.55) 55%, transparent 100%)',
+        }}
+      >
+        <NeuralNetField />
+      </div>
+
+      <section className="relative z-10 mx-auto grid max-w-[1280px] items-start gap-10 py-12 lg:grid-cols-[1fr_0.94fr] lg:items-center lg:gap-16">
+        {/* ─────────────────────────────── HERO LEFT ────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
           className="max-w-4xl"
         >
-          <p className="premium-kicker mb-4">Bachelor thesis research demo</p>
-          <h1 className="max-w-4xl text-5xl font-semibold tracking-[-0.035em] text-text-primary sm:text-7xl lg:text-[80px]">
-            Cortex2Canvas
+          {/* Kicker — sits under the navbar like a research-lab callsign. */}
+          <div className="flex items-center gap-2.5">
+            <span className="h-px w-7 bg-accent/55" aria-hidden />
+            <p className="text-[10.5px] font-semibold uppercase tracking-[0.22em] text-accent/80">
+              Bachelor thesis · neural decoding lab
+            </p>
+          </div>
+
+          <h1 className="mt-5 max-w-4xl text-[56px] font-semibold leading-[0.94] tracking-[-0.038em] text-text-primary sm:text-[76px] lg:text-[88px]">
+            Cortex<span className="text-text-secondary/80">2</span>Canvas
           </h1>
-          <p className="mt-5 max-w-2xl text-xl leading-relaxed text-text-secondary sm:text-2xl">
-            Neural decoding evidence console for fMRI-to-CLIP retrieval.
-          </p>
-          <p className="mt-4 max-w-2xl text-sm leading-7 text-text-muted">
-            Trace an NSD visual response from cortical activity through a V62a MLP encoder into CLIP-space retrieval evidence, with explicit provenance for cached, replayed, derived, and unavailable artifacts.
+
+          <p className="mt-6 max-w-2xl text-[22px] leading-[1.35] tracking-[-0.012em] text-text-secondary sm:text-[26px]">
+            A neural decoding evidence console for fMRI&nbsp;→&nbsp;CLIP retrieval.
           </p>
 
-          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-            <Cta to="/pipeline" primary>
-              Launch decoding replay
-            </Cta>
-            <Cta to="/explorer">Open trial explorer</Cta>
-            <Cta to="/evidence">Review evidence</Cta>
+          <p className="mt-5 max-w-[34rem] text-[13.5px] leading-[1.7] text-text-muted">
+            Trace an NSD visual response from cortical activity through a V62a residual MLP encoder into CLIP-space retrieval evidence — every value carries an explicit
+            <span className="text-text-secondary"> live · replay · derived · unavailable </span>
+            provenance.
+          </p>
+
+          {/* CTA cluster — primary button visually dominates; secondaries
+              quieter; metadata badge anchors the cluster on the right. */}
+          <div className="mt-9 flex flex-col gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Cta to="/pipeline" primary>
+                Launch decoding replay
+              </Cta>
+              <Cta to="/explorer">Open trial explorer</Cta>
+              <Cta to="/evidence">Review evidence</Cta>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-text-muted">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-status-success pulse-dot" aria-hidden />
+                Cached replay always available
+              </span>
+              <span className="text-border-emphasis" aria-hidden>·</span>
+              <span className="font-mono tabular-nums">V62a · CLIP ViT-L/14 · 10k gallery</span>
+            </div>
           </div>
         </motion.div>
 
+        {/* ────────────────────────── HERO RIGHT: CONSOLE ───────────────── */}
         <motion.div
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.55, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
         >
           <PremiumPanel variant="hero" className="p-5 sm:p-6">
-            {/* Console header — feels like an instrument status bar */}
+            {/* Console status bar */}
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-status-success/22 bg-status-success/10 px-2.5 py-1 text-[10px] font-semibold text-status-success">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-status-success/[0.08] px-2.5 py-1 text-[10px] font-semibold text-status-success ring-1 ring-status-success/22">
                     <span className="h-1.5 w-1.5 rounded-full bg-status-success pulse-dot" />
                     Replay ready
                   </span>
-                  <span className="rounded-md border border-border-subtle bg-surface-raised px-2 py-0.5 font-mono text-[10px] text-text-secondary">
-                    V62a · CLIP ViT-L/14
+                  <span className="rounded-full bg-white/[0.025] px-2.5 py-1 font-mono text-[10px] text-text-secondary ring-1 ring-white/[0.06]">
+                    V62a · ViT-L/14
                   </span>
                 </div>
-                <h2 className="mt-3 text-[22px] font-semibold tracking-tight text-text-primary">
+                <h2 className="mt-3.5 text-[21px] font-semibold leading-tight tracking-tight text-text-primary">
                   Visual-stimulus decoding replay
                 </h2>
-                <p className="mt-1.5 text-[13px] leading-relaxed text-text-secondary">
+                <p className="mt-1.5 text-[12.5px] leading-relaxed text-text-secondary">
                   One coherent trace from cortical signal to ranked CLIP-space evidence.
                 </p>
               </div>
             </div>
 
-            {/* Instrument readings */}
-            <div className="mt-5 grid grid-cols-2 gap-2.5">
-              <MetricTile label="Top-1 retrieval" value={loading ? '—' : r1} tone="accent" detail="Cached metrics summary" />
-              <MetricTile label="Embedding" value="768-D" detail="CLIP ViT-L/14 space" />
-              <MetricTile label="Gallery" value="10k" detail="CSLS retrieval context" />
-              <MetricTile label="Provenance" value="Tracked" tone="success" detail="Live / replay / derived / unavailable" />
+            {/* Instrument readings — hairline strip, no per-tile cards. */}
+            <div className="mt-5 grid grid-cols-2 divide-x divide-y divide-white/[0.05] overflow-hidden rounded-xl bg-white/[0.012] ring-1 ring-white/[0.05] sm:grid-cols-4 sm:divide-y-0">
+              <HomeReading label="Top-1 retrieval" value={loading ? '—' : r1} tone="accent" detail="Cached metrics" />
+              <HomeReading label="Embedding" value="768-D" detail="CLIP ViT-L/14" />
+              <HomeReading label="Gallery" value="10k" detail="CSLS context" />
+              <HomeReading label="Provenance" value="Tracked" tone="success" detail="4-state labels" />
             </div>
 
-            {/* Decoding path — denser, single line of identity per step,
-                surfaces match the rest of the workbench. */}
+            {/* Decoding path — compact, evidence-first, anchored rail. */}
             <div className="workbench-inset mt-5">
-              <div className="mb-3 flex items-center justify-between">
+              <div className="mb-3.5 flex items-center justify-between">
                 <p className="premium-kicker">Decoding path</p>
                 <Link
                   to="/pipeline"
@@ -134,23 +172,25 @@ export function Home() {
                   Launch ↗
                 </Link>
               </div>
-              <ol className="relative space-y-1.5">
-                <div className="pointer-events-none absolute left-[18px] top-3 bottom-3 w-px bg-border-subtle/55" aria-hidden />
+              <ol className="relative space-y-2.5">
+                <div className="pointer-events-none absolute left-[14px] top-3 bottom-3 w-px bg-border-subtle/55" aria-hidden />
                 {path.map(({ label, detail, Icon }, index) => (
                   <li key={label} className="relative flex items-center gap-3">
-                    <div className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border-subtle bg-surface-elevated text-accent shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                      <Icon className="h-4 w-4" aria-hidden />
+                    <div className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-elevated text-accent ring-1 ring-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                      <Icon className="h-3.5 w-3.5" aria-hidden />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline gap-2">
                         <span className="font-mono text-[10px] tabular-nums text-text-muted">
                           {String(index + 1).padStart(2, '0')}
                         </span>
-                        <p className="truncate text-[13px] font-semibold text-text-primary">
+                        <p className="truncate text-[12.5px] font-semibold leading-none text-text-primary">
                           {label}
                         </p>
                       </div>
-                      <p className="truncate text-[11px] text-text-muted">{detail}</p>
+                      <p className="mt-1 truncate text-[10.5px] leading-tight text-text-muted">
+                        {detail}
+                      </p>
                     </div>
                   </li>
                 ))}
@@ -159,27 +199,34 @@ export function Home() {
           </PremiumPanel>
         </motion.div>
       </section>
+    </div>
+  );
+}
 
-      {/* Scientific honesty strip — replaces the marketing-style trust trio
-          with a compact, scientific reading that fits an instrument page. */}
-      <section className="mx-auto max-w-[1280px] pb-12">
-        <div className="rounded-2xl border border-border-subtle bg-surface-elevated/55 px-5 py-4 sm:flex sm:items-center sm:justify-between sm:gap-6">
-          <div className="flex items-center gap-3">
-            <span className="inline-flex h-2 w-2 rounded-full bg-accent" aria-hidden />
-            <p className="text-[13px] text-text-secondary">
-              Every value carries a provenance badge.
-              <span className="ml-1 text-text-muted">Cached, live, derived, and unavailable artifacts are labelled honestly — no synthetic claims.</span>
-            </p>
-          </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-0">
-            <span className="rounded-md border border-accent/22 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold text-accent">Live</span>
-            <span className="rounded-md border border-border-subtle bg-surface-raised px-2 py-0.5 text-[10px] font-semibold text-text-secondary">Replay</span>
-            <span className="rounded-md border border-status-info/20 bg-status-info/10 px-2 py-0.5 text-[10px] font-semibold text-status-info">Derived</span>
-            <span className="rounded-md border border-border-subtle bg-surface-raised/70 px-2 py-0.5 text-[10px] font-semibold text-text-muted">Unavailable</span>
-          </div>
-        </div>
-      </section>
-
+function HomeReading({
+  label,
+  value,
+  detail,
+  tone = 'default',
+}: {
+  label: string;
+  value: ReactNode;
+  detail?: ReactNode;
+  tone?: 'default' | 'accent' | 'success';
+}) {
+  const toneClass =
+    tone === 'accent' ? 'text-accent'
+    : tone === 'success' ? 'text-status-success'
+    : 'text-text-primary';
+  return (
+    <div className="px-3 py-2.5">
+      <p className="premium-kicker">{label}</p>
+      <p className={`mt-1.5 font-mono text-[19px] font-semibold leading-none tabular-nums ${toneClass}`}>
+        {value}
+      </p>
+      {detail ? (
+        <p className="mt-1.5 text-[10.5px] leading-tight text-text-muted">{detail}</p>
+      ) : null}
     </div>
   );
 }

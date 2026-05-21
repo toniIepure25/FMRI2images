@@ -25,10 +25,16 @@
   body {
     @apply bg-surface-base text-text-primary antialiased;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
-    /* Neutral graphite — a barely-perceptible cool top-light, no blue wash. */
+    /* Graphite workstation — three quiet layers:
+       (1) a soft top-center key light,
+       (2) a barely-there cool atmospheric uplift,
+       (3) a darker outer vignette so content sits in a pool of light. */
     background:
-      radial-gradient(ellipse 90% 55% at 50% -22%, rgb(255 255 255 / 0.025), transparent 70%),
-      linear-gradient(180deg, #09090a 0%, #0b0b0d 46%, #09090a 100%);
+      radial-gradient(ellipse 92% 56% at 50% -18%, rgb(255 255 255 / 0.032), transparent 68%),
+      radial-gradient(ellipse 58% 38% at 76% 8%, rgb(120 142 196 / 0.030), transparent 72%),
+      radial-gradient(ellipse 130% 110% at 50% 120%, rgb(0 0 0 / 0.55), transparent 60%),
+      linear-gradient(180deg, #08080a 0%, #0a0a0c 42%, #08080a 100%);
+    background-attachment: fixed;
   }
 
   ::selection {
@@ -155,12 +161,14 @@
   }
 
   .pip-page-bg {
-    /* Neutral graphite, no blue wash; only a faint accent uplift at top center
-       and at top-right to suggest workstation key-lighting. */
+    /* Graphite workstation key-lighting — quiet top center + warm-cool keylight
+       at top right, paired with an outer vignette to give panels a pool of
+       light to sit in. No blue wash, no decorative blobs. */
     background:
-      radial-gradient(ellipse 80% 48% at 50% -14%, rgb(255 255 255 / 0.03), transparent 68%),
-      radial-gradient(ellipse 38% 26% at 84% 14%, rgb(77 124 255 / 0.035), transparent 72%),
-      linear-gradient(180deg, #09090a 0%, #0b0b0d 46%, #09090a 100%);
+      radial-gradient(ellipse 78% 46% at 50% -12%, rgb(255 255 255 / 0.036), transparent 66%),
+      radial-gradient(ellipse 36% 26% at 84% 12%, rgb(77 124 255 / 0.040), transparent 72%),
+      radial-gradient(ellipse 120% 100% at 50% 118%, rgb(0 0 0 / 0.55), transparent 60%),
+      linear-gradient(180deg, #08080a 0%, #0a0a0c 44%, #08080a 100%);
   }
 
   /* ─── Provenance / status badges ─── */
@@ -203,19 +211,21 @@
 
   /* ─── Premium scientific workbench primitives ─── */
   .premium-page-bg {
-    /* Matches pip-page-bg — kept separate so Home/Pipeline can diverge later. */
+    /* Mirrors pip-page-bg — kept separate so Home/Pipeline can diverge later. */
     background:
-      radial-gradient(ellipse 80% 50% at 50% -14%, rgb(255 255 255 / 0.03), transparent 68%),
-      radial-gradient(ellipse 38% 26% at 82% 12%, rgb(77 124 255 / 0.035), transparent 72%),
-      linear-gradient(180deg, #09090a 0%, #0b0b0d 44%, #09090a 100%);
+      radial-gradient(ellipse 78% 48% at 50% -12%, rgb(255 255 255 / 0.036), transparent 66%),
+      radial-gradient(ellipse 36% 26% at 82% 10%, rgb(77 124 255 / 0.040), transparent 72%),
+      radial-gradient(ellipse 120% 100% at 50% 118%, rgb(0 0 0 / 0.55), transparent 60%),
+      linear-gradient(180deg, #08080a 0%, #0a0a0c 44%, #08080a 100%);
   }
 
   .premium-shell-grid {
+    /* Hair-thin coordinate grid, only legible near the top of the viewport. */
     background-image:
-      linear-gradient(rgb(255 255 255 / 0.018) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(255 255 255 / 0.016) 1px, transparent 1px);
-    background-size: 72px 72px;
-    mask-image: linear-gradient(to bottom, black 0%, transparent 72%);
+      linear-gradient(rgb(255 255 255 / 0.020) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(255 255 255 / 0.018) 1px, transparent 1px);
+    background-size: 80px 80px;
+    mask-image: linear-gradient(to bottom, black 0%, rgba(0,0,0,0.6) 18%, transparent 72%);
   }
 
   .premium-panel {

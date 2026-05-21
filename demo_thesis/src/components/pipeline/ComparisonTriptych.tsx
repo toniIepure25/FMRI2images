@@ -17,6 +17,11 @@ interface TriptychPanel {
 
 interface ComparisonTriptychProps {
   panels: [TriptychPanel, TriptychPanel, TriptychPanel];
+  /** When true, suppress the bulky "third panel unavailable" EmptyState that
+   *  normally appears below the image grid. The parent is then responsible
+   *  for rendering its own slim notice. Defaults to false to preserve the
+   *  existing behavior for older callers. */
+  suppressUnavailableNotice?: boolean;
 }
 
 function SafeImg({ src, alt, className }: { src?: string | null; alt: string; className?: string }) {
@@ -49,7 +54,7 @@ const ACCENT_DOT = {
   cyan: 'bg-status-info ring-1 ring-status-info/30',
 };
 
-export function ComparisonTriptych({ panels }: ComparisonTriptychProps) {
+export function ComparisonTriptych({ panels, suppressUnavailableNotice = false }: ComparisonTriptychProps) {
   const thirdHasImage = !!panels[2]?.imageSrc;
   const visualPanels = thirdHasImage ? panels : ([panels[0], panels[1]] as const);
 
@@ -125,7 +130,7 @@ export function ComparisonTriptych({ panels }: ComparisonTriptychProps) {
       })}
       </div>
 
-      {!thirdHasImage ? (
+      {!thirdHasImage && !suppressUnavailableNotice ? (
         <EmptyState
           compact
           title={panels[2].title}

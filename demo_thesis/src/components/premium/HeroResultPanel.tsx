@@ -8,7 +8,7 @@ function verdictForRank(rank: number | null | undefined) {
   return { label: 'Candidate identified', tone: 'default' as const };
 }
 
-/** Same-size image pair. The image is the hero; the caption is a thin strip. */
+/** Same-size image pair. The image is the hero; caption is a precise strip. */
 function EvidenceFrame({
   title,
   subtitle,
@@ -22,10 +22,10 @@ function EvidenceFrame({
 }) {
   return (
     <figure
-      className={`group overflow-hidden rounded-2xl border bg-surface-elevated/85 transition duration-300 ${
-        emphasis ? 'border-status-success/22' : 'border-white/[0.05]'
+      className={`group overflow-hidden rounded-xl border bg-surface-elevated/80 transition duration-300 ${
+        emphasis ? 'border-status-success/20' : 'border-white/[0.05]'
       }`}
-      style={{ boxShadow: '0 1px 0 rgb(255 255 255 / 0.025) inset' }}
+      style={{ boxShadow: '0 1px 0 rgb(255 255 255 / 0.022) inset, 0 14px 36px -30px rgb(0 0 0 / 0.85)' }}
     >
       <div className="relative aspect-[4/3] bg-surface-raised">
         {src ? (
@@ -43,22 +43,26 @@ function EvidenceFrame({
         {/* Hair-thin inner ring to soften the photo edge */}
         <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/[0.04]" aria-hidden />
         {emphasis ? (
-          <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-md border border-status-success/25 bg-black/45 px-2 py-0.5 text-[10px] font-semibold text-status-success backdrop-blur-md">
-            <span className="h-1.5 w-1.5 rounded-full bg-status-success" />
+          <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-black/45 px-1.5 py-[2px] text-[9px] font-semibold uppercase tracking-[0.08em] text-status-success/90 ring-1 ring-status-success/28 backdrop-blur-md">
+            <span className="h-[4px] w-[4px] rounded-full bg-status-success" />
             Match
           </span>
         ) : null}
       </div>
-      {/* Compact caption — no large empty footer black */}
-      <figcaption className="px-3.5 py-2.5">
-        <p className="truncate text-[12.5px] font-semibold text-text-primary">{title}</p>
-        <p className="mt-0.5 truncate text-[11px] text-text-muted">{subtitle}</p>
+      {/* Caption — slim hairline strip, image-first weighting */}
+      <figcaption className="flex items-baseline justify-between gap-3 px-3.5 py-2.5">
+        <p className="truncate text-[12.5px] font-semibold tracking-tight text-text-primary">
+          {title}
+        </p>
+        <p className="shrink-0 text-[10.5px] uppercase tracking-[0.14em] text-text-muted/80">
+          {subtitle}
+        </p>
       </figcaption>
     </figure>
   );
 }
 
-/** Hairline-separated evidence strip — Rank · CSLS · Margin · κ in one row. */
+/** Hairline evidence strip — Rank · CSLS · Margin · κ, calibration-light. */
 function EvidenceStrip({
   rank,
   csls,
@@ -79,20 +83,20 @@ function EvidenceStrip({
       ? 'text-status-warning'
       : 'text-text-primary';
 
-  const items: { label: string; value: string; color?: string; mono?: boolean }[] = [
-    { label: 'Rank', value: rank != null ? `#${rank}` : '—', color: rankColor, mono: true },
-    { label: 'CSLS', value: csls, mono: true },
-    { label: 'Margin', value: margin, mono: true },
-    { label: 'κ', value: kappa, mono: true, color: 'text-accent' },
+  const items: { label: string; value: string; color?: string }[] = [
+    { label: 'Rank',   value: rank != null ? `#${rank}` : '—', color: rankColor },
+    { label: 'CSLS',   value: csls },
+    { label: 'Margin', value: margin },
+    { label: 'κ',      value: kappa, color: 'text-accent' },
   ];
 
   return (
-    <div className="grid grid-cols-4 divide-x divide-white/[0.05] overflow-hidden rounded-xl border border-white/[0.04] bg-white/[0.012]">
-      {items.map(({ label, value, color, mono }) => (
-        <div key={label} className="flex flex-col justify-center px-4 py-3">
+    <div className="grid grid-cols-4 divide-x divide-white/[0.05]">
+      {items.map(({ label, value, color }, i) => (
+        <div key={label} className={`flex flex-col px-4 py-2 ${i === 0 ? 'pl-0' : ''}`}>
           <p className="premium-kicker">{label}</p>
           <p
-            className={`mt-1 ${mono ? 'font-mono' : ''} text-[18px] font-semibold tabular-nums leading-none tracking-tight ${
+            className={`mt-1.5 font-mono text-[19px] font-semibold tabular-nums leading-none tracking-tight ${
               color ?? 'text-text-primary'
             }`}
           >
@@ -130,41 +134,46 @@ export function HeroResultPanel({
 
   return (
     <PremiumPanel variant="hero" className="p-5 sm:p-6">
-      {/* ── Compact header row: kicker + verdict label + provenance ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-baseline gap-3">
-          <p className="premium-kicker">Retrieval complete</p>
-          <span className={`text-[13px] font-semibold tracking-tight ${verdictHeadingTone}`}>
-            {verdict.label}
-          </span>
-          <span className="text-[11.5px] text-text-muted">
-            · 10,000-image CSLS gallery · {case_.subject}
-          </span>
+      {/* ── Report header — kicker + hairline + verdict tone + metadata ── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5">
+            <span className="h-px w-7 bg-accent/45" aria-hidden />
+            <p className="premium-kicker">Retrieval complete</p>
+          </div>
+          <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className={`text-[16px] font-semibold tracking-tight ${verdictHeadingTone}`}>
+              {verdict.label}
+            </span>
+            <span className="font-mono text-[11.5px] tabular-nums text-text-muted">
+              10,000-image CSLS gallery · {case_.subject}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 sm:self-start">
           {liveLabel}
           {provenance}
         </div>
       </div>
 
       {/* ── Image pair: same-size, image-dominant, thin captions ── */}
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
         <EvidenceFrame
           src={case_.targetImage}
           title="Subject perceived"
-          subtitle="Reference NSD stimulus"
+          subtitle="NSD stimulus"
           emphasis={case_.metrics.rank === 1}
         />
         <EvidenceFrame
           src={top1?.image}
           title="Model retrieved"
-          subtitle={top1 ? `Rank #${top1.rank} gallery image` : 'Awaiting candidate'}
+          subtitle={top1 ? `Rank #${top1.rank} · gallery` : 'Awaiting candidate'}
           emphasis={case_.metrics.rank === 1}
         />
       </div>
 
-      {/* ── Evidence strip: hairline-separated stats, no chunky boxes ── */}
-      <div className="mt-4">
+      {/* ── Evidence strip: flat hairline columns, no surrounding card. ── */}
+      <div className="mt-5 border-t border-white/[0.05] pt-3">
         <EvidenceStrip
           rank={case_.metrics.rank}
           csls={top1?.csls != null ? top1.csls.toFixed(3) : 'N/A'}

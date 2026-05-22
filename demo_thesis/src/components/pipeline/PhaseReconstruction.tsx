@@ -206,14 +206,18 @@ export function PhaseReconstruction({
         className="premium-panel overflow-hidden"
         initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
       >
-        {/* ── 1. REPORT HEADER — compact, balanced, no oversized rank glyph. ── */}
-        <div className="px-5 py-5 sm:px-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* ── 1. REPORT HEADER — kicker rule, balanced rank glyph, refined
+                stat strip with proper hair-rule columns. ── */}
+        <div className="px-5 pt-5 pb-4 sm:px-6">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="premium-kicker">Evidence audit</p>
-              <div className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <div className="flex items-center gap-2.5">
+                <span className="h-px w-7 bg-accent/45" aria-hidden />
+                <p className="premium-kicker">Evidence audit</p>
+              </div>
+              <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <span
-                  className={`font-mono text-[34px] font-semibold tabular-nums leading-none tracking-tight ${
+                  className={`font-mono text-[30px] font-semibold tabular-nums leading-none tracking-tight ${
                     m.rank === 1
                       ? 'text-status-success'
                       : m.rank <= 5
@@ -223,44 +227,62 @@ export function PhaseReconstruction({
                 >
                   #{m.rank}
                 </span>
-                <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${verdict.bg} ${verdict.cls}`}>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full px-2 py-[2px] text-[10.5px] font-semibold uppercase tracking-[0.08em] ring-1 ${
+                    m.rank === 1
+                      ? 'bg-status-success/[0.08] text-status-success/95 ring-status-success/22'
+                      : m.rank <= 5
+                      ? 'bg-status-warning/[0.08] text-status-warning/95 ring-status-warning/22'
+                      : 'bg-white/[0.04] text-text-secondary ring-white/[0.08]'
+                  }`}
+                >
+                  <span
+                    className={`h-[4px] w-[4px] rounded-full ${
+                      m.rank === 1
+                        ? 'bg-status-success'
+                        : m.rank <= 5
+                        ? 'bg-status-warning'
+                        : 'bg-text-secondary'
+                    }`}
+                  />
                   {verdict.text}
                 </span>
-                <span className="font-mono text-[11.5px] tabular-nums text-text-muted">
-                  NSD {case_.nsdId} · {case_.subject} · session {case_.session}
+                <span className="font-mono text-[11px] tabular-nums text-text-muted/85">
+                  NSD&nbsp;{case_.nsdId} · {case_.subject} · session&nbsp;{case_.session}
                 </span>
               </div>
             </div>
 
-            {/* Header stat strip — κ · δ · CSLS (top-1). Hair-rule columns,
-                consistent label/value/sub hierarchy with the evidence summary
-                below so the same numbers read the same way. */}
+            {/* Stat strip — κ · δ · CSLS · top-1. Hair-rule columns share
+                the exact same label/value rhythm as the evidence summary
+                below so the same metric never reads differently. */}
             <div className="flex divide-x divide-white/[0.06] self-stretch">
-              <div className="flex flex-col justify-center px-5 first:pl-0">
+              <div className="flex flex-col justify-center px-4 first:pl-0 sm:px-5">
                 <p className="premium-kicker">κ</p>
-                <p className="mt-1 font-mono text-[20px] font-semibold tabular-nums leading-none text-accent">
+                <p className="mt-1.5 font-mono text-[20px] font-semibold tabular-nums leading-none text-accent">
                   {u.kappa.toFixed(1)}
                 </p>
-                <p className="mt-1 text-[10px] text-text-muted">{kappaLabel(kappa01)}</p>
+                <p className="mt-1.5 text-[10px] leading-tight text-text-muted">{kappaLabel(kappa01)}</p>
               </div>
-              <div className="flex flex-col justify-center px-5">
+              <div className="flex flex-col justify-center px-4 sm:px-5">
                 <p className="premium-kicker">δ</p>
-                <p className="mt-1 font-mono text-[20px] font-semibold tabular-nums leading-none text-text-primary">
+                <p className="mt-1.5 font-mono text-[20px] font-semibold tabular-nums leading-none text-text-primary">
                   {liveMode ? 'N/A' : u.delta.toFixed(3)}
                 </p>
-                <p className="mt-1 text-[10px] text-text-muted">{liveMode ? 'no per-ROI' : deltaLabel(u.delta)}</p>
+                <p className="mt-1.5 text-[10px] leading-tight text-text-muted">{liveMode ? 'no per-ROI' : deltaLabel(u.delta)}</p>
               </div>
-              <div className="flex flex-col justify-center px-5 last:pr-0">
+              <div className="flex flex-col justify-center px-4 last:pr-0 sm:px-5">
                 <p className="premium-kicker">CSLS · top-1</p>
-                <p className="mt-1 font-mono text-[20px] font-semibold tabular-nums leading-none text-text-primary">
+                <p className="mt-1.5 font-mono text-[20px] font-semibold tabular-nums leading-none text-text-primary">
                   {cslsDisplay}
                 </p>
-                <p className="mt-1 text-[10px] text-text-muted">gallery rank-1 score</p>
+                <p className="mt-1.5 text-[10px] leading-tight text-text-muted">gallery rank-1</p>
               </div>
             </div>
           </div>
 
-          {/* Provenance row */}
+          {/* Provenance row — quiet ribbon under the header, badges sized
+              consistently with the rest of the workbench. */}
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/[0.05] pt-3">
             {hasLiveRecon ? (
               <ProvenanceBadge provenance={LIVE_PROV} />
@@ -275,18 +297,17 @@ export function PhaseReconstruction({
           </div>
         </div>
 
-        {/* ── 2. Slim reconstruction-unavailable notice (only when no recon).
-                Replaces the bulky EmptyState that previously dominated the
-                page. ── */}
+        {/* ── 2. Slim reconstruction-unavailable annotation (only when no
+                recon). Visually quiet single-row notice. ── */}
         {!hasRecon ? (
-          <div className="border-t border-white/[0.05] bg-white/[0.012] px-5 py-2.5 sm:px-6">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11.5px]">
+          <div className="border-t border-white/[0.05] bg-white/[0.010] px-5 py-2 sm:px-6">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px]">
               <svg className="h-3.5 w-3.5 shrink-0 text-text-muted/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0-10.5a8.25 8.25 0 100 16.5 8.25 8.25 0 000-16.5zm0 12.75h.008v.008H12v-.008z" />
               </svg>
               <p className="text-text-secondary">
                 <span className="font-medium text-text-primary">Reconstruction unavailable for this replay.</span>{' '}
-                <span className="text-text-muted">Audit relies on retrieval rank, CSLS, and uncertainty evidence.</span>
+                <span className="text-text-muted">Audit relies on retrieval rank, CSLS, and uncertainty.</span>
               </p>
               <span className="ml-auto">
                 <ProvenanceBadge provenance={effectiveReconProv} />
@@ -295,13 +316,21 @@ export function PhaseReconstruction({
           </div>
         ) : null}
 
-        {/* ── 3. RETRIEVAL / VISUAL COMPARISON — image pair, no heavy chrome. ── */}
+        {/* ── 3. RETRIEVAL / VISUAL COMPARISON — image pair, hairline rule
+                so the section reads as a labeled report block. ── */}
         <div className="border-t border-white/[0.05] bg-white/[0.01] px-5 py-5 sm:px-6 sm:py-6">
-          <div className="mb-3.5 flex items-baseline justify-between">
-            <h3 className="premium-kicker">
-              {hasRecon ? 'Visual comparison' : 'Retrieval evidence'}
-            </h3>
-            {!liveMode && <span className="text-[10.5px] text-text-muted">Cached assets · replay</span>}
+          <div className="mb-3.5 flex items-baseline justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="h-px w-6 bg-accent/40" aria-hidden />
+              <h3 className="premium-kicker">
+                {hasRecon ? 'Visual comparison' : 'Retrieval evidence'}
+              </h3>
+            </div>
+            {!liveMode && (
+              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-muted/70">
+                cached · replay
+              </span>
+            )}
           </div>
           <ComparisonTriptych
             suppressUnavailableNotice
@@ -346,16 +375,18 @@ export function PhaseReconstruction({
           />
         </div>
 
-        {/* ── 4. EVIDENCE SUMMARY — compact hairline strip, no per-cell card.
-                Section label sits to the left of the metric row so the strip
-                reads as a labeled report readout, not a generic stat band. ── */}
+        {/* ── 4. EVIDENCE SUMMARY — hairline strip, section label sits to
+                the left so the strip reads as a labeled report readout. ── */}
         <div className="border-t border-white/[0.05] px-5 py-5 sm:px-6 sm:py-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch lg:gap-6">
-            {/* Left: section label + quiet caption */}
-            <div className="lg:w-[170px] lg:shrink-0 lg:border-r lg:border-white/[0.05] lg:pr-5">
-              <p className="premium-kicker">Evidence summary</p>
-              <p className="mt-1.5 text-[10.5px] leading-snug text-text-muted/85">
-                Final report values — derived from the gallery rank-1 retrieval.
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-stretch lg:gap-7">
+            {/* Left: kicker rule + section label + quiet caption */}
+            <div className="lg:w-[180px] lg:shrink-0 lg:border-r lg:border-white/[0.05] lg:pr-6">
+              <div className="flex items-center gap-2.5">
+                <span className="h-px w-6 bg-accent/40" aria-hidden />
+                <p className="premium-kicker">Evidence summary</p>
+              </div>
+              <p className="mt-2 text-[10.5px] leading-snug text-text-muted/85">
+                Final report values, derived from the gallery rank-1 retrieval.
               </p>
             </div>
 
@@ -372,38 +403,38 @@ export function PhaseReconstruction({
           </div>
         </div>
 
-        {/* ── 5. AUDIT FOOTER — lighter, ghost buttons, no fill. ── */}
+        {/* ── 5. AUDIT FOOTER — ghost buttons, calibration-light alignment. ── */}
         <div className="border-t border-white/[0.05] px-5 py-3 sm:px-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"
               onClick={onReset}
-              className="inline-flex items-center gap-1.5 self-start rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition hover:bg-white/[0.04] hover:text-text-primary sm:self-auto"
+              className="inline-flex items-center gap-1.5 self-start rounded-lg px-2.5 py-1.5 text-[11.5px] font-medium uppercase tracking-[0.08em] text-text-muted transition hover:bg-white/[0.04] hover:text-text-primary sm:self-auto"
             >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
               Try another trial
             </button>
-            <div className="flex flex-wrap items-center gap-1">
+            <div className="flex flex-wrap items-center gap-0.5">
               <button
                 type="button"
                 onClick={() => navigate(`/explorer/${case_.id}`)}
-                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition hover:bg-white/[0.04] hover:text-text-primary"
+                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11.5px] font-medium uppercase tracking-[0.08em] text-text-muted transition hover:bg-white/[0.04] hover:text-text-primary"
               >
                 Explore in detail
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </button>
-              <span className="hidden h-3 w-px bg-border-subtle/60 sm:inline-block" aria-hidden />
+              <span className="hidden h-3 w-px bg-white/[0.05] sm:inline-block" aria-hidden />
               <button
                 type="button"
                 onClick={() => navigate('/challenge')}
-                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium text-text-secondary transition hover:bg-white/[0.04] hover:text-text-primary"
+                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11.5px] font-medium uppercase tracking-[0.08em] text-text-muted transition hover:bg-white/[0.04] hover:text-text-primary"
               >
                 Take the challenge
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </button>

@@ -1192,74 +1192,97 @@ export function PhaseEncodingRetrieval({
                   const dotsScanned = Math.floor(scanFrac * dots.length);
                   const top3 = topK.slice(0, 3);
 
-                  // Query latent profile — deterministic envelope so the
-                  // glyph reads as a calibrated latent vector rather than
-                  // random bars. Not the predicted μ; this is a stylized
-                  // depiction of the cached/predicted CLIP direction.
-                  const QUERY_BANDS = 18;
-                  const queryProfile = Array.from({ length: QUERY_BANDS }).map((_, i) => {
-                    const t = i / (QUERY_BANDS - 1);
-                    const env = 0.5 + 0.4 * Math.sin((t - 0.15) * Math.PI * 2.2);
-                    const noise = ((i * 47 + 19) % 17) / 17 * 0.18 - 0.09;
-                    return Math.max(0.20, Math.min(0.92, env + noise));
+                  // Query fingerprint — 22 signed latent magnitudes that
+                  // extend left/right from a center axis. Reads as a CLIP
+                  // embedding signature, not a horizontal bar chart. Values
+                  // are deterministic (sin envelope + noise) so the glyph
+                  // looks designed rather than random.
+                  const FP_ROWS = 22;
+                  const queryFingerprint = Array.from({ length: FP_ROWS }).map((_, i) => {
+                    const t = i / (FP_ROWS - 1);
+                    const env = Math.sin(t * Math.PI * 3.1 + 0.4) * 0.55;
+                    const noise = (((i * 47 + 19) % 17) / 17 - 0.5) * 0.30;
+                    const v = Math.max(-0.92, Math.min(0.92, env + noise));
+                    return v; // signed magnitude in [-1, 1]
                   });
 
                   return (
                     <div className="workbench-inset !p-5">
-                      <div className="grid items-stretch gap-6 lg:grid-cols-[minmax(140px,0.72fr)_minmax(0,2fr)_minmax(160px,0.95fr)]">
+                      <div className="grid items-stretch gap-7 lg:grid-cols-[minmax(130px,0.62fr)_minmax(0,2.4fr)_minmax(150px,0.9fr)]">
 
                         {/* ────────────────────────────────────────────────
-                            A · QUERY EMBEDDING — refined latent-band glyph.
-                            Each band uses a 2-stop horizontal gradient so
-                            the profile shows magnitude direction at-a-glance,
-                            without resorting to variable-length bars. ──── */}
+                            A · QUERY EMBEDDING — CLIP fingerprint. Each row
+                            is a signed latent magnitude extending left or
+                            right of a centered zero axis. Reads as a real
+                            embedding signature, not a chunky bar chart. ── */}
                         <div className="flex flex-col">
                           <p className="premium-kicker">Query embedding</p>
                           <div
                             className="relative mt-3 flex-1 overflow-hidden rounded-md"
                             aria-hidden
                             style={{
-                              minHeight: 188,
-                              background: 'rgb(77 124 255 / 0.030)',
-                              boxShadow: 'inset 0 0 0 1px rgb(77 124 255 / 0.22)',
+                              minHeight: 200,
+                              background:
+                                'linear-gradient(180deg, rgb(77 124 255 / 0.022) 0%, rgb(77 124 255 / 0.035) 100%)',
+                              boxShadow: 'inset 0 0 0 1px rgb(77 124 255 / 0.18)',
                             }}
                           >
-                            {/* Hair-thin zero baseline on the left */}
-                            <div className="pointer-events-none absolute inset-y-3 left-2 w-px bg-white/[0.08]" />
                             <svg
                               viewBox="0 0 100 100"
                               preserveAspectRatio="none"
                               className="h-full w-full"
                             >
                               <defs>
-                                <linearGradient id="csls-q-band" x1="0" y1="0" x2="1" y2="0">
-                                  <stop offset="0%"  stopColor="rgb(77,124,255)" stopOpacity="0.55" />
-                                  <stop offset="100%" stopColor="rgb(77,124,255)" stopOpacity="0.08" />
+                                <linearGradient id="csls-q-pos" x1="0" y1="0" x2="1" y2="0">
+                                  <stop offset="0%"  stopColor="rgb(123,156,255)" stopOpacity="0.10" />
+                                  <stop offset="100%" stopColor="rgb(123,156,255)" stopOpacity="0.78" />
+                                </linearGradient>
+                                <linearGradient id="csls-q-neg" x1="1" y1="0" x2="0" y2="0">
+                                  <stop offset="0%"  stopColor="rgb(123,156,255)" stopOpacity="0.10" />
+                                  <stop offset="100%" stopColor="rgb(123,156,255)" stopOpacity="0.78" />
                                 </linearGradient>
                               </defs>
-                              {queryProfile.map((amp, i) => {
-                                const bandH = (100 - 12) / QUERY_BANDS;
-                                const y = 6 + i * bandH;
-                                const w = 6 + amp * 86;
+                              {/* Hair-thin coordinate gridlines (left/right
+                                  thirds) so each magnitude has a faint scale
+                                  reference. */}
+                              <line x1="20" y1="6" x2="20" y2="94" stroke="rgb(255,255,255)" strokeOpacity="0.035" strokeWidth="0.3" />
+                              <line x1="80" y1="6" x2="80" y2="94" stroke="rgb(255,255,255)" strokeOpacity="0.035" strokeWidth="0.3" />
+                              {/* Center zero axis — the spine of the
+                                  fingerprint. */}
+                              <line x1="50" y1="4" x2="50" y2="96" stroke="rgb(123,156,255)" strokeOpacity="0.32" strokeWidth="0.6" />
+
+                              {/* Signed bands extending left or right */}
+                              {queryFingerprint.map((v, i) => {
+                                const rowH = (100 - 12) / FP_ROWS;
+                                const y = 6 + i * rowH;
+                                const isPos = v >= 0;
+                                const mag = Math.abs(v);
+                                const span = mag * 44;        // 0..44 px from center
+                                const x = isPos ? 50 : 50 - span;
+                                const w = span;
                                 return (
                                   <rect
                                     key={i}
-                                    x="6"
+                                    x={x}
                                     y={y + 0.4}
-                                    width={w}
-                                    height={Math.max(0.8, bandH - 0.8)}
-                                    fill="url(#csls-q-band)"
-                                    rx="0.6"
+                                    width={Math.max(0.6, w)}
+                                    height={Math.max(0.9, rowH - 0.8)}
+                                    fill={isPos ? 'url(#csls-q-pos)' : 'url(#csls-q-neg)'}
+                                    rx="0.4"
                                   />
                                 );
                               })}
+                              {/* Dim end-caps on the spine to read as a real
+                                  scientific axis with terminals. */}
+                              <circle cx="50" cy="5" r="0.7" fill="rgb(123,156,255)" fillOpacity="0.55" />
+                              <circle cx="50" cy="95" r="0.7" fill="rgb(123,156,255)" fillOpacity="0.55" />
                             </svg>
                           </div>
                           <div className="mt-3 flex items-baseline justify-between gap-2">
                             <p className="font-mono text-[13px] font-semibold tabular-nums leading-none text-accent">
                               768-D
                             </p>
-                            <p className="font-mono text-[10px] tabular-nums text-text-muted">
+                            <p className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-text-muted/75">
                               ViT-L/14
                             </p>
                           </div>
@@ -1269,11 +1292,11 @@ export function PhaseEncodingRetrieval({
                         </div>
 
                         {/* ────────────────────────────────────────────────
-                            B · DENSITY-CORRECTED SCAN — refined embedding-
-                            space figure. Smaller dots, sharper contrast
-                            between scanned / unscanned / query, the in-plot
-                            callout label is gone, replaced by a quiet line
-                            below the canvas. ─────────────────────────── */}
+                            B · DENSITY-CORRECTED SCAN — embedding-space
+                            figure with four visual states (background /
+                            scanned / local neighbor / query). Refined μ
+                            marker carries a small latent-direction vector.
+                            Callout is now small text + leader only. ───── */}
                         <div className="flex flex-col">
                           <div className="mb-2.5 flex items-baseline justify-between gap-3">
                             <p className="premium-kicker">Density-corrected scan</p>
@@ -1283,59 +1306,134 @@ export function PhaseEncodingRetrieval({
                             </span>
                           </div>
                           <div
-                            className="relative flex-1 overflow-hidden rounded-md bg-white/[0.012]"
-                            style={{ minHeight: 218, boxShadow: 'inset 0 0 0 1px rgb(255 255 255 / 0.035)' }}
+                            className="relative flex-1 overflow-hidden rounded-md bg-white/[0.010]"
+                            style={{ minHeight: 230, boxShadow: 'inset 0 0 0 1px rgb(255 255 255 / 0.03)' }}
                           >
                             <svg viewBox="0 0 220 180" className="h-full w-full" aria-hidden>
                               <defs>
-                                {/* Refined coordinate dot-grid — finer pitch,
-                                    crisper dots, so the field reads as an
-                                    embedding-space scientific plot. */}
-                                <pattern id="csls-grid" width="14" height="14" patternUnits="userSpaceOnUse">
-                                  <circle cx="0.4" cy="0.4" r="0.35" fill="rgb(255,255,255)" fillOpacity="0.055" />
+                                {/* Fine coordinate dot-grid — gives the
+                                    field a real embedding-space feel. */}
+                                <pattern id="csls-grid" width="16" height="16" patternUnits="userSpaceOnUse">
+                                  <circle cx="0.4" cy="0.4" r="0.32" fill="rgb(255,255,255)" fillOpacity="0.045" />
                                 </pattern>
-                                {/* Subtle radial halo behind the query so the
-                                    eye locks onto the center first. */}
+                                {/* Soft halo behind the query so the eye
+                                    locks onto the center first. */}
                                 <radialGradient id="csls-q-halo" cx="50%" cy="50%" r="50%">
-                                  <stop offset="0%"  stopColor="rgb(77,124,255)" stopOpacity="0.18" />
+                                  <stop offset="0%"  stopColor="rgb(77,124,255)" stopOpacity="0.20" />
                                   <stop offset="100%" stopColor="rgb(77,124,255)" stopOpacity="0" />
+                                </radialGradient>
+                                {/* Subtle scan ripple — slow pulse on the
+                                    neighborhood ring while the scan runs.
+                                    Reduced-motion users get a static ring
+                                    (the animation tag short-circuits via
+                                    the global rule in index.css). */}
+                                <radialGradient id="csls-scan-pulse" cx="50%" cy="50%" r="50%">
+                                  <stop offset="0%"  stopColor="rgb(123,156,255)" stopOpacity="0" />
+                                  <stop offset="70%" stopColor="rgb(123,156,255)" stopOpacity="0.05" />
+                                  <stop offset="100%" stopColor="rgb(123,156,255)" stopOpacity="0" />
                                 </radialGradient>
                               </defs>
                               <rect x="0" y="0" width="220" height="180" fill="url(#csls-grid)" />
 
-                              {/* Quiet axis cross-hairs */}
-                              <line x1="6" y1="90" x2="214" y2="90" stroke="rgb(255,255,255)" strokeOpacity="0.026" strokeWidth="0.4" />
-                              <line x1="110" y1="6" x2="110" y2="174" stroke="rgb(255,255,255)" strokeOpacity="0.026" strokeWidth="0.4" />
+                              {/* Axis cross-hairs — almost imperceptible. */}
+                              <line x1="6" y1="90" x2="214" y2="90" stroke="rgb(255,255,255)" strokeOpacity="0.022" strokeWidth="0.4" />
+                              <line x1="110" y1="6" x2="110" y2="174" stroke="rgb(255,255,255)" strokeOpacity="0.022" strokeWidth="0.4" />
 
-                              {/* Query halo — a soft glow behind the marker */}
+                              {/* Scan ripple — a slow opacity pulse around μ
+                                  via SVG SMIL. Cheap, GPU-friendly, no JS. */}
+                              <circle cx="110" cy="90" r="36" fill="url(#csls-scan-pulse)">
+                                <animate
+                                  attributeName="r"
+                                  values="22;46;22"
+                                  dur="4.5s"
+                                  repeatCount="indefinite"
+                                />
+                                <animate
+                                  attributeName="opacity"
+                                  values="0.0;0.65;0.0"
+                                  dur="4.5s"
+                                  repeatCount="indefinite"
+                                />
+                              </circle>
+
+                              {/* Halo behind the query */}
                               <circle cx="110" cy="90" r="18" fill="url(#csls-q-halo)" />
 
-                              {/* Local-neighborhood ring */}
+                              {/* Local-neighborhood ring — thinner, slightly
+                                  lower opacity. */}
                               <circle
                                 cx="110"
                                 cy="90"
                                 r="32"
                                 fill="rgb(77,124,255)"
-                                fillOpacity="0.040"
-                                stroke="rgb(77,124,255)"
-                                strokeOpacity="0.36"
-                                strokeWidth="0.55"
-                                strokeDasharray="2 2.5"
+                                fillOpacity="0.035"
+                                stroke="rgb(123,156,255)"
+                                strokeOpacity="0.34"
+                                strokeWidth="0.45"
+                                strokeDasharray="1.8 2.2"
                               />
 
-                              {/* Gallery dots — small + precise. Scanned dots
-                                  flip to accent; unscanned barely visible. */}
+                              {/* Small callout — text + leader only, no pill
+                                  background. Anchored at the ring tangent
+                                  at ~-45°. */}
+                              <line
+                                x1="132.6" y1="67.4"
+                                x2="156"   y2="34"
+                                stroke="rgb(123,156,255)"
+                                strokeOpacity="0.42"
+                                strokeWidth="0.4"
+                                strokeLinecap="round"
+                              />
+                              <circle cx="132.6" cy="67.4" r="0.85" fill="rgb(123,156,255)" fillOpacity="0.75" />
+                              <text
+                                x="158" y="32"
+                                fill="rgb(123,156,255)"
+                                fillOpacity="0.78"
+                                style={{ fontFamily: 'Inter, system-ui, sans-serif', fontSize: 6.8, letterSpacing: '0.16em', textTransform: 'uppercase', fontWeight: 600 }}
+                              >
+                                local density
+                              </text>
+
+                              {/* Gallery dots — four visual states:
+                                    1. background (unscanned) — graphite, tiny
+                                    2. scanned outside neighborhood — subtle blue
+                                    3. scanned inside neighborhood — brighter
+                                    4. (top-3 connector targets — see below)  */}
                               {dots.map((p, i) => {
                                 const scanned = i < dotsScanned;
                                 const inNeighborhood = Math.hypot(p.x - 110, p.y - 90) < 32;
+                                if (!scanned) {
+                                  return (
+                                    <circle
+                                      key={i}
+                                      cx={p.x}
+                                      cy={p.y}
+                                      r={0.9}
+                                      fill="rgb(150,158,172)"
+                                      fillOpacity={0.22}
+                                    />
+                                  );
+                                }
+                                if (inNeighborhood) {
+                                  return (
+                                    <circle
+                                      key={i}
+                                      cx={p.x}
+                                      cy={p.y}
+                                      r={1.35}
+                                      fill="rgb(143,178,255)"
+                                      fillOpacity={0.92}
+                                    />
+                                  );
+                                }
                                 return (
                                   <circle
                                     key={i}
                                     cx={p.x}
                                     cy={p.y}
-                                    r={scanned ? (inNeighborhood ? 1.3 : 1.1) : 0.95}
-                                    fill={scanned ? 'rgb(77,124,255)' : 'rgb(255,255,255)'}
-                                    fillOpacity={scanned ? (inNeighborhood ? 0.88 : 0.65) : 0.10}
+                                    r={1.1}
+                                    fill="rgb(77,124,255)"
+                                    fillOpacity={0.55}
                                   />
                                 );
                               })}
@@ -1353,7 +1451,7 @@ export function PhaseEncodingRetrieval({
                                     y1="90"
                                     x2={target.x}
                                     y2={target.y}
-                                    stroke="rgb(77,124,255)"
+                                    stroke="rgb(123,156,255)"
                                     strokeOpacity={idx === 0 ? 0.85 : 0.55 - idx * 0.12}
                                     strokeWidth={idx === 0 ? 1.0 : 0.7}
                                     strokeLinecap="round"
@@ -1362,14 +1460,20 @@ export function PhaseEncodingRetrieval({
                                 );
                               })}
 
-                              {/* Query marker — small inner dot + halo ring */}
-                              <circle cx="110" cy="90" r="2.8" fill="rgb(77,124,255)" />
-                              <circle cx="110" cy="90" r="4.8" fill="none" stroke="rgb(77,124,255)" strokeOpacity="0.42" strokeWidth="0.6" />
+                              {/* Query marker — small central dot + thin
+                                  direction vector + outer ring. Reads as
+                                  μ on the latent direction sphere, not as
+                                  a chunky pin. */}
+                              <line x1="110" y1="90" x2="118.5" y2="83.5" stroke="rgb(123,156,255)" strokeWidth="1.1" strokeLinecap="round" />
+                              <circle cx="118.5" cy="83.5" r="1.4" fill="rgb(123,156,255)" />
+                              <circle cx="110" cy="90" r="2.4" fill="rgb(77,124,255)" />
+                              <circle cx="110" cy="90" r="4.4" fill="none" stroke="rgb(123,156,255)" strokeOpacity="0.45" strokeWidth="0.55" />
                               <text
-                                x="116"
+                                x="102"
                                 y="86"
+                                textAnchor="end"
                                 fill="rgb(123,156,255)"
-                                style={{ fontFamily: 'JetBrains Mono, ui-monospace, monospace', fontSize: 8, fontWeight: 700 }}
+                                style={{ fontFamily: 'JetBrains Mono, ui-monospace, monospace', fontSize: 7.5, fontWeight: 700 }}
                               >
                                 μ
                               </text>
@@ -1383,35 +1487,35 @@ export function PhaseEncodingRetrieval({
                               transition={{ duration: 0.1 }}
                             />
                           </div>
-                          {/* Quiet legend — replaces the in-plot LOCAL
-                              DENSITY callout. Single short line, scientific. */}
-                          <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-text-muted">
-                            <span className="inline-flex items-center gap-1.5">
-                              <span className="inline-block h-[3px] w-3 rounded-full bg-accent/55" />
-                              local density
-                            </span>
-                            <span className="text-border-emphasis" aria-hidden>·</span>
-                            <span className="inline-flex items-center gap-1.5">
-                              <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-                              scanned candidate
-                            </span>
-                            <span className="text-border-emphasis" aria-hidden>·</span>
-                            <span>CSLS = cos(x, y) − ½(r_x + r_y)</span>
+                          {/* Quiet annotation under the plot — the math
+                              behind the figure, formatted as a precise
+                              scientific caption. */}
+                          <div className="mt-2.5 flex items-baseline justify-between gap-3">
+                            <p className="font-mono text-[10px] tabular-nums text-text-muted">
+                              CSLS(x, y) = cos(x, y) − ½ (r<sub>x</sub> + r<sub>y</sub>)
+                            </p>
+                            <p className="font-mono text-[9.5px] uppercase tracking-[0.16em] text-text-muted/65">
+                              hubness-corrected
+                            </p>
                           </div>
                         </div>
 
                         {/* ────────────────────────────────────────────────
-                            C · TOP-K OUTPUT — refined ranked list. #1 gets
-                            a slightly heavier track; values use a fixed
-                            tabular column so all three rows align. ────── */}
+                            C · TOP-K OUTPUT — ranked retrieval readout.
+                            Rank #1 carries a noticeably stronger value, a
+                            thicker track, and a tinted background row;
+                            #2/#3 stay quiet but tabular-aligned. ──────── */}
                         <div className="flex flex-col">
-                          <div className="mb-2.5 flex items-baseline justify-between gap-3">
-                            <p className="premium-kicker">Top-K output</p>
+                          <div className="mb-3 flex items-baseline justify-between gap-3">
+                            <div className="flex items-center gap-2.5">
+                              <span className="h-px w-5 bg-accent/40" aria-hidden />
+                              <p className="premium-kicker">Top-K output</p>
+                            </div>
                             <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-muted/70">
                               CSLS
                             </span>
                           </div>
-                          <ol className="space-y-2.5">
+                          <ol className="space-y-2">
                             {top3.map((item, idx) => {
                               const revealed = scanFrac > 0.55 + idx * 0.12;
                               const maxCsls = top3[0]?.csls ?? 1;
@@ -1420,33 +1524,35 @@ export function PhaseEncodingRetrieval({
                               return (
                                 <li
                                   key={item.rank}
-                                  className="space-y-1 transition-opacity duration-300"
+                                  className={`group transition-opacity duration-300 ${
+                                    isTop ? 'rounded-md bg-accent/[0.05] px-2.5 py-2 ring-1 ring-accent/15' : 'px-2.5 py-1'
+                                  }`}
                                   style={{ opacity: revealed ? 1 : 0.18 }}
                                 >
                                   <div className="flex items-baseline justify-between gap-2 font-mono tabular-nums">
                                     <span
-                                      className={`text-[10.5px] font-semibold ${
-                                        isTop ? 'text-accent' : 'text-text-muted'
+                                      className={`${
+                                        isTop ? 'text-[11.5px] font-semibold text-accent' : 'text-[10.5px] text-text-muted'
                                       }`}
                                     >
                                       #{item.rank}
                                     </span>
                                     <span
-                                      className={`text-[11px] ${
-                                        isTop ? 'text-text-primary' : 'text-text-secondary'
+                                      className={`${
+                                        isTop ? 'text-[15px] font-semibold text-text-primary' : 'text-[11px] text-text-secondary'
                                       }`}
                                     >
                                       {item.csls != null ? item.csls.toFixed(3) : '—'}
                                     </span>
                                   </div>
                                   <div
-                                    className={`relative overflow-hidden rounded-full bg-white/[0.045] ${
-                                      isTop ? 'h-1' : 'h-[3px]'
+                                    className={`relative mt-1.5 overflow-hidden rounded-full bg-white/[0.045] ${
+                                      isTop ? 'h-[5px]' : 'h-[3px]'
                                     }`}
                                   >
                                     <motion.div
                                       className={`absolute inset-y-0 left-0 rounded-full ${
-                                        isTop ? 'bg-accent/80' : 'bg-text-secondary/40'
+                                        isTop ? 'bg-accent/85' : 'bg-text-secondary/40'
                                       }`}
                                       initial={{ width: 0 }}
                                       animate={{ width: revealed ? `${pct}%` : 0 }}
@@ -1457,17 +1563,24 @@ export function PhaseEncodingRetrieval({
                               );
                             })}
                           </ol>
-                          {/* Compact metadata anchored to the bottom of the
-                              column — share a baseline with the canvas
-                              legend on its left. */}
+                          {/* Compact technical readout — single hair-rule
+                              row, three values, scientific finish. */}
                           <div className="mt-auto border-t border-white/[0.04] pt-3">
-                            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-[10.5px]">
-                              <dt className="text-text-muted/85">Gallery</dt>
-                              <dd className="text-right font-mono tabular-nums text-text-secondary">10,000</dd>
-                              <dt className="text-text-muted/85">Space</dt>
-                              <dd className="text-right font-mono tabular-nums text-text-secondary">ViT-L/14</dd>
-                              <dt className="text-text-muted/85">Method</dt>
-                              <dd className="text-right font-mono text-text-secondary">CSLS</dd>
+                            <dl className="flex items-baseline gap-x-4 gap-y-1 text-[10.5px]">
+                              <div className="flex items-baseline gap-1.5">
+                                <dt className="text-text-muted/80">Gallery</dt>
+                                <dd className="font-mono tabular-nums text-text-secondary">10,000</dd>
+                              </div>
+                              <span className="h-3 w-px bg-white/[0.05]" aria-hidden />
+                              <div className="flex items-baseline gap-1.5">
+                                <dt className="text-text-muted/80">Space</dt>
+                                <dd className="font-mono text-text-secondary">ViT-L/14</dd>
+                              </div>
+                              <span className="h-3 w-px bg-white/[0.05]" aria-hidden />
+                              <div className="flex items-baseline gap-1.5">
+                                <dt className="text-text-muted/80">Method</dt>
+                                <dd className="font-mono text-text-secondary">CSLS</dd>
+                              </div>
                             </dl>
                           </div>
                         </div>
@@ -1507,34 +1620,52 @@ export function PhaseEncodingRetrieval({
                   }
                 />
 
-                {/* ── Slim CSLS distribution strip — no card chrome, just a
-                       quiet evidence readout under the hero. Removes the prior
-                       Neural-decoding-path card (already explained by the trace
-                       rail) and the duplicate bordered scores panel. ── */}
+                {/* ── Top-5 CSLS distribution — slim hairline list under
+                       the hero. Thinner tracks, taller emphasis on #1,
+                       precise tabular score column. ── */}
                 <div className="px-1">
-                  <div className="mb-2 flex items-baseline justify-between gap-3">
-                    <p className="premium-kicker">Top-5 CSLS scores</p>
-                    <span className="text-[10.5px] text-text-muted">hubness-corrected · 10k gallery</span>
+                  <div className="mb-3 flex items-baseline justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="h-px w-6 bg-accent/40" aria-hidden />
+                      <p className="premium-kicker">Top-5 CSLS</p>
+                    </div>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-muted/70">
+                      hubness-corrected · 10k
+                    </span>
                   </div>
-                  <ol className="space-y-1.5">
+                  <ol className="space-y-2">
                     {topK.map((item) => {
                       const maxCsls = topK[0]?.csls ?? 1;
                       const pct = Math.max(2, ((item.csls ?? 0) / Math.max(maxCsls, 0.001)) * 100);
                       const isTop = item.rank === 1;
                       return (
-                        <li key={item.rank} className="flex items-center gap-3">
-                          <span className={`w-6 text-right font-mono text-[11px] font-semibold tabular-nums ${isTop ? 'text-accent' : 'text-text-muted'}`}>
+                        <li key={item.rank} className="grid grid-cols-[28px_1fr_64px] items-center gap-3">
+                          <span
+                            className={`text-right font-mono text-[11px] font-semibold tabular-nums ${
+                              isTop ? 'text-accent' : 'text-text-muted'
+                            }`}
+                          >
                             #{item.rank}
                           </span>
-                          <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.04]">
+                          <div
+                            className={`relative overflow-hidden rounded-full bg-white/[0.045] ${
+                              isTop ? 'h-1' : 'h-[3px]'
+                            }`}
+                          >
                             <motion.div
-                              className={`absolute inset-y-0 left-0 rounded-full ${isTop ? 'bg-accent/70' : 'bg-text-secondary/45'}`}
+                              className={`absolute inset-y-0 left-0 rounded-full ${
+                                isTop ? 'bg-accent/80' : 'bg-text-secondary/45'
+                              }`}
                               initial={{ width: 0 }}
                               animate={{ width: `${pct}%` }}
                               transition={{ duration: 0.55, delay: item.rank * 0.04, ease: [0.22, 1, 0.36, 1] }}
                             />
                           </div>
-                          <span className={`w-[68px] text-right font-mono text-[11.5px] font-semibold tabular-nums ${isTop ? 'text-text-primary' : 'text-text-secondary'}`}>
+                          <span
+                            className={`text-right font-mono text-[11.5px] tabular-nums ${
+                              isTop ? 'font-semibold text-text-primary' : 'text-text-secondary'
+                            }`}
+                          >
                             {item.csls?.toFixed(4)}
                           </span>
                         </li>

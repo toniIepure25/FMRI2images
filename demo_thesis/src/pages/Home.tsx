@@ -130,19 +130,23 @@ export function Home() {
           transition={{ duration: 0.55, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
         >
           <PremiumPanel variant="hero" className="p-5 sm:p-6">
-            {/* Console status bar */}
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-status-success/[0.08] px-2.5 py-1 text-[10px] font-semibold text-status-success ring-1 ring-status-success/22">
-                    <span className="h-1.5 w-1.5 rounded-full bg-status-success pulse-dot" />
-                    Replay ready
-                  </span>
-                  <span className="rounded-full bg-white/[0.025] px-2.5 py-1 font-mono text-[10px] text-text-secondary ring-1 ring-white/[0.06]">
-                    V62a · ViT-L/14
-                  </span>
-                </div>
-                <h2 className="mt-3.5 text-[21px] font-semibold leading-tight tracking-tight text-text-primary">
+            {/* Console status bar — kicker rule + status pills */}
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2.5">
+                <span className="h-px w-6 bg-accent/40" aria-hidden />
+                <p className="premium-kicker">Decoding console preview</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-status-success/[0.08] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-status-success ring-1 ring-status-success/22">
+                  <span className="h-1.5 w-1.5 rounded-full bg-status-success pulse-dot" />
+                  Replay ready
+                </span>
+                <span className="rounded-full bg-white/[0.025] px-2.5 py-1 font-mono text-[10px] tabular-nums text-text-secondary ring-1 ring-white/[0.06]">
+                  V62a · ViT-L/14
+                </span>
+              </div>
+              <div>
+                <h2 className="text-[20px] font-semibold leading-tight tracking-tight text-text-primary">
                   Visual-stimulus decoding replay
                 </h2>
                 <p className="mt-1.5 text-[12.5px] leading-relaxed text-text-secondary">
@@ -151,42 +155,48 @@ export function Home() {
               </div>
             </div>
 
-            {/* Instrument readings — hairline strip, no per-tile cards. */}
-            <div className="mt-5 grid grid-cols-2 divide-x divide-y divide-white/[0.05] overflow-hidden rounded-xl bg-white/[0.012] ring-1 ring-white/[0.05] sm:grid-cols-4 sm:divide-y-0">
+            {/* Instrument readings — flat hairline strip, no surrounding ring */}
+            <div className="mt-5 grid grid-cols-2 divide-x divide-y divide-white/[0.05] border-y border-white/[0.05] sm:grid-cols-4 sm:divide-y-0">
               <HomeReading label="Top-1 retrieval" value={loading ? '—' : r1} tone="accent" detail="Cached metrics" />
               <HomeReading label="Embedding" value="768-D" detail="CLIP ViT-L/14" />
               <HomeReading label="Gallery" value="10k" detail="CSLS context" />
               <HomeReading label="Provenance" value="Tracked" tone="success" detail="4-state labels" />
             </div>
 
-            {/* Decoding path — compact, evidence-first, anchored rail. */}
-            <div className="workbench-inset mt-5">
+            {/* Decoding path — calibrated rail, refined icon column */}
+            <div className="mt-5">
               <div className="mb-3.5 flex items-center justify-between">
-                <p className="premium-kicker">Decoding path</p>
+                <div className="flex items-center gap-2.5">
+                  <span className="h-px w-5 bg-accent/35" aria-hidden />
+                  <p className="premium-kicker">Decoding path</p>
+                </div>
                 <Link
                   to="/pipeline"
-                  className="text-[10px] font-semibold uppercase tracking-[0.14em] text-accent/85 hover:text-accent"
+                  className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-accent/85 hover:text-accent"
                 >
-                  Launch ↗
+                  Launch
+                  <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7M17 7H9M17 7v8" />
+                  </svg>
                 </Link>
               </div>
-              <ol className="relative space-y-2.5">
-                <div className="pointer-events-none absolute left-[14px] top-3 bottom-3 w-px bg-border-subtle/55" aria-hidden />
+              <ol className="relative space-y-3">
+                <div className="pointer-events-none absolute left-[13px] top-3 bottom-3 w-px bg-white/[0.06]" aria-hidden />
                 {path.map(({ label, detail, Icon }, index) => (
                   <li key={label} className="relative flex items-center gap-3">
-                    <div className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-elevated text-accent ring-1 ring-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                      <Icon className="h-3.5 w-3.5" aria-hidden />
+                    <div className="relative z-10 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md bg-white/[0.02] text-accent ring-1 ring-white/[0.06]">
+                      <Icon className="h-3 w-3" aria-hidden />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline gap-2">
-                        <span className="font-mono text-[10px] tabular-nums text-text-muted">
+                        <span className="font-mono text-[10px] tabular-nums text-text-muted/80">
                           {String(index + 1).padStart(2, '0')}
                         </span>
-                        <p className="truncate text-[12.5px] font-semibold leading-none text-text-primary">
+                        <p className="truncate text-[12.5px] font-semibold leading-none tracking-tight text-text-primary">
                           {label}
                         </p>
                       </div>
-                      <p className="mt-1 truncate text-[10.5px] leading-tight text-text-muted">
+                      <p className="mt-1 truncate text-[10.5px] leading-tight text-text-muted/85">
                         {detail}
                       </p>
                     </div>

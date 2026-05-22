@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  IconAtom,
   IconChevronDown,
   IconExplore,
   IconHome,
@@ -13,6 +14,7 @@ const navItems = [
   { path: '/', label: 'Home', detail: 'Overview', Icon: IconHome },
   { path: '/pipeline', label: 'Pipeline', detail: 'Decode replay', Icon: IconPipeline },
   { path: '/explorer', label: 'Explorer', detail: 'Trial inspector', Icon: IconExplore },
+  { path: '/manifold', label: 'Manifold', detail: 'Semantic lab', Icon: IconAtom },
   { path: '/evidence', label: 'Evidence', detail: 'Audit trail', Icon: IconChart },
 ] as const;
 

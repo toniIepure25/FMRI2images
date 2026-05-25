@@ -45,6 +45,15 @@ def compute_sim_matrix_gpu(preds: np.ndarray, gts: np.ndarray) -> np.ndarray:
     return (p @ g.T).cpu().numpy()
 
 
+def compute_csls(sims: np.ndarray, k: int = 10) -> np.ndarray:
+    """Return CSLS-corrected similarity matrix."""
+    topk_p = np.partition(-sims, k, axis=1)[:, :k]
+    hub_s = -topk_p.mean(axis=1)
+    topk_g = np.partition(-(sims.T), k, axis=1)[:, :k]
+    hub_t = -topk_g.mean(axis=1)
+    return sims - hub_s[:, None] / 2 - hub_t[None, :] / 2
+
+
 def retrieval_metrics(sims: np.ndarray, csls_k: int = 10) -> dict[str, float]:
     n = sims.shape[0]
     diag = np.array([sims[i, i] for i in range(n)])
@@ -53,11 +62,7 @@ def retrieval_metrics(sims: np.ndarray, csls_k: int = 10) -> dict[str, float]:
     r5 = float((ranks <= 5).mean())
     mrr = float((1.0 / ranks).mean())
 
-    topk_p = np.partition(-sims, csls_k, axis=1)[:, :csls_k]
-    hub_s = -topk_p.mean(axis=1)
-    topk_g = np.partition(-(sims.T), csls_k, axis=1)[:, :csls_k]
-    hub_t = -topk_g.mean(axis=1)
-    csls = sims - hub_s[:, None] / 2 - hub_t[None, :] / 2
+    csls = compute_csls(sims, csls_k)
     diag_c = np.array([csls[i, i] for i in range(n)])
     ranks_c = np.array([(csls[i] > diag_c[i]).sum() + 1 for i in range(n)])
     cr1 = float((ranks_c == 1).mean())
@@ -163,6 +168,12 @@ def main() -> int:
         default=None,
         help="Write metrics + weights to this path (small file for copying off the pod)",
     )
+    ap.add_argument(
+        "--save-top1-dir",
+        type=str,
+        default=None,
+        help="Directory to save per-stream and fused CSLS top-1 gallery indices as .npy",
+    )
     args = ap.parse_args()
 
     repo = args.repo_root or _default_repo_root()
@@ -198,6 +209,34 @@ def main() -> int:
 
     print("\n  --- Triple fusion (z-scored sims) ---")
     print(f"  CSLS R@1={mf['csls_r@1']:.4f}  R@1={mf['r@1']:.4f}  CSLS MRR={mf['csls_mrr']:.4f}")
+
+    if args.save_top1_dir:
+        top1_dir = os.path.abspath(args.save_top1_dir)
+        os.makedirs(top1_dir, exist_ok=True)
+        csls_fused = compute_csls(fused, args.csls_k)
+        csls_v61a = compute_csls(sims["V61a_mctta16"], args.csls_k)
+        csls_v62a = compute_csls(sims["V62a"], args.csls_k)
+        csls_v66a = compute_csls(sims["V66a"], args.csls_k)
+        for tag, mat in [
+            ("triple_top1_ids", csls_fused),
+            ("v61a_top1_ids", csls_v61a),
+            ("v62a_top1_ids", csls_v62a),
+            ("v66a_top1_ids", csls_v66a),
+        ]:
+            ids = np.argmax(mat, axis=1).astype(np.int64)
+            out_path = os.path.join(top1_dir, f"{tag}.npy")
+            np.save(out_path, ids)
+            print(f"  Saved {out_path}  shape={ids.shape}")
+
+        gt_ranks_fused = np.array(
+            [(csls_fused[i] > csls_fused[i, i]).sum() + 1 for i in range(csls_fused.shape[0])]
+        )
+        np.save(os.path.join(top1_dir, "triple_gt_ranks.npy"), gt_ranks_fused)
+        print(f"  Saved triple_gt_ranks.npy  shape={gt_ranks_fused.shape}")
+
+        for tag, mat in [("v61a_gt_ranks", csls_v61a), ("v62a_gt_ranks", csls_v62a), ("v66a_gt_ranks", csls_v66a)]:
+            ranks = np.array([(mat[i] > mat[i, i]).sum() + 1 for i in range(mat.shape[0])])
+            np.save(os.path.join(top1_dir, f"{tag}.npy"), ranks)
 
     if args.output_json:
         out = {

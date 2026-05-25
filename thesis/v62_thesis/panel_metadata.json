@@ -1,0 +1,106 @@
+{
+  "8262": {
+    "query_nsd_id": 8262,
+    "row_idx": 89,
+    "experts": {
+      "v61a": {
+        "retrieved_nsd_id": 8262,
+        "gt_rank": 1,
+        "correct": true
+      },
+      "v62a": {
+        "retrieved_nsd_id": 21108,
+        "gt_rank": 5,
+        "correct": false
+      },
+      "v66a": {
+        "retrieved_nsd_id": 56850,
+        "gt_rank": 8,
+        "correct": false
+      },
+      "triple": {
+        "retrieved_nsd_id": 8262,
+        "gt_rank": 1,
+        "correct": true
+      }
+    }
+  },
+  "21279": {
+    "query_nsd_id": 21279,
+    "row_idx": 259,
+    "experts": {
+      "v61a": {
+        "retrieved_nsd_id": 21279,
+        "gt_rank": 1,
+        "correct": true
+      },
+      "v62a": {
+        "retrieved_nsd_id": 25959,
+        "gt_rank": 10,
+        "correct": false
+      },
+      "v66a": {
+        "retrieved_nsd_id": 48530,
+        "gt_rank": 11,
+        "correct": false
+      },
+      "triple": {
+        "retrieved_nsd_id": 21279,
+        "gt_rank": 1,
+        "correct": true
+      }
+    }
+  },
+  "55649": {
+    "query_nsd_id": 55649,
+    "row_idx": 761,
+    "experts": {
+      "v61a": {
+        "retrieved_nsd_id": 55649,
+        "gt_rank": 1,
+        "correct": true
+      },
+      "v62a": {
+        "retrieved_nsd_id": 69616,
+        "gt_rank": 4,
+        "correct": false
+      },
+      "v66a": {
+        "retrieved_nsd_id": 44324,
+        "gt_rank": 12,
+        "correct": false
+      },
+      "triple": {
+        "retrieved_nsd_id": 55649,
+        "gt_rank": 1,
+        "correct": true
+      }
+    }
+  },
+  "8509": {
+    "query_nsd_id": 8509,
+    "row_idx": 97,
+    "experts": {
+      "v61a": {
+        "retrieved_nsd_id": 8509,
+        "gt_rank": 1,
+        "correct": true
+      },
+      "v62a": {
+        "retrieved_nsd_id": 4156,
+        "gt_rank": 2,
+        "correct": false
+      },
+      "v66a": {
+        "retrieved_nsd_id": 8509,
+        "gt_rank": 1,
+        "correct": true
+      },
+      "triple": {
+        "retrieved_nsd_id": 8509,
+        "gt_rank": 1,
+        "correct": true
+      }
+    }
+  }
+}

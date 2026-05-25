@@ -1,0 +1,151 @@
+
+% used packages
+\usepackage{geometry}                           % page settings
+\usepackage[T1]{fontenc}                       % proper output encoding
+\usepackage{palatino}                          % font
+\usepackage[onehalfspacing]{setspace}          % 1.5 distance between lines
+\usepackage[utf8]{inputenc}                    % encoding
+\usepackage{graphicx}                          % images
+\usepackage{url}                               % links
+\usepackage[nottoc, notlof, notlot]{tocbibind} % table of contents style
+\usepackage[unicode]{hyperref}                 % references from the table of contents
+\usepackage{etoolbox,ifthen}                   % ifthen type of commands
+\usepackage{kvoptions}                         % define key/value pairs as options for packages and classes
+
+% package options
+\geometry{  a4paper,
+            left=3cm,
+            right=2.5cm,
+            top=2.5cm,
+            bottom=2.5cm,
+}
+
+% define the boolean variables in which we store the options chosen for the package (language and type of document)
+\newbool{@eng}\setbool{@eng}{false}
+\newbool{@dis}\setbool{@dis}{false}
+\newbool{@lic}\setbool{@lic}{true}
+
+% define and setup the key/value pairs for the package options
+\SetupKeyvalOptions{
+family=std,
+prefix=std@
+}
+\DeclareStringOption[romanian]{language}
+\DeclareStringOption[bachelor]{type}
+\DeclareDefaultOption{%
+\PackageWarning{\@currname}{Unknown option `\CurrentOption'}}
+\ProcessKeyvalOptions*
+\ifthenelse{\equal{\std@language}{romanian}}{\setbool{@eng}{false}}{\setbool{@eng}{true}}
+\ifthenelse{\equal{\std@type}{bachelor}}{\setbool{@lic}{true}\setbool{@dis}{false}}{}
+\ifthenelse{\equal{\std@type}{master}}{\setbool{@dis}{true}\setbool{@lic}{false}}{}
+
+\DeclareRobustCommand*{\specialization}[1]{\gdef\@specialization{#1}}
+\DeclareRobustCommand*{\specializationRO}[1]{\gdef\@specializationro{#1}}
+\DeclareRobustCommand*{\supervisor}[1]{\gdef\@supervisor{#1}}
+\DeclareRobustCommand*{\titleRO}[1]{\gdef\@titlero{#1}}
+
+\ifbool{@eng}{\usepackage[english]{babel}}{\usepackage[romanian]{babel}}
+
+\makeatletter
+\newcommand{\ubbtitletypeEN}{%
+  \ifbool{@dis}{DISSERTATION THESIS}{DIPLOMA THESIS}%
+}
+\newcommand{\ubbtitletypeRO}{%
+  \ifbool{@dis}{LUCRARE DE DISERTA\c TIE}{LUCRARE DE LICEN\c T\u A}%
+}
+
+\newcommand{\ubbromaniancover}{%
+\begin{titlepage}
+\thispagestyle{empty}
+\begin{center}
+{\Large\textbf{UNIVERSITATEA BABEŞ-BOLYAI CLUJ-NAPOCA \\
+FACULTATEA DE MATEMATIC\u A ŞI INFORMATIC\u A \\
+SPECIALIZAREA \@specializationro \\
+}}
+\end{center}
+
+\vspace{8.5em}
+
+\begin{center}
+{\Huge\textbf{\ubbtitletypeRO}}
+\end{center}
+
+\vspace{3em}
+
+\begin{center}
+{\huge\textbf{\@titlero}}
+\end{center}
+
+\vspace{8.5em}
+
+\begin{flushleft}
+{\Large\textbf{Conduc\u ator \c stiintific \\
+\@supervisor}}
+\end{flushleft}
+
+\vspace{3em}
+
+\begin{flushright}
+{\Large\textit{Absolvent \\
+\@author}}
+\end{flushright}
+
+\vfill
+
+\begin{center}
+{\Large{\the\year}}
+\end{center}
+\end{titlepage}
+}
+
+\newcommand{\ubbenglishcover}{%
+\begin{titlepage}
+\thispagestyle{empty}
+\begin{center}
+{\Large\textbf{BABEŞ-BOLYAI UNIVERSITY CLUJ-NAPOCA \\
+FACULTY OF MATHEMATICS AND COMPUTER SCIENCE \\
+SPECIALIZATION \@specialization \\
+}}
+\end{center}
+
+\vspace{8.5em}
+
+\begin{center}
+{\Huge\textbf{\ubbtitletypeEN}}
+\end{center}
+
+\vspace{3em}
+
+\begin{center}
+{\huge\textbf{\@title}}
+\end{center}
+
+\vspace{8.5em}
+
+\begin{flushleft}
+{\Large\textbf{Supervisor \\
+\@supervisor}}
+\end{flushleft}
+
+\vspace{3em}
+
+\begin{flushright}
+{\Large\textit{Author \\
+\@author}}
+\end{flushright}
+
+\vfill
+
+\begin{center}
+{\Large{\the\year}}
+\end{center}
+\end{titlepage}
+}
+
+% customize the title page
+\renewcommand{\maketitle}{%
+  \@ifundefined{@specializationro}{\gdef\@specializationro{\@specialization}}{}
+  \@ifundefined{@titlero}{\gdef\@titlero{\@title}}{}
+  \ifbool{@eng}{\ubbromaniancover\ubbenglishcover}{\ubbromaniancover}
+}
+\makeatother

@@ -1,0 +1,137 @@
+
+\chapter{Theoretical Background and Related Work}
+\label{chap:background}
+
+\section{Domain and Subdomain of the Thesis}
+
+The thesis belongs to the broad domain of artificial intelligence applied to computational neuroscience. More specifically, it is situated at the intersection of brain decoding, representation learning, and generative modelling. The subdomain addressed here is \emph{visual perception decoding from fMRI}: given a measured cortical response, the goal is to recover information about the external image stimulus that produced it. This task differs from classical neuroimaging analysis because it is not limited to identifying which brain regions are active; instead, it seeks to infer \emph{what was seen} by mapping neural activity into a meaningful computational representation \cite{Kay2008,Naselaris2009}.
+
+\section{Historical Evolution of Visual Decoding}
+
+The modern history of visual decoding from fMRI can be understood as a progression from simple stimulus recovery to semantically rich latent reconstruction. Early work demonstrated that activation patterns in the visual cortex contain sufficient information to infer low-level stimulus structure. Thirion et al. proposed \emph{inverse retinotopy}, showing that it is possible to infer the visual content of images from retinotopically organized activation patterns \cite{Thirion2006}. Shortly afterward, Kay et al. showed that natural images can be identified from fMRI responses in visual cortex, marking an important step from simple patterns toward naturalistic stimuli \cite{Kay2008}. Naselaris et al. further introduced Bayesian reconstruction of natural images from brain activity, showing that explicit generative modelling can improve visual recovery \cite{Naselaris2009}.
+
+The next milestone was the transition from static natural images to dynamic natural vision. Nishimoto et al. reconstructed viewed movie clips from fMRI responses evoked by natural movies, demonstrating that the decoding framework can generalize beyond isolated stimuli \cite{Nishimoto2011}. Later work increasingly relied on machine-vision features and deep networks. Horikawa and Kamitani showed that hierarchical visual features decoded from fMRI can identify both seen and imagined objects \cite{Horikawa2017}. Wen et al. extended deep encoding/decoding ideas to dynamic natural vision \cite{Wen2018}. Generative-model-based approaches then became prominent: Seeliger et al. used GANs for natural-image reconstruction \cite{Seeliger2018}, Shen et al. combined decoded multi-layer DNN features with deep image reconstruction \cite{Shen2019}, and VanRullen and Reddy reconstructed faces using deep generative neural networks \cite{VanRullen2019}.
+
+Recent work has moved decisively toward multimodal latent spaces and powerful generative priors. Takagi and Nishimoto used latent diffusion to reconstruct images from brain activity \cite{Takagi2023}, Ozcelik and VanRullen proposed generative latent diffusion for natural-scene reconstruction \cite{Ozcelik2023}, MindEye introduced a modern retrieval-plus-reconstruction framework \cite{Scotti2023}, and MindEye2 showed that shared-subject models can dramatically reduce the per-subject data requirement \cite{Scotti2024}. The present thesis belongs to this recent phase, with a strong emphasis on retrieval-oriented latent decoding.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{1.6cm} >{\raggedright\arraybackslash}p{3.3cm} >{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Year} & \textbf{Representative work} & \textbf{Main contribution} & \textbf{Relation to the present thesis} \\
+\midrule
+2006 & Thirion et al. \cite{Thirion2006} & Inverse retinotopy and low-level visual inference & Historical starting point for visual-content recovery \\
+2008--2009 & Kay et al. \cite{Kay2008}; Naselaris et al. \cite{Naselaris2009} & Natural-image identification and Bayesian reconstruction & Early foundations for natural-image decoding \\
+2011 & Nishimoto et al. \cite{Nishimoto2011} & Reconstruction from natural movie responses & Demonstrates naturalistic decoding feasibility \\
+2017--2019 & Horikawa and Kamitani \cite{Horikawa2017}; Shen et al. \cite{Shen2019}; VanRullen and Reddy \cite{VanRullen2019} & Deep-feature decoding and early modern reconstruction approaches & Bridges classical decoding and contemporary latent modelling \\
+2023--2024 & Takagi and Nishimoto \cite{Takagi2023}; Ozcelik and VanRullen \cite{Ozcelik2023}; Scotti et al. \cite{Scotti2023,Scotti2024} & Diffusion priors, CLIP-like targets, shared-subject scaling & Closest literature context for this thesis \\
+\bottomrule
+\end{tabularx}
+\caption{Short historical timeline of visual decoding from brain activity.}
+\label{tab:historical_timeline}
+\end{table}
+
+\section{fMRI-Based Visual Decoding}
+
+Functional magnetic resonance imaging measures the BOLD signal, which acts as an indirect proxy for neural activity \cite{Allen2022,Wen2018}. In visual decoding tasks, the input is usually a voxel vector derived from one or more regions of interest in the visual cortex, while the target corresponds to some representation of the viewed stimulus. Earlier approaches focused on category labels or hand-crafted image descriptors \cite{Thirion2006,Kay2008,Naselaris2009}. More recent work predicts features from deep visual models, which allows the decoder to preserve semantic and structural information at a much richer level \cite{Horikawa2017,Wen2018,Scotti2023}.
+
+Let $x_i \in \mathbb{R}^{V}$ be the voxel vector for trial $i$. A basic decoder predicts $\hat{z}_i \in \mathbb{R}^{d}$, where $z_i$ is the target visual representation extracted from the ground-truth image. Because the embedding space is usually normalized, cosine similarity becomes the natural scoring function:
+\begin{equation}
+\cos(\hat{z}_i, z_j) = \frac{\hat{z}_i^{\top} z_j}{\lVert \hat{z}_i \rVert_2 \, \lVert z_j \rVert_2}.
+\label{eq:cosine_similarity}
+\end{equation}
+A retrieval system ranks all gallery items according to this similarity and checks whether the correct image is recovered near the top of the list.
+
+\section{Natural Scenes Dataset}
+
+The Natural Scenes Dataset is one of the most important benchmarks for high-resolution visual decoding from fMRI \cite{Allen2022}. It contains 7T fMRI responses recorded while subjects viewed thousands of natural images. The scale, signal quality, and repeated-image structure of NSD make it especially suitable for studying image-specific decoding. However, NSD also imposes strict requirements on data handling: repeated trials, image identifiers, train/validation separation, and session-level normalization must all be treated carefully to avoid leakage.
+
+In this thesis, the practical role of NSD is twofold. First, it provides the paired $(x_i, z_i)$ examples needed for supervised learning. Second, it offers a benchmark environment in which the quality of retrieval and reconstruction can be discussed relative to recent systems such as MindEye and MindEye2 \cite{Scotti2023,Scotti2024}. The present work does not attempt to replace NSD-specific discipline with ad hoc experimentation; on the contrary, it treats split integrity and reproducibility as first-class methodological requirements.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.96\textwidth]{nsd_overview.png}
+    \caption{Dataset setting used throughout the thesis. The work is developed on the Natural Scenes Dataset under a retrieval-oriented protocol, with validation and SHARED1000 treated as the main endpoints.}
+    \label{fig:nsd_placeholder}
+\end{figure}
+
+\section{CLIP as the Target Representation}
+
+CLIP learns a shared representation space for images and text using large-scale contrastive supervision \cite{Radford2021}. Its image encoder produces embeddings that are semantically meaningful, well structured for nearest-neighbour search, and highly reusable across downstream tasks. For brain decoding, CLIP is useful because it provides a target space that is already organized around visual-semantic similarity.
+
+This thesis uses CLIP-style image embeddings as latent targets instead of direct pixel supervision. The practical benefit is that the decoder does not need to reconstruct raw images directly from noisy brain signals. Instead, it predicts a representation that can support both retrieval and conditioning of a downstream generator. This idea aligns well with recent diffusion-based reconstruction pipelines \cite{Takagi2023,Ozcelik2023,Scotti2023}.
+
+Figure~\ref{fig:clip_shared_space_alignment} illustrates the geometric intuition behind this choice. CLIP places semantically corresponding images and text descriptions in neighboring regions of a shared embedding space. In the present thesis, this shared geometry becomes the decoding target: a predicted brain embedding is useful only insofar as it lands near the correct image neighborhood while remaining separated from semantically plausible distractors.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.96\textwidth]{clip_shared_space_alignment.png}
+    \caption{Conceptual view of CLIP as a shared semantic space. Image and text embeddings for related concepts occupy nearby regions, which is why CLIP provides a meaningful target geometry for brain decoding and retrieval.}
+    \label{fig:clip_shared_space_alignment}
+\end{figure}
+
+\section{Latent Diffusion Models and Generative Reconstruction}
+
+Latent diffusion models synthesize images by iteratively denoising a latent variable conditioned on text, image, or other contextual information \cite{Rombach2022}. In the context of brain decoding, the role of a diffusion model is typically not to replace retrieval, but to transform recovered latent information into a visual reconstruction. If the predicted brain-derived embedding retains enough semantic and structural content, a diffusion prior can use that information to generate an image that resembles the viewed stimulus \cite{Takagi2023,Ozcelik2023}.
+
+At a high level, a forward diffusion step perturbs a clean latent $y_0$ into a noisy variable $y_t$ according to
+\begin{equation}
+y_t \sim \mathcal{N}\!\left(\sqrt{1-\beta_t}\, y_{t-1},\, \beta_t I\right).
+\label{eq:diffusion_forward}
+\end{equation}
+and the learned reverse process attempts to recover a clean latent conditioned on the predicted visual representation. In the present thesis, reconstruction is treated as an important downstream extension, while retrieval remains the main quantitative focus.
+
+\section{Retrieval Geometry and Hubness}
+
+A central conceptual issue in this thesis is that accurate latent regression is not sufficient by itself; what matters quantitatively is the geometry of the predicted embeddings relative to the gallery. High-dimensional retrieval spaces often suffer from \emph{hubness}, meaning that a few gallery items become nearest neighbours for an excessive number of queries. This phenomenon can distort raw cosine retrieval and make a model appear less discriminative than its pointwise regression error would suggest \cite{Conneau2018}.
+
+This is why the project relies not only on raw similarity but also on hubness-aware scoring. The distinction between absolute latent fidelity and retrieval geometry became one of the key interpretive lessons of the experiments. It also explains why some seemingly attractive modelling changes improved regression behaviour without improving the final retrieval metric.
+
+\section{Evaluation Metrics}
+
+The core metric used throughout the thesis is Recall@K. For a predicted embedding $\hat{z}_i$ and a gallery $\mathcal{G}$, Recall@K is defined as
+\begin{equation}
+\mathrm{R@K} = \frac{1}{N} \sum_{i=1}^{N} \mathbf{1}\left[\operatorname{rank}(g_i^\star \mid \hat{z}_i) \leq K\right],
+\label{eq:recall_at_k}
+\end{equation}
+where $g_i^\star$ is the ground-truth gallery image corresponding to sample $i$. In this thesis, Recall@1 is the most important endpoint because it directly measures image-specific identification.
+
+A second important metric is cross-domain similarity local scaling (CSLS), which corrects for hubness in high-dimensional retrieval spaces \cite{Conneau2018}. Let $r_q(\hat{z}_i)$ denote the average similarity between query $\hat{z}_i$ and its $k$ nearest gallery neighbours, and let $r_g(z_j)$ denote the average similarity between gallery item $z_j$ and its $k$ nearest query neighbours. Then CSLS is defined as
+\begin{equation}
+\mathrm{CSLS}(\hat{z}_i, z_j) = 2\,\cos(\hat{z}_i, z_j) - r_q(\hat{z}_i) - r_g(z_j).
+\label{eq:csls}
+\end{equation}
+CSLS is particularly relevant in the present project because the experiments repeatedly show that raw regression fidelity and retrieval geometry are not the same thing.
+
+\section{Representative Related Work}
+
+Recent work on fMRI-to-image decoding has shifted decisively toward learned latent representations. Ozcelik and VanRullen used latent diffusion conditioned on brain-derived features to reconstruct viewed images from fMRI, demonstrating that generative priors can compensate for the noisiness of neural measurements \cite{Ozcelik2023}. Takagi and Nishimoto similarly showed that large pretrained diffusion and language models can be adapted for high-quality reconstruction from human brain activity \cite{Takagi2023}. MindEye and MindEye2 extended this direction with stronger contrastive objectives, richer target representations, and shared-subject learning, pushing the field toward more reliable image-specific decoding \cite{Scotti2023,Scotti2024}.
+
+From the perspective of this thesis, the most relevant lessons from the literature are the following. First, target representation quality matters greatly: richer embeddings often outperform simplistic regression targets. Second, data scale and subject alignment remain critical bottlenecks. Third, retrieval and generation should be treated as related but distinct objectives. These insights directly motivate the methodological design of the present work.
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.7cm} >{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}p{3.2cm} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Work} & \textbf{Main idea} & \textbf{Representation / generator} & \textbf{Relevance to this thesis} \\
+\midrule
+Allen et al. (2022) \cite{Allen2022} & Large-scale 7T benchmark dataset & NSD data resource & Provides the experimental foundation and evaluation setting \\
+Radford et al. (2021) \cite{Radford2021} & Vision-language contrastive pretraining & CLIP embedding space & Supplies the latent target space used for decoding \\
+Takagi and Nishimoto (2023) \cite{Takagi2023} & Stable-Diffusion-based reconstruction & Latent diffusion conditioning & Shows how strong pretrained generators can be coupled with decoded features \\
+Ozcelik and VanRullen (2023) \cite{Ozcelik2023} & Generative latent diffusion for natural scenes & Brain-to-latent diffusion conditioning & Motivates the reconstruction pathway after latent decoding \\
+Scotti et al. (2023) \cite{Scotti2023} & Contrastive fMRI-to-image retrieval and reconstruction & CLIP-style targets and diffusion prior & Directly inspires the retrieval-oriented framing of the present work \\
+Scotti et al. (2024) \cite{Scotti2024} & Shared-subject scaling for fMRI-to-image decoding & Shared-subject alignment and modern retrieval design & Serves as an upper benchmark and clarifies the role of scale and alignment \\
+\bottomrule
+\end{tabularx}
+\caption{Representative works most closely related to the thesis topic.}
+\label{tab:related_work}
+\end{table}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{related_work_timeline.png}
+    \caption{Positioning of the thesis relative to recent fMRI-to-image literature. The figure emphasizes the shift from early reconstruction-focused systems toward retrieval-aware and multi-subject systems, which provides the broader context for the retrieval-oriented design choices of this thesis.}
+    \label{fig:related_work_placeholder}
+\end{figure}

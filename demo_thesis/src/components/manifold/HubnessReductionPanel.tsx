@@ -16,11 +16,12 @@ import { REPLAY_PROV } from '@/lib/provenance';
 export function HubnessReductionPanel() {
   return (
     <motion.section
+      id="manifold-hubness"
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8"
+      className="mx-auto max-w-[1280px] scroll-mt-20 px-4 sm:px-6 lg:px-8"
     >
       <ManifoldSectionHeader
         kicker="Hubness correction"
@@ -30,6 +31,19 @@ export function HubnessReductionPanel() {
       />
 
       <PremiumPanel className="mt-6 p-5 sm:p-6">
+        {/* Leading at-a-glance interpretation */}
+        <div className="mb-5 flex flex-col gap-2 rounded-xl border border-white/[0.05] bg-white/[0.014] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[12px] leading-snug text-text-secondary">
+            <span className="font-semibold text-text-primary">Cosine over-selects generic hub images;</span>{' '}
+            CSLS penalises local density and spreads retrieval mass across the gallery.
+          </p>
+          <span className="inline-flex items-center gap-2 self-start font-mono text-[10.5px] uppercase tracking-[0.14em] sm:self-auto">
+            <span className="text-text-muted">Before</span>
+            <ArrowRight className="text-text-muted/65" />
+            <span className="text-status-success">After</span>
+          </span>
+        </div>
+
         <div className="grid gap-4 lg:grid-cols-2">
           <LorenzCard
             title="Cosine retrieval"

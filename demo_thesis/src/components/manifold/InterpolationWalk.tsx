@@ -33,11 +33,12 @@ export function InterpolationWalk() {
 
   return (
     <motion.section
+      id="manifold-walk"
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8"
+      className="mx-auto max-w-[1280px] scroll-mt-20 px-4 sm:px-6 lg:px-8"
     >
       <ManifoldSectionHeader
         kicker="Manifold walk"
@@ -95,10 +96,10 @@ export function InterpolationWalk() {
           />
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-3 text-[10.5px] text-text-muted">
+        <div className="mt-4 flex flex-col gap-2 border-t border-white/[0.05] pt-3 text-[10.5px] text-text-muted sm:flex-row sm:items-center sm:justify-between">
           <p>
-            Interpolation paths are CLIP-space trajectories, not real neural trajectories. Per-step
-            top concepts shown are a DERIVED schematic.
+            Smoothness is measured in the CLIP text-probe distribution space — adjacent t-steps
+            share most of their probe mass. Trajectories are CLIP-space, not real neural paths.
           </p>
           <ProvenanceBadge provenance={REPLAY_PROV} />
         </div>
@@ -158,36 +159,65 @@ function TrajectorySvg({
         opacity="0.65"
       />
 
+      {/* Phase band annotations — semantic segments between waypoints */}
+      {[
+        { mid:  175, label: 'animal'     },
+        { mid:  385, label: 'outdoor'    },
+        { mid:  615, label: 'ambiguous'  },
+        { mid:  825, label: 'urban'      },
+      ].map((seg) => (
+        <text
+          key={seg.label}
+          x={seg.mid}
+          y="205"
+          textAnchor="middle"
+          fontSize="8.5"
+          letterSpacing="0.16em"
+          fill="rgb(150,158,172)"
+          fillOpacity="0.78"
+        >
+          {seg.label.toUpperCase()}
+        </text>
+      ))}
+
       {/* Main trajectory */}
       <path
         d={fullPath}
         stroke="url(#walk-stroke)"
-        strokeWidth="2.2"
+        strokeWidth="2.4"
         fill="none"
         strokeLinecap="round"
       />
 
-      {/* Waypoint pins */}
-      {waypoints.map((p, i) => (
-        <g key={i} transform={`translate(${p.x}, ${p.y})`}>
-          <circle r="10" fill="rgb(20,24,32)" stroke="rgb(123,156,255)" strokeOpacity="0.55" strokeWidth="0.8" />
-          <circle r="4.2" fill="rgb(123,156,255)" fillOpacity="0.92" />
-          <text
-            y="-14"
-            textAnchor="middle"
-            fontSize="9"
-            fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
-            fill="rgb(170,180,200)"
-            letterSpacing="0.06em"
-          >
-            t = {interpolationWalk[i].t.toFixed(2)}
-          </text>
-        </g>
-      ))}
+      {/* Waypoint pins — outer ring + bright core + tiny vertical drop to t-label */}
+      {waypoints.map((p, i) => {
+        const endpoint = i === 0 || i === waypoints.length - 1;
+        return (
+          <g key={i} transform={`translate(${p.x}, ${p.y})`}>
+            {/* tick drop */}
+            <line x1="0" y1="0" x2="0" y2="-18" stroke="rgb(123,156,255)" strokeOpacity="0.32" strokeWidth="0.55" />
+            <circle r="11" fill="rgb(20,24,32)" stroke="rgb(123,156,255)" strokeOpacity={endpoint ? 0.85 : 0.55} strokeWidth={endpoint ? 1.0 : 0.8} />
+            <circle r="4.6" fill="rgb(123,156,255)" fillOpacity={endpoint ? 1.0 : 0.92} />
+            {endpoint ? <circle r="1.7" fill="rgb(255,255,255)" fillOpacity="0.9" /> : null}
+            <text
+              y="-22"
+              textAnchor="middle"
+              fontSize="9"
+              fontFamily="ui-monospace, SFMono-Regular, Menlo, monospace"
+              fill="rgb(180,190,212)"
+              letterSpacing="0.06em"
+            >
+              t = {interpolationWalk[i].t.toFixed(2)}
+            </text>
+          </g>
+        );
+      })}
 
-      {/* End-of-rail labels */}
-      <text x="20"  y="210" fontSize="10" fontWeight="600" letterSpacing="0.08em" fill="rgb(200,210,228)">A</text>
-      <text x="970" y="30"  fontSize="10" fontWeight="600" letterSpacing="0.08em" fill="rgb(200,210,228)">B</text>
+      {/* Endpoint labels */}
+      <text x="56"  y="200" fontSize="11" fontWeight="700" letterSpacing="0.12em" fill="rgb(220,228,242)">A</text>
+      <text x="936" y="32"  fontSize="11" fontWeight="700" letterSpacing="0.12em" fill="rgb(220,228,242)">B</text>
+      <text x="20"  y="212" fontSize="7"  letterSpacing="0.18em" fill="rgb(140,148,168)">TRIAL · START</text>
+      <text x="858" y="42"  fontSize="7"  letterSpacing="0.18em" fill="rgb(140,148,168)">TRIAL · END</text>
     </svg>
   );
 }

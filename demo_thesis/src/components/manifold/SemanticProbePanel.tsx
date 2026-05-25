@@ -27,11 +27,12 @@ export function SemanticProbePanel() {
 
   return (
     <motion.section
+      id="manifold-probe"
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8"
+      className="mx-auto max-w-[1280px] scroll-mt-20 px-4 sm:px-6 lg:px-8"
     >
       <ManifoldSectionHeader
         kicker="Semantic probe"

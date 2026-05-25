@@ -29,11 +29,12 @@ export function CounterfactualSemanticLab() {
 
   return (
     <motion.section
+      id="manifold-counterfactual"
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8"
+      className="mx-auto max-w-[1280px] scroll-mt-20 px-4 sm:px-6 lg:px-8"
     >
       <ManifoldSectionHeader
         kicker="Counterfactual lab"
@@ -138,9 +139,33 @@ export function CounterfactualSemanticLab() {
 
           {/* ── Active concept readout ── */}
           <div className="workbench-inset flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <KickerRule label="After edit · z_pred + α · axis" />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <KickerRule label="Experiment readout" />
               <MonoNote>{active.leftLabel} ↔ {active.rightLabel}</MonoNote>
+            </div>
+
+            {/* Formula plaque */}
+            <div className="flex items-center gap-3 rounded-xl border border-white/[0.05] bg-white/[0.012] px-3.5 py-2.5">
+              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-muted">
+                Edit
+              </span>
+              <span className="font-mono text-[13px] tracking-tight text-text-secondary">
+                <span className="text-text-primary">z′</span>
+                <span className="text-text-muted/85"> = </span>
+                <span className="text-text-primary">z_pred</span>
+                <span className="text-text-muted/85"> + α · </span>
+                <span className="text-accent">{active.axisKey.replace(/_/g, ' ')}</span>
+              </span>
+              <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.14em] text-text-muted">
+                α &gt; 0 · toward {active.direction === 1 ? active.rightLabel : active.leftLabel}
+              </span>
+            </div>
+
+            {/* Before → After concept row */}
+            <div className="flex items-center gap-3">
+              <BeforeAfterCell label="Before" concept="z_pred" tone="muted" />
+              <ArrowRight className="shrink-0 text-text-muted/65" />
+              <BeforeAfterCell label="After" concept={active.resultingConcept} tone="accent" />
             </div>
 
             <AnimatePresence mode="wait">
@@ -237,6 +262,36 @@ function AxisDirectionGlyph({ direction, active }: { direction: -1 | 1; active: 
       ) : (
         <path d="M21 4H4M8 1L4 4l4 3" stroke={color} strokeOpacity={opacity} strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
       )}
+    </svg>
+  );
+}
+
+function BeforeAfterCell({
+  label,
+  concept,
+  tone,
+}: {
+  label: string;
+  concept: string;
+  tone: 'muted' | 'accent';
+}) {
+  const valueClass = tone === 'accent' ? 'text-text-primary' : 'text-text-secondary';
+  return (
+    <div className="flex-1 rounded-xl border border-white/[0.05] bg-white/[0.012] px-3 py-2.5">
+      <p className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-text-muted/85">
+        {label}
+      </p>
+      <p className={`mt-1 truncate font-mono text-[12px] tabular-nums ${valueClass}`}>
+        {concept}
+      </p>
+    </div>
+  );
+}
+
+function ArrowRight({ className }: { className?: string }) {
+  return (
+    <svg width="14" height="10" viewBox="0 0 14 10" fill="none" className={className} aria-hidden>
+      <path d="M1 5h11M9 1l4 4-4 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

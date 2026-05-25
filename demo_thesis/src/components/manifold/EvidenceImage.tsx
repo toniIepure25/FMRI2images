@@ -4,11 +4,17 @@ import type { ReactNode } from 'react';
 /**
  * EvidenceImage
  * ─────────────────────────────────────────────────────────────
- * Drop-in <img> wrapper that NEVER shows a white empty rectangle.
- * If the source is missing, fails to load, or is undefined, the
- * card paints a dark "image unavailable" surface with a small
- * frame glyph + caption + optional status chip — same aspect
- * ratio as the intended image so the layout never collapses.
+ * Image card that CAN NEVER show a white block. Strategy:
+ *   1. A dark "MissingMedia" surface is rendered as the wrapper's
+ *      background, ALWAYS — before/during load, on error, and even
+ *      if the image is a transparent or pure-white asset.
+ *   2. The <img> is layered on top, starting at opacity 0 and
+ *      fading to 1 only on successful onLoad. If onError fires
+ *      (or no src given), the img stays hidden and the dark
+ *      surface remains visible.
+ *   3. The wrapper preserves the requested aspect ratio so layout
+ *      never collapses — whether the asset succeeds, fails, or is
+ *      still in flight.
  */
 
 export type EvidenceAspect = 'square' | '4/5' | '4/3' | '3/2' | '16/9';
@@ -25,9 +31,9 @@ interface EvidenceImageProps {
   src?: string | null;
   alt: string;
   aspect?: EvidenceAspect;
-  /** Optional overlay rendered ON TOP of a successfully-loaded image. */
+  /** Optional overlay rendered on top of the (resolved) image. */
   overlay?: ReactNode;
-  /** Optional caption / chip shown inside the unavailable state. */
+  /** Optional caption rendered inside the unavailable state. */
   unavailableNote?: string;
   className?: string;
 }
@@ -40,34 +46,60 @@ export function EvidenceImage({
   unavailableNote = 'image unavailable',
   className = '',
 }: EvidenceImageProps) {
+  const [loaded, setLoaded] = useState(false);
   const [errored, setErrored] = useState(false);
-  const missing = !src || errored;
+  const hasSrc = !!src;
+  const showImage = hasSrc && !errored;
 
   return (
     <div
-      className={`relative ${ASPECT_CLASS[aspect]} overflow-hidden bg-surface-raised ${className}`}
+      className={`relative ${ASPECT_CLASS[aspect]} overflow-hidden ${className}`}
+      style={{
+        // Hardcoded dark backplate — guarantees no white frame can ever
+        // paint, even before MissingMedia mounts or during img decode.
+        backgroundColor: '#0c0e13',
+      }}
     >
-      {missing ? (
-        <MissingMedia note={unavailableNote} />
-      ) : (
+      {/* Dark surface — always present, behind everything. */}
+      <MissingMedia note={errored || !hasSrc ? unavailableNote : ''} />
+
+      {/* Image — fades in only after successful load. */}
+      {showImage ? (
         <img
           src={src ?? undefined}
           alt={alt}
           loading="lazy"
-          onError={() => setErrored(true)}
-          className="h-full w-full object-cover"
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+          onError={() => {
+            setErrored(true);
+            setLoaded(false);
+          }}
+          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+            loaded ? 'opacity-100' : 'opacity-0'
+          }`}
         />
-      )}
-      {/* hair-thin inner ring keeps the photo edge crisp */}
-      <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/[0.04]" aria-hidden />
-      {!missing && overlay ? <div className="pointer-events-none absolute inset-0">{overlay}</div> : null}
+      ) : null}
+
+      {/* Hair-thin inner ring keeps the photo edge crisp. */}
+      <div className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-white/[0.05]" aria-hidden />
+
+      {/* Overlay (badges/chips) only when the image is visible. */}
+      {showImage && loaded && overlay ? (
+        <div className="pointer-events-none absolute inset-0">{overlay}</div>
+      ) : null}
     </div>
   );
 }
 
 /**
- * Standalone fallback surface — re-used by EvidenceImage but also
- * exposed so callers can paint a row of locked frames without an <img>.
+ * Dark scientific placeholder surface. Used by EvidenceImage and
+ * available standalone for callers that want to render a row of
+ * locked frames without a live <img>.
+ *
+ * `note === ''` renders a silent surface (no caption) — useful as
+ * the loading state behind an <img>. `note !== ''` renders the
+ * glyph + caption "image unavailable" treatment.
  */
 export function MissingMedia({ note = 'image unavailable' }: { note?: string }) {
   return (
@@ -75,13 +107,26 @@ export function MissingMedia({ note = 'image unavailable' }: { note?: string }) 
       className="absolute inset-0 flex flex-col items-center justify-center gap-1.5"
       style={{
         background:
-          'radial-gradient(ellipse 60% 50% at 50% 45%, rgb(255 255 255 / 0.025), transparent 75%), linear-gradient(180deg, #121419 0%, #0c0e13 100%)',
+          'radial-gradient(ellipse 60% 50% at 50% 45%, rgb(255 255 255 / 0.022), transparent 75%), linear-gradient(180deg, #121419 0%, #0c0e13 100%)',
       }}
     >
-      <FrameGlyph />
-      <p className="font-mono text-[9.5px] uppercase tracking-[0.16em] text-text-muted/85">
-        {note}
-      </p>
+      {/* Hair-thin diagonal noise so the surface never looks completely flat. */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.22]"
+        aria-hidden
+        style={{
+          backgroundImage:
+            'repeating-linear-gradient(135deg, rgb(255 255 255 / 0.015) 0 1px, transparent 1px 8px)',
+        }}
+      />
+      {note ? (
+        <>
+          <FrameGlyph />
+          <p className="font-mono text-[9.5px] uppercase tracking-[0.16em] text-text-muted/85">
+            {note}
+          </p>
+        </>
+      ) : null}
     </div>
   );
 }

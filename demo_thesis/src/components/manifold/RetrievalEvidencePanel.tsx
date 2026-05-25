@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ProvenanceBadge } from '@/components/pipeline/ProvenanceBadge';
 import { PremiumPanel } from '@/components/premium/PremiumPanel';
@@ -16,50 +17,57 @@ const STATUS_TONE: Record<RetrievalCandidate['status'], {
   chip:  string;
   label: string;
   dot:   string;
-  rowAccent: string;
+  row:   string;
 }> = {
   match: {
     frame: 'border-status-success/30',
     chip:  'text-status-success bg-status-success/[0.10] ring-status-success/24',
     label: 'Match',
     dot:   'bg-status-success',
-    rowAccent: 'bg-status-success/[0.05]',
+    row:   'bg-status-success/[0.05]',
   },
   near: {
     frame: 'border-white/[0.07]',
     chip:  'text-text-secondary bg-white/[0.03] ring-white/[0.06]',
     label: 'Near',
     dot:   'bg-text-secondary/85',
-    rowAccent: '',
+    row:   '',
   },
   distractor: {
     frame: 'border-white/[0.04]',
     chip:  'text-text-muted bg-white/[0.015] ring-white/[0.04]',
     label: 'Other',
     dot:   'bg-text-muted/70',
-    rowAccent: '',
+    row:   '',
   },
 };
 
 /**
  * RetrievalEvidencePanel
  * ─────────────────────────────────────────────────────────────
- * Compact evidence board:
- *   left  35%  target stimulus (4:5, prominent but not enormous)
- *   right 65%  top-5 candidate strip (aspect-square) + integrated value table
+ * Premium evidence board, compact:
+ *   left  28%  target stimulus, strong but not oversized
+ *   right 72%  top-5 candidate strip + integrated value table
  *
- * Images are wrapped in EvidenceImage so a missing or failed-load
- * source becomes a dark "image unavailable" surface — never a white box.
- * The table shares the right column so the panel reads as one device.
+ * Hovering or focusing a candidate row in the table highlights
+ * the matching card, and vice versa, so the strip and table read
+ * as one device rather than two stacked blocks.
+ *
+ * EvidenceImage guarantees no candidate can ever paint a white
+ * block — its dark MissingMedia surface stays behind the image
+ * before, during, and after load.
  */
 export function RetrievalEvidencePanel() {
+  const [activeRank, setActiveRank] = useState<number | null>(null);
+
   return (
     <motion.section
+      id="manifold-retrieval"
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8"
+      className="mx-auto max-w-[1280px] scroll-mt-20 px-4 sm:px-6 lg:px-8"
     >
       <ManifoldSectionHeader
         kicker="Retrieval evidence"
@@ -69,9 +77,9 @@ export function RetrievalEvidencePanel() {
       />
 
       <PremiumPanel className="mt-6 p-5 sm:p-6">
-        <div className="grid gap-5 lg:grid-cols-[minmax(240px,0.7fr)_minmax(0,2.2fr)]">
+        <div className="grid gap-5 lg:grid-cols-[minmax(200px,0.55fr)_minmax(0,2.3fr)]">
 
-          {/* ── Target card ── */}
+          {/* ── Target stimulus ── */}
           <div className="flex flex-col gap-3">
             <KickerRule label="Target stimulus" />
             <figure className="overflow-hidden rounded-xl border border-status-success/22 bg-surface-elevated">
@@ -94,7 +102,7 @@ export function RetrievalEvidencePanel() {
               </figcaption>
             </figure>
             <p className="text-[10.5px] leading-snug text-text-muted">
-              The decoder predicts a single 768-D CLIP direction for this trial; the gallery is then
+              The decoder predicts one 768-D CLIP direction for this trial; the gallery is then
               ranked by CSLS-corrected similarity to that direction.
             </p>
           </div>
@@ -109,11 +117,17 @@ export function RetrievalEvidencePanel() {
             {/* 5-up candidate strip — square aspect for consistent height */}
             <div className="grid grid-cols-5 gap-2.5">
               {retrievalCandidates.map((c) => (
-                <Candidate key={c.rank} c={c} />
+                <Candidate
+                  key={c.rank}
+                  c={c}
+                  active={activeRank === c.rank}
+                  onEnter={() => setActiveRank(c.rank)}
+                  onLeave={() => setActiveRank((cur) => (cur === c.rank ? null : cur))}
+                />
               ))}
             </div>
 
-            {/* Hair-rule integrating the table with the strip */}
+            {/* Integrated value table */}
             <div className="overflow-hidden rounded-xl border border-white/[0.05] bg-white/[0.012]">
               <table className="w-full text-[11px]">
                 <thead>
@@ -137,10 +151,17 @@ export function RetrievalEvidencePanel() {
                         ? 'text-status-warning'
                         : 'text-text-muted';
                     const tone = STATUS_TONE[c.status];
+                    const active = activeRank === c.rank;
                     return (
                       <tr
                         key={c.rank}
-                        className={`border-b border-white/[0.04] last:border-b-0 ${tone.rowAccent}`}
+                        onMouseEnter={() => setActiveRank(c.rank)}
+                        onMouseLeave={() => setActiveRank((cur) => (cur === c.rank ? null : cur))}
+                        className={`border-b border-white/[0.04] last:border-b-0 transition ${
+                          active
+                            ? 'bg-accent/[0.06]'
+                            : tone.row
+                        }`}
                       >
                         <td className="px-3 py-2 font-mono text-text-secondary">#{c.rank}</td>
                         <td className="px-3 py-2 text-text-secondary">{c.caption}</td>
@@ -176,10 +197,28 @@ export function RetrievalEvidencePanel() {
   );
 }
 
-function Candidate({ c }: { c: RetrievalCandidate }) {
+function Candidate({
+  c,
+  active,
+  onEnter,
+  onLeave,
+}: {
+  c: RetrievalCandidate;
+  active: boolean;
+  onEnter: () => void;
+  onLeave: () => void;
+}) {
   const tone = STATUS_TONE[c.status];
   return (
-    <figure className={`overflow-hidden rounded-lg border bg-surface-elevated ${tone.frame}`}>
+    <figure
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      className={`overflow-hidden rounded-lg border bg-surface-elevated transition ${
+        active
+          ? 'border-accent/40 ring-1 ring-accent/22'
+          : tone.frame
+      }`}
+    >
       <EvidenceImage
         src={c.image}
         alt={c.caption}

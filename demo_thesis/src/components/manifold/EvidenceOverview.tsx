@@ -6,44 +6,46 @@ import {
   evidenceMetrics,
   formatMetric,
   type ProtocolMetric,
+  type MetricFamily,
 } from '@/data/neuralManifoldExplorer';
 
 /**
  * EvidenceOverview
  * ─────────────────────────────────────────────────────────────
- * "R@1 is not enough." A grid of evidence cards, each pulling a
- * real aggregate from the V62a final semantic reports.
- *
- * Card hierarchy:
- *   kicker (family)  ·  metric name      ·  ProvenanceBadge
- *   ────────────────────────────────────────────────────────
- *   validation row   (primary, accent value + comparison bar)
- *   shared1000 row   (secondary value + comparison bar)
- *   ────────────────────────────────────────────────────────
- *   hair-rule
- *   one-line interpretation + Δ
- *
- * The two rows share the same baseline so the gap reads as a
- * visual story across the dashboard, not just numbers in boxes.
+ * "R@1 is not enough." Seven measurement tiles + one synthesis
+ * tile arranged in a 4-column matrix. Each tile carries a tiny
+ * family tag (Retrieval / Geometry / Language / Robustness /
+ * Hubness) so the matrix reads as a scientific table, not a
+ * generic KPI grid.
  */
+
+const FAMILY: Record<MetricFamily, { label: string; tone: string }> = {
+  retrieval:  { label: 'Retrieval',  tone: 'text-accent'              },
+  geometry:   { label: 'Geometry',   tone: 'text-status-success/85'   },
+  language:   { label: 'Language',   tone: 'text-text-secondary'      },
+  robustness: { label: 'Robustness', tone: 'text-status-warning/85'   },
+  hubness:    { label: 'Hubness',    tone: 'text-text-secondary'      },
+};
+
 export function EvidenceOverview() {
   return (
     <motion.section
+      id="manifold-overview"
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-80px' }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-      className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8"
+      className="mx-auto max-w-[1280px] scroll-mt-20 px-4 sm:px-6 lg:px-8"
     >
       <ManifoldSectionHeader
-        kicker="Evidence overview"
+        kicker="Evidence matrix"
         title="R@1 is not enough."
         description={
           <>
             A decoder can retrieve images; the better scientific question is whether it preserves
-            <span className="text-text-secondary"> semantic structure</span>. Each card reads a value
-            from the V62a final semantic reports — validation versus SHARED1000 — so the
-            generalisation gap is visible at a glance.
+            <span className="text-text-secondary"> semantic structure</span>. Each cell reads a value
+            from the V62a final semantic reports — validation versus SHARED1000 — grouped by
+            scientific family so the matrix reads at a glance.
           </>
         }
         action={
@@ -59,6 +61,7 @@ export function EvidenceOverview() {
         {evidenceMetrics.map((m) => (
           <EvidenceCard key={m.label} metric={m} />
         ))}
+        <SynthesisCard />
       </div>
     </motion.section>
   );
@@ -72,19 +75,26 @@ function EvidenceCard({ metric }: { metric: ProtocolMetric }) {
   const gap = Math.abs(val - s1k);
   const gapUnit = metric.unit === '%' ? '%' : '';
   const gapValue = (gap * (metric.unit === '%' ? 100 : 1)).toFixed(2);
+  const fam = FAMILY[metric.family];
 
   return (
     <PremiumPanel className="group relative flex flex-col p-4 transition duration-200 hover:border-white/[0.085]">
-      {/* Header: family · name · provenance */}
+      {/* Family tag */}
+      <div className="mb-3 flex items-center gap-2.5">
+        <span className={`font-mono text-[9.5px] font-semibold uppercase tracking-[0.18em] ${fam.tone}`}>
+          {fam.label}
+        </span>
+        <span className="h-px flex-1 bg-white/[0.05]" aria-hidden />
+        {metric.shortLabel ? (
+          <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-text-muted/85">
+            {metric.shortLabel}
+          </span>
+        ) : null}
+      </div>
+
+      {/* Header: metric name + provenance */}
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="premium-kicker">{metric.label}</p>
-          {metric.shortLabel ? (
-            <p className="mt-1 font-mono text-[10.5px] uppercase tracking-[0.14em] text-text-muted/85">
-              {metric.shortLabel}
-            </p>
-          ) : null}
-        </div>
+        <p className="text-[13px] font-semibold tracking-tight text-text-primary">{metric.label}</p>
         <ProvenanceBadge provenance={metric.provenance} />
       </div>
 
@@ -166,5 +176,53 @@ function LegendDot({
       <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
       {label}
     </span>
+  );
+}
+
+/**
+ * Synthesis tile — fills the last cell of a 4-col grid and ties
+ * the matrix back to the page's thesis. Visual treatment matches
+ * the evidence cards but with a darker, contemplative tone.
+ */
+function SynthesisCard() {
+  return (
+    <PremiumPanel className="relative flex flex-col p-4">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.22]"
+        aria-hidden
+        style={{
+          backgroundImage:
+            'repeating-linear-gradient(135deg, rgb(255 255 255 / 0.015) 0 1px, transparent 1px 9px)',
+          maskImage:
+            'linear-gradient(180deg, transparent 0%, black 35%, black 100%)',
+          WebkitMaskImage:
+            'linear-gradient(180deg, transparent 0%, black 35%, black 100%)',
+        }}
+      />
+      <div className="relative mb-3 flex items-center gap-2.5">
+        <span className="font-mono text-[9.5px] font-semibold uppercase tracking-[0.18em] text-accent/85">
+          Synthesis
+        </span>
+        <span className="h-px flex-1 bg-white/[0.05]" aria-hidden />
+        <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-text-muted/85">
+          R@1 + ρ + Δ
+        </span>
+      </div>
+
+      <div className="relative">
+        <p className="text-[13px] font-semibold tracking-tight text-text-primary">
+          One score never proves a manifold.
+        </p>
+        <p className="mt-2 text-[11.5px] leading-relaxed text-text-secondary">
+          A high R@1 with a flat RSA, weak language agreement, or unbounded hubness would be a
+          retrieval trick, not understanding. The seven measurements on the left only co-validate
+          when read together.
+        </p>
+      </div>
+
+      <p className="relative mt-3 border-t border-white/[0.05] pt-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-text-muted">
+        Read row-wise · evaluate together
+      </p>
+    </PremiumPanel>
   );
 }

@@ -1,0 +1,135 @@
+\begin{thebibliography}{10}
+
+\bibitem{Allen2022}
+Emily~J. Allen, Ghislain St-Yves, Yiyang Wu, Jessica~L. Breedlove, Jeremy~S.
+  Prince, Logan~T. Dowdle, Matthias Nau, Brad Caron, Franco Pestilli, Ian
+  Charest, J.~Benjamin Hutchinson, Thomas Naselaris, and Kendrick~M. Kay.
+\newblock A massive 7{T} f{MRI} dataset to bridge cognitive neuroscience and
+  artificial intelligence.
+\newblock {\em Nature Neuroscience}, 25(1):116--126, 2022.
+
+\bibitem{Banerjee2005}
+Arindam Banerjee, Inderjit~S. Dhillon, Joydeep Ghosh, and Suvrit Sra.
+\newblock Clustering on the unit hypersphere using von mises--fisher
+  distributions.
+\newblock {\em Journal of Machine Learning Research}, 6:1345--1382, 2005.
+
+\bibitem{Conneau2018}
+Alexis Conneau, Guillaume Lample, Marc'Aurelio Ranzato, Ludovic Denoyer, and
+  Herv{\'e} J{\'e}gou.
+\newblock Word translation without parallel data.
+\newblock In {\em International Conference on Learning Representations}, 2018.
+
+\bibitem{Dosovitskiy2021}
+Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn,
+  Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg
+  Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby.
+\newblock An image is worth 16x16 words: Transformers for image recognition at
+  scale.
+\newblock In {\em International Conference on Learning Representations}, 2021.
+
+\bibitem{Horikawa2017}
+Tomoyasu Horikawa and Yukiyasu Kamitani.
+\newblock Generic decoding of seen and imagined objects using hierarchical
+  visual features.
+\newblock {\em Nature Communications}, 8:15037, 2017.
+
+\bibitem{Kay2008}
+Kendrick~N. Kay, Thomas Naselaris, Ryan~J. Prenger, and Jack~L. Gallant.
+\newblock Identifying natural images from human brain activity.
+\newblock {\em Nature}, 452(7185):352--355, 2008.
+
+\bibitem{Naselaris2009}
+Thomas Naselaris, Ryan~J. Prenger, Kendrick~N. Kay, Michael Oliver, and Jack~L.
+  Gallant.
+\newblock Bayesian reconstruction of natural images from human brain activity.
+\newblock {\em Neuron}, 63(6):902--915, 2009.
+
+\bibitem{Nishimoto2011}
+Shinji Nishimoto, An~T. Vu, Thomas Naselaris, Yuval Benjamini, Bin Yu, and
+  Jack~L. Gallant.
+\newblock Reconstructing visual experiences from brain activity evoked by
+  natural movies.
+\newblock {\em Current Biology}, 21(19):1641--1646, 2011.
+
+\bibitem{Ozcelik2023}
+Furkan {\"O}zcelik and Rufin VanRullen.
+\newblock Natural scene reconstruction from f{MRI} signals using generative
+  latent diffusion.
+\newblock {\em Scientific Reports}, 13:15666, 2023.
+
+\bibitem{Radford2021}
+Alec Radford, Jong~Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh,
+  Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark,
+  Gretchen Krueger, and Ilya Sutskever.
+\newblock Learning transferable visual models from natural language
+  supervision.
+\newblock {\em Proceedings of Machine Learning Research}, 139:8748--8763, 2021.
+
+\bibitem{Rombach2022}
+Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, and Bj{\"o}rn
+  Ommer.
+\newblock High-resolution image synthesis with latent diffusion models.
+\newblock In {\em Proceedings of the IEEE/CVF Conference on Computer Vision and
+  Pattern Recognition}, pages 10684--10695, 2022.
+
+\bibitem{Scotti2023}
+Paul~S. Scotti, Atmadeep Banerjee, Jimmie Goode, Stepan Shabalin, Alex Nguyen,
+  Ethan Cohen, Aidan~J. Dempster, Nathalie Verlinde, Elad Yundler, David
+  Weisberg, Kenneth~A. Norman, and Tanishq~Mathew Abraham.
+\newblock Reconstructing the mind's eye: f{MRI}-to-image with contrastive
+  learning and diffusion priors.
+\newblock {\em Advances in Neural Information Processing Systems}, 36, 2023.
+
+\bibitem{Scotti2024}
+Paul~S. Scotti, Mihir Tripathy, Cesar Kadir~Torrico Villanueva, Reese Kneeland,
+  Tong Chen, Ashutosh Narang, Charan Santhirasegaran, Jonathan Xu, Thomas
+  Naselaris, Kenneth~A. Norman, and Tanishq~Mathew Abraham.
+\newblock Mindeye2: Shared-subject models enable f{MRI}-to-image with 1 hour of
+  data.
+\newblock {\em arXiv preprint arXiv:2403.11207}, 2024.
+
+\bibitem{Seeliger2018}
+Katja Seeliger, Umut G{\"u}{\c c}l{\"u}, Luca Ambrogioni, Yagiz G{\"u}{\c
+  c}l{\"u}t{\"u}rk, and Marcel A.~J. van Gerven.
+\newblock Generative adversarial networks for reconstructing natural images
+  from brain activity.
+\newblock {\em NeuroImage}, 181:775--785, 2018.
+
+\bibitem{Shen2019}
+Guohua Shen, Tomoyasu Horikawa, Kei Majima, and Yukiyasu Kamitani.
+\newblock Deep image reconstruction from human brain activity.
+\newblock {\em PLOS Computational Biology}, 15(1):e1006633, 2019.
+
+\bibitem{Takagi2023}
+Yu~Takagi and Shinji Nishimoto.
+\newblock High-resolution image reconstruction with latent diffusion models
+  from human brain activity.
+\newblock In {\em Proceedings of the IEEE/CVF Conference on Computer Vision and
+  Pattern Recognition}, pages 14453--14463, 2023.
+
+\bibitem{Thirion2006}
+Bertrand Thirion, Edouard Duchesnay, Edward~M. Hubbard, Jessica Dubois,
+  Jean-Baptiste Poline, Denis LeBihan, and Stanislas Dehaene.
+\newblock Inverse retinotopy: Inferring the visual content of images from brain
+  activation patterns.
+\newblock {\em NeuroImage}, 33(4):1104--1116, 2006.
+
+\bibitem{Oord2018}
+Aaron van~den Oord, Yazhe Li, and Oriol Vinyals.
+\newblock Representation learning with contrastive predictive coding.
+\newblock {\em arXiv preprint arXiv:1807.03748}, 2018.
+
+\bibitem{VanRullen2019}
+Rufin VanRullen and Leila Reddy.
+\newblock Reconstructing faces from f{MRI} patterns using deep generative
+  neural networks.
+\newblock {\em Communications Biology}, 2:193, 2019.
+
+\bibitem{Wen2018}
+Haiguang Wen, Junxing Shi, Wei Chen, and Zhongming Liu.
+\newblock Neural encoding and decoding with deep learning for dynamic natural
+  vision.
+\newblock {\em Cerebral Cortex}, 28(12):4136--4160, 2018.
+
+\end{thebibliography}

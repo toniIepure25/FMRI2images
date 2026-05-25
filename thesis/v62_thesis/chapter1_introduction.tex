@@ -57,7 +57,7 @@ The original contributions emphasized in this thesis are the following:
     \item a systematic debugging and validation program addressing alignment, split integrity, checkpoint selection, and retrieval geometry;
     \item an experimental comparison between single-head, dual-head, and triple-head retrieval formulations under a shared protocol;
     \item the validation of shortlist-local reranking as a corrective mechanism, followed by a stronger frozen fixed-fusion milestone built on the V35 compact expert and the legacy N1v28a expert, and finally extended into a frozen cross-architecture triple score fusion that combines a 197K token-space model with MC-TTA and two complementary 768-D experts as the final exported retrieval system;
-    \item a conservative qualitative analysis of retrieval-guided diffusion refinement, showing where anchor-preserving generation is useful and where exact retrieval should remain unchanged;
+    \item a conservative qualitative analysis of retrieval-guided diffusion refinement using SD~2.1 img2img with CLIP-conditioned best-of-$N$ selection and uncertainty-aware strength, which exposes a low-level-versus-semantic trade-off rather than a uniform improvement over the retrieval anchor;
     \item the explicit documentation of negative results and failed directions, which is scientifically useful because it narrows future search space.
 \end{itemize}
 

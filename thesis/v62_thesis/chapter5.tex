@@ -12,7 +12,7 @@ The history of the project reveals four broad phases. The first phase stabilizes
     \centering
     \includegraphics[width=\textwidth]{experiment_timeline.png}
     \caption{Main milestones of the experimental trajectory. The figure is not a strict apples-to-apples metric plot; rather, it highlights the turning points that changed the project: debugging the pipeline, widening the encoder, moving to token targets, validating dual-head decoding, establishing compact--rerank decomposition, freezing the V35 plus N1v28a fixed fusion as a methodological milestone, and finally extending it into the cross-architecture triple score fusion that becomes the exported retrieval system.}
-    \label{fig:timeline_placeholder}
+    \label{fig:experiment_timeline}
 \end{figure}
 
 \section{Evaluation Protocol}
@@ -87,7 +87,7 @@ Relative to the V35 plus N1v28a milestone, the improvement on SHARED1000 is $86.
     \centering
     \includegraphics[width=0.90\textwidth]{leaderboard_bar.png}
     \caption{Progression of SHARED1000 CSLS Recall@1 toward the final frozen triple-fusion system. The V35 plus N1v28a fixed fusion is shown as a milestone; the final exported triple fusion of V61a with MC-TTA-16, V62a, and V66a is the highest bar.}
-    \label{fig:leaderboard_placeholder}
+    \label{fig:leaderboard}
 \end{figure}
 
 \subsection*{Final cross-architecture fusion extension}
@@ -280,9 +280,9 @@ The thesis treats reconstruction more conservatively than retrieval. The retriev
 
 First, \emph{exact retrievals should not be harmed}. In the perfect bucket, the final selected output remains identical to the anchor image. This is the correct behaviour: when the retrieval stage is already exact, the generative module should preserve it rather than rewrite it.
 
-Second, \emph{generation can help on harder cases, but only modestly and only under anchor-preserving control}. On the near-good and hard buckets, diffusion occasionally improves coarse structure or the global layout relative to the retrieved anchor, especially when the initial retrieval captures the right scene family but misses fine details. However, this benefit is not universal and is less reliable than retrieval itself.
+Second, \emph{the effect of diffusion on non-perfect cases is bucket-dependent rather than uniformly positive}. On the good and hard buckets, diffusion improves pixel correlation and PSNR while regressing CLIP image similarity; on the near-good bucket the per-metric outcome is the most adverse of the three, with the largest CLIP image-similarity regression and a small pixel-correlation regression. The benefit is therefore neither universal across buckets nor uniform across metrics, and the reconstruction stage does not act as a reliable improvement over the retrieval anchor.
 
-Third, \emph{CLIP-conditioned best-of-$N$ diffusion trades off low-level fidelity for semantic steering}. The improved diffusion pipeline injects the fMRI-predicted CLIP embedding as conditioning for SD~2.1 img2img, generates $N{=}16$ candidates per example, and selects the candidate with highest CLIP cosine similarity to the predicted embedding. Strength, guidance scale, and number of steps are derived per example from a confidence score $c \in [0, 1]$ defined as the margin between the CSLS top-1 and CSLS top-2 fused scores for the query, linearly mapped to the strength interval $[0, 0.30]$ (high confidence $\Rightarrow$ low strength, low confidence $\Rightarrow$ higher strength), with the guidance scale and number of denoising steps interpolated jointly on the same axis, rather than bucket-fixed routes. The summary metrics on the curated 16-example subset show that diffusion improves mean pixel correlation by $+0.001$, PSNR by $+0.138$\,dB, and AlexNet(2) by $+0.011$, while SSIM decreases by $-0.009$, LPIPS worsens marginally ($+0.012$), and CLIP image similarity decreases by $-0.022$. AlexNet(5) decreases slightly ($-0.010$). The pattern is interpretable: the CLIP-conditioned pipeline actively steers generation toward the predicted semantics, producing images that are more structurally diverse from the anchor but not uniformly closer to ground truth. The strongest per-example deviations are concentrated in the hard bucket, where the retrieval anchor itself is least similar to the ground truth.
+Third, \emph{CLIP-conditioned best-of-$N$ diffusion trades off low-level fidelity for semantic steering}. The improved diffusion pipeline injects the fMRI-predicted CLIP embedding as conditioning for SD~2.1 img2img, generates $N{=}16$ candidates per example, and selects the candidate with highest CLIP cosine similarity to the predicted embedding. Strength, guidance scale, and number of steps are derived per example from a confidence score $c \in [0, 1]$ defined as the margin between the CSLS top-1 and CSLS top-2 fused scores for the query, linearly mapped to the strength interval $[0, 0.30]$ (high confidence $\Rightarrow$ low strength, low confidence $\Rightarrow$ higher strength), with the guidance scale and number of denoising steps interpolated jointly on the same axis, rather than bucket-fixed routes. The full per-metric outcome is reported in Table~\ref{tab:diffusion_summary}: PSNR and AlexNet(2) gain in the mean, SSIM, LPIPS, CLIP image similarity, and AlexNet(5) regress, and pixel correlation is essentially flat. The pattern is interpretable: the CLIP-conditioned pipeline actively steers generation toward the predicted semantics, producing images that are more structurally diverse from the anchor but not uniformly closer to ground truth. The strongest per-example deviations are concentrated in the hard bucket, where the retrieval anchor itself is least similar to the ground truth.
 
 \begin{table}[htbp]
 \centering
@@ -309,8 +309,8 @@ The bucketed analysis refines the picture. Perfect cases remain perfect, validat
 \begin{figure}[p]
     \centering
     \includegraphics[width=0.96\textwidth]{reconstruction_examples_composite.png}
-    \caption{Representative CLIP-conditioned reconstruction examples anchored on the final triple-fusion top-1 retrievals. Perfect cases are preserved unchanged. Good, near-good, and hard cases use fMRI-predicted CLIP conditioning with best-of-16 candidate selection and uncertainty-aware strength. The diffusion outputs show semantically steered generation that improves low-level metrics (PixCorr, PSNR, AlexNet-2) while occasionally diverging from the anchor in CLIP similarity, consistent with the trade-off pattern in Table~\ref{tab:diffusion_summary}.}
-    \label{fig:reconstruction_placeholder}
+    \caption{Representative CLIP-conditioned reconstruction examples anchored on the final triple-fusion top-1 retrievals. Perfect cases are preserved unchanged by the identity-pass route. Good, near-good, and hard cases use fMRI-predicted CLIP conditioning with best-of-16 candidate selection and uncertainty-aware strength. The diffusion outputs are visibly steered toward the predicted semantics rather than toward the anchor, consistent with the mean PSNR and AlexNet(2) gains and the corresponding CLIP image-similarity, SSIM, and LPIPS regressions reported in Table~\ref{tab:diffusion_summary}.}
+    \label{fig:reconstruction_examples}
 \end{figure}
 
 \section{Ablation-Oriented Discussion}

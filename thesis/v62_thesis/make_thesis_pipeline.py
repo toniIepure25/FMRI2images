@@ -176,9 +176,10 @@ def main():
         title=None, fontsize=9)
 
     box(ax, x_diff, y_mil, diff_w, h_mil,
-        "SD 2.1 img2img + CLIP-conditioned\nbest-of-16 -- optional qualitative add-on",
+        "SDXL 1.0 + IP-Adapter + CLIP injection\n"
+        "$n=141$ examples  ·  2-way AlexNet(5) = 86.2%",
         face=C_DIFFUSION, border="#a89878", lw=1.0,
-        title=None, fontsize=9)
+        title=None, fontsize=8.5)
     arrow(ax, (x_out + out_w / 2, y_head),
               (x_diff + diff_w / 2, y_mil + h_mil),
           ls=":", color="#7a6a4a")

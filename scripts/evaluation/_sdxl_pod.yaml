@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sdxl-recon-a100
+  labels:
+    app: sdxl-recon
+spec:
+  restartPolicy: Never
+  containers:
+    - name: main
+      image: jupyter/scipy-notebook:latest
+      command: ["sleep", "86400"]
+      resources:
+        requests:
+          memory: "32Gi"
+          cpu: "4"
+          nvidia.com/gpu: "1"
+        limits:
+          memory: "48Gi"
+          cpu: "8"
+          nvidia.com/gpu: "1"
+      volumeMounts:
+        - name: data
+          mountPath: /home/jovyan/work
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: orchestraiq-jupyter-extra-pvc

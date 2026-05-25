@@ -52,6 +52,15 @@
 \captionsetup{font=small,labelfont=bf}
 \renewcommand{\bibname}{Bibliography}
 
+% Project-specific tokens like SHARED1000 and N1v28a contain digits and
+% therefore cannot be added to \hyphenation{...} (LaTeX rejects non-letter
+% tokens there).  Allow looser inter-word spacing instead so the paragraph
+% breaker has room to avoid the overfull boxes those long tokens otherwise
+% cause at the right margin.
+\emergencystretch=3em
+\tolerance=1000
+\hbadness=2000
+
 \newcommand{\placeholderfigure}[3]{%
 \begin{figure}[htbp]
     \centering

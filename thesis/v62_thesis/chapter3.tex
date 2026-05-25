@@ -84,16 +84,16 @@ The methodological evolution of the thesis begins with wide multilayer perceptro
 
 The final trainable architecture described in this thesis is the V30/V35 family, which separates the decoding problem into three subproblems:
 \begin{itemize}
-    \item the \textbf{compact head}, which is optimized for shortlist retrieval in a stable low-dimensional space;
+    \item the \textbf{compact head}, which is optimised for shortlist retrieval in a stable low-dimensional space;
     \item the \textbf{rerank head}, which operates only on shortlist candidates and performs shortlist-local discrimination;
     \item the \textbf{rich head}, which preserves a higher-capacity representation useful for regression and reconstruction-oriented supervision.
 \end{itemize}
-This separation is one of the central design insights of the project. A single latent space is not forced to satisfy all design requirements simultaneously.
+This separation is one of the central design insights of the project: a single latent space is not forced to satisfy all design requirements simultaneously. The decomposition is preserved by the final exported system, which keeps the multi-head decoder trained as in V35 but replaces the two-expert milestone fusion with the inference-time cross-architecture triple score fusion described in Section~\ref{chap:experiments}.
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{model_architecture.png}
-    \caption{Decoder architecture corresponding to the V35 plus N1v28a fixed-fusion milestone. A shared encoder feeds a compact shortlist head, a dedicated rerank head, and a richer regression head, and the V35 compact expert is combined at inference time with the frozen legacy N1v28a expert. The final exported system retains the same multi-head decomposition and extends this expert-fusion idea further at inference time into the cross-architecture triple score fusion described in Section~\ref{chap:experiments} (see Equation~\eqref{eq:triple_fusion_score}).}
+    \caption{Trainable multi-head decoder shared by the V60--V66 lineage. A residual MLP encoder operates on the preprocessed voxel vector and feeds three task-specific heads (compact for shortlist, rerank for shortlist-local correction, rich for regression-style targets and qualitative decoding). This is the trainable architecture; the inference-time score fusion across V61a, V62a, and V66a that yields the headline SHARED1000 result is described in Section~\ref{chap:experiments} and depicted separately in Figure~\ref{fig:triple_fusion_architecture}.}
     \label{fig:model_architecture}
 \end{figure}
 

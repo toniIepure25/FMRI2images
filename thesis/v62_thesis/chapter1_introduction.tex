@@ -24,7 +24,7 @@ The work is motivated by the convergence of three research directions. The first
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{thesis_pipeline.png}
-    \caption{Overview of the complete thesis pipeline. The written thesis is centered on retrieval: NSD fMRI is preprocessed and mapped by a shared encoder into compact, rerank, and rich latent heads. The V35 plus frozen legacy N1v28a fixed fusion is retained as a methodological milestone, while the final exported system is a frozen cross-architecture triple score fusion that combines a 197K token-space model with MC-TTA, a 768-D CLS model, and a 768-D ROI-pretrained model. The diffusion add-on is treated as an optional qualitative extension rather than as the primary benchmark.}
+    \caption{Overview of the complete thesis pipeline. NSD fMRI is preprocessed and mapped by a shared multi-head decoder into three frozen retrieval experts (V61a, V62a, V66a). Their CSLS scores are z-score normalised and combined by a frozen weighted sum, producing the headline SHARED1000 endpoint at $86.3\%$ CSLS Recall@1 (heavy border). The earlier V35 plus N1v28a fixed fusion at $77.2\%$ is retained as a methodological milestone. The reconstruction add-on (SD~2.1 img2img with CLIP-conditioned best-of-16) is an optional qualitative extension.}
     \label{fig:thesis_pipeline}
 \end{figure}
 
@@ -56,7 +56,8 @@ The original contributions emphasized in this thesis are the following:
     \item the design and implementation of an end-to-end fMRI-to-latent decoding pipeline built around NSD, CLIP targets, and retrieval-based evaluation;
     \item a systematic debugging and validation program addressing alignment, split integrity, checkpoint selection, and retrieval geometry;
     \item an experimental comparison between single-head, dual-head, and triple-head retrieval formulations under a shared protocol;
-    \item the validation of shortlist-local reranking as a corrective mechanism, followed by a stronger frozen fixed-fusion milestone built on the V35 compact expert and the legacy N1v28a expert, and finally extended into a frozen cross-architecture triple score fusion that combines a 197K token-space model with MC-TTA and two complementary 768-D experts as the final exported retrieval system;
+    \item the validation of shortlist-local reranking as a corrective mechanism inside a strong compact shortlist, followed by a frozen two-expert fixed-fusion milestone built on V35 and the legacy N1v28a expert;
+    \item the design of a frozen cross-architecture triple score fusion --- combining a 197K token-space model with MC-TTA and two complementary 768-D experts --- as the final exported retrieval system, which constitutes the headline contribution of this thesis;
     \item a conservative qualitative analysis of retrieval-guided diffusion refinement using SD~2.1 img2img with CLIP-conditioned best-of-$N$ selection and uncertainty-aware strength, which exposes a low-level-versus-semantic trade-off rather than a uniform improvement over the retrieval anchor;
     \item the explicit documentation of negative results and failed directions, which is scientifically useful because it narrows future search space.
 \end{itemize}

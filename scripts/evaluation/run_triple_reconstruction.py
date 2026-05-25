@@ -429,52 +429,93 @@ def compute_all_metrics(
 # Composite image generation
 # ---------------------------------------------------------------------------
 
-def make_composite(rows: list[dict], store: StimulusStore, output_path: str, tile_size: int = 200):
-    cols_per_bucket = 4
-    n_img_cols = 3
-    total_cols = cols_per_bucket * n_img_cols
-    label_w = 100
-    gap = 4
-    header_h = 30
+def make_composite(rows: list[dict], store: StimulusStore, output_path: str, tile_size: int = 320):
+    """Lay out the qualitative reconstruction composite.
 
-    w = label_w + total_cols * tile_size + (total_cols - 1) * gap + 20
-    h = header_h + len(BUCKETS) * (tile_size + gap + 20) + 20
+    Two examples per bucket (instead of four) at 320 px tiles, with column
+    headers per example group, a soft separator strip between buckets, and a
+    bold-coloured side-label for each bucket. The result is much more legible
+    at thesis print size than the previous 4-example-per-row grid.
+    """
+    cols_per_bucket = 2
+    n_img_cols = 3       # GT | Anchor | Diffusion
+    total_cols = cols_per_bucket * n_img_cols
+    label_w = 130
+    gap = 6
+    group_gap = 28       # extra space between the two example groups
+    header_h = 38
+    row_pad = 16         # padding between buckets
+
+    # Width accounts for the extra group-gap between the two example triplets.
+    w = (label_w
+         + total_cols * tile_size
+         + (n_img_cols - 1) * gap * cols_per_bucket
+         + group_gap
+         + 24)
+    h = header_h + len(BUCKETS) * (tile_size + row_pad + 6) + 24
     canvas = Image.new("RGB", (w, h), "white")
     draw = ImageDraw.Draw(canvas)
 
     try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
-        font_sm = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 11)
+        font_bucket = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
+        font_header = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
+        font_grp = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
     except Exception:
-        font = ImageFont.load_default()
-        font_sm = font
+        font_bucket = ImageFont.load_default()
+        font_header = font_bucket
+        font_grp = font_bucket
 
-    col_labels = []
-    for _ in range(cols_per_bucket):
-        col_labels.extend(["GT", "Anchor", "Diffusion"])
-    for ci, lbl in enumerate(col_labels):
-        x = label_w + ci * (tile_size + gap) + tile_size // 2
-        draw.text((x, 5), lbl, fill="black", font=font_sm, anchor="mt")
+    # Compute x positions for each of the 6 image tiles
+    def tile_x(group_idx: int, col_in_group: int) -> int:
+        base = label_w + group_idx * (n_img_cols * tile_size + (n_img_cols - 1) * gap + group_gap)
+        return base + col_in_group * (tile_size + gap)
 
+    # ---- column header row ----
+    for g in range(cols_per_bucket):
+        for ci, lbl in enumerate(["Ground truth", "Anchor", "Diffusion"]):
+            x = tile_x(g, ci) + tile_size // 2
+            draw.text((x, 8), lbl, fill=(40, 40, 40), font=font_header, anchor="mt")
+        # thin underline below the per-group header
+        ux0 = tile_x(g, 0)
+        ux1 = tile_x(g, n_img_cols - 1) + tile_size
+        draw.line([(ux0, header_h - 4), (ux1, header_h - 4)], fill=(180, 180, 180), width=1)
+
+    # ---- bucket rows ----
     by_bucket = {b: [] for b in BUCKETS}
     for r in rows:
         by_bucket[r["bucket"]].append(r)
 
+    BUCKET_COLOR = {
+        "perfect": (40, 110, 60),
+        "good": (60, 100, 160),
+        "near_good": (150, 105, 40),
+        "hard": (150, 50, 50),
+    }
+
     for bi, bucket in enumerate(BUCKETS):
-        y0 = header_h + bi * (tile_size + gap + 20)
-        draw.text((5, y0 + tile_size // 2), bucket.replace("_", " ").title(), fill="black", font=font, anchor="lm")
+        y0 = header_h + bi * (tile_size + row_pad + 6)
+        bucket_label = bucket.replace("_", " ").title()
+        draw.text(
+            (10, y0 + tile_size // 2),
+            bucket_label,
+            fill=BUCKET_COLOR.get(bucket, (40, 40, 40)),
+            font=font_bucket, anchor="lm",
+        )
         examples = by_bucket[bucket][:cols_per_bucket]
         for ei, ex in enumerate(examples):
             gt_img = store.get_image(ex["query_nsd_id"]).resize((tile_size, tile_size), Image.LANCZOS)
             anchor_img = ex["_anchor_img"].resize((tile_size, tile_size), Image.LANCZOS)
             diff_img = ex["_diffusion_img"].resize((tile_size, tile_size), Image.LANCZOS)
-            base_col = ei * n_img_cols
             for ci, img in enumerate([gt_img, anchor_img, diff_img]):
-                x = label_w + (base_col + ci) * (tile_size + gap)
+                x = tile_x(ei, ci)
                 canvas.paste(img, (x, y0))
+        # soft separator at the bottom of each bucket row (skip the last)
+        if bi < len(BUCKETS) - 1:
+            sy = y0 + tile_size + row_pad // 2
+            draw.line([(label_w, sy), (w - 12, sy)], fill=(225, 225, 225), width=1)
 
-    canvas.save(output_path, quality=95)
-    logger.info(f"Composite saved to {output_path}")
+    canvas.save(output_path, dpi=(300, 300), quality=95)
+    logger.info(f"Composite saved to {output_path} ({w}x{h}, 300 dpi)")
 
 
 # ---------------------------------------------------------------------------

@@ -156,8 +156,9 @@ def main() -> None:
                 ha="left", va="center",
                 fontsize=10, color=FUSION_TITLE)
 
-    # 5. Final output box.
-    draw_box(ax, 0.50, y_output, output_w, output_h, OUTPUT_FILL, OUTPUT_EDGE)
+    # 5. Final output box (heavy border to emphasize it as the headline).
+    draw_box(ax, 0.50, y_output, output_w, output_h, OUTPUT_FILL,
+             edge="#1c1c1c", lw=2.0)
     ax.text(0.50, y_output + 0.043, "SHARED1000 retrieval ranking",
             ha="center", va="center",
             fontsize=12, fontweight="bold", color=OUTPUT_TITLE)

@@ -79,6 +79,7 @@ The overall training objective combines multiple terms:
 where the $\lambda$ coefficients control the relative importance of the different heads.
 
 \section{Architecture Evolution}
+\label{sec:architecture_evolution}
 
 The methodological evolution of the thesis begins with wide multilayer perceptron decoders operating on the full voxel vector. These models are intentionally simple and serve as strong baselines. Later iterations introduce probabilistic directional heads, ROI-aware tokenization, transformer-based components inspired by token processing in modern vision models \cite{Dosovitskiy2021}, and finally multi-head retrieval architectures.
 
@@ -118,7 +119,7 @@ After validating this compact, rerank, and rich decomposition, the final inferen
 s_{\mathrm{final}}(i,j) = 0.7\,\widetilde{s}_{1,\mathrm{CSLS}}(i,j) + 0.1\,\widetilde{s}_{2,\mathrm{CSLS}}(i,j) + 0.2\,\widetilde{s}_{3,\mathrm{CSLS}}(i,j),
 \label{eq:triple_fusion_score}
 \end{equation}
-evaluated with CSLS neighbourhood size $k=3$. The weights, the CSLS neighbourhood size, and the choice of experts are all frozen before SHARED1000 evaluation, so the final system performs no test-time tuning. It is important to emphasize that Equation~\eqref{eq:triple_fusion_score} defines a score-level inference-time fusion rather than an end-to-end fusion-trained architecture, and the system does not produce a single unified fused latent embedding.
+evaluated with CSLS neighbourhood size $k=3$. The weights, the CSLS neighbourhood size, and the choice of experts are all frozen before SHARED1000 evaluation, so the final system performs no test-time tuning. The final fusion is applied only at the retrieval-score level: it combines normalised CSLS score matrices from \emph{independently trained} retrieval experts and does not define a single fused latent representation. Equation~\eqref{eq:triple_fusion_score} is therefore not an end-to-end jointly trained fusion architecture and shares no decoder weights between the three experts; the trainable multi-head decomposition described in Section~\ref{sec:architecture_evolution} and depicted in Figure~\ref{fig:model_architecture} characterises the V30/V35 family, while V61a, V62a, and V66a are separate fine-tuned models whose only point of interaction is Equation~\eqref{eq:triple_fusion_score}.
 
 A useful way to interpret the overall design is therefore that the first stage solves a difficult global search problem, the rerank branch provides shortlist-local discrimination, the two-expert milestone fusion validates that complementary experts can be combined at inference time, and the final triple fusion combines partially different information from three target spaces and architecture families through frozen score-level weights, without retraining the backbone. This division of labour is one of the main methodological lessons of the project.
 

@@ -72,7 +72,7 @@ Cross-architecture triple fusion & Can experts from different target spaces and 
 
 The final exported system is neither the early V30 compact--rerank fusion nor the V35 plus N1v28a fixed fusion taken alone, even though both waves remain methodologically central. It is a frozen score-level combination of three retrieval experts spanning different target spaces and inductive biases: a 197K token-space model (V61a) evaluated with MC-TTA-16, a 768-D CLS model (V62a), and a 768-D ROI-pretrained model (V66a). The weights $w_1/w_2/w_3 = 0.7/0.1/0.2$ and the CSLS neighbourhood size $k=3$ are chosen on validation and frozen before SHARED1000, so the headline result does not depend on test-time tuning. The MC-TTA expert dominates each individual ranking; the two 768-D experts contribute as auxiliary score streams whose aggregate effect is consistent with complementary correction, although per-trial complementarity is not claimed because the corresponding fused ranks were not exported. We emphasise that V61a, V62a, and V66a are \emph{independently trained} retrieval experts whose only point of interaction is the inference-time score fusion in Equation~\eqref{eq:triple_fusion_score}; the system combines normalised CSLS score matrices and does not produce a unified fused latent embedding, so it is not an end-to-end jointly trained fusion architecture.
 
-The headline retrieval endpoint of the thesis is CSLS Recall@1 on SHARED1000. Validation numbers were used during model selection and fusion weighting and are discussed where relevant, but they are not reported as headline results in Table~\ref{tab:final_results}: shared-image overlap between pretraining and validation splits in the V60--V66 lineage can inflate validation metrics relative to the strictly held-out benchmark, which is why the SHARED1000 result is treated as the paper-grade endpoint. Likewise, 197K token-space numbers and 768-D CLS numbers are not directly comparable on raw percentage points alone because the two spaces differ in difficulty and hubness geometry; CSLS partially mitigates this mismatch but does not remove it.
+The headline retrieval endpoint of the thesis is CSLS Recall@1 on SHARED1000. Validation numbers were used during model selection and fusion weighting and are discussed where relevant, but they are not reported as headline results in Table~\ref{tab:final_results}: shared-image overlap between pretraining and validation splits in the V60--V66 lineage can inflate validation metrics relative to the strictly held-out benchmark, which is why the SHARED1000 result is treated as the primary SHARED1000 benchmark endpoint. Likewise, 197K token-space numbers and 768-D CLS numbers are not directly comparable on raw percentage points alone because the two spaces differ in difficulty and hubness geometry; CSLS partially mitigates this mismatch but does not remove it.
 
 Table~\ref{tab:final_results} separates four ideas that should not be conflated: the V30 compact--rerank wave, the V35 plus N1v28a fixed-fusion milestone, the stronger single-model 197K extension with MC-TTA, and the final frozen cross-architecture triple fusion.
 
@@ -94,7 +94,7 @@ V66a (768-D ROI pretrain) & 35.5\% & 39.1\% & Weak alone; auxiliary expert in th
 \textbf{Triple fusion V61a$_{\mathrm{mctta16}}$ + V62a + V66a} & \textbf{72.1\%} & \textbf{86.3\%} & \textbf{Final exported system; R@5 = 98.0\%, MRR = 0.914, median rank 1} \\
 \bottomrule
 \end{tabularx}
-\caption{Final retrieval results on SHARED1000, reported as Recall@1 with and without CSLS hubness correction. The V30/V32 compact--rerank wave and the V35 plus N1v28a fixed fusion are retained as methodological milestones, while the final exported system is the frozen cross-architecture triple score fusion with weights $0.7/0.1/0.2$ and CSLS neighbourhood size $k=3$. SHARED1000 CSLS Recall@1 is treated as the paper-grade endpoint.}
+\caption{Final retrieval results on SHARED1000, reported as Recall@1 with and without CSLS hubness correction. The V30/V32 compact--rerank wave and the V35 plus N1v28a fixed fusion are retained as methodological milestones, while the final exported system is the frozen cross-architecture triple score fusion with weights $0.7/0.1/0.2$ and CSLS neighbourhood size $k=3$. SHARED1000 CSLS Recall@1 is treated as the primary SHARED1000 benchmark endpoint.}
 \label{tab:final_results}
 \end{table}
 
@@ -104,7 +104,7 @@ Relative to the previous V35 plus N1v28a milestone the improvement on SHARED1000
 
 The headline gain of $+3.2$ percentage points over the strongest single expert is reported as an aggregate point estimate over $1000$ SHARED1000 trials. A more complete statistical treatment would report bootstrap $95\%$ confidence intervals for the triple fusion's Recall@1, Recall@5, and Mean Reciprocal Rank, together with a paired correct-vs-wrong transition table between the strongest single expert (V61a with MC-TTA-16) and the fusion: how many trials each system gets right alone, how many they get right together, and how many neither recovers. The current thesis intentionally does not provide these per-trial statistics, because the per-trial fused-rank export for the triple fusion was not preserved for all four illustrated trials beyond Figures~\ref{fig:retrieval_successes_1} and~\ref{fig:retrieval_successes_2}. The complementarity claim is therefore supported at the \emph{aggregate metric} level only: a $+3.2$ percentage-point gain at $R@1$, a $+1.1$ percentage-point gain at $R@5$, and a parallel rise in $\mathrm{MRR}$ from $0.892$ to $0.914$ (Table~\ref{tab:expert_complementarity}). Re-exporting the per-trial fused ranks across the full SHARED1000 benchmark and adding the corresponding bootstrap confidence intervals and paired transition table is a priority for a conference-grade version of this work.
 
-The current thesis also reports only the final frozen fusion recipe together with the individual expert endpoints in Tables~\ref{tab:final_results} and~\ref{tab:expert_complementarity}. A full grid of fusion-weight, CSLS neighbourhood-size, and MC-TTA-depth ablations (varying $w_1/w_2/w_3$, $k$, and the number of MC-TTA draws) was not exhaustively logged for the SHARED1000 endpoint and is left as a direct extension for a conference submission. The frozen recipe $0.7/0.1/0.2$ with $k=3$ was selected by a small validation-side simplex sweep before SHARED1000 evaluation; the validation simplex itself is not reported here because the present thesis takes SHARED1000 as the paper-grade endpoint and treats validation only as a model-selection signal.
+The current thesis also reports only the final frozen fusion recipe together with the individual expert endpoints in Tables~\ref{tab:final_results} and~\ref{tab:expert_complementarity}. A full grid of fusion-weight, CSLS neighbourhood-size, and MC-TTA-depth ablations (varying $w_1/w_2/w_3$, $k$, and the number of MC-TTA draws) was not exhaustively logged for the SHARED1000 endpoint and is left as a direct extension for a conference submission. The frozen recipe $0.7/0.1/0.2$ with $k=3$ was selected by a small validation-side simplex sweep before SHARED1000 evaluation; the validation simplex itself is not reported here because the present thesis takes SHARED1000 as the primary benchmark endpoint and treats validation only as a model-selection signal.
 
 \begin{figure}[htbp]
     \centering
@@ -125,6 +125,7 @@ Beyond the V30/V35 multi-head decomposition and the V35 plus N1v28a two-expert f
 \end{figure}
 
 \subsection*{Why score-level triple fusion improves retrieval}
+\label{sec:why_triple_fusion_anchor}
 \label{subsec:why_triple_fusion}
 
 The retrieval gain in Table~\ref{tab:final_results} should not be read as the additive effect of stacking similar experts: the three components of the final system differ in target dimensionality, training objective, and inductive bias, so they fail in measurably different ways at the aggregate level. Table~\ref{tab:expert_complementarity} reports the per-expert SHARED1000 numbers. The 197K token-space expert V61a with MC-TTA-16 dominates each individual ranker, yet the frozen combination still exceeds it on the held-out benchmark even though the two weaker 768-D experts retain non-negligible weights $w_2 = 0.1$ and $w_3 = 0.2$ after validation tuning. That pattern is consistent with complementary correction at the system level. For the bulk of SHARED1000 we do not export per-trial fused ranks in this thesis --- the four illustrated trials in Figures~\ref{fig:retrieval_successes_1} and~\ref{fig:retrieval_successes_2} are the only exception --- and we therefore make no per-trial claim about which specific V61a errors are corrected by V62a or V66a across the full benchmark.
@@ -154,20 +155,20 @@ The aggregate gain is most visible in the near-miss regime: CSLS Recall@5 rises 
 \begin{table}[htbp]
 \centering
 \footnotesize
-\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.4cm} >{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}X}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{2.3cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
 \toprule
 \textbf{Field} & \textbf{V61a (token)} & \textbf{V62a (CLS)} & \textbf{V66a (ROI)} \\
 \midrule
-Input dimension & \texttt{nsdgeneral} voxels (subj01) & same & same \\
-Target dimension & $197\,376$ ($257 \times 768$ ViT-L/14 token grid) & $768$ (ViT-L/14 CLS) & $768$ (ViT-L/14 CLS) \\
-Encoder & residual MLP $[8192, 8192, 4096, 2048]$ & residual MLP $[8192, 8192, 4096, 2048]$ & residual MLP with $[1024]$ head on shared encoder \\
+Input dim. & \texttt{nsdgeneral} voxels & same & same \\
+Target dim. & $197{,}376$ (ViT-L/14 token grid, $257{\times}768$) & $768$ (ViT-L/14 CLS) & $768$ (ViT-L/14 CLS) \\
+Encoder & MLP $[8192,8192,4096,2048]$ & MLP $[8192,8192,4096,2048]$ & MLP backbone, $[1024]$ head \\
 Decoder head & $[2048]$ projection & $[2048]$ projection & $[1024]$ projection \\
-Training losses & vMF-NCE + regression MSE + $\kappa$ regulariser + SoftCLIP & vMF-NCE + regression MSE + $\kappa$ regulariser + SoftCLIP & vMF-NCE + SoftCLIP + $\kappa$ regulariser + R-drop \\
-Optimiser & AdamW; encoder LR $3.0 \cdot 10^{-6}$, decoder LR $3.0 \cdot 10^{-5}$ & AdamW; encoder LR $3.0 \cdot 10^{-6}$, decoder LR $1.0 \cdot 10^{-5}$ & AdamW; LR $1.0 \cdot 10^{-4}$ \\
+Training losses & vMF-NCE + MSE + $\kappa$ reg.\ + SoftCLIP & vMF-NCE + MSE + $\kappa$ reg.\ + SoftCLIP & vMF-NCE + SoftCLIP + $\kappa$ reg.\ + R-drop \\
+Optimiser & AdamW, enc.\ $3\!\cdot\!10^{-6}$, dec.\ $3\!\cdot\!10^{-5}$ & AdamW, enc.\ $3\!\cdot\!10^{-6}$, dec.\ $1\!\cdot\!10^{-5}$ & AdamW, $1\!\cdot\!10^{-4}$ \\
 Batch size & $16$ & $64$ & $128$ \\
-Epochs & up to $200$ with early stopping on validation Recall@1 & up to $200$, same criterion & up to $200$, same criterion \\
-Inference-time TTA & 16-draw Monte Carlo dropout, averaged on the unit hypersphere (MC-TTA-16) & none & none \\
-Fusion contribution & dominant ranker, $w_1 = 0.7$ & auxiliary stream, $w_2 = 0.1$ & auxiliary stream, $w_3 = 0.2$ \\
+Epochs & up to $200$, early stop on val.\ R@1 & up to $200$, same criterion & up to $200$, same criterion \\
+Inference TTA & MC-dropout, $16$ draws, on-sphere mean (MC-TTA-16) & none & none \\
+Fusion weight & dominant, $w_1{=}0.7$ & auxiliary, $w_2{=}0.1$ & auxiliary, $w_3{=}0.2$ \\
 \bottomrule
 \end{tabularx}
 \caption{Final-system implementation summary for the three frozen retrieval experts. All values are reproduced from the YAML configs of V61a, V62a, and V66a in \texttt{configs/experiments/}. The fusion-time hyperparameters are CSLS neighbourhood size $k=3$, per-expert $z$-score normalisation over the SHARED1000 gallery, and frozen weights $w_1/w_2/w_3 = 0.7/0.1/0.2$ (Equation~\eqref{eq:triple_fusion_score}).}
@@ -179,7 +180,7 @@ Fusion contribution & dominant ranker, $w_1 = 0.7$ & auxiliary stream, $w_2 = 0.
 
 The headline retrieval gain reported in Table~\ref{tab:final_results} answers a narrow but well-defined generalization question: given an fMRI response to a held-out stimulus image, can the decoder rank that image first in a held-out gallery? This subsection records the design choices behind that question and reports auxiliary geometric evidence for the broader claim that the learned fMRI-to-CLIP mapping preserves semantic structure, rather than merely memorizing top-1 identities.
 
-\paragraph{What counts as generalisation evidence.} SHARED1000 is the paper-grade endpoint because it is held out from training and validation and the fusion recipe is frozen on validation before being applied. Splits are stimulus-level: each unique stimulus image belongs to exactly one of train, validation, and SHARED1000, so repeated fMRI trials of the same image cannot leak across the three sets. Validation Recall@1 is used internally for model selection and for choosing the triple-fusion weights and CSLS neighbourhood size, but is not reported as the headline endpoint, for the V60--V66 inflation reason already discussed in Section~\ref{chap:experiments}. CSLS is preferred over raw cosine because high-dimensional CLIP retrieval suffers from hubness; the manifold analyses below quantify the size of this effect.
+\paragraph{What counts as generalisation evidence.} SHARED1000 is the primary benchmark endpoint because it is held out from training and validation and the fusion recipe is frozen on validation before being applied. Splits are stimulus-level: each unique stimulus image belongs to exactly one of train, validation, and SHARED1000, so repeated fMRI trials of the same image cannot leak across the three sets. Validation Recall@1 is used internally for model selection and for choosing the triple-fusion weights and CSLS neighbourhood size, but is not reported as the headline endpoint, for the V60--V66 inflation reason already discussed in Section~\ref{chap:experiments}. CSLS is preferred over raw cosine because high-dimensional CLIP retrieval suffers from hubness; the manifold analyses below quantify the size of this effect.
 
 \paragraph{Scope of the manifold-alignment analyses.} The geometric analyses summarized in Table~\ref{tab:manifold_evidence} were computed on the V62a single model under the official SHARED1000 target-embeddings protocol with a 1000-image gallery, and supplementarily on the V62a validation split with a 10000-image gallery. They therefore characterize the 768-D CLIP-CLS retrieval geometry of one expert that participates in the final triple fusion; they do not directly characterize the fused system, because the triple fusion is performed at score level and does not produce a unified fused 768-D embedding. The analyses are presented as auxiliary evidence that the learned fMRI-to-CLIP mapping preserves semantic structure, not as a substitute for the SHARED1000 retrieval endpoint.
 
@@ -236,16 +237,17 @@ The retrieval and neighborhood metrics summarized in Table~\ref{tab:manifold_evi
 
 \begin{table}[htbp]
 \centering
-\footnotesize
-\begin{tabularx}{\textwidth}{>{\centering\arraybackslash}p{1.0cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{4.4cm}}
+\scriptsize
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}c p{2.9cm} p{2.9cm} p{5.0cm}@{}}
 \toprule
-\textbf{Sample} & \textbf{Top-3 decoded probes} & \textbf{Top-3 target-image probes} & \textbf{Interpretation} \\
+\textbf{Sample} & \textbf{Top-3 decoded} & \textbf{Top-3 target} & \textbf{Interpretation} \\
 \midrule
-$1$ & kitchen; indoor room; food & kitchen; food; indoor room & Top-3 concept sets coincide; decoded top-1 matches target top-1. \\
-$7$ & sports; forest; natural scene & sports; human body; person & Top-1 matches; secondary concepts emphasize scene context (decoded) vs.\ actor context (target). \\
-$8$ & dog; animal; cat & cat; car; animal & Animal category is preserved; instance-level identity is confused (decoded top-1 is the wrong species but the target top-1 \emph{cat} appears in the decoded top-3). \\
+$1$ & kitchen; indoor room; food & kitchen; food; indoor room & Top-3 sets coincide; decoded top-1 matches target. \\
+$7$ & sports; forest; scene & sports; body; person & Top-1 matches; secondary decoded concepts are scene-context. \\
+$8$ & dog; animal; cat & cat; car; animal & Animal class preserved; instance confused (target \emph{cat} in decoded top-3). \\
 \bottomrule
-\end{tabularx}
+\end{tabular}
 \caption{Three representative SHARED1000 trials drawn from the V62a semantic-probe export, illustrating the range of behaviours summarized by the aggregate agreement@5 $= 0.833$ statistic. Sample indices match the exported \texttt{semantic\_probe\_examples} artifact; values are reproduced verbatim. These examples are language-space probes of decoded V62a embeddings, not retrieval outputs of the triple-fusion system.}
 \label{tab:text_probe_examples}
 \end{table}
@@ -406,6 +408,7 @@ MindEye2 \cite{Scotti2024} & NSD & shared-subject scaling & Multi-subject pretra
 \end{table}
 
 \section{Ethical Considerations and Scope of Brain Decoding}
+\label{sec:ethics}
 
 The scope of this thesis is deliberately narrow. The decoder is trained and evaluated on the Natural Scenes Dataset \cite{Allen2022}, in which volunteer subjects view known external natural images under controlled laboratory conditions and with prior informed consent. The decoder maps the resulting fMRI responses to image-aligned CLIP embeddings of those external stimuli; it does not infer private thoughts, intentions, memories, or imagined content, and it is not a general "mind reading" system. The final retrieval endpoint is meaningful only against a fixed pre-specified gallery, the reconstruction add-on is meaningful only when conditioned on a retrieved anchor image, and every stage depends on subject-specific fMRI preprocessing, voxel selection, and per-session normalisation. None of these conditions are met in any ecological setting outside the laboratory protocol.
 
@@ -413,8 +416,54 @@ The methodology is therefore appropriate to discuss as a step toward more reliab
 
 \section{Limitations}
 
-Despite the encouraging results, several limitations remain. The study is still constrained by subject scale, by the difficulty of cross-subject alignment, and by the fact that retrieval is quantitatively emphasized more strongly than reconstruction fidelity. The final best system also relies on a frozen inference-time score fusion rather than on a fully end-to-end fusion-aware training objective, and does not produce a unified fused latent embedding. The use of 16-draw MC-TTA on the dominant 197K expert increases inference cost relative to a single forward pass. Validation Recall@1 in the V60--V66 lineage can be inflated by shared-image overlap with pretraining splits, which is why SHARED1000 CSLS Recall@1 is treated as the paper-grade endpoint throughout this chapter. The diffusion add-on is evaluated on $n{=}141$ SHARED1000 examples ($n{=}137$ non-perfect), which provides statistical defensibility for the aggregate conclusions but still covers only the SHARED1000 gallery; its performance on different galleries or subjects is not assessed.
+Despite the encouraging results, several limitations remain. The study is still constrained by subject scale, by the difficulty of cross-subject alignment, and by the fact that retrieval is quantitatively emphasized more strongly than reconstruction fidelity. The final best system also relies on a frozen inference-time score fusion rather than on a fully end-to-end fusion-aware training objective, and does not produce a unified fused latent embedding. The use of 16-draw MC-TTA on the dominant 197K expert increases inference cost relative to a single forward pass. Validation Recall@1 in the V60--V66 lineage can be inflated by shared-image overlap with pretraining splits, which is why SHARED1000 CSLS Recall@1 is treated as the primary SHARED1000 benchmark endpoint throughout this chapter. The diffusion add-on is evaluated on $n{=}141$ SHARED1000 examples ($n{=}137$ non-perfect), which provides statistical defensibility for the aggregate conclusions but still covers only the SHARED1000 gallery; its performance on different galleries or subjects is not assessed.
 
 These limitations do not weaken the current conclusions; rather, they clarify the next research steps. The thesis has reached a point where the main challenge is no longer basic pipeline validity, but how to preserve complementary expert signals while scaling toward stronger shared-subject and reconstruction-aware systems.
 
 \paragraph{Reconstruction-side ablation plan.} A more complete reconstruction study should isolate the contribution of the retrieved image anchor from the contribution of the predicted fMRI-derived CLIP signal. This requires running the same pipeline under five controlled conditions: (i) anchor-only generation with no CLIP injection, (ii) anchor plus predicted-CLIP injection (the current configuration), (iii) an incorrect-anchor control in which the IP-Adapter image is replaced by an unrelated SHARED1000 image while the predicted CLIP is retained, (iv) CLIP-only conditioning with no anchor image at all, and (v) a ground-truth-anchor upper bound in which the IP-Adapter receives the true stimulus image. The current thesis does not include this 5-way ablation grid; it is identified as the priority experiment for a conference-grade version because only that comparison disentangles \emph{how much} of the reported reconstruction quality is carried by the retrieval anchor and \emph{how much} by the fMRI-predicted latent signal.
+
+\section{Defense Summary}
+\label{sec:defense_summary}
+
+Table~\ref{tab:defense_summary} consolidates the four lines of evidence in this thesis with their supporting artifacts and scope limits. Table~\ref{tab:artifact_map} pairs each claim with the concrete repository path that produced it; both tables are intended as a single-glance reference during the oral defence.
+
+\begin{table}[htbp]
+\centering
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.0cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X@{}}
+\toprule
+\textbf{Claim} & \textbf{What the thesis demonstrates} & \textbf{Evidence} & \textbf{Scope / limitation of the claim} \\
+\midrule
+Retrieval (headline) & A frozen score-level fusion of three independently trained retrieval experts reaches $86.3\%$ CSLS R@1 on SHARED1000. & Tables~\ref{tab:final_results} and~\ref{tab:expert_complementarity}; numbers from Table~\ref{tab:artifact_map}. & Single subject (subj01), single gallery (SHARED1000); per-trial fused-rank export not preserved $\Rightarrow$ no bootstrap CI in this thesis. \\
+CSLS + complementarity & CSLS reduces hubness substantially in the analysed expert and the fusion gain is larger than what redundant ensembling would predict. & Table~\ref{tab:manifold_evidence}, near-miss-regime analysis in \S\ref{sec:why_triple_fusion_anchor}. & Manifold evidence is V62a-only; complementarity claim is aggregate, not per-trial. \\
+Reconstruction add-on & SDXL + IP-Adapter (anchor from triple-fusion top-1) + fMRI-predicted CLIP injection yields modest improvements in SSIM, PSNR, CLIP-I, and AlexNet(5) identification on 141 SHARED1000 examples; other metrics are essentially unchanged. & Table~\ref{tab:diffusion_summary}; numbers from Table~\ref{tab:artifact_map}. & Not a pure fMRI-only reconstruction: the IP-Adapter anchor carries most of the low-level structure. 5-way anchor-vs-CLIP ablation not yet run. \\
+Ethical scope & The system decodes \emph{viewed external stimuli} from consenting NSD subjects against a fixed gallery; it is not a general "mind reading" system. & \S\ref{sec:ethics} (Ethical Considerations and Scope of Brain Decoding). & The result does not extrapolate to ecological settings, decoding of mental imagery, or non-consensual neural inference. \\
+\bottomrule
+\end{tabularx}
+\caption{Defense summary. Each row pairs a thesis-level claim with the supporting evidence and the explicit scope under which the claim is intended to be defended.}
+\label{tab:defense_summary}
+\end{table}
+
+\begin{table}[htbp]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.4cm} >{\raggedright\arraybackslash\ttfamily}X@{}}
+\toprule
+\normalfont\textbf{Artifact} & \normalfont\textbf{Repository path (relative to project root)} \\
+\midrule
+V61a expert (token, MC-TTA) & configs/ experiments/ V61a\_finetune\_difflr.yaml \\
+V62a expert (768-D CLS) & configs/ experiments/ V62a\_cls\_retrieval\_768d.yaml \\
+V66a expert (768-D ROI) & configs/ experiments/ V66a\_roi\_pretrain.yaml \\
+Triple-fusion script & scripts/ evaluation/ triple\_fusion\_shared1000\_fixed.py \\
+Triple-fusion metrics & experimental\_results/ fusion\_triple\_86/ triple\_fusion\_shared1000\_86.json \\
+Reconstruction pipeline & scripts/ evaluation/ run\_sdxl\_ipadapter\_reconstruction.py \\
+Reconstruction metrics & experimental\_results/ reconstruction\_sdxl\_ipa/ metrics\_summary.json \\
+Reconstruction per-example CSV & experimental\_results/ reconstruction\_sdxl\_ipa/ per\_example.csv \\
+Qualitative retrieval panels & thesis/ v62\_thesis/ query\_\{8262,21279,55649,8509\}.png \newline \normalfont(per-trial GT ranks in)\ttfamily\ thesis/ v62\_thesis/ panel\_metadata.json \\
+V62a manifold report & reports/ manifold\_analysis/ 20260514\_V62a\_shared1000\_subj01\_hardened\_with\_ids/ \\
+\bottomrule
+\end{tabularx}
+\caption{Artifact and reproducibility map. Path components are spaced with thin breaks so they wrap cleanly inside the table column; the actual filesystem paths concatenate the segments shown. Every number in Chapters~5 and~6 of this thesis can be traced to one of the paths listed here.}
+\label{tab:artifact_map}
+\end{table}

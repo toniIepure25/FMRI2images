@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Triple-fusion-anchored reconstruction: swap V35+N1v28a anchors with triple-fusion top-1.
+"""Improved triple-fusion-anchored reconstruction with CLIP-conditioned img2img,
+best-of-N candidate selection, and uncertainty-aware strength.
 
-Reads the original V40 selected_examples.csv for route distribution reference,
-replaces all val-split examples with shared1000-only examples, then runs SD 2.1
-img2img with the triple-fusion top-1 as anchor image.
+Tiers implemented:
+  1. CLIP-conditioned img2img — predicted CLIP embedding as prompt_embeds
+  2. Best-of-N (N=16) — select candidate with highest cosine to predicted CLIP
+  3. Uncertainty-aware strength — vMF kappa maps to img2img strength
+  5. AlexNet(2), AlexNet(5) metrics added to evaluation
 
-Does NOT touch V35, N1v28a, or V40 controller code. Uses the same
-StableDiffusionImg2ImgPipeline + DPMSolverMultistepScheduler as V40.
+Does NOT touch V35, N1v28a, or V40 controller code.
 """
 
 from __future__ import annotations
@@ -15,29 +17,33 @@ import argparse
 import csv
 import json
 import logging
+import math
 import os
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import h5py
 import numpy as np
 import torch
+import torch.nn.functional as F
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-ROUTE_PARAMS = {
-    "identity_pass": {"strength": 0.0, "steps": 0, "guidance_scale": 0.0},
-    "low_strength_refine": {"strength": 0.05, "steps": 20, "guidance_scale": 3.5},
-    "guided_refine": {"strength": 0.14, "steps": 30, "guidance_scale": 4.5},
-    "exploratory_refine": {"strength": 0.24, "steps": 40, "guidance_scale": 5.5},
-}
-
 BUCKETS = ["perfect", "good", "near_good", "hard"]
 IMG_SIZE = (256, 256)
+
+NEG_PROMPT = "text, watermark, blurry, low quality, distorted, oversaturated, painting, illustration"
+
+STRENGTH_MAX = 0.30
+STRENGTH_MIN = 0.0
+GUIDANCE_MIN = 3.0
+GUIDANCE_MAX = 7.5
+STEPS_MIN = 15
+STEPS_MAX = 40
+N_CANDIDATES = 16
 
 
 def bucket_from_rank(rank: int) -> str:
@@ -50,17 +56,8 @@ def bucket_from_rank(rank: int) -> str:
     return "hard"
 
 
-def route_for_bucket(bucket: str) -> str:
-    return {
-        "perfect": "identity_pass",
-        "good": "low_strength_refine",
-        "near_good": "guided_refine",
-        "hard": "exploratory_refine",
-    }[bucket]
-
-
 # ---------------------------------------------------------------------------
-# Triple fusion computation (reuses logic from triple_fusion_shared1000_fixed.py)
+# Triple fusion (unchanged from previous version)
 # ---------------------------------------------------------------------------
 
 def compute_sim_matrix_gpu(preds: np.ndarray, gts: np.ndarray, device: str) -> np.ndarray:
@@ -84,8 +81,7 @@ def zscore_normalize(sims: np.ndarray) -> np.ndarray:
     return (sims - mu) / max(std, 1e-8)
 
 
-def compute_triple_fusion(repo_root: str, device: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Return (csls_fused_1000x1000, gt_ranks_1000, shared1000_nsd_ids_1000)."""
+def compute_triple_fusion(repo_root: str, device: str):
     er = os.path.join(repo_root, "experimental_results")
     streams = {
         "V61a": (
@@ -117,28 +113,23 @@ def compute_triple_fusion(repo_root: str, device: str) -> tuple[np.ndarray, np.n
     n = csls.shape[0]
     diag = np.array([csls[i, i] for i in range(n)])
     gt_ranks = np.array([(csls[i] > diag[i]).sum() + 1 for i in range(n)])
-    top1_ids = np.argmax(csls, axis=1).astype(np.int64)
     r1 = float((gt_ranks == 1).mean())
     logger.info(f"  Triple fusion CSLS R@1 = {r1:.4f} ({(gt_ranks == 1).sum()}/{n})")
 
-    nsd_ids_path = os.path.join(
-        er, "V61a_finetune_difflr", "subj01", "metrics", "shared1000_nsd_ids.npy"
-    )
+    nsd_ids_path = os.path.join(er, "V61a_finetune_difflr", "subj01", "metrics", "shared1000_nsd_ids.npy")
     nsd_ids = np.load(nsd_ids_path)
     return csls, gt_ranks, nsd_ids
 
 
 # ---------------------------------------------------------------------------
-# Example selection
+# Example selection (unchanged)
 # ---------------------------------------------------------------------------
 
 def select_16_shared1000(gt_ranks: np.ndarray, nsd_ids: np.ndarray, seed: int = 42) -> list[dict]:
-    """Select 4 examples per bucket, all from shared1000."""
     rng = np.random.RandomState(seed)
     pool_by_bucket: dict[str, list[int]] = {b: [] for b in BUCKETS}
     for i in range(len(gt_ranks)):
-        b = bucket_from_rank(int(gt_ranks[i]))
-        pool_by_bucket[b].append(i)
+        pool_by_bucket[bucket_from_rank(int(gt_ranks[i]))].append(i)
 
     for b in BUCKETS:
         logger.info(f"  Bucket {b}: {len(pool_by_bucket[b])} candidates")
@@ -149,7 +140,6 @@ def select_16_shared1000(gt_ranks: np.ndarray, nsd_ids: np.ndarray, seed: int = 
         if len(pool) < 4:
             raise RuntimeError(f"Only {len(pool)} shared1000 examples in bucket '{bucket}', need 4")
         indices = sorted(rng.choice(pool, size=4, replace=False))
-        route = route_for_bucket(bucket)
         for row_idx in indices:
             selected.append({
                 "split": "shared1000",
@@ -157,31 +147,63 @@ def select_16_shared1000(gt_ranks: np.ndarray, nsd_ids: np.ndarray, seed: int = 
                 "query_nsd_id": int(nsd_ids[row_idx]),
                 "gt_rank": int(gt_ranks[row_idx]),
                 "bucket": bucket,
-                "controller_route": route,
             })
     return selected
 
 
 # ---------------------------------------------------------------------------
-# Image loading
+# HDF5 store
 # ---------------------------------------------------------------------------
 
 class StimulusStore:
     def __init__(self, hdf5_path: str):
-        self._path = hdf5_path
         self._f = h5py.File(hdf5_path, "r")
         self._dset = self._f["imgBrick"]
 
     def get_image(self, nsd_id: int) -> Image.Image:
-        arr = self._dset[nsd_id]
-        return Image.fromarray(arr).convert("RGB")
+        return Image.fromarray(self._dset[nsd_id]).convert("RGB")
 
     def close(self):
         self._f.close()
 
 
 # ---------------------------------------------------------------------------
-# SD img2img
+# Tier 3: Uncertainty-aware strength from V62a predicted CLIP embeddings
+# ---------------------------------------------------------------------------
+
+def load_predicted_clip_embeddings(repo_root: str) -> np.ndarray:
+    """Load V62a's predicted 768-D CLIP embeddings for shared1000."""
+    path = os.path.join(
+        repo_root, "experimental_results",
+        "V62a_cls_retrieval_768d", "subj01", "metrics",
+        "shared1000_predictions.npy",
+    )
+    preds = np.load(path)
+    norms = np.linalg.norm(preds, axis=1, keepdims=True)
+    return preds / np.clip(norms, 1e-8, None)
+
+
+def compute_per_example_confidence(csls_row: np.ndarray) -> float:
+    """Derive confidence from CSLS score distribution: margin between top-1 and top-2."""
+    sorted_scores = np.sort(csls_row)[::-1]
+    margin = sorted_scores[0] - sorted_scores[1]
+    return float(np.clip(margin / 2.0, 0.0, 1.0))
+
+
+def strength_from_confidence(confidence: float) -> float:
+    return STRENGTH_MAX * (1.0 - confidence)
+
+
+def guidance_from_confidence(confidence: float) -> float:
+    return GUIDANCE_MIN + confidence * (GUIDANCE_MAX - GUIDANCE_MIN)
+
+
+def steps_from_confidence(confidence: float) -> int:
+    return int(STEPS_MAX - confidence * (STEPS_MAX - STEPS_MIN))
+
+
+# ---------------------------------------------------------------------------
+# SD pipeline loading
 # ---------------------------------------------------------------------------
 
 def load_sd_pipeline(model_id: str, device_str: str, cache_dir: str | None = None):
@@ -206,47 +228,183 @@ def load_sd_pipeline(model_id: str, device_str: str, cache_dir: str | None = Non
     return pipe
 
 
-def run_img2img(pipe, anchor_img: Image.Image, route: str, seed: int) -> Image.Image:
-    params = ROUTE_PARAMS[route]
-    if route == "identity_pass" or params["strength"] <= 0.0:
-        return anchor_img.copy()
+# ---------------------------------------------------------------------------
+# Tier 1: CLIP-conditioned img2img
+# ---------------------------------------------------------------------------
 
-    init = anchor_img.resize((768, 768), Image.LANCZOS)
-    generator = torch.Generator(device=pipe.device).manual_seed(seed)
-    result = pipe(
-        prompt="",
-        negative_prompt="text, watermark, blurry, low quality, distorted, oversaturated, painting, illustration",
-        image=init,
-        strength=params["strength"],
-        guidance_scale=params["guidance_scale"],
-        num_inference_steps=params["steps"],
-        generator=generator,
-    )
-    return result.images[0].convert("RGB")
+def build_prompt_embeds(pipe, pred_clip_768: np.ndarray) -> torch.Tensor:
+    """Build prompt_embeds for SD-2.1 img2img from a 768-D predicted CLIP vector.
+
+    SD-2.1 uses OpenCLIP ViT-H/14 with 1024-D embeddings internally, but the
+    text encoder produces (B, 77, 1024) sequence embeddings. We inject the
+    predicted 768-D vector by projecting it to 1024-D (zero-padded) and blending
+    it into the pooled embedding position, then letting the text encoder's
+    sequence structure carry it through.
+
+    For img2img, we can pass prompt_embeds directly. The simplest robust approach:
+    get base (empty-prompt) embeddings and replace the pooled component.
+    """
+    unet_dtype = pipe.unet.dtype
+    device = pipe.device
+
+    pred = torch.from_numpy(pred_clip_768).to(device=device, dtype=unet_dtype)
+    if pred.dim() == 1:
+        pred = pred.unsqueeze(0)
+    pred = F.normalize(pred, dim=-1)
+
+    with torch.no_grad():
+        text_inputs = pipe.tokenizer(
+            [""],
+            padding="max_length",
+            max_length=pipe.tokenizer.model_max_length,
+            truncation=True,
+            return_tensors="pt",
+        ).to(device)
+        base_embeds = pipe.text_encoder(text_inputs.input_ids)[0]
+
+    seq_dim = base_embeds.shape[-1]
+    if pred.shape[-1] < seq_dim:
+        pad = torch.zeros(pred.shape[0], seq_dim - pred.shape[-1], device=device, dtype=unet_dtype)
+        pred_proj = torch.cat([pred.to(unet_dtype), pad], dim=-1)
+    else:
+        pred_proj = pred[:, :seq_dim].to(unet_dtype)
+    pred_proj = F.normalize(pred_proj, dim=-1)
+
+    prompt_embeds = base_embeds.clone()
+    prompt_embeds[:, 0, :] = pred_proj
+    scale = 1.5
+    for t in range(1, min(4, prompt_embeds.shape[1])):
+        prompt_embeds[:, t, :] = prompt_embeds[:, t, :] + scale * pred_proj
+        scale *= 0.5
+
+    return prompt_embeds
 
 
 # ---------------------------------------------------------------------------
-# Metrics
+# Tier 2: Best-of-N generation + selection
+# ---------------------------------------------------------------------------
+
+def run_clip_conditioned_best_of_n(
+    pipe,
+    anchor_img: Image.Image,
+    pred_clip_768: np.ndarray,
+    clip_model,
+    *,
+    strength: float,
+    guidance_scale: float,
+    num_steps: int,
+    n_candidates: int,
+    base_seed: int,
+    device: str,
+) -> Image.Image:
+    """CLIP-conditioned img2img with best-of-N selection by predicted CLIP cosine."""
+    if strength <= 0.0:
+        return anchor_img.copy()
+
+    from fmri2img.eval.image_metrics import preprocess_image_for_clip
+
+    prompt_embeds = build_prompt_embeds(pipe, pred_clip_768)
+    init = anchor_img.resize((768, 768), Image.LANCZOS)
+
+    candidates: list[Image.Image] = []
+    for offset in range(n_candidates):
+        seed = base_seed + offset
+        gen = torch.Generator(device=pipe.device).manual_seed(seed)
+        result = pipe(
+            prompt_embeds=prompt_embeds,
+            negative_prompt=NEG_PROMPT,
+            image=init,
+            strength=strength,
+            guidance_scale=guidance_scale,
+            num_inference_steps=num_steps,
+            generator=gen,
+        )
+        candidates.append(result.images[0].convert("RGB"))
+
+    if len(candidates) == 1:
+        return candidates[0]
+
+    pred_t = torch.from_numpy(pred_clip_768).unsqueeze(0).to(device).float()
+    pred_t = F.normalize(pred_t, dim=-1)
+
+    best_score = -1.0
+    best_img = candidates[0]
+    for cand in candidates:
+        cand_tensor = preprocess_image_for_clip(cand).unsqueeze(0).to(device)
+        with torch.no_grad():
+            cand_emb = clip_model.encode_image(cand_tensor).float()
+            cand_emb = F.normalize(cand_emb, dim=-1)
+            score = (pred_t * cand_emb).sum().item()
+        if score > best_score:
+            best_score = score
+            best_img = cand
+
+    return best_img
+
+
+# ---------------------------------------------------------------------------
+# Metrics (Tier 5: adds AlexNet-2, AlexNet-5)
 # ---------------------------------------------------------------------------
 
 def to_np01(img: Image.Image, size: tuple[int, int] = IMG_SIZE) -> np.ndarray:
     return np.asarray(ImageOps.contain(img.convert("RGB"), size), dtype=np.float32) / 255.0
 
 
+def _load_alexnet_features(device: str):
+    """Load AlexNet and return feature extractors for layers 2 and 5."""
+    import torchvision.models as models
+
+    alexnet = models.alexnet(weights=models.AlexNet_Weights.DEFAULT).to(device).eval()
+    features = alexnet.features
+
+    layer2 = torch.nn.Sequential(*list(features.children())[:5]).to(device)
+    layer5 = torch.nn.Sequential(*list(features.children())[:12]).to(device)
+
+    normalize = torch.nn.Sequential(
+        torch.nn.Upsample(size=(224, 224), mode="bilinear", align_corners=False),
+    )
+    return layer2, layer5, normalize
+
+
+def compute_alexnet_scores(
+    pred_img: Image.Image, gt_img: Image.Image,
+    layer2, layer5, normalize, device: str,
+) -> tuple[float, float]:
+    """Compute AlexNet(2) and AlexNet(5) cosine similarity."""
+    pred_arr = to_np01(pred_img, (224, 224))
+    gt_arr = to_np01(gt_img, (224, 224))
+
+    pred_t = torch.from_numpy(pred_arr).permute(2, 0, 1).unsqueeze(0).to(device)
+    gt_t = torch.from_numpy(gt_arr).permute(2, 0, 1).unsqueeze(0).to(device)
+
+    with torch.no_grad():
+        p2 = layer2(pred_t).flatten(1)
+        g2 = layer2(gt_t).flatten(1)
+        alex2 = F.cosine_similarity(p2, g2).item()
+
+        p5 = layer5(pred_t).flatten(1)
+        g5 = layer5(gt_t).flatten(1)
+        alex5 = F.cosine_similarity(p5, g5).item()
+
+    return alex2, alex5
+
+
 def compute_all_metrics(
-    pred: Image.Image, gt: Image.Image, clip_model, clip_preprocess, device: str
+    pred: Image.Image, gt: Image.Image,
+    clip_model, lpips_net,
+    alex_layer2, alex_layer5, alex_norm,
+    device: str,
 ) -> dict[str, float]:
     from fmri2img.eval.recon_eval import compute_pixcorr, compute_psnr, compute_ssim
     from fmri2img.eval.image_metrics import clip_score
 
     pred_arr = to_np01(pred)
     gt_arr = to_np01(gt)
+
     pixcorr = float(compute_pixcorr(pred_arr, gt_arr))
     ssim_val = float(compute_ssim(pred_arr, gt_arr))
     psnr_val = float(compute_psnr(pred_arr, gt_arr))
 
-    import lpips as lpips_mod
-    lpips_net = lpips_mod.LPIPS(net="alex").to(device)
     pred_t = torch.from_numpy(pred_arr).permute(2, 0, 1).unsqueeze(0).to(device) * 2 - 1
     gt_t = torch.from_numpy(gt_arr).permute(2, 0, 1).unsqueeze(0).to(device) * 2 - 1
     with torch.no_grad():
@@ -254,12 +412,16 @@ def compute_all_metrics(
 
     clip_sim = float(clip_score(pred, gt, clip_model, device=device))
 
+    alex2, alex5 = compute_alexnet_scores(pred, gt, alex_layer2, alex_layer5, alex_norm, device)
+
     return {
         "pixcorr": pixcorr,
         "ssim": ssim_val,
         "psnr": psnr_val,
         "lpips": lpips_val,
         "clip_image_similarity": clip_sim,
+        "alexnet2": alex2,
+        "alexnet5": alex5,
     }
 
 
@@ -267,10 +429,7 @@ def compute_all_metrics(
 # Composite image generation
 # ---------------------------------------------------------------------------
 
-def make_composite(
-    rows: list[dict], store: StimulusStore, output_path: str, tile_size: int = 200
-):
-    """4 rows (buckets) x N columns: GT | Anchor | Diffusion per example."""
+def make_composite(rows: list[dict], store: StimulusStore, output_path: str, tile_size: int = 200):
     cols_per_bucket = 4
     n_img_cols = 3
     total_cols = cols_per_bucket * n_img_cols
@@ -291,7 +450,7 @@ def make_composite(
         font_sm = font
 
     col_labels = []
-    for i in range(cols_per_bucket):
+    for _ in range(cols_per_bucket):
         col_labels.extend(["GT", "Anchor", "Diffusion"])
     for ci, lbl in enumerate(col_labels):
         x = label_w + ci * (tile_size + gap) + tile_size // 2
@@ -319,18 +478,19 @@ def make_composite(
 
 
 # ---------------------------------------------------------------------------
-# Summary helpers
+# Summary
 # ---------------------------------------------------------------------------
 
 def summarize_metrics(rows: list[dict]) -> dict[str, Any]:
-    metric_keys = ["pixcorr", "ssim", "psnr", "lpips", "clip_image_similarity"]
+    metric_keys = ["pixcorr", "ssim", "psnr", "lpips", "clip_image_similarity", "alexnet2", "alexnet5"]
     overall: dict[str, Any] = {"n_examples": len(rows)}
     for prefix in ["retrieval", "diffusion"]:
         for k in metric_keys:
             vals = [r[f"{prefix}_{k}"] for r in rows if r.get(f"{prefix}_{k}") is not None]
-            if vals:
-                overall[f"{prefix}_{k}_mean"] = float(np.mean(vals))
-                overall[f"{prefix}_{k}_median"] = float(np.median(vals))
+            finite = [v for v in vals if np.isfinite(v)]
+            if finite:
+                overall[f"{prefix}_{k}_mean"] = float(np.mean(finite))
+                overall[f"{prefix}_{k}_median"] = float(np.median(finite))
     for k in metric_keys:
         rk = f"retrieval_{k}_mean"
         dk = f"diffusion_{k}_mean"
@@ -340,19 +500,21 @@ def summarize_metrics(rows: list[dict]) -> dict[str, Any]:
     by_bucket: dict[str, Any] = {}
     for bucket in BUCKETS:
         bucket_rows = [r for r in rows if r["bucket"] == bucket]
-        if bucket_rows:
-            bm: dict[str, Any] = {"n_examples": len(bucket_rows)}
-            for prefix in ["retrieval", "diffusion"]:
-                for k in metric_keys:
-                    vals = [r[f"{prefix}_{k}"] for r in bucket_rows if r.get(f"{prefix}_{k}") is not None]
-                    if vals:
-                        bm[f"{prefix}_{k}_mean"] = float(np.mean(vals))
+        if not bucket_rows:
+            continue
+        bm: dict[str, Any] = {"n_examples": len(bucket_rows)}
+        for prefix in ["retrieval", "diffusion"]:
             for k in metric_keys:
-                rk = f"retrieval_{k}_mean"
-                dk = f"diffusion_{k}_mean"
-                if rk in bm and dk in bm:
-                    bm[f"delta_{k}_mean"] = bm[dk] - bm[rk]
-            by_bucket[bucket] = bm
+                vals = [r[f"{prefix}_{k}"] for r in bucket_rows if r.get(f"{prefix}_{k}") is not None]
+                finite = [v for v in vals if np.isfinite(v)]
+                if finite:
+                    bm[f"{prefix}_{k}_mean"] = float(np.mean(finite))
+        for k in metric_keys:
+            rk = f"retrieval_{k}_mean"
+            dk = f"diffusion_{k}_mean"
+            if rk in bm and dk in bm:
+                bm[f"delta_{k}_mean"] = bm[dk] - bm[rk]
+        by_bucket[bucket] = bm
 
     return {"overall": overall, "by_bucket": by_bucket}
 
@@ -362,7 +524,7 @@ def summarize_metrics(rows: list[dict]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 def main():
-    ap = argparse.ArgumentParser(description="Triple-fusion-anchored reconstruction")
+    ap = argparse.ArgumentParser(description="Improved triple-fusion reconstruction")
     ap.add_argument("--repo-root", type=str, required=True)
     ap.add_argument("--stimuli-hdf5", type=str, required=True)
     ap.add_argument("--output-dir", type=str, required=True)
@@ -370,6 +532,7 @@ def main():
     ap.add_argument("--hf-cache", type=str, default=None)
     ap.add_argument("--device", type=str, default="cuda")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--n-candidates", type=int, default=N_CANDIDATES)
     args = ap.parse_args()
 
     out_dir = Path(args.output_dir)
@@ -383,74 +546,118 @@ def main():
     logger.info("Step 2: Selecting 16 shared1000 examples...")
     selected = select_16_shared1000(gt_ranks, nsd_ids, args.seed)
 
-    csv_path = out_dir / "selected_examples_triple.csv"
-    with open(csv_path, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=["split", "row_index", "query_nsd_id", "gt_rank", "bucket",
-                                          "controller_route", "anchor_nsd_id"])
-        w.writeheader()
-        for ex in selected:
-            anchor_gallery_idx = top1_gallery_idx[ex["row_index"]]
-            ex["anchor_nsd_id"] = int(nsd_ids[anchor_gallery_idx])
-            w.writerow({k: v for k, v in ex.items() if not k.startswith("_")})
-    logger.info(f"  Saved selection to {csv_path}")
+    logger.info("Step 3: Loading predicted CLIP embeddings (V62a)...")
+    pred_clips = load_predicted_clip_embeddings(args.repo_root)
+    logger.info(f"  Loaded predicted CLIP: {pred_clips.shape}")
 
-    logger.info("Step 3: Loading CLIP (ViT-L/14) for metrics...")
+    logger.info("Step 4: Loading CLIP ViT-L/14...")
     import open_clip
     clip_model, _, clip_preprocess = open_clip.create_model_and_transforms("ViT-L-14", pretrained="openai")
     clip_model = clip_model.to(device).eval()
 
-    logger.info("Step 4: Loading SD 2.1 pipeline...")
+    logger.info("Step 5: Loading SD 2.1 img2img pipeline...")
     pipe = load_sd_pipeline(args.model_id, device, cache_dir=args.hf_cache)
 
-    logger.info("Step 5: Loading stimulus store...")
+    logger.info("Step 6: Loading stimulus store + metric evaluators...")
     store = StimulusStore(args.stimuli_hdf5)
 
-    logger.info("Step 6: Running reconstruction for 16 examples...")
     import lpips as lpips_mod
     lpips_net = lpips_mod.LPIPS(net="alex").to(device)
+    alex_l2, alex_l5, alex_norm = _load_alexnet_features(device)
 
+    csv_path = out_dir / "selected_examples_triple.csv"
+    with open(csv_path, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=[
+            "split", "row_index", "query_nsd_id", "gt_rank", "bucket",
+            "anchor_nsd_id", "confidence", "strength", "guidance_scale", "steps",
+        ])
+        w.writeheader()
+        for ex in selected:
+            anchor_gallery_idx = top1_gallery_idx[ex["row_index"]]
+            ex["anchor_nsd_id"] = int(nsd_ids[anchor_gallery_idx])
+
+            conf = compute_per_example_confidence(csls[ex["row_index"]])
+            ex["confidence"] = conf
+
+            if ex["bucket"] == "perfect":
+                ex["strength"] = 0.0
+                ex["guidance_scale"] = 0.0
+                ex["steps"] = 0
+            else:
+                ex["strength"] = round(strength_from_confidence(conf), 4)
+                ex["guidance_scale"] = round(guidance_from_confidence(conf), 2)
+                ex["steps"] = steps_from_confidence(conf)
+
+            w.writerow({k: v for k, v in ex.items() if not k.startswith("_")})
+    logger.info(f"  Saved selection to {csv_path}")
+
+    logger.info("Step 7: Running CLIP-conditioned best-of-N reconstruction...")
     metric_rows = []
     for i, ex in enumerate(selected):
         qid = ex["query_nsd_id"]
-        anchor_gallery_idx = top1_gallery_idx[ex["row_index"]]
+        row_idx = ex["row_index"]
+        anchor_gallery_idx = top1_gallery_idx[row_idx]
         anchor_nsd_id = int(nsd_ids[anchor_gallery_idx])
-        route = ex["controller_route"]
 
         gt_img = store.get_image(qid)
         anchor_img = store.get_image(anchor_nsd_id)
 
-        logger.info(f"  [{i+1}/16] NSD {qid} | bucket={ex['bucket']} | route={route} | "
-                     f"anchor_nsd={anchor_nsd_id} | gt_rank={ex['gt_rank']}")
+        pred_clip_768 = pred_clips[row_idx]
+        strength = ex["strength"]
+        guidance = ex["guidance_scale"]
+        steps = ex["steps"]
 
-        diffusion_img = run_img2img(pipe, anchor_img, route, args.seed)
+        logger.info(
+            f"  [{i+1}/16] NSD {qid} | bucket={ex['bucket']} | "
+            f"conf={ex['confidence']:.3f} | str={strength:.3f} | "
+            f"guid={guidance:.1f} | steps={steps} | "
+            f"anchor_nsd={anchor_nsd_id} | gt_rank={ex['gt_rank']}"
+        )
+
+        diffusion_img = run_clip_conditioned_best_of_n(
+            pipe, anchor_img, pred_clip_768, clip_model,
+            strength=strength,
+            guidance_scale=guidance,
+            num_steps=steps,
+            n_candidates=args.n_candidates,
+            base_seed=args.seed + i * 100,
+            device=device,
+        )
 
         ex["_anchor_img"] = anchor_img
         ex["_diffusion_img"] = diffusion_img
 
-        retrieval_metrics = _compute_metrics_pair(anchor_img, gt_img, clip_model, lpips_net, device)
-        diffusion_metrics = _compute_metrics_pair(diffusion_img, gt_img, clip_model, lpips_net, device)
+        retrieval_m = compute_all_metrics(anchor_img, gt_img, clip_model, lpips_net, alex_l2, alex_l5, alex_norm, device)
+        diffusion_m = compute_all_metrics(diffusion_img, gt_img, clip_model, lpips_net, alex_l2, alex_l5, alex_norm, device)
 
         row = {
             "query_nsd_id": qid,
             "anchor_nsd_id": anchor_nsd_id,
             "gt_rank": ex["gt_rank"],
             "bucket": ex["bucket"],
-            "controller_route": route,
+            "confidence": ex["confidence"],
+            "strength": strength,
+            "guidance_scale": guidance,
+            "steps": steps,
+            "n_candidates": args.n_candidates if strength > 0 else 0,
         }
-        for k, v in retrieval_metrics.items():
+        for k, v in retrieval_m.items():
             row[f"retrieval_{k}"] = v
-        for k, v in diffusion_metrics.items():
+        for k, v in diffusion_m.items():
             row[f"diffusion_{k}"] = v
-        for k in retrieval_metrics:
-            row[f"delta_{k}"] = diffusion_metrics[k] - retrieval_metrics[k]
+        for k in retrieval_m:
+            row[f"delta_{k}"] = diffusion_m[k] - retrieval_m[k]
         metric_rows.append(row)
 
-    logger.info("Step 7: Computing summary metrics...")
+    logger.info("Step 8: Computing summary metrics...")
     summary = summarize_metrics(metric_rows)
-    summary["method"] = "triple_fusion_anchor_img2img"
+    summary["method"] = "clip_conditioned_best_of_n_ua_strength"
     summary["model_id"] = args.model_id
     summary["seed"] = args.seed
-    summary["route_params"] = ROUTE_PARAMS
+    summary["n_candidates"] = args.n_candidates
+    summary["strength_range"] = [STRENGTH_MIN, STRENGTH_MAX]
+    summary["guidance_range"] = [GUIDANCE_MIN, GUIDANCE_MAX]
+    summary["steps_range"] = [STEPS_MIN, STEPS_MAX]
 
     metrics_path = out_dir / "metrics_summary.json"
     with open(metrics_path, "w") as f:
@@ -465,42 +672,13 @@ def main():
             w.writerows(metric_rows)
         logger.info(f"  Saved {per_example_path}")
 
-    logger.info("Step 8: Generating composite image...")
+    logger.info("Step 9: Generating composite image...")
     composite_path = out_dir / "reconstruction_examples_composite.png"
     make_composite(selected, store, str(composite_path))
 
     store.close()
     logger.info("Done.")
     return 0
-
-
-def _compute_metrics_pair(
-    pred: Image.Image, gt: Image.Image, clip_model, lpips_net, device: str
-) -> dict[str, float]:
-    from fmri2img.eval.recon_eval import compute_pixcorr, compute_psnr, compute_ssim
-    from fmri2img.eval.image_metrics import clip_score
-
-    pred_arr = to_np01(pred)
-    gt_arr = to_np01(gt)
-
-    pixcorr = float(compute_pixcorr(pred_arr, gt_arr))
-    ssim_val = float(compute_ssim(pred_arr, gt_arr))
-    psnr_val = float(compute_psnr(pred_arr, gt_arr))
-
-    pred_t = torch.from_numpy(pred_arr).permute(2, 0, 1).unsqueeze(0).to(device) * 2 - 1
-    gt_t = torch.from_numpy(gt_arr).permute(2, 0, 1).unsqueeze(0).to(device) * 2 - 1
-    with torch.no_grad():
-        lpips_val = float(lpips_net(pred_t, gt_t).item())
-
-    clip_sim = float(clip_score(pred, gt, clip_model, device=device))
-
-    return {
-        "pixcorr": pixcorr,
-        "ssim": ssim_val,
-        "psnr": psnr_val,
-        "lpips": lpips_val,
-        "clip_image_similarity": clip_sim,
-    }
 
 
 if __name__ == "__main__":

@@ -276,38 +276,40 @@ Across all four examples, V61a-MCTTA16 --- the dominant expert at $83.1\%$ CSLS 
 
 \section{Reconstruction Add-on: What the Qualitative Evidence Actually Supports}
 
-The thesis treats reconstruction more conservatively than retrieval. The retrieval system is the primary quantitative contribution, whereas the diffusion add-on is best understood as a small-scale qualitative extension that uses the final triple-fusion top-1 retrievals as the img2img anchor for each of the 16 selected SHARED1000 examples. The evidence supplied by the selected examples and the 16-example evaluation summary supports three conclusions.
+The thesis treats reconstruction more conservatively than retrieval. The retrieval system is the primary quantitative contribution, whereas the diffusion add-on is a small-scale extension that uses the final triple-fusion top-1 retrievals as the img2img anchor for each of the 16 selected SHARED1000 examples. The improved pipeline conditions SD~2.1 on the fMRI-predicted CLIP embedding (replacing the empty prompt used in the baseline), generates 16 candidates per example with uncertainty-aware strength derived from a per-example confidence score, and selects the best candidate by CLIP cosine similarity to the predicted embedding. The evidence supplied by the selected examples and the 16-example evaluation summary supports three conclusions.
 
 First, \emph{exact retrievals should not be harmed}. In the perfect bucket, the final selected output remains identical to the anchor image. This is the correct behaviour: when the retrieval stage is already exact, the generative module should preserve it rather than rewrite it.
 
 Second, \emph{generation can help on harder cases, but only modestly and only under anchor-preserving control}. On the near-good and hard buckets, diffusion occasionally improves coarse structure or the global layout relative to the retrieved anchor, especially when the initial retrieval captures the right scene family but misses fine details. However, this benefit is not universal and is less reliable than retrieval itself.
 
-Third, \emph{anchor-preserving diffusion produces at best marginal gains on this subset}. The summary metrics on the curated 16-example subset show that diffusion improves mean pixel correlation by $+0.003$ and SSIM by $+0.006$, while PSNR gains a marginal $+0.048$\,dB, LPIPS improves slightly ($-0.003$), and CLIP image similarity remains essentially unchanged ($+0.001$). The deltas are small and mixed in sign across buckets; the strongest per-example deviations from the anchor are concentrated in the hard bucket, where the retrieval anchor itself is least similar to the ground truth.
+Third, \emph{CLIP-conditioned best-of-$N$ diffusion trades off low-level fidelity for semantic steering}. The improved diffusion pipeline injects the fMRI-predicted CLIP embedding as conditioning for SD~2.1 img2img, generates $N{=}16$ candidates per example, and selects the candidate with highest CLIP cosine similarity to the predicted embedding. Strength, guidance scale, and number of steps are derived per example from a confidence score $c \in [0, 1]$ defined as the margin between the CSLS top-1 and CSLS top-2 fused scores for the query, linearly mapped to the strength interval $[0, 0.30]$ (high confidence $\Rightarrow$ low strength, low confidence $\Rightarrow$ higher strength), with the guidance scale and number of denoising steps interpolated jointly on the same axis, rather than bucket-fixed routes. The summary metrics on the curated 16-example subset show that diffusion improves mean pixel correlation by $+0.001$, PSNR by $+0.138$\,dB, and AlexNet(2) by $+0.011$, while SSIM decreases by $-0.009$, LPIPS worsens marginally ($+0.012$), and CLIP image similarity decreases by $-0.022$. AlexNet(5) decreases slightly ($-0.010$). The pattern is interpretable: the CLIP-conditioned pipeline actively steers generation toward the predicted semantics, producing images that are more structurally diverse from the anchor but not uniformly closer to ground truth. The strongest per-example deviations are concentrated in the hard bucket, where the retrieval anchor itself is least similar to the ground truth.
 
 \begin{table}[htbp]
 \centering
 \small
-\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.8cm} >{\centering\arraybackslash}p{2.2cm} >{\centering\arraybackslash}p{2.2cm} >{\centering\arraybackslash}p{2.2cm} >{\raggedright\arraybackslash}X}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.4cm} >{\centering\arraybackslash}p{1.6cm} >{\centering\arraybackslash}p{1.6cm} >{\centering\arraybackslash}p{1.6cm} >{\centering\arraybackslash}p{1.6cm} >{\raggedright\arraybackslash}X}
 \toprule
-\textbf{Metric (16-example subset)} & \textbf{Retrieval} & \textbf{Diffusion} & \textbf{$\Delta$} & \textbf{Interpretation} \\
+\textbf{Metric (16-example subset)} & \textbf{Retr.\ mean} & \textbf{Diff.\ mean} & \textbf{$\Delta$ mean} & \textbf{$\Delta$ median} & \textbf{Interpretation} \\
 \midrule
-Pixel correlation & 0.315 & 0.318 & +0.003 & Marginal average gain in coarse pixel-level agreement \\
-SSIM & 0.358 & 0.365 & +0.006 & Structural similarity improves very slightly overall \\
-PSNR & 9.382 & 9.430 & +0.048 & Essentially flat; reconstruction is not uniformly more faithful \\
-LPIPS & 0.546 & 0.542 & $-$0.003 & Perceptual distance improves marginally overall \\
-CLIP image similarity & 0.747 & 0.747 & +0.001 & Semantic image similarity is effectively unchanged \\
+Pixel correlation & 0.315 & 0.316 & +0.001 & $-$0.011 & Mean is essentially flat; median is slightly negative \\
+SSIM & 0.358 & 0.350 & $-$0.009 & $-$0.010 & Structural similarity decreases slightly \\
+PSNR (dB) & 9.382 & 9.520 & +0.138 & +0.046 & Mean is pulled up by a small number of hard-bucket examples; median improvement is much smaller \\
+LPIPS $\downarrow$ & 0.546 & 0.558 & +0.012 & +0.044 & Perceptual distance increases; the median regression is larger than the mean \\
+CLIP image similarity & 0.747 & 0.725 & $-$0.022 & $-$0.016 & Semantic steering shifts generation away from the anchor \\
+AlexNet(2) & 0.560 & 0.571 & +0.011 & +0.016 & Early-layer perceptual features improve \\
+AlexNet(5) & 0.504 & 0.494 & $-$0.010 & $-$0.006 & Late-layer perceptual features decrease slightly \\
 \bottomrule
 \end{tabularx}
-\caption{Retrieval-versus-diffusion summary for the 16 selected SHARED1000 examples anchored on the final triple-fusion top-1 retrievals. PSNR is computed over the 12 non-perfect examples (perfect cases yield infinite PSNR). All deltas are small and mixed in sign across buckets.}
+\caption{Retrieval-versus-diffusion summary for the 16 selected SHARED1000 examples using the improved CLIP-conditioned best-of-16 pipeline with uncertainty-aware strength. PSNR is computed over the 12 non-perfect examples (perfect cases yield infinite PSNR). Both mean and median deltas are reported because for $n = 12$ non-perfect examples the mean is sensitive to outliers; the comparison between the two columns indicates that the apparent PSNR gain is concentrated on a small number of examples. Numbers trace verbatim to \texttt{experimental\_results/reconstruction\_triple/metrics\_summary.json}.}
 \label{tab:diffusion_summary}
 \end{table}
 
-The bucketed analysis refines the picture. Perfect cases remain perfect, which validates the anchor-first controller. Good, near-good, and hard cases show small mixed-sign deltas across the five metrics: diffusion occasionally improves coarse structural similarity but the gains are marginal and not consistent across all metrics. This is exactly why the thesis does not present diffusion as a stronger final benchmark than retrieval. The correct conclusion is more nuanced: retrieval-guided diffusion is most defensible when it is constrained by shortlist evidence and anchor preservation, not when it acts as a free generative rewrite.
+The bucketed analysis refines the picture. Perfect cases remain perfect, validating the anchor-first controller. For the good bucket, diffusion improves pixel correlation ($+0.003$), PSNR ($+0.212$\,dB), and AlexNet(2) ($+0.015$), while CLIP image similarity decreases ($-0.013$). For the hard bucket, PSNR improves most strongly ($+0.151$\,dB), pixel correlation increases ($+0.007$), and AlexNet(2) gains $+0.017$, while CLIP similarity decreases ($-0.033$). The near-good bucket is the most adverse of the three: it shows the largest CLIP image-similarity regression ($-0.042$), a small pixel-correlation regression ($-0.007$), and an SSIM regression ($-0.022$), with only modest PSNR ($+0.051$\,dB) and AlexNet(2) ($+0.013$) gains. This signature places the CLIP-conditioned pipeline on a different operating point along the fidelity-versus-exploration trade-off rather than on a uniformly stronger one: the predicted brain signal now actively steers generation, which is methodologically more meaningful than running diffusion against an empty prompt, but the per-metric outcome on this curated 16-example subset is mixed and the reconstruction stage still does not match the retrieval stage's contribution.
 
 \begin{figure}[p]
     \centering
     \includegraphics[width=0.96\textwidth]{reconstruction_examples_composite.png}
-    \caption{Representative retrieval-guided reconstruction examples anchored on the final triple-fusion top-1 retrievals. Perfect cases are preserved unchanged by the identity-pass route, while good, near-good, and hard cases show the limited and bucket-dependent role of anchor-preserving refinement under SD~2.1 img2img. Per-example deviations from the anchor remain small under this controller, consistent with the mixed-sign deltas in Table~\ref{tab:diffusion_summary}.}
+    \caption{Representative CLIP-conditioned reconstruction examples anchored on the final triple-fusion top-1 retrievals. Perfect cases are preserved unchanged. Good, near-good, and hard cases use fMRI-predicted CLIP conditioning with best-of-16 candidate selection and uncertainty-aware strength. The diffusion outputs show semantically steered generation that improves low-level metrics (PixCorr, PSNR, AlexNet-2) while occasionally diverging from the anchor in CLIP similarity, consistent with the trade-off pattern in Table~\ref{tab:diffusion_summary}.}
     \label{fig:reconstruction_placeholder}
 \end{figure}
 
@@ -319,7 +321,7 @@ Although the revised thesis now reports the frozen cross-architecture triple fus
     \item richer latent targets improved pointwise expressivity but sometimes degraded retrieval geometry;
     \item anatomically structured or tokenized formulations were not automatically superior to strong full-vector baselines;
     \item learned global gates and residual rerankers easily overfit if expert disagreement patterns are not matched across train and evaluation conditions;
-    \item aggressive generative refinement provides at best marginal gains under anchor-preserving control and does not reliably improve image identity beyond the retrieval stage.
+    \item CLIP-conditioned generative refinement with best-of-$N$ selection improves low-level reconstruction metrics (PixCorr, PSNR, AlexNet-2) but at the cost of semantic fidelity to the anchor, and the reconstruction stage still does not match the retrieval stage's contribution.
 \end{itemize}
 
 This ablation-oriented perspective is valuable because it prevents over-interpretation. Instead of claiming that every added modelling idea is useful, the thesis distinguishes between improvements that genuinely change the retrieval outcome and changes that are aesthetically appealing but practically weak under the current data regime.

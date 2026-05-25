@@ -1,0 +1,17 @@
+split,row_index,query_nsd_id,gt_rank,bucket,controller_route,anchor_nsd_id
+shared1000,143,11932,1,perfect,identity_pass,11932
+shared1000,247,20633,1,perfect,identity_pass,20633
+shared1000,704,51745,1,perfect,identity_pass,51745
+shared1000,830,60456,1,perfect,identity_pass,60456
+shared1000,569,42851,2,good,low_strength_refine,44971
+shared1000,800,57822,2,good,low_strength_refine,16252
+shared1000,824,59994,2,good,low_strength_refine,16252
+shared1000,860,62365,5,good,low_strength_refine,63825
+shared1000,464,34850,14,near_good,guided_refine,28689
+shared1000,696,51051,14,near_good,guided_refine,57650
+shared1000,703,51521,7,near_good,guided_refine,19181
+shared1000,887,64880,11,near_good,guided_refine,27972
+shared1000,78,7654,37,hard,exploratory_refine,13312
+shared1000,351,26720,53,hard,exploratory_refine,10600
+shared1000,442,32910,16,hard,exploratory_refine,52652
+shared1000,796,57553,16,hard,exploratory_refine,26292

@@ -230,7 +230,7 @@ Across all four examples, V61a-MCTTA16 --- the dominant expert at $83.1\%$ CSLS 
     \begin{subfigure}[b]{\textwidth}
         \centering
         \includegraphics[width=0.93\textwidth]{query_8262.png}
-        \caption{Surfer query (NSD\,8262). V61a-MCTTA16 retrieves the correct image (rank\,1). V62a returns a different scene (rank\,5); V66a returns another incorrect image (rank\,8). The triple fusion recovers the ground truth at rank\,1.}
+        \caption{Surfer query (NSD\,8262). The two 768-D experts return semantically related but incorrect scenes; V61a-MCTTA16 and the triple fusion both recover the ground truth at rank\,1.}
         \label{fig:query_surfer}
     \end{subfigure}
 
@@ -239,11 +239,11 @@ Across all four examples, V61a-MCTTA16 --- the dominant expert at $83.1\%$ CSLS 
     \begin{subfigure}[b]{\textwidth}
         \centering
         \includegraphics[width=0.93\textwidth]{query_21279.png}
-        \caption{Skier query (NSD\,21279). V61a-MCTTA16 retrieves the correct image (rank\,1). V62a misses (rank\,10); V66a misses (rank\,11). The triple fusion recovers the ground truth at rank\,1.}
+        \caption{Skier query (NSD\,21279). Both 768-D experts miss the correct stimulus by a wide margin; V61a-MCTTA16 and the triple fusion both recover it at rank\,1.}
         \label{fig:query_skier}
     \end{subfigure}
 
-    \caption{Qualitative retrieval successes~(I). Each panel shows, from left to right: ground-truth stimulus, V61a-MCTTA16 top-1, V62a top-1, V66a top-1, and Triple Fusion top-1. The weaker 768-D experts (V62a, V66a) fail with semantically plausible but incorrect alternatives, while V61a-MCTTA16 and the triple fusion both recover the exact image at rank\,1.}
+    \caption{Qualitative retrieval successes~(I). Each panel shows, from left to right, the ground-truth stimulus (blue border), the top-1 retrievals of the three individual experts, and the top-1 of the frozen triple fusion (dark border). The annotation under each retrieval gives the rank assigned to the ground truth by that expert, with \checkmark indicating a rank-1 match and \texttimes\ a miss. The weaker 768-D experts (V62a, V66a) fail with semantically plausible but incorrect alternatives, while V61a-MCTTA16 and the triple fusion both recover the exact image at rank\,1.}
     \label{fig:retrieval_successes_1}
 \end{figure}
 
@@ -252,7 +252,7 @@ Across all four examples, V61a-MCTTA16 --- the dominant expert at $83.1\%$ CSLS 
     \begin{subfigure}[b]{\textwidth}
         \centering
         \includegraphics[width=0.93\textwidth]{query_55649.png}
-        \caption{Seagull query (NSD\,55649). V61a-MCTTA16 retrieves the correct image (rank\,1). V62a misses (rank\,4); V66a misses (rank\,12). The triple fusion recovers the ground truth at rank\,1.}
+        \caption{Seagull query (NSD\,55649). V62a returns a related but incorrect bird scene, V66a a more distant miss; V61a-MCTTA16 and the triple fusion both recover the ground truth at rank\,1.}
         \label{fig:query_seagulls}
     \end{subfigure}
 
@@ -261,11 +261,11 @@ Across all four examples, V61a-MCTTA16 --- the dominant expert at $83.1\%$ CSLS 
     \begin{subfigure}[b]{\textwidth}
         \centering
         \includegraphics[width=0.93\textwidth]{query_8509.png}
-        \caption{Fruit-bowl query (NSD\,8509). V61a-MCTTA16 and V66a both retrieve the correct image (rank\,1). V62a narrowly misses (rank\,2). The triple fusion recovers the ground truth at rank\,1. This convergence among experts is characteristic of the easy regime.}
+        \caption{Fruit-bowl query (NSD\,8509). V61a-MCTTA16, V66a, and the triple fusion all recover the ground truth at rank\,1; V62a narrowly misses at rank\,2. This convergence among experts is characteristic of the easy regime.}
         \label{fig:query_fruitbowl}
     \end{subfigure}
 
-    \caption{Qualitative retrieval successes~(II). Column order as in Figure~\ref{fig:retrieval_successes_1}: GT, V61a-MCTTA16, V62a, V66a, Triple Fusion. The seagull example extends the success pattern; the fruit-bowl example shows expert convergence where even V66a retrieves the correct image.}
+    \caption{Qualitative retrieval successes~(II). Column order and annotation conventions as in Figure~\ref{fig:retrieval_successes_1}. The seagull example extends the success pattern of the first figure; the fruit-bowl example shows expert convergence where V66a also retrieves the correct image, with V62a a narrow miss at rank\,2.}
     \label{fig:retrieval_successes_2}
 \end{figure}
 

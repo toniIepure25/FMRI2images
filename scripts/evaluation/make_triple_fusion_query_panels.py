@@ -33,8 +33,13 @@ EXPERT_LABELS = {
     "triple": "Triple Fusion",
 }
 
-TILE_SIZE = 256
-LABEL_HEIGHT = 74
+TILE_SIZE = 480
+LABEL_HEIGHT = 56
+GUTTER = 12
+GT_BORDER_COLOR = (66, 113, 174)       # muted blue for the ground-truth column
+FUSION_BORDER_COLOR = (28, 28, 28)     # near-black for the headline triple-fusion column
+EXPERT_BORDER_COLOR = (210, 210, 210)  # soft grey for the individual experts
+BORDER_PX = 3
 
 
 class StimulusStore:
@@ -88,22 +93,66 @@ def _try_load_font(bold: bool = False, size: int = 13) -> ImageFont.ImageFont:
 
 
 def _labeled_tile(
-    img: Image.Image, title: str, lines: list[str], tile_size: int = TILE_SIZE
+    img: Image.Image,
+    title: str,
+    annotation: str,
+    *,
+    is_correct: bool | None = None,
+    column_role: str = "expert",
+    tile_size: int = TILE_SIZE,
 ) -> Image.Image:
+    """Render a single tile of the qualitative panel.
+
+    column_role :
+        ``"gt"``     for the ground-truth column (muted-blue border, no rank line)
+        ``"fusion"`` for the headline triple-fusion column (thicker dark border)
+        ``"expert"`` for the individual experts (soft grey border)
+    annotation :
+        Short one-line tag rendered under the title, e.g.
+        ``"rank 1"`` / ``"rank 5"`` / ``"target stimulus"``.
+    is_correct :
+        Append a small check / cross glyph after the annotation. Pass ``None``
+        for tiles where correctness is undefined (e.g. ground truth).
+    """
     canvas = Image.new("RGB", (tile_size, tile_size + LABEL_HEIGHT), "white")
     thumb = ImageOps.contain(img.convert("RGB"), (tile_size, tile_size))
     paste_x = (tile_size - thumb.width) // 2
     paste_y = (tile_size - thumb.height) // 2
     canvas.paste(thumb, (paste_x, paste_y))
+
     draw = ImageDraw.Draw(canvas)
-    draw.rectangle((0, tile_size, tile_size, tile_size + LABEL_HEIGHT), fill=(248, 248, 248))
-    title_font = _try_load_font(bold=True, size=14)
-    detail_font = _try_load_font(bold=False, size=12)
-    draw.text((8, tile_size + 6), title, fill=(0, 0, 0), font=title_font)
-    offset = 22
-    for line in lines:
-        draw.text((8, tile_size + 6 + offset), line, fill=(40, 40, 40), font=detail_font)
-        offset += 14
+
+    # Border styled by column role
+    if column_role == "gt":
+        border_color = GT_BORDER_COLOR
+        border_w = BORDER_PX + 1
+    elif column_role == "fusion":
+        border_color = FUSION_BORDER_COLOR
+        border_w = BORDER_PX + 1
+    else:
+        border_color = EXPERT_BORDER_COLOR
+        border_w = BORDER_PX
+    for k in range(border_w):
+        draw.rectangle((k, k, tile_size - 1 - k, tile_size - 1 - k), outline=border_color)
+
+    # Label strip
+    label_top = tile_size + 2
+    title_font = _try_load_font(bold=True, size=20)
+    detail_font = _try_load_font(bold=False, size=16)
+    title_color = (0, 0, 0) if column_role != "expert" else (40, 40, 40)
+    draw.text((8, label_top + 4), title, fill=title_color, font=title_font)
+
+    if annotation:
+        full_text = annotation
+        if is_correct is True:
+            full_text = f"{annotation}  ✓"
+        elif is_correct is False:
+            full_text = f"{annotation}  ✗"
+        annot_color = (40, 110, 60) if is_correct is True else (
+            (150, 50, 50) if is_correct is False else (60, 60, 60)
+        )
+        draw.text((8, label_top + 30), full_text, fill=annot_color, font=detail_font)
+
     return canvas
 
 
@@ -207,7 +256,15 @@ def main() -> int:
         row_idx = int(row_matches[0])
 
         gt_img = store.get_image(qid)
-        tiles = [_labeled_tile(gt_img, "Ground Truth", [f"nsd_id={qid}"])]
+        tiles = [
+            _labeled_tile(
+                gt_img,
+                "Ground truth",
+                "target stimulus",
+                is_correct=None,
+                column_role="gt",
+            )
+        ]
         query_meta: dict[str, dict] = {"query_nsd_id": qid, "row_idx": row_idx, "experts": {}}
 
         for tag in ("v61a", "v62a", "v66a", "triple"):
@@ -218,25 +275,36 @@ def main() -> int:
 
             expert_img = store.get_image(retrieved_nsd_id)
             label = EXPERT_LABELS[tag]
-            detail_lines = [f"retrieved={retrieved_nsd_id}", f"GT rank={rank}"]
-            if is_correct:
-                detail_lines.append("CORRECT")
-            tiles.append(_labeled_tile(expert_img, label, detail_lines))
+            annotation = f"rank {rank}" if rank > 0 else "rank n/a"
+            column_role = "fusion" if tag == "triple" else "expert"
+
+            tiles.append(
+                _labeled_tile(
+                    expert_img,
+                    label,
+                    annotation,
+                    is_correct=is_correct,
+                    column_role=column_role,
+                )
+            )
             query_meta["experts"][tag] = {
                 "retrieved_nsd_id": retrieved_nsd_id,
                 "gt_rank": rank,
                 "correct": is_correct,
             }
 
-        panel_w = len(tiles) * TILE_SIZE
+        # Compose with a small gutter between tiles so the column borders read clearly
+        n_tiles = len(tiles)
+        panel_w = n_tiles * TILE_SIZE + (n_tiles - 1) * GUTTER
         panel_h = TILE_SIZE + LABEL_HEIGHT
         panel = Image.new("RGB", (panel_w, panel_h), "white")
         for i, tile in enumerate(tiles):
-            panel.paste(tile, (i * TILE_SIZE, 0))
+            panel.paste(tile, (i * (TILE_SIZE + GUTTER), 0))
 
         out_path = os.path.join(args.output_dir, f"query_{qid}.png")
-        panel.save(out_path)
-        print(f"  Wrote {out_path}  ({panel_w}x{panel_h})")
+        # dpi=300 lets LaTeX scale the panel cleanly to thesis width without resampling artefacts
+        panel.save(out_path, dpi=(300, 300), optimize=True)
+        print(f"  Wrote {out_path}  ({panel_w}x{panel_h}, 300 dpi)")
         metadata[str(qid)] = query_meta
 
     store.close()

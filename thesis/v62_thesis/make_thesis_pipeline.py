@@ -15,7 +15,7 @@ from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 
 OUT_PATH = Path(__file__).with_name("thesis_pipeline.png")
 
-FIG_W, FIG_H = 12.0, 7.0
+FIG_W, FIG_H = 12.0, 7.8
 
 # Colours
 C_DATA = "#dfe7f3"
@@ -69,7 +69,7 @@ def main():
     ax.set_axis_off()
 
     # ----- TOP ROW: data -> preprocessing -> encoder -> multi-head -----
-    y_top = 5.05
+    y_top = 5.80
     h_top = 1.15
     box_w = 2.40
     gap = 0.45
@@ -96,7 +96,7 @@ def main():
               (xs[i + 1], y_top + h_top / 2))
 
     # ----- MIDDLE ROW: three frozen experts -----
-    y_mid = 3.30
+    y_mid = 3.85
     h_mid = 1.20
     exp_w = 3.40
     gap_e = 0.30
@@ -115,16 +115,28 @@ def main():
         "768-D ROI-pretrained CLS\nanatomically-structured prior",
         face=C_EXPERT, title="Expert 3 -- V66a")
 
-    # arrows from decoder (top) into each expert
+    # arrows from decoder (top row) into each expert via a clean bracket-shaped bus
     decoder_x_center = xs[3] + box_w / 2
+    bus_y_top = y_mid + h_mid + 0.40   # well below decoder, well above experts
+    bus_x_left = exp_x[0] + exp_w / 2
+    bus_x_right = exp_x[-1] + exp_w / 2
+    # vertical segment from decoder centre down to the bus
+    ax.plot([decoder_x_center, decoder_x_center], [y_top, bus_y_top],
+            color="#4a4a4a", lw=1.6, solid_capstyle="round")
+    # horizontal bus spanning the three expert lanes (extend to also reach the decoder x)
+    bus_left = min(bus_x_left, decoder_x_center)
+    bus_right = max(bus_x_right, decoder_x_center)
+    ax.plot([bus_left, bus_right], [bus_y_top, bus_y_top],
+            color="#4a4a4a", lw=1.6, solid_capstyle="round")
+    # short arrow drops into each expert top (with arrow heads)
     for ex in exp_x:
         arrow(ax,
-              (decoder_x_center, y_top),
+              (ex + exp_w / 2, bus_y_top),
               (ex + exp_w / 2, y_mid + h_mid),
               color="#4a4a4a")
 
     # ----- HEADLINE ROW: frozen score fusion -> SHARED1000 output -----
-    y_head = 1.40
+    y_head = 1.55
     h_head = 1.30
 
     fuse_w = 5.20
@@ -149,12 +161,25 @@ def main():
         title="SHARED1000 headline endpoint",
         title_size=11.5, fontsize=10.5, weight="bold")
 
-    # arrows from each expert down into the fusion box
+    # arrows from each expert down into the fusion box via a second clean bracket-shaped bus
+    fusion_x_center = x_fuse + fuse_w / 2
+    bus_y_bot = y_mid - 0.40           # well below experts, well above fusion box
+    # short drop from each expert bottom to the bus (no arrow head; arrowhead is the
+    # single descending arrow that follows)
     for ex in exp_x:
-        arrow(ax,
-              (ex + exp_w / 2, y_mid),
-              (x_fuse + fuse_w / 2, y_head + h_head),
-              color="#7a5a60")
+        ax.plot([ex + exp_w / 2, ex + exp_w / 2],
+                [y_mid, bus_y_bot],
+                color="#7a5a60", lw=1.6, solid_capstyle="round")
+    # horizontal bus collecting the three expert lanes
+    bus_left = min(exp_x[0] + exp_w / 2, fusion_x_center)
+    bus_right = max(exp_x[-1] + exp_w / 2, fusion_x_center)
+    ax.plot([bus_left, bus_right], [bus_y_bot, bus_y_bot],
+            color="#7a5a60", lw=1.6, solid_capstyle="round")
+    # single arrow from the bus centre down into the fusion box
+    arrow(ax, (fusion_x_center, bus_y_bot),
+              (fusion_x_center, y_head + h_head),
+          color="#7a5a60", lw=1.6)
+    # arrow from fusion box to headline output
     arrow(ax, (x_fuse + fuse_w, y_head + h_head / 2),
               (x_out, y_head + h_head / 2),
           color=C_BORDER_HEAD, lw=1.8)
@@ -177,21 +202,19 @@ def main():
 
     box(ax, x_diff, y_mil, diff_w, h_mil,
         "SDXL 1.0 + IP-Adapter + CLIP injection\n"
-        "$n=141$ examples  ·  2-way AlexNet(5) = 86.2%",
+        r"$n=141$ examples  ·  2-way AlexNet(5) acc. $86.2\%$",
         face=C_DIFFUSION, border="#a89878", lw=1.0,
         title=None, fontsize=8.5)
     arrow(ax, (x_out + out_w / 2, y_head),
               (x_diff + diff_w / 2, y_mil + h_mil),
           ls=":", color="#7a6a4a")
 
-    # ----- section labels (small, left margin) -----
-    ax.text(0.30, y_top + h_top + 0.10, "MAIN  PIPELINE",
-            fontsize=9, fontweight="bold", color="#3a3a3a", ha="left")
-    ax.text(0.30, y_mid + h_mid + 0.10, "THREE  FROZEN  EXPERTS",
-            fontsize=9, fontweight="bold", color="#3a3a3a", ha="left")
-    ax.text(x_fuse0, y_head + h_head + 0.10,
-            "FINAL  EXPORTED  FUSION   (headline)",
-            fontsize=9, fontweight="bold", color="#3a3a3a", ha="left")
+    # ----- section labels (small, left margin, with breathing space) -----
+    label_kw = dict(fontsize=9, fontweight="bold", color="#3a3a3a", ha="left")
+    ax.text(0.30, y_top + h_top + 0.20, "MAIN  PIPELINE", **label_kw)
+    ax.text(0.30, y_mid + h_mid + 0.20, "THREE  FROZEN  EXPERTS", **label_kw)
+    ax.text(x_fuse0, y_head + h_head + 0.20,
+            "FINAL  EXPORTED  FUSION   (headline)", **label_kw)
 
     fig.savefig(OUT_PATH, dpi=300, bbox_inches="tight", facecolor="white")
     print(f"wrote {OUT_PATH}")

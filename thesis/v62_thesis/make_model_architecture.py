@@ -14,7 +14,7 @@ from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
 
 OUT_PATH = Path(__file__).with_name("model_architecture.png")
 
-FIG_W, FIG_H = 10.0, 5.6
+FIG_W, FIG_H = 11.5, 5.8
 
 C_INPUT = "#dfe7f3"
 C_ENC = "#f5e8d3"
@@ -37,7 +37,7 @@ def box(ax, x, y, w, h, text, *, face, title=None,
     if title is not None:
         ax.text(cx, y + h - 0.22, title, ha="center", va="top",
                 fontsize=title_size, fontweight="bold")
-        ax.text(cx, y + h / 2 - 0.20, text, ha="center", va="center",
+        ax.text(cx, y + h / 2 - 0.22, text, ha="center", va="center",
                 fontsize=fontsize)
     else:
         ax.text(cx, y + h / 2, text, ha="center", va="center",
@@ -85,24 +85,24 @@ def main():
 
     # --- Three heads (stacked vertically) ---
     x_head = x_enc + w_enc + 0.50
-    w_head = 3.60
-    h_head = 0.90
-    gap = 0.30
+    w_head = 4.40                     # wider so body text fits inside the box
+    h_head = 1.10                     # slightly taller for two-line body
+    gap = 0.20
 
     y_head_top = y_mid + h_in / 2 + h_head + gap / 2
     y_head_mid = y_mid + h_in / 2 - h_head / 2
     y_head_bot = y_mid + h_in / 2 - h_head - h_head / 2 - gap / 2
 
     box(ax, x_head, y_head_top, w_head, h_head,
-        "768-D compact target  ·  shortlist formation",
+        "768-D compact target\nshortlist formation",
         face=C_HEAD_C, title="Compact retrieval head", title_size=10.5,
         fontsize=9.5)
     box(ax, x_head, y_head_mid, w_head, h_head,
-        "2048-D PCA target  ·  shortlist-local correction",
+        "2048-D PCA target\nshortlist-local correction",
         face=C_HEAD_R, title="Dedicated rerank head", title_size=10.5,
         fontsize=9.5)
     box(ax, x_head, y_head_bot, w_head, h_head,
-        "high-dimensional target  ·  regression for qualitative decoding",
+        "high-dimensional target\nregression for qualitative decoding",
         face=C_HEAD_G, title="Rich regression head", title_size=10.5,
         fontsize=9.5)
 

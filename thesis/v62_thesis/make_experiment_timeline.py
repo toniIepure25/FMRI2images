@@ -20,9 +20,9 @@ MILESTONES = [
     (0.44, False, "v26a", "Token targets\n69.6% CSLS"),
     (0.57, True, "v28a", "Dual-head MindEye-style\n70.3% CSLS"),
     (0.70, False, "V30/V32", "Compact+rerank wave\nfusion validated"),
-    (0.82, True, "V35 + N1v28a", "Fixed-fusion milestone\n77.2% SHARED1000 CSLS R@1"),
-    (0.95, False, "Triple fusion",
-        "V61a$_{\\mathrm{mctta16}}$ + V62a + V66a\nFinal exported system\n86.3% SHARED1000 CSLS R@1"),
+    (0.80, True, "V35 + N1v28a", "Fixed-fusion milestone\n77.2% SHARED1000 CSLS R@1"),
+    (0.93, False, "Triple fusion (final)",
+        "V61a (MC-TTA-16) + V62a + V66a\n86.3% SHARED1000 CSLS R@1"),
 ]
 
 
@@ -42,12 +42,12 @@ def main() -> None:
             ax.vlines(x, 0.28, 0.5, colors="#888888", linewidth=0.8)
             text_y = 0.26
             va = "top"
-        is_final = "Final exported" in body
+        is_final = "(final)" in title
         weight = "bold" if is_final else "normal"
         ax.text(x, text_y, f"{title}\n{body}", ha="center", va=va,
                 fontsize=10, fontweight=weight)
 
-    ax.set_xlim(-0.02, 1.02)
+    ax.set_xlim(-0.04, 1.06)
     ax.set_ylim(0.0, 1.0)
     ax.set_axis_off()
 

@@ -89,30 +89,30 @@ The final trainable architecture described in this thesis is the V30/V35 family,
     \item the \textbf{rerank head}, which operates only on shortlist candidates and performs shortlist-local discrimination;
     \item the \textbf{rich head}, which preserves a higher-capacity representation useful for regression and reconstruction-oriented supervision.
 \end{itemize}
-This separation is one of the central design insights of the project: a single latent space is not forced to satisfy all design requirements simultaneously. The decomposition is preserved by the final exported system, which keeps the multi-head decoder trained as in V35 but replaces the two-expert milestone fusion with the inference-time cross-architecture triple score fusion described in Section~\ref{chap:experiments}.
+This separation is one of the central design insights of the project: a single latent space is not forced to satisfy all design requirements simultaneously. The same multi-head decomposition is reused as the trainable template across the V60--V66 experiment family: each retrieval expert is a fresh instance of this template, trained independently end-to-end with its own target and its own optimisation schedule. The final exported system therefore preserves the compact / rerank / rich decomposition at the per-expert level and adds a frozen score-level combination across three such experts at inference time; the cross-architecture triple score fusion that yields the primary SHARED1000 retrieval result is described in Section~\ref{chap:experiments}.
 
 \begin{figure}[htbp]
     \centering
     \includegraphics[width=\textwidth]{model_architecture.png}
-    \caption{Trainable multi-head decoder shared by the V60--V66 lineage. A residual MLP encoder operates on the preprocessed voxel vector and feeds three task-specific heads (compact for shortlist, rerank for shortlist-local correction, rich for regression-style targets and qualitative decoding). This is the trainable architecture; the inference-time score fusion across V61a, V62a, and V66a that yields the headline SHARED1000 result is described in Section~\ref{chap:experiments} and depicted separately in Figure~\ref{fig:triple_fusion_architecture}.}
+    \caption{Trainable multi-head decoder shared by the V60--V66 experiment family. A residual MLP encoder operates on the preprocessed voxel vector and feeds three task-specific heads (compact for shortlist, rerank for shortlist-local correction, rich for regression-style targets and qualitative decoding). This is the trainable architecture; the inference-time score fusion across V61a, V62a, and V66a that yields the primary SHARED1000 retrieval result is described in Section~\ref{chap:experiments} and depicted separately in Figure~\ref{fig:triple_fusion_architecture}.}
     \label{fig:model_architecture}
 \end{figure}
 
 \section{Inference and Score Fusion}
 
-At inference time, the compact head first retrieves a shortlist of candidate images. Let $\mathcal{S}_K(x_i)$ denote the top-$K$ shortlist obtained from compact retrieval. In the earlier V30/V32 wave, the rerank head rescales those candidates locally. If $s_c(i,j)$ is the compact score and $s_r(i,j)$ is the rerank score for candidate $j$ in the shortlist of sample $i$, the shortlist-local fused score can be written as
+At inference time, the compact head first retrieves a shortlist of candidate images. Let $\mathcal{S}_K(x_i)$ denote the top-$K$ shortlist obtained from compact retrieval. In the earlier compact--rerank design stage, the rerank head rescales those candidates locally. If $s_c(i,j)$ is the compact score and $s_r(i,j)$ is the rerank score for candidate $j$ in the shortlist of sample $i$, the shortlist-local fused score can be written as
 \begin{equation}
 s_{\mathrm{fusion}}(i,j) = \alpha \, s_c(i,j) + (1-\alpha) \, s_r(i,j), \qquad j \in \mathcal{S}_K(x_i),
 \label{eq:fusion_score}
 \end{equation}
 where $\alpha \in [0,1]$ is a fusion weight. This formulation established the key methodological lesson of the thesis: reranking is most effective as a corrective signal applied inside a strong shortlist.
 
-A first frozen fixed-fusion system extends this idea with a complementary legacy expert. Using z-score-normalized expert scores, the corresponding score combination can be written as
+A first frozen fixed-fusion system extends this idea with an earlier complementary baseline expert. Using z-score-normalized expert scores, the corresponding score combination can be written as
 \begin{equation}
 s_{\mathrm{milestone}}(i,j) = 0.3\,\widetilde{s}_{c,\mathrm{CSLS}}(i,j) + 0.7\,\widetilde{s}_{\ell,\mathrm{CSLS}}(i,j),
 \label{eq:best_fusion_score}
 \end{equation}
-with $\widetilde{s}_{c,\mathrm{CSLS}}$ denoting the normalized compact-CSLS score from V35 and $\widetilde{s}_{\ell,\mathrm{CSLS}}$ denoting the normalized legacy-CSLS score from N1v28a. The rerank branch remains methodologically important and still informs the architecture; the V35 plus legacy combination is retained as a milestone result that validates the compact--rerank--rich decomposition under expert fusion.
+with $\widetilde{s}_{c,\mathrm{CSLS}}$ denoting the normalized compact-CSLS score from V35 and $\widetilde{s}_{\ell,\mathrm{CSLS}}$ denoting the normalized CSLS score from the earlier complementary baseline expert N1v28a. The rerank branch remains methodologically important and still informs the architecture; the V35 plus baseline-expert combination is retained as a milestone result that validates the compact--rerank--rich decomposition under expert fusion.
 
 After validating this compact, rerank, and rich decomposition, the final inference-time extension explored stronger token-space decoding and cross-architecture score fusion. The exported best system replaces the two-expert fusion above with a frozen score-level combination of three retrieval experts that span different target spaces and different inductive biases: a 197K token-space model (V61a) evaluated with 16-draw Monte Carlo test-time augmentation (MC-TTA-16), a 768-D CLS retrieval model (V62a), and a 768-D ROI-pretrained model (V66a). With $\widetilde{s}_{1,\mathrm{CSLS}}$, $\widetilde{s}_{2,\mathrm{CSLS}}$, and $\widetilde{s}_{3,\mathrm{CSLS}}$ denoting the normalized CSLS scores of these three experts, the final retrieval score is
 \begin{equation}
@@ -125,6 +125,6 @@ A useful way to interpret the overall design is therefore that the first stage s
 
 \section{Reproducibility Principles}
 
-A significant part of the methodology is dedicated to reproducibility. The project maintains versioned experiment configurations, cached targets, explicit split logic, and a strict separation between training-time and evaluation-time computations. This is especially important in a thesis context because the scientific value of the results depends not only on the final metric values, but also on the ability to explain why those values were obtained and how they changed across experimental waves.
+A significant part of the methodology is dedicated to reproducibility. The project maintains versioned experiment configurations, cached targets, explicit split logic, and a strict separation between training-time and evaluation-time computations. This is especially important in a thesis context because the scientific value of the results depends not only on the final metric values, but also on the ability to explain why those values were obtained and how they changed across successive experiment families.
 
 The practical implication is that every experiment is treated as a traceable artifact with explicit inputs, outputs, and evaluation scripts. In a research area where silent alignment bugs can invalidate an otherwise sophisticated system, reproducibility is not just a software-engineering virtue; it is a core scientific requirement.

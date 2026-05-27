@@ -40,20 +40,20 @@ ARROW = "#666666"
 EXPERTS = [
     {
         "cx": 0.18,
-        "title": "V61a token-space",
-        "body": "197K-D ViT-L/14 target\n+ MC-TTA-16 inference\n(strongest single)",
+        "title": "V61a (token-space)",
+        "body": "197K-D ViT-L/14 grid target\nMC-TTA-16 at inference",
         "weight": "$w_1 = 0.7$",
     },
     {
         "cx": 0.50,
-        "title": "V62a 768-D CLS",
-        "body": "768-D ViT-L/14 CLS target\n(complementary)",
+        "title": "V62a (768-D CLS)",
+        "body": "768-D ViT-L/14 CLS target\ncomplementary geometry",
         "weight": "$w_2 = 0.1$",
     },
     {
         "cx": 0.82,
-        "title": "V66a 768-D ROI",
-        "body": "768-D ROI-pretrained\n(complementary)",
+        "title": "V66a (768-D ROI)",
+        "body": "768-D ROI-pretrained CLS\nanatomically-structured prior",
         "weight": "$w_3 = 0.2$",
     },
 ]
@@ -173,13 +173,13 @@ def main() -> None:
                    y_output + output_h / 2)
 
     # Title.
-    ax.text(0.50, 1.00,
+    ax.text(0.50, 1.02,
             "Final exported triple-fusion retrieval architecture",
             ha="center", va="top",
             fontsize=14, fontweight="bold", color="#222222")
 
     ax.set_xlim(0.0, 1.0)
-    ax.set_ylim(0.0, 1.02)
+    ax.set_ylim(0.0, 1.04)
     ax.set_aspect("auto")
     ax.set_axis_off()
 

@@ -440,26 +440,26 @@ def make_composite(rows: list[dict], store: StimulusStore, output_path: str, til
     cols_per_bucket = 2
     n_img_cols = 3       # GT | Anchor | Diffusion
     total_cols = cols_per_bucket * n_img_cols
-    label_w = 130
-    gap = 6
-    group_gap = 28       # extra space between the two example groups
-    header_h = 38
-    row_pad = 16         # padding between buckets
+    label_w = 200        # wider so the bucket label has breathing room
+    gap = 8
+    group_gap = 40       # extra space between the two example groups
+    header_h = 64        # taller header so column titles are clearly readable
+    row_pad = 22         # padding between buckets
 
     # Width accounts for the extra group-gap between the two example triplets.
     w = (label_w
          + total_cols * tile_size
          + (n_img_cols - 1) * gap * cols_per_bucket
          + group_gap
-         + 24)
-    h = header_h + len(BUCKETS) * (tile_size + row_pad + 6) + 24
+         + 28)
+    h = header_h + len(BUCKETS) * (tile_size + row_pad + 6) + 32
     canvas = Image.new("RGB", (w, h), "white")
     draw = ImageDraw.Draw(canvas)
 
     try:
-        font_bucket = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 18)
-        font_header = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 14)
-        font_grp = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 12)
+        font_bucket = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 30)
+        font_header = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 26)
+        font_grp = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 20)
     except Exception:
         font_bucket = ImageFont.load_default()
         font_header = font_bucket
@@ -474,11 +474,16 @@ def make_composite(rows: list[dict], store: StimulusStore, output_path: str, til
     for g in range(cols_per_bucket):
         for ci, lbl in enumerate(["Ground truth", "Anchor", "Diffusion"]):
             x = tile_x(g, ci) + tile_size // 2
-            draw.text((x, 8), lbl, fill=(40, 40, 40), font=font_header, anchor="mt")
+            draw.text((x, 14), lbl, fill=(40, 40, 40), font=font_header, anchor="mt")
+        # group label "Example 1" / "Example 2" above each triplet
+        ex_x = (tile_x(g, 0) + tile_x(g, n_img_cols - 1) + tile_size) // 2
+        draw.text((ex_x, header_h - 22), f"Example {g + 1}",
+                  fill=(110, 110, 110), font=font_grp, anchor="mb")
         # thin underline below the per-group header
         ux0 = tile_x(g, 0)
         ux1 = tile_x(g, n_img_cols - 1) + tile_size
-        draw.line([(ux0, header_h - 4), (ux1, header_h - 4)], fill=(180, 180, 180), width=1)
+        draw.line([(ux0, header_h - 4), (ux1, header_h - 4)],
+                  fill=(180, 180, 180), width=1)
 
     # ---- bucket rows ----
     by_bucket = {b: [] for b in BUCKETS}

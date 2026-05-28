@@ -29,7 +29,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import yaml
-from torch.cuda.amp import GradScaler, autocast
+from torch.amp import autocast, GradScaler
 from torch.utils.data import DataLoader, Subset
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
@@ -180,7 +180,7 @@ def train_epoch(
             batch_roi_indices = roi_indices[subj_names[0]]
 
         # Forward pass
-        with autocast(device_type="cuda", dtype=amp_dtype, enabled=use_amp):
+        with autocast("cuda", dtype=amp_dtype, enabled=use_amp):
             outputs = model(
                 fmri=fmri,
                 roi_indices=batch_roi_indices,

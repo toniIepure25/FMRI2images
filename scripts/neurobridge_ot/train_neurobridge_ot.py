@@ -338,6 +338,8 @@ def main():
         output_dir.mkdir(parents=True, exist_ok=True)
     else:
         output_dir = setup_output_dir(config, args)
+    (output_dir / "checkpoints").mkdir(parents=True, exist_ok=True)
+    (output_dir / "metrics").mkdir(parents=True, exist_ok=True)
     logger.info("Output: %s", output_dir)
 
     # Save config

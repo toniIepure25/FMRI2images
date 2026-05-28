@@ -117,9 +117,11 @@ def check_teacher_artifacts(output_root: Path, subjects: list) -> dict:
 def main():
     parser = argparse.ArgumentParser(description="NeuroBridge-OT Data Audit")
     parser.add_argument("--subjects", nargs="+",
-                        default=["subj01", "subj02", "subj05", "subj07"])
+                        default=["subj01", "subj02", "subj03", "subj04",
+                                 "subj05", "subj06", "subj07", "subj08"])
     parser.add_argument("--check-teachers", action="store_true")
     parser.add_argument("--check-rois", action="store_true")
+    parser.add_argument("--check-shared1000", action="store_true")
     parser.add_argument("--output", type=str, default=None)
     args = parser.parse_args()
 
@@ -184,6 +186,41 @@ def main():
         for model, subj_map in audit["teachers"]["teachers"].items():
             available = sum(1 for s in subj_map.values() if s["checkpoint_exists"])
             logger.info("  %s: %d/%d subjects available", model, available, len(subj_map))
+
+    # Check SHARED1000 gallery consistency
+    if args.check_shared1000:
+        audit["shared1000_audit"] = {}
+        shared_nsd_ids_per_subject = {}
+        for subj in args.subjects:
+            index_path = index_root / f"subject={subj}" / "index.parquet"
+            if index_path.exists():
+                import pandas as pd
+                df = pd.read_parquet(index_path)
+                if "shared1000" in df.columns and "nsdId" in df.columns:
+                    shared_ids = sorted(df[df["shared1000"] == True]["nsdId"].unique().tolist())
+                    shared_nsd_ids_per_subject[subj] = shared_ids
+                    audit["shared1000_audit"][subj] = {
+                        "n_shared1000_unique_images": len(shared_ids),
+                        "n_shared1000_trials": int(df["shared1000"].sum()),
+                    }
+                else:
+                    audit["shared1000_audit"][subj] = {"status": "columns_missing"}
+            else:
+                audit["shared1000_audit"][subj] = {"status": "index_not_found"}
+
+        if len(shared_nsd_ids_per_subject) >= 2:
+            ref_ids = list(shared_nsd_ids_per_subject.values())[0]
+            all_match = all(ids == ref_ids for ids in shared_nsd_ids_per_subject.values())
+            audit["shared1000_audit"]["gallery_identical_across_subjects"] = all_match
+            if not all_match:
+                logger.warning("SHARED1000 nsdIds differ across subjects!")
+
+        logger.info("\nSHARED1000 audit:")
+        for subj, info in audit["shared1000_audit"].items():
+            if isinstance(info, dict) and "n_shared1000_unique_images" in info:
+                logger.info("  %s: %d unique images, %d trials",
+                            subj, info["n_shared1000_unique_images"],
+                            info["n_shared1000_trials"])
 
     # Summary
     n_ok = sum(1 for s in audit["subjects"].values() if s["status"] == "ok")

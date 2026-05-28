@@ -27,9 +27,9 @@ Instead of forcing all subjects through a single fixed architecture, NeuroBridge
 |---|---|---|---|
 | V61a | Token-target MLP | subj01 only | No transfer capability |
 | V62a | CLS MLP | subj01 only | No transfer capability |
-| V66a | Multi-subject ROI Transformer | 4 subjects (seen) | Weak on unseen subjects |
+| V66a | Multi-subject ROI Transformer | 4 subjects (subj01/02/05/07) | Weak on unseen subjects |
 | Triple Fusion | Score-level fusion | subj01 only | Requires all 3 models |
-| **NeuroBridge-OT** | OT-aligned ROI Transformer | Any subject | Novel; experiments pending |
+| **NeuroBridge-OT** | OT-aligned ROI Transformer | All 8 NSD subjects | Novel; experiments pending |
 
 ## What This Architecture Does NOT Claim
 

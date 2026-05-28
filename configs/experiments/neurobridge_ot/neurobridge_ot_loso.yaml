@@ -1,5 +1,6 @@
 # NeuroBridge-OT: LOSO Protocol
 # Taxonomy: loso_generalization
+# LEGACY: Original 4-subject LOSO. For primary 8-fold LOSO, use neurobridge_ot_8subj_loso.yaml
 # True zero-shot: target subject has NO learned parameters
 
 experiment:

@@ -158,6 +158,50 @@ class TeacherRegistry:
     def registered_teachers(self) -> List[str]:
         return list(self._teachers.keys())
 
+    def get_available_subjects(self, model_name: str) -> List[str]:
+        """Return subjects that have this teacher model registered and loaded."""
+        available = []
+        for key, entry in self._teachers.items():
+            if entry["model_name"] == model_name:
+                available.append(entry["subject"])
+        return available
+
+    def get_subject_mask(
+        self, model_name: str, batch_subjects: List[str]
+    ) -> Tensor:
+        """Create a boolean mask indicating which batch items have teacher coverage.
+
+        Args:
+            model_name: Teacher model name.
+            batch_subjects: List of subject identifiers for each batch item.
+
+        Returns:
+            Boolean tensor of shape (B,) — True if teacher exists for that subject.
+        """
+        available = set(self.get_available_subjects(model_name))
+        mask = torch.tensor(
+            [s in available for s in batch_subjects], dtype=torch.bool
+        )
+        return mask
+
+    def get_teacher_manifest_info(self) -> Dict[str, Any]:
+        """Generate manifest-level teacher availability info."""
+        all_models = set()
+        subject_coverage: Dict[str, List[str]] = {}
+        for key, entry in self._teachers.items():
+            model_name = entry["model_name"]
+            subject = entry["subject"]
+            all_models.add(model_name)
+            if model_name not in subject_coverage:
+                subject_coverage[model_name] = []
+            subject_coverage[model_name].append(subject)
+
+        return {
+            "teacher_models": sorted(all_models),
+            "teacher_subjects_available": subject_coverage,
+            "teacher_subjects_missing": {},  # Populated by caller with full subject list
+        }
+
 
 class EmbeddingDistillLoss(nn.Module):
     """Distillation loss in embedding space (cosine or MSE).

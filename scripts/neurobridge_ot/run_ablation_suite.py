@@ -39,7 +39,9 @@ def main():
                         default="configs/experiments/neurobridge_ot/")
     parser.add_argument("--configs", nargs="+", default=None,
                         help="Specific config filenames to run (default: all ablation configs)")
-    parser.add_argument("--subjects", nargs="+", default=["subj01", "subj02", "subj05", "subj07"])
+    parser.add_argument("--subjects", nargs="+",
+                        default=["subj01", "subj02", "subj03", "subj04",
+                                 "subj05", "subj06", "subj07", "subj08"])
     parser.add_argument("--output-dir", type=str,
                         default="experimental_results/neurobridge_ot_ablation")
     parser.add_argument("--gpu", type=int, default=0)

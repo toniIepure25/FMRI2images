@@ -122,9 +122,18 @@ def save_run_manifest(output_dir: Path, config: Dict, args, extra: Dict = None):
         "git_branch": git_branch,
         "config_path": str(args.config),
         "training_subjects": args.subjects,
+        "source_subjects": args.source_subjects if args.source_subjects else args.subjects,
         "target_subject": args.target_subject,
+        "evaluation_subjects": [args.target_subject] if args.target_subject else args.subjects,
+        "target_subject_seen_during_training": config.get("protocol", {}).get("target_subject_seen_during_training", None),
+        "target_calibration_fmri_used": config.get("protocol", {}).get("target_calibration_fmri_used", False),
+        "target_labels_used": config.get("protocol", {}).get("target_labels_used", None),
+        "target_adapter_fitted": config.get("protocol", {}).get("target_adapter_fitted", False),
+        "target_learned_parameters_used": config.get("protocol", {}).get("target_learned_parameters_used", None),
         "split_by_image": config.get("data", {}).get("split_by_image", True),
         "exclude_shared1000": config.get("data", {}).get("exclude_shared1000", True),
+        "gallery_size": None,  # Populated after evaluation
+        "csls_k": config.get("evaluation", {}).get("csls_k", 3),
         "seed": args.seed,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "command": " ".join(sys.argv),
@@ -295,7 +304,9 @@ def validate(
 def main():
     parser = argparse.ArgumentParser(description="NeuroBridge-OT Training")
     parser.add_argument("--config", type=str, required=True, help="Path to experiment config")
-    parser.add_argument("--subjects", nargs="+", default=["subj01", "subj02", "subj05", "subj07"])
+    parser.add_argument("--subjects", nargs="+",
+                        default=["subj01", "subj02", "subj03", "subj04",
+                                 "subj05", "subj06", "subj07", "subj08"])
     parser.add_argument("--target-subject", type=str, default=None)
     parser.add_argument("--source-subjects", nargs="+", default=None)
     parser.add_argument("--gpu", type=int, default=0)

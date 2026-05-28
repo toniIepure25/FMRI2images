@@ -1,19 +1,27 @@
-# NeuroBridge-OT: Full System — All components enabled
-# Taxonomy: multi_subject_seen_subject
-# LEGACY: Original 4-subject config. For primary 8-subject training, use neurobridge_ot_8subj_full.yaml
+# NeuroBridge-OT: 8-Fold Leave-One-Subject-Out Protocol
+# Taxonomy: loso_strict_zero_shot (default) or loso_unsupervised_calibrated
+# PRIMARY LOSO PROTOCOL — All 8 NSD subjects, 8 folds
 
 experiment:
-  name: "neurobridge_ot_full"
-  description: "NeuroBridge-OT full system with OT, teacher distill, hyper-adapter, adversarial"
-  tags: ["neurobridge_ot", "full", "ot", "teacher", "hyperadapter", "adversarial", "vmf"]
+  name: "neurobridge_ot_8subj_loso"
+  description: "NeuroBridge-OT 8-fold LOSO — train on 7, evaluate held-out target"
+  tags: ["neurobridge_ot", "8subj", "loso", "generalization", "zero_shot"]
 
 protocol:
-  taxonomy_label: "multi_subject_seen_subject"
-  training_subjects: ["subj01", "subj02", "subj05", "subj07"]
-  evaluation_subjects: ["subj01", "subj02", "subj05", "subj07"]
+  # Default: strict zero-shot. Override via --mode unsupervised_calibrated
+  taxonomy_label: "loso_strict_zero_shot"
+  all_subjects: ["subj01", "subj02", "subj03", "subj04", "subj05", "subj06", "subj07", "subj08"]
+  n_folds: 8
+  # Per-fold: source_subjects = all_subjects minus target_subject
+  # target_subject is set per-fold by run_loso_neurobridge_ot.py
+  target_subject_seen_during_training: false
+  target_calibration_fmri_used: false  # true for unsupervised_calibrated mode
+  target_labels_used: false
+  target_adapter_fitted: false
+  target_learned_parameters_used: false
 
 data:
-  subjects: ["subj01", "subj02", "subj05", "subj07"]
+  subjects: ["subj01", "subj02", "subj03", "subj04", "subj05", "subj06", "subj07", "subj08"]
   split_by_image: true
   exclude_shared1000: true
   val_ratio: 0.10
@@ -41,15 +49,14 @@ model:
   fingerprint:
     fingerprint_dim: 128
     n_subjects: 8
-    use_subject_embedding: true
-    roi_stat_dim: 5
+    use_subject_embedding: false  # Critical: no subject embedding for zero-shot
 
   optimal_transport:
     alignment_mode: "ot"
     epsilon: 0.1
     n_sinkhorn_iters: 50
     cost_type: "cosine"
-    use_anatomical_prior: false
+    use_anatomical_prior: true  # Anatomical prior aids unseen subjects
 
   transformer:
     n_heads: 12
@@ -58,7 +65,7 @@ model:
     dropout: 0.1
     drop_path_rate: 0.15
     n_subjects: 8
-    use_subject_embedding: false
+    use_subject_embedding: false  # No subject embedding for zero-shot
     activation: "gelu"
     gradient_checkpointing: false
 
@@ -74,17 +81,16 @@ model:
 
   hyper_adapter:
     adapter_type: "film"
-    lora_rank: 8
     hidden_dim: 512
 
 loss:
   w_contrastive: 1.0
   w_regression: 0.5
   w_token: 0.0
-  w_teacher: 0.3
-  w_ot: 0.1
-  w_shared: 0.1
-  w_adversarial: 0.1
+  w_teacher: 0.0  # No teacher for fair LOSO
+  w_ot: 0.2  # Stronger OT for cross-subject alignment
+  w_shared: 0.2  # Stronger shared-image consistency
+  w_adversarial: 0.2  # Stronger subject invariance
   w_vmf: 0.3
   w_calibration: 0.0
 
@@ -100,7 +106,7 @@ loss:
     d_model: 768
     n_subjects: 8
     hidden_dim: 256
-    grl_lambda: 1.0
+    grl_lambda: 1.5
 
   shared_consistency:
     margin: 0.8
@@ -121,4 +127,4 @@ evaluation:
   eval_shared1000: true
 
 paths:
-  output_dir: "experimental_results/neurobridge_ot_full"
+  output_dir: "experimental_results/neurobridge_ot_8subj_loso"

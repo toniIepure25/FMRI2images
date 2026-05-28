@@ -1,17 +1,24 @@
-# NeuroBridge-OT: No Subject Adversarial
+# NeuroBridge-OT: Legacy 4-Subject Comparison (V66a-compatible)
 # Taxonomy: multi_subject_seen_subject
-# NOTE: Subject list below is a 4-subject default. Override with --subjects for 8-subject runs.
-# Hypothesis 6: Adversarial training improves subject-invariant representations
+# LEGACY PROTOCOL — Preserved for direct comparison to V66a
+#
+# WARNING: This is NOT the primary NeuroBridge-OT protocol.
+# The primary protocol uses all 8 NSD subjects.
+# Use this config ONLY for comparison against V66a, which was trained on
+# subj01/subj02/subj05/subj07.
 
 experiment:
-  name: "neurobridge_ot_no_adversarial"
-  description: "NeuroBridge-OT without subject adversarial gradient reversal"
-  tags: ["neurobridge_ot", "ablation", "no_adversarial"]
+  name: "neurobridge_ot_4subj_legacy_v66a_comparison"
+  description: "Legacy 4-subject config for direct V66a comparison only"
+  tags: ["neurobridge_ot", "legacy", "4subj", "v66a_comparison"]
 
 protocol:
   taxonomy_label: "multi_subject_seen_subject"
   training_subjects: ["subj01", "subj02", "subj05", "subj07"]
   evaluation_subjects: ["subj01", "subj02", "subj05", "subj07"]
+  legacy_comparison: true
+  comparison_target: "V66a"
+  note: "Legacy 4-subject protocol for V66a comparability. Not for publication-level claims."
 
 data:
   subjects: ["subj01", "subj02", "subj05", "subj07"]
@@ -29,6 +36,7 @@ model:
   n_canonical_tokens: 17
   use_fingerprint: true
   use_hyper_adapter: true
+
   tokenizer:
     type: "learned"
     n_rois: 17
@@ -36,45 +44,74 @@ model:
     n_attn_heads: 4
     dropout: 0.1
     roi_dropout: 0.1
+    max_voxels_per_roi: 2000
+
   fingerprint:
     fingerprint_dim: 128
-    n_subjects: 8
+    n_subjects: 4
     use_subject_embedding: true
+    roi_stat_dim: 5
+
   optimal_transport:
     alignment_mode: "ot"
     epsilon: 0.1
     n_sinkhorn_iters: 50
     cost_type: "cosine"
+    use_anatomical_prior: false
+
   transformer:
     n_heads: 12
     n_layers: 6
     dim_feedforward: 3072
     dropout: 0.1
     drop_path_rate: 0.15
+    n_subjects: 4
+    use_subject_embedding: false
+    activation: "gelu"
+    gradient_checkpointing: false
+
   heads:
     d_model: 768
     output_dim: 768
+    dropout: 0.1
+    use_token_head: false
     use_vmf_head: true
+    use_calibration_head: false
     kappa_min: 0.001
     kappa_max: 500.0
+
   hyper_adapter:
     adapter_type: "film"
+    lora_rank: 8
     hidden_dim: 512
 
 loss:
   w_contrastive: 1.0
   w_regression: 0.5
-  w_teacher: 0.3
+  w_token: 0.0
+  w_teacher: 0.3  # Teacher available for all 4 legacy subjects
   w_ot: 0.1
   w_shared: 0.1
-  w_adversarial: 0.0  # Disabled
+  w_adversarial: 0.1
   w_vmf: 0.3
+  w_calibration: 0.0
+
   contrastive:
     temperature: 0.07
     symmetric: true
+
   vmf:
     kappa_reg_weight: 0.1
     target_kappa: 50.0
+
+  adversarial:
+    d_model: 768
+    n_subjects: 4
+    hidden_dim: 256
+    grl_lambda: 1.0
+
+  shared_consistency:
+    margin: 0.8
 
 training:
   epochs: 200
@@ -87,5 +124,9 @@ training:
   patience: 30
   warmup_epochs: 5
 
+evaluation:
+  csls_k: 3
+  eval_shared1000: true
+
 paths:
-  output_dir: "experimental_results/neurobridge_ot_no_adversarial"
+  output_dir: "experimental_results/neurobridge_ot_4subj_legacy"

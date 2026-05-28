@@ -1,6 +1,7 @@
 # NeuroBridge-OT: No OT Ablation — Identity alignment instead of Sinkhorn OT
 # Taxonomy: multi_subject_seen_subject
 # Hypothesis 2: OT alignment improves cross-subject consistency
+# NOTE: Subject list below is a 4-subject default. Override with --subjects for 8-subject runs.
 
 experiment:
   name: "neurobridge_ot_no_ot"

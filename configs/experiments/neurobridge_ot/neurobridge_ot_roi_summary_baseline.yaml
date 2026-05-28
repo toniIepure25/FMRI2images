@@ -1,5 +1,6 @@
 # NeuroBridge-OT: Fixed ROI Summary Baseline
 # Taxonomy: multi_subject_seen_subject
+# NOTE: Subject list below is a 4-subject default. Override with --subjects for 8-subject runs.
 # Hypothesis 1: Learned ROI tokens outperform fixed ROI summaries
 
 experiment:

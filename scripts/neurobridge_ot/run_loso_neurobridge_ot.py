@@ -31,8 +31,16 @@ def main():
     parser = argparse.ArgumentParser(description="NeuroBridge-OT LOSO")
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("--all-subjects", nargs="+",
-                        default=["subj01", "subj02", "subj05", "subj07"])
-    parser.add_argument("--output-dir", type=str, default="experimental_results/neurobridge_ot_loso")
+                        default=["subj01", "subj02", "subj03", "subj04",
+                                 "subj05", "subj06", "subj07", "subj08"])
+    parser.add_argument("--target-subject", type=str, default=None,
+                        help="Run single fold for this target (default: all folds)")
+    parser.add_argument("--all-8-folds", action="store_true",
+                        help="Explicitly run all 8 folds (same as default with 8 subjects)")
+    parser.add_argument("--mode", type=str, default="strict",
+                        choices=["strict", "unsupervised_calibrated"],
+                        help="LOSO mode: strict (no target info) or unsupervised_calibrated")
+    parser.add_argument("--output-dir", type=str, default="experimental_results/neurobridge_ot_8subj_loso")
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--csls-k", type=int, default=3)
@@ -43,18 +51,31 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     all_subjects = args.all_subjects
+
+    # If single target specified, run only that fold
+    if args.target_subject:
+        target_subjects = [args.target_subject]
+    else:
+        target_subjects = all_subjects
+
+    taxonomy_label = (
+        "loso_strict_zero_shot" if args.mode == "strict"
+        else "loso_unsupervised_calibrated"
+    )
     loso_results = {}
 
     logger.info("=" * 70)
     logger.info("NeuroBridge-OT LOSO: Leave-One-Subject-Out")
     logger.info("All subjects: %s", all_subjects)
+    logger.info("Target subjects: %s", target_subjects)
+    logger.info("Mode: %s (taxonomy: %s)", args.mode, taxonomy_label)
     logger.info("=" * 70)
 
     script_dir = Path(__file__).parent
     train_script = script_dir / "train_neurobridge_ot.py"
     eval_script = script_dir / "eval_neurobridge_ot.py"
 
-    for target_subj in all_subjects:
+    for target_subj in target_subjects:
         source_subjects = [s for s in all_subjects if s != target_subj]
         fold_dir = output_dir / f"target_{target_subj}"
         fold_dir.mkdir(parents=True, exist_ok=True)
@@ -125,9 +146,12 @@ def main():
 
     # Summary
     summary = {
-        "protocol": "loso_generalization",
-        "taxonomy_label": "loso_generalization",
+        "protocol": "loso",
+        "taxonomy_label": taxonomy_label,
+        "mode": args.mode,
         "all_subjects": all_subjects,
+        "target_subjects_evaluated": target_subjects,
+        "n_folds": len(target_subjects),
         "per_subject": loso_results,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }

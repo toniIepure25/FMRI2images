@@ -331,12 +331,23 @@ class NeuroBridgeOTLoss(nn.Module):
                 losses["token_regression"] = token_loss
                 total = total + self.w_token * token_loss
 
-        # 4. Teacher distillation
+        # 4. Teacher distillation (with per-subject masking)
         if self.w_teacher > 0 and teacher_predictions is not None:
             clip_pred = model_outputs["clip_embedding"]
-            teacher_loss = 1.0 - F.cosine_similarity(
-                clip_pred, teacher_predictions, dim=-1
-            ).mean()
+            # Support subject-level teacher mask: only compute loss where teacher exists
+            teacher_mask = targets.get("teacher_mask")
+            if teacher_mask is not None and teacher_mask.any():
+                masked_pred = clip_pred[teacher_mask]
+                masked_teacher = teacher_predictions[teacher_mask]
+                teacher_loss = 1.0 - F.cosine_similarity(
+                    masked_pred, masked_teacher, dim=-1
+                ).mean()
+            elif teacher_mask is not None and not teacher_mask.any():
+                teacher_loss = torch.tensor(0.0, device=device)
+            else:
+                teacher_loss = 1.0 - F.cosine_similarity(
+                    clip_pred, teacher_predictions, dim=-1
+                ).mean()
             losses["teacher_distill"] = teacher_loss
             total = total + self.w_teacher * teacher_loss
 

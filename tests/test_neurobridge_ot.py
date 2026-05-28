@@ -448,3 +448,89 @@ class TestNeuroBridgeOTModel:
         subject_id = torch.tensor([0, 1])
         out = model(fmri, roi_indices, subject_id=subject_id, roi_stats=roi_stats)
         assert out["clip_embedding"].shape == (2, 32)
+
+
+class TestTeacherDistillation8Subjects:
+    """Tests for teacher distillation in 8-subject setting."""
+
+    def test_teacher_registry_subject_mask(self):
+        """Teacher mask correctly identifies covered subjects."""
+        from fmri2img.models.neurobridge_ot.teacher_distillation import TeacherRegistry
+
+        registry = TeacherRegistry()
+        registry.register("subj01", "V66a", embedding_dim=768)
+        registry.register("subj02", "V66a", embedding_dim=768)
+
+        batch_subjects = ["subj01", "subj02", "subj03", "subj04"]
+        mask = registry.get_subject_mask("V66a", batch_subjects)
+        assert mask.tolist() == [True, True, False, False]
+
+    def test_teacher_missing_subject_no_crash(self):
+        """Training with missing teacher for a subject should not crash."""
+        from fmri2img.models.neurobridge_ot.teacher_distillation import TeacherRegistry
+
+        registry = TeacherRegistry()
+        registry.register("subj01", "V66a", embedding_dim=768)
+        preds = registry.get_predictions("subj03", "V66a", nsd_ids=torch.arange(10).numpy())
+        assert preds is None
+
+    def test_teacher_loss_with_subject_mask(self):
+        """Teacher loss only applied to subjects with coverage."""
+        torch.manual_seed(42)
+        config = {
+            "w_contrastive": 1.0,
+            "w_teacher": 0.5,
+            "w_regression": 0.0,
+            "contrastive": {"temperature": 0.07},
+        }
+        loss_fn = NeuroBridgeOTLoss(config)
+
+        B, D = 8, 32
+        clip_pred = torch.randn(B, D, requires_grad=True)
+        clip_target = torch.randn(B, D)
+        teacher_pred = torch.randn(B, D)
+        teacher_mask = torch.tensor([True, True, True, True, False, False, False, False])
+
+        outputs = {"clip_embedding": clip_pred}
+        targets = {"clip_target": clip_target, "teacher_mask": teacher_mask}
+        losses = loss_fn(outputs, targets, teacher_predictions=teacher_pred)
+
+        assert "teacher_distill" in losses
+        assert losses["teacher_distill"].requires_grad
+
+    def test_teacher_loss_all_masked_is_zero(self):
+        """If no subjects have teacher, teacher loss should be zero."""
+        config = {
+            "w_contrastive": 1.0,
+            "w_teacher": 0.5,
+            "contrastive": {"temperature": 0.07},
+        }
+        loss_fn = NeuroBridgeOTLoss(config)
+
+        B, D = 4, 32
+        clip_pred = torch.randn(B, D, requires_grad=True)
+        clip_target = torch.randn(B, D)
+        teacher_pred = torch.randn(B, D)
+        teacher_mask = torch.zeros(B, dtype=torch.bool)
+
+        outputs = {"clip_embedding": clip_pred}
+        targets = {"clip_target": clip_target, "teacher_mask": teacher_mask}
+        losses = loss_fn(outputs, targets, teacher_predictions=teacher_pred)
+
+        assert losses["teacher_distill"].item() == 0.0
+
+    def test_teacher_manifest_info(self):
+        """TeacherRegistry provides correct manifest information."""
+        from fmri2img.models.neurobridge_ot.teacher_distillation import TeacherRegistry
+
+        registry = TeacherRegistry()
+        registry.register("subj01", "V61a", embedding_dim=768)
+        registry.register("subj01", "V66a", embedding_dim=768)
+        registry.register("subj02", "V66a", embedding_dim=768)
+
+        info = registry.get_teacher_manifest_info()
+        assert "V61a" in info["teacher_models"]
+        assert "V66a" in info["teacher_models"]
+        assert "subj01" in info["teacher_subjects_available"]["V66a"]
+        assert "subj02" in info["teacher_subjects_available"]["V66a"]
+

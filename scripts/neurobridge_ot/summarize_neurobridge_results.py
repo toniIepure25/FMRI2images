@@ -60,7 +60,9 @@ def main():
     parser = argparse.ArgumentParser(description="NeuroBridge-OT Results Summarizer")
     parser.add_argument("--results-dir", type=str, default="experimental_results")
     parser.add_argument("--output-dir", type=str, default="experimental_results/neurobridge_ot_summary")
-    parser.add_argument("--subjects", nargs="+", default=["subj01", "subj02", "subj05", "subj07"])
+    parser.add_argument("--subjects", nargs="+",
+                        default=["subj01", "subj02", "subj03", "subj04",
+                                 "subj05", "subj06", "subj07", "subj08"])
     args = parser.parse_args()
 
     results_dir = Path(args.results_dir)

@@ -1,20 +1,24 @@
-# NeuroBridge-OT: No Teacher Distillation
+# NeuroBridge-OT: 8-Subject Full Multi-Subject Training
 # Taxonomy: multi_subject_seen_subject
-# NOTE: Subject list below is a 4-subject default. Override with --subjects for 8-subject runs.
-# Hypothesis 3: Teacher-student distillation transfers subject-specific knowledge
+# PRIMARY PROTOCOL — All 8 NSD subjects jointly trained
 
 experiment:
-  name: "neurobridge_ot_no_teacher"
-  description: "NeuroBridge-OT without teacher-student distillation"
-  tags: ["neurobridge_ot", "ablation", "no_teacher"]
+  name: "neurobridge_ot_8subj_full"
+  description: "NeuroBridge-OT 8-subject joint training, all seen subjects"
+  tags: ["neurobridge_ot", "8subj", "full", "primary", "multi_subject"]
 
 protocol:
   taxonomy_label: "multi_subject_seen_subject"
-  training_subjects: ["subj01", "subj02", "subj05", "subj07"]
-  evaluation_subjects: ["subj01", "subj02", "subj05", "subj07"]
+  training_subjects: ["subj01", "subj02", "subj03", "subj04", "subj05", "subj06", "subj07", "subj08"]
+  evaluation_subjects: ["subj01", "subj02", "subj03", "subj04", "subj05", "subj06", "subj07", "subj08"]
+  target_subject_seen_during_training: true
+  target_calibration_fmri_used: false
+  target_labels_used: true
+  target_adapter_fitted: false
+  target_learned_parameters_used: true
 
 data:
-  subjects: ["subj01", "subj02", "subj05", "subj07"]
+  subjects: ["subj01", "subj02", "subj03", "subj04", "subj05", "subj06", "subj07", "subj08"]
   split_by_image: true
   exclude_shared1000: true
   val_ratio: 0.10
@@ -29,6 +33,7 @@ model:
   n_canonical_tokens: 17
   use_fingerprint: true
   use_hyper_adapter: true
+
   tokenizer:
     type: "learned"
     n_rois: 17
@@ -36,49 +41,74 @@ model:
     n_attn_heads: 4
     dropout: 0.1
     roi_dropout: 0.1
+    max_voxels_per_roi: 2000
+
   fingerprint:
     fingerprint_dim: 128
     n_subjects: 8
     use_subject_embedding: true
+    roi_stat_dim: 5
+
   optimal_transport:
     alignment_mode: "ot"
     epsilon: 0.1
     n_sinkhorn_iters: 50
     cost_type: "cosine"
+    use_anatomical_prior: false
+
   transformer:
     n_heads: 12
     n_layers: 6
     dim_feedforward: 3072
     dropout: 0.1
     drop_path_rate: 0.15
+    n_subjects: 8
+    use_subject_embedding: false
+    activation: "gelu"
+    gradient_checkpointing: false
+
   heads:
     d_model: 768
     output_dim: 768
+    dropout: 0.1
+    use_token_head: false
     use_vmf_head: true
+    use_calibration_head: false
     kappa_min: 0.001
     kappa_max: 500.0
+
   hyper_adapter:
     adapter_type: "film"
+    lora_rank: 8
     hidden_dim: 512
 
 loss:
   w_contrastive: 1.0
   w_regression: 0.5
-  w_teacher: 0.0  # Disabled
+  w_token: 0.0
+  w_teacher: 0.0  # Teacher not uniformly available; enable per-experiment
   w_ot: 0.1
   w_shared: 0.1
   w_adversarial: 0.1
   w_vmf: 0.3
+  w_calibration: 0.0
+
   contrastive:
     temperature: 0.07
     symmetric: true
+
   vmf:
     kappa_reg_weight: 0.1
     target_kappa: 50.0
+
   adversarial:
     d_model: 768
     n_subjects: 8
+    hidden_dim: 256
     grl_lambda: 1.0
+
+  shared_consistency:
+    margin: 0.8
 
 training:
   epochs: 200
@@ -91,5 +121,9 @@ training:
   patience: 30
   warmup_epochs: 5
 
+evaluation:
+  csls_k: 3
+  eval_shared1000: true
+
 paths:
-  output_dir: "experimental_results/neurobridge_ot_no_teacher"
+  output_dir: "experimental_results/neurobridge_ot_8subj_full"

@@ -1,5 +1,6 @@
 # NeuroBridge-OT: No Hyper-Adapter — Standard learned tokenizer without fingerprint modulation
 # Taxonomy: multi_subject_seen_subject
+# NOTE: Subject list below is a 4-subject default. Override with --subjects for 8-subject runs.
 # Hypothesis 4: Hyper-adapters improve data efficiency for new subjects
 
 experiment:

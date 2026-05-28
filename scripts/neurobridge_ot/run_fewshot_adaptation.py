@@ -28,17 +28,25 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(
 logger = logging.getLogger(__name__)
 
 DEFAULT_FEW_SHOT_SIZES = [10, 25, 50, 100, 250, 500, 1000]
+ALL_SUBJECTS = ["subj01", "subj02", "subj03", "subj04", "subj05", "subj06", "subj07", "subj08"]
 
 
 def main():
     parser = argparse.ArgumentParser(description="NeuroBridge-OT Few-Shot Adaptation")
     parser.add_argument("--config", type=str, required=True)
-    parser.add_argument("--source-subjects", nargs="+", default=["subj01", "subj02", "subj05"])
-    parser.add_argument("--target-subject", type=str, default="subj07")
+    parser.add_argument("--source-subjects", nargs="+", default=None,
+                        help="Source subjects for pretraining (default: all except target)")
+    parser.add_argument("--target-subject", type=str, default=None,
+                        help="Single target subject (use --all-target-subjects for all 8)")
+    parser.add_argument("--all-target-subjects", action="store_true",
+                        help="Run adaptation for all 8 subjects as targets")
     parser.add_argument("--few-shot-sizes", nargs="+", type=int, default=DEFAULT_FEW_SHOT_SIZES)
-    parser.add_argument("--output-dir", type=str, default="experimental_results/neurobridge_ot_fewshot")
+    parser.add_argument("--output-dir", type=str, default="experimental_results/neurobridge_ot_8subj_fewshot")
     parser.add_argument("--pretrained-checkpoint", type=str, default=None,
                         help="Skip pretraining, use this checkpoint")
+    parser.add_argument("--adaptation-mode", type=str, default="adapter_only",
+                        choices=["adapter_only", "head_only", "full_finetune"],
+                        help="What parameters to adapt")
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--csls-k", type=int, default=3)
@@ -46,7 +54,24 @@ def main():
     parser.add_argument("--limit-batches", type=int, default=None)
     args = parser.parse_args()
 
-    output_dir = Path(args.output_dir) / args.target_subject
+    # Determine target subjects
+    if args.all_target_subjects:
+        target_subjects = ALL_SUBJECTS
+    elif args.target_subject:
+        target_subjects = [args.target_subject]
+    else:
+        logger.error("Must specify --target-subject or --all-target-subjects")
+        sys.exit(1)
+
+    for target_subj in target_subjects:
+        # Source = all subjects except target
+        source_subjects = args.source_subjects or [s for s in ALL_SUBJECTS if s != target_subj]
+        _run_fewshot_for_target(args, target_subj, source_subjects)
+
+
+def _run_fewshot_for_target(args, target_subj: str, source_subjects: list):
+    """Run few-shot adaptation for a single target subject."""
+    output_dir = Path(args.output_dir) / target_subj
     output_dir.mkdir(parents=True, exist_ok=True)
 
     script_dir = Path(__file__).parent
@@ -55,7 +80,7 @@ def main():
 
     logger.info("=" * 70)
     logger.info("NeuroBridge-OT Few-Shot Adaptation")
-    logger.info("Source: %s, Target: %s", args.source_subjects, args.target_subject)
+    logger.info("Source: %s, Target: %s", source_subjects, target_subj)
     logger.info("Few-shot sizes: %s", args.few_shot_sizes)
     logger.info("=" * 70)
 
@@ -68,7 +93,7 @@ def main():
         train_cmd = [
             sys.executable, str(train_script),
             "--config", args.config,
-            "--subjects", *args.source_subjects,
+            "--subjects", *source_subjects,
             "--gpu", str(args.gpu),
             "--seed", str(args.seed),
             "--output-dir", str(pretrain_dir),
@@ -97,8 +122,8 @@ def main():
         adapt_cmd = [
             sys.executable, str(train_script),
             "--config", args.config,
-            "--subjects", args.target_subject,
-            "--target-subject", args.target_subject,
+            "--subjects", target_subj,
+            "--target-subject", target_subj,
             "--checkpoint", pretrain_ckpt,
             "--gpu", str(args.gpu),
             "--seed", str(args.seed),
@@ -116,7 +141,7 @@ def main():
         scratch_cmd = [
             sys.executable, str(train_script),
             "--config", args.config,
-            "--subjects", args.target_subject,
+            "--subjects", target_subj,
             "--gpu", str(args.gpu),
             "--seed", str(args.seed),
             "--output-dir", str(adapt_dir / "scratch"),
@@ -138,7 +163,7 @@ def main():
                 eval_cmd = [
                     sys.executable, str(eval_script),
                     "--checkpoint", str(ckpt),
-                    "--subjects", args.target_subject,
+                    "--subjects", target_subj,
                     "--split", "shared1000",
                     "--csls-k", str(args.csls_k),
                     "--output-dir", str(eval_dir),
@@ -157,10 +182,11 @@ def main():
 
     # Summary
     summary = {
-        "protocol": "few_shot_adaptation",
-        "taxonomy_label": "few_shot_adaptation",
-        "source_subjects": args.source_subjects,
-        "target_subject": args.target_subject,
+        "protocol": "supervised_few_shot_adaptation",
+        "taxonomy_label": "supervised_few_shot_adaptation",
+        "source_subjects": source_subjects,
+        "target_subject": target_subj,
+        "adaptation_mode": args.adaptation_mode,
         "few_shot_sizes": args.few_shot_sizes,
         "results": results,
         "timestamp": datetime.now(timezone.utc).isoformat(),

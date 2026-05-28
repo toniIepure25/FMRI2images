@@ -50,7 +50,7 @@ model:
     dim_feedforward: 128
     dropout: 0.1
     drop_path_rate: 0.0
-    n_subjects: 4
+    n_subjects: 8
     use_subject_embedding: false
     activation: "gelu"
     gradient_checkpointing: false

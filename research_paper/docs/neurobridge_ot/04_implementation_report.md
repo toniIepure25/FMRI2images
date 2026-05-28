@@ -63,15 +63,15 @@
 
 ## What Is Not Yet Run (Pending Compute)
 
-- Full multi-subject training on H100 (~8-12 hours).
-- LOSO 4-fold evaluation (~24-36 hours).
-- Few-shot data-efficiency curves (~16-24 hours).
-- Full ablation suite (~120-160 hours).
-- Teacher prediction export (requires V61a/V62a/V66a checkpoints).
+- Full 8-subject multi-subject training on H100 (~12-18 hours).
+- 8-fold LOSO evaluation (~48-64 hours).
+- Few-shot data-efficiency curves across all 8 targets (~24-36 hours).
+- Full ablation suite (~160-240 hours).
+- Teacher prediction export (requires V61a/V62a/V66a checkpoints; coverage-limited).
 
 ## Known Limitations / Blockers
 
-1. **Teacher artifacts**: V61a/V62a/V66a checkpoints must exist on the pod. Export script documents what's needed.
+1. **Teacher artifacts**: V61a/V62a/V66a checkpoints must exist on the pod. Teacher coverage is limited to subj01/02/05/07 (V66a) and subj01-only (V61a/V62a). Run teacher experiments as "teacher-coverage-limited."
 2. **Token cache**: Rich token targets (257×768) require `make token-clip-cache` to have been run.
-3. **8-subject LOSO**: Only 4 subjects (subj01/02/05/07) have pre-extracted features by default.
-4. **Memory**: Full system with d_model=768 requires ~40GB for multi-subject training.
+3. **8-subject data preparation**: All 8 subjects need `make index` and `make preextract`. The 4 legacy subjects (subj01/02/05/07) likely already have features; subj03/04/06/08 need preparation before first use.
+4. **Memory**: Full 8-subject system with d_model=768 may require 50-60GB for multi-subject training on H100.

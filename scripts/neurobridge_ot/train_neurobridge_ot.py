@@ -169,7 +169,7 @@ def train_epoch(
 
     for batch_idx, batch in enumerate(dataloader):
         fmri = batch["fmri"].to(device)
-        clip_target = batch["clip_target"].to(device)
+        clip_target = batch["clip_target"].to(device).float()
         subject_ids = batch["subject_id"].to(device)
         nsd_ids = batch["nsd_id"].to(device)
 
@@ -256,7 +256,7 @@ def validate(
 
     for batch_idx, batch in enumerate(dataloader):
         fmri = batch["fmri"].to(device)
-        clip_target = batch["clip_target"].to(device)
+        clip_target = batch["clip_target"].to(device).float()
         subject_ids = batch["subject_id"].to(device)
         nsd_ids = batch["nsd_id"].to(device)
 

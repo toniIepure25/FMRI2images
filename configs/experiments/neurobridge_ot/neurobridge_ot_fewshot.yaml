@@ -1,0 +1,109 @@
+# NeuroBridge-OT: Few-Shot Adaptation Protocol
+# Taxonomy: few_shot_adaptation
+# Pretrain on sources, adapt to target with variable N
+
+experiment:
+  name: "neurobridge_ot_fewshot"
+  description: "NeuroBridge-OT few-shot subject adaptation protocol"
+  tags: ["neurobridge_ot", "fewshot", "adaptation", "transfer"]
+
+protocol:
+  taxonomy_label: "few_shot_adaptation"
+  training_subjects: ["subj01", "subj02", "subj05"]
+  evaluation_subjects: ["subj07"]
+  target_subject: "subj07"
+  few_shot_n: 100  # Default; overridden by CLI
+
+data:
+  subjects: ["subj01", "subj02", "subj05", "subj07"]
+  split_by_image: true
+  exclude_shared1000: true
+  val_ratio: 0.10
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "neurobridge_ot"
+  d_model: 768
+  output_dim: 768
+  n_rois: 17
+  n_canonical_tokens: 17
+  use_fingerprint: true
+  use_hyper_adapter: true
+  tokenizer:
+    type: "hyper_adapter"  # Fingerprint-modulated tokenizer
+    n_rois: 17
+    d_model: 768
+    fingerprint_dim: 128
+    n_attn_heads: 4
+    dropout: 0.1
+    roi_dropout: 0.1
+  fingerprint:
+    fingerprint_dim: 128
+    n_subjects: 8
+    use_subject_embedding: false  # No subject embedding for unseen target
+  optimal_transport:
+    alignment_mode: "ot"
+    epsilon: 0.1
+    n_sinkhorn_iters: 50
+    cost_type: "cosine"
+  transformer:
+    n_heads: 12
+    n_layers: 6
+    dim_feedforward: 3072
+    dropout: 0.1
+    drop_path_rate: 0.15
+    use_subject_embedding: false
+  heads:
+    d_model: 768
+    output_dim: 768
+    use_vmf_head: true
+    kappa_min: 0.001
+    kappa_max: 500.0
+  hyper_adapter:
+    adapter_type: "film"
+    hidden_dim: 512
+
+loss:
+  w_contrastive: 1.0
+  w_regression: 0.5
+  w_teacher: 0.0
+  w_ot: 0.15
+  w_shared: 0.15
+  w_adversarial: 0.15
+  w_vmf: 0.3
+  contrastive:
+    temperature: 0.07
+    symmetric: true
+  vmf:
+    kappa_reg_weight: 0.1
+    target_kappa: 50.0
+  adversarial:
+    d_model: 768
+    n_subjects: 8
+    grl_lambda: 1.0
+
+training:
+  epochs: 200
+  batch_size: 64
+  lr: 1.0e-4
+  weight_decay: 1.0e-5
+  gradient_accumulation_steps: 8
+  amp: true
+  mixed_precision_dtype: "bf16"
+  patience: 30
+  warmup_epochs: 5
+
+# Adaptation phase (applied after pretraining)
+adaptation:
+  mode: "supervised_fewshot"
+  epochs: 50
+  lr: 5.0e-5
+  patience: 10
+
+evaluation:
+  csls_k: 3
+  eval_shared1000: true
+
+paths:
+  output_dir: "experimental_results/neurobridge_ot_fewshot"

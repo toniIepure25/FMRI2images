@@ -1,0 +1,103 @@
+# NeuroBridge-OT: Smoke Test — Tiny fast config for CI/validation
+# Taxonomy: multi_subject_seen_subject
+
+experiment:
+  name: "neurobridge_ot_smoke_test"
+  description: "NeuroBridge-OT smoke test: tiny dims, 2 epochs, limit_batches=5"
+  tags: ["neurobridge_ot", "smoke_test"]
+
+protocol:
+  taxonomy_label: "multi_subject_seen_subject"
+  training_subjects: ["subj01"]
+  evaluation_subjects: ["subj01"]
+
+data:
+  subjects: ["subj01"]
+  split_by_image: true
+  exclude_shared1000: true
+  val_ratio: 0.10
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "neurobridge_ot"
+  d_model: 64
+  output_dim: 64
+  n_rois: 4
+  n_canonical_tokens: 4
+  use_fingerprint: false
+  use_hyper_adapter: false
+
+  tokenizer:
+    type: "learned"
+    n_rois: 4
+    d_model: 64
+    n_attn_heads: 2
+    dropout: 0.1
+    roi_dropout: 0.0
+    max_voxels_per_roi: 500
+
+  optimal_transport:
+    alignment_mode: "ot"
+    epsilon: 0.1
+    n_sinkhorn_iters: 10
+    cost_type: "cosine"
+    use_anatomical_prior: false
+
+  transformer:
+    n_heads: 4
+    n_layers: 2
+    dim_feedforward: 128
+    dropout: 0.1
+    drop_path_rate: 0.0
+    n_subjects: 4
+    use_subject_embedding: false
+    activation: "gelu"
+    gradient_checkpointing: false
+
+  heads:
+    d_model: 64
+    output_dim: 64
+    dropout: 0.1
+    use_token_head: false
+    use_vmf_head: true
+    use_calibration_head: false
+    kappa_min: 0.001
+    kappa_max: 100.0
+
+loss:
+  w_contrastive: 1.0
+  w_regression: 0.5
+  w_token: 0.0
+  w_teacher: 0.0
+  w_ot: 0.1
+  w_shared: 0.0
+  w_adversarial: 0.0
+  w_vmf: 0.3
+  w_calibration: 0.0
+
+  contrastive:
+    temperature: 0.07
+    symmetric: true
+
+  vmf:
+    kappa_reg_weight: 0.1
+    target_kappa: 30.0
+
+training:
+  epochs: 2
+  batch_size: 4
+  lr: 1.0e-3
+  weight_decay: 1.0e-5
+  gradient_accumulation_steps: 1
+  amp: false
+  patience: 5
+  warmup_epochs: 0
+  limit_batches: 5
+
+evaluation:
+  csls_k: 3
+  eval_shared1000: false
+
+paths:
+  output_dir: "experimental_results/neurobridge_ot_smoke"

@@ -776,7 +776,7 @@ def create_model(
     config: Dict[str, Any],
     roi_indices: Optional[Dict[str, Any]] = None,
     ncsnr: Optional[Any] = None,
-) -> UnifiedModel:
+) -> "nn.Module":
     """
     Factory function to create model from config.
     
@@ -787,7 +787,7 @@ def create_model(
         ncsnr: Per-voxel NCSNR array for NCSnrAttention (V11).
     
     Returns:
-        model: UnifiedModel instance
+        model: UnifiedModel or NeuroBridgeOTModel instance
     
     Example:
         >>> config = {
@@ -797,6 +797,9 @@ def create_model(
         ... }
         >>> model = create_model(config)
     """
+    if config.get("type") == "neurobridge_ot":
+        from fmri2img.models.neurobridge_ot.model import NeuroBridgeOTModel
+        return NeuroBridgeOTModel(config)
     return UnifiedModel(config, roi_indices=roi_indices, ncsnr=ncsnr)
 
 

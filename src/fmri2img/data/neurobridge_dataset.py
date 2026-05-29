@@ -99,7 +99,17 @@ class NeuroBridgeDataset(Dataset):
                 if col in embeddings_df.columns:
                     embedding_column = col
                     break
-        assert embedding_column is not None, "No valid embedding column found"
+        if embedding_column is None:
+            raise ValueError(
+                f"No valid embedding column found. "
+                f"Available columns: {list(embeddings_df.columns)}. "
+                f"Set data.embedding_column in config explicitly."
+            )
+        if embedding_column not in embeddings_df.columns:
+            raise ValueError(
+                f"Requested embedding_column='{embedding_column}' not found in embeddings DataFrame. "
+                f"Available columns: {list(embeddings_df.columns)}"
+            )
         self.embedding_column = embedding_column
 
         # Load per-subject data
@@ -174,15 +184,44 @@ class NeuroBridgeDataset(Dataset):
             self._apply_few_shot_subset()
 
     def _build_clip_lookup(self, df: pd.DataFrame, col: str) -> None:
-        """Build nsdId -> CLIP embedding lookup."""
+        """Build nsdId -> CLIP embedding lookup. Validates and casts to float32."""
         self._clip_embeddings: Dict[int, np.ndarray] = {}
+        skipped = 0
+        emb_dim = None
         for _, row in df.iterrows():
             nsd_id = int(row["nsdId"])
             emb = row[col]
             if isinstance(emb, np.ndarray):
-                self._clip_embeddings[nsd_id] = emb
+                arr = emb.astype(np.float32)
             elif isinstance(emb, (list, tuple)):
-                self._clip_embeddings[nsd_id] = np.array(emb, dtype=np.float32)
+                arr = np.array(emb, dtype=np.float32)
+            else:
+                skipped += 1
+                continue
+            if not np.all(np.isfinite(arr)):
+                skipped += 1
+                continue
+            if emb_dim is None:
+                emb_dim = arr.shape[0]
+            elif arr.shape[0] != emb_dim:
+                skipped += 1
+                continue
+            self._clip_embeddings[nsd_id] = arr
+
+        if skipped > 0:
+            logger.warning(
+                "CLIP lookup: skipped %d entries (non-finite, wrong shape, or non-array)",
+                skipped,
+            )
+        if len(self._clip_embeddings) == 0:
+            raise ValueError(
+                f"CLIP lookup is EMPTY after building from column '{col}'. "
+                f"Verify the cache file and embedding_column."
+            )
+        logger.info(
+            "CLIP lookup: %d nsdIds, dim=%s, dtype=float32",
+            len(self._clip_embeddings), emb_dim,
+        )
 
     def _split_by_image(self, val_ratio: float, seed: int) -> None:
         """Split by unique nsdId to prevent image leakage."""
@@ -280,10 +319,13 @@ class NeuroBridgeDataset(Dataset):
         )
 
         # CLIP target
+        sample_has_target = True
         if nsd_id in self._clip_embeddings:
             clip_target = torch.from_numpy(self._clip_embeddings[nsd_id].copy())
         else:
-            clip_target = torch.zeros(768)  # fallback
+            logger.debug("Missing CLIP target for nsdId=%d, using zeros", nsd_id)
+            clip_target = torch.zeros(768)
+            sample_has_target = False
 
         sample = {
             "fmri": fmri,
@@ -291,6 +333,7 @@ class NeuroBridgeDataset(Dataset):
             "subject_id": subject_int,
             "subject_name": subj,
             "nsd_id": nsd_id,
+            "has_target": sample_has_target,
         }
 
         # Token target

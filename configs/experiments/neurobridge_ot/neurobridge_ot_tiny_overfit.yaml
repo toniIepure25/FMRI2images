@@ -1,0 +1,105 @@
+# NeuroBridge-OT: Tiny Overfit Test
+# Purpose: Verify the model can memorize a tiny dataset.
+# Success criteria: train R@1 > 80% on the training gallery within 100 epochs.
+# If this fails, the training pipeline has a fundamental bug.
+
+experiment:
+  name: "neurobridge_ot_tiny_overfit"
+  description: "Overfit on 128 images from subj01 to verify learning signal"
+  tags: ["neurobridge_ot", "overfit", "debug", "sanity"]
+
+protocol:
+  taxonomy_label: "single_subject_same_subject"
+  training_subjects: ["subj01"]
+  evaluation_subjects: ["subj01"]
+
+data:
+  subjects: ["subj01"]
+  split_by_image: false  # Use ALL data for both train and eval (overfit test)
+  exclude_shared1000: false  # Don't exclude — we want maximum data
+  val_ratio: 0.0  # No validation split — train == eval gallery
+  embedding_column: "layer_18_proj"
+  seed: 42
+  limit_samples: 128  # Only use 128 samples total
+
+model:
+  type: "neurobridge_ot"
+  d_model: 256
+  output_dim: 768
+  n_rois: 17
+  n_canonical_tokens: 17
+  use_fingerprint: false
+  use_hyper_adapter: false
+
+  tokenizer:
+    type: "learned"
+    n_rois: 17
+    d_model: 256
+    n_attn_heads: 4
+    dropout: 0.0  # No dropout for overfit test
+    roi_dropout: 0.0
+    max_voxels_per_roi: 2000
+    allow_uniform_roi_fallback: true  # Allow fallback for quick local testing
+    roi_names: ["V1v", "V1d", "V2v", "V2d", "V3v", "V3d", "V4", "V3A", "V3B",
+                "FFA1", "FFA2", "OFA", "EBA", "PPA", "OPA", "RSC", "nsdgeneral_other"]
+
+  optimal_transport:
+    alignment_mode: "none"  # Disable OT for overfit test
+    epsilon: 0.1
+    n_sinkhorn_iters: 10
+    cost_type: "cosine"
+    use_anatomical_prior: false
+
+  transformer:
+    n_heads: 4
+    n_layers: 2
+    dim_feedforward: 512
+    dropout: 0.0  # No dropout
+    drop_path_rate: 0.0
+    n_subjects: 1
+    use_subject_embedding: false
+    activation: "gelu"
+    gradient_checkpointing: false
+
+  heads:
+    d_model: 256
+    output_dim: 768
+    dropout: 0.0
+    use_token_head: false
+    use_vmf_head: false  # Disable vMF
+    use_calibration_head: false
+    kappa_min: 0.001
+    kappa_max: 100.0
+
+loss:
+  w_contrastive: 1.0
+  w_regression: 1.0  # Strong regression signal
+  w_token: 0.0
+  w_teacher: 0.0
+  w_ot: 0.0  # Disabled
+  w_shared: 0.0  # Disabled
+  w_adversarial: 0.0  # Disabled
+  w_vmf: 0.0  # Disabled
+  w_calibration: 0.0
+
+  contrastive:
+    temperature: 0.07
+    symmetric: true
+
+training:
+  epochs: 200
+  batch_size: 32  # Small batch = all 128 in ~4 batches
+  lr: 5.0e-4  # Higher LR for fast overfit
+  weight_decay: 0.0  # No regularization
+  gradient_accumulation_steps: 1
+  amp: false  # Disable AMP for numerical clarity
+  patience: 200  # Never early stop
+  warmup_epochs: 0
+
+evaluation:
+  csls_k: 0
+  eval_shared1000: false
+  eval_mode: "global_image_gallery"  # Eval on unique images
+
+paths:
+  output_dir: "experimental_results/neurobridge_ot_tiny_overfit"

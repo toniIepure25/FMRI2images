@@ -58,33 +58,115 @@ def load_config(config_path: Path) -> Dict[str, Any]:
     return config
 
 
-def build_roi_indices(subjects: List[str], nsd_root: Path) -> Dict[str, Dict[str, torch.Tensor]]:
-    """Build ROI indices for all subjects."""
+CANONICAL_ROI_NAMES: List[str] = [
+    "V1v", "V1d", "V2v", "V2d", "V3v", "V3d", "V4", "V3A", "V3B",
+    "FFA1", "FFA2", "OFA", "EBA", "PPA", "OPA", "RSC", "nsdgeneral_other",
+]
+
+
+def build_roi_indices(
+    subjects: List[str],
+    nsd_root: Path,
+    config: Dict[str, Any],
+) -> Dict[str, Dict[str, torch.Tensor]]:
+    """Build ROI indices for all subjects.
+
+    Requires roi_names from config or uses CANONICAL_ROI_NAMES.
+    Fails loudly unless allow_uniform_roi_fallback is explicitly set.
+    """
     try:
         from fmri2img.data.roi_utils import build_roi_index
-    except ImportError:
-        logger.warning("build_roi_index not available, using dummy indices")
-        return {}
+    except ImportError as e:
+        raise ImportError(
+            f"fmri2img.data.roi_utils not available: {e}. "
+            "Cannot build ROI indices — paper-grade NeuroBridge-OT requires real ROI partitioning."
+        )
+
+    allow_fallback = config.get("model", {}).get("tokenizer", {}).get(
+        "allow_uniform_roi_fallback", False
+    )
+    roi_names = config.get("model", {}).get("tokenizer", {}).get(
+        "roi_names", CANONICAL_ROI_NAMES
+    )
+    logger.info("ROI names (%d): %s", len(roi_names), roi_names)
 
     all_indices = {}
+    failed_subjects = []
     for subj in subjects:
         try:
-            _, roi_indices = build_roi_index(subj)
+            roi_dims, roi_idx = build_roi_index(subj, roi_names)
+            # Validate non-empty
+            empty_rois = [name for name, idx in roi_idx.items() if len(idx) == 0]
+            if empty_rois:
+                logger.warning("Subject %s has empty ROIs: %s", subj, empty_rois)
             all_indices[subj] = {
                 name: torch.from_numpy(idx) if isinstance(idx, np.ndarray) else idx
-                for name, idx in roi_indices.items()
+                for name, idx in roi_idx.items()
             }
-            logger.info("Built ROI indices for %s: %d ROIs", subj, len(roi_indices))
+            total_voxels = sum(len(idx) for idx in roi_idx.values())
+            logger.info(
+                "Built ROI indices for %s: %d ROIs, %d total voxels",
+                subj, len(roi_idx), total_voxels,
+            )
         except Exception as e:
-            logger.warning("Failed to build ROI indices for %s: %s", subj, e)
+            logger.error("FAILED to build ROI indices for %s: %s", subj, e)
+            failed_subjects.append(subj)
+
+    if failed_subjects:
+        if allow_fallback:
+            logger.warning(
+                "ROI index build failed for %s — uniform fallback ENABLED by config. "
+                "Results are NOT paper-grade.", failed_subjects,
+            )
+        else:
+            raise RuntimeError(
+                f"ROI index build failed for subjects: {failed_subjects}. "
+                f"Set model.tokenizer.allow_uniform_roi_fallback=true to allow degraded mode. "
+                f"Paper-grade runs REQUIRE real ROI indices."
+            )
     return all_indices
 
 
 def load_clip_embeddings(clip_cache_path: Path, embedding_column: str = "fused"):
-    """Load CLIP embeddings from parquet cache."""
+    """Load CLIP embeddings from parquet cache.
+
+    Validates that the requested embedding_column exists.
+    """
     import pandas as pd
     df = pd.read_parquet(clip_cache_path)
-    logger.info("Loaded CLIP cache: %d entries, columns: %s", len(df), list(df.columns)[:5])
+    logger.info("Loaded CLIP cache: %d entries, columns: %s", len(df), list(df.columns))
+
+    if embedding_column not in df.columns:
+        raise ValueError(
+            f"Requested embedding_column='{embedding_column}' not found in CLIP cache. "
+            f"Available columns: {list(df.columns)}. "
+            f"Fix the config data.embedding_column or rebuild the cache."
+        )
+
+    # Validate embedding column content
+    sample = df[embedding_column].iloc[0]
+    if isinstance(sample, np.ndarray):
+        emb_dim = sample.shape[0]
+        emb_dtype = sample.dtype
+    elif isinstance(sample, (list, tuple)):
+        emb_dim = len(sample)
+        emb_dtype = "list"
+    else:
+        raise ValueError(
+            f"CLIP cache column '{embedding_column}' contains unexpected type: {type(sample)}. "
+            f"Expected numpy array or list."
+        )
+
+    null_count = df[embedding_column].isna().sum()
+    if null_count > 0:
+        raise ValueError(
+            f"CLIP cache column '{embedding_column}' has {null_count} null entries."
+        )
+
+    logger.info(
+        "CLIP target column '%s': dim=%d, dtype=%s, null=%d, entries=%d",
+        embedding_column, emb_dim, emb_dtype, null_count, len(df),
+    )
     return df
 
 
@@ -247,10 +329,15 @@ def validate(
     roi_indices: Dict[str, Dict[str, torch.Tensor]],
     config: Dict[str, Any],
 ) -> Dict[str, float]:
-    """Run validation and compute retrieval metrics."""
+    """Run validation and compute retrieval metrics.
+
+    Uses image-level (nsdId-deduplicated) gallery for retrieval.
+    Each prediction is matched against unique CLIP targets by nsdId.
+    """
     model.eval()
     all_preds = []
     all_targets = []
+    all_nsd_ids = []
     total_loss = 0.0
     n_batches = 0
 
@@ -272,6 +359,7 @@ def validate(
         total_loss += losses["total_loss"].item()
         all_preds.append(outputs["clip_embedding"].cpu())
         all_targets.append(clip_target.cpu())
+        all_nsd_ids.append(nsd_ids.cpu())
         n_batches += 1
 
         limit = config.get("training", {}).get("limit_batches")
@@ -280,15 +368,46 @@ def validate(
 
     avg_loss = total_loss / max(n_batches, 1)
 
-    # Retrieval metrics
     preds = torch.cat(all_preds, dim=0)
     targets_cat = torch.cat(all_targets, dim=0)
-    preds_norm = F.normalize(preds, dim=-1)
-    targets_norm = F.normalize(targets_cat, dim=-1)
-    sim_matrix = preds_norm @ targets_norm.T
+    nsd_ids_cat = torch.cat(all_nsd_ids, dim=0)
 
-    N = sim_matrix.shape[0]
-    ranks = (sim_matrix.argsort(dim=-1, descending=True) == torch.arange(N).unsqueeze(1)).nonzero(as_tuple=True)[1].float()
+    # Build unique image gallery (deduplicate by nsdId)
+    unique_nsd_ids = []
+    unique_targets = []
+    seen_nsd = set()
+    for i in range(len(nsd_ids_cat)):
+        nid = int(nsd_ids_cat[i].item())
+        if nid not in seen_nsd:
+            seen_nsd.add(nid)
+            unique_nsd_ids.append(nid)
+            unique_targets.append(targets_cat[i])
+
+    gallery = torch.stack(unique_targets, dim=0)  # (G, D) unique images
+    G = gallery.shape[0]
+
+    # Build nsdId -> gallery index mapping
+    nsd_to_gallery_idx = {nid: i for i, nid in enumerate(unique_nsd_ids)}
+
+    # Per-prediction ground truth index in gallery
+    gt_indices = torch.tensor(
+        [nsd_to_gallery_idx[int(nid.item())] for nid in nsd_ids_cat],
+        dtype=torch.long,
+    )
+
+    # Compute retrieval
+    preds_norm = F.normalize(preds, dim=-1)
+    gallery_norm = F.normalize(gallery, dim=-1)
+    sim_matrix = preds_norm @ gallery_norm.T  # (N_trials, G)
+
+    # For each query, find rank of its ground truth gallery item
+    sorted_indices = sim_matrix.argsort(dim=-1, descending=True)
+    N = preds.shape[0]
+    ranks = torch.zeros(N)
+    for i in range(N):
+        gt_idx = gt_indices[i].item()
+        rank_pos = (sorted_indices[i] == gt_idx).nonzero(as_tuple=True)[0]
+        ranks[i] = rank_pos[0].float() if len(rank_pos) > 0 else G
 
     metrics = {
         "val_loss": avg_loss,
@@ -297,6 +416,8 @@ def validate(
         "val_r@10": (ranks < 10).float().mean().item(),
         "val_mrr": (1.0 / (ranks + 1)).mean().item(),
         "val_median_rank": ranks.median().item(),
+        "val_gallery_size": G,
+        "val_n_queries": N,
     }
     return metrics
 
@@ -384,8 +505,29 @@ def main():
 
     # Dataloaders
     batch_size = config.get("training", {}).get("batch_size", 64)
-    train_subset = Subset(dataset, dataset.train_indices)
-    val_subset = Subset(dataset, dataset.val_indices)
+    limit_samples = config.get("data", {}).get("limit_samples")
+
+    train_indices = dataset.train_indices
+    val_indices = dataset.val_indices
+
+    # Apply sample limit if configured (for tiny overfit tests)
+    if limit_samples:
+        train_indices = train_indices[:limit_samples]
+        if not val_indices:
+            # If no val split (val_ratio=0), evaluate on training data (overfit test)
+            val_indices = train_indices
+        else:
+            val_indices = val_indices[:limit_samples]
+        logger.info("Limited to %d train, %d val samples (limit_samples=%d)",
+                    len(train_indices), len(val_indices), limit_samples)
+
+    # If val_ratio was 0 and no limit, still need something to validate on
+    if not val_indices:
+        val_indices = train_indices
+        logger.warning("No val split — using training data for validation (overfit mode)")
+
+    train_subset = Subset(dataset, train_indices)
+    val_subset = Subset(dataset, val_indices)
 
     train_loader = DataLoader(
         train_subset, batch_size=batch_size, shuffle=True,
@@ -399,7 +541,7 @@ def main():
 
     # Build ROI indices
     nsd_root = Path(os.environ.get("NSD_DATA_ROOT", "data/nsd"))
-    roi_indices = build_roi_indices(args.subjects, nsd_root)
+    roi_indices = build_roi_indices(args.subjects, nsd_root, config)
 
     # Model
     model_config = config.get("model", {})

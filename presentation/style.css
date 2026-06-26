@@ -1,0 +1,508 @@
+/* ═══════════════════════════════════════════════════════════════
+   CORTEX2CANVAS — DEFENSE PRESENTATION v3
+   Ultra-Premium Dark Theme | UBB FMI AI Committee
+   ═══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg-deep: #050b14;
+  --bg: #0a1018;
+  --bg-elevated: #0e1a2c;
+  --bg-surface: #132038;
+  --bg-glass: rgba(12, 20, 38, 0.75);
+  --gold: #f0c040;
+  --gold-dim: rgba(240, 192, 64, 0.6);
+  --gold-glow: rgba(240, 192, 64, 0.12);
+  --gold-subtle: rgba(240, 192, 64, 0.04);
+  --teal: #38d4d4;
+  --teal-dim: rgba(56, 212, 212, 0.6);
+  --teal-glow: rgba(56, 212, 212, 0.1);
+  --coral: #ff6b5a;
+  --coral-dim: rgba(255, 107, 90, 0.6);
+  --green: #4ade80;
+  --green-glow: rgba(74, 222, 128, 0.08);
+  --purple: #a78bfa;
+  --white: #f4f8fc;
+  --white-90: rgba(244, 248, 252, 0.92);
+  --white-70: rgba(244, 248, 252, 0.7);
+  --white-50: rgba(244, 248, 252, 0.5);
+  --white-30: rgba(244, 248, 252, 0.3);
+  --white-15: rgba(244, 248, 252, 0.12);
+  --white-08: rgba(244, 248, 252, 0.06);
+  --white-04: rgba(244, 248, 252, 0.03);
+  --border: rgba(255,255,255,0.05);
+  --border-accent: rgba(240, 192, 64, 0.25);
+
+  --r-background-color: var(--bg);
+  --r-main-font: 'Inter', system-ui, sans-serif;
+  --r-heading-font: 'Inter', system-ui, sans-serif;
+  --r-code-font: 'JetBrains Mono', monospace;
+  --r-main-font-size: 28px;
+  --r-main-color: var(--white-70);
+  --r-heading-color: var(--white);
+  --r-link-color: var(--teal);
+  --r-selection-background-color: rgba(56, 212, 212, 0.2);
+}
+
+/* ─── Reveal resets ─── */
+.reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+  text-transform: none;
+  font-family: var(--r-heading-font);
+  text-shadow: none;
+}
+.reveal .slides { text-align: left; }
+.reveal .slides section { padding: 42px 58px; box-sizing: border-box; }
+
+/* ─── Global Background Texture ─── */
+.reveal .slide-background-content::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 15% 45%, rgba(56, 212, 212, 0.025) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 25%, rgba(240, 192, 64, 0.018) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 90%, rgba(167, 139, 250, 0.012) 0%, transparent 40%);
+  pointer-events: none;
+}
+
+/* ─── Typography ─── */
+.reveal h1 {
+  font-size: 2.4em;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+  color: var(--white);
+}
+
+.reveal h2 {
+  font-size: 1.55em;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--white);
+  margin-bottom: 0.65em;
+  position: relative;
+  display: inline-block;
+}
+.reveal h2::after {
+  content: "";
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  width: 100%;
+  height: 2.5px;
+  background: linear-gradient(90deg, var(--gold), var(--gold-dim) 60%, transparent);
+  border-radius: 2px;
+}
+
+.reveal h3 {
+  font-size: 0.95em;
+  font-weight: 600;
+  color: var(--teal);
+  margin-bottom: 0.35em;
+  letter-spacing: -0.01em;
+}
+
+.reveal p, .reveal li {
+  font-size: 0.82em;
+  line-height: 1.7;
+  color: var(--white-70);
+}
+.reveal strong { color: var(--white); font-weight: 600; }
+.reveal em { color: var(--white-50); font-style: italic; }
+
+/* ─── Lists ─── */
+.reveal ul { list-style: none; padding-left: 0; }
+.reveal ul li {
+  padding-left: 1.5em;
+  position: relative;
+  margin-bottom: 0.5em;
+}
+.reveal ul li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.7em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--teal);
+  box-shadow: 0 0 8px var(--teal-glow);
+}
+
+/* ─── Utility classes ─── */
+.gold { color: var(--gold); font-weight: 700; }
+.teal { color: var(--teal); font-weight: 600; }
+.coral { color: var(--coral); font-weight: 600; }
+.green { color: var(--green); font-weight: 600; }
+.purple { color: var(--purple); font-weight: 600; }
+.dim { color: var(--white-50); }
+.small { font-size: 0.72em; }
+.center { text-align: center; }
+
+/* ─── Layout Grid ─── */
+.cols { display: grid; gap: 36px; align-items: start; }
+.cols-2 { grid-template-columns: 1fr 1fr; }
+.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.cols-60-40 { grid-template-columns: 3fr 2fr; }
+.cols-40-60 { grid-template-columns: 2fr 3fr; }
+.cols-center { align-items: center; }
+
+/* ─── Glass Card System ─── */
+.glass {
+  background: linear-gradient(145deg, var(--bg-glass) 0%, rgba(8, 14, 28, 0.88) 100%);
+  border: 1px solid var(--white-08);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 8px 0;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.glass-accent {
+  background: linear-gradient(145deg, rgba(240, 192, 64, 0.04) 0%, var(--bg-glass) 100%);
+  border: 1.5px solid var(--border-accent);
+  border-radius: 14px;
+  padding: 24px 28px;
+  margin: 10px 0;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 0 50px var(--gold-glow), inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.glass-teal {
+  background: linear-gradient(145deg, rgba(56, 212, 212, 0.03) 0%, var(--bg-glass) 100%);
+  border: 1.5px solid rgba(56, 212, 212, 0.18);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 8px 0;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 0 35px var(--teal-glow);
+}
+
+/* ─── Hero Metric ─── */
+.hero-number {
+  font-size: 7.5em;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  line-height: 0.95;
+  background: linear-gradient(175deg, #ffe68a 0%, var(--gold) 35%, #b87800 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 6px 60px rgba(240, 192, 64, 0.35));
+}
+
+.hero-label {
+  font-size: 1.4em;
+  font-weight: 500;
+  color: var(--white-90);
+  letter-spacing: 0.02em;
+  margin-top: 0.1em;
+}
+.hero-sub {
+  font-size: 0.88em;
+  color: var(--teal);
+  margin-top: 0.3em;
+  font-weight: 400;
+}
+
+/* ─── Metric Cards ─── */
+.metric-card {
+  background: linear-gradient(145deg, var(--bg-surface), rgba(15, 25, 45, 0.9));
+  border: 1px solid var(--white-08);
+  border-radius: 12px;
+  padding: 22px 24px;
+  text-align: center;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+}
+.metric-card .num {
+  font-size: 2.6em;
+  font-weight: 800;
+  color: var(--teal);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.metric-card .label {
+  font-size: 0.68em;
+  color: var(--white-50);
+  margin-top: 6px;
+}
+
+/* ─── Pills ─── */
+.pill {
+  display: inline-block;
+  padding: 5px 16px;
+  border-radius: 20px;
+  font-size: 0.72em;
+  font-weight: 600;
+  margin: 4px 6px;
+}
+.pill-gold { background: rgba(240,192,64,0.08); color: var(--gold); border: 1px solid rgba(240,192,64,0.3); }
+.pill-teal { background: rgba(56,212,212,0.06); color: var(--teal); border: 1px solid rgba(56,212,212,0.25); }
+.pill-green { background: rgba(74,222,128,0.06); color: var(--green); border: 1px solid rgba(74,222,128,0.25); }
+
+/* ─── Math Blocks ─── */
+.math-box {
+  background: var(--bg-surface);
+  border-left: 3px solid var(--teal);
+  border-radius: 0 10px 10px 0;
+  padding: 16px 26px;
+  margin: 12px 0;
+  text-align: center;
+}
+.math-box.gold-border { border-left-color: var(--gold); }
+.reveal .katex { font-size: 1.0em; color: var(--white); }
+
+/* ─── Tables ─── */
+.reveal table {
+  font-size: 0.72em;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.reveal table th {
+  background: var(--bg-surface);
+  color: var(--gold);
+  font-weight: 600;
+  padding: 10px 14px;
+  border-bottom: 2px solid rgba(240,192,64,0.15);
+  text-align: left;
+}
+.reveal table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--white-04);
+  color: var(--white-70);
+}
+.reveal table .highlight-row td {
+  color: var(--gold);
+  font-weight: 600;
+  background: rgba(240,192,64,0.04);
+}
+
+/* ─── SVG Diagrams ─── */
+.reveal svg.diagram {
+  max-width: 100%;
+  height: auto;
+  filter: drop-shadow(0 10px 40px rgba(0,0,0,0.45));
+}
+
+/* ─── Stat Badge ─── */
+.stat-sig {
+  display: inline-block;
+  background: rgba(74,222,128,0.08);
+  color: var(--green);
+  border: 1px solid rgba(74,222,128,0.25);
+  padding: 4px 14px;
+  border-radius: 6px;
+  font-size: 0.78em;
+  font-weight: 500;
+}
+
+/* ─── Evidence Grid (new: expert comparison) ─── */
+.evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 0.8em;
+}
+.evidence-card {
+  background: linear-gradient(145deg, var(--bg-surface), rgba(10, 18, 32, 0.95));
+  border: 1px solid var(--white-08);
+  border-radius: 10px;
+  padding: 16px 18px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.evidence-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 10px 10px 0 0;
+}
+.evidence-card.card-teal::before { background: linear-gradient(90deg, var(--teal), transparent); }
+.evidence-card.card-gold::before { background: linear-gradient(90deg, var(--gold), transparent); }
+.evidence-card.card-coral::before { background: linear-gradient(90deg, var(--coral), transparent); }
+.evidence-card .ev-num {
+  font-size: 2.0em;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.evidence-card .ev-label {
+  font-size: 0.62em;
+  color: var(--white-50);
+  margin-top: 4px;
+}
+.evidence-card .ev-detail {
+  font-size: 0.55em;
+  color: var(--white-30);
+  margin-top: 2px;
+}
+
+/* ─── Retrieval Gallery ─── */
+.gallery-row {
+  display: grid;
+  grid-template-columns: 1.5fr repeat(4, 1fr);
+  gap: 5px;
+  align-items: center;
+  margin: 6px 0;
+}
+.gallery-cell {
+  background: linear-gradient(145deg, var(--bg-surface), rgba(10, 18, 32, 0.92));
+  border: 1.5px solid var(--white-08);
+  border-radius: 8px;
+  padding: 10px 8px;
+  text-align: center;
+  position: relative;
+  transition: border-color 0.3s ease;
+}
+.gallery-cell.gt {
+  border-color: var(--white-15);
+  background: linear-gradient(145deg, rgba(20, 35, 55, 0.9), rgba(10, 18, 32, 0.95));
+}
+.gallery-cell.correct {
+  border-color: rgba(74,222,128,0.5);
+  box-shadow: 0 0 16px rgba(74,222,128,0.06), inset 0 0 20px rgba(74,222,128,0.02);
+}
+.gallery-cell.wrong {
+  border-color: rgba(255,107,90,0.35);
+  box-shadow: inset 0 0 12px rgba(255,107,90,0.02);
+}
+.gallery-rank {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 0.52em;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+}
+.rank-1 { background: rgba(74,222,128,0.15); color: var(--green); }
+.rank-bad { background: rgba(255,107,90,0.12); color: var(--coral); }
+
+/* ─── Title Slide ─── */
+.slide-title { text-align: center !important; }
+.slide-title h1 {
+  font-size: 2.0em;
+  margin-bottom: 0.1em;
+  background: linear-gradient(140deg, var(--white) 40%, var(--gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.slide-title .subtitle {
+  font-size: 0.92em;
+  color: var(--teal);
+  font-weight: 500;
+  margin-bottom: 1.3em;
+  letter-spacing: 0.01em;
+}
+.slide-title .badge {
+  display: inline-block;
+  background: linear-gradient(140deg, var(--gold), #c89018);
+  color: var(--bg-deep);
+  font-weight: 800;
+  font-size: 0.82em;
+  padding: 10px 34px;
+  border-radius: 30px;
+  letter-spacing: 0.01em;
+  box-shadow: 0 4px 28px rgba(240,192,64,0.35), 0 0 0 1px rgba(240,192,64,0.2);
+}
+.slide-title .author {
+  font-size: 0.95em;
+  color: var(--white);
+  font-weight: 500;
+  margin-top: 1.6em;
+}
+.slide-title .meta {
+  font-size: 0.66em;
+  color: var(--white-30);
+  margin-top: 0.3em;
+}
+
+/* ─── Closing Slide ─── */
+.slide-end { text-align: center !important; }
+.slide-end h1 {
+  font-size: 3.4em;
+  background: linear-gradient(140deg, var(--white), var(--teal));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Big Question ─── */
+.big-question {
+  font-size: 1.5em;
+  font-weight: 600;
+  color: var(--white-90);
+  line-height: 1.5;
+  max-width: 90%;
+}
+
+/* ─── Progress & Slide Number ─── */
+.reveal .progress { height: 3px; }
+.reveal .progress span { background: linear-gradient(90deg, var(--gold), var(--teal)); }
+.reveal .slide-number {
+  font-family: var(--r-main-font);
+  font-size: 11px;
+  color: var(--white-30);
+  right: 18px;
+  bottom: 12px;
+}
+
+/* ─── Fragment Animations ─── */
+.reveal .fragment {
+  transition: all 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal .fragment.fade-up {
+  transform: translateY(16px);
+  opacity: 0;
+}
+.reveal .fragment.fade-up.visible {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* ─── Backup Tag ─── */
+.backup-tag {
+  position: absolute;
+  top: 14px;
+  right: 24px;
+  font-size: 0.5em;
+  color: var(--white-30);
+  font-style: italic;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ─── Accent Line ─── */
+.accent-line {
+  width: 48px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--gold), transparent);
+  margin: 10px 0 16px 0;
+  border-radius: 2px;
+}
+.accent-line.center { margin: 10px auto 16px auto; }
+
+/* ─── Comparison Arrow ─── */
+.comparison-arrow {
+  font-size: 1.6em;
+  color: var(--gold);
+  font-weight: 300;
+  margin: 0 12px;
+  vertical-align: middle;
+}
+
+/* ─── Speaker Notes ─── */
+.reveal aside.notes { font-size: 15px; line-height: 1.65; }
+
+/* ─── Glow Effects ─── */
+.glow-gold { filter: drop-shadow(0 0 24px rgba(240,192,64,0.12)); }
+.glow-teal { filter: drop-shadow(0 0 24px rgba(56,212,212,0.12)); }

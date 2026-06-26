@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neural Decoding of Visual Perception — Iepure Antoniu | UBB FMI 2026</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/black.css" id="theme">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<!-- ══════════════════════════════════════════════════════════
+     1. TITLE
+     ══════════════════════════════════════════════════════════ -->
+<section class="slide-title" data-background-color="#050b14">
+  <h1>Neural Decoding of Visual Perception<br>from fMRI</h1>
+  <p class="subtitle">CLIP-Guided Retrieval &amp; Diffusion-Based Reconstruction</p>
+  <p><span class="badge">86.3 % CSLS Recall@1 on SHARED1000</span></p>
+  <p class="author">Iepure Antoniu</p>
+  <p class="meta">supervised by Prof. univ. dr. Anca-Mirela Andreica</p>
+  <p class="meta">Babeș-Bolyai University &bull; Faculty of Mathematics and Computer Science &bull; AI</p>
+  <p class="meta" style="margin-top:1em; opacity:0.3;">Cluj-Napoca &bull; June 2026</p>
+  <aside class="notes">
+    [15 sec] "Good afternoon. My name is Iepure Antoniu, and my thesis presents a system 
+    that identifies which image a person was viewing — using only their brain activity — 
+    with 86.3% accuracy on a held-out benchmark of 1000 images. Let me walk you through how."
+  </aside>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     2. THE QUESTION (cinematic hook)
+     ══════════════════════════════════════════════════════════ -->
+<section data-background-color="#050b14">
+  <p class="big-question">
+    A person lies in an fMRI scanner, viewing a photograph.
+  </p>
+  <p class="big-question fragment" style="color:var(--gold); margin-top:0.6em;">
+    From the brain signal alone — can we tell <em style="color:var(--gold);">which</em> image they saw?
+  </p>
+  <div class="fragment" style="margin-top:2.2em;">
+    <div class="accent-line"></div>
+    <p style="font-size:0.88em; color:var(--white-70);">
+      Not the category. Not "an animal" or "a building."<br>
+      The <strong>exact</strong> image — out of a thousand possibilities.
+    </p>
+  </div>
+  <aside class="notes">
+    [45 sec] Start slow and cinematic. "Imagine a person in an fMRI scanner, viewing natural 
+    photographs. The scanner records blood-oxygen-level-dependent activity from about 15,700 
+    cortical voxels in the nsdgeneral region of interest.
+    
+    The question: from ONLY that brain signal — can we identify the EXACT image 
+    they were viewing? Not the category. The SPECIFIC photograph from a gallery of a thousand."
+    
+    TRANSITION: "The answer is yes — and the key is choosing the right target space."
+  </aside>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     3. THE KEY IDEA — PREDICT MEANING
+     ══════════════════════════════════════════════════════════ -->
+<section data-background-color="#050b14">
+  <h2>Predict Meaning, Not Pixels</h2>
+  <div class="cols cols-2 cols-center">
+    <div>
+      <p style="font-size:0.86em; margin-bottom:1em;">
+        Map brain activity into <span class="gold">CLIP's semantic embedding space</span>
+        where cosine similarity encodes semantic similarity.
+      </p>
+      <div class="glass" style="margin-top:0.5em;">
+        <p style="margin:0 0 6px 0; font-size:0.68em; color:var(--white-50);">Formal mapping</p>
+        <div class="math-box" style="margin:0;">
+          \(\hat{\mathbf{z}}_i = f_\theta(\mathbf{x}_i), \quad f_\theta : \mathbb{R}^{15724} \to \mathbb{R}^{768}\)
+        </div>
+        <p style="margin:8px 0 0 0; font-size:0.65em; color:var(--white-30);">
+          nsdgeneral ROI voxels &rarr; ViT-L/14 CLIP embedding (L2-normalized)
+        </p>
+      </div>
+      <p class="fragment" style="margin-top:1em; font-size:0.8em; color:var(--teal);">
+        If the predicted embedding lands near the true one,<br>
+        nearest-neighbour retrieval identifies the image.
+      </p>
+    </div>
+    <div>
+      <!-- Inline SVG: CLIP Embedding Space — improved -->
+      <svg class="diagram" viewBox="0 0 360 380" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="bg-glow" cx="50%" cy="48%" r="48%">
+            <stop offset="0%" stop-color="rgba(56,212,212,0.06)"/>
+            <stop offset="100%" stop-color="transparent"/>
+          </radialGradient>
+          <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="glow-strong"><feGaussianBlur stdDeviation="4" result="g"/><feMerge><feMergeNode in="g"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <!-- Hypersphere boundary -->
+        <circle cx="180" cy="185" r="155" fill="url(#bg-glow)" stroke="rgba(255,255,255,0.04)" stroke-width="1.5"/>
+        <circle cx="180" cy="185" r="155" fill="none" stroke="rgba(255,255,255,0.025)" stroke-width="0.5" stroke-dasharray="3,5"/>
+        
+        <!-- Cluster: Animals (teal) -->
+        <ellipse cx="105" cy="120" rx="38" ry="32" fill="rgba(56,212,212,0.05)" stroke="rgba(56,212,212,0.2)" stroke-width="1"/>
+        <circle cx="90" cy="110" r="3.5" fill="#38d4d4" opacity="0.75"/>
+        <circle cx="108" cy="105" r="3.5" fill="#38d4d4" opacity="0.7"/>
+        <circle cx="120" cy="120" r="3.5" fill="#38d4d4" opacity="0.65"/>
+        <circle cx="98" cy="132" r="3.5" fill="#38d4d4" opacity="0.6"/>
+        <circle cx="115" cy="135" r="3" fill="#38d4d4" opacity="0.5"/>
+        <text x="105" y="160" text-anchor="middle" fill="rgba(56,212,212,0.55)" font-size="10" font-family="Inter" font-weight="500">animals</text>
+        
+        <!-- Cluster: Scenes (gold) -->
+        <ellipse cx="255" cy="125" rx="40" ry="34" fill="rgba(240,192,64,0.04)" stroke="rgba(240,192,64,0.18)" stroke-width="1"/>
+        <circle cx="240" cy="112" r="3.5" fill="#f0c040" opacity="0.7"/>
+        <circle cx="260" cy="108" r="3.5" fill="#f0c040" opacity="0.75"/>
+        <circle cx="272" cy="128" r="3.5" fill="#f0c040" opacity="0.65"/>
+        <circle cx="244" cy="138" r="3.5" fill="#f0c040" opacity="0.6"/>
+        <circle cx="262" cy="140" r="3" fill="#f0c040" opacity="0.5"/>
+        <text x="255" y="167" text-anchor="middle" fill="rgba(240,192,64,0.55)" font-size="10" font-family="Inter" font-weight="500">scenes</text>
+        
+        <!-- Cluster: Food (purple) -->
+        <ellipse cx="140" cy="270" rx="32" ry="28" fill="rgba(167,139,250,0.04)" stroke="rgba(167,139,250,0.2)" stroke-width="1"/>
+        <circle cx="128" cy="262" r="3.5" fill="#a78bfa" opacity="0.7"/>
+        <circle cx="148" cy="258" r="3.5" fill="#a78bfa" opacity="0.7"/>
+        <circle cx="140" cy="278" r="3" fill="#a78bfa" opacity="0.55"/>
+        <circle cx="153" cy="275" r="3" fill="#a78bfa" opacity="0.5"/>
+        <text x="140" y="305" text-anchor="middle" fill="rgba(167,139,250,0.55)" font-size="10" font-family="Inter" font-weight="500">food</text>
+        
+        <!-- Cluster: Sports (green) — contains the decoded point -->
+        <ellipse cx="260" cy="270" rx="36" ry="30" fill="rgba(74,222,128,0.04)" stroke="rgba(74,222,128,0.2)" stroke-width="1"/>
+        <circle cx="248" cy="262" r="3.5" fill="#4ade80" opacity="0.7"/>
+        <circle cx="270" cy="260" r="3.5" fill="#4ade80" opacity="0.7"/>
+        <circle cx="255" cy="280" r="3.5" fill="#4ade80" opacity="0.6"/>
+        <circle cx="278" cy="276" r="3" fill="#4ade80" opacity="0.5"/>
+        <text x="260" y="308" text-anchor="middle" fill="rgba(74,222,128,0.55)" font-size="10" font-family="Inter" font-weight="500">sports</text>
+        
+        <!-- fMRI decoded prediction (red marker with glow) -->
+        <circle cx="253" cy="255" r="9" fill="none" stroke="#ff6b5a" stroke-width="2" filter="url(#glow-strong)" opacity="0.9"/>
+        <circle cx="253" cy="255" r="3.5" fill="#ff6b5a"/>
+        <text x="253" y="240" text-anchor="middle" fill="#ff6b5a" font-size="9" font-weight="600" font-family="Inter">decoded fMRI</text>
+        
+        <!-- Ground truth point (dashed green) -->
+        <circle cx="270" cy="260" r="9" fill="none" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="3,2" opacity="0.8"/>
+        
+        <!-- Connection arrow (decoded → GT) -->
+        <line x1="256" y1="257" x2="267" y2="259" stroke="rgba(255,255,255,0.25)" stroke-width="1" stroke-dasharray="2,2"/>
+        
+        <!-- Caption -->
+        <text x="180" y="365" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="10" font-family="Inter">CLIP Embedding Space (768-D unit hypersphere)</text>
+      </svg>
+    </div>
+  </div>
+  <aside class="notes">
+    [60 sec] "The core insight: don't reconstruct pixels — predict MEANING. 
+    OpenAI's CLIP model maps images into a 768-dimensional unit hypersphere where 
+    cosine similarity equals semantic similarity.
+    
+    Our decoder maps ~15,700 brain voxels from the nsdgeneral cortical region into this space.
+    If the predicted embedding lands near the true embedding, nearest-neighbour retrieval 
+    identifies the exact image from the gallery."
+    
+    TRANSITION: "Now — how do we build a system that does this reliably at 86% accuracy?"
+  </aside>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     4. SYSTEM ARCHITECTURE (inline SVG pipeline)
+     ══════════════════════════════════════════════════════════ -->
+<section data-background-color="#050b14">
+  <h2>System Architecture: Triple Expert Fusion</h2>
+  <!-- Inline SVG Pipeline Diagram — improved -->
+  <svg class="diagram" viewBox="0 0 1100 330" xmlns="http://www.w3.org/2000/svg" style="margin-top:0.2em;">
+    <defs>
+      <linearGradient id="conn-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="rgba(255,255,255,0.12)"/>
+        <stop offset="100%" stop-color="rgba(255,255,255,0.04)"/>
+      </linearGradient>
+      <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+      </marker>
+    </defs>
+    
+    <!-- Flow connectors -->
+    <path d="M 160 165 L 280 165" stroke="url(#conn-grad)" stroke-width="2" marker-end="url(#arr)"/>
+    <path d="M 440 165 L 535 100" stroke="url(#conn-grad)" stroke-width="1.5" marker-end="url(#arr)"/>
+    <path d="M 440 165 L 535 165" stroke="url(#conn-grad)" stroke-width="1.5" marker-end="url(#arr)"/>
+    <path d="M 440 165 L 535 230" stroke="url(#conn-grad)" stroke-width="1.5" marker-end="url(#arr)"/>
+    <path d="M 705 100 L 785 155" stroke="rgba(56,212,212,0.2)" stroke-width="1.5" marker-end="url(#arr)"/>
+    <path d="M 705 165 L 785 165" stroke="rgba(240,192,64,0.2)" stroke-width="1.5" marker-end="url(#arr)"/>
+    <path d="M 705 230 L 785 175" stroke="rgba(255,107,90,0.2)" stroke-width="1.5" marker-end="url(#arr)"/>
+    <path d="M 935 165 L 1015 165" stroke="rgba(74,222,128,0.25)" stroke-width="2" marker-end="url(#arr)"/>
+    
+    <!-- Node 1: fMRI Input -->
+    <rect x="25" y="125" width="135" height="80" rx="10" fill="rgba(56,212,212,0.05)" stroke="rgba(56,212,212,0.35)" stroke-width="1.5"/>
+    <text x="92" y="155" text-anchor="middle" fill="#38d4d4" font-size="12" font-weight="700" font-family="Inter">7T fMRI</text>
+    <text x="92" y="173" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="9.5" font-family="Inter">NSD subj01</text>
+    <text x="92" y="189" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8.5" font-family="Inter">15,724 nsdgeneral voxels</text>
+    
+    <!-- Node 2: Preprocessing -->
+    <rect x="280" y="125" width="160" height="80" rx="10" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+    <text x="360" y="150" text-anchor="middle" fill="rgba(255,255,255,0.75)" font-size="11" font-weight="600" font-family="Inter">Preprocessing</text>
+    <text x="360" y="168" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="9" font-family="Inter">per-session z-score</text>
+    <text x="360" y="183" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="9" font-family="Inter">image-level split</text>
+    <text x="360" y="198" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-size="8" font-family="Inter">no leakage across train/val/test</text>
+    
+    <!-- Expert 1: V61a (teal) -->
+    <rect x="535" y="68" width="170" height="58" rx="9" fill="rgba(56,212,212,0.04)" stroke="rgba(56,212,212,0.35)" stroke-width="1.5"/>
+    <text x="620" y="91" text-anchor="middle" fill="#38d4d4" font-size="11" font-weight="700" font-family="Inter">V61a — Token Expert</text>
+    <text x="620" y="108" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="8.5" font-family="Inter">197K-D · vMF-NCE · MC-TTA-16</text>
+    <text x="620" y="120" text-anchor="middle" fill="rgba(56,212,212,0.5)" font-size="8" font-family="Inter" font-weight="500">w = 0.7</text>
+    
+    <!-- Expert 2: V62a (gold) -->
+    <rect x="535" y="138" width="170" height="58" rx="9" fill="rgba(240,192,64,0.04)" stroke="rgba(240,192,64,0.3)" stroke-width="1.5"/>
+    <text x="620" y="161" text-anchor="middle" fill="#f0c040" font-size="11" font-weight="700" font-family="Inter">V62a — CLS Expert</text>
+    <text x="620" y="178" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="8.5" font-family="Inter">768-D · ViT-L/14 CLS target</text>
+    <text x="620" y="190" text-anchor="middle" fill="rgba(240,192,64,0.5)" font-size="8" font-family="Inter" font-weight="500">w = 0.1</text>
+    
+    <!-- Expert 3: V66a (coral) -->
+    <rect x="535" y="208" width="170" height="58" rx="9" fill="rgba(255,107,90,0.04)" stroke="rgba(255,107,90,0.3)" stroke-width="1.5"/>
+    <text x="620" y="231" text-anchor="middle" fill="#ff6b5a" font-size="11" font-weight="700" font-family="Inter">V66a — ROI Expert</text>
+    <text x="620" y="248" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="8.5" font-family="Inter">768-D · ROI-pretrained CLS</text>
+    <text x="620" y="260" text-anchor="middle" fill="rgba(255,107,90,0.5)" font-size="8" font-family="Inter" font-weight="500">w = 0.2</text>
+    
+    <!-- Fusion Node -->
+    <rect x="785" y="120" width="150" height="90" rx="12" fill="rgba(240,192,64,0.05)" stroke="rgba(240,192,64,0.45)" stroke-width="2"/>
+    <text x="860" y="148" text-anchor="middle" fill="#f0c040" font-size="9" font-weight="700" font-family="Inter" letter-spacing="0.08em">FROZEN</text>
+    <text x="860" y="168" text-anchor="middle" fill="var(--white)" font-size="11.5" font-weight="700" font-family="Inter">Score Fusion</text>
+    <text x="860" y="186" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="8.5" font-family="Inter">CSLS (k=3)</text>
+    <text x="860" y="200" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="8.5" font-family="Inter">z-norm · weighted sum</text>
+    
+    <!-- Output circle -->
+    <circle cx="1050" cy="165" r="35" fill="rgba(74,222,128,0.06)" stroke="rgba(74,222,128,0.5)" stroke-width="2"/>
+    <text x="1050" y="160" text-anchor="middle" fill="#4ade80" font-size="14" font-weight="800" font-family="Inter">86.3%</text>
+    <text x="1050" y="177" text-anchor="middle" fill="rgba(74,222,128,0.6)" font-size="8" font-family="Inter">CSLS R@1</text>
+    
+    <!-- Bottom labels -->
+    <text x="92" y="285" text-anchor="middle" fill="rgba(255,255,255,0.2)" font-size="8.5" font-family="Inter">30,000 trials × 3 reps</text>
+    <text x="620" y="290" text-anchor="middle" fill="rgba(255,255,255,0.2)" font-size="8.5" font-family="Inter">3 independently trained experts</text>
+    <text x="860" y="230" text-anchor="middle" fill="rgba(255,255,255,0.2)" font-size="8" font-family="Inter">weights selected on val, frozen</text>
+    <text x="1050" y="215" text-anchor="middle" fill="rgba(255,255,255,0.2)" font-size="8" font-family="Inter">SHARED1000</text>
+  </svg>
+  <aside class="notes">
+    [50 sec] "The architecture, left to right:
+    7T fMRI from NSD subject 01, masked to 15,724 nsdgeneral voxels, per-session z-scored.
+    Three independently trained decoder experts: 
+    — V61a: maps to 197K-dimensional token space, strongest alone at 83.1%.
+    — V62a: maps to 768-D CLS space, weaker at 47.5% but geometrically different.
+    — V66a: maps to 768-D with ROI pretraining, 39.1% alone.
+    Their CSLS-corrected scores are z-normalized and combined with fixed weights 0.7/0.1/0.2.
+    Evaluated on SHARED1000: 1000 images never seen during training or validation."
+    
+    TRANSITION: "Let me explain the core insight — why three experts beat one."
+  </aside>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     5. CORE CONTRIBUTION — FROZEN FUSION
+     ══════════════════════════════════════════════════════════ -->
+<section data-background-color="#050b14">
+  <h2>Core Contribution: Frozen Score Fusion</h2>
+  <div class="glass-accent">
+    <p style="margin:0 0 12px 0; font-size:0.84em; color:var(--white-90);">
+      <strong>Thesis claim:</strong> A frozen weighted combination of hubness-corrected, 
+      z-score-normalised retrieval scores from three independent experts 
+      yields a statistically stronger ranking than any single expert.
+    </p>
+    <div class="math-box gold-border" style="margin-bottom:0;">
+      \(s_{\text{final}}(i,j) \;=\; 0.7\,\tilde{s}_{\text{V61a}} \;+\; 0.1\,\tilde{s}_{\text{V62a}} \;+\; 0.2\,\tilde{s}_{\text{V66a}}\)
+    </div>
+    <p style="margin:8px 0 0 0; font-size:0.66em; color:var(--white-50);">
+      where \(\tilde{s}_e = (s_e^{\text{CSLS}} - \mu_e)/\sigma_e\) &nbsp;|&nbsp; CSLS at <em>k</em> = 3 &nbsp;|&nbsp; weights frozen before SHARED1000 evaluation
+    </p>
+  </div>
+  <div class="cols cols-2 fragment" style="margin-top:0.7em; gap:14px;">
+    <div class="glass" style="border-left:3px solid var(--teal);">
+      <p style="margin:0; font-size:0.75em;">
+        <span class="teal">V61a</span> (w=0.7) &mdash; 197K token-space, MC-TTA-16<br>
+        <span class="dim small">Dominant ranker &bull; 83.1% alone</span>
+      </p>
+    </div>
+    <div class="glass" style="border-left:3px solid var(--gold);">
+      <p style="margin:0; font-size:0.75em;">
+        <span class="gold">V62a</span> (w=0.1) &amp; <span class="coral">V66a</span> (w=0.2)<br>
+        <span class="dim small">Complementary score geometry &bull; different failure modes</span>
+      </p>
+    </div>
+  </div>
+  <aside class="notes">
+    [70 sec — intellectual core of the talk] 
+    "This is the main contribution. Three experts, each independently trained, each producing 
+    CSLS similarity scores against the full gallery.
+    
+    At inference: CSLS hubness correction at k=3, then z-normalize per expert so scale differences
+    don't dominate, then fixed weighted sum. Weights tuned on validation, FROZEN before test.
+    No data leakage. No test-time tuning.
+    
+    V61a dominates at 0.7 — it's the strongest single model.
+    But V62a and V66a, despite being weak alone, contribute geometrically distinct score signals."
+    
+    TRANSITION: "What does this achieve on the benchmark?"
+  </aside>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     6. HEADLINE RESULT
+     ══════════════════════════════════════════════════════════ -->
+<section data-background-color="#050b14">
+  <div class="center" style="padding-top:0.2em;">
+    <h2 style="display:block;">SHARED1000 Retrieval</h2>
+    <div class="hero-number" style="margin:0.05em 0;">86.3%</div>
+    <div class="hero-label">CSLS Recall@1</div>
+    <div class="hero-sub">95% CI [84.0, 88.4] &bull; Clopper–Pearson exact &bull; n = 1000</div>
+  </div>
+  <div class="cols cols-2 fragment" style="margin-top:1.1em; gap:18px; max-width:520px; margin-left:auto; margin-right:auto;">
+    <div class="metric-card">
+      <div class="num">98.0%</div>
+      <div class="label">Recall@5</div>
+    </div>
+    <div class="metric-card">
+      <div class="num">0.914</div>
+      <div class="label">Mean Reciprocal Rank</div>
+    </div>
+  </div>
+  <div class="fragment center" style="margin-top:1em;">
+    <span class="pill pill-gold">+3.2 pp over best single expert (83.1%)</span>
+    <span class="pill pill-teal">+9.1 pp over prior 2-expert baseline (77.2%)</span>
+  </div>
+  <aside class="notes">
+    [50 sec — let the number breathe] 
+    "86.3% Recall@1. [PAUSE for effect]
+    
+    For 863 out of 1000 held-out test images, the system identifies the EXACT photograph 
+    from a gallery of a thousand options. Using only brain activity.
+    
+    R@5 = 98% — almost always in the top 5. MRR = 0.914 — the median rank is 1.
+    
+    That's +3.2 percentage points over V61a alone (the best single expert at 83.1%),
+    and +9.1 points over our prior V35+N1v28a two-expert baseline at 77.2%.
+    
+    The confidence interval is exact: Clopper-Pearson on 863 successes out of 1000."
+    
+    TRANSITION: "Why does combining weak experts with a strong one actually help?"
+  </aside>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     7. WHY FUSION WORKS (replaces McNemar — thesis-backed only)
+     ══════════════════════════════════════════════════════════ -->
+<section data-background-color="#050b14">
+  <h2>Why Fusion Works: Complementary Experts</h2>
+  <div class="evidence-grid">
+    <div class="evidence-card card-teal">
+      <div class="ev-num" style="color:var(--teal);">83.1%</div>
+      <div class="ev-label">V61a (Token-Space)</div>
+      <div class="ev-detail">197K-D &bull; MC-TTA-16 &bull; w = 0.7</div>
+    </div>
+    <div class="evidence-card card-gold">
+      <div class="ev-num" style="color:var(--gold);">47.5%</div>
+      <div class="ev-label">V62a (CLS-Space)</div>
+      <div class="ev-detail">768-D &bull; compact &bull; w = 0.1</div>
+    </div>
+    <div class="evidence-card card-coral">
+      <div class="ev-num" style="color:var(--coral);">39.1%</div>
+      <div class="ev-label">V66a (ROI-Space)</div>
+      <div class="ev-detail">768-D &bull; ROI-pretrained &bull; w = 0.2</div>
+    </div>
+  </div>
+  <div class="cols cols-2 fragment" style="margin-top:0.9em; gap:24px;">
+    <div>
+      <div class="glass" style="padding:18px 22px;">
+        <p style="margin:0 0 8px 0; font-size:0.72em; font-weight:600; color:var(--white);">Aggregate evidence of complementarity</p>
+        <table style="margin:0;">
+          <thead><tr><th></th><th>R@1</th><th>R@5</th><th>MRR</th></tr></thead>
+          <tbody>
+            <tr><td style="color:var(--teal);">V61a alone</td><td>83.1%</td><td>96.9%</td><td>0.892</td></tr>
+            <tr class="highlight-row"><td><strong>Triple fusion</strong></td><td><strong>86.3%</strong></td><td><strong>98.0%</strong></td><td><strong>0.914</strong></td></tr>
+            <tr><td style="font-size:0.85em; color:var(--green);">Gain</td><td style="color:var(--green);">+3.2</td><td style="color:var(--green);">+1.1</td><td style="color:var(--green);">+0.022</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <div class="glass" style="padding:18px 22px;">
+        <p style="margin:0 0 8px 0; font-size:0.72em; font-weight:600; color:var(--white);">Why it works</p>
+        <p style="margin:0; font-size:0.7em; color:var(--white-70); line-height:1.6;">
+          The experts differ in <strong>target dimensionality</strong>, <strong>training objective</strong>, 
+          and <strong>inductive bias</strong> — they fail on <em>different</em> queries.<br><br>
+          The R@5 rise (96.9% &rarr; 98.0%) is consistent with 
+          <span class="gold">complementary correction</span> rather than redundant ensembling.
+        </p>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    [60 sec] "Why does this work? The three experts are fundamentally different:
+    V61a targets a 197K-dimensional token space with 16-draw Monte Carlo test-time augmentation.
+    V62a uses a 768-D CLS target. V66a uses ROI-pretrained features.
+    
+    They're trained with different objectives and map to different geometries.
+    The key insight from the thesis: they fail on DIFFERENT queries.
+    
+    Evidence: R@5 goes from 96.9% to 98.0%. If experts were redundant, 
+    they'd reinforce the same top-1 mistakes. Instead, we see the tail of slow-decaying 
+    ranks shrinking — consistent with complementary correction, not redundant ensembling.
+    
+    The gain is modest (+3.2pp) but meaningful: it's a held-out benchmark with no tuning."
+    
+    TRANSITION: "Let me show specific examples of what the experts retrieve."
+  </aside>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     8. RETRIEVAL GALLERY (thesis-backed examples)
+     ══════════════════════════════════════════════════════════ -->
+<section data-background-color="#050b14">
+  <h2>Qualitative Retrieval Evidence</h2>
+  <p style="font-size:0.65em; color:var(--white-50); margin-bottom:0.5em;">
+    Four SHARED1000 examples: per-expert top-1 retrieval &rarr; fusion preserves correct rank.
+    <span style="color:var(--white-30);">(Thesis Figures 5.6–5.7)</span>
+  </p>
+  <!-- Header row -->
+  <div class="gallery-row" style="margin-bottom:2px;">
+    <div style="font-size:0.58em; color:var(--white-50); font-weight:600; text-align:center;">Query (GT)</div>
+    <div style="font-size:0.58em; color:var(--teal); font-weight:600; text-align:center;">V61a</div>
+    <div style="font-size:0.58em; color:var(--gold); font-weight:600; text-align:center;">V62a</div>
+    <div style="font-size:0.58em; color:var(--coral); font-weight:600; text-align:center;">V66a</div>
+    <div style="font-size:0.58em; color:var(--green); font-weight:600; text-align:center;">Fusion</div>
+  </div>
+  <!-- Row 1: Surfer (NSD 8262) -->
+  <div class="gallery-row fragment">
+    <div class="gallery-cell gt">
+      <p style="font-size:0.82em; font-weight:700; margin:0;">Surfer</p>
+      <p style="font-size:0.52em; margin:2px 0 0 0; color:var(--white-30);">NSD 8262</p>
+    </div>
+    <div class="gallery-cell correct"><span class="gallery-rank rank-1">R1</span><p style="font-size:0.68em; margin:0;">&#10003; correct</p></div>
+    <div class="gallery-cell wrong"><span class="gallery-rank rank-bad">R5</span><p style="font-size:0.63em; margin:0; color:var(--coral);">&#10007; wrong scene</p></div>
+    <div class="gallery-cell wrong"><span class="gallery-rank rank-bad">R8</span><p style="font-size:0.63em; margin:0; color:var(--coral);">&#10007; distant miss</p></div>
+    <div class="gallery-cell correct"><span class="gallery-rank rank-1">R1</span><p style="font-size:0.68em; margin:0;">&#10003; correct</p></div>
+  </div>
+  <!-- Row 2: Skier (NSD 21279) -->
+  <div class="gallery-row fragment">
+    <div class="gallery-cell gt">
+      <p style="font-size:0.82em; font-weight:700; margin:0;">Skier</p>
+      <p style="font-size:0.52em; margin:2px 0 0 0; color:var(--white-30);">NSD 21279</p>
+    </div>
+    <div class="gallery-cell correct"><span class="gallery-rank rank-1">R1</span><p style="font-size:0.68em; margin:0;">&#10003; correct</p></div>
+    <div class="gallery-cell wrong"><span class="gallery-rank rank-bad">R10</span><p style="font-size:0.63em; margin:0; color:var(--coral);">&#10007; related sport</p></div>
+    <div class="gallery-cell wrong"><span class="gallery-rank rank-bad">R11</span><p style="font-size:0.63em; margin:0; color:var(--coral);">&#10007; distant miss</p></div>
+    <div class="gallery-cell correct"><span class="gallery-rank rank-1">R1</span><p style="font-size:0.68em; margin:0;">&#10003; correct</p></div>
+  </div>
+  <!-- Row 3: Seagulls (NSD 55649) -->
+  <div class="gallery-row fragment">
+    <div class="gallery-cell gt">
+      <p style="font-size:0.82em; font-weight:700; margin:0;">Seagulls</p>
+      <p style="font-size:0.52em; margin:2px 0 0 0; color:var(--white-30);">NSD 55649</p>
+    </div>
+    <div class="gallery-cell correct"><span class="gallery-rank rank-1">R1</span><p style="font-size:0.68em; margin:0;">&#10003; correct</p></div>
+    <div class="gallery-cell wrong"><span class="gallery-rank rank-bad">R4</span><p style="font-size:0.63em; margin:0; color:var(--coral);">&#10007; bird scene</p></div>
+    <div class="gallery-cell wrong"><span class="gallery-rank rank-bad">R12</span><p style="font-size:0.63em; margin:0; color:var(--coral);">&#10007; distant miss</p></div>
+    <div class="gallery-cell correct"><span class="gallery-rank rank-1">R1</span><p style="font-size:0.68em; margin:0;">&#10003; correct</p></div>
+  </div>
+  <!-- Row 4: Fruit bowl (NSD 8509) -->
+  <div class="gallery-row fragment">
+    <div class="gallery-cell gt">
+      <p style="font-size:0.82em; font-weight:700; margin:0;">Fruit bowl</p>
+      <p style="font-size:0.52em; margin:2px 0 0 0; color:var(--white-30);">NSD 8509</p>
+    </div>
+    <div class="gallery-cell correct"><span class="gallery-rank rank-1">R1</span><p style="font-size:0.68em; margin:0;">&#10003; correct</p></div>
+    <div class="gallery-cell wrong"><span class="gallery-rank rank-bad">R2</span><p style="font-size:0.63em; margin:0; color:var(--coral);">&#10007; near miss</p></div>
+    <div class="gallery-cell correct"><span class="gallery-rank rank-1">R1</span><p style="font-size:0.68em; margin:0;">&#10003; correct</p></div>
+    <div class="gallery-cell correct"><span class="gallery-rank rank-1">R1</span><p style="font-size:0.68em; margin:0;">&#10003; correct</p></div>
+  </div>
+  <p class="fragment" style="font-size:0.6em; color:var(--white-30); margin-top:0.5em; font-style:italic;">
+    These illustrate that fusion preserves V61a's correct retrievals even when weaker experts disagree.
+    The +3.2pp gain arises on the disjoint subset where V61a alone fails.
+  </p>
+  <aside class="notes">
+    [55 sec] "Four real SHARED1000 examples from the thesis. Each column is one expert's top-1.
+    
+    V61a — the dominant expert — gets all 4 correct at rank 1.
+    V62a fails on 3/4 with semantically plausible but wrong images (rank 5, 10, 4, 2).
+    V66a fails on 3/4 (rank 8, 11, 12 — but interestingly gets fruit bowl at R1).
+    The FUSED result: all four correct.
+    
+    Important scientific point: these four show that fusion PRESERVES V61a's correct results.
+    The actual +3.2pp gain comes from trials where V61a fails but fusion rescues — 
+    those cases exist in the aggregate numbers but aren't individually visualised here."
+    
+    TRANSITION: "Beyond retrieval, the thesis demonstrates a downstream application."
+  </aside>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     9. RECONSTRUCTION ADD-ON
+     ══════════════════════════════════════════════════════════ -->
+<section data-background-color="#050b14">
+  <h2>Downstream: Image Reconstruction</h2>
+  <div class="cols cols-2" style="gap:32px;">
+    <div>
+      <p style="font-size:0.78em; color:var(--white-50); margin-bottom:0.7em;">
+        Retrieval is the primary benchmark.<br>
+        Reconstruction is a <span class="teal">controlled add-on</span>.
+      </p>
+      <div class="glass" style="padding:16px 20px;">
+        <p style="margin:0 0 5px 0; font-size:0.7em; font-weight:600; color:var(--white);">Pipeline</p>
+        <p style="margin:0; font-size:0.68em; color:var(--white-50);">
+          Triple-fusion top-1 &rarr; SDXL 1.0 + IP-Adapter<br>
+          fMRI-predicted CLIP injected &bull; best-of-16 &bull; uncertainty-aware strength
+        </p>
+      </div>
+      <table style="margin-top:8px;">
+        <thead><tr><th>Metric (n=141)</th><th>Retrieval</th><th>Diffusion</th></tr></thead>
+        <tbody>
+          <tr><td>SSIM</td><td>0.202</td><td style="color:var(--green);">0.214</td></tr>
+          <tr><td>CLIP image sim.</td><td>0.744</td><td style="color:var(--green);">0.750</td></tr>
+          <tr><td>PSNR (dB)</td><td>9.539</td><td style="color:var(--green);">9.602</td></tr>
+          <tr class="highlight-row"><td>AlexNet(5) 2-way</td><td>&mdash;</td><td>86.2%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div>
+      <div class="glass" style="padding:18px 20px;">
+        <p style="margin:0 0 6px 0; font-size:0.7em; font-weight:600;">Scope &amp; scientific honesty</p>
+        <ul style="font-size:0.68em;">
+          <li><strong>Anchor-dependent</strong> — conditions on retrieved top-1</li>
+          <li>n = 141 SHARED1000 examples (137 non-perfect)</li>
+          <li>Modest, non-degrading gains (no bucket regresses)</li>
+          <li>Not protocol-comparable to MindEye2</li>
+        </ul>
+        <p style="margin:10px 0 0 0; font-size:0.62em; font-style:italic; color:var(--white-30);">
+          The thesis contribution is retrieval accuracy,<br>
+          not reconstruction fidelity.
+        </p>
+      </div>
+      <div class="fragment glass" style="padding:14px 20px; border-left:3px solid var(--teal);">
+        <p style="margin:0; font-size:0.65em; color:var(--white-50);">
+          <strong style="color:var(--teal);">Key finding:</strong> SDXL + IP-Adapter removes the 
+          low-level vs. semantic trade-off observed with the earlier SD 2.1 pipeline.
+        </p>
+      </div>
+    </div>
+  </div>
+  <aside class="notes">
+    [40 sec — keep brief, this is secondary] "The reconstruction add-on uses the 
+    triple-fusion top-1 as an anchor for SDXL with IP-Adapter conditioning, 
+    plus the decoded CLIP embedding injected into SDXL's text pathway.
+    
+    Results are modest but non-degrading across all buckets. 
+    AlexNet(5) 2-way identification at 86.2% on 137 non-perfect examples.
+    
+    I emphasize: this is anchor-dependent — it uses the retrieval output. 
+    The thesis contribution is retrieval, not reconstruction."
+    
+    TRANSITION: "To summarize the contributions and limitations..."
+  </aside>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     10. CONTRIBUTIONS & SCOPE
+     ══════════════════════════════════════════════════════════ -->
+<section data-background-color="#050b14">
+  <h2>Contributions &amp; Scope</h2>
+  <div class="cols cols-2" style="gap:40px;">
+    <div>
+      <h3 style="color:var(--gold);">Contributions</h3>
+      <ul style="font-size:0.76em;">
+        <li class="fragment">End-to-end NSD &rarr; CLIP retrieval pipeline<br>
+          <span class="dim small">Leakage-free protocol, image-level splits</span></li>
+        <li class="fragment">Multi-head decoder design<br>
+          <span class="dim small">Compact / rerank / rich roles separated</span></li>
+        <li class="fragment">Frozen cross-architecture score fusion<br>
+          <span class="dim small"><strong class="gold">86.3% CSLS R@1</strong> on SHARED1000 [84.0, 88.4]</span></li>
+        <li class="fragment">SDXL + IP-Adapter reconstruction add-on<br>
+          <span class="dim small">86.2% AlexNet(5) 2-way on n=137</span></li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="color:var(--coral);">Limitations</h3>
+      <ul style="font-size:0.76em;">
+        <li class="fragment">Single subject (subj01 only)</li>
+        <li class="fragment">Reconstruction is anchor-dependent</li>
+        <li class="fragment">Per-trial fusion analysis not exported<br>
+          <span class="dim small">Complementarity claim is aggregate-level</span></li>
+        <li class="fragment">Not directly comparable to MindEye2<br>
+          <span class="dim small">Different splits, multi-subject pretraining</span></li>
+      </ul>
+      <h3 class="fragment" style="color:var(--teal); margin-top:0.9em;">Future work</h3>
+      <ul class="fragment" style="font-size:0.76em;">
+        <li>Multi-subject generalisation</li>
+        <li>Learned fusion (end-to-end)</li>
+        <li>5-way anchor-vs-CLIP ablation</li>
+      </ul>
+    </div>
+  </div>
+  <aside class="notes">
+    [55 sec] "To summarize — four contributions: 
+    (1) A complete, leakage-free pipeline from fMRI to CLIP retrieval.
+    (2) Multi-head decoder separating compact retrieval from reranking and reconstruction roles.
+    (3) The frozen cross-architecture score fusion reaching 86.3% with exact CI.
+    (4) An SDXL reconstruction add-on demonstrating end-to-end utility.
+    
+    Limitations are acknowledged honestly: single subject, anchor-dependent reconstruction,
+    aggregate-level complementarity claim, and not protocol-comparable to MindEye2.
+    
+    Future: multi-subject, learned fusion, and a proper reconstruction ablation."
+  </aside>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     11. CLOSING
+     ══════════════════════════════════════════════════════════ -->
+<section class="slide-end" data-background-color="#050b14">
+  <h1>Thank you.</h1>
+  <p style="font-size:1.05em; color:var(--white-50); margin:0.5em 0 1.8em 0;">I welcome your questions.</p>
+  <div>
+    <span class="pill pill-gold" style="font-size:0.85em;">86.3% R@1</span>
+    <span class="pill pill-teal" style="font-size:0.85em;">CI [84.0, 88.4]</span>
+    <span class="pill pill-green" style="font-size:0.85em;">+3.2 pp over best single</span>
+  </div>
+  <p style="margin-top:2.5em; font-size:0.6em; color:var(--white-30);">
+    Iepure Antoniu &bull; Prof. dr. Anca-Mirela Andreica &bull; UBB FMI AI &bull; June 2026
+  </p>
+  <aside class="notes">
+    [10 sec] "Thank you for your attention. I'm happy to take any questions."
+  </aside>
+</section>
+
+
+<!-- ══════════════════════════════════════════════════════════
+                    B A C K U P   S L I D E S
+     ══════════════════════════════════════════════════════════ -->
+
+<!-- BACKUP 1: Full metrics table -->
+<section data-background-color="#050b14" data-visibility="uncounted">
+  <span class="backup-tag">BACKUP</span>
+  <h2>Complete Retrieval Results</h2>
+  <table>
+    <thead>
+      <tr><th>System</th><th>Raw R@1</th><th>CSLS R@1</th><th>R@5</th><th>MRR</th><th>Med.</th><th>w</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>V30e compact</td><td>&mdash;</td><td>49.2%</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+      <tr><td>V30e + rerank</td><td>&mdash;</td><td>51.5%</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+      <tr><td>V35 + N1v28a (2-expert)</td><td>&mdash;</td><td>77.2%</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+      <tr><td>V61a single (no TTA)</td><td>66.0%</td><td>79.1%</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td><td>&mdash;</td></tr>
+      <tr><td>V61a + MC-TTA-16</td><td>67.3%</td><td>83.1%</td><td>96.9%</td><td>0.892</td><td>1</td><td>0.7</td></tr>
+      <tr><td>V62a (768-D CLS)</td><td>39.9%</td><td>47.5%</td><td>80.3%</td><td>0.621</td><td>2</td><td>0.1</td></tr>
+      <tr><td>V66a (768-D ROI)</td><td>35.5%</td><td>39.1%</td><td>73.8%</td><td>0.545</td><td>2</td><td>0.2</td></tr>
+      <tr class="highlight-row"><td><strong>Triple Fusion</strong></td><td>72.1%</td><td><strong>86.3%</strong></td><td><strong>98.0%</strong></td><td><strong>0.914</strong></td><td><strong>1</strong></td><td>frozen</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.58em; margin-top:6px; color:var(--white-30);">
+    Thesis Table 5.1 &bull; SHARED1000 (1000 held-out images) &bull; All numbers from <code>triple_fusion_shared1000_86.json</code>
+  </p>
+</section>
+
+<!-- BACKUP 2: Equations -->
+<section data-background-color="#050b14" data-visibility="uncounted">
+  <span class="backup-tag">BACKUP</span>
+  <h2>Mathematical Formulations</h2>
+  <div style="margin-top:0.2em;">
+    <h3 style="font-size:0.78em;">vMF-NCE (training loss for V61a)</h3>
+    <div class="math-box">
+      \(\mathcal{L}_{\text{vMF-NCE}} = -\frac{1}{N}\sum_{i=1}^{N} \log \frac{\exp\bigl(\kappa_i \cos(\hat{\mu}_i, z_i)\bigr)}{\sum_{j=1}^{N}\exp\bigl(\kappa_i \cos(\hat{\mu}_i, z_j)\bigr)}\)
+    </div>
+  </div>
+  <div style="margin-top:0.7em;">
+    <h3 style="font-size:0.78em;">CSLS hubness correction (Conneau et al., 2018)</h3>
+    <div class="math-box">
+      \(\text{CSLS}(x,y) = 2\cos(x,y) - r_T(x) - r_S(y)\)
+    </div>
+    <p style="font-size:0.58em; color:var(--white-30); margin-top:3px;">
+      \(r_T(x) = \frac{1}{k}\sum_{y' \in \mathcal{N}_k(x)}\cos(x,y')\) — mean similarity to k nearest neighbours; penalises hub vectors
+    </p>
+  </div>
+  <div style="margin-top:0.7em;">
+    <h3 style="font-size:0.78em;">Frozen triple fusion (inference only)</h3>
+    <div class="math-box gold-border">
+      \(s_{\text{final}}(i,j) = \sum_{e \in \{61a, 62a, 66a\}} w_e \cdot \frac{s_e^{\text{CSLS}}(i,j) - \mu_e}{\sigma_e}\)
+    </div>
+  </div>
+</section>
+
+<!-- BACKUP 3: Manifold Evidence (thesis Table 5.4) -->
+<section data-background-color="#050b14" data-visibility="uncounted">
+  <span class="backup-tag">BACKUP</span>
+  <h2>Manifold Alignment Evidence (V62a)</h2>
+  <table style="font-size:0.68em;">
+    <thead><tr><th>Evidence type</th><th>Metric (SHARED1000)</th><th>Interpretation</th></tr></thead>
+    <tbody>
+      <tr><td>Hubness control</td><td>Gini: 0.386 &rarr; 0.226 (cosine &rarr; CSLS)</td><td>CSLS substantially reduces hubness</td></tr>
+      <tr><td>Representational geometry</td><td>RSA Spearman &rho; = 0.389 [0.387, 0.392]</td><td>Stable monotonic structure preserved</td></tr>
+      <tr><td>Local neighbourhood</td><td>Overlap@10 = 0.40 (random: 0.01, lift &times;40)</td><td>CLIP-space neighbourhoods preserved</td></tr>
+      <tr><td>Language-space probe</td><td>Agreement@5 = 0.833 (29 concepts)</td><td>Decoded embeddings agree with text probes</td></tr>
+      <tr><td>Semantic axes</td><td>Mean Spearman = 0.673 across 10 axes</td><td>Interpretable concept directions preserved</td></tr>
+    </tbody>
+  </table>
+  <div class="glass" style="margin-top:0.8em; border-left:3px solid var(--white-15);">
+    <p style="margin:0; font-size:0.65em; color:var(--white-50);">
+      All manifold analyses are on the V62a single expert under SHARED1000 protocol, 
+      not on the fused system (which operates at score level, not embedding level).
+    </p>
+  </div>
+</section>
+
+<!-- BACKUP 4: Evolution -->
+<section data-background-color="#050b14" data-visibility="uncounted">
+  <span class="backup-tag">BACKUP</span>
+  <h2>Experimental Evolution</h2>
+  <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:1em;">
+    <div class="glass" style="text-align:center; padding:16px 8px; border-top:3px solid var(--teal);">
+      <p style="font-size:0.58em; margin:0; color:var(--teal);">Phase 1&ndash;3</p>
+      <p style="font-size:0.76em; margin:3px 0 0 0; font-weight:600;">Pipeline Stabilization</p>
+      <p style="font-size:0.52em; margin:2px 0 0 0; color:var(--white-30);">V1&ndash;V30: leakage-free eval</p>
+    </div>
+    <div class="glass" style="text-align:center; padding:16px 8px; border-top:3px solid var(--gold);">
+      <p style="font-size:0.58em; margin:0; color:var(--gold);">Phase 4&ndash;5</p>
+      <p style="font-size:0.76em; margin:3px 0 0 0; font-weight:600;">Multi-Head Design</p>
+      <p style="font-size:0.52em; margin:2px 0 0 0; color:var(--white-30);">V30&ndash;V35: compact + rerank</p>
+    </div>
+    <div class="glass" style="text-align:center; padding:16px 8px; border-top:3px solid var(--coral);">
+      <p style="font-size:0.58em; margin:0; color:var(--coral);">Phase 6&ndash;7</p>
+      <p style="font-size:0.76em; margin:3px 0 0 0; font-weight:600;">Expert Training</p>
+      <p style="font-size:0.52em; margin:2px 0 0 0; color:var(--white-30);">V60&ndash;V66: token + CLS + ROI</p>
+    </div>
+    <div class="glass" style="text-align:center; padding:16px 8px; border-top:3px solid var(--green);">
+      <p style="font-size:0.58em; margin:0; color:var(--green);">Phase 8</p>
+      <p style="font-size:0.76em; margin:3px 0 0 0; font-weight:600;">Frozen Fusion</p>
+      <p style="font-size:0.52em; margin:2px 0 0 0; color:var(--white-30);">Final exported system</p>
+    </div>
+  </div>
+  <div class="center" style="margin-top:1.4em;">
+    <p style="font-size:0.95em;">
+      <span class="dim">49.2%</span> &rarr;
+      <span class="dim">51.5%</span> &rarr;
+      <span class="teal">77.2%</span> &rarr;
+      <span class="gold" style="font-size:1.3em; font-weight:800;">86.3%</span>
+    </p>
+    <p style="font-size:0.6em; color:var(--white-30); margin-top:4px;">SHARED1000 CSLS Recall@1 progression</p>
+  </div>
+</section>
+
+<!-- BACKUP 5: Related Work -->
+<section data-background-color="#050b14" data-visibility="uncounted">
+  <span class="backup-tag">BACKUP</span>
+  <h2>Related Work</h2>
+  <table style="font-size:0.7em;">
+    <thead><tr><th>Work</th><th>Approach</th><th>Relation to this thesis</th></tr></thead>
+    <tbody>
+      <tr><td>Allen et al., 2022</td><td>NSD (7T fMRI data)</td><td>Data source &bull; SHARED1000 benchmark</td></tr>
+      <tr><td>Takagi &amp; Nishimoto, 2023</td><td>SD-based reconstruction</td><td>Reconstruction-first (we are retrieval-first)</td></tr>
+      <tr><td>Ozcelik &amp; VanRullen, 2023</td><td>Brain Diffuser</td><td>Informs our SDXL add-on</td></tr>
+      <tr><td>MindEye (Scotti et al., 2023)</td><td>CLIP retrieval + diffusion</td><td>Retrieval-first framing &bull; AlexNet metric</td></tr>
+      <tr><td>MindEye2 (Scotti et al., 2024)</td><td>Multi-subject scaling</td><td>Strongest precedent &bull; not protocol-comparable</td></tr>
+      <tr class="highlight-row"><td><strong>This thesis</strong></td><td><strong>Frozen expert fusion</strong></td><td><strong>86.3% CSLS R@1 (single-subject)</strong></td></tr>
+    </tbody>
+  </table>
+  <div class="glass" style="margin-top:0.8em; border-left:3px solid var(--white-15);">
+    <p style="margin:0; font-size:0.68em; color:var(--white-50);">
+      Direct numerical comparison to MindEye2 is not valid: different subject counts, 
+      target spaces, gallery sizes, and split protocols. We answer a narrower question 
+      about information decomposition and fusion in the single-subject setting.
+    </p>
+  </div>
+</section>
+
+<!-- BACKUP 6: Reproducibility -->
+<section data-background-color="#050b14" data-visibility="uncounted">
+  <span class="backup-tag">BACKUP</span>
+  <h2>Reproducibility &amp; Artifact Tracing</h2>
+  <table style="font-size:0.66em;">
+    <thead><tr><th>Claim</th><th>Artifact path</th></tr></thead>
+    <tbody>
+      <tr><td>Expert configs</td><td><code>configs/experiments/{V61a,V62a,V66a}*.yaml</code></td></tr>
+      <tr><td>Triple fusion (86.3%)</td><td><code>experimental_results/fusion_triple_86/triple_fusion_shared1000_86.json</code></td></tr>
+      <tr><td>Reconstruction (n=141)</td><td><code>experimental_results/reconstruction_sdxl_ipa/</code></td></tr>
+      <tr><td>Qualitative panels</td><td><code>thesis/v62_thesis/panel_metadata.json</code></td></tr>
+      <tr><td>Manifold evidence</td><td><code>outputs/shared1000_eval/v62a/manifold_evidence.json</code></td></tr>
+    </tbody>
+  </table>
+  <div class="glass-accent" style="margin-top:1em; text-align:center; padding:14px 22px;">
+    <p style="margin:0; font-size:0.78em;">
+      Every number in this presentation traces to a versioned artifact.<br>
+      <span class="dim" style="font-size:0.85em;">Git repo &bull; fixed seeds &bull; YAML configs &bull; frozen weights before SHARED1000</span>
+    </p>
+  </div>
+</section>
+
+<!-- BACKUP 7: Expert Architecture Details -->
+<section data-background-color="#050b14" data-visibility="uncounted">
+  <span class="backup-tag">BACKUP</span>
+  <h2>Expert Architecture Details</h2>
+  <table style="font-size:0.62em;">
+    <thead><tr><th></th><th style="color:var(--teal);">V61a (Token)</th><th style="color:var(--gold);">V62a (CLS)</th><th style="color:var(--coral);">V66a (ROI)</th></tr></thead>
+    <tbody>
+      <tr><td>Target dim</td><td>197,376 (257&times;768)</td><td>768</td><td>768</td></tr>
+      <tr><td>Encoder</td><td>MLP [8192, 8192, 4096, 2048]</td><td>MLP [8192, 8192, 4096, 2048]</td><td>MLP backbone + [1024] head</td></tr>
+      <tr><td>Training loss</td><td>vMF-NCE + MSE + &kappa;-reg + SoftCLIP</td><td>vMF-NCE + MSE + &kappa;-reg + SoftCLIP</td><td>vMF-NCE + SoftCLIP + R-drop</td></tr>
+      <tr><td>Batch size</td><td>16</td><td>64</td><td>128</td></tr>
+      <tr><td>Inference TTA</td><td>MC-dropout, 16 draws</td><td>None</td><td>None</td></tr>
+      <tr><td>Fusion weight</td><td>0.7 (dominant)</td><td>0.1 (auxiliary)</td><td>0.2 (auxiliary)</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.58em; margin-top:6px; color:var(--white-30);">
+    Thesis Table 5.3 &bull; Values from YAML configs of V61a, V62a, V66a
+  </p>
+</section>
+
+</div><!-- .slides -->
+</div><!-- .reveal -->
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/notes/notes.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/math/math.js"></script>
+<script>
+  Reveal.initialize({
+    hash: true,
+    slideNumber: 'c/t',
+    showSlideNumber: 'all',
+    progress: true,
+    center: false,
+    width: 1280,
+    height: 720,
+    margin: 0.04,
+    transition: 'fade',
+    transitionSpeed: 'slow',
+    backgroundTransition: 'none',
+    pdfSeparateFragments: false,
+    math: {
+      mathjax: null,
+      katex: 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js',
+      delimiters: [
+        { left: '\\(', right: '\\)', display: false },
+        { left: '\\[', right: '\\]', display: true }
+      ],
+      ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+    },
+    plugins: [RevealNotes, RevealMath.KaTeX]
+  });
+</script>
+</body>
+</html>

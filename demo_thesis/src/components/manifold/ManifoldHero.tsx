@@ -72,7 +72,7 @@ export function ManifoldHero() {
           {/* Instrument strip — five hair-rule cells */}
           <div className="mt-7 overflow-hidden rounded-2xl border border-white/[0.05] bg-white/[0.014]">
             <div className="grid grid-cols-2 divide-x divide-y divide-white/[0.05] sm:grid-cols-5 sm:divide-y-0">
-              <HeroFact label="Model"     value="V62a"             detail="residual MLP + vMF" />
+              <HeroFact label="Model"     value="Triple Fusion"    detail="V61a + V62a + V66a · vMF" />
               <HeroFact label="Embedding" value="ViT-L/14 · 768-D" detail="CLIP visual + text" />
               <HeroFact label="Protocols" value="Val · S1K"        detail="10k / 1k galleries" />
               <HeroFact label="Status"    value="Finalised"        detail="semantic suite ready" tone="success" />
@@ -144,7 +144,7 @@ function ReportCapsule() {
           <p className="premium-kicker">Report capsule</p>
         </div>
         <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-text-muted">
-          V62a · final
+          Triple Fusion · final
         </span>
       </div>
 

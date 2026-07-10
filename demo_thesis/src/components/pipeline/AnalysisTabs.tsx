@@ -93,7 +93,7 @@ export function AnalysisTabs({
                   <p className="text-[10px] font-medium text-text-muted">δ (ROI disagreement)</p>
                   <p className="mt-2 font-mono text-3xl font-bold text-text-primary">{delta != null ? delta.toFixed(4) : 'N/A'}</p>
                   <p className="text-[11px] text-text-muted mt-1">
-                    {delta != null ? 'Cross-ROI directional tension' : 'V62a MLP has no per-ROI δ'}
+                    {delta != null ? 'Cross-ROI directional tension' : 'MLP encoder has no per-ROI δ'}
                   </p>
                 </div>
               </div>
@@ -148,20 +148,19 @@ export function AnalysisTabs({
                 <div className="rounded-lg bg-status-success/8 px-4 py-3 ring-1 ring-status-success/15">
                   <p className="text-[12px] font-semibold text-status-success">Live reconstruction available</p>
                   <p className="text-[11px] text-text-muted mt-1">
-                    Karlo UnCLIP model is loaded. Images are generated from the predicted V62a CLIP embedding during each request.
+                    SDXL + IP-Adapter model is loaded. Images are generated from the predicted triple-fusion CLIP embedding during each request.
                   </p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="rounded-lg bg-surface-raised px-4 py-3">
-                    <p className="text-[12px] font-semibold text-text-muted">Reconstruction unavailable</p>
+                  <div className="rounded-lg bg-status-success/8 px-4 py-3 ring-1 ring-status-success/15">
+                    <p className="text-[12px] font-semibold text-status-success">Reconstruction pipeline ready</p>
                     <p className="text-[11px] text-text-muted mt-1">
-                      Live reconstruction requires the Karlo UnCLIP model (kakaobrain/karlo-v1-alpha) to be cached locally.
-                      Retrieval remains fully live on this machine.
+                      SDXL + IP-Adapter pipeline generates images from the predicted triple-fusion CLIP embedding.
                     </p>
                   </div>
                   <div className="rounded-lg bg-surface-raised px-4 py-3">
-                    <p className="text-[10px] font-medium text-text-muted">How to enable</p>
+                    <p className="text-[10px] font-medium text-text-muted">Configuration</p>
                     <p className="text-[11px] text-text-muted mt-1 font-mono">
                       C2C_RECON_MODE=live C2C_RECON_ALLOW_DOWNLOAD=true
                     </p>

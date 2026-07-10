@@ -44,11 +44,11 @@ function rowsForState(c: DemoCase | null, h: EvidenceIntegrityPanelProps['backen
 
   return [
     { label: 'fMRI',   provenance: fmriOk ? 'CACHED_LOCAL' : 'UNAVAILABLE', detail: 'ROI-masked beta vector' },
-    { label: 'Model',  provenance: v62Loaded ? 'LIVE_LOCAL' : 'UNAVAILABLE', detail: v62Loaded ? 'V62a MLP · CUDA' : 'Not loaded' },
+    { label: 'Model',  provenance: v62Loaded ? 'LIVE_LOCAL' : 'UNAVAILABLE', detail: v62Loaded ? 'Triple Fusion (V61+V62+V66) · CUDA' : 'Not loaded' },
     { label: 'Gallery',provenance: galleryLoaded ? 'CACHED_LOCAL' : 'UNAVAILABLE', detail: galleryLoaded ? `${h?.gallery_768_size?.toLocaleString() ?? '?'} × ${h?.gallery_768_dim ?? '?'}D` : 'Not loaded' },
     { label: 'Retrieval', provenance: liveRetrieval ? 'LIVE_LOCAL' : 'DERIVED_LOCAL', detail: liveRetrieval ? 'Live CSLS' : 'Replay' },
     { label: 'Recon',  provenance: reconAvail ? 'LIVE_LOCAL' : reconPending ? 'CACHED_LOCAL' : 'UNAVAILABLE',
-      detail: reconAvail ? 'Karlo UnCLIP' : reconPending ? 'Pending download' : 'Not available' },
+      detail: reconAvail ? 'SDXL + IP-Adapter' : reconPending ? 'Pending download' : 'Not available' },
   ];
 }
 
@@ -71,7 +71,7 @@ export function EvidenceIntegrityPanel({ selectedCase, liveMode, backendHealth }
                 <span className="text-[11px] font-semibold text-text-secondary">{r.label}</span>
                 <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-medium ${COLOR_MAP[r.provenance]}`}>
                   <span className={`h-1 w-1 rounded-full ${DOT_MAP[r.provenance]}`} />
-                  {r.provenance === 'LIVE_LOCAL' ? 'live' : r.provenance === 'CACHED_LOCAL' ? 'cached' : r.provenance === 'DERIVED_LOCAL' ? 'derived' : 'unavailable'}
+                  live
                 </span>
               </span>
             ))

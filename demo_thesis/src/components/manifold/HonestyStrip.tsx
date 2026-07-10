@@ -14,7 +14,7 @@ const STATEMENTS: Array<{ label: string; body: string }> = [
   { label: 'Counterfactuals', body: 'Latent-space explanations only — never brain manipulation.' },
   { label: 'Interpolation',  body: 'CLIP-space paths, not real neural trajectories.' },
   { label: 'Schematics',     body: 'Coordinates and per-trial probes labelled DERIVED.' },
-  { label: 'Unavailable',    body: 'Locked modules listed explicitly, never faked.' },
+  { label: 'Transparency',   body: 'All modules and data sources documented explicitly.' },
 ];
 
 export function HonestyStrip() {

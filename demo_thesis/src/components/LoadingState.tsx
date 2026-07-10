@@ -17,7 +17,7 @@ export function LoadingState({ message = 'Loading neural data...' }: { message?:
         <div className="absolute inset-5 rounded-full bg-accent/10" />
       </div>
       <p className="text-sm font-medium text-text-secondary">{message}</p>
-      <p className="mt-2 max-w-sm text-center text-xs text-text-muted">Preparing cached or live experiment artifacts.</p>
+      <p className="mt-2 max-w-sm text-center text-xs text-text-muted">Preparing experiment artifacts.</p>
     </div>
   );
 }

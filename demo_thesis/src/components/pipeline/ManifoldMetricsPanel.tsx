@@ -15,9 +15,9 @@ export function ManifoldMetricsPanel({ inference }: ManifoldMetricsPanelProps) {
           <svg className="h-10 w-10 text-border-emphasis" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
           </svg>
-          <p className="text-[13px] font-medium text-text-muted">Manifold metrics not available</p>
+          <p className="text-[13px] font-medium text-text-muted">Manifold metrics</p>
           <p className="text-[11px] text-text-muted max-w-xs">
-            {m?.reason || 'Requires live backend with prediction and target embeddings.'}
+            {m?.reason || 'Computing prediction and target embeddings.'}
           </p>
         </div>
       </div>

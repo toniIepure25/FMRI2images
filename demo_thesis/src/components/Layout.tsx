@@ -12,7 +12,7 @@ import {
 
 const navItems = [
   { path: '/', label: 'Home', detail: 'Overview', Icon: IconHome },
-  { path: '/pipeline', label: 'Pipeline', detail: 'Decode replay', Icon: IconPipeline },
+  { path: '/pipeline', label: 'Pipeline', detail: 'Decode', Icon: IconPipeline },
   { path: '/explorer', label: 'Explorer', detail: 'Trial inspector', Icon: IconExplore },
   { path: '/manifold', label: 'Manifold', detail: 'Semantic lab', Icon: IconAtom },
   { path: '/evidence', label: 'Evidence', detail: 'Audit trail', Icon: IconChart },
@@ -69,7 +69,7 @@ export function Layout() {
 
           <div className="hidden items-center gap-2 lg:flex">
             <span className="rounded-full border border-border-subtle bg-surface-raised/75 px-3.5 py-1.5 text-[11px] font-semibold text-text-secondary">
-              V62a · CLIP ViT-L/14
+              Triple Fusion · ViT-L/14
             </span>
           </div>
 

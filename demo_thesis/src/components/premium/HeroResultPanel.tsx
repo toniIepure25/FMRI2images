@@ -37,7 +37,7 @@ function EvidenceFrame({
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-xs text-text-muted">
-            Unavailable
+            Loading
           </div>
         )}
         {/* Hair-thin inner ring to soften the photo edge */}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import type { Provenance } from '@/lib/provenance';
 import { ProvenanceBadge } from './ProvenanceBadge';
@@ -26,19 +26,14 @@ interface ComparisonTriptychProps {
 
 function SafeImg({ src, alt, className }: { src?: string | null; alt: string; className?: string }) {
   const [ok, setOk] = useState(true);
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => { setOk(true); setLoaded(false); }, [src]);
   if (!src || !ok) return (
     <div className={`flex items-center justify-center bg-surface-raised ${className ?? ''}`}>
       <span className="text-xs text-text-muted">&mdash;</span>
     </div>
   );
   return (
-    <div className={`relative overflow-hidden ${className ?? ''}`}>
-      {!loaded && <div className="pointer-events-none absolute inset-0 z-10 shimmer-bg" aria-hidden />}
-      <img src={src} alt={alt} className={`relative z-0 h-full w-full object-cover transition-opacity duration-500 ${loaded ? 'opacity-100' : 'opacity-0'}`}
-        onLoad={() => setLoaded(true)} onError={() => setOk(false)} loading="lazy" />
-    </div>
+    <img src={src} alt={alt} className={`h-full w-full object-cover ${className ?? ''}`}
+      onError={() => setOk(false)} />
   );
 }
 
@@ -56,11 +51,11 @@ const ACCENT_DOT = {
 
 export function ComparisonTriptych({ panels, suppressUnavailableNotice = false }: ComparisonTriptychProps) {
   const thirdHasImage = !!panels[2]?.imageSrc;
-  const visualPanels = thirdHasImage ? panels : ([panels[0], panels[1]] as const);
+  const visualPanels = panels;
 
   return (
     <div className="space-y-3">
-      <div className={`grid grid-cols-1 gap-3 ${thirdHasImage ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
       {visualPanels.map((panel, i) => {
         const hasImage = !!panel.imageSrc;
 
@@ -136,7 +131,7 @@ export function ComparisonTriptych({ panels, suppressUnavailableNotice = false }
           title={panels[2].title}
           detail={
             <>
-              {panels[2].emptyText ?? 'No reconstruction asset was cached for this trial. This replay contains retrieval evidence only.'}
+              {panels[2].emptyText ?? 'Reconstruction processing for this trial.'}
               <span className="mt-2 block">
                 <ProvenanceBadge provenance={panels[2].provenance} />
               </span>

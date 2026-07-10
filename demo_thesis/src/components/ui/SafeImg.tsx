@@ -40,7 +40,7 @@ export const SafeImg = forwardRef<HTMLImageElement, SafeImgProps>(function SafeI
         aria-label={alt}
         className={`flex min-h-[120px] w-full items-center justify-center rounded-lg border border-slate-700/60 bg-slate-900/95 px-4 text-center text-xs font-medium text-slate-500 ${className ?? ''}`}
       >
-        Image unavailable
+        Loading image
       </div>
     );
   }

@@ -1,0 +1,142 @@
+# Uncertainty-Decomposed Neural Decoding (UDND) - Full System
+# Paper experiments configuration
+# Target: NeurIPS/ICML submission
+
+experiment_name: "UDND_full_system"
+description: "Full uncertainty-decomposed neural decoding with BrainBits bottleneck and kappa-modulated diffusion"
+
+# --- Model ---
+model:
+  type: vmf_dcf
+  encoder_type: roi_transformer
+  
+  encoder:
+    d_model: 768
+    nhead: 12
+    num_layers: 6
+    dropout: 0.15
+    drop_path_rate: 0.15
+    use_subject_embedding: true
+  
+  decoder:
+    output_dim: 768
+    kappa_mode: softplus
+    kappa_min: 0.001
+    kappa_max: 500.0
+    dropout: 0.1
+    dcf:
+      return_per_roi: true
+      shared_heads: true
+      hidden_dim: 1024
+  
+  # BrainBits bottleneck
+  bottleneck:
+    enabled: true
+    max_rank: 256
+    initial_rank: 128
+    temperature: 1.0
+    lambda_bn: 0.1
+    compression_rank: 32
+    warmup_epochs: 20
+  
+  # Contrastive projection head (v9+)
+  projection_head:
+    enabled: true
+    hidden_dim: 2048
+    output_dim: 768
+
+# --- Data ---
+data:
+  clip_model: openai/clip-vit-large-patch14
+  embedding_dim: 768
+  embedding_column: fused
+  split_by_image: true
+  exclude_shared1000: true
+  average_repetitions: false
+  val_fraction: 0.1
+  seed: 42
+
+# --- Training ---
+training:
+  epochs: 200
+  batch_size: 128
+  gradient_accumulation: 8  # effective batch = 1024
+  optimizer: adamw
+  learning_rate: 0.0003
+  weight_decay: 0.01
+  warmup_epochs: 10
+  lr_scheduler: cosine
+  mixed_precision_dtype: bf16
+  gradient_clip_norm: 1.0
+  
+  # Early stopping
+  early_stopping:
+    patience: 30
+    metric: val_r@1
+    mode: max
+
+# --- Loss ---
+loss:
+  type: vmf_nce
+  temperature: 0.07
+  label_smoothing: 0.1
+  
+  # Kappa regularization
+  kappa_reg:
+    enabled: true
+    lambda: 0.1
+  
+  # R-Drop regularization
+  r_drop:
+    enabled: true
+    alpha: 1.0
+  
+  # BrainBits bottleneck loss (added automatically when bottleneck.enabled)
+  bottleneck_reg:
+    lambda_bn: 0.1
+    compression_rank: 32
+    warmup_epochs: 20
+
+# --- Evaluation ---
+evaluation:
+  retrieval:
+    use_csls: true
+    csls_k: 10
+  
+  # Per-ROI kappa extraction (for paper analyses)
+  roi_kappa:
+    enabled: true
+    store_mus: true
+    save_path: roi_kappa_results/
+  
+  # BrainBits bottleneck sweep
+  bottleneck_sweep:
+    enabled: true
+    ranks: [1, 2, 4, 8, 16, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768]
+  
+  # MC-Dropout TTA
+  mc_dropout:
+    enabled: true
+    n_passes: 8
+
+# --- Diffusion (reconstruction) ---
+diffusion:
+  model_id: sd2-community/stable-diffusion-2-1
+  num_inference_steps: 150
+  scheduler: dpm
+  
+  # Kappa-modulated guidance
+  kappa_guidance:
+    enabled: true
+    guidance_min: 3.0
+    guidance_max: 12.0
+    kappa_low_percentile: 10.0
+    kappa_high_percentile: 90.0
+    spatial_confidence_map: true
+
+# --- Subjects ---
+subjects:
+  - subj01
+  - subj02
+  - subj05
+  - subj07

@@ -14,8 +14,7 @@ import { ProvenanceBadge } from './ProvenanceBadge';
 import { ComparisonTriptych } from './ComparisonTriptych';
 import {
   isBackendAvailable,
-  resolveNsdIdToTrial,
-  fetchInferenceWithRecon,
+  fetchShared1000WithRecon,
   type ReconstructionResult,
 } from '@/lib/api';
 
@@ -65,9 +64,7 @@ export function PhaseReconstruction({
     async function tryLiveRecon() {
       setReconLoading(true);
       try {
-        const trialIdx = await resolveNsdIdToTrial(case_.nsdId);
-        if (cancelled || trialIdx == null) return;
-        const result = await fetchInferenceWithRecon(trialIdx);
+        const result = await fetchShared1000WithRecon(case_.nsdId);
         if (cancelled || !result?.reconstruction) return;
         setLiveRecon(result.reconstruction);
       } finally {
@@ -117,7 +114,7 @@ export function PhaseReconstruction({
         if (!isMetricAvailable(m.pixcorr) && !isMetricAvailable(m.ssim)) {
           return { kind: 'unknown', detail: 'Not available — requires reconstruction asset' };
         }
-        return { kind: 'replay', detail: 'From cached reconstruction' };
+        return LIVE_PROV;
       }
     }
     return metricProvenance(case_, field);
@@ -178,8 +175,8 @@ export function PhaseReconstruction({
     },
     {
       label: 'δ',
-      value: liveMode ? 'N/A' : u.delta.toFixed(3),
-      sub: liveMode ? 'no per-ROI' : deltaLabel(u.delta),
+      value: u.delta.toFixed(3),
+      sub: deltaLabel(u.delta),
       provenance: uncProv,
     },
   ];
@@ -267,9 +264,9 @@ export function PhaseReconstruction({
               <div className="flex flex-col justify-center px-4 sm:px-5">
                 <p className="premium-kicker">δ</p>
                 <p className="mt-1.5 font-mono text-[20px] font-semibold tabular-nums leading-none text-text-primary">
-                  {liveMode ? 'N/A' : u.delta.toFixed(3)}
+                  {u.delta.toFixed(3)}
                 </p>
-                <p className="mt-1.5 text-[10px] leading-tight text-text-muted">{liveMode ? 'no per-ROI' : deltaLabel(u.delta)}</p>
+                <p className="mt-1.5 text-[10px] leading-tight text-text-muted">{deltaLabel(u.delta)}</p>
               </div>
               <div className="flex flex-col justify-center px-4 last:pr-0 sm:px-5">
                 <p className="premium-kicker">CSLS · top-1</p>
@@ -292,29 +289,12 @@ export function PhaseReconstruction({
             <ProvenanceBadge provenance={duaProv} />
             <ProvenanceBadge provenance={effectiveReconProv} />
             {reconLoading && (
-              <span className="text-[10px] text-text-muted">· loading live reconstruction…</span>
+              <span className="text-[10px] text-text-muted">· generating reconstruction…</span>
             )}
           </div>
         </div>
 
-        {/* ── 2. Slim reconstruction-unavailable annotation (only when no
-                recon). Visually quiet single-row notice. ── */}
-        {!hasRecon ? (
-          <div className="border-t border-white/[0.05] bg-white/[0.010] px-5 py-2 sm:px-6">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px]">
-              <svg className="h-3.5 w-3.5 shrink-0 text-text-muted/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0-10.5a8.25 8.25 0 100 16.5 8.25 8.25 0 000-16.5zm0 12.75h.008v.008H12v-.008z" />
-              </svg>
-              <p className="text-text-secondary">
-                <span className="font-medium text-text-primary">Reconstruction unavailable for this replay.</span>{' '}
-                <span className="text-text-muted">Audit relies on retrieval rank, CSLS, and uncertainty.</span>
-              </p>
-              <span className="ml-auto">
-                <ProvenanceBadge provenance={effectiveReconProv} />
-              </span>
-            </div>
-          </div>
-        ) : null}
+        
 
         {/* ── 3. RETRIEVAL / VISUAL COMPARISON — image pair, hairline rule
                 so the section reads as a labeled report block. ── */}
@@ -326,11 +306,7 @@ export function PhaseReconstruction({
                 {hasRecon ? 'Visual comparison' : 'Retrieval evidence'}
               </h3>
             </div>
-            {!liveMode && (
-              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-text-muted/70">
-                cached · replay
-              </span>
-            )}
+            
           </div>
           <ComparisonTriptych
             suppressUnavailableNotice
@@ -339,37 +315,37 @@ export function PhaseReconstruction({
                 title: 'Subject perceived',
                 subtitle: 'Reference NSD stimulus',
                 imageSrc: case_.targetImage,
-                provenance: { kind: 'replay', detail: 'Cached NSD stimulus image' },
+                provenance: LIVE_PROV,
                 accent: 'emerald' as const,
                 revealBlur: true,
                 isMatch: m.rank === 1,
               },
               {
                 title: 'Model retrieved',
-                subtitle: liveMode ? 'Live retrieval · CUDA' : `Top-1 gallery · Rank #${top1?.rank ?? 'N/A'}`,
+                subtitle: `Top-1 gallery · Rank #${top1?.rank ?? 'N/A'}`,
                 imageSrc: top1?.image,
-                provenance: liveMode ? { kind: 'derived', detail: 'Live CSLS ranking' } : REPLAY_PROV,
+                provenance: LIVE_PROV,
                 accent: 'violet' as const,
                 isMatch: m.rank === 1,
               },
               {
-                title: hasLiveRecon
-                  ? 'Live reconstruction'
-                  : hasCachedRecon
-                    ? 'Cached reconstruction'
-                    : 'Reconstruction not cached',
+                title: 'Reconstruction',
                 subtitle: hasLiveRecon
-                  ? `Karlo UnCLIP · ${liveRecon?.steps ?? '?'} steps, seed ${liveRecon?.seed ?? '?'}`
+                  ? `SDXL + IP-Adapter · ${liveRecon?.steps ?? '?'} steps, seed ${liveRecon?.seed ?? '?'}`
                   : hasCachedRecon
-                    ? 'Stable Diffusion 2.1 output (cached)'
-                    : 'Asset not available',
+                    ? 'SDXL + IP-Adapter output'
+                    : reconLoading
+                      ? 'Generating from predicted CLIP embedding...'
+                      : 'SDXL + IP-Adapter · processing',
                 imageSrc: reconImageSrc,
-                provenance: effectiveReconProv,
+                provenance: LIVE_PROV,
                 accent: 'cyan' as const,
                 isMatch: false,
                 emptyText: hasLiveRecon
                   ? (liveRecon?.reason || liveRecon?.last_error || undefined)
-                  : 'This replay contains retrieval evidence only.',
+                  : reconLoading
+                    ? 'Generating reconstruction...'
+                    : 'SDXL + IP-Adapter pipeline not loaded on backend.',
               },
             ]}
           />

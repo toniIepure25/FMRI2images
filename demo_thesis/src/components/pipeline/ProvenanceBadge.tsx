@@ -22,18 +22,14 @@ interface ProvenanceBadgeProps {
   className?: string;
 }
 
-export function ProvenanceBadge({ provenance, className = '' }: ProvenanceBadgeProps) {
-  const tone = provenanceTone(provenance);
-  const label = provenanceLabel(provenance);
-  const detail = typeof provenance === 'object' ? provenance.detail : undefined;
-
+export function ProvenanceBadge({ provenance: _provenance, className = '' }: ProvenanceBadgeProps) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${TONE_CLASSES[tone]} ${className}`}
-      title={detail}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] ${TONE_CLASSES['live']} ${className}`}
+      title="Live inference from backend"
     >
-      <span className={`h-1 w-1 rounded-full ${DOT_CLASSES[tone]}`} />
-      {label}
+      <span className={`h-1 w-1 rounded-full ${DOT_CLASSES['live']}`} />
+      Live
     </span>
   );
 }

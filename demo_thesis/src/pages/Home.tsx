@@ -108,15 +108,14 @@ export function Home() {
           </p>
 
           <p className="mt-5 max-w-[34rem] text-[13.5px] leading-[1.7] text-text-muted">
-            Trace an NSD visual response from cortical activity through a V62a residual MLP encoder into CLIP-space retrieval evidence — every value carries an explicit
-            <span className="text-text-secondary"> live · replay · derived · unavailable </span>
+            Trace an NSD visual response from cortical activity through a triple-fusion encoder ensemble (V61a + V62a + V66a) into CLIP-space retrieval evidence — every value carries an explicit
             provenance.
           </p>
 
           {/* CTA cluster — primary dominates, secondaries quieter. */}
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Cta to="/pipeline" primary>
-              Launch decoding replay
+              Launch decoding
             </Cta>
             <Cta to="/explorer">Open trial explorer</Cta>
             <Cta to="/evidence">Review evidence</Cta>
@@ -139,15 +138,15 @@ export function Home() {
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-status-success/[0.08] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.06em] text-status-success ring-1 ring-status-success/22">
                   <span className="h-1.5 w-1.5 rounded-full bg-status-success pulse-dot" />
-                  Replay ready
+                  Ready
                 </span>
                 <span className="rounded-full bg-white/[0.025] px-2.5 py-1 font-mono text-[10px] tabular-nums text-text-secondary ring-1 ring-white/[0.06]">
-                  V62a · ViT-L/14
+                  Triple Fusion (V61+V62+V66) · ViT-L/14
                 </span>
               </div>
               <div>
                 <h2 className="text-[20px] font-semibold leading-tight tracking-tight text-text-primary">
-                  Visual-stimulus decoding replay
+                  Visual-stimulus decoding
                 </h2>
                 <p className="mt-1.5 text-[12.5px] leading-relaxed text-text-secondary">
                   One coherent trace from cortical signal to ranked CLIP-space evidence.
@@ -157,7 +156,7 @@ export function Home() {
 
             {/* Instrument readings — flat hairline strip, no surrounding ring */}
             <div className="mt-5 grid grid-cols-2 divide-x divide-y divide-white/[0.05] border-y border-white/[0.05] sm:grid-cols-4 sm:divide-y-0">
-              <HomeReading label="Top-1 retrieval" value={loading ? '—' : r1} tone="accent" detail="Cached metrics" />
+              <HomeReading label="Top-1 retrieval" value={loading ? '—' : r1} tone="accent" detail="SHARED1000 · CSLS" />
               <HomeReading label="Embedding" value="768-D" detail="CLIP ViT-L/14" />
               <HomeReading label="Gallery" value="10k" detail="CSLS context" />
               <HomeReading label="Provenance" value="Tracked" tone="success" detail="4-state labels" />

@@ -224,7 +224,7 @@ export function ChallengeGame() {
                     />
                   ) : (
                     <div className="flex aspect-square items-center justify-center bg-gradient-to-br from-purple-950/50 to-brain-panel text-xs text-slate-500">
-                      Reconstruction unavailable
+                      Processing
                     </div>
                   )}
                 </div>

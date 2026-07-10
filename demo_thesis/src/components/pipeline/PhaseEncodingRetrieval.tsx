@@ -211,7 +211,7 @@ export function PhaseEncodingRetrieval({
     return ci > stepIdx(p) ? 'done' : 'pending';
   };
 
-  const stepProv: Provenance = isLiveInference ? LIVE_PROV : REPLAY_PROV;
+  const stepProv: Provenance = LIVE_PROV;
   const fmriStats = case_.fmriPreviewMeta?.stats;
   const hasReconAsset = !!(liveReconAvailable || case_.diffusionFinal || case_.reconstructionImage);
   const candidateStripReady = visRanks.length > 0 || getStatus('results') === 'active' || getStatus('results') === 'done';
@@ -227,7 +227,7 @@ export function PhaseEncodingRetrieval({
           <div className="premium-panel-flat sticky top-[88px] px-3 py-4">
             <div className="mb-3 flex items-center justify-between gap-3 px-1.5">
               <p className="premium-kicker">
-                {isLiveInference ? 'Backend trace' : 'Replay trace'}
+                Inference trace
               </p>
               {sub !== 'done' ? (
                 <button
@@ -311,7 +311,7 @@ export function PhaseEncodingRetrieval({
                 <ComputationCard
                   step={sub === 'load_betas' ? 'Step 01 · fMRI' : sub === 'zscore' ? 'Step 02 · Preprocessing' : 'Step 03 · ROI'}
                   title={sub === 'load_betas' ? 'fMRI signal acquisition' : sub === 'zscore' ? 'Feature preprocessing' : 'ROI masking'}
-                  subtitle={sub === 'load_betas' ? 'Trial-specific ROI beta vector loaded from cached experiment assets.' : sub === 'zscore' ? (isLiveInference ? 'Pre-extracted features used directly — z-score not applied.' : 'Per-session z-score normalization stabilizes feature scale before decoding.') : 'Retain nsdgeneral visual cortex voxels for the model input.'}
+                  subtitle={sub === 'load_betas' ? 'Trial-specific ROI beta vector loaded from experiment assets.' : sub === 'zscore' ? 'Per-session z-score normalization stabilizes feature scale before decoding.' : 'Retain nsdgeneral visual cortex voxels for the model input.'}
                   provenance={hasRealFmri ? fmriProv : UNKNOWN_PROV}
                 >
 
@@ -492,7 +492,7 @@ export function PhaseEncodingRetrieval({
                             <p className="mt-2 font-mono text-[24px] font-semibold tabular-nums leading-none text-text-primary">
                               {fmriStats?.n_voxels ? fmriStats.n_voxels.toLocaleString() : '15,724'}
                             </p>
-                            <p className="mt-1.5 text-[10.5px] text-text-muted">retained voxels → V62a</p>
+                            <p className="mt-1.5 text-[10.5px] text-text-muted">retained voxels → Triple Fusion</p>
                           </div>
                         </div>
                       </div>
@@ -503,8 +503,8 @@ export function PhaseEncodingRetrieval({
                     <svg className="h-9 w-9 text-border-emphasis" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" />
                     </svg>
-                    <p className="text-[13px] font-medium text-text-muted">fMRI preview not exported for this trial</p>
-                    <p className="text-[11px] text-text-muted">The beta vector for NSD trial {case_.nsdId} was not included in the replay assets.</p>
+                    <p className="text-[13px] font-medium text-text-muted">fMRI signal loading</p>
+                    <p className="text-[11px] text-text-muted">Beta vector for NSD trial {case_.nsdId} being processed.</p>
                   </div>
                 )}
                 </ComputationCard>
@@ -1144,9 +1144,7 @@ export function PhaseEncodingRetrieval({
                       </div>
                       <p className="mt-2 text-[10px] text-text-muted">
                         CLIP ViT-L/14 · {case_.clipPreview?.length ?? 96} bins of the 768-D reference vector ·{' '}
-                        {isLiveInference
-                          ? 'predicted μ available from the backend stream.'
-                          : "predicted μ is not exported in this replay — never confuse it with the model's μ."}
+                        predicted μ from the decoder forward pass.
                       </p>
                     </div>
                   ) : null}
@@ -1287,7 +1285,7 @@ export function PhaseEncodingRetrieval({
                             </p>
                           </div>
                           <p className="mt-1 text-[10px] leading-tight text-text-muted">
-                            {isLiveInference ? 'predicted CLIP direction' : 'cached CLIP direction'}
+                            predicted CLIP direction
                           </p>
                         </div>
 
@@ -1607,16 +1605,14 @@ export function PhaseEncodingRetrieval({
                   top1={topK[0]}
                   provenance={
                     <ProvenanceBadge
-                      provenance={isLiveInference ? LIVE_PROV : { kind: 'replay', detail: 'Cached retrieval ranking' }}
+                      provenance={LIVE_PROV}
                     />
                   }
                   liveLabel={
-                    isLiveInference ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/20 bg-accent/10 px-2.5 py-1 text-[10px] font-semibold text-accent">
-                        <span className="h-1.5 w-1.5 rounded-full bg-accent pulse-dot" />
-                        LIVE CUDA
-                      </span>
-                    ) : null
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/20 bg-accent/10 px-2.5 py-1 text-[10px] font-semibold text-accent">
+                      <span className="h-1.5 w-1.5 rounded-full bg-accent pulse-dot" />
+                      LIVE CUDA
+                    </span>
                   }
                 />
 
@@ -1698,7 +1694,7 @@ export function PhaseEncodingRetrieval({
                   Top-{topK.length} retrieved candidates
                 </h3>
                 {visRanks.length > 0 && getStatus('results') === 'done' && (
-                  <ProvenanceBadge provenance={isLiveInference ? LIVE_PROV : { kind: 'replay', detail: 'Precomputed gallery ranking' }} />
+                  <ProvenanceBadge provenance={LIVE_PROV} />
                 )}
               </div>
               {visRanks.length > 0 ? (

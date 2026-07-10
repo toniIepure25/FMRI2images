@@ -43,7 +43,7 @@ export function InterpolationWalk() {
       <ManifoldSectionHeader
         kicker="Manifold walk"
         title="Walking on the decoded perceptual manifold."
-        description="Interpolation between two decoded embeddings traverses the CLIP semantic space smoothly. Smoothness and abrupt-transition rate are population aggregates from the V62a semantic reports."
+        description="Interpolation between two decoded embeddings traverses the CLIP semantic space smoothly. Smoothness and abrupt-transition rate are population aggregates from the triple-fusion semantic reports."
         action={
           <div className="flex items-center gap-2">
             <LatentOnlyChip />

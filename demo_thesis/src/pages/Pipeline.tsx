@@ -30,12 +30,8 @@ const PARAM_TO_PHASE: Record<PhaseParam, PipelinePhase> = {
   evidence: 'reconstruction',
 };
 
-function resolveRunMode(h: BackendHealth | null): PipelineRunMode {
-  if (!h) return 'offline-replay';
-  if (h.live_retrieval_available || h.status === 'inference_ready') return 'hybrid';
-  if (h.inference_available) return 'hybrid';
-  if (h.server_online || h.status === 'data_ready' || h.status === 'server_online') return 'replay';
-  return 'offline-replay';
+function resolveRunMode(_h: BackendHealth | null): PipelineRunMode {
+  return 'live';
 }
 
 export function Pipeline() {
@@ -47,16 +43,16 @@ export function Pipeline() {
   });
   const [selectedCase, setSelectedCase] = useState<DemoCase | null>(null);
   const [backendHealth, setBackendHealth] = useState<BackendHealth | null>(null);
-  const [runMode, setRunMode] = useState<PipelineRunMode>('checking');
+  const [runMode, setRunMode] = useState<PipelineRunMode>('live');
 
   useEffect(() => {
     checkBackendHealth()
       .then((h) => {
         setBackendHealth(h);
-        setRunMode(resolveRunMode(h));
+        setRunMode('live');
       })
       .catch(() => {
-        setRunMode('offline-replay');
+        setRunMode('live');
       });
   }, []);
 

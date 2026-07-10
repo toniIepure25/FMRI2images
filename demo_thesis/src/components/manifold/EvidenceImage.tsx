@@ -43,7 +43,7 @@ export function EvidenceImage({
   alt,
   aspect = '4/5',
   overlay,
-  unavailableNote = 'image unavailable',
+  unavailableNote = '',
   className = '',
 }: EvidenceImageProps) {
   const [loaded, setLoaded] = useState(false);
@@ -101,7 +101,7 @@ export function EvidenceImage({
  * the loading state behind an <img>. `note !== ''` renders the
  * glyph + caption "image unavailable" treatment.
  */
-export function MissingMedia({ note = 'image unavailable' }: { note?: string }) {
+export function MissingMedia({ note = '' }: { note?: string }) {
   return (
     <div
       className="absolute inset-0 flex flex-col items-center justify-center gap-1.5"

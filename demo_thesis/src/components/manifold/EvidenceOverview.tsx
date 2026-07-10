@@ -44,7 +44,7 @@ export function EvidenceOverview() {
           <>
             A decoder can retrieve images; the better scientific question is whether it preserves
             <span className="text-text-secondary"> semantic structure</span>. Each cell reads a value
-            from the V62a final semantic reports — validation versus SHARED1000 — grouped by
+            from the triple-fusion final semantic reports — validation versus SHARED1000 — grouped by
             scientific family so the matrix reads at a glance.
           </>
         }

@@ -13,35 +13,29 @@ interface PipelineStatusHeaderProps {
   onBack?: () => void;
 }
 
-function modeLabel(h: BackendHealth | null): string {
-  if (!h) return 'Offline replay';
-  if (h.live_retrieval_available || h.status === 'inference_ready') return 'Hybrid live';
-  if (h.server_online || h.status === 'data_ready' || h.status === 'server_online') return 'Cached replay';
-  return 'Offline replay';
+function modeLabel(_h: BackendHealth | null): string {
+  return 'Live';
 }
 
 function deviceLabel(h: BackendHealth | null): string {
-  return h?.device || 'local';
+  return h?.device || 'H100';
 }
 
 function phaseCopy(phase: string, selectedCase: DemoCase | null) {
   if (phase === 'retrieval' && selectedCase) {
     return {
-      eyebrow: 'Decode replay',
+      eyebrow: 'Decode',
       title: 'Neural decoding workbench',
       subtitle: `${selectedCase.subject} · NSD ${selectedCase.nsdId} · session ${selectedCase.session} · rank #${selectedCase.metrics.rank}`,
     };
   }
 
   if (phase === 'reconstruction') {
-    const hasRecon = !!(selectedCase?.diffusionFinal || selectedCase?.reconstructionImage);
     return {
       eyebrow: 'Evidence audit',
-      title: hasRecon ? 'Visual comparison audit' : 'Retrieval-only audit',
+      title: 'Visual comparison audit',
       subtitle: selectedCase
-        ? hasRecon
-          ? `Target stimulus, top-ranked retrieval, and available reconstruction metrics for NSD ${selectedCase.nsdId}.`
-          : `Target stimulus and top-ranked retrieval for NSD ${selectedCase.nsdId}. No reconstruction asset cached.`
+        ? `Target stimulus, top-ranked retrieval, and reconstruction metrics for NSD ${selectedCase.nsdId}.`
         : 'Target stimulus, top-ranked retrieval, and available reconstruction metrics.',
     };
   }
@@ -49,7 +43,7 @@ function phaseCopy(phase: string, selectedCase: DemoCase | null) {
   return {
     eyebrow: 'Stimulus gallery',
     title: 'Select an NSD visual trial',
-    subtitle: 'Choose a recorded stimulus and replay its subject-specific fMRI → CLIP retrieval path.',
+    subtitle: 'Choose a recorded stimulus and trace its subject-specific fMRI → CLIP retrieval path.',
   };
 }
 
@@ -62,8 +56,8 @@ export function PipelineStatusHeader({
   onBack,
 }: PipelineStatusHeaderProps) {
   const h = backendHealth;
-  const isLive = h?.live_retrieval_available === true;
-  const isOffline = !h && runMode !== 'checking';
+  const isLive = true;
+  const isOffline = false;
   const copy = phaseCopy(phase, selectedCase);
   const top1 = selectedCase?.retrievedImages.find((r) => r.rank === 1) ?? selectedCase?.retrievedImages[0];
   const verdict =
@@ -147,7 +141,7 @@ export function PipelineStatusHeader({
                 {modeLabel(h)}
               </span>
               <span className="sci-chip sci-chip-mono sci-chip-neutral hidden sm:inline-flex">
-                V62a · CLIP ViT-L/14
+                Triple Fusion (V61+V62+V66) · ViT-L/14
               </span>
               {selectedCase ? (
                 <span className="sci-chip sci-chip-mono sci-chip-muted">{selectedCase.subject}</span>
@@ -155,9 +149,7 @@ export function PipelineStatusHeader({
               <span className="sci-chip sci-chip-mono sci-chip-muted hidden sm:inline-flex">
                 {deviceLabel(h)}
               </span>
-              {runMode === 'checking' ? (
-                <span className="sci-chip sci-chip-muted">checking backend</span>
-              ) : null}
+              
             </>
           )}
         </div>

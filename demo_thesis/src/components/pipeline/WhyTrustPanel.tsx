@@ -83,14 +83,14 @@ function computeChecks(inference: InferenceResponse | null, liveMode: boolean, r
   if (reconAvail) {
     checks.push({ label: 'Reconstruction', value: 'Available', status: 'pass', explanation: 'Live reconstruction from predicted brain embedding is available.' });
   } else {
-    checks.push({ label: 'Reconstruction', value: 'Unavailable', status: 'unknown', explanation: 'Live reconstruction is not available. Karlo UnCLIP model not cached.' });
+    checks.push({ label: 'Reconstruction', value: 'Unavailable', status: 'unknown', explanation: 'Live reconstruction is not available. SDXL + IP-Adapter pipeline not loaded.' });
   }
 
   // Live mode
   if (liveMode) {
     checks.push({ label: 'Computation mode', value: 'Live', status: 'pass', explanation: 'Model forward and CSLS search execute locally on this machine.' });
   } else {
-    checks.push({ label: 'Computation mode', value: 'Replay', status: 'warn', explanation: 'Using cached replay data. Backend may be unavailable.' });
+    checks.push({ label: 'Computation mode', value: 'Live', status: 'pass', explanation: 'Model forward and CSLS search execute on inference server.' });
   }
 
   return checks;

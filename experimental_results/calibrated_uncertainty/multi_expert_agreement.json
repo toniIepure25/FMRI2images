@@ -1,0 +1,1228 @@
+{
+  "n_common_images": 1000,
+  "expert_names": [
+    "V62a",
+    "V66a",
+    "V61a"
+  ],
+  "best_expert_csls": "V61a",
+  "agreement_cosine": {
+    "0": {
+      "n_queries": 211,
+      "fraction": 0.211,
+      "mean_kappa_per_expert": {
+        "V62a": 28.994,
+        "V66a": 32.496,
+        "V61a": 42.088
+      },
+      "overall_mean_kappa": 34.526
+    },
+    "1": {
+      "n_queries": 359,
+      "fraction": 0.359,
+      "mean_kappa_per_expert": {
+        "V62a": 28.938,
+        "V66a": 32.448,
+        "V61a": 42.292
+      },
+      "overall_mean_kappa": 34.559
+    },
+    "2": {
+      "n_queries": 235,
+      "fraction": 0.235,
+      "mean_kappa_per_expert": {
+        "V62a": 28.786,
+        "V66a": 32.456,
+        "V61a": 42.317
+      },
+      "overall_mean_kappa": 34.52
+    },
+    "3": {
+      "n_queries": 195,
+      "fraction": 0.195,
+      "mean_kappa_per_expert": {
+        "V62a": 28.397,
+        "V66a": 32.443,
+        "V61a": 42.392
+      },
+      "overall_mean_kappa": 34.411
+    }
+  },
+  "agreement_csls": {
+    "0": {
+      "n_queries": 111,
+      "fraction": 0.111,
+      "mean_kappa_per_expert": {
+        "V62a": 29.22,
+        "V66a": 32.518,
+        "V61a": 41.929
+      },
+      "overall_mean_kappa": 34.556
+    },
+    "1": {
+      "n_queries": 340,
+      "fraction": 0.34,
+      "mean_kappa_per_expert": {
+        "V62a": 28.937,
+        "V66a": 32.459,
+        "V61a": 42.32
+      },
+      "overall_mean_kappa": 34.572
+    },
+    "2": {
+      "n_queries": 309,
+      "fraction": 0.309,
+      "mean_kappa_per_expert": {
+        "V62a": 28.787,
+        "V66a": 32.455,
+        "V61a": 42.273
+      },
+      "overall_mean_kappa": 34.505
+    },
+    "3": {
+      "n_queries": 240,
+      "fraction": 0.24,
+      "mean_kappa_per_expert": {
+        "V62a": 28.465,
+        "V66a": 32.436,
+        "V61a": 42.369
+      },
+      "overall_mean_kappa": 34.423
+    }
+  },
+  "pairwise_agreement": {
+    "V62a_vs_V66a": {
+      "agreement": 0.652,
+      "both_correct": 0.259,
+      "both_wrong": 0.393,
+      "only_first": 0.216,
+      "only_second": 0.132
+    },
+    "V62a_vs_V61a": {
+      "agreement": 0.559,
+      "both_correct": 0.423,
+      "both_wrong": 0.136,
+      "only_first": 0.052,
+      "only_second": 0.389
+    },
+    "V66a_vs_V61a": {
+      "agreement": 0.491,
+      "both_correct": 0.347,
+      "both_wrong": 0.144,
+      "only_first": 0.044,
+      "only_second": 0.465
+    }
+  },
+  "confidence_signal_curves": {
+    "single_best_kappa (V61a)": [
+      {
+        "coverage": 1.0,
+        "n_retained": 1000,
+        "r@1": 0.812,
+        "r@5": 0.966,
+        "r@10": 0.984,
+        "mrr": 0.8805,
+        "kappa_threshold": 39.528,
+        "mean_kappa_retained": 42.274
+      },
+      {
+        "coverage": 0.95,
+        "n_retained": 950,
+        "r@1": 0.8211,
+        "r@5": 0.9705,
+        "r@10": 0.9863,
+        "mrr": 0.8873,
+        "kappa_threshold": 40.542,
+        "mean_kappa_retained": 42.385
+      },
+      {
+        "coverage": 0.9,
+        "n_retained": 899,
+        "r@1": 0.8309,
+        "r@5": 0.9744,
+        "r@10": 0.9867,
+        "mrr": 0.8937,
+        "kappa_threshold": 40.981,
+        "mean_kappa_retained": 42.475
+      },
+      {
+        "coverage": 0.85,
+        "n_retained": 849,
+        "r@1": 0.8351,
+        "r@5": 0.9764,
+        "r@10": 0.9894,
+        "mrr": 0.898,
+        "kappa_threshold": 41.201,
+        "mean_kappa_retained": 42.555
+      },
+      {
+        "coverage": 0.8,
+        "n_retained": 799,
+        "r@1": 0.8461,
+        "r@5": 0.9812,
+        "r@10": 0.9912,
+        "mrr": 0.9057,
+        "kappa_threshold": 41.413,
+        "mean_kappa_retained": 42.633
+      },
+      {
+        "coverage": 0.75,
+        "n_retained": 749,
+        "r@1": 0.8438,
+        "r@5": 0.98,
+        "r@10": 0.9907,
+        "mrr": 0.9034,
+        "kappa_threshold": 41.566,
+        "mean_kappa_retained": 42.71
+      },
+      {
+        "coverage": 0.7,
+        "n_retained": 699,
+        "r@1": 0.8441,
+        "r@5": 0.9814,
+        "r@10": 0.9928,
+        "mrr": 0.9046,
+        "kappa_threshold": 41.711,
+        "mean_kappa_retained": 42.785
+      },
+      {
+        "coverage": 0.65,
+        "n_retained": 649,
+        "r@1": 0.8475,
+        "r@5": 0.9815,
+        "r@10": 0.9923,
+        "mrr": 0.9071,
+        "kappa_threshold": 41.825,
+        "mean_kappa_retained": 42.865
+      },
+      {
+        "coverage": 0.6,
+        "n_retained": 599,
+        "r@1": 0.8548,
+        "r@5": 0.985,
+        "r@10": 0.995,
+        "mrr": 0.9119,
+        "kappa_threshold": 41.969,
+        "mean_kappa_retained": 42.946
+      },
+      {
+        "coverage": 0.55,
+        "n_retained": 549,
+        "r@1": 0.8525,
+        "r@5": 0.9854,
+        "r@10": 0.9945,
+        "mrr": 0.9107,
+        "kappa_threshold": 42.097,
+        "mean_kappa_retained": 43.029
+      },
+      {
+        "coverage": 0.5,
+        "n_retained": 499,
+        "r@1": 0.8577,
+        "r@5": 0.986,
+        "r@10": 0.994,
+        "mrr": 0.9138,
+        "kappa_threshold": 42.259,
+        "mean_kappa_retained": 43.115
+      },
+      {
+        "coverage": 0.45,
+        "n_retained": 449,
+        "r@1": 0.8575,
+        "r@5": 0.9889,
+        "r@10": 0.9955,
+        "mrr": 0.9149,
+        "kappa_threshold": 42.382,
+        "mean_kappa_retained": 43.204
+      },
+      {
+        "coverage": 0.4,
+        "n_retained": 399,
+        "r@1": 0.8546,
+        "r@5": 0.9875,
+        "r@10": 0.995,
+        "mrr": 0.9126,
+        "kappa_threshold": 42.528,
+        "mean_kappa_retained": 43.297
+      },
+      {
+        "coverage": 0.35,
+        "n_retained": 349,
+        "r@1": 0.8567,
+        "r@5": 0.9857,
+        "r@10": 0.9943,
+        "mrr": 0.9129,
+        "kappa_threshold": 42.626,
+        "mean_kappa_retained": 43.4
+      },
+      {
+        "coverage": 0.3,
+        "n_retained": 299,
+        "r@1": 0.8495,
+        "r@5": 0.9833,
+        "r@10": 0.9933,
+        "mrr": 0.9088,
+        "kappa_threshold": 42.821,
+        "mean_kappa_retained": 43.513
+      },
+      {
+        "coverage": 0.25,
+        "n_retained": 249,
+        "r@1": 0.8434,
+        "r@5": 0.9839,
+        "r@10": 0.996,
+        "mrr": 0.9049,
+        "kappa_threshold": 42.978,
+        "mean_kappa_retained": 43.637
+      },
+      {
+        "coverage": 0.2,
+        "n_retained": 199,
+        "r@1": 0.8543,
+        "r@5": 0.9899,
+        "r@10": 0.995,
+        "mrr": 0.9109,
+        "kappa_threshold": 43.138,
+        "mean_kappa_retained": 43.78
+      },
+      {
+        "coverage": 0.15,
+        "n_retained": 149,
+        "r@1": 0.8591,
+        "r@5": 0.9866,
+        "r@10": 0.9933,
+        "mrr": 0.9166,
+        "kappa_threshold": 43.342,
+        "mean_kappa_retained": 43.962
+      },
+      {
+        "coverage": 0.1,
+        "n_retained": 99,
+        "r@1": 0.8586,
+        "r@5": 0.9798,
+        "r@10": 0.9899,
+        "mrr": 0.9141,
+        "kappa_threshold": 43.688,
+        "mean_kappa_retained": 44.183
+      },
+      {
+        "coverage": 0.05,
+        "n_retained": 50,
+        "r@1": 0.88,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.94,
+        "kappa_threshold": 44.075,
+        "mean_kappa_retained": 44.506
+      },
+      {
+        "coverage": 0.02,
+        "n_retained": 20,
+        "r@1": 0.9,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.95,
+        "kappa_threshold": 44.468,
+        "mean_kappa_retained": 44.862
+      },
+      {
+        "coverage": 0.01,
+        "n_retained": 10,
+        "r@1": 0.9,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.95,
+        "kappa_threshold": 44.819,
+        "mean_kappa_retained": 45.105
+      }
+    ],
+    "mean_kappa_all_experts": [
+      {
+        "coverage": 1.0,
+        "n_retained": 1000,
+        "r@1": 0.812,
+        "r@5": 0.966,
+        "r@10": 0.984,
+        "mrr": 0.8805,
+        "kappa_threshold": 32.441,
+        "mean_kappa_retained": 34.514
+      },
+      {
+        "coverage": 0.95,
+        "n_retained": 950,
+        "r@1": 0.8147,
+        "r@5": 0.9674,
+        "r@10": 0.9832,
+        "mrr": 0.8824,
+        "kappa_threshold": 33.551,
+        "mean_kappa_retained": 34.576
+      },
+      {
+        "coverage": 0.9,
+        "n_retained": 899,
+        "r@1": 0.8176,
+        "r@5": 0.9689,
+        "r@10": 0.9844,
+        "mrr": 0.8846,
+        "kappa_threshold": 33.752,
+        "mean_kappa_retained": 34.628
+      },
+      {
+        "coverage": 0.85,
+        "n_retained": 849,
+        "r@1": 0.8174,
+        "r@5": 0.9694,
+        "r@10": 0.9835,
+        "mrr": 0.8845,
+        "kappa_threshold": 33.884,
+        "mean_kappa_retained": 34.676
+      },
+      {
+        "coverage": 0.8,
+        "n_retained": 799,
+        "r@1": 0.816,
+        "r@5": 0.9675,
+        "r@10": 0.9825,
+        "mrr": 0.8833,
+        "kappa_threshold": 33.988,
+        "mean_kappa_retained": 34.722
+      },
+      {
+        "coverage": 0.75,
+        "n_retained": 749,
+        "r@1": 0.8117,
+        "r@5": 0.968,
+        "r@10": 0.9826,
+        "mrr": 0.8806,
+        "kappa_threshold": 34.116,
+        "mean_kappa_retained": 34.767
+      },
+      {
+        "coverage": 0.7,
+        "n_retained": 699,
+        "r@1": 0.8126,
+        "r@5": 0.9728,
+        "r@10": 0.9857,
+        "mrr": 0.8826,
+        "kappa_threshold": 34.174,
+        "mean_kappa_retained": 34.811
+      },
+      {
+        "coverage": 0.65,
+        "n_retained": 649,
+        "r@1": 0.8074,
+        "r@5": 0.9738,
+        "r@10": 0.9846,
+        "mrr": 0.8798,
+        "kappa_threshold": 34.233,
+        "mean_kappa_retained": 34.857
+      },
+      {
+        "coverage": 0.6,
+        "n_retained": 599,
+        "r@1": 0.808,
+        "r@5": 0.9716,
+        "r@10": 0.9833,
+        "mrr": 0.8788,
+        "kappa_threshold": 34.312,
+        "mean_kappa_retained": 34.907
+      },
+      {
+        "coverage": 0.55,
+        "n_retained": 549,
+        "r@1": 0.7996,
+        "r@5": 0.9727,
+        "r@10": 0.9836,
+        "mrr": 0.8745,
+        "kappa_threshold": 34.398,
+        "mean_kappa_retained": 34.957
+      },
+      {
+        "coverage": 0.5,
+        "n_retained": 499,
+        "r@1": 0.8016,
+        "r@5": 0.9719,
+        "r@10": 0.982,
+        "mrr": 0.8764,
+        "kappa_threshold": 34.468,
+        "mean_kappa_retained": 35.009
+      },
+      {
+        "coverage": 0.45,
+        "n_retained": 449,
+        "r@1": 0.7973,
+        "r@5": 0.9688,
+        "r@10": 0.98,
+        "mrr": 0.8715,
+        "kappa_threshold": 34.571,
+        "mean_kappa_retained": 35.064
+      },
+      {
+        "coverage": 0.4,
+        "n_retained": 399,
+        "r@1": 0.7845,
+        "r@5": 0.9699,
+        "r@10": 0.9799,
+        "mrr": 0.8638,
+        "kappa_threshold": 34.663,
+        "mean_kappa_retained": 35.121
+      },
+      {
+        "coverage": 0.35,
+        "n_retained": 349,
+        "r@1": 0.7794,
+        "r@5": 0.9713,
+        "r@10": 0.9828,
+        "mrr": 0.8612,
+        "kappa_threshold": 34.746,
+        "mean_kappa_retained": 35.181
+      },
+      {
+        "coverage": 0.3,
+        "n_retained": 299,
+        "r@1": 0.7893,
+        "r@5": 0.9732,
+        "r@10": 0.9833,
+        "mrr": 0.8666,
+        "kappa_threshold": 34.835,
+        "mean_kappa_retained": 35.247
+      },
+      {
+        "coverage": 0.25,
+        "n_retained": 249,
+        "r@1": 0.7671,
+        "r@5": 0.9679,
+        "r@10": 0.9799,
+        "mrr": 0.853,
+        "kappa_threshold": 34.929,
+        "mean_kappa_retained": 35.32
+      },
+      {
+        "coverage": 0.2,
+        "n_retained": 199,
+        "r@1": 0.7688,
+        "r@5": 0.9749,
+        "r@10": 0.9849,
+        "mrr": 0.858,
+        "kappa_threshold": 35.026,
+        "mean_kappa_retained": 35.407
+      },
+      {
+        "coverage": 0.15,
+        "n_retained": 149,
+        "r@1": 0.7718,
+        "r@5": 0.9732,
+        "r@10": 0.9866,
+        "mrr": 0.8588,
+        "kappa_threshold": 35.154,
+        "mean_kappa_retained": 35.51
+      },
+      {
+        "coverage": 0.1,
+        "n_retained": 99,
+        "r@1": 0.7677,
+        "r@5": 0.9596,
+        "r@10": 0.9798,
+        "mrr": 0.8523,
+        "kappa_threshold": 35.347,
+        "mean_kappa_retained": 35.646
+      },
+      {
+        "coverage": 0.05,
+        "n_retained": 50,
+        "r@1": 0.66,
+        "r@5": 0.96,
+        "r@10": 0.96,
+        "mrr": 0.7878,
+        "kappa_threshold": 35.588,
+        "mean_kappa_retained": 35.842
+      },
+      {
+        "coverage": 0.02,
+        "n_retained": 20,
+        "r@1": 0.75,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.8542,
+        "kappa_threshold": 35.853,
+        "mean_kappa_retained": 36.037
+      },
+      {
+        "coverage": 0.01,
+        "n_retained": 10,
+        "r@1": 0.6,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.7833,
+        "kappa_threshold": 35.971,
+        "mean_kappa_retained": 36.181
+      }
+    ],
+    "max_kappa_all_experts": [
+      {
+        "coverage": 1.0,
+        "n_retained": 1000,
+        "r@1": 0.812,
+        "r@5": 0.966,
+        "r@10": 0.984,
+        "mrr": 0.8805,
+        "kappa_threshold": 39.528,
+        "mean_kappa_retained": 42.274
+      },
+      {
+        "coverage": 0.95,
+        "n_retained": 950,
+        "r@1": 0.8211,
+        "r@5": 0.9705,
+        "r@10": 0.9863,
+        "mrr": 0.8873,
+        "kappa_threshold": 40.542,
+        "mean_kappa_retained": 42.385
+      },
+      {
+        "coverage": 0.9,
+        "n_retained": 899,
+        "r@1": 0.8309,
+        "r@5": 0.9744,
+        "r@10": 0.9867,
+        "mrr": 0.8937,
+        "kappa_threshold": 40.981,
+        "mean_kappa_retained": 42.475
+      },
+      {
+        "coverage": 0.85,
+        "n_retained": 849,
+        "r@1": 0.8351,
+        "r@5": 0.9764,
+        "r@10": 0.9894,
+        "mrr": 0.898,
+        "kappa_threshold": 41.201,
+        "mean_kappa_retained": 42.555
+      },
+      {
+        "coverage": 0.8,
+        "n_retained": 799,
+        "r@1": 0.8461,
+        "r@5": 0.9812,
+        "r@10": 0.9912,
+        "mrr": 0.9057,
+        "kappa_threshold": 41.413,
+        "mean_kappa_retained": 42.633
+      },
+      {
+        "coverage": 0.75,
+        "n_retained": 749,
+        "r@1": 0.8438,
+        "r@5": 0.98,
+        "r@10": 0.9907,
+        "mrr": 0.9034,
+        "kappa_threshold": 41.566,
+        "mean_kappa_retained": 42.71
+      },
+      {
+        "coverage": 0.7,
+        "n_retained": 699,
+        "r@1": 0.8441,
+        "r@5": 0.9814,
+        "r@10": 0.9928,
+        "mrr": 0.9046,
+        "kappa_threshold": 41.711,
+        "mean_kappa_retained": 42.785
+      },
+      {
+        "coverage": 0.65,
+        "n_retained": 649,
+        "r@1": 0.8475,
+        "r@5": 0.9815,
+        "r@10": 0.9923,
+        "mrr": 0.9071,
+        "kappa_threshold": 41.825,
+        "mean_kappa_retained": 42.865
+      },
+      {
+        "coverage": 0.6,
+        "n_retained": 599,
+        "r@1": 0.8548,
+        "r@5": 0.985,
+        "r@10": 0.995,
+        "mrr": 0.9119,
+        "kappa_threshold": 41.969,
+        "mean_kappa_retained": 42.946
+      },
+      {
+        "coverage": 0.55,
+        "n_retained": 549,
+        "r@1": 0.8525,
+        "r@5": 0.9854,
+        "r@10": 0.9945,
+        "mrr": 0.9107,
+        "kappa_threshold": 42.097,
+        "mean_kappa_retained": 43.029
+      },
+      {
+        "coverage": 0.5,
+        "n_retained": 499,
+        "r@1": 0.8577,
+        "r@5": 0.986,
+        "r@10": 0.994,
+        "mrr": 0.9138,
+        "kappa_threshold": 42.259,
+        "mean_kappa_retained": 43.115
+      },
+      {
+        "coverage": 0.45,
+        "n_retained": 449,
+        "r@1": 0.8575,
+        "r@5": 0.9889,
+        "r@10": 0.9955,
+        "mrr": 0.9149,
+        "kappa_threshold": 42.382,
+        "mean_kappa_retained": 43.204
+      },
+      {
+        "coverage": 0.4,
+        "n_retained": 399,
+        "r@1": 0.8546,
+        "r@5": 0.9875,
+        "r@10": 0.995,
+        "mrr": 0.9126,
+        "kappa_threshold": 42.528,
+        "mean_kappa_retained": 43.297
+      },
+      {
+        "coverage": 0.35,
+        "n_retained": 349,
+        "r@1": 0.8567,
+        "r@5": 0.9857,
+        "r@10": 0.9943,
+        "mrr": 0.9129,
+        "kappa_threshold": 42.626,
+        "mean_kappa_retained": 43.4
+      },
+      {
+        "coverage": 0.3,
+        "n_retained": 299,
+        "r@1": 0.8495,
+        "r@5": 0.9833,
+        "r@10": 0.9933,
+        "mrr": 0.9088,
+        "kappa_threshold": 42.821,
+        "mean_kappa_retained": 43.513
+      },
+      {
+        "coverage": 0.25,
+        "n_retained": 249,
+        "r@1": 0.8434,
+        "r@5": 0.9839,
+        "r@10": 0.996,
+        "mrr": 0.9049,
+        "kappa_threshold": 42.978,
+        "mean_kappa_retained": 43.637
+      },
+      {
+        "coverage": 0.2,
+        "n_retained": 199,
+        "r@1": 0.8543,
+        "r@5": 0.9899,
+        "r@10": 0.995,
+        "mrr": 0.9109,
+        "kappa_threshold": 43.138,
+        "mean_kappa_retained": 43.78
+      },
+      {
+        "coverage": 0.15,
+        "n_retained": 149,
+        "r@1": 0.8591,
+        "r@5": 0.9866,
+        "r@10": 0.9933,
+        "mrr": 0.9166,
+        "kappa_threshold": 43.342,
+        "mean_kappa_retained": 43.962
+      },
+      {
+        "coverage": 0.1,
+        "n_retained": 99,
+        "r@1": 0.8586,
+        "r@5": 0.9798,
+        "r@10": 0.9899,
+        "mrr": 0.9141,
+        "kappa_threshold": 43.688,
+        "mean_kappa_retained": 44.183
+      },
+      {
+        "coverage": 0.05,
+        "n_retained": 50,
+        "r@1": 0.88,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.94,
+        "kappa_threshold": 44.075,
+        "mean_kappa_retained": 44.506
+      },
+      {
+        "coverage": 0.02,
+        "n_retained": 20,
+        "r@1": 0.9,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.95,
+        "kappa_threshold": 44.468,
+        "mean_kappa_retained": 44.862
+      },
+      {
+        "coverage": 0.01,
+        "n_retained": 10,
+        "r@1": 0.9,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.95,
+        "kappa_threshold": 44.819,
+        "mean_kappa_retained": 45.105
+      }
+    ],
+    "agreement_score": [
+      {
+        "coverage": 1.0,
+        "n_retained": 1000,
+        "r@1": 0.812,
+        "r@5": 0.966,
+        "r@10": 0.984,
+        "mrr": 0.8805,
+        "kappa_threshold": 0.0,
+        "mean_kappa_retained": 0.559
+      },
+      {
+        "coverage": 0.95,
+        "n_retained": 950,
+        "r@1": 0.8547,
+        "r@5": 0.9789,
+        "r@10": 0.9916,
+        "mrr": 0.9095,
+        "kappa_threshold": 0.0,
+        "mean_kappa_retained": 0.589
+      },
+      {
+        "coverage": 0.9,
+        "n_retained": 899,
+        "r@1": 0.9032,
+        "r@5": 0.99,
+        "r@10": 0.9978,
+        "mrr": 0.9417,
+        "kappa_threshold": 0.0,
+        "mean_kappa_retained": 0.622
+      },
+      {
+        "coverage": 0.85,
+        "n_retained": 849,
+        "r@1": 0.9211,
+        "r@5": 0.9929,
+        "r@10": 0.9976,
+        "mrr": 0.9529,
+        "kappa_threshold": 0.333,
+        "mean_kappa_retained": 0.643
+      },
+      {
+        "coverage": 0.8,
+        "n_retained": 799,
+        "r@1": 0.9224,
+        "r@5": 0.995,
+        "r@10": 0.9975,
+        "mrr": 0.9543,
+        "kappa_threshold": 0.333,
+        "mean_kappa_retained": 0.662
+      },
+      {
+        "coverage": 0.75,
+        "n_retained": 749,
+        "r@1": 0.9279,
+        "r@5": 0.996,
+        "r@10": 0.9987,
+        "mrr": 0.9577,
+        "kappa_threshold": 0.333,
+        "mean_kappa_retained": 0.684
+      },
+      {
+        "coverage": 0.7,
+        "n_retained": 699,
+        "r@1": 0.9328,
+        "r@5": 0.9957,
+        "r@10": 0.9986,
+        "mrr": 0.9605,
+        "kappa_threshold": 0.333,
+        "mean_kappa_retained": 0.71
+      },
+      {
+        "coverage": 0.65,
+        "n_retained": 649,
+        "r@1": 0.9445,
+        "r@5": 0.9969,
+        "r@10": 0.9985,
+        "mrr": 0.9682,
+        "kappa_threshold": 0.333,
+        "mean_kappa_retained": 0.739
+      },
+      {
+        "coverage": 0.6,
+        "n_retained": 599,
+        "r@1": 0.9449,
+        "r@5": 0.9967,
+        "r@10": 0.9983,
+        "mrr": 0.969,
+        "kappa_threshold": 0.333,
+        "mean_kappa_retained": 0.772
+      },
+      {
+        "coverage": 0.55,
+        "n_retained": 549,
+        "r@1": 0.9654,
+        "r@5": 0.9982,
+        "r@10": 0.9982,
+        "mrr": 0.981,
+        "kappa_threshold": 0.667,
+        "mean_kappa_retained": 0.812
+      },
+      {
+        "coverage": 0.5,
+        "n_retained": 499,
+        "r@1": 0.9699,
+        "r@5": 0.998,
+        "r@10": 0.998,
+        "mrr": 0.9831,
+        "kappa_threshold": 0.667,
+        "mean_kappa_retained": 0.827
+      },
+      {
+        "coverage": 0.45,
+        "n_retained": 449,
+        "r@1": 0.9755,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.9866,
+        "kappa_threshold": 0.667,
+        "mean_kappa_retained": 0.845
+      },
+      {
+        "coverage": 0.4,
+        "n_retained": 399,
+        "r@1": 0.9799,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.9887,
+        "kappa_threshold": 0.667,
+        "mean_kappa_retained": 0.867
+      },
+      {
+        "coverage": 0.35,
+        "n_retained": 349,
+        "r@1": 0.9828,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.9907,
+        "kappa_threshold": 0.667,
+        "mean_kappa_retained": 0.896
+      },
+      {
+        "coverage": 0.3,
+        "n_retained": 299,
+        "r@1": 0.9933,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.9967,
+        "kappa_threshold": 0.667,
+        "mean_kappa_retained": 0.934
+      },
+      {
+        "coverage": 0.25,
+        "n_retained": 249,
+        "r@1": 1.0,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 1.0,
+        "kappa_threshold": 0.667,
+        "mean_kappa_retained": 0.988
+      },
+      {
+        "coverage": 0.2,
+        "n_retained": 199,
+        "r@1": 1.0,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 1.0,
+        "kappa_threshold": 1.0,
+        "mean_kappa_retained": 1.0
+      },
+      {
+        "coverage": 0.15,
+        "n_retained": 149,
+        "r@1": 1.0,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 1.0,
+        "kappa_threshold": 1.0,
+        "mean_kappa_retained": 1.0
+      },
+      {
+        "coverage": 0.1,
+        "n_retained": 99,
+        "r@1": 1.0,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 1.0,
+        "kappa_threshold": 1.0,
+        "mean_kappa_retained": 1.0
+      },
+      {
+        "coverage": 0.05,
+        "n_retained": 50,
+        "r@1": 1.0,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 1.0,
+        "kappa_threshold": 1.0,
+        "mean_kappa_retained": 1.0
+      },
+      {
+        "coverage": 0.02,
+        "n_retained": 20,
+        "r@1": 1.0,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 1.0,
+        "kappa_threshold": 1.0,
+        "mean_kappa_retained": 1.0
+      },
+      {
+        "coverage": 0.01,
+        "n_retained": 10,
+        "r@1": 1.0,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 1.0,
+        "kappa_threshold": 1.0,
+        "mean_kappa_retained": 1.0
+      }
+    ],
+    "kappa_plus_agreement": [
+      {
+        "coverage": 1.0,
+        "n_retained": 1000,
+        "r@1": 0.812,
+        "r@5": 0.966,
+        "r@10": 0.984,
+        "mrr": 0.8805,
+        "kappa_threshold": 0.189,
+        "mean_kappa_retained": 1.063
+      },
+      {
+        "coverage": 0.95,
+        "n_retained": 950,
+        "r@1": 0.8547,
+        "r@5": 0.9789,
+        "r@10": 0.9895,
+        "mrr": 0.9094,
+        "kappa_threshold": 0.487,
+        "mean_kappa_retained": 1.099
+      },
+      {
+        "coverage": 0.9,
+        "n_retained": 899,
+        "r@1": 0.8877,
+        "r@5": 0.9855,
+        "r@10": 0.9933,
+        "mrr": 0.9309,
+        "kappa_threshold": 0.614,
+        "mean_kappa_retained": 1.129
+      },
+      {
+        "coverage": 0.85,
+        "n_retained": 849,
+        "r@1": 0.9117,
+        "r@5": 0.9894,
+        "r@10": 0.9953,
+        "mrr": 0.9462,
+        "kappa_threshold": 0.689,
+        "mean_kappa_retained": 1.158
+      },
+      {
+        "coverage": 0.8,
+        "n_retained": 799,
+        "r@1": 0.9199,
+        "r@5": 0.9937,
+        "r@10": 0.995,
+        "mrr": 0.9523,
+        "kappa_threshold": 0.761,
+        "mean_kappa_retained": 1.184
+      },
+      {
+        "coverage": 0.75,
+        "n_retained": 749,
+        "r@1": 0.9292,
+        "r@5": 0.9947,
+        "r@10": 0.9947,
+        "mrr": 0.9575,
+        "kappa_threshold": 0.803,
+        "mean_kappa_retained": 1.211
+      },
+      {
+        "coverage": 0.7,
+        "n_retained": 699,
+        "r@1": 0.9385,
+        "r@5": 0.9971,
+        "r@10": 0.9971,
+        "mrr": 0.9636,
+        "kappa_threshold": 0.863,
+        "mean_kappa_retained": 1.238
+      },
+      {
+        "coverage": 0.65,
+        "n_retained": 649,
+        "r@1": 0.9445,
+        "r@5": 0.9969,
+        "r@10": 0.9969,
+        "mrr": 0.9681,
+        "kappa_threshold": 0.923,
+        "mean_kappa_retained": 1.265
+      },
+      {
+        "coverage": 0.6,
+        "n_retained": 599,
+        "r@1": 0.9499,
+        "r@5": 0.9983,
+        "r@10": 0.9983,
+        "mrr": 0.9714,
+        "kappa_threshold": 0.971,
+        "mean_kappa_retained": 1.292
+      },
+      {
+        "coverage": 0.55,
+        "n_retained": 549,
+        "r@1": 0.9526,
+        "r@5": 0.9982,
+        "r@10": 0.9982,
+        "mrr": 0.9732,
+        "kappa_threshold": 1.026,
+        "mean_kappa_retained": 1.319
+      },
+      {
+        "coverage": 0.5,
+        "n_retained": 499,
+        "r@1": 0.9539,
+        "r@5": 0.998,
+        "r@10": 0.998,
+        "mrr": 0.9745,
+        "kappa_threshold": 1.075,
+        "mean_kappa_retained": 1.346
+      },
+      {
+        "coverage": 0.45,
+        "n_retained": 449,
+        "r@1": 0.9532,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.9749,
+        "kappa_threshold": 1.116,
+        "mean_kappa_retained": 1.374
+      },
+      {
+        "coverage": 0.4,
+        "n_retained": 399,
+        "r@1": 0.9624,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.9812,
+        "kappa_threshold": 1.167,
+        "mean_kappa_retained": 1.403
+      },
+      {
+        "coverage": 0.35,
+        "n_retained": 349,
+        "r@1": 0.9685,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.9842,
+        "kappa_threshold": 1.223,
+        "mean_kappa_retained": 1.433
+      },
+      {
+        "coverage": 0.3,
+        "n_retained": 299,
+        "r@1": 0.9766,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.9883,
+        "kappa_threshold": 1.276,
+        "mean_kappa_retained": 1.464
+      },
+      {
+        "coverage": 0.25,
+        "n_retained": 249,
+        "r@1": 0.9839,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.992,
+        "kappa_threshold": 1.333,
+        "mean_kappa_retained": 1.496
+      },
+      {
+        "coverage": 0.2,
+        "n_retained": 199,
+        "r@1": 0.9849,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.9925,
+        "kappa_threshold": 1.383,
+        "mean_kappa_retained": 1.531
+      },
+      {
+        "coverage": 0.15,
+        "n_retained": 149,
+        "r@1": 0.9866,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.9933,
+        "kappa_threshold": 1.438,
+        "mean_kappa_retained": 1.571
+      },
+      {
+        "coverage": 0.1,
+        "n_retained": 99,
+        "r@1": 0.9899,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 0.9949,
+        "kappa_threshold": 1.509,
+        "mean_kappa_retained": 1.622
+      },
+      {
+        "coverage": 0.05,
+        "n_retained": 50,
+        "r@1": 1.0,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 1.0,
+        "kappa_threshold": 1.602,
+        "mean_kappa_retained": 1.692
+      },
+      {
+        "coverage": 0.02,
+        "n_retained": 20,
+        "r@1": 1.0,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 1.0,
+        "kappa_threshold": 1.704,
+        "mean_kappa_retained": 1.778
+      },
+      {
+        "coverage": 0.01,
+        "n_retained": 10,
+        "r@1": 1.0,
+        "r@5": 1.0,
+        "r@10": 1.0,
+        "mrr": 1.0,
+        "kappa_threshold": 1.769,
+        "mean_kappa_retained": 1.823
+      }
+    ]
+  }
+}

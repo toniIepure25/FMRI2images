@@ -1,0 +1,121 @@
+{
+  "proxy_quality_correlation": {
+    "V61a": {
+      "spearman": {
+        "rho": 0.3016,
+        "p": 1.7757867572775882e-22
+      },
+      "pearson": {
+        "r": 0.3104,
+        "p": 8.909029922839542e-24
+      },
+      "cosine_sim_stats": {
+        "mean": 0.0521,
+        "std": 0.0309,
+        "min": -0.0423,
+        "max": 0.1494
+      },
+      "quintile_analysis": [
+        {
+          "quintile": 1,
+          "kappa_range": "[39.53, 41.40]",
+          "mean_kappa": 40.844,
+          "mean_cos_sim": 0.0366,
+          "std_cos_sim": 0.0289,
+          "n": 200
+        },
+        {
+          "quintile": 2,
+          "kappa_range": "[41.41, 41.96]",
+          "mean_kappa": 41.693,
+          "mean_cos_sim": 0.0478,
+          "std_cos_sim": 0.0304,
+          "n": 200
+        },
+        {
+          "quintile": 3,
+          "kappa_range": "[41.96, 42.52]",
+          "mean_kappa": 42.244,
+          "mean_cos_sim": 0.0525,
+          "std_cos_sim": 0.0281,
+          "n": 200
+        },
+        {
+          "quintile": 4,
+          "kappa_range": "[42.52, 43.14]",
+          "mean_kappa": 42.813,
+          "mean_cos_sim": 0.0588,
+          "std_cos_sim": 0.0305,
+          "n": 200
+        },
+        {
+          "quintile": 5,
+          "kappa_range": "[43.14, 45.66]",
+          "mean_kappa": 43.776,
+          "mean_cos_sim": 0.0648,
+          "std_cos_sim": 0.0291,
+          "n": 200
+        }
+      ]
+    },
+    "V62a": {
+      "spearman": {
+        "rho": 0.5151,
+        "p": 7.656745222037715e-69
+      },
+      "pearson": {
+        "r": 0.499,
+        "p": 4.298408701286724e-64
+      },
+      "cosine_sim_stats": {
+        "mean": 0.4228,
+        "std": 0.0557,
+        "min": 0.2469,
+        "max": 0.5741
+      },
+      "quintile_analysis": [
+        {
+          "quintile": 1,
+          "kappa_range": "[25.15, 27.61]",
+          "mean_kappa": 26.898,
+          "mean_cos_sim": 0.3882,
+          "std_cos_sim": 0.0495,
+          "n": 200
+        },
+        {
+          "quintile": 2,
+          "kappa_range": "[27.61, 28.31]",
+          "mean_kappa": 27.989,
+          "mean_cos_sim": 0.4058,
+          "std_cos_sim": 0.0506,
+          "n": 200
+        },
+        {
+          "quintile": 3,
+          "kappa_range": "[28.31, 29.10]",
+          "mean_kappa": 28.695,
+          "mean_cos_sim": 0.4122,
+          "std_cos_sim": 0.0515,
+          "n": 200
+        },
+        {
+          "quintile": 4,
+          "kappa_range": "[29.10, 30.03]",
+          "mean_kappa": 29.566,
+          "mean_cos_sim": 0.4411,
+          "std_cos_sim": 0.0447,
+          "n": 200
+        },
+        {
+          "quintile": 5,
+          "kappa_range": "[30.04, 33.09]",
+          "mean_kappa": 30.896,
+          "mean_cos_sim": 0.467,
+          "std_cos_sim": 0.0439,
+          "n": 200
+        }
+      ]
+    }
+  },
+  "pixel_level_reconstruction": null
+}

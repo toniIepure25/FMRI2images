@@ -805,6 +805,7 @@ class PCDModel(nn.Module):
         d_model = pcd_cfg.get("d_model", encoder_cfg.get("d_model", 768))
         output_dim = decoder_cfg.get("output_dim", 768)
         ablation_mode = pcd_cfg.get("ablation_mode", "full")
+        bottleneck_dim = pcd_cfg.get("bottleneck_dim", encoder_cfg.get("bottleneck_dim", None))
 
         # Determine single vs multi-subject
         cross_cfg = config.get("cross_subject", {})
@@ -829,6 +830,7 @@ class PCDModel(nn.Module):
                     kappa_mode=decoder_cfg.get("kappa_mode", "softplus"),
                     enable_per_level_kappa=pcd_cfg.get("enable_per_level_kappa", True),
                     ablation_mode=ablation_mode,
+                    bottleneck_dim=bottleneck_dim,
                 )
             else:
                 self.pcd = PredictiveCorticalDecoder(
@@ -843,6 +845,7 @@ class PCDModel(nn.Module):
                     kappa_mode=decoder_cfg.get("kappa_mode", "softplus"),
                     enable_per_level_kappa=pcd_cfg.get("enable_per_level_kappa", True),
                     ablation_mode=ablation_mode,
+                    bottleneck_dim=bottleneck_dim,
                 )
         else:
             self.pcd = PredictiveCorticalDecoder(
@@ -857,6 +860,7 @@ class PCDModel(nn.Module):
                 kappa_mode=decoder_cfg.get("kappa_mode", "softplus"),
                 enable_per_level_kappa=pcd_cfg.get("enable_per_level_kappa", True),
                 ablation_mode=ablation_mode,
+                bottleneck_dim=bottleneck_dim,
             )
 
         # Optional contrastive projection head

@@ -86,16 +86,40 @@ class PCDOutput:
 
 
 class ROIProjection(nn.Module):
-    """Project variable-size ROI voxels to a fixed-dim token."""
+    """Project variable-size ROI voxels to a fixed-dim token.
 
-    def __init__(self, n_voxels: int, d_model: int, dropout: float = 0.1):
+    Supports an optional bottleneck to reduce parameter count when
+    projecting high-dimensional voxel vectors (e.g. 10K+ voxels).
+    Without bottleneck: Linear(n_voxels, d_model).
+    With bottleneck:    Linear(n_voxels, bottleneck) -> Linear(bottleneck, d_model).
+    """
+
+    def __init__(
+        self,
+        n_voxels: int,
+        d_model: int,
+        dropout: float = 0.1,
+        bottleneck_dim: Optional[int] = None,
+    ):
         super().__init__()
-        self.proj = nn.Sequential(
-            nn.Linear(n_voxels, d_model),
-            nn.LayerNorm(d_model),
-            nn.GELU(),
-            nn.Dropout(dropout),
-        )
+        if bottleneck_dim is not None and bottleneck_dim < d_model:
+            self.proj = nn.Sequential(
+                nn.Linear(n_voxels, bottleneck_dim),
+                nn.LayerNorm(bottleneck_dim),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(bottleneck_dim, d_model),
+                nn.LayerNorm(d_model),
+                nn.GELU(),
+                nn.Dropout(dropout),
+            )
+        else:
+            self.proj = nn.Sequential(
+                nn.Linear(n_voxels, d_model),
+                nn.LayerNorm(d_model),
+                nn.GELU(),
+                nn.Dropout(dropout),
+            )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.proj(x)
@@ -342,6 +366,7 @@ class PredictiveCorticalDecoder(nn.Module):
         enable_per_level_kappa: bool = True,
         ablation_mode: str = "full",
         subject_roi_indices: Optional[Dict[str, OrderedDict]] = None,
+        bottleneck_dim: Optional[int] = None,
     ):
         super().__init__()
         self.d_model = d_model
@@ -349,14 +374,15 @@ class PredictiveCorticalDecoder(nn.Module):
         self.ablation_mode = ablation_mode
         self.enable_per_level_kappa = enable_per_level_kappa
         self._multi_subject = subject_roi_indices is not None
+        self._bottleneck_dim = bottleneck_dim
 
         if self._multi_subject:
-            self._init_multi_subject(subject_roi_indices, d_model, dropout)
+            self._init_multi_subject(subject_roi_indices, d_model, dropout, bottleneck_dim)
             sample_subj = next(iter(subject_roi_indices))
             sample_indices = subject_roi_indices[sample_subj]
         else:
             assert roi_indices is not None, "roi_indices required for single-subject"
-            self._init_single_subject(roi_indices, d_model, dropout)
+            self._init_single_subject(roi_indices, d_model, dropout, bottleneck_dim)
             sample_indices = roi_indices
 
         self.roi_names = list(sample_indices.keys())
@@ -452,11 +478,15 @@ class PredictiveCorticalDecoder(nn.Module):
         return self.output_dim
 
     def _init_single_subject(
-        self, roi_indices: OrderedDict, d_model: int, dropout: float
+        self,
+        roi_indices: OrderedDict,
+        d_model: int,
+        dropout: float,
+        bottleneck_dim: Optional[int] = None,
     ) -> None:
         """Build per-ROI projections for a single subject."""
         self.roi_projections = nn.ModuleList([
-            ROIProjection(len(idx), d_model, dropout)
+            ROIProjection(len(idx), d_model, dropout, bottleneck_dim)
             for idx in roi_indices.values()
         ])
         # Register index buffers
@@ -469,6 +499,7 @@ class PredictiveCorticalDecoder(nn.Module):
         subject_roi_indices: Dict[str, OrderedDict],
         d_model: int,
         dropout: float,
+        bottleneck_dim: Optional[int] = None,
     ) -> None:
         """Build per-subject ROI projections with shared backbone."""
         self.subject_projections = nn.ModuleDict()
@@ -478,7 +509,7 @@ class PredictiveCorticalDecoder(nn.Module):
         for subj in self._subject_list:
             indices = subject_roi_indices[subj]
             projs = nn.ModuleList([
-                ROIProjection(len(idx), d_model, dropout)
+                ROIProjection(len(idx), d_model, dropout, bottleneck_dim)
                 for idx in indices.values()
             ])
             self.subject_projections[subj] = projs

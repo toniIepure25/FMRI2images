@@ -546,7 +546,9 @@ class PredictiveCorticalDecoder(nn.Module):
     ) -> torch.Tensor:
         """Tokenize for multi-subject mode.
 
-        Each sample uses its own subject's ROI projection.
+        Each sample uses its own subject's ROI projection.  Uses
+        scatter-based reassembly to avoid in-place mutation of a
+        gradient-carrying tensor (prevents autograd/CUDA stalls).
 
         Args:
             x:           (B, V_max) padded fMRI vector.
@@ -555,11 +557,8 @@ class PredictiveCorticalDecoder(nn.Module):
         Returns:
             (B, n_rois, d_model) projected ROI tokens.
         """
-        B = x.shape[0]
-        tokens = torch.zeros(
-            B, self.n_rois, self.d_model,
-            device=x.device, dtype=x.dtype,
-        )
+        parts: list[torch.Tensor] = []
+        order: list[torch.Tensor] = []
 
         for subj_int, subj_id in enumerate(self._subject_list):
             mask_indices = (subject_ids == subj_int).nonzero(as_tuple=True)[0]
@@ -572,9 +571,14 @@ class PredictiveCorticalDecoder(nn.Module):
                 idx = getattr(self, f"_roi_idx_{subj_id}_{i}")
                 roi_voxels = subj_x[:, idx]
                 subj_tokens.append(projs[i](roi_voxels))
-            tokens[mask_indices] = torch.stack(subj_tokens, dim=1)
+            parts.append(torch.stack(subj_tokens, dim=1))  # (n_subj, n_rois, d)
+            order.append(mask_indices)
 
-        return tokens
+        # Reassemble by original sample order (avoids in-place []=)
+        cat_tokens = torch.cat(parts, dim=0)       # (B, n_rois, d)
+        cat_order = torch.cat(order, dim=0)         # (B,)
+        _, restore = cat_order.sort()
+        return cat_tokens[restore]
 
     def _gather_level_tokens(
         self, all_tokens: torch.Tensor, level: int

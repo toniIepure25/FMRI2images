@@ -873,6 +873,16 @@ class PCDModel(nn.Module):
 
         logger.info("PCDModel created: ablation=%s, multi_subject=%s", ablation_mode, is_multi)
 
+    @property
+    def decoder(self):
+        """Proxy to the internal vMF decoder for training-loop compatibility."""
+        return self.pcd.vmf_decoder
+
+    @property
+    def encoder(self):
+        """Proxy to the PCD module itself (acts as the encoder)."""
+        return self.pcd
+
     def forward(self, x: torch.Tensor, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
         """Returns (mu, kappa) compatible with the vMF training loop."""
         subject_ids = kwargs.pop("subject_ids", None)

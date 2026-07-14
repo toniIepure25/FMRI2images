@@ -1,0 +1,163 @@
+# PCD_v1: Per-Subject Fine-Tuning
+#
+# Phase 2: Load the 8-subject pretrained PCD model and fine-tune
+# on individual subjects.  Lower learning rate, fewer epochs.
+#
+# Usage:
+#   python scripts/training/train_unified.py \
+#       --config configs/experiments/PCD_v1_finetune.yaml \
+#       --subject subj01 \
+#       --resume experimental_results/PCD_v1_8subject/subj01/checkpoints/best.pt
+
+experiment:
+  name: "PCD_v1_finetune"
+  description: "PCD per-subject fine-tuning from 8-subject pretrained checkpoint"
+  tags: ["pcd", "finetune", "vmf", "predictive_coding"]
+
+data:
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "pcd"
+  posterior: "vmf"
+
+  encoder:
+    roi_dims:
+      V1v: 500
+      V1d: 500
+      V2v: 500
+      V2d: 500
+      V3v: 400
+      V3d: 400
+      V3A: 300
+      V3B: 300
+      V4: 500
+      FFA1: 200
+      FFA2: 200
+      PPA: 300
+      EBA: 300
+      OFA: 200
+      OPA: 200
+      RSC: 200
+      nsdgeneral_other: 10000
+
+  decoder:
+    output_dim: 768
+    kappa_min: 0.001
+    kappa_max: 500.0
+    kappa_mode: "softplus"
+
+  pcd:
+    d_model: 768
+    nhead: 12
+    layers_per_level: 2
+    dropout: 0.15
+    enable_per_level_kappa: true
+    ablation_mode: "full"
+
+  cross_subject:
+    enabled: false
+
+  projection_head:
+    enabled: true
+    hidden_dim: 2048
+    out_dim: 768
+    dropout: 0.1
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    label_smoothing: 0.05
+
+  softclip:
+    enabled: true
+    weight: 0.3
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  r_drop:
+    enabled: true
+    weight: 0.5
+    start_epoch: 5
+
+  vmf_nll:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 8192
+
+training:
+  batch_size: 128
+  gradient_accumulation_steps: 4
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 80
+  optimizer:
+    type: "adamw"
+    lr: 2.0e-5
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 5
+  min_lr: 1.0e-7
+  gradient_clip: 1.0
+  early_stop_patience: 20
+  early_stop_min_delta: 0.002
+  fmri_noise_std: 0.05
+  voxel_dropout: 0.05
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.1
+    temperature: 0.07
+    weight: 0.3
+  ema:
+    enabled: true
+    decay: 0.9995
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  use_csls: true
+  csls_k: 10
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+  compute_probabilistic: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/PCD_v1_finetune"

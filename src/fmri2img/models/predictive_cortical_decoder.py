@@ -380,6 +380,14 @@ class PredictiveCorticalDecoder(nn.Module):
                 self._level_roi_indices.append(all_roi_idxs[cumulative:cumulative + nt])
                 cumulative += nt
 
+        # Register level-token indices as persistent buffers (avoids
+        # creating new tensors on every forward call)
+        for lev_idx, indices in enumerate(self._level_roi_indices):
+            self.register_buffer(
+                f"_level_idx_{lev_idx}",
+                torch.tensor(indices, dtype=torch.long),
+            )
+
         # Per-level Transformer encoders
         self.level_encoders = nn.ModuleList([
             LevelTransformerEncoder(
@@ -548,20 +556,23 @@ class PredictiveCorticalDecoder(nn.Module):
             (B, n_rois, d_model) projected ROI tokens.
         """
         B = x.shape[0]
-        tokens = torch.zeros(B, self.n_rois, self.d_model, device=x.device, dtype=x.dtype)
+        tokens = torch.zeros(
+            B, self.n_rois, self.d_model,
+            device=x.device, dtype=x.dtype,
+        )
 
         for subj_int, subj_id in enumerate(self._subject_list):
-            mask = (subject_ids == subj_int)
-            if not mask.any():
+            mask_indices = (subject_ids == subj_int).nonzero(as_tuple=True)[0]
+            if mask_indices.numel() == 0:
                 continue
-            subj_x = x[mask]
+            subj_x = x[mask_indices]
             projs = self.subject_projections[subj_id]
             subj_tokens = []
             for i in range(self.n_rois):
                 idx = getattr(self, f"_roi_idx_{subj_id}_{i}")
                 roi_voxels = subj_x[:, idx]
                 subj_tokens.append(projs[i](roi_voxels))
-            tokens[mask] = torch.stack(subj_tokens, dim=1)
+            tokens[mask_indices] = torch.stack(subj_tokens, dim=1)
 
         return tokens
 
@@ -577,10 +588,9 @@ class PredictiveCorticalDecoder(nn.Module):
         Returns:
             (B, n_tokens_level, d_model)
         """
-        indices = self._level_roi_indices[level]
-        if len(indices) == 0:
-            return all_tokens[:, :0, :]  # empty
-        idx_tensor = torch.tensor(indices, device=all_tokens.device, dtype=torch.long)
+        idx_tensor: torch.Tensor = getattr(self, f"_level_idx_{level}")
+        if idx_tensor.numel() == 0:
+            return all_tokens[:, :0, :]
         return all_tokens[:, idx_tensor, :]
 
     def forward(

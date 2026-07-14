@@ -4608,7 +4608,14 @@ def load_checkpoint(path: Path, model: nn.Module, optimizer: torch.optim.Optimiz
                     ema: Optional["ModelEMA"] = None) -> Tuple[int, float, int]:
     """Load checkpoint and restore state. Returns (start_epoch, best_val_loss, global_step)."""
     ckpt = torch.load(path, map_location=device, weights_only=False)
-    model.load_state_dict(ckpt["model_state_dict"])
+    _strict = not getattr(model, "architecture_type", None) == "pcd"
+    _missing, _unexpected = model.load_state_dict(ckpt["model_state_dict"], strict=_strict)
+    if _missing:
+        logger.info("Checkpoint load: %d missing keys (buffers recomputed): %s",
+                     len(_missing), _missing[:5])
+    if _unexpected:
+        logger.warning("Checkpoint load: %d unexpected keys: %s",
+                       len(_unexpected), _unexpected[:5])
     if ckpt.get("optimizer_state_dict") is not None:
         optimizer.load_state_dict(ckpt["optimizer_state_dict"])
     else:

@@ -4852,12 +4852,14 @@ def main() -> None:
     _encoder_type_check = config.get("model", {}).get("encoder", {}).get("encoder_type", "mlp")
     _cross_subject_cfg = config.get("model", {}).get("cross_subject", {})
     _cross_subject_enabled = _cross_subject_cfg.get("enabled", False)
+    _is_pcd = config.get("model", {}).get("type") == "pcd"
 
-    # Load multi-subject dataset for either multi_subject_roi_transformer
-    # OR cross-subject adapter mode (V25b — MLP with per-subject Linear adapters)
+    # Load multi-subject dataset for multi_subject_roi_transformer,
+    # cross-subject adapter mode (V25b), or PCD multi-subject
     _use_multi_subject_dataset = (
         (_encoder_type_check == "multi_subject_roi_transformer" and len(_multi_subjects) > 1)
         or (_cross_subject_enabled and len(_multi_subjects) > 1)
+        or (_is_pcd and len(_multi_subjects) > 1)
     )
 
     if _use_multi_subject_dataset:
@@ -4979,14 +4981,22 @@ def main() -> None:
     _is_multi_subject = (
         encoder_type == "multi_subject_roi_transformer"
         or _cross_subject_enabled
+        or _is_pcd
     )
     _roi_patch_size = model_config.get("encoder", {}).get("roi_patch_size", 0)
-    if encoder_type == "roi_transformer":
+    if _is_pcd and not _is_multi_subject:
+        # PCD single-subject: build ROI indices for one subject
         from fmri2img.data.roi_utils import build_roi_index
         roi_names = list(model_config["encoder"].get("roi_dims", {}).keys())
         if roi_names:
             actual_dims, _roi_indices = build_roi_index(subject, roi_names)
-            # --- V25c sub-ROI patching ---
+            model_config["encoder"]["roi_dims"] = dict(actual_dims)
+            logger.info("PCD single-subject ROI dims (total=%d)", sum(actual_dims.values()))
+    elif encoder_type == "roi_transformer":
+        from fmri2img.data.roi_utils import build_roi_index
+        roi_names = list(model_config["encoder"].get("roi_dims", {}).keys())
+        if roi_names:
+            actual_dims, _roi_indices = build_roi_index(subject, roi_names)
             if _roi_patch_size and _roi_patch_size > 0:
                 from fmri2img.data.roi_utils import subdivide_rois
                 actual_dims, _roi_indices = subdivide_rois(

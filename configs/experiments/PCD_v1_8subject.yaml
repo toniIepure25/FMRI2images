@@ -1,0 +1,180 @@
+# PCD_v1: Predictive Cortical Decoder — 8-Subject Joint Pretraining
+#
+# Novel architecture implementing predictive coding (Rao & Ballard, 1999)
+# in the fMRI visual decoding setting.  Groups 17 NSD ROIs into 4
+# hierarchical levels mirroring the ventral visual stream:
+#   Level 1 (Early Visual): V1v, V1d, V2v, V2d
+#   Level 2 (Mid Visual):   V3v, V3d, V3A, V3B, V4
+#   Level 3 (Cat-Selective): FFA1, FFA2, PPA, EBA, OFA, OPA, RSC
+#   Level 4 (Residual):     nsdgeneral_other
+#
+# Each level encodes its tokens via a 2-layer Transformer.  Levels 1-2
+# predict the next level's representations; only prediction errors are
+# propagated upward.  Level outputs are aggregated via learned attention
+# and decoded to a vMF distribution on the CLIP hypersphere.
+#
+# Phase 1: Joint 8-subject pretraining with per-subject ROI projections.
+# Phase 2: Per-subject fine-tuning (separate config / override).
+
+experiment:
+  name: "PCD_v1_8subject"
+  description: "Predictive Cortical Decoder — 8-subject joint pretraining, error-driven hierarchy"
+  tags: ["pcd", "predictive_coding", "vmf", "8subject", "hierarchy", "novel_architecture"]
+
+data:
+  subjects:
+    - subj01
+    - subj02
+    - subj03
+    - subj04
+    - subj05
+    - subj06
+    - subj07
+    - subj08
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "pcd"
+  posterior: "vmf"
+
+  encoder:
+    # ROI dims: nominal placeholders, overridden at runtime by build_roi_index
+    roi_dims:
+      V1v: 500
+      V1d: 500
+      V2v: 500
+      V2d: 500
+      V3v: 400
+      V3d: 400
+      V3A: 300
+      V3B: 300
+      V4: 500
+      FFA1: 200
+      FFA2: 200
+      PPA: 300
+      EBA: 300
+      OFA: 200
+      OPA: 200
+      RSC: 200
+      nsdgeneral_other: 10000
+
+  decoder:
+    output_dim: 768
+    kappa_min: 0.001
+    kappa_max: 500.0
+    kappa_mode: "softplus"
+
+  pcd:
+    d_model: 768
+    nhead: 12
+    layers_per_level: 2
+    dropout: 0.1
+    enable_per_level_kappa: true
+    ablation_mode: "full"
+
+  cross_subject:
+    enabled: true
+
+  projection_head:
+    enabled: true
+    hidden_dim: 2048
+    out_dim: 768
+    dropout: 0.1
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    label_smoothing: 0.05
+
+  softclip:
+    enabled: true
+    weight: 0.3
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.01
+
+  r_drop:
+    enabled: true
+    weight: 0.5
+    start_epoch: 15
+
+  vmf_nll:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 128
+  gradient_accumulation_steps: 8
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 1.0e-4
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 15
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  early_stop_min_delta: 0.002
+  fmri_noise_std: 0.1
+  voxel_dropout: 0.1
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  use_csls: true
+  csls_k: 10
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+  compute_probabilistic: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/PCD_v1_8subject"

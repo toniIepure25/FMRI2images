@@ -12,6 +12,8 @@ Creates models based on experiment configuration:
 Supports modular architecture with encoder + decoder.
 """
 
+from collections import OrderedDict
+
 import torch
 import torch.nn as nn
 from typing import Dict, Any, Optional, Literal, Tuple
@@ -772,6 +774,126 @@ class UnifiedModel(nn.Module):
         }
 
 
+class PCDModel(nn.Module):
+    """Wrapper for PredictiveCorticalDecoder with UnifiedModel-compatible interface.
+
+    Presents as ``model_type="vmf"`` to the training loop so all vMF loss
+    infrastructure works without modification.  Stores PCD-specific extras
+    (per-level outputs, prediction errors, level kappas) for neuroscience
+    analysis.
+
+    Args:
+        config: Full model configuration dict (``config["model"]``).
+        roi_indices: Per-ROI voxel index arrays (single-subject) or
+            dict-of-dicts (multi-subject).
+    """
+
+    def __init__(self, config: Dict[str, Any], roi_indices: Optional[Dict[str, Any]] = None):
+        super().__init__()
+        from fmri2img.models.predictive_cortical_decoder import PredictiveCorticalDecoder
+
+        self.model_type = "vmf"
+        self.architecture_type = "pcd"
+        self.vmf_output_is_log = False
+        self._return_per_roi = False
+        self._last_pcd_extras: Dict[str, Any] = {}
+
+        encoder_cfg = config.get("encoder", {})
+        decoder_cfg = config.get("decoder", {})
+        pcd_cfg = config.get("pcd", {})
+
+        d_model = pcd_cfg.get("d_model", encoder_cfg.get("d_model", 768))
+        output_dim = decoder_cfg.get("output_dim", 768)
+        ablation_mode = pcd_cfg.get("ablation_mode", "full")
+
+        # Determine single vs multi-subject
+        cross_cfg = config.get("cross_subject", {})
+        is_multi = cross_cfg.get("enabled", False) and roi_indices is not None
+
+        if is_multi and isinstance(roi_indices, dict):
+            first_val = next(iter(roi_indices.values()))
+            if isinstance(first_val, dict):
+                subject_roi_indices = {
+                    subj: OrderedDict(indices) if not isinstance(indices, OrderedDict) else indices
+                    for subj, indices in roi_indices.items()
+                }
+                self.pcd = PredictiveCorticalDecoder(
+                    subject_roi_indices=subject_roi_indices,
+                    d_model=d_model,
+                    nhead=pcd_cfg.get("nhead", encoder_cfg.get("nhead", 12)),
+                    layers_per_level=pcd_cfg.get("layers_per_level", 2),
+                    dropout=pcd_cfg.get("dropout", encoder_cfg.get("dropout", 0.1)),
+                    output_dim=output_dim,
+                    kappa_min=decoder_cfg.get("kappa_min", 1e-3),
+                    kappa_max=decoder_cfg.get("kappa_max", 500.0),
+                    kappa_mode=decoder_cfg.get("kappa_mode", "softplus"),
+                    enable_per_level_kappa=pcd_cfg.get("enable_per_level_kappa", True),
+                    ablation_mode=ablation_mode,
+                )
+            else:
+                self.pcd = PredictiveCorticalDecoder(
+                    roi_indices=OrderedDict(roi_indices) if not isinstance(roi_indices, OrderedDict) else roi_indices,
+                    d_model=d_model,
+                    nhead=pcd_cfg.get("nhead", encoder_cfg.get("nhead", 12)),
+                    layers_per_level=pcd_cfg.get("layers_per_level", 2),
+                    dropout=pcd_cfg.get("dropout", encoder_cfg.get("dropout", 0.1)),
+                    output_dim=output_dim,
+                    kappa_min=decoder_cfg.get("kappa_min", 1e-3),
+                    kappa_max=decoder_cfg.get("kappa_max", 500.0),
+                    kappa_mode=decoder_cfg.get("kappa_mode", "softplus"),
+                    enable_per_level_kappa=pcd_cfg.get("enable_per_level_kappa", True),
+                    ablation_mode=ablation_mode,
+                )
+        else:
+            self.pcd = PredictiveCorticalDecoder(
+                roi_indices=OrderedDict(roi_indices) if roi_indices and not isinstance(roi_indices, OrderedDict) else roi_indices,
+                d_model=d_model,
+                nhead=pcd_cfg.get("nhead", encoder_cfg.get("nhead", 12)),
+                layers_per_level=pcd_cfg.get("layers_per_level", 2),
+                dropout=pcd_cfg.get("dropout", encoder_cfg.get("dropout", 0.1)),
+                output_dim=output_dim,
+                kappa_min=decoder_cfg.get("kappa_min", 1e-3),
+                kappa_max=decoder_cfg.get("kappa_max", 500.0),
+                kappa_mode=decoder_cfg.get("kappa_mode", "softplus"),
+                enable_per_level_kappa=pcd_cfg.get("enable_per_level_kappa", True),
+                ablation_mode=ablation_mode,
+            )
+
+        # Optional contrastive projection head
+        proj_cfg = config.get("projection_head", {})
+        if proj_cfg.get("enabled", False):
+            self.projection_head = ContrastiveProjectionHead(
+                d_model=output_dim,
+                hidden_dim=proj_cfg.get("hidden_dim", 2048),
+                out_dim=proj_cfg.get("out_dim", output_dim),
+                dropout=proj_cfg.get("dropout", 0.1),
+            )
+        else:
+            self.projection_head = None
+
+        logger.info("PCDModel created: ablation=%s, multi_subject=%s", ablation_mode, is_multi)
+
+    def forward(self, x: torch.Tensor, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Returns (mu, kappa) compatible with the vMF training loop."""
+        subject_ids = kwargs.pop("subject_ids", None)
+        pcd_out = self.pcd(x, subject_ids=subject_ids, return_details=True)
+
+        self._last_pcd_extras = {
+            "level_outputs": pcd_out.level_outputs,
+            "prediction_errors": pcd_out.prediction_errors,
+            "level_kappas": pcd_out.level_kappas,
+            "level_weights": pcd_out.level_weights,
+        }
+
+        return pcd_out.mu, pcd_out.kappa
+
+    def set_current_epoch(self, epoch: int) -> None:
+        pass
+
+    def get_config(self) -> Dict[str, Any]:
+        return {"type": "pcd", "architecture": "predictive_cortical_decoder"}
+
+
 def create_model(
     config: Dict[str, Any],
     roi_indices: Optional[Dict[str, Any]] = None,
@@ -787,7 +909,7 @@ def create_model(
         ncsnr: Per-voxel NCSNR array for NCSnrAttention (V11).
     
     Returns:
-        model: UnifiedModel or NeuroBridgeOTModel instance
+        model: UnifiedModel, PCDModel, or NeuroBridgeOTModel instance
     
     Example:
         >>> config = {
@@ -800,6 +922,8 @@ def create_model(
     if config.get("type") == "neurobridge_ot":
         from fmri2img.models.neurobridge_ot.model import NeuroBridgeOTModel
         return NeuroBridgeOTModel(config)
+    if config.get("type") == "pcd":
+        return PCDModel(config, roi_indices=roi_indices)
     return UnifiedModel(config, roi_indices=roi_indices, ncsnr=ncsnr)
 
 

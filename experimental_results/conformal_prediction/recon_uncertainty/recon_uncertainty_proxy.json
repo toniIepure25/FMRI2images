@@ -1,0 +1,170 @@
+{
+  "subj01": {
+    "subject": "subj01",
+    "n_images": 1000,
+    "proxy_metric": "cosine_similarity",
+    "kappa_stats": {
+      "mean": 28.808570695877076,
+      "std": 1.4285987894033743,
+      "min": 25.146331787109375,
+      "max": 33.086177825927734
+    },
+    "correlation": {
+      "spearman_kappa_vs_cosine": {
+        "rho": 0.5150533430533432,
+        "p": 7.656745222037715e-69
+      },
+      "spearman_kappa_vs_neg_mse": {
+        "rho": 0.5150559186010863,
+        "p": 7.642922968699434e-69
+      },
+      "pearson_kappa_vs_cosine": {
+        "r": 0.49904707087546796,
+        "p": 4.298408701286724e-64
+      }
+    },
+    "stratified": {
+      "low_kappa_q1": {
+        "n": 250,
+        "kappa_mean": 27.057958740234376,
+        "cosine_mean": 0.39107921719551086,
+        "cosine_std": 0.049380235373973846,
+        "mse_mean": 0.0015857313992455602
+      },
+      "high_kappa_q4": {
+        "n": 250,
+        "kappa_mean": 30.700025100708007,
+        "cosine_mean": 0.4658675491809845,
+        "cosine_std": 0.04203186184167862,
+        "mse_mean": 0.0013909699628129601
+      },
+      "effect_size_cohens_d": 1.6310281353887126
+    }
+  },
+  "subj02": {
+    "subject": "subj02",
+    "n_images": 1000,
+    "proxy_metric": "cosine_similarity",
+    "kappa_stats": {
+      "mean": 13.457064628601074,
+      "std": 0.5159779191017151,
+      "min": 11.804973602294922,
+      "max": 14.823753356933594
+    },
+    "correlation": {
+      "spearman_kappa_vs_cosine": {
+        "rho": 0.39426393426393425,
+        "p": 1.5550167528755016e-38
+      },
+      "spearman_kappa_vs_neg_mse": {
+        "rho": 0.39426393426393425,
+        "p": 1.5550167528755016e-38
+      },
+      "pearson_kappa_vs_cosine": {
+        "r": 0.40746328234672546,
+        "p": 2.7863418664634663e-41
+      }
+    },
+    "stratified": {
+      "low_kappa_q1": {
+        "n": 250,
+        "kappa_mean": 12.783357620239258,
+        "cosine_mean": 0.2841396629810333,
+        "cosine_std": 0.06617148965597153,
+        "mse_mean": 0.00186421989928931
+      },
+      "high_kappa_q4": {
+        "n": 250,
+        "kappa_mean": 14.09682846069336,
+        "cosine_mean": 0.3598169684410095,
+        "cosine_std": 0.057014718651771545,
+        "mse_mean": 0.0016671434277668595
+      },
+      "effect_size_cohens_d": 1.2252848232067393
+    }
+  },
+  "subj05": {
+    "subject": "subj05",
+    "n_images": 1000,
+    "proxy_metric": "cosine_similarity",
+    "kappa_stats": {
+      "mean": 14.392071723937988,
+      "std": 0.5430944561958313,
+      "min": 12.673999786376953,
+      "max": 15.90478229522705
+    },
+    "correlation": {
+      "spearman_kappa_vs_cosine": {
+        "rho": 0.2950403899255111,
+        "p": 1.5533523029834243e-21
+      },
+      "spearman_kappa_vs_neg_mse": {
+        "rho": 0.2950403899255111,
+        "p": 1.5533523029834243e-21
+      },
+      "pearson_kappa_vs_cosine": {
+        "r": 0.27830231189727783,
+        "p": 3.0351272927313683e-19
+      }
+    },
+    "stratified": {
+      "low_kappa_q1": {
+        "n": 250,
+        "kappa_mean": 13.677743911743164,
+        "cosine_mean": 0.3163451552391052,
+        "cosine_std": 0.058824457228183746,
+        "mse_mean": 0.0017803511582314968
+      },
+      "high_kappa_q4": {
+        "n": 250,
+        "kappa_mean": 15.06017780303955,
+        "cosine_mean": 0.36464178562164307,
+        "cosine_std": 0.05800208821892738,
+        "mse_mean": 0.0016545787220820785
+      },
+      "effect_size_cohens_d": 0.8267887007113882
+    }
+  },
+  "subj07": {
+    "subject": "subj07",
+    "n_images": 1000,
+    "proxy_metric": "cosine_similarity",
+    "kappa_stats": {
+      "mean": 14.615599632263184,
+      "std": 0.47148022055625916,
+      "min": 13.148880004882812,
+      "max": 16.133201599121094
+    },
+    "correlation": {
+      "spearman_kappa_vs_cosine": {
+        "rho": 0.29971408771408775,
+        "p": 3.340021429010696e-22
+      },
+      "spearman_kappa_vs_neg_mse": {
+        "rho": 0.29971408771408775,
+        "p": 3.340021429010696e-22
+      },
+      "pearson_kappa_vs_cosine": {
+        "r": 0.2895828187465668,
+        "p": 9.021027388730882e-21
+      }
+    },
+    "stratified": {
+      "low_kappa_q1": {
+        "n": 250,
+        "kappa_mean": 14.013572692871094,
+        "cosine_mean": 0.2918841540813446,
+        "cosine_std": 0.06745138019323349,
+        "mse_mean": 0.0018440518761053681
+      },
+      "high_kappa_q4": {
+        "n": 250,
+        "kappa_mean": 15.207052230834961,
+        "cosine_mean": 0.3431474566459656,
+        "cosine_std": 0.06725948303937912,
+        "mse_mean": 0.0017105535371229053
+      },
+      "effect_size_cohens_d": 0.7610856217823938
+    }
+  }
+}

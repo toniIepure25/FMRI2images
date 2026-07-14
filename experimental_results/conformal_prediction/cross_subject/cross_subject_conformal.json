@@ -1,0 +1,579 @@
+{
+  "metadata": {
+    "calibration_subject": "subj01",
+    "test_subjects": [
+      "subj02",
+      "subj05",
+      "subj07"
+    ],
+    "n_subjects": 4
+  },
+  "per_subject_metrics": {
+    "subj01": {
+      "r@1": 0.399,
+      "kappa_mean": 28.808570695877076,
+      "kappa_std": 1.4285987894033743
+    },
+    "subj02": {
+      "r@1": 0.347,
+      "kappa_mean": 13.457064628601074,
+      "kappa_std": 0.5159779191017151
+    },
+    "subj05": {
+      "r@1": 0.495,
+      "kappa_mean": 14.392071723937988,
+      "kappa_std": 0.5430944561958313
+    },
+    "subj07": {
+      "r@1": 0.321,
+      "kappa_mean": 14.615599632263184,
+      "kappa_std": 0.47148022055625916
+    }
+  },
+  "cross_subject_transfer": {
+    "raw": {
+      "alpha_0.05": {
+        "subj01": {
+          "coverage": 0.952,
+          "target": 0.95,
+          "gap": -0.0020000000000000018,
+          "n": 1000,
+          "acceptance_rate": 0.952,
+          "r@1": 0.399,
+          "is_self": true
+        },
+        "subj02": {
+          "coverage": 0.481,
+          "target": 0.95,
+          "gap": 0.469,
+          "n": 1000,
+          "acceptance_rate": 0.481,
+          "r@1": 0.347,
+          "is_self": false
+        },
+        "subj05": {
+          "coverage": 0.587,
+          "target": 0.95,
+          "gap": 0.363,
+          "n": 1000,
+          "acceptance_rate": 0.587,
+          "r@1": 0.495,
+          "is_self": false
+        },
+        "subj07": {
+          "coverage": 0.458,
+          "target": 0.95,
+          "gap": 0.49199999999999994,
+          "n": 1000,
+          "acceptance_rate": 0.458,
+          "r@1": 0.321,
+          "is_self": false
+        }
+      },
+      "alpha_0.1": {
+        "subj01": {
+          "coverage": 0.902,
+          "target": 0.9,
+          "gap": -0.0020000000000000018,
+          "n": 1000,
+          "acceptance_rate": 0.902,
+          "r@1": 0.399,
+          "is_self": true
+        },
+        "subj02": {
+          "coverage": 0.371,
+          "target": 0.9,
+          "gap": 0.529,
+          "n": 1000,
+          "acceptance_rate": 0.371,
+          "r@1": 0.347,
+          "is_self": false
+        },
+        "subj05": {
+          "coverage": 0.48,
+          "target": 0.9,
+          "gap": 0.42000000000000004,
+          "n": 1000,
+          "acceptance_rate": 0.48,
+          "r@1": 0.495,
+          "is_self": false
+        },
+        "subj07": {
+          "coverage": 0.338,
+          "target": 0.9,
+          "gap": 0.562,
+          "n": 1000,
+          "acceptance_rate": 0.338,
+          "r@1": 0.321,
+          "is_self": false
+        }
+      },
+      "alpha_0.2": {
+        "subj01": {
+          "coverage": 0.802,
+          "target": 0.8,
+          "gap": -0.0020000000000000018,
+          "n": 1000,
+          "acceptance_rate": 0.802,
+          "r@1": 0.399,
+          "is_self": true
+        },
+        "subj02": {
+          "coverage": 0.22,
+          "target": 0.8,
+          "gap": 0.5800000000000001,
+          "n": 1000,
+          "acceptance_rate": 0.22,
+          "r@1": 0.347,
+          "is_self": false
+        },
+        "subj05": {
+          "coverage": 0.293,
+          "target": 0.8,
+          "gap": 0.5070000000000001,
+          "n": 1000,
+          "acceptance_rate": 0.293,
+          "r@1": 0.495,
+          "is_self": false
+        },
+        "subj07": {
+          "coverage": 0.199,
+          "target": 0.8,
+          "gap": 0.601,
+          "n": 1000,
+          "acceptance_rate": 0.199,
+          "r@1": 0.321,
+          "is_self": false
+        }
+      }
+    },
+    "kappa_modulated": {
+      "alpha_0.05": {
+        "subj01": {
+          "coverage": 0.952,
+          "target": 0.95,
+          "gap": -0.0020000000000000018,
+          "n": 1000,
+          "acceptance_rate": 0.952,
+          "r@1": 0.399,
+          "is_self": true
+        },
+        "subj02": {
+          "coverage": 0.751,
+          "target": 0.95,
+          "gap": 0.19899999999999995,
+          "n": 1000,
+          "acceptance_rate": 0.751,
+          "r@1": 0.347,
+          "is_self": false
+        },
+        "subj05": {
+          "coverage": 0.8,
+          "target": 0.95,
+          "gap": 0.1499999999999999,
+          "n": 1000,
+          "acceptance_rate": 0.8,
+          "r@1": 0.495,
+          "is_self": false
+        },
+        "subj07": {
+          "coverage": 0.71,
+          "target": 0.95,
+          "gap": 0.24,
+          "n": 1000,
+          "acceptance_rate": 0.71,
+          "r@1": 0.321,
+          "is_self": false
+        }
+      },
+      "alpha_0.1": {
+        "subj01": {
+          "coverage": 0.902,
+          "target": 0.9,
+          "gap": -0.0020000000000000018,
+          "n": 1000,
+          "acceptance_rate": 0.902,
+          "r@1": 0.399,
+          "is_self": true
+        },
+        "subj02": {
+          "coverage": 0.634,
+          "target": 0.9,
+          "gap": 0.266,
+          "n": 1000,
+          "acceptance_rate": 0.634,
+          "r@1": 0.347,
+          "is_self": false
+        },
+        "subj05": {
+          "coverage": 0.7,
+          "target": 0.9,
+          "gap": 0.20000000000000007,
+          "n": 1000,
+          "acceptance_rate": 0.7,
+          "r@1": 0.495,
+          "is_self": false
+        },
+        "subj07": {
+          "coverage": 0.598,
+          "target": 0.9,
+          "gap": 0.30200000000000005,
+          "n": 1000,
+          "acceptance_rate": 0.598,
+          "r@1": 0.321,
+          "is_self": false
+        }
+      },
+      "alpha_0.2": {
+        "subj01": {
+          "coverage": 0.802,
+          "target": 0.8,
+          "gap": -0.0020000000000000018,
+          "n": 1000,
+          "acceptance_rate": 0.802,
+          "r@1": 0.399,
+          "is_self": true
+        },
+        "subj02": {
+          "coverage": 0.478,
+          "target": 0.8,
+          "gap": 0.32200000000000006,
+          "n": 1000,
+          "acceptance_rate": 0.478,
+          "r@1": 0.347,
+          "is_self": false
+        },
+        "subj05": {
+          "coverage": 0.55,
+          "target": 0.8,
+          "gap": 0.25,
+          "n": 1000,
+          "acceptance_rate": 0.55,
+          "r@1": 0.495,
+          "is_self": false
+        },
+        "subj07": {
+          "coverage": 0.435,
+          "target": 0.8,
+          "gap": 0.36500000000000005,
+          "n": 1000,
+          "acceptance_rate": 0.435,
+          "r@1": 0.321,
+          "is_self": false
+        }
+      }
+    },
+    "margin_modulated": {
+      "alpha_0.05": {
+        "subj01": {
+          "coverage": 0.952,
+          "target": 0.95,
+          "gap": -0.0020000000000000018,
+          "n": 1000,
+          "acceptance_rate": 0.952,
+          "r@1": 0.399,
+          "is_self": true
+        },
+        "subj02": {
+          "coverage": 0.95,
+          "target": 0.95,
+          "gap": 0.0,
+          "n": 1000,
+          "acceptance_rate": 0.95,
+          "r@1": 0.347,
+          "is_self": false
+        },
+        "subj05": {
+          "coverage": 0.959,
+          "target": 0.95,
+          "gap": -0.009000000000000008,
+          "n": 1000,
+          "acceptance_rate": 0.959,
+          "r@1": 0.495,
+          "is_self": false
+        },
+        "subj07": {
+          "coverage": 0.947,
+          "target": 0.95,
+          "gap": 0.0030000000000000027,
+          "n": 1000,
+          "acceptance_rate": 0.947,
+          "r@1": 0.321,
+          "is_self": false
+        }
+      },
+      "alpha_0.1": {
+        "subj01": {
+          "coverage": 0.902,
+          "target": 0.9,
+          "gap": -0.0020000000000000018,
+          "n": 1000,
+          "acceptance_rate": 0.902,
+          "r@1": 0.399,
+          "is_self": true
+        },
+        "subj02": {
+          "coverage": 0.889,
+          "target": 0.9,
+          "gap": 0.01100000000000001,
+          "n": 1000,
+          "acceptance_rate": 0.889,
+          "r@1": 0.347,
+          "is_self": false
+        },
+        "subj05": {
+          "coverage": 0.889,
+          "target": 0.9,
+          "gap": 0.01100000000000001,
+          "n": 1000,
+          "acceptance_rate": 0.889,
+          "r@1": 0.495,
+          "is_self": false
+        },
+        "subj07": {
+          "coverage": 0.907,
+          "target": 0.9,
+          "gap": -0.007000000000000006,
+          "n": 1000,
+          "acceptance_rate": 0.907,
+          "r@1": 0.321,
+          "is_self": false
+        }
+      },
+      "alpha_0.2": {
+        "subj01": {
+          "coverage": 0.802,
+          "target": 0.8,
+          "gap": -0.0020000000000000018,
+          "n": 1000,
+          "acceptance_rate": 0.802,
+          "r@1": 0.399,
+          "is_self": true
+        },
+        "subj02": {
+          "coverage": 0.783,
+          "target": 0.8,
+          "gap": 0.017000000000000015,
+          "n": 1000,
+          "acceptance_rate": 0.783,
+          "r@1": 0.347,
+          "is_self": false
+        },
+        "subj05": {
+          "coverage": 0.776,
+          "target": 0.8,
+          "gap": 0.02400000000000002,
+          "n": 1000,
+          "acceptance_rate": 0.776,
+          "r@1": 0.495,
+          "is_self": false
+        },
+        "subj07": {
+          "coverage": 0.804,
+          "target": 0.8,
+          "gap": -0.0040000000000000036,
+          "n": 1000,
+          "acceptance_rate": 0.804,
+          "r@1": 0.321,
+          "is_self": false
+        }
+      }
+    }
+  },
+  "weighted_conformal": {
+    "raw_subj02": {
+      "standard_coverage": 0.371,
+      "weighted_coverage": 0.0,
+      "improvement": -0.371,
+      "standard_threshold": 0.6543488502502441,
+      "weighted_threshold": 0.42592936754226685,
+      "target": 0.9
+    },
+    "raw_subj05": {
+      "standard_coverage": 0.48,
+      "weighted_coverage": 0.0,
+      "improvement": -0.48,
+      "standard_threshold": 0.6543488502502441,
+      "weighted_threshold": 0.42592936754226685,
+      "target": 0.9
+    },
+    "raw_subj07": {
+      "standard_coverage": 0.338,
+      "weighted_coverage": 0.0,
+      "improvement": -0.338,
+      "standard_threshold": 0.6543488502502441,
+      "weighted_threshold": 0.42592936754226685,
+      "target": 0.9
+    },
+    "kappa_modulated_subj02": {
+      "standard_coverage": 0.634,
+      "weighted_coverage": 0.0,
+      "improvement": -0.634,
+      "standard_threshold": 0.7765139680763787,
+      "weighted_threshold": 0.4487475333147012,
+      "target": 0.9
+    },
+    "kappa_modulated_subj05": {
+      "standard_coverage": 0.7,
+      "weighted_coverage": 0.0,
+      "improvement": -0.7,
+      "standard_threshold": 0.7765139680763787,
+      "weighted_threshold": 0.4487475333147012,
+      "target": 0.9
+    },
+    "kappa_modulated_subj07": {
+      "standard_coverage": 0.598,
+      "weighted_coverage": 0.0,
+      "improvement": -0.598,
+      "standard_threshold": 0.7765139680763787,
+      "weighted_threshold": 0.4487475333147012,
+      "target": 0.9
+    }
+  },
+  "calibration_comparison": {
+    "raw_alpha0.05_subj01": {
+      "self_calibrated_coverage": 0.96,
+      "cross_subject_coverage": 0.952,
+      "gap": 0.008000000000000007,
+      "target": 0.95
+    },
+    "raw_alpha0.05_subj02": {
+      "self_calibrated_coverage": 0.974,
+      "cross_subject_coverage": 0.481,
+      "gap": 0.493,
+      "target": 0.95
+    },
+    "raw_alpha0.05_subj05": {
+      "self_calibrated_coverage": 0.946,
+      "cross_subject_coverage": 0.587,
+      "gap": 0.359,
+      "target": 0.95
+    },
+    "raw_alpha0.05_subj07": {
+      "self_calibrated_coverage": 0.96,
+      "cross_subject_coverage": 0.458,
+      "gap": 0.502,
+      "target": 0.95
+    },
+    "raw_alpha0.1_subj01": {
+      "self_calibrated_coverage": 0.916,
+      "cross_subject_coverage": 0.902,
+      "gap": 0.014000000000000012,
+      "target": 0.9
+    },
+    "raw_alpha0.1_subj02": {
+      "self_calibrated_coverage": 0.938,
+      "cross_subject_coverage": 0.371,
+      "gap": 0.567,
+      "target": 0.9
+    },
+    "raw_alpha0.1_subj05": {
+      "self_calibrated_coverage": 0.908,
+      "cross_subject_coverage": 0.48,
+      "gap": 0.42800000000000005,
+      "target": 0.9
+    },
+    "raw_alpha0.1_subj07": {
+      "self_calibrated_coverage": 0.92,
+      "cross_subject_coverage": 0.338,
+      "gap": 0.5820000000000001,
+      "target": 0.9
+    },
+    "raw_alpha0.2_subj01": {
+      "self_calibrated_coverage": 0.814,
+      "cross_subject_coverage": 0.802,
+      "gap": 0.0119999999999999,
+      "target": 0.8
+    },
+    "raw_alpha0.2_subj02": {
+      "self_calibrated_coverage": 0.832,
+      "cross_subject_coverage": 0.22,
+      "gap": 0.612,
+      "target": 0.8
+    },
+    "raw_alpha0.2_subj05": {
+      "self_calibrated_coverage": 0.828,
+      "cross_subject_coverage": 0.293,
+      "gap": 0.5349999999999999,
+      "target": 0.8
+    },
+    "raw_alpha0.2_subj07": {
+      "self_calibrated_coverage": 0.814,
+      "cross_subject_coverage": 0.199,
+      "gap": 0.615,
+      "target": 0.8
+    },
+    "kappa_modulated_alpha0.05_subj01": {
+      "self_calibrated_coverage": 0.942,
+      "cross_subject_coverage": 0.952,
+      "gap": -0.010000000000000009,
+      "target": 0.95
+    },
+    "kappa_modulated_alpha0.05_subj02": {
+      "self_calibrated_coverage": 0.962,
+      "cross_subject_coverage": 0.751,
+      "gap": 0.21099999999999997,
+      "target": 0.95
+    },
+    "kappa_modulated_alpha0.05_subj05": {
+      "self_calibrated_coverage": 0.948,
+      "cross_subject_coverage": 0.8,
+      "gap": 0.1479999999999999,
+      "target": 0.95
+    },
+    "kappa_modulated_alpha0.05_subj07": {
+      "self_calibrated_coverage": 0.968,
+      "cross_subject_coverage": 0.71,
+      "gap": 0.258,
+      "target": 0.95
+    },
+    "kappa_modulated_alpha0.1_subj01": {
+      "self_calibrated_coverage": 0.904,
+      "cross_subject_coverage": 0.902,
+      "gap": 0.0020000000000000018,
+      "target": 0.9
+    },
+    "kappa_modulated_alpha0.1_subj02": {
+      "self_calibrated_coverage": 0.924,
+      "cross_subject_coverage": 0.634,
+      "gap": 0.29000000000000004,
+      "target": 0.9
+    },
+    "kappa_modulated_alpha0.1_subj05": {
+      "self_calibrated_coverage": 0.894,
+      "cross_subject_coverage": 0.7,
+      "gap": 0.19400000000000006,
+      "target": 0.9
+    },
+    "kappa_modulated_alpha0.1_subj07": {
+      "self_calibrated_coverage": 0.914,
+      "cross_subject_coverage": 0.598,
+      "gap": 0.31600000000000006,
+      "target": 0.9
+    },
+    "kappa_modulated_alpha0.2_subj01": {
+      "self_calibrated_coverage": 0.796,
+      "cross_subject_coverage": 0.802,
+      "gap": -0.006000000000000005,
+      "target": 0.8
+    },
+    "kappa_modulated_alpha0.2_subj02": {
+      "self_calibrated_coverage": 0.8,
+      "cross_subject_coverage": 0.478,
+      "gap": 0.32200000000000006,
+      "target": 0.8
+    },
+    "kappa_modulated_alpha0.2_subj05": {
+      "self_calibrated_coverage": 0.8,
+      "cross_subject_coverage": 0.55,
+      "gap": 0.25,
+      "target": 0.8
+    },
+    "kappa_modulated_alpha0.2_subj07": {
+      "self_calibrated_coverage": 0.81,
+      "cross_subject_coverage": 0.435,
+      "gap": 0.37500000000000006,
+      "target": 0.8
+    }
+  }
+}

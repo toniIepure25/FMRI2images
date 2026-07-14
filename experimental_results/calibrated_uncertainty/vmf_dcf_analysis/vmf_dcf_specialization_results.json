@@ -1,0 +1,96 @@
+{
+  "roi_hierarchy": [
+    {"roi": "FFA2", "mean_kappa": 30.0096, "std_kappa": 0.3901},
+    {"roi": "OFA", "mean_kappa": 29.962, "std_kappa": 0.3738},
+    {"roi": "V3B", "mean_kappa": 29.9543, "std_kappa": 0.3652},
+    {"roi": "V4", "mean_kappa": 29.8855, "std_kappa": 0.3641},
+    {"roi": "FFA1", "mean_kappa": 29.8726, "std_kappa": 0.3864},
+    {"roi": "V2d", "mean_kappa": 29.8536, "std_kappa": 0.3682},
+    {"roi": "V3A", "mean_kappa": 29.8483, "std_kappa": 0.3666},
+    {"roi": "PPA", "mean_kappa": 29.8398, "std_kappa": 0.3724},
+    {"roi": "V3d", "mean_kappa": 29.833, "std_kappa": 0.3579},
+    {"roi": "V1d", "mean_kappa": 29.8177, "std_kappa": 0.3468},
+    {"roi": "V1v", "mean_kappa": 29.7995, "std_kappa": 0.3482},
+    {"roi": "V3v", "mean_kappa": 29.7931, "std_kappa": 0.3584},
+    {"roi": "OPA", "mean_kappa": 29.7914, "std_kappa": 0.3609},
+    {"roi": "V2v", "mean_kappa": 29.7753, "std_kappa": 0.3465},
+    {"roi": "EBA", "mean_kappa": 29.6792, "std_kappa": 0.3449},
+    {"roi": "nsdgeneral_other", "mean_kappa": 29.418, "std_kappa": 0.3772}
+  ],
+  "mean_pairwise_correlation": 0.8838,
+  "anova_f": 134.9,
+  "anova_p": 0.0,
+  "kruskal_h": 1588.94,
+  "kruskal_p": 0.0,
+  "category_analysis": {
+    "FFA1": {
+      "preferred_category": "person",
+      "kappa_preferred": 29.9453,
+      "kappa_nonpreferred": 29.8434,
+      "cohens_d": 0.2559,
+      "t_stat": 3.7967,
+      "p_value": 0.00015548223224316464,
+      "direction": "HIGHER",
+      "n_preferred": 287,
+      "n_nonpreferred": 713
+    },
+    "FFA2": {
+      "preferred_category": "person",
+      "kappa_preferred": 30.0492,
+      "kappa_nonpreferred": 29.9937,
+      "cohens_d": 0.1372,
+      "t_stat": 2.0381,
+      "p_value": 0.04180617451897174,
+      "direction": "HIGHER",
+      "n_preferred": 287,
+      "n_nonpreferred": 713
+    },
+    "PPA": {
+      "preferred_category": "outdoor",
+      "kappa_preferred": 30.0628,
+      "kappa_nonpreferred": 29.8293,
+      "cohens_d": 0.7252,
+      "t_stat": 4.1411,
+      "p_value": 3.7491576133191506e-05,
+      "direction": "HIGHER",
+      "n_preferred": 45,
+      "n_nonpreferred": 955
+    },
+    "EBA": {
+      "preferred_category": "person",
+      "kappa_preferred": 29.6188,
+      "kappa_nonpreferred": 29.7036,
+      "cohens_d": -0.2341,
+      "t_stat": -3.535,
+      "p_value": 0.00042656352853265127,
+      "direction": "LOWER",
+      "n_preferred": 287,
+      "n_nonpreferred": 713
+    },
+    "OPA": {
+      "preferred_category": "outdoor",
+      "kappa_preferred": 29.9899,
+      "kappa_nonpreferred": 29.782,
+      "cohens_d": 0.653,
+      "t_stat": 3.801,
+      "p_value": 0.00015283675878579773,
+      "direction": "HIGHER",
+      "n_preferred": 45,
+      "n_nonpreferred": 955
+    },
+    "kappa_only_decoding": {
+      "accuracy": 0.435,
+      "accuracy_std": 0.0228,
+      "chance_level": 0.2748,
+      "permutation_p": 0.0,
+      "n_categories": 12,
+      "n_samples": 1000
+    }
+  },
+  "global_kappa_stats": {
+    "mean": 29.051,
+    "std": 0.31,
+    "min": 28.2,
+    "max": 29.988
+  }
+}

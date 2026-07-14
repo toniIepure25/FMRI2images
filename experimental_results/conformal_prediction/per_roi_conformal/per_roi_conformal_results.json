@@ -1,0 +1,144 @@
+{
+  "metadata": {
+    "n_images": 1000,
+    "roi_names": [
+      "FFA2",
+      "OFA",
+      "V3B",
+      "V4",
+      "FFA1",
+      "V2d",
+      "V3A",
+      "PPA",
+      "V3d",
+      "V1d",
+      "V1v",
+      "V3v",
+      "OPA",
+      "V2v",
+      "EBA",
+      "nsdgeneral_other"
+    ],
+    "dataset": "SHARED1000 subj01"
+  },
+  "roi_kappa_hierarchy": [
+    {
+      "roi": "FFA2",
+      "mean_kappa": 30.0096
+    },
+    {
+      "roi": "OFA",
+      "mean_kappa": 29.962
+    },
+    {
+      "roi": "V3B",
+      "mean_kappa": 29.9543
+    },
+    {
+      "roi": "V4",
+      "mean_kappa": 29.8855
+    },
+    {
+      "roi": "FFA1",
+      "mean_kappa": 29.8726
+    },
+    {
+      "roi": "V2d",
+      "mean_kappa": 29.8536
+    },
+    {
+      "roi": "V3A",
+      "mean_kappa": 29.8483
+    },
+    {
+      "roi": "PPA",
+      "mean_kappa": 29.8398
+    },
+    {
+      "roi": "V3d",
+      "mean_kappa": 29.833
+    },
+    {
+      "roi": "V1d",
+      "mean_kappa": 29.8177
+    },
+    {
+      "roi": "V1v",
+      "mean_kappa": 29.7995
+    },
+    {
+      "roi": "V3v",
+      "mean_kappa": 29.7931
+    },
+    {
+      "roi": "OPA",
+      "mean_kappa": 29.7914
+    },
+    {
+      "roi": "V2v",
+      "mean_kappa": 29.7753
+    },
+    {
+      "roi": "EBA",
+      "mean_kappa": 29.6792
+    },
+    {
+      "roi": "nsdgeneral_other",
+      "mean_kappa": 29.418
+    }
+  ],
+  "category_conditional_conformal": {
+    "FFA1": {
+      "preferred_category": "person",
+      "kappa_preferred": 29.9453,
+      "kappa_nonpreferred": 29.8434,
+      "cohens_d": 0.2559,
+      "p_value": 0.00015548223224316464
+    },
+    "FFA2": {
+      "preferred_category": "person",
+      "kappa_preferred": 30.0492,
+      "kappa_nonpreferred": 29.9937,
+      "cohens_d": 0.1372,
+      "p_value": 0.04180617451897174
+    },
+    "EBA": {
+      "preferred_category": "person",
+      "kappa_preferred": 29.6188,
+      "kappa_nonpreferred": 29.7036,
+      "cohens_d": -0.2341,
+      "p_value": 0.00042656352853265127
+    },
+    "PPA": {
+      "preferred_category": "outdoor",
+      "kappa_preferred": 30.0628,
+      "kappa_nonpreferred": 29.8293,
+      "cohens_d": 0.7252,
+      "p_value": 3.7491576133191506e-05
+    },
+    "OPA": {
+      "preferred_category": "outdoor",
+      "kappa_preferred": 29.9899,
+      "kappa_nonpreferred": 29.782,
+      "cohens_d": 0.653,
+      "p_value": 0.00015283675878579773
+    }
+  },
+  "global_conformal": {
+    "alpha_0.05": {
+      "target": 0.95,
+      "mean_coverage": 0.9495999999999999,
+      "std_coverage": 0.015512575543732232
+    },
+    "alpha_0.1": {
+      "target": 0.9,
+      "mean_coverage": 0.8977200000000001,
+      "std_coverage": 0.021732961142007335
+    },
+    "alpha_0.2": {
+      "target": 0.8,
+      "mean_coverage": 0.8026000000000001,
+      "std_coverage": 0.02840070421662109
+    }
+  }
+}

@@ -177,3 +177,92 @@ other alongside it permanently, labelled." — Accepted. Both columns are report
 tables, always.
 
 **Revisit trigger:** Gate 2 endpoint definition.
+
+---
+
+## D-006 — Abandon the PCD research direction; select the NCD / imagery-transfer thesis
+
+**Date:** 2026-07-16 · **Gate:** 2 · **Status:** ACTIVE
+
+**Original proposal (Phase 2 mission):** pursue "NeuroPC — Identifiable Predictive Cortical
+Inference for Cross-Subject Perception and Mental Imagery Decoding", with a tentative thesis
+that a cortical inference model predicting both held-out neural activity and visual
+representations learns more transferable, interpretable representations.
+
+**Identified problem:** the systematic literature search (`13`) shows **every enumerated PCD
+contribution, and both seed candidates A and B, are already published.**
+
+**Evidence (`14` §1, all from live searches this session, abstract-level):**
+- **Hi-DREAM** (arXiv 2511.11437, Nov 2025) uses PCD's *exact* ROI hierarchy — early/mid/late,
+  V1/V2 → V3/V4 → category-selective — **and already ran PCD's random-and-reversed control
+  experiment**, with a positive result. Our H2 is answered, by someone else.
+- **BrainMCLIP** ran a 1 000-permutation ROI-label null (the rigorous version of our single
+  `random.Random(42)` shuffle).
+- **MindHier** owns hierarchy→CLIP-layer alignment; **DREAM** owns reverse visual pathways.
+- **MindEye2** owns shared latent + per-subject projection; **MindTuner** owns low-rank
+  (LoRA) subject adapters; **ZEBRA** owns shared/subject-specific disentanglement and claims
+  *first* zero-shot, with public weights; **MindAligner** owns explicit functional alignment.
+- **ESANN 2025** already shows predictive-coding dynamics improve fMRI predictivity over
+  feedforward — seed Candidate A's core result.
+- Canonical PC sources independently confirm Gate 0's **T6**: predictions descend, errors
+  ascend. PCD's direction is wrong on the field's own definition.
+
+**Alternatives considered:**
+1. *Proceed with H1/H2 (hierarchy vs random controls) as the paper.* → Rejected: Hi-DREAM and
+   BrainMCLIP already did it. H1 survives only as an **internal diagnostic**, not a contribution.
+2. *Candidate A (predictive cortical inference).* → Rejected: novelty dead; we would arrive
+   second into a laminar-fMRI/encoding-model literature where retrieval accuracy is not currency.
+3. *Candidate B (cross-subject world model).* → Rejected: the most saturated axis in the field,
+   moving monthly, against better-resourced groups, with our model at 16.4% R@1. We would lose.
+4. *Candidate D (identifiability audit of brain-inspired decoders).* → Retained as **secondary**;
+   a critique from a lab scoring 16.4% invites an obvious rejoinder, and it depends on
+   reproducing external codebases.
+5. *Candidate C, reframed: test whether a **neural-prediction constraint** explains the
+   perception→imagery generalization gap.* → **SELECTED.**
+
+**Selected action:** abandon PCD as a research direction. Build **NCD** (`18`) — ~20.5M params
+vs PCD's 167M, per-ROI nodes, low-rank subject adapters, no `nsdgeneral_other` bypass, one
+manipulated variable (`λ_neural`). Target the open problem NSD-Imagery (CVPR 2025) documented
+but did not explain: complex architectures overfit to vision and transfer worse to imagery
+than linear models. We test **why**.
+
+**Expected consequence:** the project stops competing on SOTA (which it cannot win) and
+competes on mechanism (which it can). Our 82 pp overfit gap stops being an embarrassment and
+becomes the case study.
+
+**Reviewer objection (panel, preserved — see `11_REVIEWER_REPORTS/phase2_thesis_review.md`):**
+six objections are recorded and **none is resolved**. The load-bearing ones: an auxiliary
+task is a regularizer, so the matched-regularization arm must be capacity-matched or the
+whole result is confounded (O-1); "identifiability" is a misused term and is replaced by
+"neural-prediction constraint" (O-2, adopted in `18`); a stimulus-shuffled control is needed
+to rule out functional connectivity (O-3, adopted); the effect may be specific to a weak base
+model (O-5); "transfer ratio" is a bad estimand and is replaced by a paired difference /
+hierarchical interaction (O-6, adopted).
+
+**Revisit trigger:** full-text reads of **NSD-Imagery** and **LEA**. If either already tested
+an auxiliary neural-prediction objective, novelty is dead and this decision reopens
+immediately (`17` §6).
+
+---
+
+## D-007 — Drop the "NeuroPC" name and all predictive-coding vocabulary
+
+**Date:** 2026-07-16 · **Gate:** 2 · **Status:** ACTIVE
+
+**Context:** the Phase 2 mission proposes "NeuroPC — Identifiable Predictive Cortical
+Inference". Both halves are unusable. "Predictive Cortical" reasserts the exact label Gate 0
+disproved (T6) and that Hi-DREAM owns architecturally. "Identifiable" is a statistical term
+of art meaning unique up to a known transformation — masked-ROI prediction does not deliver
+that, and Reviewer 2 flagged it as smuggling a strong term in for a weak property.
+
+**Selected action:** the model is **NCD (Neural-Constrained Decoder)**; config prefix `NCD_`;
+source `src/fmri2img/models/neural_constrained_decoder.py`. We claim a **neural-prediction
+constraint** and nothing stronger.
+
+**Reviewer objection (Agent B, preserved):** "Even 'neural-constrained' will be read as a
+biological claim by a sympathetic reviewer. The safest name is descriptive of the mechanism —
+masked-ROI auxiliary prediction — and the safest claim is that it is an auxiliary objective
+whose *effect on transfer* we measure." — **Partially accepted:** the name stands for
+brevity; the *claims* are held to exactly this standard throughout `18`–`20`.
+
+**Revisit trigger:** none. Do not resurrect "predictive cortical" without new evidence.

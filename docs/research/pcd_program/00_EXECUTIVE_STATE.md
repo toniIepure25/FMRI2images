@@ -1,80 +1,70 @@
 # 00 — Executive State
 
-**Last updated:** 2026-07-16 · **Gate:** 0 complete (partial exit) → Gate 1 next
-**Commit:** `c65e834` · `feature/predictive-cortical-decoder` · 0 ahead / 0 behind origin
-**Dirty:** Gate 0 artifacts staged this session; `PCD_v3/v4` configs still untracked (T1)
+**Last updated:** 2026-07-16 (Phase 2) · **Gate:** 2 complete → Gate 3 (implementation)
+**Commit:** `feature/predictive-cortical-decoder` · **Active runs: NONE.** H100 idle.
 
 ---
 
-## Current objective
+## Current objective — CHANGED THIS PHASE
 
-Determine whether the Predictive Cortical Decoder supports **any** defensible scientific
-claim. Gate 0 found that its three headline contributions are each independently invalid.
-The project is in **claim triage**, not model development.
+**The PCD research direction is abandoned** (D-006). A systematic literature search found
+**every** PCD contribution already published — most damagingly **Hi-DREAM** (arXiv 2511.11437),
+which uses PCD's exact ROI hierarchy *and already ran PCD's random/reversed control with a
+positive result*.
 
-## Active runs
+**New direction: NCD (Neural-Constrained Decoder).** Test whether the perception→imagery
+generalization gap documented by **NSD-Imagery (CVPR 2025)** — complex architectures overfit
+to vision; simple linear models transfer better — is caused by **unconstrained intermediate
+representations** rather than capacity. One manipulated variable: `λ_neural`, the weight on a
+masked-ROI neural-prediction objective. See `17_PRIMARY_THESIS_SELECTION.md`.
 
-**None.** Pod `orchestraiq-jupyter-54644cff87-gz6n2` is up; H100 **idle** (0% util).
-The PCD_v4 run terminated at epoch 113 on 2026-07-16 09:38, cause **UNKNOWN** (no traceback).
-**Do not resume it** — see Decision D-001.
+Our 167M-param model with an 82 pp overfit gap is no longer an embarrassment — it is the
+case study for the pathology NSD-Imagery documented.
 
-## Verified results (the only numbers that exist)
+## Blockers (ordered by value-of-information — both cost zero GPU)
+
+1. **B-LIT — full-text reads: NSD-Imagery, LEA, Hi-DREAM.** Can kill the thesis outright (if
+   either already tested an auxiliary neural-prediction objective) and is the only source for
+   the SESOI and power analysis. **Highest VOI in the program; costs nothing.**
+2. **B-DATA — NSD-Imagery is not on the pod.** Verified 2026-07-16. Public dataset, 181 TB
+   free, so this is access + compatibility audit, not capacity. Fallback declared in advance
+   at `17` §5 (transfer to reduced-data / low-reliability regimes).
+
+## Verified results (unchanged; the only numbers that exist)
 
 | Metric | Value | Caveat |
 |---|---|---|
 | PCD_v4 best val R@1 | **16.36%** @ epoch 101 | 6 956-image gallery |
-| PCD_v4 val R@1 (trial-level) | **3.30%** | 19 236 trials — **5× fork, see T11** |
-| PCD_v4 CSLS R@1 | 19.85% | same gallery |
-| PCD_v4 train R@1 | **98.83%** @ ep110 | → **82 pp overfit gap** |
-| PCD_v4 params | 167 291 141 | from `manifest.json` |
+| PCD_v4 val R@1 (trial-level) | **3.30%** | **5× fork — T11** |
+| PCD_v4 train R@1 | **98.83%** | → **82 pp overfit gap** |
 | `checkpoint_best.pt` | **epoch 98** | selected on **val_loss**, not R@1 (T14) |
-| Frozen retrieval system | 77.2% R@1 SHARED1000 | **NOT comparable to PCD** (T12) |
-
-PCD has **never been evaluated on SHARED1000**. The sealed set is intact.
-
-## Top blockers
-
-1. **Per-level kappa heads receive zero gradient** (T8) → "per-level uncertainty" is
-   FORBIDDEN; `pcd_neuroscience_analysis.py` is INVALID where it reads `level_kappas`.
-2. **Architecture is not predictive coding** (T6) — prediction flows low→high. All
-   Rao–Ballard framing must be stripped (D-002).
-3. **v4's central claim is false** (T4) — regularization delayed, did not reduce, overfitting.
-4. **Literature matrix is empty** — every novelty claim is currently unsupported. Gate 2 blocker.
-5. **All artifacts single-homed on pod NFS**, no hashes, checkpoint never dry-loaded (T3, D-004).
+| PCD_v4 params | 167 291 141 | vs **NCD's ~20.5M** (8× smaller) |
+| Frozen retrieval system | 77.2% SHARED1000 | **NOT comparable** (T12) |
 
 ## What is solid
 
-- **Splits are clean.** train ∩ val = 0; train/val ∩ SHARED1000 = 0. Image-level splitting
-  genuinely works (T10). The project's foundation is sound.
-- **Pod code ≡ local HEAD** by sha256 on all 4 critical files — the run *is* reproducible
-  in practice, despite its manifest recording the wrong commit (T2).
-- Nine regression tests now pin the two architecture findings (`tests/test_pcd_gradient_flow.py`).
+- **Splits clean, SHARED1000 sealed** (T10) — the asset. Reused wholesale by NCD.
+- **~70% of the code survives** (`15`): splits, per-ROI tokenisation, encoders, training
+  loop, retrieval head. Replaced: aggregator, subject projections, level grouping, kappa
+  heads. Added: one masked-ROI objective. **This is not a rewrite.**
+- 9 regression tests pin the Gate 0 findings.
 
 ## Next five actions
 
-1. **Gate 1:** re-derive v1's reported 17.97% @ epoch 29 from `PCD_v1_8subject/`'s own CSV.
-   Currently UNVERIFIED — it is the *only* evidence that v4 was a regression.
-2. **Gate 1:** read the eval aggregation **and the checkpoint-selection criterion** from
-   source; resolve the three-way result ambiguity (T11 metric fork + T14 selection-on-val_loss).
-3. **Gate 1 (H1):** quantify the level-3 bypass — `nsdgeneral_other` holds ~64% of voxels
-   and skips the hierarchy entirely (T7). One forward pass over val; **can falsify the
-   program for the price of one forward pass** — do this before anything expensive.
-4. **D-004 remainder:** key-set diff of `checkpoint_best.pt` against a *freshly constructed*
-   model (`strict=False` would hide a half-initialised load — R-08); copy `split.json`,
-   `manifest.json`, `training_log.csv` off-pod.
-5. **Gate 2:** run the literature sweep; populate `10_LITERATURE_MATRIX.csv`.
-
-## D-004 status: partially executed 2026-07-16
-
-Checkpoints hashed and inspected (digests in `01_TRUTH_AUDIT.md` §6b). Both load cleanly,
-796 entries, key sets identical. Two new findings:
-- **T13** — kappa heads moved **4.3e-07** over 14 epochs vs 1e-2–2e-1 for every other
-  module. F-002 now **confirmed on the trained artifact**, not just a synthetic probe.
-- **T14** — `checkpoint_best.pt` is epoch **98**, but best val R@1 is epoch **101**.
-  Selection runs on **val_loss**, not the reported metric.
+1. **Gate 3:** implement `src/fmri2img/models/neural_constrained_decoder.py` per `18`,
+   with gradient tests **first** (every interpreted quantity must have an identifying
+   objective — the T8/F-002 contract).
+2. **B-LIT** full-text reads (zero GPU, can kill the thesis).
+3. **B-DATA** NSD-Imagery compatibility audit.
+4. **E-01** level-3 bypass diagnostic — one forward pass. **Now a diagnostic, not a
+   contribution** (Hi-DREAM owns it).
+5. **E-00** protocol standardisation: fix checkpoint selection (T14), declare the gallery,
+   write `count_flops.py` (`FLOPs: NOT_MEASURED` must not appear twice).
 
 ## Standing prohibitions
 
-- Do not resume PCD_v4 (D-001). Do not rewrite the architecture yet (D-003).
-- Do not report `val_r@1` without its gallery size and the trial-level figure beside it (D-005).
-- Do not compare PCD to 77.2% (T12).
+- Do not resume PCD_v4 (D-001). Do not resurrect "predictive cortical" (D-002, D-007).
+- Do not claim "identifiability" — claim a **neural-prediction constraint** (O-2).
+- Do not report `val_r@1` without gallery size + trial-level figure (D-005). Never compare to 77.2% (T12).
+- **No "first" claims** — the literature review is abstract-level and single-index (`13` §7).
+- Do not escalate to 8 subjects if the 4-subject gate fails (`21` §4). F-001's lesson.

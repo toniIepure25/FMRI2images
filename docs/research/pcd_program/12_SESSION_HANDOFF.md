@@ -37,6 +37,58 @@ subject) run on NSD, **already on the pod**. The matched-control pilot needs no 
 | Arms | All 8 **exactly** parameter-matched (not merely within tolerance) |
 | New code | `auxiliary_objectives.py`; `neural_constrained_decoder.py` (`aux_objective`, `auxiliary_loss`, `_aux_target`); `tests/test_ncd_matched_controls.py`; `tests/test_ncd_arm_config_parity.py`; 4 arm configs |
 
+## PHASE 2.7 STATUS: **NO STATUS ISSUED — E-P1 did not run**
+
+Section 1 (imagery-module audit) is **complete and committed** (`a42bd7a`, D-008).
+Sections 2–9 were **not** completed. No status is issued, for the same reason as Phase 2.6:
+all five permitted statuses presuppose E-P1 ran, and it did not.
+
+### Section 1 outcome — the repo was broken on a fresh clone
+
+`src/fmri2img/data/nsd_imagery.py` is now committed. It was **never tracked on any branch**,
+yet `tests/test_nsd_imagery.py:7` imports it at **module level** and
+`scripts/evaluation/cross_state_evaluation.py:197,267` imports it too — both tracked. The
+suite passed locally and on the pod **only because both machines held an untracked
+hand-copied file** (pod copy dated 2026-07-10, identical size). Same F-005 pattern as PCD.
+No secrets; the two `/home/jovyan/work` strings are `os.environ.get` defaults. Committed
+unmodified; its failing test (`test_perception_higher_kappa`) is now a **visible** red rather
+than a latent one. Full audit in D-008.
+
+### The exact next step for ARM-C — and why it was not rushed
+
+`PreextractedNSDDataset.__getitem__` (`scripts/training/train_unified.py:1067`) returns
+**two different shapes**: a dict when `dual_target=True`, and a bare
+`(fmri_tensor, emb_tensor)` **tuple** otherwise. The NCD pilot configs use the tuple path.
+
+Adding `shuffled_x` therefore changes the **batch contract**, which the training loop unpacks
+positionally in several places. That is a change with real silent-failure potential in a
+7 000-line script, and it should not be made against an exhausted context budget. The tested
+component it needs (`build_arm_c_partner_index`, `verify_partner_index`,
+`partner_index_manifest`) is already committed and green (17 tests, `8800db5`).
+
+**Recommended shape when resumed** (avoids touching the legacy tuple path):
+1. Give `PreextractedNSDDataset` an optional `partner_index: np.ndarray | None`, built once in
+   `__init__` from `build_arm_c_partner_index(index_df["nsdId"], stable_seed(split_hash, seed))`
+   and immediately passed through `verify_partner_index` — so a bad mapping fails at
+   construction, not mid-epoch.
+2. **Only when `partner_index is not None`**, switch that dataset instance to the **dict**
+   return shape and add `"shuffled_x": features[partner_index[idx]]`. Non-C arms keep the
+   tuple path untouched and **pay no partner-loading cost**.
+3. Materialise the index eagerly in `__init__` (never lazily in `__getitem__`) — that is what
+   makes worker count and process restarts irrelevant to the mapping.
+4. Record `partner_index_manifest(...)` in the run manifest: seed **and** the sha256 of the
+   full mapping (seed alone is insufficient — the mapping also depends on split and row order).
+5. ARM-C must raise if `partner_index` is absent. `NCDModel` already raises rather than
+   degenerating into ARM-B, so the loud-failure property is already guaranteed end to end.
+
+### Sections not started
+
+§4 optimization parity (only **architecture-parameter** parity is measured and claimed — no
+compute/optimizer-state/FLOP parity is claimed); §5 E-P1 freeze; §6 pod sync manifest;
+§7 execution; §8 read-out.
+
+---
+
 ## PHASE 2.6 STATUS: **NO STATUS ISSUED — the pilot did not run**
 
 Phase 2.6 asked for one of five statuses. **All five presuppose the E-P1 pilot ran. It did

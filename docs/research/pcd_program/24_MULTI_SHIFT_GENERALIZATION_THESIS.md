@@ -1,15 +1,34 @@
 # 24 — Multi-Shift Generalization Thesis
 
-**Date:** 2026-07-16 · Supersedes `17`'s imagery-centred framing (which `23` closed).
+**Date:** 2026-07-16 · **Revised Phase 2.6.** Supersedes `17`'s imagery-centred framing.
 
 ---
 
-## 1. Thesis
+## 0. Phase 2.6 revision — shift 3 is removed on empirical grounds
+
+The Spera et al. full text (`23` §0) reports a **frozen zero-shot DynaDiff baseline at
+chance**: CLIP 48.94%, Alex(5) 50.21%, Alex(2) 51.03% (chance = 50%).
+
+**A perception decoder far stronger than NCD is at chance zero-shot on imagery.** There is no
+headroom for ARM-B to beat ARM-F at a floor. **Zero-shot imagery is removed as a positive
+endpoint.** It may be reported as a null, corroborating Spera et al.; it is **not a
+contribution** (C-023, C-024).
+
+This is a real loss. Imagery was the shift that most distinguished this thesis from the
+generic claim *"auxiliary objectives improve robustness"*. **With it gone, the entire
+scientific content rests on ARM-B vs ARM-C (is the target's neural identity doing the work?)
+and ARM-B vs ARM-F (is it doing anything a tuned regularizer would not?).** See `23` §7.
+
+## 1. Thesis (revised)
 
 > **A neural-prediction constraint learned exclusively from perception data produces
 > representations that generalize better than discriminative and generically regularized
-> decoders across distribution shift, subject shift, reduced-data regimes, neural noise, and
-> zero-shot mental imagery.**
+> decoders across stimulus-distribution shift, subject shift, reduced-data regimes, and
+> neural noise.**
+
+**Superseded wording** (retained for provenance): the same sentence ending *"...and zero-shot
+mental imagery."* Removed per §0 — not because it was unfashionable, but because the endpoint
+has no headroom.
 
 **Unit of the claim is generalization, not imagery.** Imagery is one sealed test of a broader
 principle. This is the Phase 2.5 correction and it is forced by evidence, not taste:
@@ -45,7 +64,7 @@ Two consequences:
 |---|---|---|---|---|
 | 1 | **In-distribution** | NSD sealed protocol | R@1 (image + trial), neural predictivity | 8 |
 | 2 | **Stimulus distribution (OOD)** ★ primary | **NSD-Synthetic** | decoding vs **OOD degree** (scene-derived, 52); neural predictivity (all 284) | **8** |
-| 3 | **Cognitive state (zero-shot)** | NSD-Imagery, **sealed** | 2AFC, by condition | 4 |
+| ~~3~~ | ~~Cognitive state (zero-shot)~~ | **REMOVED §0** — floor effect: a stronger decoder is at chance zero-shot (Spera et al.). Reportable as a null, never as a contribution | — | ~~4~~ |
 | 4 | **Reduced data** | NSD | R@1 vs data fraction (~1h, 3h, 10, 25, 50, 100%) | 8 |
 | 5 | **Noise / missing info** | NSD | R@1 vs corruption (additive noise, voxel/ROI dropout, session removal, low-reliability voxels, reduced averaging) | 8 |
 | 6 | **Subject** | NSD | LOSO zero-shot, low-shot curves | 8 |

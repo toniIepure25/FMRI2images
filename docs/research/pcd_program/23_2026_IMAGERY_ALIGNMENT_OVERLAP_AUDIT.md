@@ -2,8 +2,53 @@
 
 **Date:** 2026-07-16 · **Source:** arXiv 2604.15374 (q-bio.NC, submitted 2026-04-15)
 **Authors:** Spera, Boccato, Olak, Cammarota, Ciferri, Tronti, Toschi, Ferrante
-**Status:** ABSTRACT + arXiv landing page read. Full PDF not opened — sufficient to settle
-overlap, insufficient to cite.
+**Status:** **FULL TEXT READ 2026-07-16 (Phase 2.6).** Supersedes the abstract-level audit below.
+
+---
+
+## 0. THE DECISIVE FINDING — the zero-shot arm exists, and it is AT CHANCE
+
+**They report a frozen zero-shot DynaDiff baseline** — a perception-trained decoder applied
+to imagery with **no imagery fitting**. This is exactly our setting. Table 2:
+
+| Metric | Frozen zero-shot DynaDiff | Chance |
+|---|---|---|
+| **CLIP** | **48.94%** | 50% |
+| **Alex(5)** | **50.21%** | 50% |
+| **Alex(2)** | **51.03%** | 50% |
+| PixCorr | 0.0295 | — |
+| SSIM | 0.3431 | — |
+
+> **A strong perception decoder, applied zero-shot to imagery, performs at chance.**
+
+**This closes shift 3 (zero-shot imagery) as an endpoint — not on novelty grounds, on
+empirical ones.** DynaDiff is a far stronger perception decoder than NCD (our model is at
+16.4% R@1 in-distribution, T11). If DynaDiff is at chance zero-shot, NCD will be at chance
+zero-shot. **You cannot detect "ARM-B > ARM-F" at a floor.** Both arms would sit on 50% and
+the comparison would carry no information.
+
+This is the **perception OOD kill test** predicted in `22` §7 — and Spera et al. have already
+run it, with a better model, and published the answer. **It costs us nothing to accept it.**
+
+**Consequences, adopted immediately:**
+1. **Shift 3 is removed from the thesis as a positive endpoint** (`24` revision). It was
+   already excluded from the primary statistical family (`20` §4) for a *different* reason
+   (n=4, p-floor 1/16). It is now excluded on *empirical* grounds too: there is no signal
+   to improve.
+2. Shift 3 may still be **reported as a null**, corroborated by Spera's baseline — *"as
+   Spera et al. show and we confirm, perception-only decoders do not transfer to imagery
+   zero-shot; the state shift is too large."* That is honest and cheap, and it is **not a
+   contribution**.
+3. **Imagery adaptation works only with imagery data.** Their aligned model beats the frozen
+   baseline substantially. That is their contribution and it is well earned.
+
+**This is a genuine blow.** The multi-shift thesis loses its most distinctive shift — the one
+that separated it from generic "auxiliary objectives improve robustness". See §7 for the
+honest impact assessment.
+
+---
+
+## Superseded abstract-level audit (retained for provenance)
 
 ---
 
@@ -72,10 +117,64 @@ instance of a broader generalization claim — which is precisely the Phase 2.5 
    stopping, or representation design. Any leak collapses our setting into theirs and
    forfeits the distinction entirely. This is now a testable invariant, not an intention.
 
-## 6. Outstanding
+## 6. Full-text record (Phase 2.6)
 
-- **Full PDF read required** before citing: confirm they report no zero-shot (imagery-naive)
-  arm. If they *do* include one, our distinction narrows sharply and `17` reopens.
-- Check whether DynaDiff itself (their base) uses any auxiliary neural-prediction objective.
-- Their per-region contribution analysis may pre-empt parts of our planned per-ROI analysis;
-  read before designing ours.
+| Item | Finding |
+|---|---|
+| **Frozen zero-shot baseline** | **YES — at chance** (CLIP 48.94%, Alex(5) 50.21%, Alex(2) 51.03%). See §0. |
+| **Imagery data used for fitting** | ~24 imagery runs/subject (3 attention runs excluded); ~50% of vision trials discarded for cue–image mismatch → ~24 usable trials/run. 80% of augmented data for training. |
+| **Latent-alignment objective** | **MSE** between the brain module's imagery output and the corresponding **visual target**: maps imagery fMRI → CLIP-Image embeddings taken from vision trials. Module is an MLP (one hidden layer, LayerNorm, GELU). All other DynaDiff components **frozen**. |
+| **Matched vision trials** | Only trials where the displayed image matched the cue letter (~50%) — these supply the direct imagery↔vision supervision. |
+| **Retrieval-based NSD augmentation** | Complex stimuli: CLIP-Image embeddings + k-NN on cosine distance → **180 nearest NSD trials per stimulus**. Conceptual stimuli: CLIP-**Text** embeddings of the target word → 180 nearest NSD images. Original imagery trials replicated with Gaussian noise (σ²=0.002) to match augmented counts. |
+| **Train/val/test** | 4 subjects (**1, 2, 5, 7**). Test: 20 held-out trials/subject (10 simple, 10 complex). Val: 20% of augmented training data. Batch 36; max 8 epochs (complex/conceptual), max 3 (simple, non-visual ROIs). |
+| **Cortical regions** | Primary **nsdgeneral**; secondary from HCP_MM1: prefrontal, frontal, temporal, parietal. Per-subject voxel counts in their Table 1. |
+| **Inferential unit** | **Per-subject** scores; **Wilcoxon signed-rank** paired within subjects; metrics averaged over 4 subjects with SEM. |
+| **Reconstruction seeds** | **10 reconstructions per test image** (different VD seeds). **SEM computed across 10 seeds × 4 subjects = 40 "reconstructions" per condition.** |
+| **Auxiliary neural-prediction / masked-ROI / encoding objective** | **NONE.** Only the alignment MSE. The frozen VD diffusion loss is not used during alignment. |
+
+### A methodological note we may make, carefully
+
+Their SEM is computed across **10 reconstruction seeds × 4 subjects = 40 units**. Seeds are
+not independent stimulus evidence — they are repeated draws from one model on one stimulus.
+Pooling them into the SEM **understates uncertainty**. Their *significance* tests are
+subject-level Wilcoxon (n=4), which is correct; it is the **SEM error bars** that are
+inflated-precision.
+
+Our own SAP already forbids this (`20` §1: "reconstruction seeds are not independent stimulus
+evidence"). **This is a legitimate observation, not a rebuttal** — it does not touch their
+central claim, which rests on the Wilcoxon tests. Do not overstate it, and do not lead with it.
+
+## 7. Impact on the NCD thesis — honest assessment
+
+**What survives:** they use **no auxiliary neural-prediction objective** (confirmed at full
+text). Our mechanism remains untested by them. Shifts **1, 2, 4, 5, 6** are untouched by this
+paper.
+
+**What dies:** shift 3. Zero-shot imagery is at chance for a stronger model, so there is no
+headroom for ARM-B to beat ARM-F there. The multi-shift thesis loses the shift that most
+distinguished it from the generic claim *"auxiliary objectives improve robustness"*.
+
+**The uncomfortable question this forces** — and it must be answered before the pilot, not
+after: with imagery gone, the thesis is *"a masked-ROI auxiliary objective improves robustness
+across stimulus/data/noise/subject shift"*. That is a **robustness-regularization claim**, and
+ARM-F is precisely the arm that tests whether the *neural* target is doing any work. **The
+entire scientific content now rests on B vs C and B vs F.** If those come back null — which
+`24` §6 already names as the most likely outcome — the honest report is
+`GENERIC_REGULARIZATION_SUPPORTED`, and the paper is a robustness-regularization paper with a
+careful negative on neural specificity.
+
+That is a smaller paper than the one this program set out to write. It is also, on current
+evidence, the one the evidence supports.
+
+## 8. Forbidden claims (registry-enforced)
+
+- ❌ *"first zero-shot perception-to-imagery decoder"* — **they published the zero-shot arm**
+- ❌ *"first application of a perception decoder to Imagery-NSD"*
+- ❌ *"first method improving perception-to-imagery transfer"*
+- ❌ *any* "first" — the review remains partial (`13` §7)
+
+**Candidate surviving claim, and it is not yet supported:**
+> A neural-prediction constraint learned exclusively from perception data is **evaluated** as
+> a source of zero-shot robustness across stimulus, noise, data, and subject shifts.
+
+Note "**evaluated as**", not "**is**". Nothing has been run.

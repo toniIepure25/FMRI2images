@@ -37,6 +37,47 @@ subject) run on NSD, **already on the pod**. The matched-control pilot needs no 
 | Arms | All 8 **exactly** parameter-matched (not merely within tolerance) |
 | New code | `auxiliary_objectives.py`; `neural_constrained_decoder.py` (`aux_objective`, `auxiliary_loss`, `_aux_target`); `tests/test_ncd_matched_controls.py`; `tests/test_ncd_arm_config_parity.py`; 4 arm configs |
 
+## PHASE 2.6 STATUS: **NO STATUS ISSUED — the pilot did not run**
+
+Phase 2.6 asked for one of five statuses. **All five presuppose the E-P1 pilot ran. It did
+not.** Sections 1, 3, 4, 5 are complete and committed; section 2 is half-complete; sections
+6–7 were not started. Forcing a status onto an unrun experiment is precisely the failure this
+program exists to prevent (it is how PCD's "25 pp gap" happened — F-001).
+
+**Nothing was run. No GPU was used. No status is claimed.**
+
+### Phase 2.6 completed (5 commits)
+
+| § | Item | Commit | State |
+|---|---|---|---|
+| 1 | Spera full-text audit + claim repair | `202a99b` | **DONE — and it removed shift 3** |
+| 4 | Partial-conjunction test + 21 simulations | `39656af` | **DONE** |
+| 3 | O-8 tuning protocol frozen | `19d7f55` | **DONE** |
+| 6 | NSD-Synthetic dual-endpoint protocol | `185dc5d` | **DONE** |
+| 2 | ARM-C partner index + 17 tests | `8800db5` | **HALF** — index done; dataset wiring not |
+| 5 | Optimization-parity measurement | — | **NOT DONE** |
+| 7 | Pilot + adversarial review | — | **NOT RUN** |
+
+### The finding that matters most this phase
+
+**Spera et al. report a frozen zero-shot DynaDiff baseline AT CHANCE** (CLIP 48.94% vs 50%).
+A perception decoder far stronger than NCD has **no zero-shot imagery signal**, so there is no
+headroom for ARM-B to beat ARM-F there. **Shift 3 is removed on empirical grounds** (`23` §0).
+
+Consequence, stated plainly: with imagery gone, the thesis is *"a masked-ROI auxiliary
+objective improves robustness across stimulus/data/noise/subject shift"* — **a
+robustness-regularization claim**. The entire scientific content now rests on **B vs C** and
+**B vs F**. If those are null — already the pre-committed most-likely outcome — the honest
+report is `GENERIC_REGULARIZATION_SUPPORTED`. That is a smaller paper than intended and it is
+what the evidence currently supports (`23` §7).
+
+### Statistical error found and fixed
+
+The SAP's *"≥2 BH-FDR discoveries"* rule **does not calibrate the compound claim**. Measured
+over 12k simulations: with **one** true shift (still the r=2 null) it rejects at **7.1–7.9%**
+against a nominal 5%. The partial-conjunction test (Benjamini & Heller 2008, r=2/n=5,
+Bonferroni — valid under arbitrary dependence) holds at **4.4–5.1%** and costs ~3 pp of power.
+
 ## Done since the Phase 2.5 report
 
 - **NCD wired end to end** (`acfc68c`). `create_model` dispatches `type: "ncd"` → `NCDModel`;

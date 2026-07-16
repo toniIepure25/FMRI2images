@@ -27,15 +27,20 @@ purpose-built for OOD. **This confines the n = 4 power crisis to one secondary t
 
 ## Blockers
 
-1. **NCD is not wired into `create_model`/the training loop.** The pilot cannot run until it
-   is. Engineering, not science. **Top action.**
-2. **O-7 — cross-shift multiplicity family undeclared.** Zero cost; until fixed,
-   *"improves ≥2 shifts"* is a garden of forking paths. **Must precede any read-out.**
-3. **B-DATA** — NSD-Synthetic + NSD-Imagery not obtained (both public; 181 TB free).
+1. **ARM-C needs a dataloader change.** It requires `shuffled_x` — the fMRI of the permuted
+   partner image — which the dataset does not yet supply. The model **fails loudly** rather
+   than degenerating into ARM-B, so this is safe but blocking for ARM-C. **Top action.**
+   ARM-A/B/F are runnable now.
+2. **B-DATA** — NSD-Synthetic + NSD-Imagery not obtained (both public; 181 TB free).
    Gates shifts 2–3 **only**; shifts 1/4/5/6 run on NSD already on the pod.
-4. **O-9 / R-20** — CLIP cache never verified on grayscale/Mooney/line-drawing stimuli.
+3. **O-9 / R-20** — CLIP cache never verified on grayscale/Mooney/line-drawing stimuli.
    Upstream of every synthetic number.
+4. **O-8** — ARM-F's tuning budget must be equal and logged, or the parity claim is
+   unfalsifiable and a reviewer will (rightly) assume a straw man.
 5. Full PDF reads: **Spera et al.** (a zero-shot arm there voids the clearance), LEA, Hi-DREAM.
+
+**Closed this session:** NCD wiring (`create_model` dispatch + `train_epoch` loss hook);
+**O-7** (cross-shift multiplicity family frozen — `20` §4).
 
 ## Verified results (unchanged; the only numbers that exist)
 
@@ -58,20 +63,30 @@ purpose-built for OOD. **This confines the n = 4 power crisis to one secondary t
 
 ## Next five actions
 
-1. **Wire NCD into `create_model` + training loop** for `type: "ncd"`, mapping
-   `loss.neural_prediction.objective` → `AuxObjective`. Unblocks the pilot.
-2. **Declare the cross-shift multiplicity family (O-7)** — before the pilot reads out.
-3. **Run E-P1**: ARM-A/B/C/F × 2 seeds, subj01, ~8 GPU-h. **Read B vs F first** — it decides
-   whether the thesis is about neural targets or about regularization.
-4. **B-DATA** (parallel, 0 GPU): request NSD-Synthetic + NSD-Imagery.
+1. **Dataloader: supply `shuffled_x`** for ARM-C — load the permuted partner image's fMRI
+   alongside each sample, using `DeterministicImagePermutation` seeded from
+   `stable_seed(split_hash, seed)`. Unblocks ARM-C.
+2. **Run E-P1-A/B/F now** (ARM-C follows once 1 lands): 2 seeds, subj01, ~6 GPU-h.
+   **Read B vs F first** — it decides whether the thesis is about neural targets or about
+   regularization.
+3. **B-DATA** (parallel, 0 GPU): request NSD-Synthetic + NSD-Imagery.
+4. **O-8**: log ARM-F's tuning trials in the manifest.
 5. **Verify O-9/R-20**: CLIP cache on synthetic stimuli.
 
 ## Ready to run
 
-62 tests passing. All 8 arms **exactly** parameter-matched. Arm configs generated
-mechanically from one base and asserted to differ only in permitted keys — the config-diff
-test immediately caught ARM-F carrying a key the others lacked, which would have confounded
-the decisive B-vs-F comparison invisibly.
+**77 tests passing.** NCD is wired end to end: `create_model` dispatches `type: "ncd"` →
+`NCDModel`; `train_epoch` adds `loss_weights["neural_prediction"] * model._last_aux_loss`
+following the existing `_is_scfr` idiom; `loss.neural_prediction.weight` reaches the loop
+through the generic weight extraction with no special-casing.
+
+All 8 arms **exactly** parameter-matched. kappa is a **global learnable temperature**, pinned
+constant across samples by test — NCD has no uncertainty head, and if someone makes kappa
+input-dependent and starts reading it as confidence, that test fails first (F-002/F-003).
+
+The config-diff test earned its place immediately: it caught ARM-F carrying a
+`stochastic_depth` key the others lacked, which would have confounded the decisive B-vs-F
+comparison invisibly.
 
 ## Standing prohibitions
 

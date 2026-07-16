@@ -51,15 +51,64 @@ permutation tests for null calibration; 95% intervals; heterogeneity reported, n
 With n = 8, asymptotic p-values are not definitive and are reported only alongside intervals
 and per-subject effects.
 
-## 4. Multiplicity
+## 4. Multiplicity — the cross-shift family (closes **O-7**)
 
-| Family | Members | Correction |
+Reviewer 5's objection: with six shifts × eight arms, *"ARM-B improves ≥2 shifts"* is a
+garden of forking paths unless the family structure is fixed **in advance**. It is fixed here.
+
+### Family P — PRIMARY: ARM-B vs ARM-F, one test per shift
+
+**Exactly one preregistered test per shift**, on the §2 estimand. **Five members:**
+
+| # | Shift | n |
 |---|---|---|
-| Primary | the interaction term | none (single preregistered endpoint) |
-| Controls | O-1 matched-reg, O-3 shuffled | none (each is a distinct preregistered question) |
-| Ablations (`18` §7) | ~8 arms | **FDR (BH), q = 0.05** |
-| Per-ROI analyses | 17 ROIs | **FDR (BH), q = 0.05** |
-| Exploratory | everything else | reported as exploratory, **never as confirmatory** |
+| 1 | In-distribution (NSD) | 8 |
+| 2 | Stimulus OOD (NSD-Synthetic, scene-derived slope) | 8 |
+| 4 | Reduced data | 8 |
+| 5 | Noise / missing information | 8 |
+| 6 | Subject (LOSO) | 8 |
+
+**Correction: FDR (BH), q = 0.05, across these 5.**
+**Decision rule: ARM-B must survive FDR-corrected B-vs-F in ≥ 2 of the 5.**
+
+Two notes on why this is not a loophole:
+- The **conjunction of 2** is *more* stringent than any single corrected test, so the ≥2 rule
+  tightens rather than loosens the criterion.
+- **B vs F is the only primary contrast.** B vs A is not primary: beating the retrieval-only
+  floor is uninformative if generic regularization also does (the whole point of O-1).
+
+> **Shift 3 (imagery) is deliberately EXCLUDED from Family P.** With n = 4 the exact
+> sign-flip permutation distribution has 16 points, so **p ≥ 1/16 = 0.0625** — it can never
+> reach FDR significance, and including it would only inflate the correction while
+> contributing nothing. It is reported as a **secondary, sealed, descriptive** endpoint with
+> exact tests and its p-floor stated. **It cannot contribute to the ≥2 count.** Declaring it
+> primary would be self-defeating arithmetic dressed up as rigour.
+
+### Family M — MECHANISM: ARM-B vs C, D, E, G, H
+
+Evaluated **only on shifts where B already beat F in Family P** (otherwise there is no effect
+to attribute). **Five members. Bonferroni, α = 0.05** — deliberately stricter than FDR
+because these are the *interpretive* claims (is the target neural? is it stimulus-specific?
+is anatomy required?), and a false positive here mislabels the mechanism.
+
+### Family N — NEURAL PREDICTIVITY: per-ROI
+
+17 ROIs. **FDR (BH), q = 0.05.**
+
+### Family S — SYNTHETIC OOD SUB-FAMILIES
+
+4 scene-derived families (`natural`, `manipulated`, `contrast`, `phase`). **FDR (BH),
+q = 0.05.** Cross-family consistency is required; a single-family effect is not generalization
+(`26` §6).
+
+### Exploratory — never confirmatory
+
+Everything else: the 232 non-semantic synthetic stimuli, per-ROI analyses beyond Family N,
+any post-hoc slice, any endpoint chosen after unblinding. Reported and labelled; **never
+pooled with a confirmatory family; never used to claim the ≥2.**
+
+**Families P, M, N, S are corrected independently** — they answer different questions and are
+not exchangeable. This structure is frozen **before** the E-P1 pilot reads out.
 
 ## 5. Smallest effect size of interest and equivalence (O-4)
 

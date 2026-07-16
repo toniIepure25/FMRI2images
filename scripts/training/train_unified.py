@@ -2239,6 +2239,17 @@ def train_epoch(
                 total_loss = total_loss + loss_weights.get("vmf_nce", 1.0) * l
                 batch_metrics["vmf_nce"] = l.item()
 
+            # NCD auxiliary objective (ARM-A..H). The model computes it during
+            # forward (it holds both the input and the masked-ROI output) and
+            # stashes it; here it is weighted by lambda_neural. ARM-A/F leave it
+            # None, so those arms add exactly nothing.
+            if getattr(model, "architecture_type", None) == "ncd":
+                _aux = getattr(model, "_last_aux_loss", None)
+                if _aux is not None:
+                    _aux_w = loss_weights.get("neural_prediction", 0.0)
+                    total_loss = total_loss + _aux_w * _aux
+                    batch_metrics["neural_prediction"] = _aux.item()
+
             if _is_scfr:
                 _z_vis = getattr(model, "_last_z_vis", None)
                 _z_subj = getattr(model, "_last_z_subj", None)

@@ -103,7 +103,7 @@ is strong enough that a positive ARM-B would survive the generic-regularization 
 
 | # | Objection | Owner | Blocks |
 |---|---|---|---|
-| **O-7** | Cross-shift multiplicity family undeclared; "improves ≥2 shifts" is forking paths until fixed | R5 | **any confirmatory read-out** |
+| ~~O-7~~ | ~~Cross-shift multiplicity family undeclared~~ — **CLOSED 2026-07-16**, `20` §4: Family P (B-vs-F, one test per shift, 5 members, FDR q=0.05, ≥2 must survive); Family M (mechanism, Bonferroni); Family N (per-ROI, FDR); Family S (synthetic sub-families, FDR). Imagery **excluded from Family P** — its p-floor of 1/16 makes inclusion self-defeating. Frozen before pilot read-out. | R5 | ~~any confirmatory read-out~~ |
 | **O-8** | ARM-F tuning budget must be equal and logged, or parity is unfalsifiable | R1 | any positive claim |
 | **O-9** | R-20 unverified: CLIP cache never checked on grayscale/Mooney/line-drawing stimuli | R3 | anything touching NSD-Synthetic |
 | **O-10** | If B ≈ D, the word "neural" must be dropped from the mechanism's name | R2 | terminology, post-pilot |

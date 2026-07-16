@@ -908,6 +908,147 @@ class PCDModel(nn.Module):
         return {"type": "pcd", "architecture": "predictive_cortical_decoder"}
 
 
+class NCDModel(nn.Module):
+    """Wrapper for NeuralConstrainedDecoder with a UnifiedModel-compatible interface.
+
+    Presents as ``model_type="vmf"`` so the existing vMF retrieval loss and
+    evaluation infrastructure work unchanged, which is what keeps NCD comparable
+    to the frozen recipe (specification 18).
+
+    **kappa here is a global learnable temperature, not an uncertainty estimate.**
+    It is a single scalar, constant across samples, carrying no per-stimulus
+    information; it exists only so the vMF-NCE loss (which expects a
+    concentration) reduces cleanly to temperature-scaled InfoNCE. NCD deliberately
+    has **no uncertainty head**: PCD's per-level kappa heads were interpreted but
+    never trained (F-002) and its global kappa was degenerate (F-003). This kappa
+    must never be read as confidence, and
+    ``test_ncd_kappa_is_a_global_temperature`` pins it constant so that a future
+    change making it input-dependent fails loudly.
+
+    The auxiliary objective is computed here (the wrapper holds both ``x`` and the
+    output) and stashed on ``_last_aux_loss`` for the training loop to weight by
+    ``loss_weights["neural_prediction"]``, following the ``_is_scfr`` idiom already
+    used in ``train_unified.py``.
+
+    Args:
+        config: Full model configuration dict.
+        roi_indices: Per-ROI voxel indices, or dict-of-dicts for multi-subject.
+    """
+
+    def __init__(self, config: Dict[str, Any], roi_indices: Optional[Dict[str, Any]] = None):
+        super().__init__()
+        from fmri2img.models.auxiliary_objectives import AuxObjective
+        from fmri2img.models.neural_constrained_decoder import NeuralConstrainedDecoder
+
+        self.model_type = "vmf"
+        self.architecture_type = "ncd"
+        self.vmf_output_is_log = False
+        self._return_per_roi = False
+        self._last_aux_loss: Optional[torch.Tensor] = None
+        self._last_masked_rois: list = []
+
+        ncd_cfg = config.get("ncd", {})
+        decoder_cfg = config.get("decoder", {})
+        aux_cfg = config.get("loss", {}).get("neural_prediction", {})
+
+        self.aux_objective = AuxObjective(aux_cfg.get("objective", "masked_neural"))
+        self.aux_weight = float(aux_cfg.get("weight", 0.0))
+
+        cross_cfg = config.get("cross_subject", {})
+        is_multi = cross_cfg.get("enabled", False) and roi_indices is not None
+        subject_roi_indices = None
+        single_roi_indices = None
+        if is_multi and isinstance(roi_indices, dict) and isinstance(
+            next(iter(roi_indices.values())), dict
+        ):
+            subject_roi_indices = {
+                s: OrderedDict(v) if not isinstance(v, OrderedDict) else v
+                for s, v in roi_indices.items()
+            }
+        elif roi_indices is not None:
+            single_roi_indices = (
+                OrderedDict(roi_indices)
+                if not isinstance(roi_indices, OrderedDict)
+                else roi_indices
+            )
+
+        self.ncd = NeuralConstrainedDecoder(
+            roi_indices=single_roi_indices,
+            subject_roi_indices=subject_roi_indices,
+            d_model=ncd_cfg.get("d_model", 512),
+            nhead=ncd_cfg.get("nhead", 8),
+            num_layers=ncd_cfg.get("num_layers", 4),
+            dropout=ncd_cfg.get("dropout", 0.1),
+            output_dim=decoder_cfg.get("output_dim", 768),
+            adapter_rank=ncd_cfg.get("adapter_rank", 8),
+            mask_ratio=ncd_cfg.get("mask_ratio", 0.3),
+            context_roi=ncd_cfg.get("context_roi", "nsdgeneral_other"),
+            seed=ncd_cfg.get("seed", 0),
+            aux_objective=self.aux_objective,
+        )
+
+        # Global learnable temperature. Parameterised in log-space so it stays
+        # positive without a clamp (clamping is what trapped PCD's kappa, F-003).
+        self.log_kappa = nn.Parameter(torch.tensor(0.0))
+
+        logger.info(
+            "NCDModel created: aux=%s, weight=%.3g, multi_subject=%s, params=%s",
+            self.aux_objective.value,
+            self.aux_weight,
+            subject_roi_indices is not None,
+            f"{sum(p.numel() for p in self.parameters()):,}",
+        )
+
+    @property
+    def decoder(self):
+        """Proxy for training-loop compatibility."""
+        return self.ncd.retrieval_head
+
+    @property
+    def encoder(self):
+        """Proxy to the NCD module itself."""
+        return self.ncd
+
+    def forward(self, x: torch.Tensor, **kwargs) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Returns (mu, kappa) compatible with the vMF training loop.
+
+        Draws a mask on every training step regardless of arm, so masking
+        frequency is held constant across the control family (protocol 25 §1).
+        """
+        from fmri2img.models.auxiliary_objectives import AuxObjective
+
+        subject_ids = kwargs.pop("subject_ids", None)
+        shuffled_x = kwargs.pop("shuffled_x", None)
+
+        masked = None
+        if self.training and self.aux_objective.uses_masking:
+            masked = self.ncd.sample_mask()
+        self._last_masked_rois = masked or []
+
+        out = self.ncd(x, subject_ids=subject_ids, masked_rois=masked)
+
+        if self.training and self.aux_objective is not AuxObjective.NONE:
+            self._last_aux_loss = self.ncd.auxiliary_loss(
+                x, out, subject_ids=subject_ids, shuffled_x=shuffled_x
+            )
+        else:
+            self._last_aux_loss = None
+
+        kappa = self.log_kappa.exp().expand(x.shape[0], 1)
+        return out.mu, kappa
+
+    def set_current_epoch(self, epoch: int) -> None:
+        pass
+
+    def get_config(self) -> Dict[str, Any]:
+        return {
+            "type": "ncd",
+            "architecture": "neural_constrained_decoder",
+            "aux_objective": self.aux_objective.value,
+            "aux_weight": self.aux_weight,
+        }
+
+
 def create_model(
     config: Dict[str, Any],
     roi_indices: Optional[Dict[str, Any]] = None,
@@ -938,6 +1079,8 @@ def create_model(
         return NeuroBridgeOTModel(config)
     if config.get("type") == "pcd":
         return PCDModel(config, roi_indices=roi_indices)
+    if config.get("type") == "ncd":
+        return NCDModel(config, roi_indices=roi_indices)
     return UnifiedModel(config, roi_indices=roi_indices, ncsnr=ncsnr)
 
 

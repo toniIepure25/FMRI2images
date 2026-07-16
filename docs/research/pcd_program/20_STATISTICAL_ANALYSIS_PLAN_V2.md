@@ -1,15 +1,34 @@
 # 20 — Statistical Analysis Plan v2
 
-**Date:** 2026-07-16 · **Status:** DRAFT — **not preregistered.** Freezes at Gate 4, before E-05.
-Incorporates reviewer objections O-4 and O-6 (`11_REVIEWER_REPORTS/phase2_thesis_review.md`).
+**Date:** 2026-07-16 · **Revised Phase 2.5.** **Status:** DRAFT — **not preregistered.**
+Freezes after the E-P1 pilot supplies measured variance (`27` §3).
+Incorporates reviewer objections O-4 and O-6.
 
 ---
 
-## 1. Unit of inference
+## 0. Phase 2.5 revision — what changed and why
 
-**The subject.** n = 8 (fewer if NSD-Imagery overlaps partially — a blocking unknown).
-Trials are **not** independent evidence about humans (rule 9). Stimuli are a second crossed
-random factor.
+The thesis is now **multi-shift generalization** (`24`), not imagery. Consequences:
+
+- **n = 8 for shifts 1, 2, 4, 5, 6.** Only shift 3 (imagery) is n = 4. **The power crisis is
+  confined to one secondary test** — the most important statistical consequence of the
+  reframing.
+- **NSD-Synthetic is the primary OOD test**: 8 subjects, 284 stimuli, CC-BY 4.0 (`26`).
+- **The primary NSD-Synthetic endpoint is a slope, not a mean.** Contrast (5 levels) and
+  phase-coherence (4 levels) give a **parametric OOD axis**. The thesis predicts ARM-B's
+  margin **grows with OOD degree**; a constant offset is a capacity effect, not
+  generalization. Model the slope, not 4 independent cell comparisons (`26` §5).
+- **Power numbers below cannot be written until the E-P1 pilot reports measured variance.**
+
+## 1. Units of inference
+
+**Two crossed random factors: SUBJECT and UNIQUE STIMULUS IDENTITY.**
+
+- Trials are **not** independent evidence (rule 9). Repeated presentations of one image are
+  repeated measures of one stimulus.
+- **Reconstruction seeds are not independent stimulus evidence either** — a model sampled
+  twice on one stimulus contributes one stimulus observation, not two.
+- Hierarchical model: `(1 | subject) + (1 | stimulus)`. Never pool trials as if independent.
 
 ## 2. Primary estimand (O-6 — not a ratio)
 
@@ -72,7 +91,55 @@ truth** plus permutation nulls. Ships as `tests/test_analysis_pipeline_synthetic
 Rationale: `pcd_neuroscience_analysis.py` produced plausible figures from untrained weights
 (F-002). We do not get to make that mistake twice.
 
-## 8. Discipline
+## 8. Per-dataset protocols (Phase 2.5)
+
+### NSD-Imagery (shift 3, n = 4 — secondary, sealed)
+
+- **Report simple / complex / conceptual conditions separately.** Stimulus type is a
+  **preregistered fixed factor**, never an exploratory slice — with 18 stimuli and 3
+  conditions, slicing until something is significant is the obvious failure mode (R-16).
+- Hierarchical uncertainty over subjects **and** stimuli.
+- **Do not rely on asymptotic subject-level tests with 4 subjects.** Use **randomization /
+  exact tests** where feasible — with n = 4 the exact permutation distribution over sign
+  flips has only 2⁴ = 16 points, which bounds the achievable p-value at 1/16 = 0.0625.
+  **State that ceiling explicitly rather than reporting an asymptotic p that pretends
+  otherwise.**
+- **Leave-one-stimulus-out** analyses, and per-stimulus sensitivity: report whether any
+  single stimulus drives the effect.
+- **Zero-shot invariant is a hard rule, test-enforced**
+  (`test_no_arm_touches_imagery_or_the_sealed_set`): no imagery sample may touch training,
+  model selection, λ selection, checkpoint selection, early stopping, or representation
+  design. A leak collapses our setting into Spera et al. (2026) and forfeits the
+  contribution (`23` §5).
+
+### NSD-Synthetic (shift 2, n = 8 — primary OOD)
+
+- **Confirmatory families (scene-derived, 52 stimuli):** `natural` (8), `manipulated` (12),
+  `contrast` (16), `phase` (16). **FDR (BH) across the 4 families, q = 0.05.**
+- **Primary endpoint:** slope of decoding performance against **OOD degree** along the
+  contrast and phase continua.
+- **Cross-family generalization is required.** An effect present in one family only is **not
+  generalization** and is reported as such — this is the specific way a positive result here
+  could be an artefact.
+- **Exploratory (232 non-semantic stimuli: spiral, chromatic noise, words, noise):** reported
+  separately, never pooled with the confirmatory set, never used for confirmation.
+  **CLIP-decoding near-chance on pink noise is the expected null and proves nothing** — it is
+  a measurement artefact of using a semantic target, not evidence about generalization.
+- **Neural predictivity is valid on all 284** and is the one endpoint the non-semantic stimuli
+  can support. Use noise-ceiling-normalised explained variance, comparable to Gifford et al.
+- NSD-Synthetic is **one session** — lower SNR than NSD-core's 40. Never compare raw
+  accuracies across datasets; normalise by noise ceiling (R-19).
+
+## 9. Confirmatory vs exploratory
+
+| Confirmatory (preregistered, corrected) | Exploratory (reported, never confirmatory) |
+|---|---|
+| ARM-B vs A/C/D/E/F/G/H on the §2 estimand | anything on the 232 non-semantic stimuli |
+| NSD-Synthetic OOD slope, 4 scene families | per-ROI analyses beyond the preregistered set |
+| Imagery 2AFC by condition | post-hoc subgroup or stimulus slices |
+| Held-out neural predictivity | any endpoint chosen after unblinding |
+
+## 10. Discipline
 
 - Primary metric and selection criterion declared **before** E-05 and never changed
   post-hoc; a change after seeing results is labelled **exploratory** (rule 14).

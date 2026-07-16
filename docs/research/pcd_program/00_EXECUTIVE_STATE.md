@@ -1,34 +1,41 @@
 # 00 — Executive State
 
-**Last updated:** 2026-07-16 (Phase 2) · **Gate:** 2 complete → Gate 3 (implementation)
-**Commit:** `feature/predictive-cortical-decoder` · **Active runs: NONE.** H100 idle.
+**Last updated:** 2026-07-16 (**Phase 2.5**) · **Decision: `CLEARED_FOR_MULTI_SHIFT_PILOT`**
+(scoped — `27` §5) · **Active runs: NONE.** H100 idle.
 
 ---
 
-## Current objective — CHANGED THIS PHASE
+## Current objective
 
-**The PCD research direction is abandoned** (D-006). A systematic literature search found
-**every** PCD contribution already published — most damagingly **Hi-DREAM** (arXiv 2511.11437),
-which uses PCD's exact ROI hierarchy *and already ran PCD's random/reversed control with a
-positive result*.
+**PCD is abandoned** (D-006): Hi-DREAM (arXiv 2511.11437) published its exact ROI hierarchy
+*and already ran its random/reversed control, positively*.
 
-**New direction: NCD (Neural-Constrained Decoder).** Test whether the perception→imagery
-generalization gap documented by **NSD-Imagery (CVPR 2025)** — complex architectures overfit
-to vision; simple linear models transfer better — is caused by **unconstrained intermediate
-representations** rather than capacity. One manipulated variable: `λ_neural`, the weight on a
-masked-ROI neural-prediction objective. See `17_PRIMARY_THESIS_SELECTION.md`.
+**Direction: NCD (Neural-Constrained Decoder), multi-shift generalization** (`24`):
 
-Our 167M-param model with an 82 pp overfit gap is no longer an embarrassment — it is the
-case study for the pathology NSD-Imagery documented.
+> A neural-prediction constraint learned **exclusively from perception** produces
+> representations that generalize better than discriminative and generically regularized
+> decoders across **distribution shift, subject shift, reduced data, neural noise, and
+> zero-shot mental imagery**.
 
-## Blockers (ordered by value-of-information — both cost zero GPU)
+**Imagery is one sealed test of five, not the thesis.** Spera et al. 2026 (arXiv 2604.15374)
+**fit on imagery** via latent functional alignment, so *"we improve imagery transfer"* is
+**FORBIDDEN** (C-013). Our distinction is a *setting*: perception-only constraint, zero-shot
+evaluation, evidence across shifts where imagery labels are irrelevant.
 
-1. **B-LIT — full-text reads: NSD-Imagery, LEA, Hi-DREAM.** Can kill the thesis outright (if
-   either already tested an auxiliary neural-prediction objective) and is the only source for
-   the SESOI and power analysis. **Highest VOI in the program; costs nothing.**
-2. **B-DATA — NSD-Imagery is not on the pod.** Verified 2026-07-16. Public dataset, 181 TB
-   free, so this is access + compatibility audit, not capacity. Fallback declared in advance
-   at `17` §5 (transfer to reduced-data / low-reliability regimes).
+**NSD-Synthetic is now the primary OOD test** (`26`) — 8 subjects, 284 stimuli, CC-BY 4.0,
+purpose-built for OOD. **This confines the n = 4 power crisis to one secondary test.**
+
+## Blockers
+
+1. **NCD is not wired into `create_model`/the training loop.** The pilot cannot run until it
+   is. Engineering, not science. **Top action.**
+2. **O-7 — cross-shift multiplicity family undeclared.** Zero cost; until fixed,
+   *"improves ≥2 shifts"* is a garden of forking paths. **Must precede any read-out.**
+3. **B-DATA** — NSD-Synthetic + NSD-Imagery not obtained (both public; 181 TB free).
+   Gates shifts 2–3 **only**; shifts 1/4/5/6 run on NSD already on the pod.
+4. **O-9 / R-20** — CLIP cache never verified on grayscale/Mooney/line-drawing stimuli.
+   Upstream of every synthetic number.
+5. Full PDF reads: **Spera et al.** (a zero-shot arm there voids the clearance), LEA, Hi-DREAM.
 
 ## Verified results (unchanged; the only numbers that exist)
 
@@ -51,20 +58,29 @@ case study for the pathology NSD-Imagery documented.
 
 ## Next five actions
 
-1. **Gate 3:** implement `src/fmri2img/models/neural_constrained_decoder.py` per `18`,
-   with gradient tests **first** (every interpreted quantity must have an identifying
-   objective — the T8/F-002 contract).
-2. **B-LIT** full-text reads (zero GPU, can kill the thesis).
-3. **B-DATA** NSD-Imagery compatibility audit.
-4. **E-01** level-3 bypass diagnostic — one forward pass. **Now a diagnostic, not a
-   contribution** (Hi-DREAM owns it).
-5. **E-00** protocol standardisation: fix checkpoint selection (T14), declare the gallery,
-   write `count_flops.py` (`FLOPs: NOT_MEASURED` must not appear twice).
+1. **Wire NCD into `create_model` + training loop** for `type: "ncd"`, mapping
+   `loss.neural_prediction.objective` → `AuxObjective`. Unblocks the pilot.
+2. **Declare the cross-shift multiplicity family (O-7)** — before the pilot reads out.
+3. **Run E-P1**: ARM-A/B/C/F × 2 seeds, subj01, ~8 GPU-h. **Read B vs F first** — it decides
+   whether the thesis is about neural targets or about regularization.
+4. **B-DATA** (parallel, 0 GPU): request NSD-Synthetic + NSD-Imagery.
+5. **Verify O-9/R-20**: CLIP cache on synthetic stimuli.
+
+## Ready to run
+
+62 tests passing. All 8 arms **exactly** parameter-matched. Arm configs generated
+mechanically from one base and asserted to differ only in permitted keys — the config-diff
+test immediately caught ARM-F carrying a key the others lacked, which would have confounded
+the decisive B-vs-F comparison invisibly.
 
 ## Standing prohibitions
 
-- Do not resume PCD_v4 (D-001). Do not resurrect "predictive cortical" (D-002, D-007).
-- Do not claim "identifiability" — claim a **neural-prediction constraint** (O-2).
-- Do not report `val_r@1` without gallery size + trial-level figure (D-005). Never compare to 77.2% (T12).
-- **No "first" claims** — the literature review is abstract-level and single-index (`13` §7).
-- Do not escalate to 8 subjects if the 4-subject gate fails (`21` §4). F-001's lesson.
+- Do not resume PCD_v4 (D-001). No "predictive cortical" (D-002, D-007). No "identifiability".
+- **Do not claim improved perception→imagery transfer** — Spera et al. own it (C-013).
+- **No imagery data may touch training, selection, λ, checkpointing, early stopping, or
+  representation design.** A leak collapses our setting into theirs and forfeits everything (R-22).
+- **Never report CLIP near-chance on NSD-Synthetic's 232 non-semantic stimuli as OOD failure** —
+  it is a measurement artefact by construction (C-019).
+- Report both R@1 definitions with gallery size (D-005); never compare to 77.2% (T12).
+- **No "first" claims** — review is abstract-level, single-index (`13` §7).
+- **Do not escalate past the pilot if B ≈ F.** Report the negative (`24` §6). F-001's lesson.

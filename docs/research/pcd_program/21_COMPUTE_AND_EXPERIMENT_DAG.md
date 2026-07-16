@@ -1,10 +1,58 @@
 # 21 — Compute Budget and Experiment DAG
 
-**Date:** 2026-07-16 · Resource: **1× H100 80GB, currently idle.** No other GPU verified.
+**Date:** 2026-07-16 · **Revised Phase 2.5.** Resource: **1× H100 80GB, idle.**
 
 ---
 
-## 1. DAG
+## 0. Phase 2.5 revision — the DAG changed shape
+
+**The critical path no longer runs through external data.** Four of six shifts (1, 4, 5, 6)
+run on NSD, already on the pod (`27` §1). The matched-control pilot — which decides whether a
+neural-target effect exists at all — needs **only NSD**.
+
+```
+ ┌──────────────────────────┐        ┌───────────────────────────┐
+ │ WIRE NCD into            │        │ B-DATA (parallel, 0 GPU)  │
+ │ create_model + train loop│        │ NSD-Synthetic (CC-BY 4.0) │
+ │  ── blocks the pilot ──  │        │ NSD-Imagery (CC-BY-NC-ND) │
+ └───────────┬──────────────┘        └─────────────┬─────────────┘
+             ▼                                     │
+ ┌──────────────────────────┐                      │
+ │ E-P1 MATCHED PILOT       │                      │
+ │ A/B/C/F × 2 seeds        │                      │
+ │ 1 subject, NSD only      │                      │
+ │ ~8 GPU-h  ★ THE GATE     │                      │
+ └───────────┬──────────────┘                      │
+             │                                     │
+      B ≈ F ─┴─► REPORT NEGATIVE (24 §6).          │
+             │   "Auxiliary regularization helps;  │
+             │    neural target not supported."    │
+             │   Do NOT escalate.                  │
+             ▼                                     │
+ ┌──────────────────────────┐                      │
+ │ measured variance ──────────► rewrite 20 §6 power│
+ │ measured throughput ────────► rewrite §2 below   │
+ └───────────┬──────────────┘                      │
+             ▼                                     ▼
+ ┌──────────────────────────┐        ┌───────────────────────────┐
+ │ 4-subject pilot          │        │ perception OOD kill tests │
+ │ + ARM-D/E/G/H            │        │ (imagery 12 vision stim;  │
+ │ ★ PROMOTION GATE         │        │  synthetic from ep98 ckpt)│
+ └───────────┬──────────────┘        └─────────────┬─────────────┘
+             └──────────────┬─────────────────────-┘
+                            ▼
+                 ┌──────────────────────┐
+                 │ 8-subj confirmatory  │  ── NOT CLEARED ──
+                 │ shifts 1,2,4,5,6     │
+                 └──────────┬───────────┘
+                            ▼
+                 ┌──────────────────────┐
+                 │ shift 3 imagery      │  sealed, once, last
+                 │ E-08 SHARED1000      │  once, last
+                 └──────────────────────┘
+```
+
+## 1. Legacy DAG (Phase 2 — superseded above, retained for provenance)
 
 ```
                     ┌─────────────────────────────────────┐

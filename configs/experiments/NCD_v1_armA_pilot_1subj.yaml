@@ -23,10 +23,11 @@
 #   - L_neural beats a per-ROI mean baseline out-of-sample
 
 experiment:
-  name: "NCD_v1_pilot_1subj"
-  description: "NCD one-subject pilot, lambda_neural=0.5"
-  tags: ["ncd", "pilot", "neural_constraint", "imagery_transfer", "E-03"]
-  hypothesis_id: "NCD-H1"
+  name: "NCD_v1_armA_pilot_1subj"
+  description: "ARM-A retrieval only (floor)"
+  tags: ["ncd", "pilot", "armA", "matched_control", "P25"]
+  hypothesis_id: "MS-H1"
+  arm: "A"
 
 data:
   subjects:
@@ -88,8 +89,8 @@ loss:
   # --- the manipulated variable -------------------------------------------
   neural_prediction:
     enabled: true
-    weight: 0.5                 # lambda_neural  <-- THE ONE KNOB
-    target: "real"              # "shuffled" -> the O-3 connectivity control
+    weight: 0.0                 # lambda_neural (arm A)
+    objective: "none"   # AuxObjective; selects TARGET, never head capacity
 
   # --- retrieval: unchanged from the frozen recipe, for comparability -----
   vmf_nce:
@@ -169,4 +170,4 @@ evaluation:
   seed: 42
 
 paths:
-  output_dir: "experimental_results/NCD_v1_pilot_1subj"
+  output_dir: "experimental_results/NCD_v1_armA_pilot_1subj"

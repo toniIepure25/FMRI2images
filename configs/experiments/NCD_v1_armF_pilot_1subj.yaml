@@ -23,10 +23,11 @@
 #   - L_neural beats a per-ROI mean baseline out-of-sample
 
 experiment:
-  name: "NCD_v1_pilot_1subj"
-  description: "NCD one-subject pilot, lambda_neural=0.5"
-  tags: ["ncd", "pilot", "neural_constraint", "imagery_transfer", "E-03"]
-  hypothesis_id: "NCD-H1"
+  name: "NCD_v1_armF_pilot_1subj"
+  description: "ARM-F tuned standard regularization (O-1 decisive control)"
+  tags: ["ncd", "pilot", "armF", "matched_control", "P25"]
+  hypothesis_id: "MS-H1"
+  arm: "F"
 
 data:
   subjects:
@@ -72,7 +73,7 @@ model:
     d_model: 512
     nhead: 8
     num_layers: 4
-    dropout: 0.1
+    dropout: 0.25
     adapter_rank: 8             # low-rank subject adaptation: 2.2% of params
     mask_ratio: 0.3
     context_roi: "nsdgeneral_other"   # constrained context node, NOT a bypass (T7)
@@ -88,8 +89,8 @@ loss:
   # --- the manipulated variable -------------------------------------------
   neural_prediction:
     enabled: true
-    weight: 0.5                 # lambda_neural  <-- THE ONE KNOB
-    target: "real"              # "shuffled" -> the O-3 connectivity control
+    weight: 0.0                 # lambda_neural (arm F)
+    objective: "none"   # AuxObjective; selects TARGET, never head capacity
 
   # --- retrieval: unchanged from the frozen recipe, for comparability -----
   vmf_nce:
@@ -135,16 +136,16 @@ training:
   optimizer:
     type: "adamw"
     lr: 3.0e-4
-    weight_decay: 0.02
+    weight_decay: 0.05
     betas: [0.9, 0.999]
   warmup_epochs: 5
   min_lr: 1.0e-6
   gradient_clip: 1.0
   early_stop_patience: 15
   early_stop_min_delta: 0.002
-  fmri_noise_std: 0.1           # matched-reg arm tunes THIS, not lambda_neural
-  voxel_dropout: 0.1
-  stochastic_depth: 0.0         # present in EVERY arm so config shape is identical;
+  fmri_noise_std: 0.25          # ARM-F: tuned under the same budget (O-1)
+  voxel_dropout: 0.2
+  stochastic_depth: 0.1         # ARM-F tuned; present in EVERY arm so config shape is identical;
                                 # only ARM-F may raise it (protocol 25 section 1)
   ema:
     enabled: true
@@ -169,4 +170,4 @@ evaluation:
   seed: 42
 
 paths:
-  output_dir: "experimental_results/NCD_v1_pilot_1subj"
+  output_dir: "experimental_results/NCD_v1_armF_pilot_1subj"

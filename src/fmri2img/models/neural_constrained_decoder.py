@@ -51,6 +51,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from fmri2img.models.auxiliary_objectives import AuxObjective, RandomTargetBank
+
 logger = logging.getLogger(__name__)
 
 #: ROI treated as a capacity-constrained context node rather than a normal node.
@@ -243,6 +245,7 @@ class NeuralConstrainedDecoder(nn.Module):
         mask_ratio: float = 0.3,
         context_roi: str = CONTEXT_ROI,
         seed: int = 0,
+        aux_objective: AuxObjective = AuxObjective.MASKED_NEURAL,
     ) -> None:
         super().__init__()
         if subject_roi_indices is None and roi_indices is None:
@@ -252,6 +255,7 @@ class NeuralConstrainedDecoder(nn.Module):
         self.output_dim = output_dim
         self.mask_ratio = mask_ratio
         self.context_roi = context_roi
+        self.aux_objective = AuxObjective(aux_objective)
         self._multi_subject = subject_roi_indices is not None
 
         if self._multi_subject:
@@ -322,15 +326,38 @@ class NeuralConstrainedDecoder(nn.Module):
 
         self.predictable_rois = [n for n in self.roi_names if n != context_roi]
 
+        # --- Matched-control machinery (protocol 25) -------------------------
+        # Every arm allocates the SAME heads above. What follows only supplies
+        # alternative *targets*, so parameter counts stay matched across arms.
+        pred_sizes = OrderedDict(
+            (name, len(template[name])) for name in self.predictable_rois
+        )
+
+        # ARM-D: fixed random targets, variance-matched, dimensionality-matched.
+        self.random_targets = RandomTargetBank(pred_sizes, seed=seed, target_std=1.0)
+
+        # ARM-E: generic (non-anatomical) reconstruction targets. Same voxel
+        # count as each ROI but drawn from an arbitrary index set, so the target
+        # carries comparable information with no anatomical identity.
+        first_key = next(iter(index_source))
+        total_vox = 1 + max(
+            int(getattr(self, f"_idx_{first_key}_{i}").max()) for i in range(self.n_rois)
+        )
+        g = torch.Generator().manual_seed(seed + 1)
+        for i, name in enumerate(self.predictable_rois):
+            pool = torch.randperm(total_vox, generator=g)[: pred_sizes[name]]
+            self.register_buffer(f"_generic_idx_{i}", pool.sort().values)
+
         logger.info(
             "NCD: %d ROI nodes (%d predictable, context=%s), d_model=%d, "
-            "rank=%d, mask_ratio=%.2f, multi_subject=%s, params=%s",
+            "rank=%d, mask_ratio=%.2f, aux=%s, multi_subject=%s, params=%s",
             self.n_rois,
             len(self.predictable_rois),
             context_roi if context_roi in self.roi_names else "none",
             d_model,
             adapter_rank,
             mask_ratio,
+            self.aux_objective.value,
             self._multi_subject,
             f"{sum(p.numel() for p in self.parameters()):,}",
         )
@@ -404,6 +431,7 @@ class NeuralConstrainedDecoder(nn.Module):
             ).view(1, -1, 1)
             h = torch.where(keep, h, self.mask_token.to(h.dtype))
 
+        pre_encoder = h  # (B, R, d) — needed by ARM-H, which must not see context
         h = h + self.pos_embed
         if self._multi_subject:
             h = h + self.subject_embed(subject_ids).unsqueeze(1)
@@ -412,9 +440,19 @@ class NeuralConstrainedDecoder(nn.Module):
         mu = F.normalize(self.retrieval_head(self.pool(states)), dim=-1)
 
         neural_pred: Dict[str, torch.Tensor] = {}
-        for name in masked:
-            idx = self.roi_names.index(name)
-            neural_pred[name] = self.neural_heads[name](states[:, idx])
+        if self.aux_objective is AuxObjective.ROI_AUTOENCODE:
+            # ARM-H: predict each ROI from its OWN pre-encoder token. No ROI is
+            # ever predicted from another, which is precisely what separates ROI
+            # organisation from cross-ROI predictive dependency. Masking is
+            # irrelevant here but is still drawn upstream to hold masking
+            # frequency constant across arms (protocol 25 section 1).
+            for name in self.predictable_rois:
+                idx = self.roi_names.index(name)
+                neural_pred[name] = self.neural_heads[name](pre_encoder[:, idx])
+        else:
+            for name in masked:
+                idx = self.roi_names.index(name)
+                neural_pred[name] = self.neural_heads[name](states[:, idx])
 
         return NCDOutput(
             mu=mu,
@@ -423,27 +461,68 @@ class NeuralConstrainedDecoder(nn.Module):
             roi_states=states if return_states else None,
         )
 
-    def neural_prediction_loss(
+    def _aux_target(
+        self,
+        name: str,
+        x: torch.Tensor,
+        subj_key: str,
+        shuffled_x: Optional[torch.Tensor],
+    ) -> torch.Tensor:
+        """Build the auxiliary target for one ROI under the active arm.
+
+        The arm selects the *target*; the head is identical across arms so that
+        capacity stays matched (protocol 25 section 1).
+        """
+        obj = self.aux_objective
+        roi_pos = self.roi_names.index(name)
+        pred_pos = self.predictable_rois.index(name)
+
+        if obj in (AuxObjective.MASKED_NEURAL, AuxObjective.ROI_AUTOENCODE):
+            return self._voxels(x, subj_key, roi_pos)
+
+        if obj is AuxObjective.SHUFFLED_NEURAL:
+            if shuffled_x is None:
+                raise ValueError(
+                    "SHUFFLED_NEURAL (ARM-C) requires shuffled_x: the fMRI of the "
+                    "permuted partner image. Pass it from the dataloader using "
+                    "DeterministicImagePermutation, which maps whole images (never "
+                    "trials) so repetitions cannot leak the true target."
+                )
+            return self._voxels(shuffled_x, subj_key, roi_pos)
+
+        if obj is AuxObjective.RANDOM_TARGET:
+            return self.random_targets(name, x.shape[0])
+
+        if obj is AuxObjective.SELF_RECONSTRUCTION:
+            return x[:, getattr(self, f"_generic_idx_{pred_pos}")]
+
+        raise ValueError(f"no target defined for objective {obj}")
+
+    def auxiliary_loss(
         self,
         x: torch.Tensor,
         out: NCDOutput,
         subject_ids: Optional[torch.Tensor] = None,
+        shuffled_x: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
-        """Masked-ROI prediction loss, normalised per voxel.
+        """Auxiliary objective loss for the active arm, normalised per voxel.
 
-        This is the identifying objective for ``out.neural_pred``. Without it
-        those heads would be an interpreted quantity with no gradient — the
-        exact failure documented as F-002.
+        This is the identifying objective for ``out.neural_pred``. Without it the
+        heads would be an interpreted quantity with no gradient — the exact
+        failure documented as F-002.
 
         Args:
-            x: (B, V) flat fMRI activity (supplies the held-out targets).
+            x: (B, V) flat fMRI activity (supplies targets for most arms).
             out: Output of :meth:`forward` carrying ``neural_pred``.
             subject_ids: (B,) subject indices; required in multi-subject mode.
+            shuffled_x: (B, V) fMRI of the permuted partner image. Required by
+                ARM-C (``SHUFFLED_NEURAL``) and ignored otherwise.
 
         Returns:
-            Scalar loss. Zero (and gradient-free) if no ROI was masked.
+            Scalar loss. Zero (and gradient-free) under ARM-A/F
+            (``AuxObjective.NONE``) or when nothing was predicted.
         """
-        if not out.neural_pred:
+        if self.aux_objective is AuxObjective.NONE or not out.neural_pred:
             return x.new_zeros(())
 
         subj_key = "_single"
@@ -454,7 +533,20 @@ class NeuralConstrainedDecoder(nn.Module):
 
         total = x.new_zeros(())
         for name, pred in out.neural_pred.items():
-            target = self._voxels(x, subj_key, self.roi_names.index(name))
+            target = self._aux_target(name, x, subj_key, shuffled_x)
             # float32 loss math even under autocast, per repo convention.
             total = total + F.mse_loss(pred.float(), target.float())
         return total / len(out.neural_pred)
+
+    def neural_prediction_loss(
+        self,
+        x: torch.Tensor,
+        out: NCDOutput,
+        subject_ids: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
+        """Backwards-compatible alias for :meth:`auxiliary_loss`.
+
+        Retained so existing NCD tests and configs keep working after the arm
+        family landed. New code should call :meth:`auxiliary_loss`.
+        """
+        return self.auxiliary_loss(x, out, subject_ids=subject_ids)

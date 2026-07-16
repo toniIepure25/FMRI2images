@@ -1,0 +1,22 @@
+citation,venue,year,dataset,method,subject_regime,biological_prior,predictive_mechanism,uncertainty,neuroscience_analysis,direct_novelty_overlap,inspected_source,notes
+PENDING_SEARCH_NOT_RUN,,,,,,,,,,,NO,"EMPTY BY DESIGN. No literature search has been executed in this program. Per the literature_review_protocol, gaps must NOT be filled from memory. Every novelty claim is therefore UNSUPPORTED and Gate 2 is BLOCKED until this file is populated from inspected primary sources. Search backlog is listed below as unpopulated rows - do not treat those rows as evidence of anything."
+BACKLOG_MindEye_and_MindEye2,,,,,,,,,,,NO,search backlog - Scotti et al. 2024 cited in CLAUDE.md but not inspected in this program
+BACKLOG_Brain-Diffuser,,,,,,,,,,,NO,search backlog - Ozcelik & VanRullen 2023 cited in CLAUDE.md but not inspected
+BACKLOG_DREAM_reverse_visual_pathways,,,,,,,,,,,NO,search backlog - directly adjacent to hierarchical decoding claims
+BACKLOG_cross_subject_fMRI_alignment,,,,,,,,,,,NO,search backlog - required for H5 / Candidate B novelty
+BACKLOG_shared_subject_neural_decoding,,,,,,,,,,,NO,search backlog
+BACKLOG_ROI_aware_transformers_for_fMRI,,,,,,,,,,,NO,search backlog - closest prior art to PCD tokenisation
+BACKLOG_graph_neural_networks_for_fMRI,,,,,,,,,,,NO,search backlog - relevant to H2 anatomical graph specificity
+BACKLOG_predictive_coding_networks,,,,,,,,,,,NO,search backlog - CRITICAL for D-002; must establish what canonical PC nets actually implement
+BACKLOG_recurrent_visual_models,,,,,,,,,,,NO,search backlog - relevant to H4 direction arm
+BACKLOG_precision_weighted_predictive_processing,,,,,,,,,,,NO,search backlog
+BACKLOG_neural_encoding_vs_decoding,,,,,,,,,,,NO,search backlog - Naselaris et al. 2011 cited in CLAUDE.md but not inspected
+BACKLOG_representational_similarity_analysis,,,,,,,,,,,NO,search backlog
+BACKLOG_variance_partitioning,,,,,,,,,,,NO,search backlog - required to make H3 valid
+BACKLOG_fMRI_foundation_models,,,,,,,,,,,NO,search backlog
+BACKLOG_probabilistic_neural_decoding,,,,,,,,,,,NO,search backlog
+BACKLOG_vMF_representation_models,,,,,,,,,,,NO,search backlog - Banerjee et al. 2005 / Davidson et al. 2018 cited in CLAUDE.md but not inspected
+BACKLOG_conformal_retrieval,,,,,,,,,,,NO,search backlog - repo has a separate conformal line already
+BACKLOG_selective_prediction,,,,,,,,,,,NO,search backlog
+BACKLOG_uncertainty_aware_BCI,,,,,,,,,,,NO,search backlog
+BACKLOG_NSD_dataset,,,,,,,,,,,NO,search backlog - Allen et al. 2022 cited throughout repo but not inspected in this program

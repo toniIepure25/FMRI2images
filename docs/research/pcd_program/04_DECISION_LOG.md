@@ -245,6 +245,60 @@ immediately (`17` §6).
 
 ---
 
+## D-008 — Commit `src/fmri2img/data/nsd_imagery.py` (tracked code depends on it)
+
+**Date:** 2026-07-16 · **Gate:** 2.6 · **Status:** ACTIVE
+
+**Context:** the `.gitignore` bug fixed in `8800db5` (unanchored `data/` matching the
+`src/fmri2img/data/` *package*) had been silently hiding a 17 619-byte library module.
+
+**Audit findings (all VERIFIED):**
+
+| Question | Answer |
+|---|---|
+| Ever tracked in git? | **No** — absent from all branches, all history |
+| Origin | Local mtime 2026-07-15; **pod copy dated 2026-07-10, identical size**. Hand-copied to the pod, never committed — the **F-005 pattern** exactly |
+| Imported by tracked code? | **YES.** `tests/test_nsd_imagery.py:7` (**module-level import**) and `scripts/evaluation/cross_state_evaluation.py:197,267` |
+| Duplicates committed functionality? | No — `NSDImageryDataset`, `download_nsd_imagery`, `preprocess_imagery_betas`, `load_imagery_features`, `create_paired_perception_imagery_split`, `compute_perception_imagery_kappa_comparison` exist nowhere else |
+| Credentials / secrets? | **None** (scanned for password/secret/api-key/token/bearer/aws/kubeconfig) |
+| Machine paths? | Two `/home/jovyan/work/...` strings, both as **`os.environ.get` defaults** (`DATASET_ROOT`, `NSD_DATA_ROOT`). Mild convention friction vs CLAUDE.md's "no hardcoded paths", but they are documented env-var fallbacks matching the repo's `.env` pattern, not hardcoding |
+| Generated data? | No — pure code |
+
+> **Finding: the repository is broken on a fresh clone.** `tests/test_nsd_imagery.py` imports
+> this module at **module level**, so on any clone it fails at *collection*, not at runtime.
+> It passes locally and on the pod **only because both machines happen to hold an untracked
+> hand-copied file**. This is the same class of defect as F-005 (a run attributed to a commit
+> whose code did not exist in it): the working state is not reconstructible from git.
+
+**Alternatives considered:**
+1. *Leave untracked.* → Rejected. Tracked code imports it; the repo does not work on clone.
+2. *Delete it and its dependents.* → Rejected. Destructive, and it removes working code we do
+   not own, on the basis that a `.gitignore` bug hid it.
+3. *Archive it outside the package.* → Rejected. `cross_state_evaluation.py` imports it from
+   `fmri2img.data`; moving it breaks a tracked script for no benefit.
+4. **Commit as-is.** → **SELECTED.**
+
+**Selected action:** commit unmodified. This is a **repo-integrity fix, not a scientific
+endorsement**. Two things are explicitly *not* being done:
+- **Not fixing its failing test.** `tests/test_nsd_imagery.py::TestKappaComparison::
+  test_perception_higher_kappa` fails locally and is one of the 10 pre-existing failures.
+  Committing the module makes that failure *visible and attributable* rather than latent;
+  fixing it is separate scope and the logic is not ours.
+- **Not endorsing its science.** `compute_perception_imagery_kappa_comparison` rests on
+  kappa, which this program has shown to be degenerate (F-003) and, in PCD's per-level form,
+  untrained (F-002). Any imagery-kappa analysis is suspect on those grounds — **and imagery
+  itself is now a floor effect (`23` §0)**. Flagged for review; not this decision's business.
+
+**Reviewer objection (Agent E, preserved):** "Committing a module whose own test fails
+imports a known-red test into the tracked suite. That is the correct trade — a *visible* red
+test beats an *invisible* dependency — but it must be stated in the commit, not discovered
+later by someone bisecting."  — Accepted; stated in the commit message.
+
+**Revisit trigger:** if the imagery line is formally terminated, reassess whether the module
+and its dependents should be archived together.
+
+---
+
 ## D-007 — Drop the "NeuroPC" name and all predictive-coding vocabulary
 
 **Date:** 2026-07-16 · **Gate:** 2 · **Status:** ACTIVE

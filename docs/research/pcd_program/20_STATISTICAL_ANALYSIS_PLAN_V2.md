@@ -56,9 +56,10 @@ and per-subject effects.
 Reviewer 5's objection: with six shifts × eight arms, *"ARM-B improves ≥2 shifts"* is a
 garden of forking paths unless the family structure is fixed **in advance**. It is fixed here.
 
-### Family P — PRIMARY: ARM-B vs ARM-F, one test per shift
+### Family P — PRIMARY: ARM-B vs ARM-F across five shifts
 
-**Exactly one preregistered test per shift**, on the §2 estimand. **Five members:**
+**Exactly one preregistered one-sided test per shift**, on the §2 estimand, in the
+preregistered direction. **Five members:**
 
 | # | Shift | n |
 |---|---|---|
@@ -68,21 +69,77 @@ garden of forking paths unless the family structure is fixed **in advance**. It 
 | 5 | Noise / missing information | 8 |
 | 6 | Subject (LOSO) | 8 |
 
-**Correction: FDR (BH), q = 0.05, across these 5.**
-**Decision rule: ARM-B must survive FDR-corrected B-vs-F in ≥ 2 of the 5.**
+#### The compound statement needs a compound test — CORRECTED, Phase 2.6
 
-Two notes on why this is not a loophole:
-- The **conjunction of 2** is *more* stringent than any single corrected test, so the ≥2 rule
-  tightens rather than loosens the criterion.
-- **B vs F is the only primary contrast.** B vs A is not primary: beating the retrieval-only
-  floor is uninformative if generic regularization also does (the whole point of O-1).
+The primary claim is not "some shift passes FDR". It is:
 
-> **Shift 3 (imagery) is deliberately EXCLUDED from Family P.** With n = 4 the exact
-> sign-flip permutation distribution has 16 points, so **p ≥ 1/16 = 0.0625** — it can never
-> reach FDR significance, and including it would only inflate the correction while
-> contributing nothing. It is reported as a **secondary, sealed, descriptive** endpoint with
-> exact tests and its p-floor stated. **It cannot contribute to the ≥2 count.** Declaring it
-> primary would be self-defeating arithmetic dressed up as rigour.
+> **ARM-B improves generalization in at least 2 of the 5 preregistered shifts, vs ARM-F.**
+
+**An earlier version of this plan proposed to test that by requiring "≥ 2 BH-FDR
+discoveries". That was wrong and is withdrawn.** BH controls the expected false-discovery
+proportion *among rejections*; it confers **no error control on the derived assertion "at
+least 2 are non-null"**. Counting discoveries and thresholding the count is a post-hoc rule
+with no Type-I guarantee for the compound claim.
+
+**Primary global test: the partial conjunction (PC) test** of Benjamini & Heller (2008),
+which tests `H_0^{r/n}: at most r-1 non-null` directly. With ordered p-values
+`p_(1) ≤ … ≤ p_(n)`:
+
+```
+p^{r/n}_Bonferroni = (n − r + 1) · p_(r)          # valid under ARBITRARY dependence
+p^{r/n}_Simes      = min_{i=r..n} (n−i+1)/(i−r+1) · p_(i)   # needs independence/PRDS
+```
+
+**We use r = 2, n = 5, Bonferroni construction, α = 0.05, as primary** — our five shifts
+share subjects, a model, and a codebase, so they are certainly dependent and the direction of
+that dependence is unknown. Simes is reported as a **sensitivity analysis only**; a
+Bonferroni/Simes disagreement is itself a finding (the conclusion would rest on an unverified
+PRDS assumption) and is reported, never resolved by taking the smaller p-value.
+
+**Implementation:** `src/fmri2img/stats/partial_conjunction.py`.
+**Simulation-validated:** `tests/test_partial_conjunction.py` (21 tests).
+
+#### Why this mattered — measured, at α = 0.05, r = 2, n = 5
+
+The subtlety: **with exactly one true effect, `H_0^{2/5}` still holds** ("at most 1
+non-null"). A valid test must not reject, however strong that single effect is. That is the
+configuration where one lucky shift would masquerade as multi-shift generalization.
+
+| Scenario | old "≥2 BH discoveries" | **PC (Bonferroni)** |
+|---|---|---|
+| all null | 0.005 | 0.002 |
+| **ONE true shift (z=3)** ← still null | **0.071** | **0.044** |
+| **ONE true shift (z=5)** ← still null | **0.077** | **0.051** |
+| **ONE true shift (z=8)** ← still null | **0.079** | **0.049** |
+| ONE true, ρ=0.6 ← still null | 0.060 | 0.038 |
+| ONE true, ρ=0.9 ← still null | 0.042 | 0.025 |
+| TWO true (z=4) — *alternative* | 0.955 | **0.929** |
+| THREE true (z=4) — *alternative* | 0.998 | **0.996** |
+
+**The withdrawn rule inflates Type-I to ~7.9% against a nominal 5% — a ~1.6× inflation —
+precisely when a single shift is real.** The PC test holds at ~5% and costs only ~3 pp of
+power. That is a trade worth making without hesitation.
+
+#### Secondary: per-shift localization
+
+**BH-FDR, q = 0.05, across the 5 shifts**, reported **only to localize** which shifts drive a
+PC rejection. It is descriptive. **It does not license the compound claim** — that is the
+PC test's job, and the two must not be conflated in the writeup.
+
+Also reported for every shift regardless of significance: effect estimate, 95% interval,
+per-subject effects, and direction.
+
+> **Shift 3 (imagery) is EXCLUDED from Family P on two independent grounds.**
+> (i) **Empirical (Phase 2.6, decisive):** Spera et al. report a frozen zero-shot DynaDiff
+> baseline **at chance** (CLIP 48.94% vs 50%). A stronger decoder than NCD has no zero-shot
+> imagery signal, so there is **no headroom for any arm to beat another** (`23` §0, C-023).
+> (ii) **Statistical:** with n = 4 the exact sign-flip distribution has 16 points, so
+> **p ≥ 1/16 = 0.0625** and it could never contribute to a PC rejection anyway.
+> It may be reported as a **null**, corroborating Spera et al. **It is not a contribution and
+> cannot contribute to the r = 2 count.**
+
+**B vs F is the only primary contrast.** B vs A is not primary: beating the retrieval-only
+floor is uninformative if generic regularization also does — which is the whole point of O-1.
 
 ### Family M — MECHANISM: ARM-B vs C, D, E, G, H
 

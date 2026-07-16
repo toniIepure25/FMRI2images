@@ -27,6 +27,7 @@ The PCD_v4 run terminated at epoch 113 on 2026-07-16 09:38, cause **UNKNOWN** (n
 | PCD_v4 CSLS R@1 | 19.85% | same gallery |
 | PCD_v4 train R@1 | **98.83%** @ ep110 | → **82 pp overfit gap** |
 | PCD_v4 params | 167 291 141 | from `manifest.json` |
+| `checkpoint_best.pt` | **epoch 98** | selected on **val_loss**, not R@1 (T14) |
 | Frozen retrieval system | 77.2% R@1 SHARED1000 | **NOT comparable to PCD** (T12) |
 
 PCD has **never been evaluated on SHARED1000**. The sealed set is intact.
@@ -51,15 +52,26 @@ PCD has **never been evaluated on SHARED1000**. The sealed set is intact.
 
 ## Next five actions
 
-1. **D-004:** hash both pod checkpoints; dry-load `checkpoint_best.pt` with an explicit
-   state-dict key diff (`strict=False` currently hides mismatches); copy `split.json`,
-   `manifest.json`, `training_log.csv` off-pod.
-2. **Gate 1:** re-derive v1's reported 17.97% @ epoch 29 from `PCD_v1_8subject/`'s own CSV.
+1. **Gate 1:** re-derive v1's reported 17.97% @ epoch 29 from `PCD_v1_8subject/`'s own CSV.
    Currently UNVERIFIED — it is the *only* evidence that v4 was a regression.
-3. **Gate 1:** read the eval aggregation from source; resolve the 16.4% / 3.3% metric fork (T11).
-4. **Gate 1 (H1):** quantify the level-3 bypass — `nsdgeneral_other` holds ~64% of voxels
-   and skips the hierarchy entirely (T7). One forward pass over val, epoch-101 checkpoint.
+2. **Gate 1:** read the eval aggregation **and the checkpoint-selection criterion** from
+   source; resolve the three-way result ambiguity (T11 metric fork + T14 selection-on-val_loss).
+3. **Gate 1 (H1):** quantify the level-3 bypass — `nsdgeneral_other` holds ~64% of voxels
+   and skips the hierarchy entirely (T7). One forward pass over val; **can falsify the
+   program for the price of one forward pass** — do this before anything expensive.
+4. **D-004 remainder:** key-set diff of `checkpoint_best.pt` against a *freshly constructed*
+   model (`strict=False` would hide a half-initialised load — R-08); copy `split.json`,
+   `manifest.json`, `training_log.csv` off-pod.
 5. **Gate 2:** run the literature sweep; populate `10_LITERATURE_MATRIX.csv`.
+
+## D-004 status: partially executed 2026-07-16
+
+Checkpoints hashed and inspected (digests in `01_TRUTH_AUDIT.md` §6b). Both load cleanly,
+796 entries, key sets identical. Two new findings:
+- **T13** — kappa heads moved **4.3e-07** over 14 epochs vs 1e-2–2e-1 for every other
+  module. F-002 now **confirmed on the trained artifact**, not just a synthetic probe.
+- **T14** — `checkpoint_best.pt` is epoch **98**, but best val R@1 is epoch **101**.
+  Selection runs on **val_loss**, not the reported metric.
 
 ## Standing prohibitions
 

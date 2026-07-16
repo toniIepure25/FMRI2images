@@ -165,6 +165,49 @@ roi_projections     params= 68   grad_is_None=  0
 > through it because no loss consumes it. Pinned by
 > `test_level_kappas_are_in_graph_but_orphaned`.
 
+### 6b. Confirmed on the trained artifact (not only the synthetic probe)
+
+Comparing the two real v4 checkpoints — `checkpoint_best.pt` (**epoch 98**) vs
+`checkpoint_last.pt` (**epoch 112**), i.e. **14 epochs of actual training**:
+
+| Module | tensors | bit-identical | max abs Δ |
+|---|---|---|---|
+| **`level_kappa_heads`** | 8 | **3/8** | **4.3e-07** |
+| `prediction_heads` | 8 | 0/8 | 1.3e-02 |
+| `aggregator` | 7 | 0/7 | 2.3e-02 |
+| `level_encoders` | 112 | 0/112 | 3.3e-02 |
+| `subject_embed` | 1 | 0/1 | 5.1e-02 |
+| `vmf_decoder` | 6 | 0/6 | 2.0e-01 |
+
+> **Finding T13 (F-002 confirmed on real weights).** Over 14 epochs the per-level kappa
+> heads moved by **4.3e-07** while every other module moved by 1e-2 – 2e-1: a factor of
+> **~3×10⁴ to ~5×10⁵**. Three of eight tensors are **bit-identical**.
+> The ~1e-7 residue is not learning — with `grad is None`, AdamW skips the parameter
+> entirely; the drift is float32 accumulation noise from EMA (`ema_shadow` present,
+> `decay: 0.999`), whose shadow of a constant parameter converges to that constant with
+> rounding error. **VERIFIED: the heads did not train.** This closes the finding on the
+> actual artifact, not merely a synthetic probe.
+
+> **Finding T14 (model selection criterion ≠ reported metric).** `checkpoint_best.pt` is
+> saved at **epoch 98**, but the best `val_r@1` in `training_log.csv` is at **epoch 101**.
+> `best_metric` is `None` and `val_loss` is a stored top-level key — so the "best"
+> checkpoint is selected on **val_loss**, not on the retrieval metric every report quotes.
+> Consequence: the checkpoint anyone would evaluate is **not** the best-R@1 checkpoint.
+> Selection criterion must be read from source and declared before any reported number
+> (compounds the metric fork, T11/D-005).
+
+**Checkpoint digests (recorded per D-004):**
+```
+9cece39b4e52b657796b696f9fd4d2ce9f3eaa9d8d6548821c523f0f5e0dbf5c  checkpoint_best.pt  (epoch 98)
+d716be3c23ac0aaff81cfb98a94c1f0a52bf8cb5602942f7572ccb21b0c9eba3  checkpoint_last.pt  (epoch 112)
+```
+Both load cleanly; 796 state-dict entries; key sets identical between them. Structure:
+`_meta, checkpoint_format, config, ema_shadow, epoch, global_step, loss_states,
+lr_scheduler_state_dict, model_config, optimizer_state_dict, roi_mask_path,
+scaler_state_dict, subject, val_loss`.
+**Still open:** key-set diff against a *freshly constructed* model — `strict=False` (R-08)
+would hide a half-initialised load, and that remains untested.
+
 > **Finding T9 (global kappa is near-degenerate).** From `pcd_v4_resumed2.log` epoch 112:
 > `kappa_mean=9.27, kappa_std=0.47, kappa_min=8.04, kappa_max=10.46`
 > (coefficient of variation ≈ 5%). The global concentration is **almost constant across

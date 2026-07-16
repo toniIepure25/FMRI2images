@@ -37,24 +37,30 @@ the pod before acting (R-14).
 
 **Nothing destructive was done. No process killed, no file deleted, no training launched.**
 
+## D-004: partially executed this session
+
+Checkpoints hashed and inspected (digests in `01_TRUTH_AUDIT.md` §6b; both load cleanly,
+796 entries, key sets identical). This produced two further findings — **T13**, confirming
+the kappa heads did not train **on the real weights** (4.3e-07 drift over 14 epochs vs
+1e-2–2e-1 elsewhere), and **T14**, that `checkpoint_best.pt` is epoch 98 and selected on
+**val_loss**, not the reported R@1.
+
+Still outstanding from D-004: key-set diff against a *freshly constructed* model
+(`strict=False` would hide a half-initialised load — R-08), and copying `split.json` /
+`manifest.json` / `training_log.csv` off-pod. Do **not** copy the 2.68 GB weights into git.
+
 ## Next deterministic action
 
-Execute **D-004**, in this order:
+**Gate 1, H1 — the level-3 bypass measurement.** It costs one forward pass over val with
+`checkpoint_best.pt` and it can falsify the entire program: if `nsdgeneral_other` (≈64% of
+voxels, encoded raw, bypassing the hierarchy — T7) carries most of the aggregator weight and
+lesioning levels 0–2 costs <2 pp R@1, then the hierarchy is decorative and the primary
+thesis dies at Gate 1. Do this before anything expensive.
 
-```bash
-export KUBECONFIG="C:/Users/ComputaCenter/Downloads/antoniu_iepure.yaml"
-POD=orchestraiq-jupyter-54644cff87-gz6n2
-kubectl exec $POD -- bash -c 'cd /home/jovyan/work/FMRI2images && \
-  sha256sum experimental_results/PCD_v4_8subject/subj01/checkpoint_{best,last}.pt'
-```
-
-Then dry-load `checkpoint_best.pt` with an **explicit state-dict key diff** (`strict=False`
-currently hides mismatches — R-08), and copy `split.json` / `manifest.json` /
-`training_log.csv` off-pod. Do **not** copy the 2.68 GB weights into git.
-
-Then Gate 1: re-derive v1's 17.97% from `PCD_v1_8subject/`'s own CSV (currently UNVERIFIED
-and the *only* evidence v4 was a regression), resolve the metric fork (T11), and run H1
-(the level-3 bypass measurement — one forward pass, can falsify the program).
+In parallel (both cheap, both read-only): re-derive v1's 17.97% from `PCD_v1_8subject/`'s own
+CSV — currently UNVERIFIED and the *only* evidence v4 was a regression — and read the eval
+aggregation plus checkpoint-selection criterion from source to resolve the three-way result
+ambiguity (T11 + T14).
 
 ## Decisions that must not be reopened without new evidence
 

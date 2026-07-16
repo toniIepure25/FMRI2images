@@ -54,6 +54,44 @@ produces stable, reproducible, category-varying numbers. The analysis would have
 publishable-looking figures that mean nothing. This is the most dangerous class of bug in
 the codebase and the reason gradient tests are now mandatory.
 
+**Confirmed on the trained weights (2026-07-16, T13):** across 14 epochs of real training
+(checkpoint epoch 98 → 112), `level_kappa_heads` moved by **4.3e-07** — 3 of 8 tensors
+bit-identical — while `prediction_heads` moved 1.3e-02, `level_encoders` 3.3e-02 and
+`vmf_decoder` 2.0e-01. A factor of 3×10⁴–5×10⁵. The 1e-7 residue is EMA float
+accumulation, not gradient descent (AdamW skips `grad is None` parameters outright).
+This is no longer an inference from a synthetic probe; it is measured on the artifact.
+
+---
+
+## F-006 — "Best" checkpoint is selected on val_loss, not the reported metric
+
+**Status:** VERIFIED · **Date:** 2026-07-16
+
+`checkpoint_best.pt` is saved at **epoch 98**. The best `val_r@1` in `training_log.csv` is at
+**epoch 101**. `best_metric` is `None`; `val_loss` is a stored top-level key. So checkpoint
+selection runs on **val_loss** while every report quotes **val R@1**.
+
+Consequence: the checkpoint anyone loads and evaluates is **not** the best-R@1 checkpoint,
+and "PCD_v4 achieves 16.36%" does not describe the artifact that would be shipped. Combined
+with the 16.4%/3.3% metric fork (F-007/T11), the project currently has **three** different
+notions of "the result": selection metric, image-level R@1, and trial-level R@1. All must be
+declared explicitly before any reporting (D-005).
+
+---
+
+## F-007 — A 5× metric fork was reported silently
+
+**Status:** VERIFIED · **Date:** 2026-07-16
+
+`training_log.csv` carries `val_r@1` = **0.1636** (6 956-image gallery) and `val_r@1_trial`
+= **0.0330** (19 236 trials). All prior PCD reporting used the larger number without
+disclosing the aggregation. `average_repetitions: false` for training, yet evaluation
+aggregates trials → images.
+
+Separately, comparing either figure to the frozen system's 77.2% SHARED1000 result is
+invalid: different gallery (1 000 vs 6 956), different protocol, different split, and PCD has
+never been run on SHARED1000 at all.
+
 ---
 
 ## F-003 — Global kappa is near-degenerate

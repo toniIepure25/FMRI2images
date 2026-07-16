@@ -1,0 +1,193 @@
+# PCD_v3: Predictive Cortical Decoder — Balanced Anti-Overfitting
+#
+# v1: 167M params, train 99.8% / val 18% → catastrophic overfitting
+# v2: 46.5M params, dropout=0.4, noise=0.5 → model couldn't learn (R@1=0%)
+#
+# v3 strategy: keep the STRUCTURAL fix (ROI bottleneck) that prevents
+# per-subject memorization, restore full model capacity (d_model=768,
+# layers=2), use moderate regularization.
+#
+# Key insight: the 96M params in per-subject ROI projections were the
+# dominant memorization source. Bottleneck 128 → ~30M params in projections
+# while preserving information flow. The shared backbone (transformers,
+# prediction heads) was NOT the overfitting source — restore it fully.
+#
+# Changes vs v1:
+#   + bottleneck_dim: 128 (NEW — cuts ROI projection params 96M → 30M)
+#   + dropout: 0.1 → 0.25 (moderate increase)
+#   + label_smoothing: 0.05 → 0.1 (moderate)
+#   + fmri_noise_std: 0.1 → 0.2 (moderate)
+#   + voxel_dropout: 0.1 → 0.15 (moderate)
+#   + kappa_reg: 0.01 → 0.05 (moderate)
+#   + R-Drop: start_epoch 10, weight 0.3 (gentle, delayed)
+#   = d_model: 768 (RESTORED from v1)
+#   = layers_per_level: 2 (RESTORED)
+#   = nhead: 12 (RESTORED)
+#   = lr: 1e-4 (RESTORED)
+#   = warmup: 15 epochs (RESTORED)
+#   = weight_decay: 0.05 (RESTORED)
+#
+# Estimated params: ~110M (vs 167M v1, vs 46M v2)
+
+experiment:
+  name: "PCD_v3_8subject"
+  description: "PCD v3 — bottleneck ROI projections + moderate regularization"
+  tags: ["pcd", "predictive_coding", "vmf", "8subject", "hierarchy", "bottleneck", "v3"]
+
+data:
+  subjects:
+    - subj01
+    - subj02
+    - subj03
+    - subj04
+    - subj05
+    - subj06
+    - subj07
+    - subj08
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "pcd"
+  posterior: "vmf"
+
+  encoder:
+    roi_dims:
+      V1v: 500
+      V1d: 500
+      V2v: 500
+      V2d: 500
+      V3v: 400
+      V3d: 400
+      V3A: 300
+      V3B: 300
+      V4: 500
+      FFA1: 200
+      FFA2: 200
+      PPA: 300
+      EBA: 300
+      OFA: 200
+      OPA: 200
+      RSC: 200
+      nsdgeneral_other: 10000
+
+  decoder:
+    output_dim: 768
+    kappa_min: 0.001
+    kappa_max: 500.0
+    kappa_mode: "softplus"
+
+  pcd:
+    d_model: 768
+    nhead: 12
+    layers_per_level: 2
+    dropout: 0.25
+    bottleneck_dim: 128
+    enable_per_level_kappa: true
+    ablation_mode: "full"
+
+  cross_subject:
+    enabled: true
+
+  projection_head:
+    enabled: true
+    hidden_dim: 2048
+    out_dim: 768
+    dropout: 0.25
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    label_smoothing: 0.1
+
+  softclip:
+    enabled: true
+    weight: 0.3
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.05
+
+  r_drop:
+    enabled: true
+    weight: 0.3
+    start_epoch: 10
+
+  vmf_nll:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 128
+  gradient_accumulation_steps: 8
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 1.0e-4
+    weight_decay: 0.05
+    betas: [0.9, 0.999]
+  warmup_epochs: 15
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  early_stop_min_delta: 0.002
+  fmri_noise_std: 0.2
+  voxel_dropout: 0.15
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.15
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  use_csls: true
+  csls_k: 10
+  mc_tta_samples: 8
+  kappa_weighted_avg: true
+  compute_probabilistic: true
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/PCD_v3_8subject"

@@ -1,0 +1,191 @@
+# PCD_v4: Predictive Cortical Decoder — Regularization Only (No Architectural Changes)
+#
+# Strategy: v1 architecture EXACTLY (proven to train stably for 47 epochs)
+# with ONLY regularization tuning to combat overfitting.
+#
+# v1 result: 167M params, train 99.8% / val 18% at epoch 47
+# v2 result: 46.5M, aggressive reg → model couldn't learn (0% R@1)
+# v3 result: bottleneck ROI proj → training hung at epoch 2
+#
+# v4 approach: SAME architecture as v1 (no bottleneck, d_model=768,
+# layers=2, nhead=12). Only change regularization hyperparameters.
+# The overfitting source was insufficient regularization, not
+# excessive capacity per se.
+#
+# Changes vs v1 (regularization ONLY):
+#   dropout: 0.1 → 0.25
+#   weight_decay: 0.05 → 0.08
+#   label_smoothing: 0.05 → 0.1
+#   fmri_noise_std: 0.1 → 0.25
+#   voxel_dropout: 0.1 → 0.15
+#   kappa_reg: 0.01 → 0.05
+#   MixCo alpha: 0.15 → 0.2 (slightly stronger augmentation)
+#   projection_head dropout: 0.1 → 0.25
+#
+# Architecture UNCHANGED:
+#   d_model: 768, nhead: 12, layers: 2
+#   No bottleneck (proven to cause hangs)
+#   lr: 1e-4, warmup: 15 epochs
+#   R-Drop: start_epoch 15, weight 0.5 (same as v1)
+
+experiment:
+  name: "PCD_v4_8subject"
+  description: "PCD v4 — v1 architecture + regularization-only anti-overfit"
+  tags: ["pcd", "predictive_coding", "vmf", "8subject", "hierarchy", "regularization", "v4"]
+
+data:
+  subjects:
+    - subj01
+    - subj02
+    - subj03
+    - subj04
+    - subj05
+    - subj06
+    - subj07
+    - subj08
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true
+  exclude_shared1000: true
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"
+  seed: 42
+
+model:
+  type: "pcd"
+  posterior: "vmf"
+
+  encoder:
+    roi_dims:
+      V1v: 500
+      V1d: 500
+      V2v: 500
+      V2d: 500
+      V3v: 400
+      V3d: 400
+      V3A: 300
+      V3B: 300
+      V4: 500
+      FFA1: 200
+      FFA2: 200
+      PPA: 300
+      EBA: 300
+      OFA: 200
+      OPA: 200
+      RSC: 200
+      nsdgeneral_other: 10000
+
+  decoder:
+    output_dim: 768
+    kappa_min: 0.001
+    kappa_max: 500.0
+    kappa_mode: "softplus"
+
+  pcd:
+    d_model: 768
+    nhead: 12
+    layers_per_level: 2
+    dropout: 0.25
+    enable_per_level_kappa: true
+    ablation_mode: "full"
+
+  cross_subject:
+    enabled: true
+
+  projection_head:
+    enabled: true
+    hidden_dim: 2048
+    out_dim: 768
+    dropout: 0.25
+
+preprocessing:
+  enabled: false
+
+loss:
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    label_smoothing: 0.1
+
+  softclip:
+    enabled: true
+    weight: 0.3
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  kappa_reg:
+    enabled: true
+    lambda_kappa: 0.05
+
+  r_drop:
+    enabled: true
+    weight: 0.5
+    start_epoch: 15
+
+  vmf_nll:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  gaussian_nce:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 128
+  gradient_accumulation_steps: 8
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 200
+  optimizer:
+    type: "adamw"
+    lr: 1.0e-4
+    weight_decay: 0.08
+    betas: [0.9, 0.999]
+  warmup_epochs: 15
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 30
+  early_stop_min_delta: 0.002
+  fmri_noise_std: 0.25
+  voxel_dropout: 0.15
+  softclip_from_start: true
+  mixco:
+    enabled: true
+    alpha: 0.2
+    temperature: 0.07
+    weight: 0.5
+  ema:
+    enabled: true
+    decay: 0.999
+
+inference:
+  use_mean_for_retrieval: true
+  mc_samples_prob_metrics: 64
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  use_csls: true
+  csls_k: 10
+  mc_tta_samples: 0
+  kappa_weighted_avg: true
+  compute_probabilistic: false
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/PCD_v4_8subject"

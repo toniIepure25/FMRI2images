@@ -36,8 +36,11 @@ W_r ∈ ℝ^{d×V_r},  U_r^{(s)} ∈ ℝ^{d×k},  V_r^{(s)} ∈ ℝ^{V_r×k},  k
 ```
 
 `W_r` is shared across subjects. Only `U_r^{(s)}, V_r^{(s)}` are subject-specific.
-Per-subject parameters drop from ~96M (PCD, ~57% of the model) to
-`S · R · k · (d + V_r)` ≈ **~7M**, a ~14× reduction.
+`U_r^{(s)}` is **initialised to zero**, so the adapter is an exact no-op at init: the model
+starts as the shared projection and must *earn* any subject-specific deviation.
+**Measured** (4 subjects, real ROI dims, d=512, k=8): per-subject parameters are
+**438 144 — 2.2% of the model**, versus PCD's reported ~96M / ~57% (UNVERIFIED). Pinned by
+`tests/test_ncd_gradient_flow.py::test_subject_capacity_is_low_rank`.
 
 **Voxel-count mismatch across subjects** is handled by per-subject `V_r`, exactly as PCD's
 existing per-subject buffers already do (`_roi_idx_{subj}_{i}`) — reuse that machinery.
@@ -130,22 +133,36 @@ Equivalent and preferred formulation: a hierarchical model with a
 | flat MLP, param-matched | floor | |
 | linear ridge | **NSD-Imagery's own winner** | the baseline that beats complex models |
 
-## 8. Budget (d = 512, R = 17, k = 8, S = 8)
+## 8. Budget — MEASURED, not estimated
 
-| Component | Params |
-|---|---|
-| Shared ROI proj `W_r` (17 × 512 × ~340 avg) | ~3.0M |
-| Low-rank subject adapters (8 × 17 × 8 × (512+340)) | ~0.9M |
-| `other` context node (frozen P + d²) | ~0.26M |
-| Transformer encoder (4 layers, d=512) | ~12.6M |
-| Neural-prediction heads `g_r` (17 × 512 × ~340) | ~3.0M |
-| Retrieval head (512 → 768) | ~0.8M |
-| **Total** | **~20.5M** |
+`d=512, R=17, k=8, S=4` (subj01/02/05/07 — the NSD-Imagery subjects, `22` §3), real ROI
+voxel counts from `PCD_v4_8subject.yaml` (15 500 voxels total).
 
-**vs PCD's 167M — an 8× reduction.** This is the point: NSD-Imagery found complex models
-overfit; our own model overfits by 82 pp; the successor must be small. FLOPs: to be measured
-by `scripts/utils/count_flops.py` (**not yet written** — required before any matched
-comparison; `NOT_MEASURED` is not an acceptable registry entry twice).
+| Component | Params | % |
+|---|---|---|
+| Transformer encoder (4 layers) | 12 609 536 | 62.5% |
+| Shared ROI projections `W_r` | 2 824 192 | 14.0% |
+| Neural-prediction heads `g_r` | 2 821 500 | 14.0% |
+| Retrieval head (512 → 768) | 656 640 | 3.3% |
+| **Low-rank subject adapters** | **438 144** | **2.2%** |
+| `other` context node (frozen P + d²) | 263 680 | 1.3% |
+| **Total** | **20 168 188** | |
+
+**PCD_v4: 167 291 141 → NCD is 8.3× smaller.** That is the point: NSD-Imagery found complex
+models overfit to vision; our own model overfits by 82 pp; the successor must be small.
+
+Two budget facts worth stating plainly:
+- **Per-subject capacity is 2.2%**, versus PCD's reported ~57%. This is F-001's corrective.
+- **The context node costs 263 680 learned params instead of 5 120 000** — a **19.4× saving**
+  and, more importantly, a cost **independent of its 10 000 voxels**. It cannot buy its way
+  into the representation (finding T7).
+
+Reproduce: `PYTHONPATH=src python -c "…"` per `09_EXECUTION_RUNBOOK.md`; asserted by
+`tests/test_ncd_gradient_flow.py::test_context_node_cannot_dominate_by_capacity`.
+
+**FLOPs: still NOT_MEASURED.** `scripts/utils/count_flops.py` is a Gate 3 deliverable and
+**blocks any parameter-matched comparison**. `NOT_MEASURED` must not appear in the registry
+twice.
 
 ## 9. Pseudocode
 

@@ -1,0 +1,170 @@
+# NCD v1 — one-subject pilot (E-03)
+#
+# Neural-Constrained Decoder. Tests whether a masked-ROI neural-prediction
+# constraint improves perception->imagery transfer at matched perception
+# performance (docs/research/pcd_program/17_PRIMARY_THESIS_SELECTION.md).
+#
+# THE ONLY MANIPULATED VARIABLE IS loss.neural_prediction.weight (lambda_neural).
+# Arms differ by exactly one line. This is deliberate: v1->v4 of PCD changed
+# seven regularization knobs at once and learned nothing from four runs (F-001).
+#
+# Arms for E-03:
+#   lambda_neural = 0.0   -> control  (NCD_v1_pilot_1subj_lam0.yaml)
+#   lambda_neural = 0.5   -> treatment (this file)
+#
+# Target dimensionality is HELD FIXED at 768 across all arms. It is the
+# competing hypothesis of Kneeland et al. (2025) -- they attribute the imagery
+# gap to high-dimensional embeddings breaking down at low SNR -- so it is a
+# confound to control, not a parameter to tune. See 22_BLIT_NSD_IMAGERY_AUDIT.md.
+#
+# Gate to E-04 (19_CONFIRMATORY_EXPERIMENT_PLAN.md S6):
+#   - all gradient + leakage tests pass
+#   - NCD lambda=0 within 3pp of PCD_v4 under the standard protocol
+#   - L_neural beats a per-ROI mean baseline out-of-sample
+
+experiment:
+  name: "NCD_v1_pilot_1subj_lam0"
+  description: "NCD one-subject pilot, lambda_neural=0.0 -- CONTROL arm"
+  tags: ["ncd", "pilot", "control", "imagery_transfer", "E-03"]
+  hypothesis_id: "NCD-H1"
+
+data:
+  subjects:
+    - subj01          # one of the 4 NSD-Imagery subjects (01/02/05/07)
+  roi: "nsdgeneral"
+  train_split: 0.90
+  val_split: 0.10
+  test_split: 0.0
+  split_by_image: true          # VERIFIED clean (T10) -- do not change
+  exclude_shared1000: true      # sealed; touched once, at the very end (E-08)
+  normalize_fmri: true
+  average_repetitions: false
+  zscore_mode: "per_session"
+  embedding_column: "fused"     # 768-d; held fixed across arms (see header)
+  seed: 42
+
+model:
+  type: "ncd"
+  posterior: "deterministic"    # no vMF: kappa is degenerate (T9/F-003) and an
+                                # unsupervised uncertainty head would repeat F-002
+
+  encoder:
+    roi_dims:
+      V1v: 500
+      V1d: 500
+      V2v: 500
+      V2d: 500
+      V3v: 400
+      V3d: 400
+      V3A: 300
+      V3B: 300
+      V4: 500
+      FFA1: 200
+      FFA2: 200
+      PPA: 300
+      EBA: 300
+      OFA: 200
+      OPA: 200
+      RSC: 200
+      nsdgeneral_other: 10000
+
+  ncd:
+    d_model: 512
+    nhead: 8
+    num_layers: 4
+    dropout: 0.1
+    adapter_rank: 8             # low-rank subject adaptation: 2.2% of params
+    mask_ratio: 0.3
+    context_roi: "nsdgeneral_other"   # constrained context node, NOT a bypass (T7)
+    seed: 0                     # frozen context projection seed
+
+  decoder:
+    output_dim: 768             # HELD FIXED -- confound control, not a knob
+
+  cross_subject:
+    enabled: false              # single-subject pilot
+
+loss:
+  # --- the manipulated variable -------------------------------------------
+  neural_prediction:
+    enabled: true
+    weight: 0.0                 # lambda_neural = 0  <-- CONTROL ARM
+    target: "real"              # "shuffled" -> the O-3 connectivity control
+
+  # --- retrieval: unchanged from the frozen recipe, for comparability -----
+  vmf_nce:
+    enabled: true
+    weight: 1.0
+    tau: 1.0
+    use_queue: true
+    learnable_temperature: true
+    label_smoothing: 0.05
+
+  softclip:
+    enabled: true
+    weight: 0.3
+    tau: 0.05
+    use_queue: true
+    symmetric: true
+
+  # kappa_reg deliberately absent: it drove kappa to CV~5% (F-003) and there is
+  # no kappa head in NCD v1.
+  kappa_reg:
+    enabled: false
+  r_drop:
+    enabled: false              # off in v1: one knob at a time
+  vmf_nll:
+    enabled: false
+  gaussian_nll:
+    enabled: false
+  infonce:
+    enabled: false
+  kl:
+    enabled: false
+
+queue:
+  enabled: true
+  size: 16384
+
+training:
+  batch_size: 128
+  gradient_accumulation_steps: 4
+  mixed_precision: true
+  mixed_precision_dtype: "bf16"
+  num_epochs: 60                # pilot; NCD is 8.3x smaller than PCD
+  optimizer:
+    type: "adamw"
+    lr: 3.0e-4
+    weight_decay: 0.02
+    betas: [0.9, 0.999]
+  warmup_epochs: 5
+  min_lr: 1.0e-6
+  gradient_clip: 1.0
+  early_stop_patience: 15
+  early_stop_min_delta: 0.002
+  fmri_noise_std: 0.1           # matched-reg arm tunes THIS, not lambda_neural
+  voxel_dropout: 0.1
+  ema:
+    enabled: true
+    decay: 0.999
+  # subject-homogeneous batches: NCD asserts this rather than failing silently
+  group_batches_by_subject: true
+
+inference:
+  use_mean_for_retrieval: true
+  seed: 42
+
+evaluation:
+  gallery_sizes: [2, 10, 50, 100, 500, 1000]
+  report_trial_level: true      # BOTH image- and trial-level R@1, always (D-005)
+  use_csls: true
+  csls_k: 10
+  mc_tta_samples: 0             # the PCD hang (T5); keep disabled
+  compute_probabilistic: false  # no posterior in v1
+  # checkpoint selection: DECLARED, and it is the reported metric.
+  # PCD selected on val_loss while reporting R@1 (T14/F-006). Not repeating that.
+  checkpoint_selection_metric: "val_r@1"
+  seed: 42
+
+paths:
+  output_dir: "experimental_results/NCD_v1_pilot_1subj_lam0"

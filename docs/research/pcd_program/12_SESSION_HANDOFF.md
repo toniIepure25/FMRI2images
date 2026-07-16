@@ -37,18 +37,31 @@ subject) run on NSD, **already on the pod**. The matched-control pilot needs no 
 | Arms | All 8 **exactly** parameter-matched (not merely within tolerance) |
 | New code | `auxiliary_objectives.py`; `neural_constrained_decoder.py` (`aux_objective`, `auxiliary_loss`, `_aux_target`); `tests/test_ncd_matched_controls.py`; `tests/test_ncd_arm_config_parity.py`; 4 arm configs |
 
+## Done since the Phase 2.5 report
+
+- **NCD wired end to end** (`acfc68c`). `create_model` dispatches `type: "ncd"` → `NCDModel`;
+  `train_epoch` adds `loss_weights["neural_prediction"] * model._last_aux_loss` via the
+  existing `_is_scfr` idiom. No special-casing needed for the weight — `train_unified` builds
+  `loss_weights` generically from `config["loss"][k]["weight"]`.
+- **O-7 CLOSED** (`20` §4): cross-shift multiplicity family frozen before any read-out.
+- **End-to-end smoke passed** (`68392e7`) from the shipped arm configs with real ROI dims:
+  **19 727 997 params per arm, identical**; ARM-B's aux heads train, ARM-A/F's provably do not.
+- **77 tests passing.**
+
 ## Next deterministic actions
 
-1. **Wire NCD into `create_model` (`unified_model.py`) and the training loop** for
-   `type: "ncd"`, reading `loss.neural_prediction.objective` → `AuxObjective`.
-   **The pilot cannot execute until this is done.** Engineering, not science.
-2. **Declare the cross-shift multiplicity family (O-7).** Cheap, and until it exists
-   *"improves ≥2 shifts"* is a garden of forking paths. **Do this before the pilot reads out.**
-3. **Run E-P1**: ARM-A/B/C/F × 2 seeds, subj01, ~8 GPU-h. Read **B vs F** first.
-4. **B-DATA** (parallel, 0 GPU): request NSD-Synthetic (CC-BY 4.0) and NSD-Imagery from
-   naturalscenesdataset.org.
-5. **Verify R-20/O-9**: the CLIP cache has never been checked on grayscale/Mooney/line-drawing
-   stimuli. It sits upstream of every synthetic number.
+1. **Dataloader: supply `shuffled_x` for ARM-C.** Load the permuted partner image's fMRI
+   alongside each sample via `DeterministicImagePermutation`, seeded
+   `stable_seed(split_hash, seed)`, recorded in the manifest. The model **raises** rather than
+   degenerating into ARM-B, so the block is safe and explicit. **ARM-A/B/F are runnable now.**
+2. **Verify the real data path provisions `roi_indices` for `type: "ncd"`** in
+   `train_unified.py` — the smoke used hand-built indices; the pod path is unverified and is
+   the most likely integration bug.
+3. **Sync code to pod and run E-P1-A/B/F**: 2 seeds, subj01, ~6 GPU-h. **Read B vs F first.**
+4. **B-DATA** (parallel, 0 GPU): request NSD-Synthetic (CC-BY 4.0) + NSD-Imagery.
+5. **O-8**: log ARM-F's tuning trials in the manifest, or the parity claim is unfalsifiable.
+6. **O-9/R-20**: CLIP cache on grayscale/Mooney/line-drawing stimuli — upstream of every
+   synthetic number.
 
 ## Decisions that must not be reopened without new evidence
 

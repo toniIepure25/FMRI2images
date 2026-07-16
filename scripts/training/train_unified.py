@@ -4871,13 +4871,17 @@ def main() -> None:
     _cross_subject_cfg = config.get("model", {}).get("cross_subject", {})
     _cross_subject_enabled = _cross_subject_cfg.get("enabled", False)
     _is_pcd = config.get("model", {}).get("type") == "pcd"
+    _is_ncd = config.get("model", {}).get("type") == "ncd"
+    # PCD and NCD are both per-ROI tokenised, so both need real ROI indices built
+    # from the NSD masks rather than the config's nominal roi_dims.
+    _is_roi_tokenised = _is_pcd or _is_ncd
 
     # Load multi-subject dataset for multi_subject_roi_transformer,
-    # cross-subject adapter mode (V25b), or PCD multi-subject
+    # cross-subject adapter mode (V25b), or PCD/NCD multi-subject
     _use_multi_subject_dataset = (
         (_encoder_type_check == "multi_subject_roi_transformer" and len(_multi_subjects) > 1)
         or (_cross_subject_enabled and len(_multi_subjects) > 1)
-        or (_is_pcd and len(_multi_subjects) > 1)
+        or (_is_roi_tokenised and len(_multi_subjects) > 1)
     )
 
     if _use_multi_subject_dataset:
@@ -4996,20 +5000,30 @@ def main() -> None:
 
     _roi_indices = None
     encoder_type = model_config.get("encoder", {}).get("encoder_type", "mlp")
+    # NOTE: _is_pcd stays here (not _is_roi_tokenised) to preserve PCD's existing
+    # behaviour exactly -- PCD always takes the multi-subject index path. NCD is
+    # governed by cross_subject.enabled, so a single-subject NCD pilot correctly
+    # falls through to the single-subject branch below.
     _is_multi_subject = (
         encoder_type == "multi_subject_roi_transformer"
         or _cross_subject_enabled
         or _is_pcd
     )
     _roi_patch_size = model_config.get("encoder", {}).get("roi_patch_size", 0)
-    if _is_pcd and not _is_multi_subject:
-        # PCD single-subject: build ROI indices for one subject
+    if _is_roi_tokenised and not _is_multi_subject:
+        # PCD/NCD single-subject: build ROI indices for one subject from the NSD
+        # masks. Without this the model receives roi_indices=None and cannot
+        # tokenise, so this gate must track every per-ROI architecture.
         from fmri2img.data.roi_utils import build_roi_index
         roi_names = list(model_config["encoder"].get("roi_dims", {}).keys())
         if roi_names:
             actual_dims, _roi_indices = build_roi_index(subject, roi_names)
             model_config["encoder"]["roi_dims"] = dict(actual_dims)
-            logger.info("PCD single-subject ROI dims (total=%d)", sum(actual_dims.values()))
+            logger.info(
+                "%s single-subject ROI dims (total=%d)",
+                "NCD" if _is_ncd else "PCD",
+                sum(actual_dims.values()),
+            )
     elif encoder_type == "roi_transformer":
         from fmri2img.data.roi_utils import build_roi_index
         roi_names = list(model_config["encoder"].get("roi_dims", {}).keys())

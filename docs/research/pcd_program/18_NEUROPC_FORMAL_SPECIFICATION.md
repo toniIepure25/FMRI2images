@@ -151,6 +151,19 @@ voxel counts from `PCD_v4_8subject.yaml` (15 500 voxels total).
 **PCD_v4: 167 291 141 → NCD is 8.3× smaller.** That is the point: NSD-Imagery found complex
 models overfit to vision; our own model overfits by 82 pp; the successor must be small.
 
+**Single-subject pilot (E-P1): 19 727 997 params** — the 4-subject figure minus the subject
+adapters and subject embedding, which a 1-subject run does not allocate. Verified end-to-end
+from the shipped arm configs through `create_model` with the real ROI dims (15 500 voxels):
+
+```
+ARM-A: params=19,727,997 | lambda=0.0 | aux=None | aux_heads_trained=False
+ARM-B: params=19,727,997 | lambda=0.5 | aux=set  | aux_heads_trained=True
+ARM-F: params=19,727,997 | lambda=0.0 | aux=None | aux_heads_trained=False
+```
+
+**Parity holds exactly at production scale**, and the controls provably add nothing: ARM-A/F
+stash no auxiliary loss and their heads receive no gradient, while ARM-B's do.
+
 Two budget facts worth stating plainly:
 - **Per-subject capacity is 2.2%**, versus PCD's reported ~57%. This is F-001's corrective.
 - **The context node costs 263 680 learned params instead of 5 120 000** — a **19.4× saving**

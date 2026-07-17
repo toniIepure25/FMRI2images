@@ -75,7 +75,7 @@ Two things, stated now, before any evidence, so they cannot be rationalised away
 
 | | |
 |---|---|
-| Branch / HEAD | `research/mindcompiler-neural-state-operators` @ `c1095de`, upstream set, server-verified |
+| Branch / HEAD | `research/mindcompiler-neural-state-operators`; bootstrap `3c4ebcd`, upstream set, server-verified |
 | Parent | `feature/predictive-cortical-decoder` @ `c1095de` — archived, published, intact |
 | Working tree | clean but for `docs/CLAUDE_MEGA_PROMPT.md` (user-authored, deliberately untracked) |
 | Tests | 115 program tests passing (inherited); 10 pre-existing env failures, verified unrelated |

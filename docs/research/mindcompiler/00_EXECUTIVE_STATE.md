@@ -1,9 +1,57 @@
 # 00 — MINDCOMPILER Executive State
 
-**Last updated:** 2026-07-17 · **Gate: M0 (Truth, novelty, feasibility) — IN PROGRESS**
-**Branch:** `research/mindcompiler-neural-state-operators` @ `c1095de`
+**Last updated:** 2026-07-17 · **Gate M0 — VERDICT ISSUED (§Verdict below)**
+**Branch:** `research/mindcompiler-neural-state-operators`
+**Bootstrap commit:** `3c4ebcd` (the earlier `c1095de` self-reference in this file and in `19`
+was **stale**: it named the *parent* commit, not the commit that contained these files.
+Corrected 2026-07-17.)
 **Parent:** `feature/predictive-cortical-decoder` @ `c1095de` (PCD/NCD archived, not deleted)
-**Active runs: NONE.** Pod idle (GPU 4 MiB, 0%). **No GPU has been spent on MINDCOMPILER.**
+**Active runs: NONE.** Pod idle. **No GPU has been spent on MINDCOMPILER.**
+
+---
+
+## ⛔ GATE M0 VERDICT: `PROSPECTIVE_PROGRAM_REQUIRED`
+
+**The retrospective flagship is pre-empted. The surviving claims are untestable on public data.**
+
+| Dimension | Verdict |
+|---|---|
+| **Conceptual novelty** | **LARGELY PRE-EMPTED.** Roy, Breedlove, St-Yves, Kay & Naselaris (2025) introduce *"the imagery transformation — a mapping from visual to imagery activity patterns evoked by the same stimulus"*, estimate it per visual area on **two 7T datasets**, and **predict held-out imagery activity**. That is MINDCOMPILER's core move, our E2 and our E8, from the field's leading lab, on our own substrate. |
+| **Methodological novelty** | **PARTIAL.** Composition, cross-subject transport *of the operator itself*, and calibrated probabilistic target-state prediction were not found. `S_p` (hyperalignment/SRM) and `T_s` machinery (neural/Koopman operators, incl. compositional variants) are mature and **not ours to claim**. |
+| **Public-data feasibility** | **INSUFFICIENT for the flagship.** No public dataset has **≥3 mental states on the same content at trial level** — composition, non-commutativity and interpolation are therefore **unmeasurable**. NSD-Imagery is 4 subjects / 18 stimuli, already used by Roy et al. |
+| **Prospective necessity** | **YES.** Every surviving claim requires MindStates-class acquisition. |
+| **A\* potential** | **REDUCED, not zero** — and now conditional on new measurements, not on modelling. |
+
+**`PROSPECTIVE_PROGRAM_REQUIRED` is not termination** (mission §12). The platform and
+retrospective tests may proceed; the *flagship claim* needs new data.
+
+### The finding that decides it — and it is scientific, not bibliographic
+
+Roy et al. measured what the perception→imagery transformation *is*: in early visual cortex it
+**halves the active dimensions and reorients them**; reconstructions explain only **25–50% of
+variance**; imagery occupies a **distinct subspace**.
+
+1. **The map is strongly non-invertible.** `T_{b→a}∘T_{a→b} ≈ I` is **contradicted by
+   measurement**, not untested. Our inverse test has a published answer: *no*.
+2. **Composition compounds the loss.** A path routed through imagery is degraded by
+   construction; a composed path beating a direct one is *a priori* implausible here.
+3. **H1 (additive state offset) is close to dead**; H2/H3's "shared manifold" is weakened —
+   imagery is a *different subspace*, not a rescaled one.
+
+With **Spera et al. 2026** (zero-shot perception→imagery **at chance**, CLIP 48.94% vs 50%),
+the picture is coherent: perception→imagery is **lossy, dimension-halving, subspace-shifting**
+— learnable within-subject with paired data, carrying **no zero-shot transfer**.
+
+> **Do not retrofit an algebra to this.** The published measurements point away from
+> composability and invertibility. That is the answer arriving early and cheaply — which is
+> what Gate M0 is for.
+
+### Mandatory next action before *any* redesign
+
+**Read Roy et al. in full.** bioRxiv returned **HTTP 403**; only abstract + PubMed extraction
+were obtained. Their composition / inversion / cross-subject / semantic-control status is
+**UNCONFIRMED** — "not mentioned" is not "not done". If they tested composition, the last
+survivors die too. **Zero cost, maximal information.**
 
 ---
 

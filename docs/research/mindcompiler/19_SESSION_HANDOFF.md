@@ -1,6 +1,20 @@
 # 19 — MINDCOMPILER Session Handoff
 
-**Written:** 2026-07-17 · **Branch:** `research/mindcompiler-neural-state-operators` @ `c1095de`
+**Written:** 2026-07-17 · **Branch:** `research/mindcompiler-neural-state-operators`
+**Bootstrap commit:** `3c4ebcd` — the `c1095de` self-reference previously here was **stale**:
+it named the *parent* commit, not the commit containing this file. Corrected 2026-07-17.
+
+> ## ⛔ SUPERSEDED — read `00_EXECUTIVE_STATE.md` first
+>
+> **Gate M0 verdict issued: `PROSPECTIVE_PROGRAM_REQUIRED`.**
+> The "exact next action" below (the frontier literature review) **has now been run**. It
+> found **Roy et al. (2025)**, who pre-empt the retrospective flagship — and whose
+> measurements argue *against* composability and invertibility.
+>
+> The successor action is to **read Roy et al. in full** (bioRxiv 403'd this session).
+>
+> The "honest prior" in this file proved right on **both** counts: public data *is* too thin,
+> and `PROSPECTIVE_PROGRAM_REQUIRED` *was* the outcome. Retained below as the record.
 
 ---
 

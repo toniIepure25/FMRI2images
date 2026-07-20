@@ -10,7 +10,70 @@ Corrected 2026-07-17.)
 
 ---
 
-## ⛔ GATE M0 VERDICT: `PROSPECTIVE_PROGRAM_REQUIRED`
+## ⛔ GATE M0.1 VERDICT: `ONLY_PROSPECTIVE_DISCOVERY_REMAINS`
+
+**Supersedes the M0 verdict below.** Issued 2026-07-17 after the **full** Roy et al. text
+(PMC12424947), which **corrected three errors in my own prior report** (`01` §0).
+
+### The corrections matter — I had overstated the pre-emption
+
+1. The **"25–50% variance"** figure is an **alignment ratio** (subspace misalignment), *not*
+   an information-loss figure.
+2. **I claimed the map was "non-invertible, contradicted by measurement". They never ran the
+   inverse.** I stated as measured fact something untested — and generalised an early-visual
+   result to the whole hierarchy. In **ventral/lateral/parietal, alignment is ~100%: "imagery
+   and visual subspaces occupy identical subspaces."**
+3. **Dimensionality halving is early-visual only.** Imagery dimensionality is nearly *constant*
+   across ROIs; the gap closes because *vision expands*, not because imagery contracts.
+
+> Roy et al. **support** MINDIR's premise (structured, ROI-dependent contraction) more than
+> they refute it. They also pre-empt part of it. My previous "evidence points away from an
+> algebra" was too strong and is withdrawn.
+
+### Verdict, separated
+
+| Dimension | Status |
+|---|---|
+| **Conceptual novelty** | **Substantially pre-empted.** Roy et al. own the vision→imagery transformation, within-subject prediction (r ≈ 0.3–0.5), ROI-specific analysis, and the refutation of "imagery = weak vision". The memory-compression literature (episodic dimensionality transformation; *A compressed code for memory discrimination*) owns directional perception→memory contraction. **H3 is not a new idea.** |
+| **Methodological novelty** | **REAL but narrow.** Nobody has tested (a) whether the transformation is **neural or semantic** (H7), (b) **cross-subject universality** of contraction spectra (H1/H2), (c) the **inverse**, (d) **≥3-state composition** (H4/H5). |
+| **Public-data feasibility** | **INSUFFICIENT for discovery.** **No audited public dataset has ≥3 states on the same content at trial level.** NSD-Imagery has **12 content identities** — too few for serious held-out-content work. |
+| **Prospective necessity** | **YES** for every discovery-level claim (path dependence, contraction laws, prospective degradation prediction). |
+| **A\* potential** | **Only via MindStates-7T.** Not reachable by modelling public data. |
+
+**`ONLY_PROSPECTIVE_DISCOVERY_REMAINS` is not termination.** One genuine public-data
+experiment survives and should run — it is a **validity study, not a discovery**.
+
+### Strongest surviving gap — and it is a validity question about someone else's result
+
+**Roy et al. never ran a semantic control.** Their analysis is *"purely
+voxel-activity-to-voxel-activity."* **Nobody has shown the imagery transformation is neural
+rather than a stimulus-identity effect.** With only 12 conditions in Dataset 1, a model could
+predict imagery activity by implicitly identifying *which of 12 stimuli* it was — with no
+state-transformation content whatsoever.
+
+That is testable **now**, on public data, with no GPU: **experiment E-M1 (H7)**.
+Both outcomes publish. A negative would be a substantive correction to an actively-cited
+preprint.
+
+### Strongest fatal objection to MINDIR (unresolved)
+
+> *"Your surviving contribution is a control experiment on a preprint, and your flagship needs
+> a scanner you do not have. The contraction phenomenon is already established from two
+> directions. What is the discovery?"*
+
+**There is currently no answer that does not require MindStates-7T.** Recorded, not resolved.
+
+### Verdict caveat — 4 dataset families remain UNAUDITED
+
+Generic Object Decoding (Horikawa/Kamitani), **memory-reinstatement**, **working-memory**, and
+MEG/EEG imagery datasets were not audited. **Memory-reinstatement and working-memory are the
+highest-value remaining audits**: either could supply a *third state* on shared content and
+would upgrade this verdict toward `PARTIALLY_PREEMPTED_BUT_FLAGSHIP_SURVIVES`. **The verdict
+is provisional pending those two audits.**
+
+---
+
+## (superseded) GATE M0 VERDICT: `PROSPECTIVE_PROGRAM_REQUIRED`
 
 **The retrospective flagship is pre-empted. The surviving claims are untestable on public data.**
 

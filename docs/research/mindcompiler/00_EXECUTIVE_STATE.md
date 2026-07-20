@@ -10,7 +10,65 @@ Corrected 2026-07-17.)
 
 ---
 
-## ⛔ GATE M0.1 VERDICT: `ONLY_PROSPECTIVE_DISCOVERY_REMAINS`
+## ✅ GATE M0.2 VERDICT: `PUBLIC_TWO_STATE_PROGRAM_FEASIBLE__THREE_STATE_ACCESS_REQUIRED`
+
+**Supersedes M0.1.** Issued 2026-07-17. **M0.1's `ONLY_PROSPECTIVE_DISCOVERY_REMAINS` was too
+restrictive and rested on a false statement of mine.**
+
+### The correction
+
+**I wrote:** *"No public dataset has ≥3 mental states on the same content at trial level."*
+**False as an existence claim.** **Oedekoven et al. (2017)** measured **21 participants
+watching, immediately retrieving, and retrieving after one week, the same 24 videos** — three
+states, identical content. The true statement is:
+
+> Three-state data **exist and are verified**; they are **not openly downloadable at trial
+> level** (NeuroVault 2814 = group t-maps only); trial-level is **available on reasonable
+> request**.
+
+*"No dataset exists"* terminates a retrospective program. *"Data exist but need an author
+request"* makes it an **access task**. I conflated them, and it changed the verdict.
+
+### Verdict, separated as required
+
+| | |
+|---|---|
+| **Downloadable NOW** | **Li, Yang & Bao 2026** (Dryad 7.37 GB) — perception + working memory · **NSD-Imagery** — perception + imagery · **ds001132** — movie + spoken recall (confounded) |
+| **Requires author approval** | **Oedekoven 2017 trial-level** — the only verified encoding→immediate→delayed sequence. Draft in `21`, **NOT SENT** |
+| **Supports a retrospective paper** | **E-M1** (is the Roy transformation neural or semantic? — nobody has tested this) + **E-M2** (perception→WM reorganization). Both public, both runnable now |
+| **Requires prospective scanning** | causal path dependence · controlled multi-state factorial · vividness/delay manipulation · prospective counterfactual prediction · closed-loop |
+| **Could be A\*-competitive** | **E-M3** (encoding→immediate→delayed predictive factorization, 21 subjects) **if access is granted**; otherwise only Track P |
+
+### The theory changed — and the data forced it
+
+Roy et al.: perception→imagery **contracts** early-visual dimensionality.
+Li, Yang & Bao: perception→WM **expands spatially** — ipsilateral representation across
+**70–90% of ipsilateral LOC**, exceeding unilateral perception.
+
+> **Two internally-generated states reorganize information in opposite geometric directions.**
+> A pure "information contraction" thesis is **refuted by already-published data**. MINDIR's
+> object becomes **reorganization** — contraction, expansion, rotation, redistribution, noise —
+> and the discovery target is whether *which* information is retained follows reproducible
+> regularities. **Do not force "contraction" onto expansion.**
+
+### Strongest fatal objection (still unresolved)
+
+> *"E-M1 is a control experiment on someone else's preprint; E-M2 is a re-analysis; E-M3 needs
+> data you may not get. Where is the discovery?"*
+
+Honest answer: **E-M3 is the only retrospective candidate for a discovery-level result, and it
+is gated on an email the user must send.** Everything else is validity work — worth doing,
+publishable, not a flagship.
+
+### Immediate next action
+
+**E-M1 on NSD-Imagery.** Public, no GPU, no access needed, and both outcomes publish: either
+the imagery transformation is neural (validating the substrate) or it is a stimulus-identity
+effect (a substantive correction to an actively-cited preprint).
+
+---
+
+## (superseded) GATE M0.1 VERDICT: `ONLY_PROSPECTIVE_DISCOVERY_REMAINS`
 
 **Supersedes the M0 verdict below.** Issued 2026-07-17 after the **full** Roy et al. text
 (PMC12424947), which **corrected three errors in my own prior report** (`01` §0).

@@ -10,7 +10,39 @@ Corrected 2026-07-17.)
 
 ---
 
-## GATE M1.2 STATUS: `GATE_M1_S0_FRAMEWORK_VALIDATED__CALIBRATION_PENDING`
+## GATE M1.3 STATUS: `GATE_M1_S0_FRAMEWORK_VALIDATED__OPERATING_CHARACTERISTICS_UNRESOLVED`
+
+**Corrected 2026-07-17.** Detail in `26_GATE_M1_3_CORRECTIONS.md`. Two M1.2 overreaches of
+mine are **retracted**:
+
+1. **"max FPR 0.000, criterion met" was statistically invalid.** It came from 15 evaluation
+   seeds. Clopper-Pearson 95% CI for 0/15 is **[0.000, 0.218]** -- the true FPR could be 21.8%.
+   **n >= 72 zero-event trials are needed merely to bound FPR <= 0.05**; the target is 1000.
+   Every FPR must now carry an exact binomial interval.
+2. **"the nuisance is stronger than the transformation" was an unmatched comparison.** W1f and
+   W2 were not matched on source/target reliability, predictive correlation, effective rank,
+   or explainable variance. Withdrawn. The legitimate claim is only that **some
+   latent-common-cause configurations are observationally indistinguishable from a
+   condition-level transformation.**
+
+**Task P (predictive, Level B) and Task C (latent-confound sensitivity) are now separate.** The
+M1.2 error was using an *unrestricted* worst-case latent confound to set the primary threshold
+for a *predictive* test -- which guarantees zero power by construction. Task C is a
+**robustness frontier**, not a threshold.
+
+**W1f reclassified** as `W1f_condition_locked_latent_common_cause` -- a stable latent *content*
+property (salience, memorability, unmeasured semantics). **It is not "attention"**; that label
+was mine and was wrong.
+
+**Unchanged and important:** W1c (incomplete observed features) yields positive `dR2` with **no
+transformation**, so any positive real result is always W1c-compatible; NSD-Imagery reaches
+**Level B** at best.
+
+**S1 is unblocked and is the next action** -- exact reproduction does not depend on Task C.
+
+---
+
+## (superseded) GATE M1.2 STATUS
 
 **Downgraded 2026-07-17** from `..._CHECK_PASSED`. Detail in `25_GATE_M1_2_CALIBRATION.md`.
 The M1.1 detector had ~0.10 FPR against W1 (short of 0.05) and reported power 1.00 at

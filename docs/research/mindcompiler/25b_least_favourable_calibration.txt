@@ -1,0 +1,41 @@
+Gate M1.2 least-favourable calibration
+REDUCED RUN (15 cal + 15 eval seeds, n_voxels=60, n_id=12) -- magnitudes are
+CONFIGURATION-SPECIFIC. The structural findings are what transfer.
+
+threshold = 0.8246 (max per-null q95, floored at delta_min=0.02)
+MAX FPR across nulls = 0.000   (criterion <= 0.05: MET)
+POWER vs W2          = 0.00    (alt mean dR2 = 0.213)
+
+null    q95      mean dR2   FPR
+W0      0.106     0.012     0.00
+W1a     0.091    -0.012     0.00
+W1b    -0.011    -0.097     0.00
+W1c     0.371     0.017     0.00   <- incomplete features: POSITIVE mean, no transform
+W1d     0.159     0.039     0.00
+W1f     0.825     0.470     0.00   <- WORST NULL by a wide margin
+
+TWO FINDINGS THAT TRANSFER:
+
+1. W1c behaves as predicted. Incomplete observed features yield a POSITIVE mean
+   incremental source value (+0.017) with NO state transformation present. Since
+   no real feature battery is exhaustive, a positive real-data result is always
+   compatible with W1c. This is why NSD-Imagery reaches Level B at best.
+
+2. W1f is far worse than anticipated and is the binding constraint. A single
+   unobserved condition-level attentional/nuisance variable shared by both states
+   produces mean dR2 = +0.470 -- larger than the genuine transformation's +0.213.
+   Calibrating honestly against the least-favourable null therefore sets the
+   threshold ABOVE the alternative, and POWER COLLAPSES TO ZERO.
+
+CONSEQUENCE: under least-favourable calibration at this configuration the
+detector is valid (max FPR 0.000) but USELESS (power 0.00). An honest E-M1
+cannot distinguish a genuine condition-level transformation from a shared
+unobserved nuisance at n_id=12 unless the nuisance is bounded by design or
+measurement. This is a design finding, not a tuning problem: it says the
+attentional/nuisance confound must be MEASURED (or excluded by design), not
+assumed away.
+
+W1f's strength is a free parameter chosen here; its exact magnitude is not a
+claim about real data. What is claimed: an unobserved shared condition-level
+nuisance is a devastating null for this estimand, and it must be addressed
+before any Level B interpretation.

@@ -2,9 +2,17 @@
 
 Corrects the estimand of the Gate M1 simulation. The earlier version modelled
 **single-trial** perception->imagery coupling, which the Roy design cannot
-observe: vision and imagery were acquired in **separate runs** and paired
-**randomly within stimulus identity**. Single-trial coupling therefore averages
-away and is not identifiable here (retained as W4, explicitly non-primary).
+observe as such: vision and imagery were acquired in **separate runs** and paired
+**randomly within stimulus identity**.
+
+**W4 does NOT "average away entirely" -- that earlier claim was wrong.** Random
+within-identity pairing removes the *trial-residual alignment* only. A linear
+single-trial transformation still **induces a condition-level transformation**,
+because averaging commutes with a linear map: trials with condition mean muX_k
+have condition-mean image muX_k @ W.T. **The condition-level mapping therefore
+survives**, and is indistinguishable from a genuine W2 transform. What remains
+unidentifiable is the *mechanism* producing it, not its existence.
+See ``test_docstring_does_not_claim_single_trial_averages_away``.
 
 The scientific target is a **condition-level** transformation that generalizes
 to unseen content. Four worlds with known ground truth:

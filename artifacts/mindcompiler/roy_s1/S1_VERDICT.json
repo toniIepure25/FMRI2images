@@ -1,0 +1,39 @@
+{
+  "gate": "GATE_M1_S1_REAL_DATA_REPRODUCTION",
+  "verdict": "ROY_S1_BLOCKED_BY_DATA_ACCESS",
+  "feasibility_ceiling": "S1_APPROXIMATE_REPRODUCTION_ONLY",
+  "session_input_commit": "ef931dbc335f11c8be42a97b370bf05a1a1d8d45",
+  "date": "2026-07-17",
+  "data_downloaded": false,
+  "reproduction_run": false,
+  "gpu_used": false,
+  "blocking_findings": [
+    {
+      "id": "B1",
+      "finding": "No author code repository located for the Roy et al. imagery-transformation analysis. Paper is a bioRxiv preprint, not peer-reviewed. Searches over the author set and NSD ecosystem returned only adjacent projects (cvnlab/nsddatapaper, gifale95/NSD-synthetic, MedARC-AI/fMRI-reconstruction-NSD), none implementing vis2img.",
+      "consequence": "Exact reproduction is impossible in principle; denoising, voxel inclusion, rank grid, pairing and solver must be reconstructed from prose. Ceiling is APPROXIMATE unless authors release code."
+    },
+    {
+      "id": "B2",
+      "finding": "NSD-Imagery distribution requires account registration and acceptance of a data-use agreement at naturalscenesdataset.org. Release is CC-BY-NC-ND 4.0.",
+      "consequence": "Cannot download. Per protocol section 4, authentication must not be bypassed; stop with a precise access instruction."
+    }
+  ],
+  "unavailable_artifacts": [
+    "voxel inclusion criteria (visually-responsive threshold not fully specified)",
+    "denoising procedure (paper feeds denoised vis2vis outputs into vis2img; procedure not released)",
+    "rank-selection grid bounds (4-fold CV line search; bounds not given)",
+    "pairing seed count and whether results are averaged over pairings"
+  ],
+  "most_consequential": "The denoising is upstream of the headline number by the authors' own account, so reconstructing it from prose introduces an uncontrolled degree of freedom exactly where the effect size is determined.",
+  "disk_free_gb_D": 74,
+  "existing_nsd_imagery_data_local": false,
+  "pod_synchronized": false,
+  "user_actions_required": [
+    "Register at naturalscenesdataset.org and accept the NSD / NSD-Imagery data-use agreement under own name and institution",
+    "Confirm granted access route (AWS S3 prefix or portal download) and share the route, not credentials",
+    "Optionally email authors for vis2img code -- the only route from approximate to exact"
+  ],
+  "interpretation_limits": "Even on success S1 would establish only that the published repeat-level predictive result was reproduced. It would NOT establish cross-content generalization, identity-template insufficiency, incremental value beyond features, a neural transformation, a causal mechanism, or MINDIR validation.",
+  "s2_s3_verdict_authorized": false
+}

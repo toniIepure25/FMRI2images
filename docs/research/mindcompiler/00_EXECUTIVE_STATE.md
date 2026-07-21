@@ -10,7 +10,34 @@ Corrected 2026-07-17.)
 
 ---
 
-## GATE M1.3 STATUS: `GATE_M1_S0_FRAMEWORK_VALIDATED__OPERATING_CHARACTERISTICS_UNRESOLVED`
+## GATE M1 S1 VERDICT: `ROY_S1_BLOCKED_BY_DATA_ACCESS`
+## Feasibility ceiling: `S1_APPROXIMATE_REPRODUCTION_ONLY`
+
+**Issued 2026-07-17** before any download, per the early-status rule. Detail in
+`27_ROY_S1_DATA_AND_CODE_INVENTORY.md`; machine-readable in
+`artifacts/mindcompiler/roy_s1/S1_VERDICT.json`. **No data downloaded, no reproduction run.**
+
+**B1 - no author code exists.** Roy et al. is a bioRxiv preprint and no author/lab repository
+for the imagery-transformation analysis was found; only adjacent NSD projects exist, none
+implementing `vis2img`. **Exact reproduction is therefore impossible in principle** -- the
+denoising, voxel inclusion, rank grid and pairing would be reconstructed from prose.
+**`S1_APPROXIMATE_REPRODUCTION_ONLY` is a permanent ceiling unless the authors release code.**
+
+**B2 - NSD-Imagery needs registration + a data-use agreement** (CC-BY-NC-ND 4.0). Bypassing
+authentication is prohibited, so S1 stops here with an access instruction.
+
+**Four artifacts UNAVAILABLE:** voxel-inclusion threshold; **denoising procedure**; rank-grid
+bounds; pairing-seed protocol. The denoising matters most -- by the authors' own account they
+feed **denoised** vis2vis outputs into vis2img, so reconstructing it from prose adds an
+uncontrolled degree of freedom exactly where the effect size is set.
+
+**User must:** register at naturalscenesdataset.org and accept the DUA personally; share the
+granted access route (not credentials); optionally request the authors' code -- the only route
+from approximate to exact.
+
+---
+
+## (superseded) GATE M1.3 STATUS: `GATE_M1_S0_FRAMEWORK_VALIDATED__OPERATING_CHARACTERISTICS_UNRESOLVED`
 
 **Corrected 2026-07-17.** Detail in `26_GATE_M1_3_CORRECTIONS.md`. Two M1.2 overreaches of
 mine are **retracted**:

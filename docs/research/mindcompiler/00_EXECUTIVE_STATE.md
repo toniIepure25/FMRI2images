@@ -10,7 +10,38 @@ Corrected 2026-07-17.)
 
 ---
 
-## GATE M1.1 STATUS: `GATE_M1_S0_SYNTHETIC_IDENTIFIABILITY_CHECK_PASSED`
+## GATE M1.2 STATUS: `GATE_M1_S0_FRAMEWORK_VALIDATED__CALIBRATION_PENDING`
+
+**Downgraded 2026-07-17** from `..._CHECK_PASSED`. Detail in `25_GATE_M1_2_CALIBRATION.md`.
+The M1.1 detector had ~0.10 FPR against W1 (short of 0.05) and reported power 1.00 at
+n_id=64 where the effect mean was **-0.002** -- "detecting" a transform for being merely
+*less negative* than the null. Both fixed: least-favourable per-null calibration plus a
+**positive** smallest effect of interest (`delta_min`).
+
+**Canonical estimand:** *incremental source-state predictive value beyond the preregistered
+stimulus-feature battery*, `dR2_source|F = R2(Y|F,X) - R2(Y|F)`. Positive does **not** prove a
+neural mechanism and does **not** exclude unmeasured common causes. Never write "unique neural
+contribution" unqualified.
+
+**THE KEY RESULT -- valid but powerless.** Against a 6-world least-favourable null family:
+max FPR **0.000** (criterion met) but **power 0.00**. W1f (one unobserved shared
+condition-level attentional nuisance) yields mean dR2 **+0.470**, *larger than the genuine
+transform's +0.213*, so the honest threshold sits above the alternative. W1c (incomplete
+observed features) yields **positive** dR2 with **no transform**, and since no real battery is
+exhaustive, a positive real result is always W1c-compatible.
+
+> An honest E-M1 **cannot** separate a real condition-level transformation from a shared
+> unobserved nuisance at n_id=12 unless that nuisance is **measured or excluded by design**.
+> A design finding, not a tuning problem -- and the strongest argument yet that the flagship
+> requires prospective acquisition.
+
+**Claim ceiling:** NSD-Imagery reaches **Level B** (incremental value over *measured*
+features) at best. **Level C** (transformation-specific) needs MindStates.
+**S1 NOT STARTED** -- no data downloaded; provenance-verification budget unavailable.
+
+---
+
+## (superseded) GATE M1.1 STATUS
 
 **Issued 2026-07-17.** No Roy verdict — no real data has been run. Detail in
 `24_GATE_M1_1_CORRECTED_ESTIMAND.md`.

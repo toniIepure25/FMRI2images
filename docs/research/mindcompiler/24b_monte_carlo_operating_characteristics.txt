@@ -1,0 +1,28 @@
+Gate M1.1 Monte Carlo operating characteristics
+Detector: unique_neural > q95(pooled W0+W1 null), per identity count.
+CONFIGURATION-SPECIFIC -- not a design-level sensitivity claim for real data.
+Estimand: unique neural contribution beyond stimulus features, LOIO.
+
+ n_id   W0 mean   W1 mean  null_q95   W2 mean   POWER  FPR_W1
+--------------------------------------------------------------
+    6    -0.584    -0.270     0.039     0.365    1.00    0.10
+   12    -0.367    -0.122     0.047     0.289    1.00    0.10
+   24    -0.174    -0.047     0.009     0.133    1.00    0.10
+   64    -0.182    -0.043    -0.031    -0.002    1.00    0.10
+
+target SNR sweep at n_id=12 (W2 power vs weaker signal):
+  target_snr=0.5: W2 mean=0.122 power=1.00
+  target_snr=1.0: W2 mean=0.289 power=1.00
+  target_snr=2.0: W2 mean=0.357 power=1.00
+
+READING:
+- W0 and W1 (the null worlds) sit BELOW the W2 transform world at every tested
+  n_id. The SIGN of the separation is robust; the magnitude is not.
+- FPR against W1 is ~0.10 (the pooled null includes W1, so a 95th-percentile
+  threshold gives ~5% each tail by construction; W1 is the harder null and sits
+  near the threshold, hence ~0.10). This is the world to watch on real data.
+- At n_id=64 the strong-transform W2 signal used here weakens (mean ~0) because
+  this configuration's transform_strength was fixed while template variance grew;
+  this is a CONFIGURATION artifact and reinforces why absolute magnitudes are not
+  design-level claims. The estimand's VALIDITY (null below transform) is the
+  transferable result, established by the tests across n_id in {6,12,24}.

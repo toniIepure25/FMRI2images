@@ -10,6 +10,32 @@ Corrected 2026-07-17.)
 
 ---
 
+## GATE M1.1 STATUS: `GATE_M1_S0_SYNTHETIC_IDENTIFIABILITY_CHECK_PASSED`
+
+**Issued 2026-07-17.** No Roy verdict — no real data has been run. Detail in
+`24_GATE_M1_1_CORRECTED_ESTIMAND.md`.
+
+**Corrected the estimand.** The Gate M1 sim modelled *single-trial* coupling, which Roy's
+random cross-run pairing cannot observe. Four condition-level worlds now: W0 (null), W1
+(feature mediation), W2 (genuine transform), W3 (mixture). **Primary estimand: unique neural
+contribution beyond stimulus features (LOIO)** — because W1 generalizes *without* a
+transformation, so raw held-out prediction is not enough. Measured (12 seeds, n_id=12):
+W0 −0.32, **W1 −0.15**, **W2 +0.28**, W3 +0.07 → the estimand separates null from transform.
+13 ground-truth tests passing.
+
+**Three of my own claims retracted/corrected** (M-017/M-019, and the withdrawn 0.447/0.93
+sensitivity numbers): the 12-identity "validity" claim is narrowed to "sensitivity unknown";
+**single-trial coupling does NOT average away** — a linear single-trial map survives as a
+condition-level transform (M-019), making the identifiability limit *stronger*, not weaker.
+
+**Next gates (S1–S3 required before any Roy verdict):** real-data reproduction, identity-
+baseline eval, content-held-out eval. S4 = Roy Dataset 2 (512 conditions) confirmation.
+
+**Not artifactual.** The simulation shows only that the repeat-level protocol does not by
+itself identify cross-content generalization (M-020). Roy's result has not been reproduced.
+
+---
+
 ## ✅ GATE M0.2 VERDICT: `PUBLIC_TWO_STATE_PROGRAM_FEASIBLE__THREE_STATE_ACCESS_REQUIRED`
 
 **Supersedes M0.1.** Issued 2026-07-17. **M0.1's `ONLY_PROSPECTIVE_DISCOVERY_REMAINS` was too

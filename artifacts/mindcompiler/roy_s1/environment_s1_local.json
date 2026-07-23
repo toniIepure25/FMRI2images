@@ -1,0 +1,8 @@
+{
+  "status": "S1_ENVIRONMENT_PROVISIONING_IN_PROGRESS",
+  "env_path": "D:/ComputaCenter/envs/fmri2img-roy-s1 (outside repo, not committed)",
+  "first_attempt": "FAILED -- 'numpy<2.0' has no cp313 wheels (host Python 3.13); pip attempted a source build and failed",
+  "deviation": "Dropped the numpy<2.0 pin. numpy 2.x + scipy/sklearn/pandas/h5py/nibabel/pytest all have Python 3.13 wheels. The model core is verified compatible with numpy 2.3.1 (11 synthetic tests pass). RECORDED per S1.2 instruction to record any dependency deviation explicitly.",
+  "reinstall": "running in background (numpy scipy scikit-learn pandas h5py nibabel pytest, no version pins)",
+  "note": "This manifest will be overwritten with the resolved interpreter/versions once the env imports cleanly (S1_ENVIRONMENT_READY)."
+}

@@ -196,7 +196,6 @@ checkpoints/
 # The unanchored data/ rule above also matches the src/fmri2img/data/ *package*,
 # which silently blocked new library modules there (existing ones predate the
 # rule). Un-ignore the package explicitly. Anchoring data/ to /data/ instead
-# would also un-ignore demo_thesis/**/data/, which is out of scope here.
 !src/fmri2img/data/
 !src/fmri2img/data/*.py
 docs/PBT/
@@ -216,3 +215,5 @@ data/nsd/
 !data/manifests/
 !data/manifests/**
 data/nsd/
+demo_thesis/public/data/
+demo_thesis/src/data/

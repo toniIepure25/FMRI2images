@@ -1,95 +1,68 @@
 # 27 — Roy S1: Data and Code Inventory, and Feasibility Determination
 
-**Date:** 2026-07-17 · **Session input commit:** `ef931db` (output commit differs; this file
-does not name the commit that will contain it).
-**No data was downloaded. No reproduction was run.**
+**Date:** 2026-07-17 · **Revised 2026-07-17 (S1.0) to correct factual errors below.**
+**No data downloaded. No reproduction run.**
 
 ---
 
-## FEASIBILITY STATUS (issued per §3, before any download)
+## 0. CORRECTIONS to the first version of this file (my errors)
 
-### `S1_APPROXIMATE_REPRODUCTION_ONLY` — ceiling
-### `ROY_S1_BLOCKED_BY_DATA_ACCESS` — current execution state
+The first version overstated the barriers. Corrected:
 
-Two independent findings, either of which alone prevents starting:
-
-**1. No author code exists (searched, not found).** Roy et al. 2025 is a **bioRxiv preprint,
-not peer-reviewed**, and no author or laboratory repository for the imagery-transformation
-analysis was located. Searches over the author set and the NSD ecosystem returned only
-adjacent projects — `cvnlab/nsddatapaper`, `gifale95/NSD-synthetic`,
-`MedARC-AI/fMRI-reconstruction-NSD` — none of which implements `vis2img`.
-
-> **Consequence: exact reproduction is impossible in principle.** The denoising procedure,
-> voxel-inclusion criteria, rank grid, pairing procedure, centering, and solver would have to
-> be reconstructed **from prose**. Per §6 and §3, a reconstruction from prose is
-> **approximate**, and calling it exact would be false. **The ceiling for S1 is
-> `S1_APPROXIMATE_REPRODUCTION_ONLY`, permanently, unless the authors release code.**
-
-**2. NSD-Imagery requires registration and a data-use agreement.** Distribution is via
-`naturalscenesdataset.org` under terms requiring account registration and acceptance of a DUA;
-the NSD-Imagery release is CC-BY-**NC-ND** 4.0. **§4 requires stopping with a precise access
-instruction rather than bypassing authentication.** I have not registered, cannot accept a DUA
-on the user's behalf, and have downloaded nothing.
-
-## Required artifact classification
-
-| # | Artifact | Class | Note |
-|---|---|---|---|
-| 1 | Participant list (8 subjects) | **reconstructible** | stated in paper |
-| 2 | Visual runs | **after registration** | NSD-Imagery release |
-| 3 | Imagery runs | **after registration** | incl. which runs excluded |
-| 4 | Stimulus identities (12: 6 simple, 6 naturalistic) | **reconstructible** | described in paper |
-| 5 | Repeat/run labels | **after registration** | |
-| 6 | **Trial-level response estimates** | **after registration** | the core requirement |
-| 7 | ROI definitions | **reconstructible from public NSD** | NSD-standard ROIs; repo already uses them |
-| 8 | **Voxel inclusion criteria** | **UNAVAILABLE** | "visually responsive" threshold not fully specified |
-| 9 | Preprocessing details | **partially reconstructible** | prose only |
-| 10 | **Denoising inputs/outputs** | **UNAVAILABLE** | paper feeds **denoised vis2vis outputs** into vis2img; exact procedure not released |
-| 11 | vis2vis pairing procedure | **partially reconstructible** | "different trial, same stimulus" |
-| 12 | vis2img pairing procedure | **partially reconstructible** | random within-identity; **seed count/averaging unspecified** |
-| 13 | Rank-selection grid | **UNAVAILABLE** | "4-fold cross-validated line search"; grid bounds not given |
-| 14 | Validation protocol | **partially reconstructible** | 4-fold, repeat-level |
-| 15 | Evaluation metric | **reconstructible** | per-voxel Pearson r |
-
-**Four artifacts are UNAVAILABLE (8, 10, 13, and the pairing-seed protocol in 12).** Items 10
-and 13 are the most consequential: the paper's own limitations state they used **denoised
-vision trials as vis2img inputs** to boost statistical power, so the denoising is not
-incidental — it is upstream of the headline number. Reconstructing it from prose introduces an
-uncontrolled degree of freedom precisely where the effect size is determined.
-
-## Execution state verified
-
-| | |
+| I wrote | Correct statement |
 |---|---|
-| Branch / HEAD | `research/mindcompiler-neural-state-operators` @ `ef931db`, **server-verified** |
-| Working tree | clean but for `docs/CLAUDE_MEGA_PROMPT.md` (user-authored, untracked) |
-| Disk (D:) | **74 GB free** of 184 GB — adequate for an imagery-specific subset |
-| Existing NSD-Imagery data locally | **none** (only code/docs referencing it) |
-| Pod | not contacted this session; **not synchronized**, per the instruction to inspect before syncing |
-| Active processes | none started |
+| "exact reproduction impossible **in principle**" | **Withdrawn.** Original-code/bitwise replication is *currently unavailable*; an **independent method reproduction is feasible after data access**, with specified sensitivity analyses. |
+| "**no author code exists**" | **Withdrawn.** *No public author implementation was located as of the search date.* Private/unindexed code may exist; an author request has not been answered. |
+| voxel-inclusion threshold "UNAVAILABLE" | **FALSE — it is specified.** 98th-percentile voxelwise SNR within each ROI, SNR from NSD-core (§2). |
+| ridge grid "UNAVAILABLE" | **FALSE — it is specified.** 100 log-spaced values, 10⁻³–10⁵, selected on validation (§2). |
+| rank grid "UNAVAILABLE" | **FALSE — specified.** Ranks 1…max (≤12 for NSD-Imagery); selection near 99% of peak validation performance (§2). |
+| denoising "UNAVAILABLE" | **Overstated.** Architecture *is* specified (fit vis2vis; feed denoised outputs to vis2img). Only the **fold-level implementation** is ambiguous → `ARCHITECTURE_SPECIFIED__FOLD_IMPLEMENTATION_AMBIGUOUS`. |
+| dataset is "CC-BY-NC-ND 4.0" | **Conflation.** That is the *manuscript/preprint* license. **Dataset reuse is governed by the NSD Data Access Agreement**, not yet read (§3). |
 
-## What the user must do to unblock S1
+## 1. Corrected reproducibility taxonomy
 
-1. Register at **naturalscenesdataset.org** and accept the NSD / NSD-Imagery data-use
-   agreement under their own name and institution.
-2. Confirm which access route is granted (AWS S3 prefix or portal download) and share the
-   route — **not** credentials.
-3. Optionally, **email the authors for the vis2img code**. Given items 8/10/13 are
-   unavailable, author code is the only route from *approximate* to *exact*. A draft can be
-   added to `21_DATA_ACCESS_REQUESTS.md` on request.
+| Status | Meaning |
+|---|---|
+| `ORIGINAL_CODE_REPRODUCTION_UNAVAILABLE` | no public author implementation located; private/unpublished code may exist; author request unanswered |
+| `BITWISE_REPLICATION_UNAVAILABLE_WITHOUT_ORIGINAL_CODE_AND_SEEDS` | RNG/seeds not published |
+| `INDEPENDENT_METHOD_REPRODUCTION_FEASIBLE_AFTER_DATA_ACCESS` | the achievable and appropriate target |
+| `ROY_S1_BLOCKED_BY_DATA_ACCESS` | **current execution state** |
 
-**I will not** register an account, accept a DUA, or bypass authentication (§4).
+**"Permanent" is withdrawn** — author code or clarification would change this.
 
-## Interpretation limits carried into S1
+## 2. Corrected artifact inventory (from the full paper)
 
-Even on success, S1 establishes **only** that the published repeat-level predictive result was
-reproduced. It does **not** establish cross-content generalization, identity-template
-insufficiency, incremental value beyond features, a neural transformation, a causal mechanism,
-or any MINDIR validation. **No S2/S3 verdict is authorized.**
+| # | Artifact | Status |
+|---|---|---|
+| Voxel selection | **SPECIFIED**: ROIs V1, V2, V3, hV4, ventral, lateral, parietal; voxel SNR from **NSD-core**; include voxels **> 98th percentile** of voxelwise SNR within each ROI | explicit |
+| Ridge grid | **SPECIFIED**: 100 log-spaced values, **10⁻³ … 10⁵**, selected on validation | explicit |
+| Rank candidates | **SPECIFIED**: 1 … max; ≤ 12 conditions bound NSD-Imagery; selection near **99% of peak validation** | explicit; tie-break ambiguous |
+| Split | **SPECIFIED**: per identity, **4 train / 2 validation / 2 test** of 8 repeats; all identities in every split | explicit |
+| Pairing | **SPECIFIED**: vision paired with random imagery repeat of same stimulus; vis2vis shuffling within split | explicit; **seeds / #realizations / averaging ambiguous** |
+| Denoising | **ARCHITECTURE SPECIFIED**: fit vis2vis; denoised vision = vis2vis outputs → vis2img inputs | `ARCHITECTURE_SPECIFIED__FOLD_IMPLEMENTATION_AMBIGUOUS` |
+| Metric | **SPECIFIED**: per-voxel Pearson r, ROI/subject aggregation | explicit |
 
-## What was deliberately not done
+**No artifact is "unavailable".** The remaining gaps are **implementation ambiguities**, enumerated in `30_ROY_IMPLEMENTATION_AMBIGUITY_REGISTRY.csv`, each handled by a preregistered sensitivity variant rather than a guess.
 
-No synthetic null worlds were added (§ "do not expand"). No 1 000-seed campaign. No pod sync.
-No download. No `roy_reproduction/` package was scaffolded — writing an implementation against
-a specification with **four unavailable components** would encode guesses as though they were
-the published protocol, which is the failure mode this program exists to prevent.
+## 3. License — corrected
+
+- **Manuscript/preprint:** CC-BY-NC-ND 4.0 (governs the *text*).
+- **Dataset access & reuse:** governed by the **NSD Data Access Agreement** + NSD Data Manual — **not yet read**. Redistribution/derivative/publication terms are **pending** that review.
+- **No code or data redistribution decision** may be made until those terms are read.
+
+## 4. Execution state
+
+HEAD `dc75d0a` server-verified · tree clean but for `docs/CLAUDE_MEGA_PROMPT.md` · **74 GB free** on D: · no local NSD-Imagery data · pod not contacted/synchronized · no processes; no GPU.
+
+## 5. Status after S1.0
+
+`ROY_S1_BLOCKED_BY_DATA_ACCESS` (unchanged execution) · `ORIGINAL_CODE_REPRODUCTION_UNAVAILABLE`
+· `INDEPENDENT_METHOD_REPRODUCTION_PREPARED` · `AWAITING_USER_DUA_COMPLETION`
+· `AWAITING_AUTHOR_CLARIFICATION`. **No S1 empirical verdict.**
+
+## 6. Exact user action to unblock
+
+Complete the **official NSD Data Access Agreement** at naturalscenesdataset.org personally;
+share the granted **non-secret access route** (S3 prefix / portal path). Optionally send the
+author request in `21` (drafted, not sent). **I will not register, accept a DUA, or bypass
+authentication.**

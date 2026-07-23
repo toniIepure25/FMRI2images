@@ -10,30 +10,23 @@ Corrected 2026-07-17.)
 
 ---
 
-## GATE M1 S1 VERDICT: `ROY_S1_BLOCKED_BY_DATA_ACCESS`
-## Feasibility ceiling: `S1_APPROXIMATE_REPRODUCTION_ONLY`
+## GATE M1 S1 VERDICT: `ROY_S1_BLOCKED_BY_DATA_ACCESS` (execution)
+## Reproducibility: `ORIGINAL_CODE_REPRODUCTION_UNAVAILABLE` + `INDEPENDENT_METHOD_REPRODUCTION_PREPARED`
+## Awaiting: `AWAITING_USER_DUA_COMPLETION`, `AWAITING_AUTHOR_CLARIFICATION`
+
+**S1.0 correction (2026-07-17).** My prior "impossible in principle / no author code / four artifacts unavailable / dataset is CC-BY-NC-ND" statements were overstated or wrong and are retracted (M-030, M-031). The paper **specifies** voxel selection (98th-pct NSD-core SNR), ridge grid (100 log 1e-3..1e5), rank candidates (<=12), the 4/2/2 split, within-identity pairing, and the metric. Denoising **architecture** is specified; only its **fold-level implementation** is ambiguous. Dataset reuse is governed by the **NSD Data Access Agreement**. **Independent method reproduction is feasible after data access** with preregistered sensitivity variants (`30_..._AMBIGUITY_REGISTRY.csv`). Scaffold `roy_method_reproduction/` built (paper-specified pieces only; ambiguities default to `author_clarification_required` and fail loudly); 7 tests passing.
 
 **Issued 2026-07-17** before any download, per the early-status rule. Detail in
 `27_ROY_S1_DATA_AND_CODE_INVENTORY.md`; machine-readable in
 `artifacts/mindcompiler/roy_s1/S1_VERDICT.json`. **No data downloaded, no reproduction run.**
 
-**B1 - no author code exists.** Roy et al. is a bioRxiv preprint and no author/lab repository
-for the imagery-transformation analysis was found; only adjacent NSD projects exist, none
-implementing `vis2img`. **Exact reproduction is therefore impossible in principle** -- the
-denoising, voxel inclusion, rank grid and pairing would be reconstructed from prose.
-**`S1_APPROXIMATE_REPRODUCTION_ONLY` is a permanent ceiling unless the authors release code.**
-
-**B2 - NSD-Imagery needs registration + a data-use agreement** (CC-BY-NC-ND 4.0). Bypassing
-authentication is prohibited, so S1 stops here with an access instruction.
-
-**Four artifacts UNAVAILABLE:** voxel-inclusion threshold; **denoising procedure**; rank-grid
-bounds; pairing-seed protocol. The denoising matters most -- by the authors' own account they
-feed **denoised** vis2vis outputs into vis2img, so reconstructing it from prose adds an
-uncontrolled degree of freedom exactly where the effect size is set.
-
-**User must:** register at naturalscenesdataset.org and accept the DUA personally; share the
-granted access route (not credentials); optionally request the authors' code -- the only route
-from approximate to exact.
+**[SUPERSEDED by the S1.0 correction above -- retained only as the record of my error.]** The
+text originally here said "no author code exists", "exact reproduction impossible in principle",
+a "permanent" approximate ceiling, "four artifacts UNAVAILABLE", and a CC-BY-NC-ND dataset
+license. All of those are retracted (M-030/M-031); see the S1.0 correction block above and
+`27_ROY_S1_DATA_AND_CODE_INVENTORY.md` §0. User action to unblock: complete the NSD Data
+Access Agreement personally and share the non-secret access route; optionally send the author
+request in `21` (Request 3).
 
 ---
 

@@ -1,7 +1,7 @@
 {
   "gate": "GATE_M1_S1_REAL_DATA_REPRODUCTION",
   "verdict": "ROY_S1_BLOCKED_BY_DATA_ACCESS",
-  "feasibility_ceiling": "S1_APPROXIMATE_REPRODUCTION_ONLY",
+  "feasibility_ceiling": "INDEPENDENT_METHOD_REPRODUCTION_FEASIBLE_AFTER_DATA_ACCESS",
   "session_input_commit": "ef931dbc335f11c8be42a97b370bf05a1a1d8d45",
   "date": "2026-07-17",
   "data_downloaded": false,
@@ -19,12 +19,7 @@
       "consequence": "Cannot download. Per protocol section 4, authentication must not be bypassed; stop with a precise access instruction."
     }
   ],
-  "unavailable_artifacts": [
-    "voxel inclusion criteria (visually-responsive threshold not fully specified)",
-    "denoising procedure (paper feeds denoised vis2vis outputs into vis2img; procedure not released)",
-    "rank-selection grid bounds (4-fold CV line search; bounds not given)",
-    "pairing seed count and whether results are averaged over pairings"
-  ],
+  "unavailable_artifacts": [],
   "most_consequential": "The denoising is upstream of the headline number by the authors' own account, so reconstructing it from prose introduces an uncontrolled degree of freedom exactly where the effect size is determined.",
   "disk_free_gb_D": 74,
   "existing_nsd_imagery_data_local": false,
@@ -35,5 +30,18 @@
     "Optionally email authors for vis2img code -- the only route from approximate to exact"
   ],
   "interpretation_limits": "Even on success S1 would establish only that the published repeat-level predictive result was reproduced. It would NOT establish cross-content generalization, identity-template insufficiency, incremental value beyond features, a neural transformation, a causal mechanism, or MINDIR validation.",
-  "s2_s3_verdict_authorized": false
+  "s2_s3_verdict_authorized": false,
+  "reproducibility_taxonomy": {
+    "original_code": "ORIGINAL_CODE_REPRODUCTION_UNAVAILABLE",
+    "bitwise": "BITWISE_REPLICATION_UNAVAILABLE_WITHOUT_ORIGINAL_CODE_AND_SEEDS",
+    "independent_method": "INDEPENDENT_METHOD_REPRODUCTION_FEASIBLE_AFTER_DATA_ACCESS",
+    "execution": "ROY_S1_BLOCKED_BY_DATA_ACCESS"
+  },
+  "s1_0_corrections": "Withdrew 'impossible in principle' and 'no author code exists'. Voxel threshold, ridge grid, rank candidates, split, pairing, metric are ALL specified. Denoising architecture specified; only fold implementation ambiguous. Dataset governed by NSD Data Access Agreement, not the manuscript CC-BY-NC-ND.",
+  "additional_statuses": [
+    "ORIGINAL_CODE_REPRODUCTION_UNAVAILABLE",
+    "INDEPENDENT_METHOD_REPRODUCTION_PREPARED",
+    "AWAITING_USER_DUA_COMPLETION",
+    "AWAITING_AUTHOR_CLARIFICATION"
+  ]
 }

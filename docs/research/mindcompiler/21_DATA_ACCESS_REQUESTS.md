@@ -92,3 +92,42 @@ so this request may be unnecessary.
    the data owners, not to me (mission §21).
 4. If access is refused or unanswered, **E-M3 moves to Track P** and the flagship's dependence
    on MindStates-7T is unchanged.
+
+---
+
+## Request 3 -- Roy et al. (2025) vis2img/vis2vis code (DRAFT -- NOT SENT)
+
+Target: corresponding author, "A transformation from vision to imagery in the human brain"
+(bioRxiv 2025.09.02.672180). Do NOT imply an error has been found. This requests details for
+an independent methodological reproduction.
+
+Subject: Independent reproduction of your vision-to-imagery transformation analysis
+
+Dear Dr [NAME],
+
+I am [NAME, ROLE, INSTITUTION], carrying out an independent methodological reproduction of the
+imagery-transformation analysis in your 2025 preprint. Your Methods specify most of the
+pipeline clearly (98th-percentile SNR voxel selection, the 100-value log-spaced ridge grid, the
+4/2/2 repeat split, rank selection near 99% of peak validation), and I would like to reproduce
+it faithfully. A few implementation details are not fully determined by the text; any you can
+share would help:
+
+1. the analysis code for vis2vis and vis2img, if releasable;
+2. the exact fold-level denoising procedure -- whether every denoised vision input to vis2img
+   is strictly out-of-fold, and how vis2vis fold selection is ordered relative to vis2img;
+3. the original train/validation/test split seeds;
+4. the random pairing seeds and number of pairing realizations (and whether averaged);
+5. rank- and ridge-selection tie-breaking rules;
+6. voxel masks/indices and processed response matrices, if distributable under NSD terms;
+7. access information for the second (spatial imagery, 512-condition) dataset;
+8. whether you would be comfortable with an independent reproduction being published, and how
+   you would wish to be credited or involved.
+
+I am happy to share code and results back, work under any data-use constraints, and discuss
+authorship or acknowledgement before any submission.
+
+Thank you for considering this.
+[SIGNATURE BLOCK]
+
+Rule: the user sends this under a real identity. Access/clarification is never described as
+pending, likely, or received until a reply arrives.

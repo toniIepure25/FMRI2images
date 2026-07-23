@@ -13,7 +13,7 @@
     "count": 51,
     "bytes": 11420000,
     "contents": "all experiments/nsdimagery design matrices; subj01 behavioural; subj01 prf-visualrois/streams/nsdgeneral ROIs; subj01 NSD-core ncsnr; subj01 valid/mean masks",
-    "manifest": "data/manifests/mindcompiler/nsdimagery_metadata_manifest.json (per-file sha256)"
+    "manifest": "artifacts/mindcompiler/roy_s1/metadata_manifest.json (per-file sha256)"
   },
   "staged_NOT_downloaded": {
     "reason": "Imagery beta HDF5 files are ~0.9-1.2 GB each; downloading them now, unusable within this session and at risk of a half-verified artifact at budget exhaustion, would violate the provenance rule. Staged with exact keys+sizes for the next session.",

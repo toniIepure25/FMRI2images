@@ -10,6 +10,25 @@ Corrected 2026-07-17.)
 
 ---
 
+## S1.1 (2026-07-17): provenance repaired; real-data smoke BLOCKED by missing env libs
+
+**h5py and nibabel are absent on this Windows CPU host**, so ROI schema, SNR selection, HDF5
+audit, trial table and the V1 smoke (objectives 3-11) cannot run here. Downloading 1.8 GB of
+betas that cannot be opened was deliberately deferred. Two clean paths (see
+`31_S1_1_PROVENANCE_AND_ENV_STATUS.md`): (A) `pip install h5py nibabel` locally, or (B) run S1
+on the pod (has the stack; idle; needs a code sync + branch checkout -- inspect first).
+**Neither chosen autonomously** (side effects; interactive host decision).
+
+**Provenance repaired:** stale `acquisition_manifest.json` path fixed; duplicate manifest
+under `data/` removed; `.gitignore` deduplicated (raw data still ignored, artifacts trackable);
+manifest-reference validation test added (3 passing). **Force-push note (§1 of 31):** b2b3ac0
+-> bc92c4c was a message-only amend, identical trees; **no further force-pushes on this branch.**
+
+**Next code step (host-independent):** the NumPy model core (reduced-rank ridge, 100-value log
+grid, rank@99%-of-peak, per-voxel Pearson) with synthetic-recovery tests -- needs no real data.
+
+---
+
 ## GATE M1 S1: DATA ACCESS UNBLOCKED (user completed NSD DUA 2026-07-17)
 ## Taxonomy: data-access UNBLOCKED · original author code NOT publicly located · original-code reproduction UNAVAILABLE · independent method reproduction AUTHORIZED+FEASIBLE · bitwise replication UNAVAILABLE (no original code/seeds) · **no reproduction verdict** (no data analyzed)
 

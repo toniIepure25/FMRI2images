@@ -193,7 +193,6 @@ docs/thesis/
 .venv/
 cache/
 checkpoints/
-data/
 # The unanchored data/ rule above also matches the src/fmri2img/data/ *package*,
 # which silently blocked new library modules there (existing ones predate the
 # rule). Un-ignore the package explicitly. Anchoring data/ to /data/ instead

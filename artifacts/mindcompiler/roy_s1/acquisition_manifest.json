@@ -33,5 +33,16 @@
     "all NSD-core betas",
     "any non-imagery data"
   ],
-  "disk_free_gb_D": 74
+  "disk_free_gb_D": 74,
+  "B0_acquired": {
+    "key": "nsddata_betas/ppdata/subj01/func1pt8mm/nsdimagerybetas_fithrf/betas_nsdimagery.hdf5",
+    "bytes": 1052494008,
+    "sha256": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+    "etag": "\"8b3d07e0b16bea4c041fee98d737b911-21\" (metadata only, multipart -- NOT a checksum)",
+    "status": "verified",
+    "hdf5_signature_ok": true,
+    "h5py_open_ok": true,
+    "local_path": "data/nsd/... (gitignored, not committed)",
+    "download_manifest": "artifacts/mindcompiler/roy_s1/subj01_B0_download.json"
+  }
 }

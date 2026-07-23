@@ -1,0 +1,16 @@
+{
+  "key": "nsddata_betas/ppdata/subj01/func1pt8mm/nsdimagerybetas_fithrf/betas_nsdimagery.hdf5",
+  "url": "https://natural-scenes-dataset.s3.amazonaws.com/nsddata_betas/ppdata/subj01/func1pt8mm/nsdimagerybetas_fithrf/betas_nsdimagery.hdf5",
+  "dest": "data/nsd/nsddata_betas/ppdata/subj01/func1pt8mm/nsdimagerybetas_fithrf/betas_nsdimagery.hdf5",
+  "bytes": 1052494008,
+  "sha256": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+  "etag": "\"8b3d07e0b16bea4c041fee98d737b911-21\"",
+  "etag_note": "S3 ETag: metadata only, NOT a cryptographic checksum",
+  "started_at": 1784824223.002899,
+  "ended_at": 1784825217.9818056,
+  "resumed": false,
+  "retries": 0,
+  "hdf5_signature_ok": true,
+  "h5py_open_ok": true,
+  "status": "verified"
+}

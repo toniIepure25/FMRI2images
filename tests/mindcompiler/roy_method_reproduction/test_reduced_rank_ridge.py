@@ -162,3 +162,60 @@ def test_fold_scores_wrong_shape_rejected():
     )
     with pytest.raises(ValueError, match="n_folds, n_lambda, n_rank"):
         select_with_folds(np.zeros((3, 4)), ridge_grid())
+
+
+# --- S1.4 fold-selection hardening ----------------------------------------
+
+def _folds(nf=4, nl=None, nr=6, seed=0):
+    from fmri2img.mindcompiler.roy_method_reproduction.reduced_rank_ridge import ridge_grid
+    g = ridge_grid(); nl = g.size if nl is None else nl
+    rng = np.random.default_rng(seed)
+    return 0.5 + 0.01*rng.standard_normal((nf, nl, nr)), g[:nl]
+
+def test_one_se_requires_two_folds():
+    from fmri2img.mindcompiler.roy_method_reproduction.reduced_rank_ridge import select_with_folds
+    fs, g = _folds(nf=1)
+    with pytest.raises(ValueError, match="two folds|>= 2 folds"):
+        select_with_folds(fs, g, rule="one_se")
+
+def test_grid_length_mismatch_rejected():
+    from fmri2img.mindcompiler.roy_method_reproduction.reduced_rank_ridge import select_with_folds
+    fs, g = _folds()
+    with pytest.raises(ValueError, match="grid length"):
+        select_with_folds(fs, g[:-3])
+
+def test_non_monotonic_grid_rejected():
+    from fmri2img.mindcompiler.roy_method_reproduction.reduced_rank_ridge import select_with_folds
+    fs, g = _folds(nl=5)
+    bad = np.array([1e-3, 1e-1, 1e-2, 1e0, 1e1])  # not ascending
+    with pytest.raises(ValueError, match="ascending"):
+        select_with_folds(fs, bad)
+
+def test_nan_only_input_rejected():
+    from fmri2img.mindcompiler.roy_method_reproduction.reduced_rank_ridge import select_with_folds
+    fs, g = _folds(); fs[:] = np.nan
+    with pytest.raises(ValueError, match="no fold-score cell is finite"):
+        select_with_folds(fs, g)
+
+def test_partial_nans_excluded_not_crash():
+    from fmri2img.mindcompiler.roy_method_reproduction.reduced_rank_ridge import select_with_folds
+    fs, g = _folds(); fs[0, 5, 2] = np.nan  # kill one cell in one fold
+    sel = select_with_folds(fs, g, rule="argmax")
+    # the killed cell (lambda idx 5, rank idx 2 -> rank 3) must not be selected
+    assert not (g[5] == sel.lam and sel.rank == 3)
+
+def test_one_se_is_deterministic():
+    from fmri2img.mindcompiler.roy_method_reproduction.reduced_rank_ridge import select_with_folds
+    fs, g = _folds()
+    a = select_with_folds(fs, g, rule="one_se"); b = select_with_folds(fs, g, rule="one_se")
+    assert (a.lam, a.rank) == (b.lam, b.rank)
+
+def test_one_se_prefers_stronger_lambda_then_smaller_rank():
+    from fmri2img.mindcompiler.roy_method_reproduction.reduced_rank_ridge import select_with_folds
+    fs, g = _folds(nl=10, nr=6, seed=3)
+    fs[:, 3:8, 1:] += 0.3  # broad high plateau spanning several lambdas/ranks
+    onese = select_with_folds(fs, g, rule="one_se")
+    argmax = select_with_folds(fs, g, rule="argmax")
+    gl = list(g)
+    # parsimony within the plateau: one-SE picks lambda no weaker (index >=) than argmax
+    assert gl.index(onese.lam) >= gl.index(argmax.lam)

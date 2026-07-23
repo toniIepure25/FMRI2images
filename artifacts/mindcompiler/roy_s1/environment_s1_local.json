@@ -18,7 +18,6 @@
   "fmri2img_import": "OK",
   "deviation": "numpy<2.0 pin dropped: no cp313 wheels for host Python 3.13. numpy 2.x used. Model core verified compatible.",
   "git_commit": "01e4450",
-  "test_note": "roy_method_reproduction tests: 18 passed in the isolated venv (run with --noconftest; the repo root conftest.py imports torch, which the minimal S1 env excludes and S1 does not need).",
   "lane": "E (engineering): Python 3.13, NumPy 2.x. NOT the canonical confirmatory env.",
   "lane_C_required": "A confirmatory env satisfying pyproject numpy<2.0 (Python 3.11/3.12) is required before any all-subject reproduction verdict. NOT built this gate.",
   "authorized_for": [
@@ -33,14 +32,19 @@
   "install_command_used": "pip install numpy scipy scikit-learn pandas h5py nibabel pytest (no numpy<2.0 pin)",
   "numpy_pin_deviation_reason": "pyproject declares numpy<2.0 but that has no Python 3.13 wheels; host is 3.13. Used numpy 2.x for Lane E. Model core verified compatible.",
   "cpu": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
-  "timestamp": "2026-07-17",
-  "timezone_note": "local host time",
   "companion_files": [
     "environment_s1_pip_freeze.txt",
     "environment_s1_numpy_config.txt"
   ],
-  "model_code_commit": "pending this commit",
-  "test_command": "pytest tests/mindcompiler/roy_method_reproduction/ tests/mindcompiler/test_manifest_references.py (NORMAL collection, no --noconftest)",
-  "test_result": "25 passed in Lane E",
-  "import_test": "OK: numpy 2.5.1 scipy 1.18.0 h5py 3.16.0 nibabel 5.4.2 sklearn 1.9.0 pandas 3.0.5 pytest 9.1.1"
+  "test_command": "pytest tests/mindcompiler/roy_method_reproduction/ (NORMAL collection, Lane E)",
+  "test_result": "29 passed",
+  "import_test": "OK: numpy 2.5.1 scipy 1.18.0 h5py 3.16.0 nibabel 5.4.2 sklearn 1.9.0 pandas 3.0.5 pytest 9.1.1",
+  "environment_created_at": "2026-07-23 (host date; earlier 2026-07-17 stamp was wrong)",
+  "environment_verified_at": "2026-07-23T19:28+03:00 (GTB/host)",
+  "timezone": "Europe/Bucharest (GTB, UTC+03:00), from host `date`",
+  "session_input_commit": "4765b82",
+  "model_core_commit": "4765b82 (S1.3) + this session's downloader/fold-hardening commit",
+  "environment_manifest_input_commit": "4765b82",
+  "dependency_deviation": "numpy<2.0 (pyproject) unsatisfiable on host Python 3.13 (no wheels); Lane E uses numpy 2.x. Lane C required before all-subject verdict.",
+  "note_output_commit": "Output SHA recorded in the executive handoff after commit, not embedded here."
 }

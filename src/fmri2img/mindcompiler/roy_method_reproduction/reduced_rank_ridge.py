@@ -229,8 +229,31 @@ def select_with_folds(
     if fold_scores.ndim != 3:
         raise ValueError("fold_scores must be (n_folds, n_lambda, n_rank)")
     n_folds = fold_scores.shape[0]
-    mean = fold_scores.mean(axis=0)              # (lambda, rank)
-    se = fold_scores.std(axis=0, ddof=1) / np.sqrt(n_folds) if n_folds > 1 else np.zeros_like(mean)
+    grid = np.asarray(grid, dtype=float)
+    if grid.ndim != 1:
+        raise ValueError("grid must be 1-D")
+    if grid.shape[0] != fold_scores.shape[1]:
+        raise ValueError(
+            f"grid length {grid.shape[0]} != n_lambda {fold_scores.shape[1]}"
+        )
+    if not np.all(np.isfinite(grid)) or np.any(grid <= 0):
+        raise ValueError("grid must be finite and strictly positive")
+    if not np.all(np.diff(grid) > 0):
+        raise ValueError(
+            "grid must be strictly ascending; the strongest-lambda/smallest-rank "
+            "parsimony rule assumes an ascending lambda grid"
+        )
+    if rule == "one_se" and n_folds < 2:
+        raise ValueError("one_se requires >= 2 folds to estimate a standard error")
+
+    # NaN handling: a cell with any non-finite fold score is not a candidate.
+    finite_cell = np.all(np.isfinite(fold_scores), axis=0)  # (lambda, rank)
+    if not finite_cell.any():
+        raise ValueError("no fold-score cell is finite across all folds")
+    mean = np.where(finite_cell, fold_scores.mean(axis=0), -np.inf)
+    with np.errstate(invalid="ignore"):
+        se_raw = fold_scores.std(axis=0, ddof=1) / np.sqrt(n_folds)
+    se = np.where(finite_cell, se_raw, 0.0) if n_folds > 1 else np.zeros_like(mean)
 
     best = np.unravel_index(int(np.argmax(mean)), mean.shape)
     if rule == "argmax":

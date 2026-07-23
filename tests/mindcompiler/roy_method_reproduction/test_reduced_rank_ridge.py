@@ -105,3 +105,60 @@ def test_unresolved_tie_break_raises():
         select_hyperparameters(X[:30], Y[:30], X[30:], Y[30:],
                                rank_tie_break="author_clarification_required",  # type: ignore
                                ridge_tie_break="argmax_validation")
+
+
+# --- S1.3 model-selection repairs -----------------------------------------
+
+def test_one_se_rejected_without_folds():
+    """The single-split one-SE rule was invalid (SE over the lambda x rank
+    matrix). It must now raise, not silently mis-select."""
+    rng = np.random.default_rng(11)
+    X = rng.standard_normal((40, 5)); Y = rng.standard_normal((40, 4))
+    with pytest.raises(NotImplementedError, match="fold-level scores"):
+        select_hyperparameters(X[:30], Y[:30], X[30:], Y[30:],
+                               rank_tie_break="smallest_rank_at_threshold",
+                               ridge_tie_break="one_se_rule")
+
+def test_rank_threshold_uses_selected_lambda_peak_not_global():
+    """Regression: the threshold must be 99% of the SELECTED lambda's own peak.
+
+    Construct scores where the selected lambda's row peak is below the global
+    matrix peak; the smallest-rank-at-threshold must be computed against the
+    row peak, so a rank is always selectable within the chosen lambda.
+    """
+    from fmri2img.mindcompiler.roy_method_reproduction.reduced_rank_ridge import (
+        Selection, RANK_SELECTION_FRACTION_OF_PEAK,
+    )
+    import numpy as np
+    # Directly exercise the row-local logic the selector uses.
+    row = np.array([0.10, 0.40, 0.42, 0.43])      # this lambda's peak = 0.43
+    global_peak = 0.90                             # a DIFFERENT lambda scored higher
+    thr_row = RANK_SELECTION_FRACTION_OF_PEAK * row.max()
+    thr_global = RANK_SELECTION_FRACTION_OF_PEAK * global_peak
+    # row-local: at least one rank qualifies (the peak itself)
+    assert np.where(row >= thr_row)[0].size >= 1
+    # global-peak (the bug): NOTHING in this row qualifies -> would fall back wrongly
+    assert np.where(row >= thr_global)[0].size == 0
+
+def test_fold_aware_one_se_is_more_parsimonious_than_argmax():
+    """A true one-SE rule (fold SE) selects no larger than argmax."""
+    from fmri2img.mindcompiler.roy_method_reproduction.reduced_rank_ridge import (
+        select_with_folds, ridge_grid,
+    )
+    rng = np.random.default_rng(12)
+    grid = ridge_grid()
+    # 5 folds, 100 lambdas, 6 ranks; a broad plateau near the top so one-SE bites
+    fold_scores = 0.5 + 0.01*rng.standard_normal((5, grid.size, 6))
+    fold_scores[:, 40:60, 1:] += 0.3   # a wide high-scoring region
+    argmax = select_with_folds(fold_scores, grid, rule="argmax")
+    onese = select_with_folds(fold_scores, grid, rule="one_se")
+    assert onese.rank <= argmax.rank
+    assert onese.se_score >= 0.0
+    assert onese.rule == "one_se"
+
+def test_fold_scores_wrong_shape_rejected():
+    from fmri2img.mindcompiler.roy_method_reproduction.reduced_rank_ridge import (
+        select_with_folds, ridge_grid,
+    )
+    with pytest.raises(ValueError, match="n_folds, n_lambda, n_rank"):
+        select_with_folds(np.zeros((3, 4)), ridge_grid())

@@ -1,5 +1,5 @@
 {
-  "status": "S1_ENVIRONMENT_READY",
+  "status": "S1_ENGINEERING_ENVIRONMENT_READY__DECLARED_NUMPY_PIN_DEVIATION",
   "env_path": "D:/ComputaCenter/envs/fmri2img-roy-s1 (outside repo, not committed)",
   "interpreter": "D:\\ComputaCenter\\envs\\fmri2img-roy-s1\\Scripts\\python.exe",
   "python": "3.13.5",
@@ -18,5 +18,29 @@
   "fmri2img_import": "OK",
   "deviation": "numpy<2.0 pin dropped: no cp313 wheels for host Python 3.13. numpy 2.x used. Model core verified compatible.",
   "git_commit": "01e4450",
-  "test_note": "roy_method_reproduction tests: 18 passed in the isolated venv (run with --noconftest; the repo root conftest.py imports torch, which the minimal S1 env excludes and S1 does not need)."
+  "test_note": "roy_method_reproduction tests: 18 passed in the isolated venv (run with --noconftest; the repo root conftest.py imports torch, which the minimal S1 env excludes and S1 does not need).",
+  "lane": "E (engineering): Python 3.13, NumPy 2.x. NOT the canonical confirmatory env.",
+  "lane_C_required": "A confirmatory env satisfying pyproject numpy<2.0 (Python 3.11/3.12) is required before any all-subject reproduction verdict. NOT built this gate.",
+  "authorized_for": [
+    "schema inspection",
+    "downloader validation",
+    "engineering smoke",
+    "synthetic testing"
+  ],
+  "not_sufficient_for": "final confirmatory all-subject reproduction verdict",
+  "env_creation_command": "python -m venv D:/ComputaCenter/envs/fmri2img-roy-s1",
+  "install_first_attempt_FAILED": "pip install 'numpy<2.0' scipy scikit-learn pandas h5py nibabel pytest -- numpy<2.0 has no cp313 wheels for host Python 3.13; source build failed",
+  "install_command_used": "pip install numpy scipy scikit-learn pandas h5py nibabel pytest (no numpy<2.0 pin)",
+  "numpy_pin_deviation_reason": "pyproject declares numpy<2.0 but that has no Python 3.13 wheels; host is 3.13. Used numpy 2.x for Lane E. Model core verified compatible.",
+  "cpu": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+  "timestamp": "2026-07-17",
+  "timezone_note": "local host time",
+  "companion_files": [
+    "environment_s1_pip_freeze.txt",
+    "environment_s1_numpy_config.txt"
+  ],
+  "model_code_commit": "pending this commit",
+  "test_command": "pytest tests/mindcompiler/roy_method_reproduction/ tests/mindcompiler/test_manifest_references.py (NORMAL collection, no --noconftest)",
+  "test_result": "25 passed in Lane E",
+  "import_test": "OK: numpy 2.5.1 scipy 1.18.0 h5py 3.16.0 nibabel 5.4.2 sklearn 1.9.0 pandas 3.0.5 pytest 9.1.1"
 }

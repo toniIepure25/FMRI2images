@@ -163,15 +163,19 @@ def select_hyperparameters(
             rr = per_voxel_pearson(Y_va, pred)
             scores[i, j] = np.nanmean(rr) if np.isfinite(rr).any() else -np.inf
 
-    peak = scores.max()
-    # ridge: pick the lam whose best-rank score is optimal, with explicit tie-break
+    # ridge: pick the lam whose best-rank score is optimal.
     lam_best_per = scores.max(axis=1)
     if ridge_tie_break == "argmax_validation":
         i_sel = int(np.argmax(lam_best_per))
     elif ridge_tie_break == "one_se_rule":
-        se = np.nanstd(scores[np.isfinite(scores)]) / max(np.sqrt(scores.size), 1)
-        ok = np.where(lam_best_per >= peak - se)[0]
-        i_sel = int(ok.max()) if ok.size else int(np.argmax(lam_best_per))  # strongest reg within 1SE
+        # A valid one-SE rule needs the standard error of the score ACROSS FOLDS.
+        # This single-split interface has no folds; the previous implementation
+        # estimated SE across the lambda x rank score matrix, which is not a
+        # one-SE rule and is invalid. Use select_with_folds() instead.
+        raise NotImplementedError(
+            "one_se_rule requires fold-level scores; use select_with_folds(). "
+            "SE across the lambda x rank matrix is not a valid one-SE rule."
+        )
     else:
         raise ValueError(f"unresolved ridge_tie_break: {ridge_tie_break!r}")
 
@@ -179,10 +183,66 @@ def select_hyperparameters(
     if rank_tie_break == "argmax_validation":
         j_sel = int(np.argmax(row))
     elif rank_tie_break == "smallest_rank_at_threshold":
-        thr = RANK_SELECTION_FRACTION_OF_PEAK * peak if peak > 0 else peak
+        # Threshold is 99% of the SELECTED lambda's own peak -- never the global
+        # peak from a different lambda (that was the prior bug). Within one lambda
+        # the score is monotone-ish in rank, so the smallest rank reaching the
+        # lambda-local threshold is the intended parsimonious choice.
+        row_peak = float(np.max(row))
+        thr = RANK_SELECTION_FRACTION_OF_PEAK * row_peak if row_peak > 0 else row_peak
         ok = np.where(row >= thr)[0]
         j_sel = int(ok.min()) if ok.size else int(np.argmax(row))
     else:
         raise ValueError(f"unresolved rank_tie_break: {rank_tie_break!r}")
 
     return Selection(lam=float(grid[i_sel]), rank=int(j_sel + 1), val_score=float(row[j_sel]))
+
+
+@dataclass(frozen=True)
+class FoldSelection:
+    lam: float
+    rank: int
+    mean_score: float
+    se_score: float
+    rule: str
+
+
+def select_with_folds(
+    fold_scores: np.ndarray,
+    grid: np.ndarray,
+    rule: Literal["argmax", "one_se"] = "argmax",
+) -> FoldSelection:
+    """Fold-aware selection supporting a TRUE one-SE rule.
+
+    The one-SE rule needs variability of the score across folds, so it lives here
+    rather than in the single-split :func:`select_hyperparameters`.
+
+    Args:
+        fold_scores: ``(n_folds, n_lambda, n_rank)`` validation scores.
+        grid: the ``n_lambda`` ridge values, aligned with axis 1.
+        rule: ``"argmax"`` picks the (lam, rank) with the best mean; ``"one_se"``
+            picks, among cells within one SE of the best mean, the most
+            parsimonious (strongest regularization, then smallest rank).
+
+    Returns:
+        A :class:`FoldSelection` recording the SE actually used.
+    """
+    if fold_scores.ndim != 3:
+        raise ValueError("fold_scores must be (n_folds, n_lambda, n_rank)")
+    n_folds = fold_scores.shape[0]
+    mean = fold_scores.mean(axis=0)              # (lambda, rank)
+    se = fold_scores.std(axis=0, ddof=1) / np.sqrt(n_folds) if n_folds > 1 else np.zeros_like(mean)
+
+    best = np.unravel_index(int(np.argmax(mean)), mean.shape)
+    if rule == "argmax":
+        i, j = best
+    elif rule == "one_se":
+        thresh = mean[best] - se[best]
+        ok = np.argwhere(mean >= thresh)
+        # most parsimonious: largest lambda index, then smallest rank index
+        ok = ok[np.lexsort((ok[:, 1], -ok[:, 0]))]
+        i, j = int(ok[0, 0]), int(ok[0, 1])
+    else:
+        raise ValueError(f"unknown rule: {rule!r}")
+
+    return FoldSelection(lam=float(grid[i]), rank=int(j + 1),
+                         mean_score=float(mean[i, j]), se_score=float(se[i, j]), rule=rule)

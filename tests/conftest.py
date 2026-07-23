@@ -21,7 +21,16 @@ if str(_REPO_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_REPO_SCRIPTS))
 import pytest
 import numpy as np
-import torch
+
+# torch is an optional heavy dependency. Importing it at module scope made the
+# ENTIRE test tree fail to collect when torch was absent (e.g. the minimal S1
+# reproduction environment), which forced --noconftest. Import it lazily so
+# NumPy-only tests collect normally; torch-dependent tests should guard with
+# `torch = pytest.importorskip("torch")` in their own fixtures/bodies.
+try:  # noqa: SIM105
+    import torch  # noqa: F401
+except ImportError:  # pragma: no cover - env-dependent
+    torch = None
 
 
 @pytest.fixture

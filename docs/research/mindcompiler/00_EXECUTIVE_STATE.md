@@ -10,6 +10,43 @@ Corrected 2026-07-17.)
 
 ---
 
+## S1.4 (2026-07-23): first real-data touch -- downloader shipped, B0 acquiring
+
+**Input commit 4765b82 -> output commits 142e32b (downloader+fold-hardening+env fix) and this.**
+Server-verified. Normal forward commits only.
+
+**Shipped, tested (29 tests, Lane E, normal collection):** atomic S3 downloader
+(`downloader.py`: .part, Range resume + server-ignores-Range fallback, streamed SHA-256,
+expected-byte + Content-Length checks, HDF5 signature + read-only h5py open, atomic rename,
+.corrupt quarantine, ETag as metadata NEVER a checksum); hardened `select_with_folds`
+(>=2 folds for one-SE, grid 1-D/ascending/positive/length-matched, NaN-cell exclusion);
+env provenance corrected (real host date 2026-07-23, Europe/Bucharest, session_input_commit).
+
+**B0 acquisition IN PROGRESS** at session end: `subj01/func1pt8mm/nsdimagerybetas_fithrf/
+betas_nsdimagery.hdf5`, expected **1,052,494,008 bytes**, downloading via the committed
+downloader (background). On completion it atomically renames and writes
+`artifacts/mindcompiler/roy_s1/subj01_B0_download.json` with the SHA-256. **Verify that file
+exists with status=verified before using the HDF5.** Raw HDF5 is gitignored (`data/nsd/`).
+
+**EXACT RESUME POINT (next session), using the committed plumbing:**
+1. Confirm B0 download finished (`subj01_B0_download.json` status=verified; size + sha256).
+2. HDF5 schema audit -> `subj01_B0_beta_schema.json` (chunked scan, no full RAM load).
+3. Spatial alignment (nibabel): B0 dims vs prf-visualrois/streams/valid/mean/ncsnr -> affine
+   hashes; require direct compatibility, no resampling.
+4. V1 label resolution + NSD-core 98th-pct SNR selection -> subj01_v1_snr_selection.json.
+5. Trial table from design matrices, reconcile to HDF5 trial axis (12 ids, 6+6, 8+8 repeats,
+   excluded imgA-1/imgB-1).
+6. Fitted preprocessing pipeline object (train-only, item 4) + structured metric report
+   (item 5) -- NOT yet built.
+7. Freeze one 4/2/2 split + within-identity pairing; run V1 x B0 x D0 vis2vis/vis2img smoke;
+   status only, non-interpretive.
+
+**Deferred from S1.4 (budget):** items 4 (pipeline object) and 5 (metric report) as separate
+tested modules; downloader edge-case unit tests (the real download exercised the happy path +
+HDF5 validation live). No B1, no other ROI, no verdict.
+
+---
+
 ## S1.1 (2026-07-17): provenance repaired; real-data smoke BLOCKED by missing env libs
 
 **h5py and nibabel are absent on this Windows CPU host**, so ROI schema, SNR selection, HDF5

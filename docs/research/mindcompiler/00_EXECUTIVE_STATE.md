@@ -10,7 +10,18 @@ Corrected 2026-07-17.)
 
 ---
 
-## GATE M1 S1 VERDICT: `ROY_S1_BLOCKED_BY_DATA_ACCESS` (execution)
+## GATE M1 S1: DATA ACCESS UNBLOCKED (user completed NSD DUA 2026-07-17)
+## Taxonomy: data-access UNBLOCKED · original author code NOT publicly located · original-code reproduction UNAVAILABLE · independent method reproduction AUTHORIZED+FEASIBLE · bitwise replication UNAVAILABLE (no original code/seeds) · **no reproduction verdict** (no data analyzed)
+
+**S3 inspected, minimum subset resolved, 51 small files downloaded + SHA-256 verified (11.4 MB).**
+- Space: **func1pt8mm** (func1mm hdf5 is 93 GB, unnecessary). ROIs: **prf-visualrois** (V1-hV4) + **streams** (ventral/lateral/parietal) reproduce Roy's 7 ROIs exactly. SNR: NSD-core **ncsnr**.
+- Downloaded (subj01): design matrices, behavioural, ROIs, ncsnr, valid/mean masks. Manifest: `data/manifests/mindcompiler/nsdimagery_metadata_manifest.json`.
+- **Staged, not downloaded:** imagery beta HDF5 (~0.9-1.2 GB/subject/version; 16.39 GB for all 8 x both versions). Exact keys/sizes in `artifacts/mindcompiler/roy_s1/acquisition_manifest.json`. Not pulled this session because they are unusable within remaining budget and a half-verified multi-GB artifact would violate the provenance rule.
+- **New ambiguity (beta_version):** fithrf vs fithrf_GLMdenoise_RR unconfirmed for Roy; both to be analyzed as a sensitivity variant (GLMdenoise_RR interacts with Roy's separate vis2vis denoising).
+
+**Next session:** download subj01 both-version betas (~1.8 GB) with size+sha256 checks; open the HDF5; one-subject/one-ROI smoke running D0/D1/D2 side by side.
+
+## (superseded) GATE M1 S1 VERDICT: `ROY_S1_BLOCKED_BY_DATA_ACCESS` (execution)
 ## Reproducibility: `ORIGINAL_CODE_REPRODUCTION_UNAVAILABLE` + `INDEPENDENT_METHOD_REPRODUCTION_PREPARED`
 ## Awaiting: `AWAITING_USER_DUA_COMPLETION`, `AWAITING_AUTHOR_CLARIFICATION`
 

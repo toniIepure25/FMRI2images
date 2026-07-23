@@ -213,3 +213,7 @@ V62a_val_manifold_report*
 # Local extracted analysis report folders at repository root
 20260514_*/
 20260515_*/
+data/nsd/
+!data/manifests/
+!data/manifests/**
+data/nsd/

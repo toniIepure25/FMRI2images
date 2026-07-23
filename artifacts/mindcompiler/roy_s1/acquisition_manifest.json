@@ -1,0 +1,37 @@
+{
+  "dataset": "NSD-Imagery (nsdimagery)",
+  "access": "public AWS S3 s3://natural-scenes-dataset via anonymous HTTPS; NO credentials used or stored",
+  "functional_space": "func1pt8mm (standard NSD volumetric; func1mm is 5.7x larger and unnecessary)",
+  "roi_source": {
+    "V1_V2_V3_hV4": "nsddata/ppdata/subjXX/func1pt8mm/roi/prf-visualrois.nii.gz",
+    "ventral_lateral_parietal": "nsddata/ppdata/subjXX/func1pt8mm/roi/streams.nii.gz",
+    "note": "These reproduce Roy et al.'s 7 ROIs exactly (V1,V2,V3,hV4 from prf-visualrois; ventral,lateral,parietal from streams)."
+  },
+  "snr_source": "nsddata_betas/ppdata/subjXX/func1pt8mm/betas_fithrf/ncsnr.nii.gz (NSD-core ncsnr; 98th-pct within-ROI selection per paper)",
+  "beta_version_AMBIGUITY": "Roy et al.'s beta preparation is not explicitly confirmed from the text I have. BOTH fithrf and fithrf_GLMdenoise_RR are release-documented. Downloading BOTH per subject so the choice is a sensitivity variant, not a guess (registry: new row beta_version). GLMdenoise_RR is itself denoised, which interacts with Roy's separate vis2vis denoising -- must be resolved with the author request.",
+  "downloaded_now": {
+    "count": 51,
+    "bytes": 11420000,
+    "contents": "all experiments/nsdimagery design matrices; subj01 behavioural; subj01 prf-visualrois/streams/nsdgeneral ROIs; subj01 NSD-core ncsnr; subj01 valid/mean masks",
+    "manifest": "data/manifests/mindcompiler/nsdimagery_metadata_manifest.json (per-file sha256)"
+  },
+  "staged_NOT_downloaded": {
+    "reason": "Imagery beta HDF5 files are ~0.9-1.2 GB each; downloading them now, unusable within this session and at risk of a half-verified artifact at budget exhaustion, would violate the provenance rule. Staged with exact keys+sizes for the next session.",
+    "one_subject_smoke_subj01": {
+      "keys": [
+        "nsddata_betas/ppdata/subj01/func1pt8mm/nsdimagerybetas_fithrf/betas_nsdimagery.hdf5 (~0.9 GB)",
+        "nsddata_betas/ppdata/subj01/func1pt8mm/nsdimagerybetas_fithrf_GLMdenoise_RR/betas_nsdimagery.hdf5 (~0.9 GB)"
+      ],
+      "approx_total_gb": 1.8
+    },
+    "full_8_subject_both_versions_func1pt8mm_hdf5_gb": 16.39,
+    "download_command_next_session": "python -c urllib.urlretrieve each key from https://natural-scenes-dataset.s3.amazonaws.com/<key>, verify size against s3_nsdimagery_listing.json, sha256, atomic rename"
+  },
+  "explicitly_NOT_downloaded": [
+    "func1mm betas (93GB hdf5)",
+    "MNI/fsaverage betas",
+    "all NSD-core betas",
+    "any non-imagery data"
+  ],
+  "disk_free_gb_D": 74
+}

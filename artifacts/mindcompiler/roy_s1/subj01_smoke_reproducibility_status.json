@@ -20,5 +20,22 @@
   "single_command": "python scripts/analysis/mindcompiler/run_roy_s1_smoke.py --split-seed 1234 --pairing-seed 1234 --vis2vis-pairing all-ordered-distinct --output-dir <dir>",
   "vis2vis_144_explained": "P0 all-ordered-distinct pairs: 12 identities x 4 train repeats x 3 other = 144",
   "non_interpretive": true,
-  "no_reproduction_verdict": true
+  "no_reproduction_verdict": true,
+  "s1_8_hardening": {
+    "status": "S1_SMOKE_PROVENANCE_PARTIALLY_HARDENED__EXACT_REPLAY_PRESERVED",
+    "cli_contract": "runner now rejects subject!=subj01, roi!=V1, beta!=fithrf, denoising!=D0 with nonzero exit and NO artifacts (4 rejection tests pass)",
+    "pairing_seed_correction": "historical P0/I0 policies are deterministic from split_seed and do NOT consume pairing_seed; result now records pairing_seed=null + pairing_randomness_source=split_seed for them (was misleadingly 1234)",
+    "exact_replay_after_hardening": "PRESERVED: vis2vis lam=148.49682622544665 mean=0.6140929522115459; vis2img lam=2915.0530628251818 mean=0.1650281390649757",
+    "tests_added": "8 (4 CLI-rejection leave-no-artifact, boundaries-sum-720, synthetic-TSV invariants, determinism, derangement-no-self-pairs)",
+    "DEFERRED_still_required_before_B1": [
+      "canonical identity validation against A/B_pair_list + target images (item 6)",
+      "synthetic-HDF5 extraction + ROI/SNR fixtures (item 8)",
+      "fitted-pipeline OBJECT with state-transition/leakage tests (item 10)",
+      "full P0/P1/I0/I1 pairing manifests all splits (item 5)",
+      "downloader failure-path tests (item 12)",
+      "metric target/prediction-constant counts (item 9)",
+      "rank_max explicit cap (item 11)"
+    ],
+    "cannot_claim": "S1_SMOKE_REPRODUCIBLE_AND_PROVENANCE_HARDENED_PASS -- deferred items above must pass first"
+  }
 }

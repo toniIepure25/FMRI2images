@@ -94,6 +94,18 @@ def main() -> int:
     a = ap.parse_args()
     t0 = time.time()
 
+    # Fixed-scope contract: the underlying paths/labels are hardcoded to this
+    # exact configuration, so any other CLI value would produce a falsely
+    # labeled artifact. Reject before creating ANY output.
+    fixed = {"subject": ("subj01", a.subject), "roi": ("V1", a.roi),
+             "beta_version": ("fithrf", a.beta_version), "denoising": ("D0", a.denoising)}
+    bad = {k: got for k, (exp, got) in fixed.items() if got != exp}
+    if bad:
+        allowed = {k: exp for k, (exp, _) in fixed.items()}
+        print(f"FATAL: unsupported configuration {bad}; this runner is fixed to "
+              f"{allowed}. No artifacts written.", file=sys.stderr)
+        return 2
+
     base = _REPO / "data/nsd"
     betas = base / "nsddata_betas/ppdata/subj01/func1pt8mm/nsdimagerybetas_fithrf/betas_nsdimagery.hdf5"
     bdata = base / "nsddata/bdata/nsdimagery"
@@ -160,7 +172,14 @@ def main() -> int:
                   beta_version=a.beta_version, denoising=a.denoising,
                   n_voxels=int(xyz.shape[1]), voxel_hash=vhash, snr_threshold=thr,
                   trial_table_sha=_sha(out / "trial_table.csv"), b0_sha=B0_SHA,
-                  split_seed=a.split_seed, pairing_seed=a.pairing_seed,
+                  split_seed=a.split_seed,
+                  # PROVENANCE HONESTY: the historical policies (vis2vis P0
+                  # all-ordered-distinct; vis2img I0 index-aligned) are BOTH
+                  # deterministic from split_seed and do NOT consume pairing_seed.
+                  # Recording pairing_seed for them would misattribute the
+                  # randomness source. Only the P1/I1 sensitivity variants use it.
+                  pairing_seed=(a.pairing_seed if a.vis2vis_pairing == "derangement" else None),
+                  pairing_randomness_source=("pairing_seed" if a.vis2vis_pairing == "derangement" else "split_seed"),
                   vis2vis_pairing=a.vis2vis_pairing,
                   preprocessing="train-only centering, no scaling (independent reconstruction; NOT author-confirmed)",
                   refit_policy="final model fit on TRAIN ONLY after validation selection (no train+val refit)",

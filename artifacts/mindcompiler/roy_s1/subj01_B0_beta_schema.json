@@ -27,5 +27,6 @@
   "sample_max": 32767.0,
   "sample_mean": 16.37962831064683,
   "full_chunkwise_scan": "DEFERRED (1GB); dtype guarantees no NaN/Inf; sample plane stats recorded",
-  "status": "B0_SCHEMA_VALIDATED"
+  "status": "B0_CONTAINER_AND_LAYOUT_VALIDATED__V1_VALUE_QC_DONE",
+  "v1_value_qc": "27 selected V1 voxels x 192 trials: raw range -3443..4985, ZERO int16 saturation (no +/-32768), 0 constant voxels, all finite after /300 PSC. Earlier boundary-reaching sample was a different z-plane, not selected voxels."
 }

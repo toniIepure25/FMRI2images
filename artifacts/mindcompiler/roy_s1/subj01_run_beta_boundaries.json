@@ -1,0 +1,74 @@
+{
+  "derivation": "48 stimulus trials/run; vision+imagery=1 beta/trial, attention=2 beta/trial; blocks in acquisition order",
+  "source": "NSD Data Manual, Functional data (nsdimagery); validated against 12 TSVs (48 rows each) and B0 trial axis 720",
+  "assertion": "48+96+48+48+96+48+48+96+48+48+48+48 = 720 (verified)",
+  "boundaries_zero_based": {
+    "visA": [
+      0,
+      48
+    ],
+    "attA": [
+      48,
+      144
+    ],
+    "imgA_1": [
+      144,
+      192
+    ],
+    "visB": [
+      192,
+      240
+    ],
+    "attB": [
+      240,
+      336
+    ],
+    "imgB_1": [
+      336,
+      384
+    ],
+    "visC": [
+      384,
+      432
+    ],
+    "attC": [
+      432,
+      528
+    ],
+    "imgC_1": [
+      528,
+      576
+    ],
+    "imgA_2": [
+      576,
+      624
+    ],
+    "imgB_2": [
+      624,
+      672
+    ],
+    "imgC_2": [
+      672,
+      720
+    ]
+  },
+  "selected_for_roy": {
+    "visA": [
+      0,
+      48
+    ],
+    "visB": [
+      192,
+      240
+    ],
+    "imgA_2": [
+      576,
+      624
+    ],
+    "imgB_2": [
+      624,
+      672
+    ]
+  },
+  "status": "RUN_BETA_BOUNDARIES_VALIDATED"
+}

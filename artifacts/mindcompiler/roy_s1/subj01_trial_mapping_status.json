@@ -1,0 +1,8 @@
+{
+  "status": "S1_TRIAL_MAPPING_VALIDATED__SMOKE_READY",
+  "supersedes": "S1_SMOKE_BLOCKED_BY_SCHEMA (S1.5) -- that blocker was real at the time; resolved via TSV trial-order mapping",
+  "reconciliation": "trial table 192 rows: 96 vision + 96 imagery, 12 identities (6 simple + 6 naturalistic), exactly 8+8 repeats/identity",
+  "mechanism": "designmatrixGLMsingle is CONDITION-COLLAPSED (36 cols, 6 active/run) -- NOT single-trial regressors, so onset-level GLM<->TSV matching is not the mechanism. Beta trial order follows the TSV TRIAL sequence (NSD convention); counts reconcile exactly.",
+  "trial_table_sha": "4c1f6890e13c015b",
+  "caveat": "identity = set:CONDITION (cue letter for simple, framefile-group for naturalistic); canonical-identity naming is provisional"
+}

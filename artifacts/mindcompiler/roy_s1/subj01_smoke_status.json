@@ -1,0 +1,15 @@
+{
+  "gate": "S1.5",
+  "status": "S1_SMOKE_BLOCKED_BY_SCHEMA",
+  "reason": "Trial-index -> (run,state,stimulus,repeat) mapping for the 720 GLMsingle betas is not established. The per-run *_dm.mat files are collapsed summaries totalling 216 onsets, which do NOT reconcile to the 720 beta trials. Without the authoritative nsdimagery trial ordering, Roy's included subset (visA/visB/imgA-2/imgB-2; exclude imgA-1/imgB-1; A/B only vs the A/B/C release structure) cannot be mapped onto beta indices. Per S1.5 sections 8 and 14, forcing the expected counts is forbidden; a precise blocker is a valid outcome.",
+  "validated_this_gate": {
+    "B0_hash_reverified": "MATCH 31485ff0...b42b64",
+    "hdf5_schema": "B0_SCHEMA_VALIDATED (720,83,104,81) int16",
+    "spatial_alignment": "PASS (single affine c80832d across all 5 artifacts; B0 axis-reversed Z,Y,X per NSD convention; no resampling)",
+    "roi_labels": "V1=prf{1,2} resolved from NSD LUT",
+    "v1_snr_selection": "27 voxels (98th pct=0.9374, no ties) -- voxel path validated"
+  },
+  "unresolved_ambiguity_added": "release has A/B/C stimulus sets and 12 stimuli; the prompt's A/B-only visA/visB/imgA-2/imgB-2 model may not map 1:1 -- needs NSD manual nsdimagery trial-ordering",
+  "resolution_path": "Read the NSD Data Manual 'Functional data (nsdimagery)' section for the documented 720-trial ordering / condition sequence per run, OR locate the nsdimagery expdesign trial vector. Then build subj01_trial_table.csv reconciling every beta index exactly once, and re-run the V1 x B0 x D0 smoke.",
+  "no_verdict": true
+}

@@ -1,0 +1,19 @@
+{
+  "roi": "V1",
+  "prf_labels": [
+    1,
+    2
+  ],
+  "label_source": "prf-visualrois.nii.gz (NSD: 1=V1v,2=V1d)",
+  "v1_raw": 1350,
+  "v1_valid": 1350,
+  "v1_valid_finite_snr": 1350,
+  "snr_source": "nsddata_betas/ppdata/subj01/func1pt8mm/betas_fithrf/ncsnr.nii.gz (NSD-CORE, not imagery)",
+  "zero_handling": "zeros retained as finite values (documented); ties reported",
+  "pct98_threshold": 0.9374233472347259,
+  "selected_gt": 27,
+  "selected_ge": 27,
+  "tie_count": 0,
+  "preregistered_comparator": "strict > (record both)",
+  "status": "V1_SNR_SELECTION_OK"
+}

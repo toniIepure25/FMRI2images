@@ -1,0 +1,21 @@
+{
+  "nifti_shape": [
+    81,
+    104,
+    83
+  ],
+  "voxel_mm": [
+    1.8,
+    1.8,
+    1.8
+  ],
+  "affine_hash": "c80832d87e76 (identical across all 5 NIfTI artifacts: prf-visualrois, streams, valid, mean, ncsnr)",
+  "b0_spatial_shape_in_hdf5": [
+    83,
+    104,
+    81
+  ],
+  "correspondence": "axis-reversed (Z,Y,X); direct voxel mapping betas[:,z,y,x]; NO resampling",
+  "orientation": "all share one affine; alignment DIRECT",
+  "status": "ALIGNMENT_PASS"
+}

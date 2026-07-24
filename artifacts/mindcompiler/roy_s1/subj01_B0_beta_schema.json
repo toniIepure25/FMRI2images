@@ -1,0 +1,31 @@
+{
+  "hdf5_path": "/betas",
+  "shape": [
+    720,
+    83,
+    104,
+    81
+  ],
+  "dtype": "int16",
+  "chunks": [
+    720,
+    1,
+    1,
+    1
+  ],
+  "compression": null,
+  "axis_interpretation": "axis0=720 trials; axes1-3=(Z=83,Y=104,X=81), REVERSED vs NIfTI (X,Y,Z) per NSD convention. Index a NIfTI voxel (x,y,z) as betas[:, z, y, x]. This is a documented DATA-LAYOUT reversal, NOT spatial resampling.",
+  "trial_axis": 0,
+  "spatial_axes": [
+    1,
+    2,
+    3
+  ],
+  "total_betas": 720,
+  "nan_inf_note": "int16 dtype cannot represent NaN/Inf; counts are 0 by construction. NSD betas are stored scaled x300 (documented); convert to signal-change by /300.",
+  "sample_zplane40_min": -32768.0,
+  "sample_max": 32767.0,
+  "sample_mean": 16.37962831064683,
+  "full_chunkwise_scan": "DEFERRED (1GB); dtype guarantees no NaN/Inf; sample plane stats recorded",
+  "status": "B0_SCHEMA_VALIDATED"
+}

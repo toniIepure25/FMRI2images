@@ -1,0 +1,18 @@
+{
+  "code_commit": "regenerated at run time (see smoke_result.json)",
+  "environment_artifact_hash": "a259cc98153cf1b9",
+  "b0_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+  "trial_mapping_policy": "TSV TRIAL order within selected run beta blocks (NSD convention)",
+  "canonical_identity_policy": "set:CONDITION (PROVISIONAL -- condition->stimulus not yet validated against pair-lists/target images; see caveat)",
+  "roi": "V1 = prf-visualrois {1,2}",
+  "snr_policy": "NSD-core ncsnr, 98th pct within V1-valid-finite, strict >",
+  "split_seed": 1234,
+  "pairing_seed": 1234,
+  "vis2vis_pairing_policy": "P0 all-ordered-distinct (12x4x3=144 train); P1 derangement is a sensitivity variant",
+  "vis2img_pairing_policy": "index-aligned within-identity within-split (48 train)",
+  "preprocessing": "train-only centering, no scaling",
+  "refit_policy": "TRAIN ONLY after selection (no train+val refit)",
+  "ridge_grid": "100 log-spaced 1e-3..1e5",
+  "rank_policy": "smallest_rank_at_99pct_within_selected_lambda",
+  "finite_fraction_threshold": 0.9
+}

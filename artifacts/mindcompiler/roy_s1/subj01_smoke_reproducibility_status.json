@@ -1,0 +1,24 @@
+{
+  "status": "S1_SMOKE_REPRODUCIBLE_PASS",
+  "supersedes": "S1_SMOKE_MODEL_PASS (numeric, S1.6) -- retained as historical execution status",
+  "replay_target_commit": "13cc3f0",
+  "exact_match": true,
+  "vis2vis": {
+    "lam": 148.49682622544665,
+    "rank": 5,
+    "mean_test_r": 0.6140929522115459,
+    "n_train": 144,
+    "match": "EXACT"
+  },
+  "vis2img": {
+    "lam": 2915.0530628251818,
+    "rank": 1,
+    "mean_test_r": 0.1650281390649757,
+    "n_train": 48,
+    "match": "EXACT"
+  },
+  "single_command": "python scripts/analysis/mindcompiler/run_roy_s1_smoke.py --split-seed 1234 --pairing-seed 1234 --vis2vis-pairing all-ordered-distinct --output-dir <dir>",
+  "vis2vis_144_explained": "P0 all-ordered-distinct pairs: 12 identities x 4 train repeats x 3 other = 144",
+  "non_interpretive": true,
+  "no_reproduction_verdict": true
+}

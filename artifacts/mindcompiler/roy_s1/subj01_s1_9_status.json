@@ -1,0 +1,25 @@
+{
+  "gate": "S1.9",
+  "status": "S1_PRE_B1_PARTIAL__PIPELINE_AND_METRICS_DONE__NOT_HARDENING_PASS",
+  "explicit": "This is NOT S1_PRE_B1_HARDENING_PASS. B1 remains UNAUTHORIZED. Budget allowed one coherent high-integrity unit this gate.",
+  "completed": {
+    "fitted_pipeline_lifecycle_object": "fitted_pipeline.py: CREATED->POLICIES_RESOLVED->TRAIN_PREPROCESSING_FITTED->HYPERPARAMETERS_SELECTED->FINAL_MODEL_FITTED->TEST_EVALUATED->SEALED; invalid transitions raise LifecycleError",
+    "leakage_by_construction": "preprocessing fittable only from train-tagged arrays; select() cannot see test; test evaluable exactly once (state guard); predict-before-fit, unresolved-policy, dim-mismatch all raise",
+    "historical_policy_named": "HISTORICAL_SMOKE_TRAIN_ONLY_CENTERING_V1 (train-only centering, no scaling, train-only refit); TRAIN_PLUS_VALIDATION_REFIT prepared as separate sensitivity, not executed as historical",
+    "metrics_module": "metrics.py: per-voxel report receives Y_true AND Y_pred; counts target-constant / prediction-constant / both-constant; finite_fraction_min=0.90 gate; never nanmean-alone",
+    "REPLAY_EQUIVALENCE_PROVEN": "vis2vis through FittedPipeline reproduces the historical number EXACTLY: lam=148.49682622544665 rank=5 mean=0.6140929522115459 (<1e-12)",
+    "tests": "57 reproduction tests pass in Lane E, normal collection (12 pipeline/metric added)"
+  },
+  "DEFERRED_still_required_before_S1_PRE_B1_HARDENING_PASS": [
+    "migrate the runner onto FittedPipeline (retire inline fit_eval) [item 14]",
+    "explicit rank_max fields + cap tests [item 6]",
+    "synthetic HDF5 extraction fixtures + tests [item 7]",
+    "synthetic ROI/SNR fixtures + tests [item 8]",
+    "cross-artifact validator MODULE + regression fixtures [item 9]",
+    "stable child-seed derivation + P0/P1/I0/I1 row-level CSV manifests [items 10,11]",
+    "resumable/interruption downloader HTTP-server tests [item 12]",
+    "CLI pairing contract (P1/I1-without-seed rejection, unused-seed warning) [item 13]"
+  ],
+  "no_B1": true,
+  "no_reproduction_verdict": true
+}

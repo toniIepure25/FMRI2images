@@ -1,0 +1,186 @@
+{
+  "status": "CANONICAL_IDENTITY_MAPPING_VALIDATED",
+  "method": "base target = FRAMEFILE with _cue[A-Z].png suffix stripped; imagery uses blank cue frames so canonical target taken from vision run of same condition",
+  "n_identities": 12,
+  "all_one_to_one": true,
+  "identities": {
+    "A:L": {
+      "stim_set": "A",
+      "condition": "L",
+      "canonical": "bar_135.0deg_450L_43W",
+      "observed_cues": [
+        "H",
+        "L",
+        "P",
+        "R"
+      ],
+      "n_framefile_variants": 5,
+      "vision_count": 8,
+      "imagery_count": 8,
+      "one_to_one": true
+    },
+    "A:V": {
+      "stim_set": "A",
+      "condition": "V",
+      "canonical": "bar_090.0deg_450L_43W",
+      "observed_cues": [
+        "E",
+        "H",
+        "P",
+        "V"
+      ],
+      "n_framefile_variants": 5,
+      "vision_count": 8,
+      "imagery_count": 8,
+      "one_to_one": true
+    },
+    "A:H": {
+      "stim_set": "A",
+      "condition": "H",
+      "canonical": "bar_000.0deg_450L_43W",
+      "observed_cues": [
+        "E",
+        "H",
+        "L"
+      ],
+      "n_framefile_variants": 4,
+      "vision_count": 8,
+      "imagery_count": 8,
+      "one_to_one": true
+    },
+    "A:R": {
+      "stim_set": "A",
+      "condition": "R",
+      "canonical": "bar_045.0deg_450L_43W",
+      "observed_cues": [
+        "H",
+        "P",
+        "R",
+        "V"
+      ],
+      "n_framefile_variants": 5,
+      "vision_count": 8,
+      "imagery_count": 8,
+      "one_to_one": true
+    },
+    "A:E": {
+      "stim_set": "A",
+      "condition": "E",
+      "canonical": "crs_045.0deg_450L_43W",
+      "observed_cues": [
+        "E",
+        "R",
+        "V"
+      ],
+      "n_framefile_variants": 4,
+      "vision_count": 8,
+      "imagery_count": 8,
+      "one_to_one": true
+    },
+    "A:P": {
+      "stim_set": "A",
+      "condition": "P",
+      "canonical": "crs_000.0deg_450L_43W",
+      "observed_cues": [
+        "E",
+        "L",
+        "P",
+        "V"
+      ],
+      "n_framefile_variants": 5,
+      "vision_count": 8,
+      "imagery_count": 8,
+      "one_to_one": true
+    },
+    "B:W": {
+      "stim_set": "B",
+      "condition": "W",
+      "canonical": "shared0385_nsd28752",
+      "observed_cues": [
+        "B",
+        "C",
+        "K",
+        "W"
+      ],
+      "n_framefile_variants": 5,
+      "vision_count": 8,
+      "imagery_count": 8,
+      "one_to_one": true
+    },
+    "B:C": {
+      "stim_set": "B",
+      "condition": "C",
+      "canonical": "shared0842_nsd61178",
+      "observed_cues": [
+        "C",
+        "D",
+        "T",
+        "W"
+      ],
+      "n_framefile_variants": 5,
+      "vision_count": 8,
+      "imagery_count": 8,
+      "one_to_one": true
+    },
+    "B:D": {
+      "stim_set": "B",
+      "condition": "D",
+      "canonical": "shared0907_nsd65873",
+      "observed_cues": [
+        "B",
+        "D",
+        "T",
+        "W"
+      ],
+      "n_framefile_variants": 5,
+      "vision_count": 8,
+      "imagery_count": 8,
+      "one_to_one": true
+    },
+    "B:T": {
+      "stim_set": "B",
+      "condition": "T",
+      "canonical": "shared0000_nsd00000",
+      "observed_cues": [
+        "B",
+        "C",
+        "D",
+        "K",
+        "T"
+      ],
+      "n_framefile_variants": 6,
+      "vision_count": 8,
+      "imagery_count": 8,
+      "one_to_one": true
+    },
+    "B:B": {
+      "stim_set": "B",
+      "condition": "B",
+      "canonical": "shared0741_nsd53882",
+      "observed_cues": [
+        "B",
+        "C",
+        "D",
+        "K"
+      ],
+      "n_framefile_variants": 5,
+      "vision_count": 8,
+      "imagery_count": 8,
+      "one_to_one": true
+    },
+    "B:K": {
+      "stim_set": "B",
+      "condition": "K",
+      "canonical": "shared0413_nsd30857",
+      "observed_cues": [
+        "K",
+        "T",
+        "W"
+      ],
+      "n_framefile_variants": 4,
+      "vision_count": 8,
+      "imagery_count": 8,
+      "one_to_one": true
+    }
+  }
+}

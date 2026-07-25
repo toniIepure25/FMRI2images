@@ -1,0 +1,29 @@
+{
+  "gate": "S1.8R",
+  "status": "S1_8R_IDENTITY_PAIRING_AND_DOWNLOADER_PASS",
+  "defect_closed": {
+    "name": "S1_8_PAIRING_PROVENANCE_CROSS_ARTIFACT_INCONSISTENCY",
+    "before": {
+      "smoke_result.json": "pairing_seed=null",
+      "smoke_pairing_manifest.json": "pairing_seed=1234"
+    },
+    "after": "both artifacts now carry PER-MODEL provenance; historical P0 vis2vis = none_after_split, I0 vis2img = split_seed; pairing_seed=null throughout the historical path. Verified consistent.",
+    "note": "numerical replay was always valid; only the pairing LINEAGE was contradictory. Fixed via forward commit; no history rewritten."
+  },
+  "canonical_identity": "CANONICAL_IDENTITY_MAPPING_VALIDATED -- 12 identities, all one-to-one (framefile base target with _cue[A-Z].png stripped), target-unique within set, same target vision+imagery, 8+8 counts. Cue varies per condition (e.g. A:L cues H,L,P,R) while identity fixed -- cue-independence confirmed.",
+  "downloader_certified": "8 data-free failure-path tests pass (clean-verified, HEAD size mismatch, bad HDF5 signature quarantine, sha mismatch quarantine, h5py-open-failure quarantine, verified-never-on-failure, multipart-ETag-metadata-only, no-internet). ETag never treated as checksum.",
+  "exact_replay": "PRESERVED: vis2vis lam=148.49682622544665 mean=0.6140929522115459; vis2img lam=2915.0530628251818 mean=0.1650281390649757 (<1e-12)",
+  "tests_total": 45,
+  "DEFERRED_next_gate": [
+    "full per-model P0/P1/I0/I1 pairing CSVs across all splits (item 6)",
+    "stable child-seed derivation for P1/I1 order-independence (item 5)",
+    "cross-artifact consistency VALIDATOR module + regression fixture (item 7)",
+    "CLI tests for P1/I1-without-seed rejection and unused-seed warning (item 13)",
+    "fitted-pipeline lifecycle object + leakage tests",
+    "structured constant-voxel metric counts",
+    "explicit rank_max"
+  ],
+  "cannot_claim": "S1_SMOKE_REPRODUCIBLE_AND_PROVENANCE_HARDENED_PASS (deferred items above)",
+  "no_B1": true,
+  "no_reproduction_verdict": true
+}

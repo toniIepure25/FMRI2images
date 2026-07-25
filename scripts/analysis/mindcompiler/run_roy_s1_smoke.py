@@ -154,10 +154,20 @@ def main() -> int:
         return rows
     json.dump({"split_seed": a.split_seed, "trials": split_rows()},
               open(out / "smoke_split_manifest.json", "w"), indent=1)
-    json.dump({"pairing_seed": a.pairing_seed, "vis2vis_policy": a.vis2vis_pairing,
-               "vis2vis_train": list(map(int, vv_tr[0])), "vis2vis_train_tgt": list(map(int, vv_tr[1])),
-               "vis2img_train": list(map(int, vi_tr[0])), "vis2img_train_tgt": list(map(int, vi_tr[1]))},
-              open(out / "smoke_pairing_manifest.json", "w"), indent=1)
+    # Per-model pairing provenance, consistent with smoke_result.json. The
+    # historical policies (vis2vis P0, vis2img I0) are deterministic from
+    # split_seed and do NOT consume pairing_seed -- recording it here would
+    # contradict smoke_result.json (the S1.8 cross-artifact defect).
+    _p0 = a.vis2vis_pairing == "derangement"
+    json.dump({
+        "vis2vis": {"policy": a.vis2vis_pairing, "split_seed": a.split_seed,
+                    "pairing_seed": (a.pairing_seed if _p0 else None),
+                    "randomness_source": ("pairing_seed" if _p0 else "none_after_split"),
+                    "train_src": list(map(int, vv_tr[0])), "train_tgt": list(map(int, vv_tr[1]))},
+        "vis2img": {"policy": "historical_index_aligned", "split_seed": a.split_seed,
+                    "pairing_seed": None, "randomness_source": "split_seed",
+                    "train_src": list(map(int, vi_tr[0])), "train_tgt": list(map(int, vi_tr[1]))},
+    }, open(out / "smoke_pairing_manifest.json", "w"), indent=1)
 
     status = "S1_SMOKE_MODEL_PASS"
     if not raw_ok or v2v["finite_frac"] < FINITE_FRACTION_MIN or v2i["finite_frac"] < FINITE_FRACTION_MIN:

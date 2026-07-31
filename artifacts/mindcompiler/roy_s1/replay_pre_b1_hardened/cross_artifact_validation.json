@@ -1,0 +1,100 @@
+{
+  "ok": true,
+  "checks": [
+    {
+      "name": "result.b0_sha_is_certified",
+      "ok": true,
+      "detail": "b0_sha=31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64"
+    },
+    {
+      "name": "result.trial_table_sha_matches_file",
+      "ok": true,
+      "detail": "file=4c1f6890e13c015bafa7cabbb6dbc02a5f44d49445fe097dd483e7eb29d898e0 result=4c1f6890e13c015bafa7cabbb6dbc02a5f44d49445fe097dd483e7eb29d898e0"
+    },
+    {
+      "name": "manifest.vis2vis.seed_matches_policy",
+      "ok": true,
+      "detail": "policy=all_ordered_distinct seed=None expected_seeded=False"
+    },
+    {
+      "name": "manifest.vis2vis.randomness_source",
+      "ok": true,
+      "detail": "got='none_after_split' expected='none_after_split'"
+    },
+    {
+      "name": "manifest.vis2img.seed_matches_policy",
+      "ok": true,
+      "detail": "policy=historical_index_aligned seed=None expected_seeded=False"
+    },
+    {
+      "name": "manifest.vis2img.randomness_source",
+      "ok": true,
+      "detail": "got='none_after_split' expected='none_after_split'"
+    },
+    {
+      "name": "result.pairing_seed_matches_any_seeded",
+      "ok": true,
+      "detail": "result.pairing_seed=None seeded_any=False"
+    },
+    {
+      "name": "result.pairing_randomness_source",
+      "ok": true,
+      "detail": "got='split_seed' expected='split_seed'"
+    },
+    {
+      "name": "split.seed_matches_result",
+      "ok": true,
+      "detail": "split=1234 result=1234"
+    },
+    {
+      "name": "split.covers_trial_table",
+      "ok": true,
+      "detail": "manifest=192 trial_table=192"
+    },
+    {
+      "name": "split.beta_index0_matches_trial_table",
+      "ok": true,
+      "detail": "0 mismatched rows"
+    },
+    {
+      "name": "split.has_train_val_test",
+      "ok": true,
+      "detail": "partitions=['test', 'train', 'val']"
+    },
+    {
+      "name": "pairing.vis2vis.train_pairs_are_train_rows",
+      "ok": true,
+      "detail": "0 pair endpoints outside train partition"
+    },
+    {
+      "name": "pairing.vis2img.train_pairs_are_train_rows",
+      "ok": true,
+      "detail": "0 pair endpoints outside train partition"
+    },
+    {
+      "name": "result.finite_fraction_min_is_constant",
+      "ok": true,
+      "detail": "got=0.9 expected=0.9"
+    },
+    {
+      "name": "result.vis2vis.rank_within_hard_max",
+      "ok": true,
+      "detail": "rank=5 hard_max=27"
+    },
+    {
+      "name": "result.vis2vis.finite_frac_in_unit_interval",
+      "ok": true,
+      "detail": "finite_frac=1.0"
+    },
+    {
+      "name": "result.vis2img.rank_within_hard_max",
+      "ok": true,
+      "detail": "rank=1 hard_max=27"
+    },
+    {
+      "name": "result.vis2img.finite_frac_in_unit_interval",
+      "ok": true,
+      "detail": "finite_frac=1.0"
+    }
+  ]
+}

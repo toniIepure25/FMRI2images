@@ -1,30 +1,38 @@
 {
   "gate": "S1.9",
-  "status": "S1_PRE_B1_PARTIAL__PIPELINE_AND_METRICS_DONE__NOT_HARDENING_PASS",
-  "explicit": "This is NOT S1_PRE_B1_HARDENING_PASS. B1 remains UNAUTHORIZED. Budget allowed one coherent high-integrity unit this gate.",
-  "completed": {
-    "fitted_pipeline_lifecycle_object": "fitted_pipeline.py: CREATED->POLICIES_RESOLVED->TRAIN_PREPROCESSING_FITTED->HYPERPARAMETERS_SELECTED->FINAL_MODEL_FITTED->TEST_EVALUATED->SEALED; invalid transitions raise LifecycleError",
-    "leakage_by_construction": "preprocessing fittable only from train-tagged arrays; select() cannot see test; test evaluable exactly once (state guard); predict-before-fit, unresolved-policy, dim-mismatch all raise",
-    "historical_policy_named": "HISTORICAL_SMOKE_TRAIN_ONLY_CENTERING_V1 (train-only centering, no scaling, train-only refit); TRAIN_PLUS_VALIDATION_REFIT prepared as separate sensitivity, not executed as historical",
-    "metrics_module": "metrics.py: per-voxel report receives Y_true AND Y_pred; counts target-constant / prediction-constant / both-constant; finite_fraction_min=0.90 gate; never nanmean-alone",
-    "REPLAY_EQUIVALENCE_PROVEN": "vis2vis through FittedPipeline reproduces the historical number EXACTLY: lam=148.49682622544665 rank=5 mean=0.6140929522115459 (<1e-12)",
-    "tests": "57 reproduction tests pass in Lane E, normal collection (12 pipeline/metric added)",
-    "runner_on_fitted_pipeline": "DONE (item 14)"
+  "status": "S1_PRE_B1_HARDENING_PASS",
+  "meaning": "The subj01 x V1 x B0 x D0 engineering smoke is now leakage-safe by construction, tested, and provenance-complete. This PASS authorizes the USER to open a SEPARATE future B1 gate; it does NOT itself download B1, run another ROI/subject, or issue any Roy reproduction verdict. Those remain out of scope and unauthorized here.",
+  "environment": "Lane E (engineering; Python 3.13 / numpy 2.x deviation recorded). Lane C confirmatory env NOT built.",
+  "items": {
+    "6_rank_cap": "DONE -- select_hyperparameters(r_max) and FittedPipeline(rank_max) never exceed the cap; oversize cap clamps to matrix support; runner records rank_max + rank_hard_max. test_rank_cap.py.",
+    "7_hdf5_extraction_fixture": "DONE -- synthetic int16 (trial,Z,Y,X) volume proves extract_v1_matrix reads betas[:,z,y,x] and applies /300 exactly. test_extraction_fixtures.py.",
+    "8_roi_snr_fixture": "DONE -- synthetic prf-visualrois/valid/ncsnr NIfTIs prove V1 {1,2} + valid>0 + finite-SNR masking and strict >98th-pct selection, with non-finite exclusion. test_extraction_fixtures.py.",
+    "9_cross_artifact_validator": "DONE -- artifact_validation.py checks result<->split<->pairing<->trial_table consistency (the S1.8 defect class); 10 regression tests inc. injected defects; validates the real hardened dir (19/19 checks). test_artifact_validation.py.",
+    "10_child_seed_derivation": "DONE -- derive_child_seed(root,*labels) SHA-256, PYTHONHASHSEED-independent, label-independent; P1/I1 never consume the root directly. pairing.py.",
+    "11_pairing_manifests": "DONE -- P0/P1/I0/I1 row-level CSV manifests with full provenance; P0/I0 byte-parity with smoke_pipeline; real subj01 manifests under pairing_manifests/. test_pairing.py.",
+    "12_downloader_resume": "DONE -- real threaded HTTP server exercises Range/206 resume, ignore-range clean restart, transient-500 retry, clean full download. test_downloader_resume.py.",
+    "13_cli_pairing_contract": "DONE -- child-seeded P1/I1 without --pairing-seed rejected (exit 2, no artifacts); unused seed on P0/I0 warned and recorded null; enforced before any output. Contract unit + CLI subprocess tests.",
+    "14_runner_on_fitted_pipeline": "DONE -- single authoritative execution path through FittedPipeline; inline fit path retired; metrics from the metrics module.",
+    "17_final_artifact_dir": "DONE -- replay_pre_b1_hardened/ contains the exact-replay smoke outputs + cross_artifact_validation.json (ok=true, 19 checks).",
+    "19_gate_outcome": "DONE -- this file."
   },
-  "DEFERRED_still_required_before_S1_PRE_B1_HARDENING_PASS": [
-    "explicit rank_max fields + cap tests [item 6]",
-    "synthetic HDF5 extraction fixtures + tests [item 7]",
-    "synthetic ROI/SNR fixtures + tests [item 8]",
-    "cross-artifact validator MODULE + regression fixtures [item 9]",
-    "stable child-seed derivation + P0/P1/I0/I1 row-level CSV manifests [items 10,11]",
-    "resumable/interruption downloader HTTP-server tests [item 12]",
-    "CLI pairing contract (P1/I1-without-seed rejection, unused-seed warning) [item 13]"
+  "replay_invariants_preserved_exactly": {
+    "vis2vis": {"lam": 148.49682622544665, "rank": 5, "mean": 0.6140929522115459},
+    "vis2img": {"lam": 2915.0530628251818, "rank": 1, "mean": 0.1650281390649757},
+    "note": "Reproduced bit-for-bit through the migrated runner (P0/I0, split-deterministic, no pairing seed) and cross-artifact-validated."
+  },
+  "tests": "102 reproduction tests pass in Lane E with normal collection.",
+  "leakage_safety": "By construction: FittedPipeline lifecycle forbids fitting preprocessing on non-train arrays, selecting on test, or evaluating test more than once; invalid transitions raise LifecycleError.",
+  "honesty_notes": [
+    "P1/I1 are SENSITIVITY variants only; NO reported number uses them. The legacy replay_13cc3f0_P1 (provisional global-RNG derangement) is superseded for future P1 work by the child-seed derivation and is retained unchanged as a labeled legacy artifact.",
+    "The smoke numbers remain NON-INTERPRETIVE (pipeline validation); they are never compared to the Roy paper.",
+    "No confirmatory (Lane C) environment was built; the numpy 2.x deviation is recorded."
   ],
-  "no_B1": true,
-  "no_reproduction_verdict": true,
-  "item_14_runner_migration": {
-    "status": "DONE",
-    "detail": "runner fit_eval now routes exclusively through FittedPipeline.resolve_policies().fit_preprocessing().select().fit_final().evaluate_test().seal(); untested inline Standardizer/select/fit path removed. metric_report() helper deleted; metrics come from the metrics module. HISTORICAL_REPLAY_EXACT preserved (lam/rank/mean identical <1e-12). Result now carries target/prediction/both-constant counts and policy_name. One authoritative execution path.",
-    "replay": "HISTORICAL_REPLAY_EXACT"
+  "hard_constraints_still_in_force": {
+    "no_B1_download": true,
+    "no_other_roi_or_subject": true,
+    "no_roy_reproduction_verdict": true,
+    "no_raw_beta_matrix_hdf5_or_credentials_committed": true,
+    "forward_commits_only": true
   }
 }

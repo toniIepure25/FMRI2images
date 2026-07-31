@@ -7,11 +7,15 @@ non-zero exit code on any invariant failure.
 The numbers are NON-INTERPRETIVE (pipeline validation only); they are never
 compared to the Roy paper here.
 
-Example:
+Historical replay (P0/I0 are split-deterministic -- no pairing seed):
     python scripts/analysis/mindcompiler/run_roy_s1_smoke.py \
-      --split-seed 1234 --pairing-seed 1234 \
+      --split-seed 1234 \
       --vis2vis-pairing all-ordered-distinct \
+      --vis2img-pairing historical-index-aligned \
       --output-dir artifacts/mindcompiler/roy_s1/replay_13cc3f0
+
+Child-seeded sensitivity variants (P1/I1) REQUIRE --pairing-seed:
+    ... --vis2vis-pairing derangement --pairing-seed 1234
 """
 
 from __future__ import annotations
@@ -29,6 +33,7 @@ import numpy as np
 _REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_REPO / "src"))
 
+from fmri2img.mindcompiler.roy_method_reproduction import pairing as pr  # noqa: E402
 from fmri2img.mindcompiler.roy_method_reproduction import smoke_pipeline as sp  # noqa: E402
 from fmri2img.mindcompiler.roy_method_reproduction.fitted_pipeline import (  # noqa: E402
     FittedPipeline,
@@ -36,6 +41,12 @@ from fmri2img.mindcompiler.roy_method_reproduction.fitted_pipeline import (  # n
 from fmri2img.mindcompiler.roy_method_reproduction.metrics import FINITE_FRACTION_MIN  # noqa: E402
 
 B0_SHA = "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64"
+
+# CLI policy label -> canonical pairing.py policy name.
+_VV_POLICY = {"all-ordered-distinct": "all_ordered_distinct",
+              "derangement": "deterministic_derangement"}
+_VI_POLICY = {"historical-index-aligned": "historical_index_aligned",
+              "independent-permutation": "independent_within_identity_permutation"}
 
 
 def _sha(path: Path, chunk: int = 8 << 20) -> str:
@@ -87,9 +98,13 @@ def main() -> int:
     ap.add_argument("--beta-version", default="fithrf")
     ap.add_argument("--denoising", default="D0")
     ap.add_argument("--split-seed", type=int, default=1234)
-    ap.add_argument("--pairing-seed", type=int, default=1234)
+    ap.add_argument("--pairing-seed", type=int, default=None,
+                    help="required only for child-seeded policies (P1/I1); UNUSED and "
+                         "warned-about for split-deterministic P0/I0")
     ap.add_argument("--vis2vis-pairing", default="all-ordered-distinct",
                     choices=["all-ordered-distinct", "derangement"])
+    ap.add_argument("--vis2img-pairing", default="historical-index-aligned",
+                    choices=["historical-index-aligned", "independent-permutation"])
     ap.add_argument("--rank-max", type=int, default=None,
                     help="explicit cap on retained rank (None = matrix-supported max)")
     ap.add_argument("--output-dir", required=True)
@@ -106,6 +121,19 @@ def main() -> int:
         allowed = {k: exp for k, (exp, _) in fixed.items()}
         print(f"FATAL: unsupported configuration {bad}; this runner is fixed to "
               f"{allowed}. No artifacts written.", file=sys.stderr)
+        return 2
+
+    # CLI pairing-seed contract: reject child-seeded P1/I1 with no seed; warn on a
+    # seed supplied to split-deterministic P0/I0 (it is unused). Checked BEFORE any
+    # artifact is written so a violation leaves nothing behind.
+    vv_pol, vi_pol = _VV_POLICY[a.vis2vis_pairing], _VI_POLICY[a.vis2img_pairing]
+    contract = pr.pairing_seed_contract(vv_pol, vi_pol, a.pairing_seed is not None)
+    for w in contract.warnings:
+        print(f"WARNING: {w}", file=sys.stderr)
+    if not contract.ok:
+        for e in contract.errors:
+            print(f"FATAL: {e}", file=sys.stderr)
+        print("No artifacts written.", file=sys.stderr)
         return 2
 
     base = _REPO / "data/nsd"
@@ -131,13 +159,21 @@ def main() -> int:
     M = sp.extract_v1_matrix(str(betas), tt["beta_index0"].values, xyz)
     raw_ok = bool(np.isfinite(M).all())
 
-    # pairings
-    vv_tr = sp.vis2vis_pairs(v, "train", a.vis2vis_pairing, a.pairing_seed)
-    vv_va = sp.vis2vis_pairs(v, "val", a.vis2vis_pairing, a.pairing_seed)
-    vv_te = sp.vis2vis_pairs(v, "test", a.vis2vis_pairing, a.pairing_seed)
-    vi_tr = sp.vis2img_pairs(v, i, "train")
-    vi_va = sp.vis2img_pairs(v, i, "val")
-    vi_te = sp.vis2img_pairs(v, i, "test")
+    # pairings. Historical P0/I0 use the smoke_pipeline path (the code that
+    # produced 13cc3f0); P1/I1 use the child-seeded pairing module (byte-parity of
+    # P0/I0 across the two paths is asserted in test_pairing.py).
+    def vv_pairs(part):
+        if vv_pol == "all_ordered_distinct":
+            return sp.vis2vis_pairs(v, part, "all-ordered-distinct", 0)
+        return pr.rows_to_arrays(pr.vis2vis_manifest(v, splits["_tt"], part, vv_pol, a.pairing_seed))
+
+    def vi_pairs(part):
+        if vi_pol == "historical_index_aligned":
+            return sp.vis2img_pairs(v, i, part)
+        return pr.rows_to_arrays(pr.vis2img_manifest(v, i, splits["_tt"], part, vi_pol, a.pairing_seed))
+
+    vv_tr, vv_va, vv_te = vv_pairs("train"), vv_pairs("val"), vv_pairs("test")
+    vi_tr, vi_va, vi_te = vi_pairs("train"), vi_pairs("val"), vi_pairs("test")
 
     v2v = fit_eval(M, *vv_tr, *vv_va, *vv_te, voxel_hash=vhash, rank_max=a.rank_max)
     v2i = fit_eval(M, *vi_tr, *vi_va, *vi_te, voxel_hash=vhash, rank_max=a.rank_max)
@@ -156,18 +192,20 @@ def main() -> int:
         return rows
     json.dump({"split_seed": a.split_seed, "trials": split_rows()},
               open(out / "smoke_split_manifest.json", "w"), indent=1)
-    # Per-model pairing provenance, consistent with smoke_result.json. The
-    # historical policies (vis2vis P0, vis2img I0) are deterministic from
-    # split_seed and do NOT consume pairing_seed -- recording it here would
-    # contradict smoke_result.json (the S1.8 cross-artifact defect).
-    _p0 = a.vis2vis_pairing == "derangement"
+    # Per-model pairing provenance, consistent with smoke_result.json. Each model
+    # records pairing_seed ONLY if its own policy consumes one (P1/I1); the split-
+    # deterministic P0/I0 record null to avoid misattributing the randomness source
+    # (the S1.8 cross-artifact defect).
+    _vv_seeded = vv_pol in pr.SEED_CONSUMING
+    _vi_seeded = vi_pol in pr.SEED_CONSUMING
     json.dump({
-        "vis2vis": {"policy": a.vis2vis_pairing, "split_seed": a.split_seed,
-                    "pairing_seed": (a.pairing_seed if _p0 else None),
-                    "randomness_source": ("pairing_seed" if _p0 else "none_after_split"),
+        "vis2vis": {"policy": vv_pol, "split_seed": a.split_seed,
+                    "pairing_seed": (a.pairing_seed if _vv_seeded else None),
+                    "randomness_source": ("child_seed(pairing_seed)" if _vv_seeded else "none_after_split"),
                     "train_src": list(map(int, vv_tr[0])), "train_tgt": list(map(int, vv_tr[1]))},
-        "vis2img": {"policy": "historical_index_aligned", "split_seed": a.split_seed,
-                    "pairing_seed": None, "randomness_source": "split_seed",
+        "vis2img": {"policy": vi_pol, "split_seed": a.split_seed,
+                    "pairing_seed": (a.pairing_seed if _vi_seeded else None),
+                    "randomness_source": ("child_seed(pairing_seed)" if _vi_seeded else "none_after_split"),
                     "train_src": list(map(int, vi_tr[0])), "train_tgt": list(map(int, vi_tr[1]))},
     }, open(out / "smoke_pairing_manifest.json", "w"), indent=1)
 
@@ -185,14 +223,14 @@ def main() -> int:
                   n_voxels=int(xyz.shape[1]), voxel_hash=vhash, snr_threshold=thr,
                   trial_table_sha=_sha(out / "trial_table.csv"), b0_sha=B0_SHA,
                   split_seed=a.split_seed,
-                  # PROVENANCE HONESTY: the historical policies (vis2vis P0
-                  # all-ordered-distinct; vis2img I0 index-aligned) are BOTH
-                  # deterministic from split_seed and do NOT consume pairing_seed.
-                  # Recording pairing_seed for them would misattribute the
-                  # randomness source. Only the P1/I1 sensitivity variants use it.
-                  pairing_seed=(a.pairing_seed if a.vis2vis_pairing == "derangement" else None),
-                  pairing_randomness_source=("pairing_seed" if a.vis2vis_pairing == "derangement" else "split_seed"),
-                  vis2vis_pairing=a.vis2vis_pairing,
+                  # PROVENANCE HONESTY: only child-seeded policies (P1/I1) consume
+                  # the pairing seed; split-deterministic P0/I0 record null so the
+                  # randomness source is never misattributed. seed_required is the
+                  # single source of truth (the CLI contract validated it above).
+                  pairing_seed=(a.pairing_seed if contract.seed_required else None),
+                  pairing_randomness_source=("child_seed(pairing_seed)" if contract.seed_required else "split_seed"),
+                  pairing_seed_unused_warned=contract.seed_unused,
+                  vis2vis_pairing=vv_pol, vis2img_pairing=vi_pol,
                   preprocessing="train-only centering, no scaling (independent reconstruction; NOT author-confirmed)",
                   refit_policy="final model fit on TRAIN ONLY after validation selection (no train+val refit)",
                   ridge_policy="argmax_validation",

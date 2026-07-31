@@ -30,6 +30,19 @@ def test_unsupported_scope_rejected_and_leaves_no_artifacts(tmp_path, args):
     assert not (out / "smoke_result.json").exists()
 
 
+@pytest.mark.parametrize("args", [
+    ["--vis2vis-pairing", "derangement"],
+    ["--vis2img-pairing", "independent-permutation"],
+])
+def test_child_seeded_policy_without_seed_rejected_no_artifacts(tmp_path, args):
+    out = tmp_path / "should_not_exist"
+    r = subprocess.run([sys.executable, str(RUNNER), "--output-dir", str(out), *args],
+                       capture_output=True, text=True, cwd=str(REPO))
+    assert r.returncode != 0
+    assert "child-seeded" in r.stderr.lower() and "--pairing-seed" in r.stderr
+    assert not (out / "smoke_result.json").exists()
+
+
 def test_run_boundaries_sum_to_720_and_selected_ranges_exact():
     sys.path.insert(0, str(REPO / "src"))
     from fmri2img.mindcompiler.roy_method_reproduction import smoke_pipeline as sp

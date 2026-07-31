@@ -113,6 +113,39 @@ def test_I1_is_within_identity_permutation_and_differs_from_I0():
     assert any(by_id_i0[k] != by_id_i1[k] for k in by_id_i0)
 
 
+# --- CLI pairing-seed contract ----------------------------------------------
+
+def test_contract_rejects_child_seeded_policy_without_seed():
+    c = pr.pairing_seed_contract("deterministic_derangement", "historical_index_aligned",
+                                 seed_provided=False)
+    assert not c.ok and c.seed_required and c.errors
+    c2 = pr.pairing_seed_contract("all_ordered_distinct",
+                                  "independent_within_identity_permutation", False)
+    assert not c2.ok and c2.seed_required
+
+
+def test_contract_warns_on_unused_seed_for_split_deterministic():
+    c = pr.pairing_seed_contract("all_ordered_distinct", "historical_index_aligned",
+                                 seed_provided=True)
+    assert c.ok and not c.seed_required and c.seed_unused and c.warnings
+
+
+def test_contract_accepts_child_seeded_with_seed_no_warning():
+    c = pr.pairing_seed_contract("deterministic_derangement",
+                                 "independent_within_identity_permutation", True)
+    assert c.ok and c.seed_required and not c.seed_unused and not c.warnings
+
+
+def test_contract_p0_i0_without_seed_is_clean():
+    c = pr.pairing_seed_contract("all_ordered_distinct", "historical_index_aligned", False)
+    assert c.ok and not c.seed_required and not c.seed_unused and not c.warnings
+
+
+def test_contract_rejects_unknown_policy():
+    with pytest.raises(ValueError, match="unknown"):
+        pr.pairing_seed_contract("bogus", "historical_index_aligned", True)
+
+
 def test_manifest_csv_roundtrip_has_full_provenance(tmp_path):
     tt, splits = _toy_splits()
     rows = pr.vis2vis_manifest(splits["vision"], splits["_tt"], "train",

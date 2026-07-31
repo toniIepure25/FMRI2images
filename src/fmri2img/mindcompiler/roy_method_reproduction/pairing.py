@@ -39,6 +39,57 @@ Vis2ImgPolicy = Literal["historical_index_aligned", "independent_within_identity
 
 #: Policies that consume no pairing seed (fully determined by the split).
 SPLIT_DETERMINISTIC = {"all_ordered_distinct", "historical_index_aligned"}
+#: Policies that DO consume a pairing seed (child-seeded sensitivity variants).
+SEED_CONSUMING = {"deterministic_derangement", "independent_within_identity_permutation"}
+
+
+@dataclass(frozen=True)
+class PairingContract:
+    """Result of validating the CLI pairing-seed contract."""
+
+    ok: bool
+    seed_required: bool
+    seed_unused: bool
+    errors: List[str]
+    warnings: List[str]
+
+
+def pairing_seed_contract(vis2vis_policy: str, vis2img_policy: str,
+                          seed_provided: bool) -> PairingContract:
+    """Decide accept / reject / warn for a (policy, policy, seed?) combination.
+
+    * A seed-consuming policy (P1 or I1) WITHOUT a pairing seed is rejected: the
+      child seeds cannot be derived, so proceeding would be non-reproducible.
+    * A pairing seed supplied when BOTH policies are split-deterministic (P0/I0)
+      is accepted with a warning: the seed is unused and recording it would
+      misattribute the randomness source (the S1.8 provenance defect).
+
+    Args:
+        vis2vis_policy, vis2img_policy: resolved policy names.
+        seed_provided: whether the caller passed an explicit pairing seed.
+
+    Returns:
+        A :class:`PairingContract`; ``ok`` is False only on a hard violation.
+    """
+    for name, val in (("vis2vis", vis2vis_policy), ("vis2img", vis2img_policy)):
+        if val not in SPLIT_DETERMINISTIC and val not in SEED_CONSUMING:
+            raise ValueError(f"unknown {name} policy {val!r}")
+    seed_required = vis2vis_policy in SEED_CONSUMING or vis2img_policy in SEED_CONSUMING
+    errors: List[str] = []
+    warnings: List[str] = []
+    if seed_required and not seed_provided:
+        need = [p for p in (vis2vis_policy, vis2img_policy) if p in SEED_CONSUMING]
+        errors.append(
+            f"policies {need} are child-seeded and require an explicit --pairing-seed; "
+            "refusing to proceed without one (would be non-reproducible)")
+    seed_unused = seed_provided and not seed_required
+    if seed_unused:
+        warnings.append(
+            "--pairing-seed was supplied but both policies are split-deterministic "
+            "(P0/I0); the seed is UNUSED and will be recorded as null to avoid "
+            "misattributing the randomness source")
+    return PairingContract(ok=not errors, seed_required=seed_required,
+                           seed_unused=seed_unused, errors=errors, warnings=warnings)
 
 
 def derive_child_seed(root_seed: int, *labels) -> int:

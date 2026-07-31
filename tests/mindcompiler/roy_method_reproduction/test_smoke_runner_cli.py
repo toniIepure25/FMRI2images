@@ -89,3 +89,24 @@ def test_derangement_pairing_has_no_self_pairs():
     assert len(X) == 4 and not np.any(X == Y)  # 4 train, no self
     Xp, Yp = sp.vis2vis_pairs(vsplit, "train", "all-ordered-distinct", seed=1234)
     assert len(Xp) == 12  # 4x3 ordered distinct
+
+
+def test_runner_fit_eval_routes_through_fitted_pipeline():
+    """The single execution path must go through the leakage-safe pipeline.
+
+    Proof: fit_eval returns the metrics-module constant-voxel diagnostics and the
+    sealed policy name, which only the FittedPipeline path produces.
+    """
+    import numpy as np
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "roy_runner", REPO / "scripts/analysis/mindcompiler/run_roy_s1_smoke.py")
+    runner = importlib.util.module_from_spec(spec); spec.loader.exec_module(runner)
+    rng = np.random.default_rng(0)
+    M = rng.standard_normal((40, 6))
+    tr = (np.arange(0, 16), np.arange(0, 16))
+    va = (np.arange(16, 24), np.arange(16, 24))
+    te = (np.arange(24, 32), np.arange(24, 32))
+    d = runner.fit_eval(M, tr[0], tr[1], va[0], va[1], te[0], te[1])
+    assert "target_constant" in d and "prediction_constant" in d and "both_constant" in d
+    assert d["policy_name"] == "HISTORICAL_SMOKE_TRAIN_ONLY_CENTERING_V1"

@@ -8,10 +8,10 @@
     "historical_policy_named": "HISTORICAL_SMOKE_TRAIN_ONLY_CENTERING_V1 (train-only centering, no scaling, train-only refit); TRAIN_PLUS_VALIDATION_REFIT prepared as separate sensitivity, not executed as historical",
     "metrics_module": "metrics.py: per-voxel report receives Y_true AND Y_pred; counts target-constant / prediction-constant / both-constant; finite_fraction_min=0.90 gate; never nanmean-alone",
     "REPLAY_EQUIVALENCE_PROVEN": "vis2vis through FittedPipeline reproduces the historical number EXACTLY: lam=148.49682622544665 rank=5 mean=0.6140929522115459 (<1e-12)",
-    "tests": "57 reproduction tests pass in Lane E, normal collection (12 pipeline/metric added)"
+    "tests": "57 reproduction tests pass in Lane E, normal collection (12 pipeline/metric added)",
+    "runner_on_fitted_pipeline": "DONE (item 14)"
   },
   "DEFERRED_still_required_before_S1_PRE_B1_HARDENING_PASS": [
-    "migrate the runner onto FittedPipeline (retire inline fit_eval) [item 14]",
     "explicit rank_max fields + cap tests [item 6]",
     "synthetic HDF5 extraction fixtures + tests [item 7]",
     "synthetic ROI/SNR fixtures + tests [item 8]",
@@ -21,5 +21,10 @@
     "CLI pairing contract (P1/I1-without-seed rejection, unused-seed warning) [item 13]"
   ],
   "no_B1": true,
-  "no_reproduction_verdict": true
+  "no_reproduction_verdict": true,
+  "item_14_runner_migration": {
+    "status": "DONE",
+    "detail": "runner fit_eval now routes exclusively through FittedPipeline.resolve_policies().fit_preprocessing().select().fit_final().evaluate_test().seal(); untested inline Standardizer/select/fit path removed. metric_report() helper deleted; metrics come from the metrics module. HISTORICAL_REPLAY_EXACT preserved (lam/rank/mean identical <1e-12). Result now carries target/prediction/both-constant counts and policy_name. One authoritative execution path.",
+    "replay": "HISTORICAL_REPLAY_EXACT"
+  }
 }

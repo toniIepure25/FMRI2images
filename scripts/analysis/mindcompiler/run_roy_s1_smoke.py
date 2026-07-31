@@ -29,13 +29,13 @@ import numpy as np
 _REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_REPO / "src"))
 
-from fmri2img.mindcompiler.roy_method_reproduction.reduced_rank_ridge import (  # noqa: E402
-    Standardizer, fit_reduced_rank, per_voxel_pearson, select_hyperparameters,
-)
 from fmri2img.mindcompiler.roy_method_reproduction import smoke_pipeline as sp  # noqa: E402
+from fmri2img.mindcompiler.roy_method_reproduction.fitted_pipeline import (  # noqa: E402
+    FittedPipeline,
+)
+from fmri2img.mindcompiler.roy_method_reproduction.metrics import FINITE_FRACTION_MIN  # noqa: E402
 
 B0_SHA = "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64"
-FINITE_FRACTION_MIN = 0.90  # frozen engineering threshold
 
 
 def _sha(path: Path, chunk: int = 8 << 20) -> str:
@@ -46,38 +46,30 @@ def _sha(path: Path, chunk: int = 8 << 20) -> str:
     return h.hexdigest()
 
 
-def metric_report(r: np.ndarray) -> dict:
-    fin = np.isfinite(r)
-    return dict(
-        total=int(r.size), finite=int(fin.sum()), finite_frac=float(fin.mean()),
-        nan=int((~fin).sum()),
-        mean=float(np.nanmean(r)) if fin.any() else float("nan"),
-        median=float(np.nanmedian(r)) if fin.any() else float("nan"),
-        std=float(np.nanstd(r)) if fin.any() else float("nan"),
-        rmin=float(np.nanmin(r)) if fin.any() else float("nan"),
-        rmax=float(np.nanmax(r)) if fin.any() else float("nan"),
-        p5=float(np.nanpercentile(r, 5)) if fin.any() else float("nan"),
-        p25=float(np.nanpercentile(r, 25)) if fin.any() else float("nan"),
-        p75=float(np.nanpercentile(r, 75)) if fin.any() else float("nan"),
-        p95=float(np.nanpercentile(r, 95)) if fin.any() else float("nan"),
-    )
+def fit_eval(M, Xr_tr, Yr_tr, Xr_va, Yr_va, Xr_te, Yr_te, voxel_hash="", trial_table_hash="") -> dict:
+    """Single authoritative execution path via the leakage-safe FittedPipeline.
 
-
-def fit_eval(M, Xr_tr, Yr_tr, Xr_va, Yr_va, Xr_te, Yr_te) -> dict:
-    """Train-only centering, no scaling; validation-only selection; test once."""
-    s = Standardizer.fit(M[Xr_tr], with_scaling=False)
-    ty = Standardizer.fit(M[Yr_tr], with_scaling=False)
-    Xtr, Ytr = s.transform(M[Xr_tr]), ty.transform(M[Yr_tr])
-    Xva, Yva = s.transform(M[Xr_va]), ty.transform(M[Yr_va])
-    Xte, Yte = s.transform(M[Xr_te]), ty.transform(M[Yr_te])
-    sel = select_hyperparameters(Xtr, Ytr, Xva, Yva,
-                                 "smallest_rank_at_threshold", "argmax_validation")
-    W = fit_reduced_rank(Xtr, Ytr, sel.lam, sel.rank)
-    r = per_voxel_pearson(Yte, Xte @ W)
-    rep = metric_report(r)
-    rep.update(lam=sel.lam, rank=sel.rank, val_score=sel.val_score,
-               n_train=int(len(Xr_tr)), n_val=int(len(Xr_va)), n_test=int(len(Xr_te)))
-    return rep
+    Historical policy HISTORICAL_SMOKE_TRAIN_ONLY_CENTERING_V1: train-only
+    centering, no scaling, validation-only selection, train-only final refit,
+    one-shot test evaluation. Leakage is prevented structurally by the pipeline's
+    lifecycle, not by discipline here. Reproduces the historical numbers exactly
+    (verified in tests/test_fitted_pipeline.py).
+    """
+    pipe = (FittedPipeline(voxel_hash=voxel_hash, trial_table_hash=trial_table_hash)
+            .resolve_policies()
+            .fit_preprocessing(M[Xr_tr], M[Yr_tr])
+            .select(M[Xr_va], M[Yr_va])
+            .fit_final())
+    report = pipe.evaluate_test(M[Xr_te], M[Yr_te])
+    sealed = pipe.seal()
+    lam, rank = pipe.selected
+    d = report.as_dict()
+    # keep the historical result field names ("finite_frac", "mean", ...)
+    d["finite_frac"] = d.pop("finite_fraction")
+    d.update(lam=lam, rank=rank, val_score=float(pipe._val_score),
+             n_train=int(len(Xr_tr)), n_val=int(len(Xr_va)), n_test=int(len(Xr_te)),
+             policy_name=sealed["policy_name"])
+    return d
 
 
 def main() -> int:

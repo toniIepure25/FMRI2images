@@ -46,7 +46,8 @@ def _sha(path: Path, chunk: int = 8 << 20) -> str:
     return h.hexdigest()
 
 
-def fit_eval(M, Xr_tr, Yr_tr, Xr_va, Yr_va, Xr_te, Yr_te, voxel_hash="", trial_table_hash="") -> dict:
+def fit_eval(M, Xr_tr, Yr_tr, Xr_va, Yr_va, Xr_te, Yr_te,
+             voxel_hash="", trial_table_hash="", rank_max=None) -> dict:
     """Single authoritative execution path via the leakage-safe FittedPipeline.
 
     Historical policy HISTORICAL_SMOKE_TRAIN_ONLY_CENTERING_V1: train-only
@@ -54,8 +55,13 @@ def fit_eval(M, Xr_tr, Yr_tr, Xr_va, Yr_va, Xr_te, Yr_te, voxel_hash="", trial_t
     one-shot test evaluation. Leakage is prevented structurally by the pipeline's
     lifecycle, not by discipline here. Reproduces the historical numbers exactly
     (verified in tests/test_fitted_pipeline.py).
+
+    ``rank_max`` is recorded explicitly (None = matrix-supported max,
+    ``min(p, q, n_train)``); the returned ``rank`` is always ``<= rank_max`` when a
+    cap is set (test_rank_cap.py).
     """
-    pipe = (FittedPipeline(voxel_hash=voxel_hash, trial_table_hash=trial_table_hash)
+    pipe = (FittedPipeline(voxel_hash=voxel_hash, trial_table_hash=trial_table_hash,
+                           rank_max=rank_max)
             .resolve_policies()
             .fit_preprocessing(M[Xr_tr], M[Yr_tr])
             .select(M[Xr_va], M[Yr_va])
@@ -67,6 +73,8 @@ def fit_eval(M, Xr_tr, Yr_tr, Xr_va, Yr_va, Xr_te, Yr_te, voxel_hash="", trial_t
     # keep the historical result field names ("finite_frac", "mean", ...)
     d["finite_frac"] = d.pop("finite_fraction")
     d.update(lam=lam, rank=rank, val_score=float(pipe._val_score),
+             rank_max=(None if rank_max is None else int(rank_max)),
+             rank_hard_max=int(min(M.shape[1], M.shape[1], len(Xr_tr))),
              n_train=int(len(Xr_tr)), n_val=int(len(Xr_va)), n_test=int(len(Xr_te)),
              policy_name=sealed["policy_name"])
     return d
@@ -82,6 +90,8 @@ def main() -> int:
     ap.add_argument("--pairing-seed", type=int, default=1234)
     ap.add_argument("--vis2vis-pairing", default="all-ordered-distinct",
                     choices=["all-ordered-distinct", "derangement"])
+    ap.add_argument("--rank-max", type=int, default=None,
+                    help="explicit cap on retained rank (None = matrix-supported max)")
     ap.add_argument("--output-dir", required=True)
     a = ap.parse_args()
     t0 = time.time()
@@ -129,8 +139,8 @@ def main() -> int:
     vi_va = sp.vis2img_pairs(v, i, "val")
     vi_te = sp.vis2img_pairs(v, i, "test")
 
-    v2v = fit_eval(M, *vv_tr, *vv_va, *vv_te)
-    v2i = fit_eval(M, *vi_tr, *vi_va, *vi_te)
+    v2v = fit_eval(M, *vv_tr, *vv_va, *vv_te, voxel_hash=vhash, rank_max=a.rank_max)
+    v2i = fit_eval(M, *vi_tr, *vi_va, *vi_te, voxel_hash=vhash, rank_max=a.rank_max)
 
     # split + pairing manifests
     def split_rows():
@@ -187,6 +197,7 @@ def main() -> int:
                   refit_policy="final model fit on TRAIN ONLY after validation selection (no train+val refit)",
                   ridge_policy="argmax_validation",
                   rank_policy="smallest_rank_at_99pct_within_selected_lambda",
+                  rank_max=(None if a.rank_max is None else int(a.rank_max)),
                   finite_fraction_min=FINITE_FRACTION_MIN,
                   vis2vis=v2v, vis2img=v2i, code_commit=commit, runtime_s=round(time.time() - t0, 2))
     json.dump(result, open(out / "smoke_result.json", "w"), indent=2)

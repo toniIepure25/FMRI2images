@@ -1,0 +1,40 @@
+{
+  "generated_for": "subj01 x V1 x B0 x D0",
+  "split_seed": 1234,
+  "pairing_root_seed": 1234,
+  "note": "P0/I0 are the historical 13cc3f0 pairing (deterministic from the split; no pairing seed consumed) and are byte-parity with smoke_pipeline (test_pairing.py). P1/I1 are SENSITIVITY variants seeded by stable, independent child seeds; they are NOT a historical result and were NOT used to produce any reported number. The legacy replay_13cc3f0_P1 artifact used a provisional global-RNG derangement and is superseded for future P1 work by this child-seed derivation.",
+  "policies": {
+    "P0": {
+      "policy": "P0",
+      "n_pairs": 192,
+      "csv": "P0.csv",
+      "sha256": "945416cb6cb6cf0c14c94eefd7e89bd020da26270ac71413cb7a43343855089b",
+      "consumes_pairing_seed": false,
+      "child_seed_source": "split_seed_only"
+    },
+    "P1": {
+      "policy": "P1",
+      "n_pairs": 96,
+      "csv": "P1.csv",
+      "sha256": "ffa49425ec2ecfafd2c0f2f93e057165fe8bc91d0994a6348e3c3be3d9afe9dc",
+      "consumes_pairing_seed": true,
+      "child_seed_source": "derive_child_seed(root, policy, partition, identity)"
+    },
+    "I0": {
+      "policy": "I0",
+      "n_pairs": 96,
+      "csv": "I0.csv",
+      "sha256": "fa4f9d529f9c28d668d0bf4cf52a2fc662870eb4663ceefa84e5e81e542d071b",
+      "consumes_pairing_seed": false,
+      "child_seed_source": "split_seed_only"
+    },
+    "I1": {
+      "policy": "I1",
+      "n_pairs": 96,
+      "csv": "I1.csv",
+      "sha256": "e25f40f4d4c4b2c000e637c902c608d930502984ffa232e53e98961589180565",
+      "consumes_pairing_seed": true,
+      "child_seed_source": "derive_child_seed(root, policy, partition, identity)"
+    }
+  }
+}

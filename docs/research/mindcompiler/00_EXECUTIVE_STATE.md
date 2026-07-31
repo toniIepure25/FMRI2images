@@ -10,6 +10,32 @@ Corrected 2026-07-17.)
 
 ---
 
+## S1.9 (2026-07-31): PRE-B1 HARDENING COMPLETE -- `S1_PRE_B1_HARDENING_PASS`
+
+**Output HEAD `5d17c76`, server-verified. Normal forward commits only.** The subj01 x
+V1 x B0 x D0 engineering smoke is now leakage-safe by construction, tested, and
+provenance-complete. Authoritative status: `artifacts/mindcompiler/roy_s1/subj01_s1_9_status.json`.
+
+**Done (items 6,7,8,9,10,11,12,13,14):** FittedPipeline lifecycle (leakage prevented
+structurally) + structured metrics module now the single execution path (runner migrated,
+inline path retired); rank caps (`rank_max`/`r_max`) enforced + recorded; synthetic HDF5 and
+ROI/SNR fixtures pin the reversed `(trial,Z,Y,X)` extraction and strict-98th-pct V1 selection;
+`pairing.py` child-seed derivation (SHA-256, PYTHONHASHSEED-independent) + P0/P1/I0/I1 row-level
+CSV manifests (P0/I0 byte-parity with `smoke_pipeline`); real HTTP-server downloader
+resume/interruption tests; CLI pairing-seed contract (P1/I1-without-seed rejected, unused-seed
+warned); `artifact_validation.py` cross-artifact validator (catches the S1.8 defect class) with
+19/19 checks on the hardened dir. **102 reproduction tests pass (Lane E).**
+
+**Replay preserved bit-for-bit** through the migrated, cross-artifact-validated path:
+vis2vis lam=148.49682622544665 rank=5 mean=0.6140929522115459; vis2img lam=2915.0530628251818
+rank=1 mean=0.1650281390649757. P1/I1 are sensitivity variants only (no reported number uses
+them). Numbers remain NON-INTERPRETIVE (never compared to the Roy paper).
+
+**This PASS authorizes the USER to open a SEPARATE future B1 gate.** It does NOT itself download
+B1, run another ROI/subject, or issue a Roy reproduction verdict -- all still unauthorized here.
+
+---
+
 ## S1.4 (2026-07-23): first real-data touch -- downloader shipped, B0 acquiring
 
 **Input commit 4765b82 -> output commits 142e32b (downloader+fold-hardening+env fix) and this.**

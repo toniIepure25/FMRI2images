@@ -10,6 +10,34 @@ Corrected 2026-07-17.)
 
 ---
 
+## S2.2B (2026-08-21): PROSPECTIVE MULTI-ROI CONFIRMATION -- `S2_2B_PROSPECTIVE_MULTI_ROI_PASS` / `H_A_SPATIAL_PROFILE_SUPPORTED`
+
+**Input `b4f472f` -> output `1b4eb08`, server-verified. PROSPECTIVE within-subject
+(subj01); freeze committed before outcomes (`b123072`); no population inference; no
+verdict.** Doc `43_...md`; artifacts `artifacts/mindcompiler/roy_s2_2b/`.
+
+Tested the S2.1B-frozen H-A prediction on SIX untouched subj01 ROIs (V2, V3, hV4,
+ventral, lateral, parietal; V1 = discovery, excluded from primary). Outcome-
+independent voxel selection (V1 regression-reproduced a1bc56fe7c55). Primary
+endpoint = matched RAW_S2_MATCHED; losses L = B0-B1 (>0 = B1 worse):
+
+  ROI/nvox: V2/29 V3/24 hV4/14 ventral/153 lateral/156 parietal/71
+  L_rel_img: +0.113 +0.158 +0.060 +0.154 +0.119 +0.127
+  L_perf_RAW:+0.062 +0.076 +0.012 +0.095 +0.041 +0.053
+
+**All 6 ROIs concordant; Criteria A-D all pass; Spearman rho(L_rel_img,
+L_perf_RAW)=0.771 -> H_A_SPATIAL_PROFILE_SUPPORTED.** Leave-one-ROI rho all positive
+(0.6..0.9); voxel-count confound weak (~0.2). Secondary NOT supported (D1
+rho=-0.086, cross-state H-B rho=-0.143) -> mechanism sits at the RAW/beta-prep
+stage. Bounded claim: B1 imagery-reliability loss spatially tracks B1 RAW vis2img
+loss ACROSS ROIs WITHIN subj01 (not causal/population/mechanism-proven). 155 tests.
+
+**Next (item 29, H-A supported): freeze the subject-level prediction, then S2.3
+PROSPECTIVE CROSS-PARTICIPANT RELIABILITY CONFIRMATION** (no new participant run
+here).
+
+---
+
 ## S2.1B (2026-08-21): BETA-PREP x DENOISING AUDIT -- `S2_1B_MECHANISM_AUDIT_PASS`
 
 **Input `af6532e` -> output `4279446`, server-verified. EXPLORATORY (divergence

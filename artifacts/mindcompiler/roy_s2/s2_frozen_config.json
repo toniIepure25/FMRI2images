@@ -1,0 +1,78 @@
+{
+  "config_sha256": "e3f32a0d1c0d48c336af667c3cf975f868829e1a98fa305391444bc9b86d54c9",
+  "gate": "S2.0",
+  "frozen_before_test_evaluation": true,
+  "scope": "subj01 x V1 only",
+  "beta_versions": {
+    "B0": {
+      "name": "fithrf",
+      "sha256": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64"
+    },
+    "B1": {
+      "name": "fithrf_GLMdenoise_RR",
+      "sha256": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e"
+    }
+  },
+  "voxel_selection": {
+    "roi": "V1 prf-visualrois {1,2}",
+    "snr": "NSD-core betas_fithrf/ncsnr strict >98th pct",
+    "voxel_hash": "a1bc56fe7c55",
+    "n_voxels": 27,
+    "identical_across_beta_versions": true
+  },
+  "folds": {
+    "n_folds": 4,
+    "per_identity_state": "4 train / 2 val / 2 test",
+    "fold_root_seed": 1234,
+    "derivation_version": "s2_folds_v1",
+    "manifest": "artifacts/mindcompiler/roy_s2/fold_manifest.csv",
+    "manifest_sha256": "243b2e07e9da76f1df1cbda08d7303fa4f725c061688ff8bfdb2ae501f782a2f",
+    "test_coverage": "balanced (each repeat exactly once in test across 4 folds)"
+  },
+  "preprocessing_variants": {
+    "P0": "PREPROC_HISTORICAL_D0 (center-only; sensitivity)",
+    "P1_PRIMARY": "PREPROC_ZSCORE_TRAIN_ONLY (train-only z-score)",
+    "zero_variance": "scale=1.0, indices+counts recorded, never /0"
+  },
+  "vis2vis_pairing_policies": {
+    "V2V-P0": "all_ordered_distinct (primary)",
+    "V2V-P1": "single_deterministic_derangement (sensitivity; child-seeded)"
+  },
+  "denoising": {
+    "D1_PRIMARY": "D1_STRICT_CROSSFIT: pooled within-identity vis2vis; train=leave-one-trial-out; val/test=full-train; predictions inverse-transformed to raw units",
+    "D1b_registered_not_run": "symmetric k-fold crossfit (future variant)",
+    "D2": "D2_NOT_IDENTIFIABLE_FROM_PUBLIC_METHODS (not invented)"
+  },
+  "ridge_grid": {
+    "lo": 0.001,
+    "hi": 100000.0,
+    "n": 100,
+    "spacing": "log10"
+  },
+  "rank_rule": {
+    "cap": "min(12, n_train_conditions, src_dim, tgt_dim, effective_train_rank)",
+    "selection": "smallest rank within 99% of the selected lambda's peak validation score",
+    "ridge_tie_break": "argmax_validation"
+  },
+  "vis2img_pairing": "within-identity, within-split, index-aligned (I0-style); denoised vision -> imagery",
+  "refit_policy": "train_only (train+validation refit remains a labeled sensitivity, not primary)",
+  "metric_definitions": "per-voxel Pearson r (Y_true,Y_pred) with explicit constant-voxel accounting; aggregate mean/median/std/min/max/p5/p25/p75/p95, finite fraction, target/prediction/both-constant counts",
+  "finite_fraction_min": 0.9,
+  "fold_aggregation": {
+    "method": "arithmetic mean + median + std + min/max across fold-level summaries",
+    "rule": "folds are NOT treated as independent participants; no population-level significance from 4 folds"
+  },
+  "test_evaluation_policy": "each fold's test set evaluated exactly once; no policy changed after seeing test results; a discovered bug is recorded as a protocol deviation and rerun transparently",
+  "primary_experiment_matrix": [
+    "B0 x P1 x V2V-P0 x D1",
+    "B1 x P1 x V2V-P0 x D1"
+  ],
+  "historical_reference": [
+    "B0 x D0 (non-denoised smoke)",
+    "B1 x D0 (non-denoised smoke)"
+  ],
+  "seeds": {
+    "fold_root_seed": 1234,
+    "vis2vis_pairing_seed_for_P1": 1234
+  }
+}

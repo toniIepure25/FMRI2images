@@ -10,6 +10,29 @@ Corrected 2026-07-17.)
 
 ---
 
+## S2.1B (2026-08-21): BETA-PREP x DENOISING AUDIT -- `S2_1B_MECHANISM_AUDIT_PASS`
+
+**Input `af6532e` -> output `4279446`, server-verified. EXPLORATORY (divergence
+already observed); subj01 x V1 only; no fold p-values; no verdict.** Doc `42_...md`;
+artifacts `artifacts/mindcompiler/roy_s2_1b/`. Frozen before eval: matched factorial
+(`8f3fe9eb`) + hypotheses H-A..H-F.
+
+Matched 2x2 {B0,B1}x{RAW,D1} (+D1b) under the SAME S2 folds; leakage-clean.
+NON-INTERPRETIVE vis2img mean r: B0 RAW +0.138 / D1 +0.203 / D1b +0.179; B1 RAW
+-0.042 / D1 -0.030 / D1b +0.020. **Primary descriptive finding: the divergence
+originates at the BETA-PREPARATION / raw stage** -- B1 is already weak under matched
+RAW, so D1 is not the cause. B1 largely PRESERVES B0's pattern (paired r 0.93, RDM
+Spearman 0.885, rotation gain ~0.004 -> mostly rescaling not rotation) but has lower
+repeat reliability, most strongly in imagery (0.144 vs 0.297) and lower vision SNR
+(1.80 vs 2.72). Verdicts: H-A SUPPORTED; H-E PARTIAL; H-B/H-D PARTIAL; H-C/H-F
+NOT_SUPPORTED. D1b = corrected symmetric k=2 (recorded deviation from degenerate
+frozen k=n). 145 reproduction tests pass.
+
+**Next (Path C, follows the result): S2.2B beta-preparation reliability confirmation
+on UNTOUCHED ROIs** -- do NOT scale broadly on V1. Prospective predictions frozen.
+
+---
+
 ## S2.0 (2026-08-21): vis2vis->D1->vis2img RECONSTRUCTION -- `S2_D1_FOUNDATION_PASS`
 
 **Input `bdbeabc` -> output `bd26918`, server-verified. Author-independent; normal

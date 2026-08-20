@@ -1,0 +1,51 @@
+{
+  "gate": "S2.1B",
+  "frozen_before_evaluation": true,
+  "note": "Predicted patterns frozen BEFORE reading any S2.1B test result. Classified later as SUPPORTED/PARTIAL/NOT_SUPPORTED/INCONCLUSIVE without selecting the highest subjective fit.",
+  "hypotheses": {
+    "H-A_beta_prep_reduces_identity_signal": {
+      "predicts": [
+        "B1 repeat reliability lower",
+        "B1 between-identity signal lower",
+        "RAW-matched B1 already weak",
+        "D1 not primary cause"
+      ]
+    },
+    "H-B_B1_changes_cross_state_geometry": {
+      "predicts": [
+        "reasonable B1 vision reliability",
+        "reasonable B1 imagery reliability",
+        "poor vision<->imagery centroid alignment",
+        "poor vis2img under BOTH RAW and D1"
+      ]
+    },
+    "H-C_D1_interacts_adversely_with_B1": {
+      "predicts": [
+        "B1 RAW-matched vis2img materially stronger than B1 D1",
+        "large negative delta_denoise_B1",
+        "B0 less affected or improved"
+      ]
+    },
+    "H-D_D1_LOTO_specifically_causes_B1_failure": {
+      "predicts": [
+        "B1 poor under D1",
+        "B1 recovers under D1b"
+      ]
+    },
+    "H-E_GLMdenoiseRR_mainly_rescales_B0": {
+      "predicts": [
+        "strong paired B0/B1 trial correlation",
+        "similar centroid/RDM geometry",
+        "affine/scale model explains most difference"
+      ]
+    },
+    "H-F_GLMdenoiseRR_materially_rotates_geometry": {
+      "predicts": [
+        "reduced B0/B1 paired correlation",
+        "eigenstructure changes",
+        "Procrustes/full-linear >> simple scaling",
+        "cross-state orientation changes"
+      ]
+    }
+  }
+}

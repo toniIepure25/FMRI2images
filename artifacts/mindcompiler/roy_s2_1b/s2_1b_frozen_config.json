@@ -1,0 +1,133 @@
+{
+  "config_sha256": "8f3fe9eb0532909c87c42c7e4c9068bef569e4f8f12011937f042da06e0bb655",
+  "gate": "S2.1B",
+  "analysis_class": "EXPLORATORY_MECHANISM_AUDIT",
+  "frozen_before_test_evaluation": true,
+  "scope": "subj01 x V1 only",
+  "inherits_from_S2": {
+    "frozen_config_sha256": "e3f32a0d1c0d48c336af667c3cf975f868829e1a98fa305391444bc9b86d54c9",
+    "fold_manifest_sha256": "243b2e07e9da76f1df1cbda08d7303fa4f725c061688ff8bfdb2ae501f782a2f",
+    "trial_table_sha_prefix": "4c1f6890e13c015b",
+    "voxel_hash": "a1bc56fe7c55",
+    "n_voxels": 27,
+    "n_folds": 4
+  },
+  "beta_versions": {
+    "B0": "fithrf",
+    "B1": "fithrf_GLMdenoise_RR"
+  },
+  "matched_factorial": {
+    "cells": [
+      "B0 x RAW_S2_MATCHED",
+      "B0 x D1_STRICT_CROSSFIT",
+      "B1 x RAW_S2_MATCHED",
+      "B1 x D1_STRICT_CROSSFIT"
+    ],
+    "shared": [
+      "same 4 S2 folds",
+      "same 4/2/2 assignments",
+      "P1 train-only z-score",
+      "vis2img within-identity index-aligned",
+      "ridge 1e-3..1e5 x100 log",
+      "rank cap min(12,conditions,dims,effective) w/ 99%-of-peak",
+      "finite_fraction_min 0.90",
+      "test evaluated once"
+    ],
+    "factors": {
+      "beta_preparation": "B0 vs B1",
+      "vision_input": "RAW vs D1-denoised"
+    },
+    "RAW_definition": "vis2img trained directly on raw (z-scored) vision -> imagery under the matched S2 protocol; NOT the historical single-split D0",
+    "D1_definition": "D1_STRICT_CROSSFIT (LOTO train, full-train val/test), as in S2.0"
+  },
+  "denoising_interaction_formulas": {
+    "delta_denoise_beta": "r(beta,D1) - r(beta,RAW)  per fold",
+    "interaction": "delta_denoise_B1 - delta_denoise_B0  per fold and aggregate (descriptive only; NO fold p-value)"
+  },
+  "diagnostic_statistics": {
+    "trial_similarity": [
+      "pearson",
+      "cosine",
+      "normalized_euclidean",
+      "norm_ratio",
+      "mean_shift",
+      "variance_ratio"
+    ],
+    "covariance_spectrum": [
+      "voxel_mean",
+      "voxel_var",
+      "trial_var",
+      "cov_trace",
+      "frobenius",
+      "eigen_spectrum",
+      "cumulative_explained_var",
+      "effective_rank",
+      "participation_ratio",
+      "condition_number"
+    ],
+    "identity_signal_noise": [
+      "within_identity_scatter",
+      "between_identity_separation",
+      "ratio"
+    ],
+    "repeat_reliability": [
+      "mean_pairwise_repeat_corr",
+      "split_half",
+      "leave_one_repeat_to_centroid"
+    ],
+    "vis2vis_audit": [
+      "lambda",
+      "rank",
+      "val_r",
+      "finite_fraction",
+      "pred_var",
+      "target_var",
+      "raw_to_pred_corr",
+      "residual_var",
+      "fraction_variance_explained"
+    ],
+    "raw_to_D1": [
+      "pearson",
+      "cosine",
+      "L2_shrinkage",
+      "norm_ratio",
+      "variance_retained",
+      "effective_rank_change"
+    ],
+    "vision_imagery_geometry": [
+      "centroid_norms",
+      "pairwise_centroid_distance",
+      "RDM",
+      "RDM_spearman",
+      "procrustes_error",
+      "cross_state_centroid_corr"
+    ],
+    "subspace_alignment": [
+      "effective_rank_vision",
+      "effective_rank_imagery",
+      "principal_angles",
+      "eigenvector_overlap"
+    ],
+    "cross_state_matching": [
+      "diagonal_sim",
+      "offdiag_sim",
+      "diag_minus_offdiag",
+      "correct_identity_rank"
+    ],
+    "B0_to_B1_geometry": [
+      "scale_only_a_b",
+      "diagonal_voxelwise_affine",
+      "orthogonal_procrustes_gain",
+      "full_linear_heldout"
+    ]
+  },
+  "D1b_sensitivity_definition": "symmetric k-fold crossfit denoising (k = n train repeats per identity): partition vision train into inner sub-folds; each train trial denoised by a pooled model excluding its own inner sub-fold; val/test = full-train; no trial denoises itself; leakage-safe; same outer folds, P1, vis2img contract. Registered in S2.0 pre-results.",
+  "no_test_driven_policy_changes": true,
+  "forbidden": [
+    "fold p-values",
+    "voxels as subjects",
+    "B0-superior / B1-wrong claims",
+    "GLMdenoise-damages-imagery claims",
+    "Roy-used-B0 / Roy-failed claims"
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "rho_nvox_vs_L_rel_img": 0.2571428571428572,
+  "rho_nvox_vs_L_perf_RAW": 0.2,
+  "note": "Confounding diagnostic only; ROI observations may be anatomically/statistically dependent; no residualization, no reclassification."
+}

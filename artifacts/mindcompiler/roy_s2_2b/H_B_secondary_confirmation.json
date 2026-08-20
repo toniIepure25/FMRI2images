@@ -1,0 +1,12 @@
+{
+  "rho_crossstate_vs_RAW_loss": -0.14285714285714288,
+  "L_crossstate": {
+    "V2": -0.0190741689522948,
+    "V3": -0.17151776996637855,
+    "hV4": -0.07742673356992644,
+    "ventral": -0.02949467796398411,
+    "lateral": -0.02294773826813043,
+    "parietal": 0.007657292044314146
+  },
+  "note": "Secondary; cannot override primary H-A."
+}

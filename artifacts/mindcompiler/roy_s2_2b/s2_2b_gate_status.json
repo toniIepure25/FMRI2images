@@ -1,0 +1,35 @@
+{
+  "gate": "S2.2B",
+  "status": "S2_2B_PROSPECTIVE_MULTI_ROI_PASS",
+  "H_A_mechanism_status": "H_A_SPATIAL_PROFILE_SUPPORTED",
+  "prospective_freeze_respected": true,
+  "primary_rho_reliability_vs_RAW_loss": 0.7714285714285715,
+  "criteria": {
+    "criterion_A": true,
+    "criterion_B": true,
+    "criterion_C": true,
+    "criterion_D": true
+  },
+  "n_criteria_passed": 4,
+  "secondary": {
+    "D1": {
+      "rho_reliability_vs_D1_loss": -0.08571428571428573,
+      "L_perf_D1": {
+        "V2": 0.048109435035469494,
+        "V3": 0.06738682528077712,
+        "hV4": 0.15329832685574718,
+        "ventral": 0.07462781760059248,
+        "lateral": 0.2103413820166185,
+        "parietal": 0.24211916163093833
+      }
+    },
+    "H_B_crossstate_rho": -0.14285714285714288
+  },
+  "note": "Gate executed successfully; hypothesis status is separate. subj01 only; no population inference; no reproduction verdict.",
+  "next_action": {
+    "path": "item 29 (H-A supported)",
+    "next": "S2.3 -- PROSPECTIVE CROSS-PARTICIPANT RELIABILITY CONFIRMATION",
+    "requirement": "Freeze the subject-level prediction BEFORE acquiring/evaluating any new participant: across untouched participants, B1/B0 vis2img loss should covary with B1/B0 imagery repeat-reliability loss.",
+    "not_done_here": "No new participant run in S2.2B."
+  }
+}

@@ -1,0 +1,93 @@
+{
+  "V2": {
+    "trial_similarity_vision": 0.9187051124560336,
+    "b0_to_b1_vision": {
+      "scale_only": {
+        "a": 0.844512939453125,
+        "b": 0.1783689260482788,
+        "r2": 0.8025901962598267
+      },
+      "diagonal_affine_r2": 0.816164981534051,
+      "scaled_procrustes_r2": 0.7885621244712774,
+      "rotation_gain_over_scale": -0.014028071788549368
+    }
+  },
+  "V3": {
+    "trial_similarity_vision": 0.8506649142752091,
+    "b0_to_b1_vision": {
+      "scale_only": {
+        "a": 0.8856809139251709,
+        "b": 0.19054412841796875,
+        "r2": 0.8031789311494734
+      },
+      "diagonal_affine_r2": 0.8602374595909923,
+      "scaled_procrustes_r2": 0.8390725998644275,
+      "rotation_gain_over_scale": 0.03589366871495414
+    }
+  },
+  "hV4": {
+    "trial_similarity_vision": 0.8834634295975169,
+    "b0_to_b1_vision": {
+      "scale_only": {
+        "a": 0.9275393486022949,
+        "b": -0.01888453960418701,
+        "r2": 0.8378214109510529
+      },
+      "diagonal_affine_r2": 0.8476062020662476,
+      "scaled_procrustes_r2": 0.8346517919159235,
+      "rotation_gain_over_scale": -0.0031696190351293563
+    }
+  },
+  "ventral": {
+    "trial_similarity_vision": 0.8992625661194324,
+    "b0_to_b1_vision": {
+      "scale_only": {
+        "a": 0.9813117980957031,
+        "b": -0.05829966068267822,
+        "r2": 0.8033069216182249
+      },
+      "diagonal_affine_r2": 0.8395475719015719,
+      "scaled_procrustes_r2": 0.8517222766656354,
+      "rotation_gain_over_scale": 0.04841535504741046
+    }
+  },
+  "lateral": {
+    "trial_similarity_vision": 0.8465082794427872,
+    "b0_to_b1_vision": {
+      "scale_only": {
+        "a": 0.8265952467918396,
+        "b": -0.11114031076431274,
+        "r2": 0.740384706183699
+      },
+      "diagonal_affine_r2": 0.8033114754969138,
+      "scaled_procrustes_r2": 0.8159750026472019,
+      "rotation_gain_over_scale": 0.0755902964635029
+    }
+  },
+  "parietal": {
+    "trial_similarity_vision": 0.8628158216985563,
+    "b0_to_b1_vision": {
+      "scale_only": {
+        "a": 0.9542624950408936,
+        "b": 0.0927743911743164,
+        "r2": 0.8233313045819445
+      },
+      "diagonal_affine_r2": 0.8540306189165746,
+      "scaled_procrustes_r2": 0.8392871869281175,
+      "rotation_gain_over_scale": 0.015955882346173067
+    }
+  },
+  "V1": {
+    "trial_similarity_vision": 0.9320809561759233,
+    "b0_to_b1_vision": {
+      "scale_only": {
+        "a": 0.9588634371757507,
+        "b": 0.06941461563110352,
+        "r2": 0.8738509532587239
+      },
+      "diagonal_affine_r2": 0.8825630518305293,
+      "scaled_procrustes_r2": 0.878093325776428,
+      "rotation_gain_over_scale": 0.004242372517704096
+    }
+  }
+}

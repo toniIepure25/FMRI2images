@@ -1,0 +1,184 @@
+{
+  "V2": {
+    "B0": {
+      "vision": {
+        "within_identity_scatter": 70.0519027709961,
+        "between_identity_separation": 101.14468383789062,
+        "signal_to_noise": 1.4438534834455348
+      },
+      "imagery": {
+        "within_identity_scatter": 37.2715950012207,
+        "between_identity_separation": 13.624496459960938,
+        "signal_to_noise": 0.3655463754506539
+      }
+    },
+    "B1": {
+      "vision": {
+        "within_identity_scatter": 89.26620483398438,
+        "between_identity_separation": 75.9028091430664,
+        "signal_to_noise": 0.850297257335282
+      },
+      "imagery": {
+        "within_identity_scatter": 43.94473648071289,
+        "between_identity_separation": 11.138401985168457,
+        "signal_to_noise": 0.2534638474861953
+      }
+    }
+  },
+  "V3": {
+    "B0": {
+      "vision": {
+        "within_identity_scatter": 55.01153564453125,
+        "between_identity_separation": 55.87644958496094,
+        "signal_to_noise": 1.0157224104053104
+      },
+      "imagery": {
+        "within_identity_scatter": 30.661420822143555,
+        "between_identity_separation": 10.077664375305176,
+        "signal_to_noise": 0.32867571381516436
+      }
+    },
+    "B1": {
+      "vision": {
+        "within_identity_scatter": 73.04444122314453,
+        "between_identity_separation": 47.06978225708008,
+        "signal_to_noise": 0.6443992379007447
+      },
+      "imagery": {
+        "within_identity_scatter": 40.87070846557617,
+        "between_identity_separation": 9.671321868896484,
+        "signal_to_noise": 0.23663210724722983
+      }
+    }
+  },
+  "hV4": {
+    "B0": {
+      "vision": {
+        "within_identity_scatter": 25.1263427734375,
+        "between_identity_separation": 35.08262634277344,
+        "signal_to_noise": 1.3962488157990625
+      },
+      "imagery": {
+        "within_identity_scatter": 18.89836883544922,
+        "between_identity_separation": 3.9839999675750732,
+        "signal_to_noise": 0.21081184319473953
+      }
+    },
+    "B1": {
+      "vision": {
+        "within_identity_scatter": 33.78885269165039,
+        "between_identity_separation": 30.402395248413086,
+        "signal_to_noise": 0.899775897271761
+      },
+      "imagery": {
+        "within_identity_scatter": 22.52571678161621,
+        "between_identity_separation": 4.007500171661377,
+        "signal_to_noise": 0.17790777583299797
+      }
+    }
+  },
+  "ventral": {
+    "B0": {
+      "vision": {
+        "within_identity_scatter": 290.7217712402344,
+        "between_identity_separation": 145.81105041503906,
+        "signal_to_noise": 0.5015484385397125
+      },
+      "imagery": {
+        "within_identity_scatter": 276.8210144042969,
+        "between_identity_separation": 67.08890533447266,
+        "signal_to_noise": 0.24235481355649308
+      }
+    },
+    "B1": {
+      "vision": {
+        "within_identity_scatter": 422.86279296875,
+        "between_identity_separation": 126.87924194335938,
+        "signal_to_noise": 0.3000482521826788
+      },
+      "imagery": {
+        "within_identity_scatter": 357.609130859375,
+        "between_identity_separation": 54.52090072631836,
+        "signal_to_noise": 0.15245947606342852
+      }
+    }
+  },
+  "lateral": {
+    "B0": {
+      "vision": {
+        "within_identity_scatter": 215.967529296875,
+        "between_identity_separation": 104.2709732055664,
+        "signal_to_noise": 0.4828085663851468
+      },
+      "imagery": {
+        "within_identity_scatter": 198.5641326904297,
+        "between_identity_separation": 41.88717269897461,
+        "signal_to_noise": 0.21095034703109536
+      }
+    },
+    "B1": {
+      "vision": {
+        "within_identity_scatter": 248.8407745361328,
+        "between_identity_separation": 65.49588775634766,
+        "signal_to_noise": 0.26320400215133294
+      },
+      "imagery": {
+        "within_identity_scatter": 214.9684600830078,
+        "between_identity_separation": 29.95684242248535,
+        "signal_to_noise": 0.13935459374327672
+      }
+    }
+  },
+  "parietal": {
+    "B0": {
+      "vision": {
+        "within_identity_scatter": 165.58053588867188,
+        "between_identity_separation": 87.73567962646484,
+        "signal_to_noise": 0.5298671076016686
+      },
+      "imagery": {
+        "within_identity_scatter": 134.49998474121094,
+        "between_identity_separation": 62.00807571411133,
+        "signal_to_noise": 0.46102663753769174
+      }
+    },
+    "B1": {
+      "vision": {
+        "within_identity_scatter": 212.3775177001953,
+        "between_identity_separation": 74.78411865234375,
+        "signal_to_noise": 0.3521282264816441
+      },
+      "imagery": {
+        "within_identity_scatter": 155.1650390625,
+        "between_identity_separation": 41.78352737426758,
+        "signal_to_noise": 0.26928441887890286
+      }
+    }
+  },
+  "V1": {
+    "B0": {
+      "vision": {
+        "within_identity_scatter": 59.44735336303711,
+        "between_identity_separation": 161.4660186767578,
+        "signal_to_noise": 2.716117868035373
+      },
+      "imagery": {
+        "within_identity_scatter": 45.2840576171875,
+        "between_identity_separation": 21.225374221801758,
+        "signal_to_noise": 0.4687162621607852
+      }
+    },
+    "B1": {
+      "vision": {
+        "within_identity_scatter": 85.9051284790039,
+        "between_identity_separation": 154.27915954589844,
+        "signal_to_noise": 1.7959249031750864
+      },
+      "imagery": {
+        "within_identity_scatter": 54.79742431640625,
+        "between_identity_separation": 14.1394624710083,
+        "signal_to_noise": 0.2580315160319492
+      }
+    }
+  }
+}

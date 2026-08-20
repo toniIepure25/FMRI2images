@@ -1,0 +1,5 @@
+{
+  "lane": "Lane E local prospective execution; data-free tests CI-capable",
+  "reproduction_tests_passed": 155,
+  "note": "Real-data prospective execution local in Lane E; all data-free tests CI-capable."
+}

@@ -1,0 +1,7 @@
+{
+  "gate": "S2.2B",
+  "phase": "PHASE_2",
+  "input_commit": "b1230728582039c63ea5743eb103e6965918b131",
+  "frozen_config_committed_before_outcome": true,
+  "no_fold_pvalues": true
+}

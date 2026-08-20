@@ -1,0 +1,198 @@
+{
+  "V2": {
+    "B0": {
+      "selected_voxels": 29,
+      "int16_min": -2421.0,
+      "int16_max": 5165.0,
+      "saturation_count": 0,
+      "zero_count": 7,
+      "constant_voxels": 0,
+      "finite_fraction": 1.0,
+      "var_min": 1.4517202377319336,
+      "var_max": 23.261850357055664,
+      "voxel_hash": "f18288ba2c73",
+      "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e"
+    },
+    "B1": {
+      "selected_voxels": 29,
+      "int16_min": -2842.0,
+      "int16_max": 5324.0,
+      "saturation_count": 0,
+      "zero_count": 5,
+      "constant_voxels": 0,
+      "finite_fraction": 1.0,
+      "var_min": 1.6340891122817993,
+      "var_max": 17.786365509033203,
+      "voxel_hash": "f18288ba2c73",
+      "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e"
+    }
+  },
+  "V3": {
+    "B0": {
+      "selected_voxels": 24,
+      "int16_min": -2599.0,
+      "int16_max": 2910.999755859375,
+      "saturation_count": 0,
+      "zero_count": 6,
+      "constant_voxels": 0,
+      "finite_fraction": 1.0,
+      "var_min": 1.562537670135498,
+      "var_max": 6.700024127960205,
+      "voxel_hash": "5fd2b36ac1a5",
+      "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e"
+    },
+    "B1": {
+      "selected_voxels": 24,
+      "int16_min": -2960.0,
+      "int16_max": 2822.0,
+      "saturation_count": 0,
+      "zero_count": 6,
+      "constant_voxels": 0,
+      "finite_fraction": 1.0,
+      "var_min": 1.729897141456604,
+      "var_max": 7.43047571182251,
+      "voxel_hash": "5fd2b36ac1a5",
+      "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e"
+    }
+  },
+  "hV4": {
+    "B0": {
+      "selected_voxels": 14,
+      "int16_min": -1463.0,
+      "int16_max": 3623.0,
+      "saturation_count": 0,
+      "zero_count": 3,
+      "constant_voxels": 0,
+      "finite_fraction": 1.0,
+      "var_min": 1.2034289836883545,
+      "var_max": 9.637042045593262,
+      "voxel_hash": "788ad156aa0e",
+      "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e"
+    },
+    "B1": {
+      "selected_voxels": 14,
+      "int16_min": -1469.0,
+      "int16_max": 3768.000244140625,
+      "saturation_count": 0,
+      "zero_count": 0,
+      "constant_voxels": 0,
+      "finite_fraction": 1.0,
+      "var_min": 1.2259235382080078,
+      "var_max": 8.756945610046387,
+      "voxel_hash": "788ad156aa0e",
+      "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e"
+    }
+  },
+  "ventral": {
+    "B0": {
+      "selected_voxels": 153,
+      "int16_min": -5941.0,
+      "int16_max": 4501.0,
+      "saturation_count": 0,
+      "zero_count": 27,
+      "constant_voxels": 0,
+      "finite_fraction": 1.0,
+      "var_min": 0.5708956718444824,
+      "var_max": 32.08736801147461,
+      "voxel_hash": "3d54a7fc3cb6",
+      "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e"
+    },
+    "B1": {
+      "selected_voxels": 153,
+      "int16_min": -5883.0,
+      "int16_max": 5829.0,
+      "saturation_count": 0,
+      "zero_count": 26,
+      "constant_voxels": 0,
+      "finite_fraction": 1.0,
+      "var_min": 0.5494534373283386,
+      "var_max": 38.73783493041992,
+      "voxel_hash": "3d54a7fc3cb6",
+      "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e"
+    }
+  },
+  "lateral": {
+    "B0": {
+      "selected_voxels": 156,
+      "int16_min": -2959.0,
+      "int16_max": 3483.0,
+      "saturation_count": 0,
+      "zero_count": 29,
+      "constant_voxels": 0,
+      "finite_fraction": 1.0,
+      "var_min": 0.4247387945652008,
+      "var_max": 11.715782165527344,
+      "voxel_hash": "cd85569a5f2b",
+      "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e"
+    },
+    "B1": {
+      "selected_voxels": 156,
+      "int16_min": -3313.0,
+      "int16_max": 3056.0,
+      "saturation_count": 0,
+      "zero_count": 38,
+      "constant_voxels": 0,
+      "finite_fraction": 1.0,
+      "var_min": 0.2478320449590683,
+      "var_max": 12.484078407287598,
+      "voxel_hash": "cd85569a5f2b",
+      "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e"
+    }
+  },
+  "parietal": {
+    "B0": {
+      "selected_voxels": 71,
+      "int16_min": -3591.0,
+      "int16_max": 7028.0,
+      "saturation_count": 0,
+      "zero_count": 7,
+      "constant_voxels": 0,
+      "finite_fraction": 1.0,
+      "var_min": 0.6008692979812622,
+      "var_max": 34.29541015625,
+      "voxel_hash": "e8109c3e941c",
+      "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e"
+    },
+    "B1": {
+      "selected_voxels": 71,
+      "int16_min": -4132.0,
+      "int16_max": 7310.0,
+      "saturation_count": 0,
+      "zero_count": 16,
+      "constant_voxels": 0,
+      "finite_fraction": 1.0,
+      "var_min": 0.5205397009849548,
+      "var_max": 37.636722564697266,
+      "voxel_hash": "e8109c3e941c",
+      "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e"
+    }
+  },
+  "V1": {
+    "B0": {
+      "selected_voxels": 27,
+      "int16_min": -3443.0,
+      "int16_max": 4985.0,
+      "saturation_count": 0,
+      "zero_count": 5,
+      "constant_voxels": 0,
+      "finite_fraction": 1.0,
+      "var_min": 1.1635398864746094,
+      "var_max": 25.21100616455078,
+      "voxel_hash": "a1bc56fe7c55",
+      "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e"
+    },
+    "B1": {
+      "selected_voxels": 27,
+      "int16_min": -3077.000244140625,
+      "int16_max": 5103.0,
+      "saturation_count": 0,
+      "zero_count": 3,
+      "constant_voxels": 0,
+      "finite_fraction": 1.0,
+      "var_min": 1.192150592803955,
+      "var_max": 23.23798370361328,
+      "voxel_hash": "a1bc56fe7c55",
+      "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "appendix_ROI_table_with_V1.csv": "ea8ce5d65a57545de3eec092449e844a91cda65b3b8fe1eafa20741784bd9712",
+  "B0_B1_geometry_by_roi.json": "e6593619f4d7b600639f69832f678a322ee4e3e982a9f06aa5f1c3b28c0c509e",
+  "cross_state_geometry_by_roi.json": "83679b54e6ef990d77a3e961ca5103476fcab74fe8affc578992bff4a1d9f483",
+  "D1_fold_results_by_roi.json": "0a10d524f83fc3a58dcdb7b1f76a89f1ad975bd020b54283bb91829fd5a45a8b",
+  "H_A_confirmation.json": "78d5e3a00cf61f8fa75a9e17ba983b211ad6126bb47909c64ad11005ba01c1ef",
+  "H_B_secondary_confirmation.json": "ab9aa3533be3e12b74f88aeebcb6becc9a0a497fd53f36e5205b888498b8b01a",
+  "identity_signal_noise_by_roi.json": "f8cc0ee0a81a069d8a5e2d63ae07c330625934ae3658f5f381f5159d5bf43480",
+  "leave_one_ROI_sensitivity.json": "45a0a7000b76867dc0775884caf0741fd4c919d92643016a847e898b2c3aa039",
+  "primary_ROI_table.csv": "cbc7eacfd18465a51c9e5ad084dcd866639e485775760ecab7360d65b2318132",
+  "prospective_execution_provenance.json": "a5433877c33385d9035c2f85e76b3b1ce1ab05eef8b7078a726459a825109d73",
+  "RAW_fold_results_by_roi.json": "7e5dcd6412beed330d07d451fda3eec5e5f92a18c00b6eb80306eabd0e9956d8",
+  "repeat_reliability_by_roi.json": "3ddc13264651c4d81d4af0b19ec8476aefc3034accb4d86628c457accf64e420",
+  "roi_selection_manifest.json": "fd81b399df0cb8a9550f485783d26fed98090deed995872dc829a7e51a47fd79",
+  "s2_2b_frozen_config.json": "122edac62164be558eedca9351a0f4d8a3fcd4700d5cd9cb726b06ffc8c415c9",
+  "s2_2b_gate_status.json": "a6cb520fa474c2500803568d2e4da2ac5ad861e042e62e7e9ebb4ef397bccd65",
+  "test_report.json": "35f52ae2f1b093dd2f13cf286f96cce462641e1db7555a7a782333315500dca1",
+  "value_qc.json": "455113276b5823d0950c32c603e697c6aa0eb54d9fffc092a7876d2331f5a740",
+  "voxel_count_diagnostic.json": "c07c754afebdeaebff65119df453a21036b94678d8e651a973cdf4bd53757eb7"
+}

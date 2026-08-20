@@ -1,0 +1,54 @@
+{
+  "analysis_class": "PROSPECTIVE_WITHIN_SUBJECT_SPATIAL_CONFIRMATION",
+  "discovery_roi": "V1",
+  "prospective_rois": [
+    "V2",
+    "V3",
+    "hV4",
+    "ventral",
+    "lateral",
+    "parietal"
+  ],
+  "criterion_A": true,
+  "criterion_B": true,
+  "criterion_C": true,
+  "criterion_D": true,
+  "n_criteria_passed": 4,
+  "n_evaluable": 6,
+  "concordant_ROI_count": 6,
+  "d_threshold": 4,
+  "rho_reliability_vs_RAW_loss": 0.7714285714285715,
+  "median_imagery_reliability_loss": 0.12286320643001891,
+  "median_RAW_performance_loss": 0.05771384322575508,
+  "primary_status": "H_A_SPATIAL_PROFILE_SUPPORTED",
+  "L_rel_img": {
+    "V2": 0.11289392773860965,
+    "V3": 0.15843626069787814,
+    "hV4": 0.05946723746681182,
+    "ventral": 0.15421557251240647,
+    "lateral": 0.11900038304023446,
+    "parietal": 0.12672602981980335
+  },
+  "L_perf_RAW": {
+    "V2": 0.06232410944318526,
+    "V3": 0.07641844075818846,
+    "hV4": 0.012181974774460707,
+    "ventral": 0.09458828468590251,
+    "lateral": 0.04094816963096718,
+    "parietal": 0.0531035770083249
+  },
+  "leave_one_ROI_out_rhos": {
+    "rhos": {
+      "V2": 0.8999999999999998,
+      "V3": 0.7,
+      "hV4": 0.6,
+      "lateral": 0.7999999999999999,
+      "parietal": 0.7999999999999999,
+      "ventral": 0.7
+    },
+    "n_positive": 6,
+    "min": 0.6,
+    "max": 0.8999999999999998
+  },
+  "note": "Six ROIs of one participant; NOT independent replications; no population inference."
+}

@@ -10,6 +10,32 @@ Corrected 2026-07-17.)
 
 ---
 
+## S2.0 (2026-08-21): vis2vis->D1->vis2img RECONSTRUCTION -- `S2_D1_FOUNDATION_PASS`
+
+**Input `bdbeabc` -> output `bd26918`, server-verified. Author-independent; normal
+forward commits.** Doc `41_S2_...md`; artifacts `artifacts/mindcompiler/roy_s2/`.
+
+Independent reconstruction of the two-stage Roy analysis on subj01 x V1 only.
+Frozen (before test eval, config sha e3f32a0d): 4 deterministic 4/2/2 folds
+(balanced test coverage); P1 train-only z-score preprocessing; V2V-P0 vis2vis;
+**D1_STRICT_CROSSFIT** (train=leave-one-trial-out, val/test=full-train, pooled
+within-identity vis2vis, predictions inverse-transformed); ridge 1e-3..1e5x100;
+rank cap min(12, conditions, dims, effective) w/ 99%-of-peak; vis2img within-
+identity index-aligned. 136 reproduction tests pass.
+
+Execution leakage-clean (0 self-target across the D1 dependency manifest); every
+fold/both beta pass finite_frac 1.00. **NON-INTERPRETIVE** (never vs the paper):
+B0 D1 vis2img agg r 0.2028 (folds 0.176/0.172/0.192/0.272, positive/consistent);
+B1 D1 agg r -0.0300 (folds 0.088/-0.036/-0.107/-0.064). D0 ref: B0 0.165, B1 0.007.
+
+Observation (allowed): **BETA_VERSION_SENSITIVITY_PERSISTS_UNDER_D1** -- B0 works,
+B1 near-zero/negative; divergence persists/widens under cross-fit denoising. No
+reproduction verdict; D2 = NOT_IDENTIFIABLE_FROM_PUBLIC_METHODS; D1b k-fold
+registered-not-run. **Next (follows the result): S2.1B beta-preparation/denoising
+interaction audit** -- B0/B1 radically divergent, so do NOT scale to seven ROI yet.
+
+---
+
 ## B1 (2026-08-20): SECOND BETA VERSION -- `B1_ENGINEERING_SMOKE_PASS__NON_INTERPRETIVE`
 
 **User-authorized. Output HEAD `104a6e5`, server-verified. Normal forward commits.**

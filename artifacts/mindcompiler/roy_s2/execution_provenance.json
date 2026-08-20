@@ -1,0 +1,14 @@
+{
+  "gate": "S2.0",
+  "s2_input_commit": "bdbeabcd11b269fbdae34cf4e020722a46800283",
+  "branch": "research/mindcompiler-neural-state-operators",
+  "lane": "Lane E (engineering; Python 3.13 / numpy 2.x)",
+  "scope": "subj01 x V1 only",
+  "b0": {"beta_version": "fithrf", "sha256": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64"},
+  "b1": {"beta_version": "fithrf_GLMdenoise_RR", "sha256": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e"},
+  "v1_voxel_hash": "a1bc56fe7c55",
+  "n_voxels": 27,
+  "b0_historical_replay": "HISTORICAL_REPLAY_EXACT",
+  "reconciliation": {"tests_at_input": "106 passed (Lane E, clean basetemp)", "working_tree": "clean"},
+  "constraints": ["no other ROI", "no other participant", "no Roy reproduction verdict", "no author dependency", "no raw beta/matrix/HDF5/credentials committed"]
+}

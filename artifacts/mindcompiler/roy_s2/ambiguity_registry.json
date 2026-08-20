@@ -1,0 +1,25 @@
+{
+  "gate": "S2.0",
+  "status": "INDEPENDENT_METHOD_RECONSTRUCTION_ACTIVE",
+  "author_response_required": false,
+  "author_response_role": "optional ambiguity resolution only",
+  "rules": [
+    "variants frozen before test evaluation",
+    "identical data partitions across comparable variants",
+    "all executed variants reported",
+    "no variant promoted for being closer to Roy",
+    "a later author response is mapped onto this registry, never used to retro-justify"
+  ],
+  "category_C_unresolved": {
+    "C1_beta_version": {"variants": ["B0=fithrf", "B1=fithrf_GLMdenoise_RR"], "resolution": "run both, report sensitivity"},
+    "C2_centering_scaling": {"variants": ["P0=historical_center_only", "P1=train_only_zscore"], "primary": "P1"},
+    "C3_train_denoising": {"variants": ["D1=strict_crossfit"], "d2": "only if publicly identifiable"},
+    "C4_val_test_denoising": {"governed_by": "D1 dependency graph"},
+    "C5_fold_dependency_graph": {"artifact": "D1_dependency_manifest.csv"},
+    "C6_vis2vis_pairing": {"variants": ["V2V-P0=all_ordered_distinct", "V2V-P1=single_deterministic_derangement"]},
+    "C7_seeds": {"frozen_in": "s2_frozen_config.json"},
+    "C8_fold_aggregation": {"frozen_before_eval": true, "method": "mean/median/std across fold summaries"},
+    "C9_train_plus_val_refit": {"primary": "train_only", "sensitivity": "train_plus_validation (labeled)"},
+    "C10_tie_breaking": {"policy": "explicit registry-resolved, no silent defaults"}
+  }
+}

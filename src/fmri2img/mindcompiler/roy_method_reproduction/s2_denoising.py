@@ -167,6 +167,80 @@ def d1_crossfit_denoise(
     return denoised, records
 
 
+# --- D1b symmetric k-fold cross-fit (S2.1B prespecified sensitivity) ----------
+
+D1B_LABEL = "D1B_SYMMETRIC_KFOLD"
+
+
+def _inner_folds(rows: Sequence[int], k: int, child_seed: int) -> List[List[int]]:
+    """Deterministically split rows into k near-equal inner folds."""
+    rows = list(map(int, rows))
+    perm = np.random.default_rng(child_seed).permutation(len(rows))
+    order = [rows[i] for i in perm]
+    return [order[j::k] for j in range(k)]  # round-robin -> near-equal, deterministic
+
+
+def d1b_symmetric_denoise(
+    M: np.ndarray, fold_name: str,
+    train_by_ident: Dict[str, Sequence[int]], val_by_ident: Dict[str, Sequence[int]],
+    test_by_ident: Dict[str, Sequence[int]], row_identity: Dict[int, str],
+    row_beta_index: Dict[int, int], lam: float, rank: int, pairing_policy: str,
+    pairing_seed: Optional[int], preproc_policy: str, k: int = 2,
+) -> Tuple[Dict[int, np.ndarray], List[DenoiseRecord]]:
+    """Symmetric k-fold cross-fit denoising (differs from D1's LOTO/full-train asymmetry).
+
+    Inner k folds over each identity's train repeats. ``model_j`` is fit on all
+    train pairs EXCLUDING inner fold j. A train trial in inner fold j is denoised by
+    ``model_j`` (which excluded it). **val/test are denoised SYMMETRICALLY** by the
+    mean of the k inner models (not a single full-train model), so train and val/test
+    denoiser statistics match. No trial denoises itself; val/test never enter training.
+
+    NOTE: the S2.0-frozen D1b text said ``k = n train repeats`` which is degenerate
+    (collapses to D1); this corrected symmetric scheme is a recorded protocol
+    deviation, decided without observing any D1b result.
+    """
+    # inner assignment per identity + pooled per-model pair sets
+    inner: Dict[str, List[List[int]]] = {}
+    for ident in sorted(train_by_ident):
+        cs = derive_child_seed(pairing_seed or 0, "d1b_inner", ident, D1_DERIVATION_VERSION)
+        inner[ident] = _inner_folds(train_by_ident[ident], k, cs)
+
+    def pooled_excluding(fold_j: int) -> PooledVis2Vis:
+        sub = {ident: [r for jj, part in enumerate(inner[ident]) if jj != fold_j for r in part]
+               for ident in train_by_ident}
+        S, T = pooled_pairs(sub, pairing_policy, pairing_seed)
+        return fit_pooled_vis2vis(M, S, T, lam, rank, preproc_policy)
+
+    models = [pooled_excluding(j) for j in range(k)]
+    denoised: Dict[int, np.ndarray] = {}
+    records: List[DenoiseRecord] = []
+
+    # train: each trial denoised by the model that excluded its inner fold
+    for ident in sorted(train_by_ident):
+        for j, part in enumerate(inner[ident]):
+            m = models[j]
+            for t in map(int, part):
+                denoised[t] = m.denoise_raw(M, [t])[0]
+                records.append(DenoiseRecord(
+                    denoised_row=t, identity=ident, beta_index=row_beta_index[t],
+                    fold=fold_name, split="train", model_id=f"{fold_name}:D1b_excl_inner{j}",
+                    train_source_rows=m.src_rows, train_target_rows=m.tgt_rows))
+
+    # val/test: symmetric ensemble mean over the k inner models
+    all_targets = tuple(sorted({r for m in models for r in m.tgt_rows}))
+    all_sources = tuple(sorted({r for m in models for r in m.src_rows}))
+    for split, by_ident in (("val", val_by_ident), ("test", test_by_ident)):
+        for ident in sorted(by_ident):
+            for r in map(int, by_ident[ident]):
+                pred = np.mean([m.denoise_raw(M, [r])[0] for m in models], axis=0)
+                denoised[r] = pred
+                records.append(DenoiseRecord(
+                    denoised_row=r, identity=ident, beta_index=row_beta_index[r],
+                    fold=fold_name, split=split, model_id=f"{fold_name}:D1b_ensemble",
+                    train_source_rows=all_sources, train_target_rows=all_targets))
+    return denoised, records
+
+
 # --- leakage validator (item 12) ---------------------------------------------
 
 class DenoisingLeakageError(RuntimeError):

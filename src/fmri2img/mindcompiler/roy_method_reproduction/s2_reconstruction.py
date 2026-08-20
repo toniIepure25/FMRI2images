@@ -80,12 +80,16 @@ def _select_and_report(Xtr, Ytr, Xva, Yva, Xte, Yte, n_train_conditions):
 def run_fold(M: np.ndarray, assignment, row_identity: Dict[int, str],
              row_beta_index: Dict[int, int], *, beta_version: str, preproc_policy: str,
              vis2vis_pairing: str, pairing_seed: Optional[int],
-             fold_name: str = "fold", return_records: bool = False):
-    """Reconstruct one fold end to end (vis2vis → D1 → vis2img).
+             fold_name: str = "fold", return_records: bool = False,
+             denoising: str = "D1"):
+    """Reconstruct one fold end to end (vis2vis → {RAW|D1|D1b} → vis2img).
 
-    Returns a :class:`FoldResult`; if ``return_records`` also returns the D1
-    dependency records for manifest emission.
+    ``denoising``: "D1" (LOTO, S2.0 default), "D1b" (symmetric k-fold), or "RAW"
+    (vis2img on raw z-scored vision, matched S2 protocol). Returns a
+    :class:`FoldResult`; if ``return_records`` also returns the denoising records.
     """
+    if denoising not in ("RAW", "D1", "D1b"):
+        raise ValueError(f"unknown denoising mode {denoising!r}")
     vis = _by_ident(assignment, "vision")
     img = _by_ident(assignment, "imagery")
     n_conditions = len(vis)  # identities in the fold
@@ -104,14 +108,23 @@ def run_fold(M: np.ndarray, assignment, row_identity: Dict[int, str],
         sx.transform(M[S_va]), sy.transform(M[T_va]),  # test slot unused for v2v (selection only)
         n_conditions)
 
-    # --- PART E: D1 denoising with selected (lam, rank) ---
+    # --- PART E: denoising (RAW / D1 / D1b) with selected (lam, rank) ---
     te_by = _split_rows(vis, "test")
-    denoised, recs = dn.d1_crossfit_denoise(
-        M, fold_name, tr_by, va_by, te_by, row_identity, row_beta_index,
-        lam=v2v_sel.lam, rank=v2v_sel.rank, pairing_policy=vis2vis_pairing,
-        pairing_seed=pairing_seed, preproc_policy=preproc_policy)
     fold_train_vis = {int(x) for rows in tr_by.values() for x in rows}
-    leak = dn.validate_denoising_leakage(recs, fold_train_vis, row_identity)
+    if denoising == "RAW":
+        # matched RAW cell: vision input is the raw response (no vis2vis applied)
+        all_vis = [int(r) for by in (tr_by, va_by, te_by) for rows in by.values() for r in rows]
+        denoised = {r: M[r].astype(np.float64) for r in all_vis}
+        recs = []
+        leak = {"self_target": 0, "self_source": 0, "val_test_in_training": 0,
+                "cross_identity_target": 0, "training_row_not_train_split": 0}
+    else:
+        fn = dn.d1_crossfit_denoise if denoising == "D1" else dn.d1b_symmetric_denoise
+        denoised, recs = fn(
+            M, fold_name, tr_by, va_by, te_by, row_identity, row_beta_index,
+            lam=v2v_sel.lam, rank=v2v_sel.rank, pairing_policy=vis2vis_pairing,
+            pairing_seed=pairing_seed, preproc_policy=preproc_policy)
+        leak = dn.validate_denoising_leakage(recs, fold_train_vis, row_identity)
 
     # --- PART F: vis2img (denoised vision -> imagery), within-identity index-aligned ---
     def pairs(split):
@@ -138,9 +151,10 @@ def run_fold(M: np.ndarray, assignment, row_identity: Dict[int, str],
         ix.transform(Xtr), iy.transform(Ytr), ix.transform(Xva), iy.transform(Yva),
         ix.transform(Xte), iy.transform(Yte), n_conditions)
 
+    _label = {"RAW": "RAW_S2_MATCHED", "D1": dn.DENOISE_LABEL, "D1b": dn.D1B_LABEL}[denoising]
     result = FoldResult(
         fold=fold_name, beta_version=beta_version, preproc_policy=preproc_policy,
-        vis2vis_pairing=vis2vis_pairing, pairing_seed=pairing_seed, denoising=dn.DENOISE_LABEL,
+        vis2vis_pairing=vis2vis_pairing, pairing_seed=pairing_seed, denoising=_label,
         vis2vis=dict(lam=v2v_sel.lam, rank=v2v_sel.rank, val_score=v2v_sel.val_score,
                      rank_max=v2v_rmax, n_train_pairs=int(len(S_tr)),
                      n_zero_var_src=sx.n_zero_var, n_zero_var_tgt=sy.n_zero_var),

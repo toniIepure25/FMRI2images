@@ -43,6 +43,22 @@ def test_child_seeded_policy_without_seed_rejected_no_artifacts(tmp_path, args):
     assert not (out / "smoke_result.json").exists()
 
 
+def test_beta_version_registry_pins_b0_and_b1():
+    """The runner must SHA-pin exactly the two supported beta versions."""
+    sys.path.insert(0, str(REPO / "src"))
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("roy_runner", RUNNER)
+    runner = importlib.util.module_from_spec(spec); spec.loader.exec_module(runner)
+    bv = runner.BETA_VERSIONS
+    assert set(bv) == {"fithrf", "fithrf_GLMdenoise_RR"}
+    assert bv["fithrf"]["label"] == "B0" and bv["fithrf_GLMdenoise_RR"]["label"] == "B1"
+    for v in bv.values():
+        assert len(v["sha256"]) == 64 and all(c in "0123456789abcdef" for c in v["sha256"])
+        assert v["subdir"].startswith("nsdimagerybetas_")
+    assert bv["fithrf"]["sha256"] != bv["fithrf_GLMdenoise_RR"]["sha256"]
+    assert "bogus_version" not in bv
+
+
 def test_run_boundaries_sum_to_720_and_selected_ranges_exact():
     sys.path.insert(0, str(REPO / "src"))
     from fmri2img.mindcompiler.roy_method_reproduction import smoke_pipeline as sp

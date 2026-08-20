@@ -22,8 +22,13 @@ from typing import List, Optional
 from fmri2img.mindcompiler.roy_method_reproduction.metrics import FINITE_FRACTION_MIN
 from fmri2img.mindcompiler.roy_method_reproduction.pairing import SEED_CONSUMING, SPLIT_DETERMINISTIC
 
-#: The certified subj01 B0 content hash (nsdimagery fithrf betas).
-B0_SHA = "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64"
+#: Certified subj01 nsdimagery beta content hashes, per SHA-pinned version.
+BETA_PINS = {
+    "fithrf": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",            # B0
+    "fithrf_GLMdenoise_RR": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",  # B1
+}
+#: Back-compat alias (B0).
+B0_SHA = BETA_PINS["fithrf"]
 
 
 @dataclass(frozen=True)
@@ -90,8 +95,20 @@ def check_seed_provenance(result: dict, pairing_manifest: dict, rep: ValidationR
 
 
 def check_hashes(result: dict, trial_table_csv: Optional[bytes], rep: ValidationReport) -> None:
-    rep.add("result.b0_sha_is_certified", result.get("b0_sha") == B0_SHA,
-            f"b0_sha={result.get('b0_sha')}")
+    # Certify the beta content hash against its pinned value. New artifacts carry
+    # beta_version + beta_sha; legacy (fithrf-only) artifacts carry just b0_sha.
+    bv = result.get("beta_version")
+    pin = BETA_PINS.get(bv)
+    if result.get("beta_sha") is not None:
+        rep.add("result.beta_sha_is_certified",
+                pin is not None and result["beta_sha"] == pin,
+                f"beta_version={bv} beta_sha={result.get('beta_sha')}")
+    elif result.get("b0_sha") is not None:
+        rep.add("result.b0_sha_is_certified", result["b0_sha"] == (pin or B0_SHA),
+                f"beta_version={bv} b0_sha={result.get('b0_sha')}")
+    else:
+        rep.add("result.beta_sha_present", False,
+                "neither beta_sha nor b0_sha present")
     if trial_table_csv is not None:
         got = hashlib.sha256(trial_table_csv).hexdigest()
         rep.add("result.trial_table_sha_matches_file", got == result.get("trial_table_sha"),

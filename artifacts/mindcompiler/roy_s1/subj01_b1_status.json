@@ -1,0 +1,52 @@
+{
+  "gate": "B1",
+  "status": "B1_ENGINEERING_SMOKE_PASS__NON_INTERPRETIVE",
+  "authorized_by": "user (2026-08-20)",
+  "predecessor": "S1_PRE_B1_HARDENING_PASS",
+  "meaning": "The second beta version (fithrf_GLMdenoise_RR) was acquired with full provenance and run through the SAME hardened, leakage-safe pipeline as B0, non-interpretively. This is a pipeline-validation result and a controlled B0-vs-B1 engineering comparison. It is NOT a Roy reproduction verdict.",
+  "beta_version": "fithrf_GLMdenoise_RR",
+  "beta_label": "B1",
+  "acquisition": {
+    "key": "nsddata_betas/ppdata/subj01/func1pt8mm/nsdimagerybetas_fithrf_GLMdenoise_RR/betas_nsdimagery.hdf5",
+    "bytes": 1052494008,
+    "sha256": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+    "status": "verified",
+    "hdf5_signature_ok": true,
+    "h5py_open_ok": true,
+    "provenance": "artifacts/mindcompiler/roy_s1/subj01_B1_download.json",
+    "raw_hdf5_committed": false,
+    "note": "public bucket, anonymous HTTPS, no credentials"
+  },
+  "controlled_comparison": {
+    "identical_across_B0_B1": ["voxel selection (NSD-core ncsnr)", "27 V1 voxels", "trial table", "4/2/2 splits (seed 1234)", "P0 vis2vis + I0 vis2img pairings"],
+    "voxel_hash": "a1bc56fe7c55 (B0 == B1)",
+    "differs": "beta VALUES only (GLM estimation)"
+  },
+  "results_non_interpretive": {
+    "B0_fithrf": {"vis2vis": {"lam": 148.49682622544665, "rank": 5, "mean": 0.6140929522115459}, "vis2img": {"lam": 2915.0530628251818, "rank": 1, "mean": 0.1650281390649757}},
+    "B1_fithrf_GLMdenoise_RR": {"vis2vis": {"lam": 792.4828983539186, "rank": 5, "mean": 0.5041525156794922}, "vis2img": {"lam": 13.219411484660315, "rank": 8, "mean": 0.006993956265907372}}
+  },
+  "integrity": {
+    "both_finite_fraction_ge_0.90": true,
+    "B1_cross_artifact_validation": "19/19 checks pass",
+    "B0_replay_still_exact": true,
+    "reproduction_tests": "106 pass in Lane E (clean basetemp)"
+  },
+  "deliverables": [
+    "docs/research/mindcompiler/40_B1_GATE_CHARTER.md",
+    "artifacts/mindcompiler/roy_s1/subj01_B1_download.json",
+    "artifacts/mindcompiler/roy_s1/replay_B1_glmdenoise_rr/ (smoke_result + manifests + cross_artifact_validation)",
+    "artifacts/mindcompiler/roy_s1/B0_vs_B1_comparison.json"
+  ],
+  "explicitly_not_done": [
+    "NO Roy reproduction verdict (numbers never compared to the paper)",
+    "NO other ROI, NO other subject (fixed subj01 x V1 x D0)",
+    "NO resolution of the beta_version ambiguity (deferred to the author request)"
+  ],
+  "hard_constraints_still_in_force": {
+    "no_other_roi_or_subject": true,
+    "no_roy_reproduction_verdict": true,
+    "no_raw_beta_matrix_hdf5_or_credentials_committed": true,
+    "forward_commits_only": true
+  }
+}

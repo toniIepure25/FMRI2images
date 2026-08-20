@@ -1,0 +1,60 @@
+{
+  "NON_INTERPRETIVE": true,
+  "disclaimer": "Engineering pipeline-validation comparison ONLY. These numbers are NOT compared to Roy et al. and do NOT constitute a reproduction verdict. The beta_version ambiguity (GLMdenoise_RR is itself denoised, interacting with Roy's separate vis2vis denoising) remains UNRESOLVED, pending the author request.",
+  "controlled_design": {
+    "identical_across_versions": [
+      "voxel selection (NSD-core ncsnr)",
+      "27 V1 voxels",
+      "trial table",
+      "4/2/2 splits (seed 1234)",
+      "P0 vis2vis + I0 vis2img pairings"
+    ],
+    "differs": "beta VALUES only (GLM estimation: fithrf vs fithrf_GLMdenoise_RR)",
+    "voxel_hash_B0": "a1bc56fe7c55",
+    "voxel_hash_B1": "a1bc56fe7c55",
+    "voxel_hash_match": true
+  },
+  "B0_fithrf": {
+    "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+    "vis2vis": {
+      "lam": 148.49682622544665,
+      "rank": 5,
+      "mean": 0.6140929522115459,
+      "median": 0.6887610939400144,
+      "finite_frac": 1.0,
+      "n_train": 144
+    },
+    "vis2img": {
+      "lam": 2915.0530628251818,
+      "rank": 1,
+      "mean": 0.1650281390649757,
+      "median": 0.23691635252101226,
+      "finite_frac": 1.0,
+      "n_train": 48
+    }
+  },
+  "B1_fithrf_GLMdenoise_RR": {
+    "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+    "vis2vis": {
+      "lam": 792.4828983539186,
+      "rank": 5,
+      "mean": 0.5041525156794922,
+      "median": 0.532159284327576,
+      "finite_frac": 1.0,
+      "n_train": 144
+    },
+    "vis2img": {
+      "lam": 13.219411484660315,
+      "rank": 8,
+      "mean": 0.006993956265907372,
+      "median": 0.012751147344969606,
+      "finite_frac": 1.0,
+      "n_train": 48
+    }
+  },
+  "both_status": {
+    "B0": "S1_SMOKE_MODEL_PASS",
+    "B1": "S1_SMOKE_MODEL_PASS"
+  },
+  "note_finite": "Both runs pass the finite-fraction gate (>=0.90) and cross-artifact validation (19/19); the B1 numbers are genuine computed correlations, not NaN/degenerate artifacts."
+}

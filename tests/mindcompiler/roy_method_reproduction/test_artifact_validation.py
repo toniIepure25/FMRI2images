@@ -60,6 +60,34 @@ def test_consistent_artifacts_pass():
     assert rep.ok, rep.failures()
 
 
+def test_b1_beta_sha_certified_passes():
+    fix = _good()
+    fix[0].pop("b0_sha", None)
+    fix[0]["beta_version"] = "fithrf_GLMdenoise_RR"
+    fix[0]["beta_sha"] = av.BETA_PINS["fithrf_GLMdenoise_RR"]
+    rep = _run(fix)
+    assert rep.ok, rep.failures()
+    assert any(c.name == "result.beta_sha_is_certified" and c.ok for c in rep.checks)
+
+
+def test_b1_wrong_beta_sha_fails():
+    fix = _good()
+    fix[0].pop("b0_sha", None)
+    fix[0]["beta_version"] = "fithrf_GLMdenoise_RR"
+    fix[0]["beta_sha"] = "00" * 32
+    rep = _run(fix)
+    assert not rep.ok
+    assert any(c.name == "result.beta_sha_is_certified" for c in rep.failures())
+
+
+def test_b0_with_beta_sha_certified_passes():
+    fix = _good()
+    fix[0]["beta_version"] = "fithrf"
+    fix[0]["beta_sha"] = av.BETA_PINS["fithrf"]
+    rep = _run(fix)
+    assert rep.ok, rep.failures()
+
+
 def test_s18_seed_recorded_in_manifest_but_null_in_result_fails():
     fix = _good()
     # exact S1.8 defect: split-deterministic manifest carries a stray seed

@@ -40,7 +40,24 @@ from fmri2img.mindcompiler.roy_method_reproduction.fitted_pipeline import (  # n
 )
 from fmri2img.mindcompiler.roy_method_reproduction.metrics import FINITE_FRACTION_MIN  # noqa: E402
 
-B0_SHA = "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64"
+# Fixed beta-version registry. Each version is SHA-pinned (integrity: the runner
+# refuses to proceed unless the on-disk HDF5 matches). subj01 x V1 x D0 stay fixed;
+# only the beta ESTIMATION differs across versions. Voxel selection uses the shared
+# NSD-core ncsnr (betas_fithrf/ncsnr), so voxels/splits/pairings are identical
+# across versions and only the beta VALUES differ (a controlled comparison).
+BETA_VERSIONS = {
+    "fithrf": {
+        "subdir": "nsdimagerybetas_fithrf",
+        "sha256": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "label": "B0",
+    },
+    "fithrf_GLMdenoise_RR": {
+        "subdir": "nsdimagerybetas_fithrf_GLMdenoise_RR",
+        "sha256": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "label": "B1",
+    },
+}
+B0_SHA = BETA_VERSIONS["fithrf"]["sha256"]  # back-compat alias
 
 # CLI policy label -> canonical pairing.py policy name.
 _VV_POLICY = {"all-ordered-distinct": "all_ordered_distinct",
@@ -111,17 +128,22 @@ def main() -> int:
     a = ap.parse_args()
     t0 = time.time()
 
-    # Fixed-scope contract: the underlying paths/labels are hardcoded to this
-    # exact configuration, so any other CLI value would produce a falsely
-    # labeled artifact. Reject before creating ANY output.
+    # Fixed-scope contract: subject/ROI/denoising are hardcoded to this exact
+    # configuration; beta_version must be one of the SHA-pinned registry versions
+    # (B0/B1). Any other value would produce a falsely labeled artifact. Reject
+    # before creating ANY output.
     fixed = {"subject": ("subj01", a.subject), "roi": ("V1", a.roi),
-             "beta_version": ("fithrf", a.beta_version), "denoising": ("D0", a.denoising)}
+             "denoising": ("D0", a.denoising)}
     bad = {k: got for k, (exp, got) in fixed.items() if got != exp}
+    if a.beta_version not in BETA_VERSIONS:
+        bad["beta_version"] = a.beta_version
     if bad:
         allowed = {k: exp for k, (exp, _) in fixed.items()}
+        allowed["beta_version"] = sorted(BETA_VERSIONS)
         print(f"FATAL: unsupported configuration {bad}; this runner is fixed to "
               f"{allowed}. No artifacts written.", file=sys.stderr)
         return 2
+    beta = BETA_VERSIONS[a.beta_version]
 
     # CLI pairing-seed contract: reject child-seeded P1/I1 with no seed; warn on a
     # seed supplied to split-deterministic P0/I0 (it is unused). Checked BEFORE any
@@ -137,17 +159,20 @@ def main() -> int:
         return 2
 
     base = _REPO / "data/nsd"
-    betas = base / "nsddata_betas/ppdata/subj01/func1pt8mm/nsdimagerybetas_fithrf/betas_nsdimagery.hdf5"
+    betas = base / f"nsddata_betas/ppdata/subj01/func1pt8mm/{beta['subdir']}/betas_nsdimagery.hdf5"
     bdata = base / "nsddata/bdata/nsdimagery"
     roi = base / "nsddata/ppdata/subj01/func1pt8mm/roi"
     pp = base / "nsddata/ppdata/subj01/func1pt8mm"
+    # SNR selection uses the shared NSD-core ncsnr (betas_fithrf), NOT the imagery
+    # betas -- identical voxels across beta versions by design.
     ncsnr = base / "nsddata_betas/ppdata/subj01/func1pt8mm/betas_fithrf/ncsnr.nii.gz"
     out = Path(a.output_dir); out.mkdir(parents=True, exist_ok=True)
 
-    # 1. verify B0
+    # 1. verify the beta HDF5 against its pinned SHA-256 (integrity gate)
     got = _sha(betas)
-    if got != B0_SHA:
-        print(f"FATAL: B0 sha256 mismatch {got}", file=sys.stderr); return 2
+    if got != beta["sha256"]:
+        print(f"FATAL: {beta['label']} ({a.beta_version}) sha256 mismatch: got {got}, "
+              f"expected {beta['sha256']}", file=sys.stderr); return 2
 
     # 2-5. regenerate everything
     tt = sp.build_trial_table(str(bdata))
@@ -219,9 +244,13 @@ def main() -> int:
         commit = "unknown"
 
     result = dict(status=status, non_interpretive=True, subject=a.subject, roi=a.roi,
-                  beta_version=a.beta_version, denoising=a.denoising,
+                  beta_version=a.beta_version, beta_label=beta["label"],
+                  beta_sha=beta["sha256"], denoising=a.denoising,
                   n_voxels=int(xyz.shape[1]), voxel_hash=vhash, snr_threshold=thr,
-                  trial_table_sha=_sha(out / "trial_table.csv"), b0_sha=B0_SHA,
+                  trial_table_sha=_sha(out / "trial_table.csv"),
+                  # b0_sha kept only for the fithrf (B0) path so historical artifacts
+                  # and the cross-artifact validator remain byte-compatible.
+                  **({"b0_sha": beta["sha256"]} if a.beta_version == "fithrf" else {}),
                   split_seed=a.split_seed,
                   # PROVENANCE HONESTY: only child-seeded policies (P1/I1) consume
                   # the pairing seed; split-deterministic P0/I0 record null so the

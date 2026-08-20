@@ -1,0 +1,7 @@
+{
+  "B0_D1": 0.20282479618779314,
+  "B0_D1b": 0.17909372498922735,
+  "B1_D1": -0.029990112494126274,
+  "B1_D1b": 0.02004705292384061,
+  "d1b_protocol_deviation": "frozen k=n_train was degenerate; corrected symmetric k=2 executed (decided pre-results)"
+}

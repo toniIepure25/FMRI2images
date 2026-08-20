@@ -1,0 +1,14 @@
+{
+  "note": "Frozen predictions for UNTOUCHED subj01 ROIs and, separately, untouched participants. To be tested prospectively; not evaluated here.",
+  "sufficiently_supported_for_prospective_test": [
+    "H-A_beta_prep_reduces_identity_signal",
+    "H-B_B1_changes_cross_state_geometry",
+    "H-D_D1_LOTO_specifically_causes_B1_failure",
+    "H-E_GLMdenoiseRR_mainly_rescales_B0"
+  ],
+  "predictions": {
+    "if_reliability_loss (H-A)": "B1/B0 vis2img divergence should COVARY across ROI/participant with B1-B0 repeat-reliability loss.",
+    "if_cross_state_geometry (H-B)": "B1/B0 vis2img divergence should covary with cross-state centroid/subspace misalignment.",
+    "if_rotation (H-F)": "ROIs/participants with larger B0->B1 rotation gain should show larger vis2img divergence."
+  }
+}

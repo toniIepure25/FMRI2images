@@ -1,0 +1,30 @@
+{
+  "vision": {
+    "scale_only": {
+      "a": 0.9588634371757507,
+      "b": 0.06941461563110352,
+      "r2": 0.8738509532587239
+    },
+    "diagonal_affine_r2": 0.8825630518305293,
+    "scaled_procrustes_r2": 0.878093325776428,
+    "rotation_gain_over_scale": 0.004242372517704096
+  },
+  "imagery": {
+    "scale_only": {
+      "a": 0.7967410683631897,
+      "b": 0.5035891532897949,
+      "r2": 0.631248611661607
+    },
+    "diagonal_affine_r2": 0.6765706506703857,
+    "scaled_procrustes_r2": 0.6922975970194658,
+    "rotation_gain_over_scale": 0.061048985357858854
+  },
+  "rdm_similarity": {
+    "vision": {
+      "rdm_spearman": 0.8852729360192049
+    },
+    "imagery": {
+      "rdm_spearman": 0.5840517691263961
+    }
+  }
+}

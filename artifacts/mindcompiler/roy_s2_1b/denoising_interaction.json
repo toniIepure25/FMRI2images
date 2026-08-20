@@ -1,0 +1,24 @@
+{
+  "delta_denoise_B0_per_fold": [
+    0.055747101592809864,
+    0.07534838636247079,
+    0.08094328693800866,
+    0.046146028930814514
+  ],
+  "delta_denoise_B1_per_fold": [
+    0.13833640174867884,
+    -0.0032352834355100155,
+    -0.09520135316902303,
+    0.006490099431619517
+  ],
+  "interaction_per_fold": [
+    0.08258930015586897,
+    -0.07858366979798082,
+    -0.17614464010703168,
+    -0.039655929499195
+  ],
+  "delta_denoise_B0_mean": 0.06454620095602595,
+  "delta_denoise_B1_mean": 0.011597466143941325,
+  "interaction_mean": -0.052948734812084626,
+  "note": "Descriptive per-fold diagnostics; 4 folds from 1 participant are NOT independent subjects; no p-value."
+}

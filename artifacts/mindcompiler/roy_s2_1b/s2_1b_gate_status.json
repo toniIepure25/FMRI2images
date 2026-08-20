@@ -1,0 +1,45 @@
+{
+  "gate": "S2.1B",
+  "status": "S2_1B_MECHANISM_AUDIT_PASS",
+  "analysis_class": "EXPLORATORY_MECHANISM_AUDIT",
+  "scope": "subj01 x V1 only",
+  "non_interpretive": true,
+  "meaning": "The B0/B1 divergence was decomposed through a reproducible matched beta-preparation x denoising audit; prospective hypotheses were frozen. Does NOT prove a causal mechanism; NOT a Roy reproduction verdict.",
+  "matched_factorial": {
+    "B0_RAW": 0.1382785952317672,
+    "B0_D1": 0.20282479618779314,
+    "B0_D1b": 0.17909372498922735,
+    "B1_RAW": -0.0415875786380676,
+    "B1_D1": -0.029990112494126274,
+    "B1_D1b": 0.02004705292384061
+  },
+  "d1b_leakage_clean": true,
+  "primary_finding": "Divergence originates primarily at the BETA-PREPARATION / raw stage: B1 is already weak under matched RAW (-0.042 vs B0 +0.138), so D1 is not the cause (D1 slightly changes B1 to -0.030). B1 largely PRESERVES B0's pattern (paired trial r high, rotation gain ~0.061) -> mostly per-voxel rescaling, not rotation (supports H-E, not H-F). B1 has lower repeat reliability, most strongly in imagery (0.144 vs B0 0.297) and lower vision SNR (1.80 vs 2.72) (supports H-A). Exploratory, subj01 x V1 only; NOT a causal or population claim.",
+  "hypothesis_verdicts": {
+    "H-A_beta_prep_reduces_identity_signal": "SUPPORTED_PATTERN",
+    "H-B_B1_changes_cross_state_geometry": "PARTIAL_PATTERN",
+    "H-C_D1_interacts_adversely_with_B1": "NOT_SUPPORTED",
+    "H-D_D1_LOTO_specifically_causes_B1_failure": "PARTIAL_PATTERN",
+    "H-E_GLMdenoiseRR_mainly_rescales_B0": "PARTIAL_PATTERN",
+    "H-F_GLMdenoiseRR_materially_rotates_geometry": "NOT_SUPPORTED"
+  },
+  "next_action": {
+    "path": "C",
+    "next": "S2.2B -- BETA PREPARATION RELIABILITY CONFIRMATION (untouched ROIs)",
+    "why": "B1 is already weak under matched RAW; divergence is a beta-preparation phenomenon, not D1-specific."
+  },
+  "forbidden_avoided": [
+    "no fold p-values",
+    "no voxels-as-subjects",
+    "no B0-superior/B1-wrong",
+    "no GLMdenoise-damages-imagery",
+    "no Roy-used-B0/Roy-failed"
+  ],
+  "hard_constraints": {
+    "no_other_roi": true,
+    "no_other_participant": true,
+    "no_reproduction_verdict": true,
+    "no_author_dependency": true,
+    "no_raw_data_committed": true
+  }
+}

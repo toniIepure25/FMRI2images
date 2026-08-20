@@ -1,0 +1,9 @@
+{
+  "gate": "S2.1B",
+  "s2_1b_input_commit": "3fc2c2818c2f8d27a3b01a107909195e583dcff4",
+  "scope": "subj01 x V1",
+  "n_voxels": 27,
+  "voxel_hash": "a1bc56fe7c55",
+  "analysis_class": "EXPLORATORY_MECHANISM_AUDIT",
+  "no_fold_pvalues": true
+}

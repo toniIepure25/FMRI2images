@@ -1,0 +1,5 @@
+{
+  "lane": "Lane E local real-data audit; data-free tests CI-capable",
+  "reproduction_tests_passed": 145,
+  "note": "Real-data audit executed locally in Lane E."
+}

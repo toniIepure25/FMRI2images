@@ -1,0 +1,20 @@
+{
+  "B0": {
+    "cross_state": {
+      "diagonal_sim": 0.27176885353401303,
+      "offdiag_sim": 0.07155532461646627,
+      "separation": 0.20021352891754676,
+      "mean_correct_identity_rank": 4.25,
+      "top1_accuracy": 0.08333333333333333
+    }
+  },
+  "B1": {
+    "cross_state": {
+      "diagonal_sim": 0.30513047395894927,
+      "offdiag_sim": 0.12106774917717275,
+      "separation": 0.18406272478177652,
+      "mean_correct_identity_rank": 4.583333333333333,
+      "top1_accuracy": 0.25
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "B0_B1_trial_similarity.json": "6bfd7440053f65d0df39eb11422c3a601a3f393c2d74e1c5faf5e2f1c34caa0d",
+  "B0_to_B1_geometry.json": "4669de8860aa7f827166d1fd13646eba0c7453087fa9ec67b2d4d8f3a292a6b9",
+  "centroid_matching.json": "435129951c87766da8190bf64222b339ea08ae0998d3da506fb1dc3387773a6b",
+  "covariance_spectrum.json": "008d688d4a952bfb32c4538bb33f8289b1046fbc15130c7557f23a07bf3a24e1",
+  "D1_vs_D1b.json": "560acc72add0c007d76f3a70164f15b4eca0e22c5e40b243872ad5d3caeb5db2",
+  "denoising_interaction.json": "cfbb2a78be490b4e5234be8a90ded9491802516316e1d7824379fde1160f281e",
+  "execution_provenance.json": "639fc9cd317c9ef4091fd76857f616524cfe8e091eb980a485b3af61bd52b60e",
+  "hypothesis_registry.json": "770eb5fb89863e1e29f57253885a8db850e7760ed873dae93540152c972228d1",
+  "identity_signal_noise.json": "55b8473451a4a2cce85c669fcaea7880e38b3208e7c1abacb406381461cd0d3a",
+  "matched_factorial_results.json": "ff1a878dfa46d933405d6a07aa20ba1c5f5c8751ce844233bc9b1e6206f5d74d",
+  "mechanism_audit_summary.json": "416344aed7cd473f2762e2bca34d0c46715363e2c19b793104afdceca5686a58",
+  "prospective_predictions.json": "9fb2214f24f629e78f4876e3a05762e5a854f8b47203d6d9789acf174706901c",
+  "raw_to_D1_audit.json": "34a721a1b97a59aa4dd9fcaf4ccef6743d8fc5764099b4be2c884281bf4119ce",
+  "repeat_reliability.json": "b7c7ce8fcb09b1ccb387402fd97bf8c7ba31599845ad296845b4ebd06a98e349",
+  "s2_1b_frozen_config.json": "c52307a4e7fdd8341515eabe881b0662add3c54bdbb5ad5c02709b9a78ba1e3c",
+  "s2_1b_gate_status.json": "c18f303bc090abe63c2970779cd8017d4b1871ad4c4e338c31dc8b9f2f5d7125",
+  "subspace_alignment.json": "283cbc9e328afced8049a9358fba853124f580d8d876465b67d6a752ea668fb4",
+  "test_report.json": "875c30304e9836118083ee4e21afba50141541ff50da65133f8e1343d4d094c1",
+  "vis2vis_audit.json": "20764705360d81d20d3886405c0dd9d708f2fccb58bd52899d1a4a20f625c53c",
+  "vision_imagery_geometry.json": "d64fcba1bae29997ff72318bd6f96cd003fdd2232e7632750b4cb280d8641fb6"
+}

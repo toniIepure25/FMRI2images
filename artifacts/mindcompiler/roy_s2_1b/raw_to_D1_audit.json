@@ -1,0 +1,14 @@
+{
+  "B0": {
+    "pearson_mean": 0.7612807175556319,
+    "cosine_mean": 0.7940939441094527,
+    "norm_ratio_mean": 0.6616060311624078,
+    "variance_retained_mean": 0.39103242435232316
+  },
+  "B1": {
+    "pearson_mean": 0.7707756177378751,
+    "cosine_mean": 0.803717661453819,
+    "norm_ratio_mean": 0.6711899530704818,
+    "variance_retained_mean": 0.34995790965130896
+  }
+}

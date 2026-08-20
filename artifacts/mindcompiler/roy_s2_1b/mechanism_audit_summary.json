@@ -1,0 +1,33 @@
+{
+  "analysis_class": "EXPLORATORY_MECHANISM_AUDIT",
+  "conservative": true,
+  "note": "All hypotheses reported; not selecting the highest subjective fit; multiple may remain plausible.",
+  "primary_mechanism_descriptive": "Divergence originates primarily at the BETA-PREPARATION / raw stage: B1 is already weak under matched RAW (-0.042 vs B0 +0.138), so D1 is not the cause (D1 slightly changes B1 to -0.030). B1 largely PRESERVES B0's pattern (paired trial r high, rotation gain ~0.061) -> mostly per-voxel rescaling, not rotation (supports H-E, not H-F). B1 has lower repeat reliability, most strongly in imagery (0.144 vs B0 0.297) and lower vision SNR (1.80 vs 2.72) (supports H-A). Exploratory, subj01 x V1 only; NOT a causal or population claim.",
+  "B1_weak_under_matched_RAW": true,
+  "hypotheses": {
+    "H-A_beta_prep_reduces_identity_signal": {
+      "verdict": "SUPPORTED_PATTERN",
+      "evidence": "B1 vision reliability 0.596 vs B0 0.652; SNR B1 1.796 vs B0 2.716; B1 RAW vis2img -0.042"
+    },
+    "H-B_B1_changes_cross_state_geometry": {
+      "verdict": "PARTIAL_PATTERN",
+      "evidence": "B1 cross-state separation 0.184 vs B0 0.200; top1 B1 0.25 vs B0 0.08 (MIXED: separation lower but top1 not lower)"
+    },
+    "H-C_D1_interacts_adversely_with_B1": {
+      "verdict": "NOT_SUPPORTED",
+      "evidence": "B1 RAW -0.042 vs D1 -0.030; delta_denoise B1 0.012 B0 0.065"
+    },
+    "H-D_D1_LOTO_specifically_causes_B1_failure": {
+      "verdict": "PARTIAL_PATTERN",
+      "evidence": "B1 D1 -0.030 vs D1b 0.020"
+    },
+    "H-E_GLMdenoiseRR_mainly_rescales_B0": {
+      "verdict": "PARTIAL_PATTERN",
+      "evidence": "paired B0/B1 vision pearson 0.932; scale r2 0.631; rotation gain 0.061"
+    },
+    "H-F_GLMdenoiseRR_materially_rotates_geometry": {
+      "verdict": "NOT_SUPPORTED",
+      "evidence": "paired B0/B1 vision pearson 0.932; rotation gain 0.061"
+    }
+  }
+}

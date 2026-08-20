@@ -1,0 +1,140 @@
+{
+  "gate": "S2.2B",
+  "phase": "PHASE_1_FROZEN_BEFORE_OUTCOME",
+  "discovery_roi": "V1 (reference only; excluded from primary six-ROI analysis)",
+  "prospective_rois": [
+    "V2",
+    "V3",
+    "hV4",
+    "ventral",
+    "lateral",
+    "parietal"
+  ],
+  "selection_policy": "ROI mask \u2229 valid_nsdimagery \u2229 finite NSD-core ncsnr; strict > ROI-specific 98th pct; identical voxels for B0/B1; NO threshold adaptation",
+  "pattern_reliability_min_voxels": 3,
+  "ncsnr_source": "nsddata_betas/ppdata/subj01/func1pt8mm/betas_fithrf/ncsnr.nii.gz",
+  "V1_regression_hash": "a1bc56fe7c55",
+  "rois": {
+    "V1": {
+      "roi": "V1",
+      "source": "prf-visualrois",
+      "labels": [
+        1,
+        2
+      ],
+      "candidate_voxels": 1350,
+      "valid_finite_voxels": 1350,
+      "threshold": 0.9374233472347259,
+      "selected_voxels": 27,
+      "ge_sensitivity_count": 27,
+      "threshold_ties": 0,
+      "voxel_hash": "a1bc56fe7c55",
+      "affine_hash": "6bfe7a262c96e96b",
+      "mask_hash": "b017a6a2b739825f"
+    },
+    "V2": {
+      "roi": "V2",
+      "source": "prf-visualrois",
+      "labels": [
+        3,
+        4
+      ],
+      "candidate_voxels": 1433,
+      "valid_finite_voxels": 1433,
+      "threshold": 0.9550063395500179,
+      "selected_voxels": 29,
+      "ge_sensitivity_count": 29,
+      "threshold_ties": 0,
+      "voxel_hash": "f18288ba2c73",
+      "affine_hash": "6bfe7a262c96e96b",
+      "mask_hash": "a1d4374d5523bf13",
+      "pattern_reliability_evaluable": true
+    },
+    "V3": {
+      "roi": "V3",
+      "source": "prf-visualrois",
+      "labels": [
+        5,
+        6
+      ],
+      "candidate_voxels": 1187,
+      "valid_finite_voxels": 1187,
+      "threshold": 0.8314980745315551,
+      "selected_voxels": 24,
+      "ge_sensitivity_count": 24,
+      "threshold_ties": 0,
+      "voxel_hash": "5fd2b36ac1a5",
+      "affine_hash": "6bfe7a262c96e96b",
+      "mask_hash": "e103c77cf1bf2fb0",
+      "pattern_reliability_evaluable": true
+    },
+    "hV4": {
+      "roi": "hV4",
+      "source": "prf-visualrois",
+      "labels": [
+        7
+      ],
+      "candidate_voxels": 687,
+      "valid_finite_voxels": 687,
+      "threshold": 0.7609331822395322,
+      "selected_voxels": 14,
+      "ge_sensitivity_count": 14,
+      "threshold_ties": 0,
+      "voxel_hash": "788ad156aa0e",
+      "affine_hash": "6bfe7a262c96e96b",
+      "mask_hash": "649f6fe933fb52c8",
+      "pattern_reliability_evaluable": true
+    },
+    "ventral": {
+      "roi": "ventral",
+      "source": "streams",
+      "labels": [
+        5
+      ],
+      "candidate_voxels": 7604,
+      "valid_finite_voxels": 7604,
+      "threshold": 0.6241726565361021,
+      "selected_voxels": 153,
+      "ge_sensitivity_count": 153,
+      "threshold_ties": 0,
+      "voxel_hash": "3d54a7fc3cb6",
+      "affine_hash": "6bfe7a262c96e96b",
+      "mask_hash": "a4eb91cd89ffe0e7",
+      "pattern_reliability_evaluable": true
+    },
+    "lateral": {
+      "roi": "lateral",
+      "source": "streams",
+      "labels": [
+        6
+      ],
+      "candidate_voxels": 7799,
+      "valid_finite_voxels": 7799,
+      "threshold": 0.8078272199630736,
+      "selected_voxels": 156,
+      "ge_sensitivity_count": 156,
+      "threshold_ties": 0,
+      "voxel_hash": "cd85569a5f2b",
+      "affine_hash": "6bfe7a262c96e96b",
+      "mask_hash": "04d2f899a40d7cbd",
+      "pattern_reliability_evaluable": true
+    },
+    "parietal": {
+      "roi": "parietal",
+      "source": "streams",
+      "labels": [
+        7
+      ],
+      "candidate_voxels": 3548,
+      "valid_finite_voxels": 3548,
+      "threshold": 0.5414723086357115,
+      "selected_voxels": 71,
+      "ge_sensitivity_count": 71,
+      "threshold_ties": 0,
+      "voxel_hash": "e8109c3e941c",
+      "affine_hash": "6bfe7a262c96e96b",
+      "mask_hash": "2ca0d8d93c7a0392",
+      "pattern_reliability_evaluable": true
+    }
+  }
+}

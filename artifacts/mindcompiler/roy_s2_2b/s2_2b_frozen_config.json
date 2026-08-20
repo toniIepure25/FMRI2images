@@ -1,0 +1,80 @@
+{
+  "config_sha256": "794d6923af48a02db8fc18a896559471e851d9c56aef672a7640c242be83d67b",
+  "gate": "S2.2B",
+  "analysis_class": "PROSPECTIVE_WITHIN_SUBJECT_SPATIAL_CONFIRMATION",
+  "no_population_inference": true,
+  "frozen_before_outcome_evaluation": true,
+  "scope": "subj01 only",
+  "discovery_roi": "V1 (excluded from primary six-ROI analysis)",
+  "prospective_rois": [
+    "V2",
+    "V3",
+    "hV4",
+    "ventral",
+    "lateral",
+    "parietal"
+  ],
+  "inherits": {
+    "s2_frozen_config_sha256": "e3f32a0d1c0d48c336af667c3cf975f868829e1a98fa305391444bc9b86d54c9",
+    "s2_1b_frozen_config_present": true,
+    "fold_manifest_sha256": "243b2e07e9da76f1df1cbda08d7303fa4f725c061688ff8bfdb2ae501f782a2f",
+    "V1_discovery_voxel_hash": "a1bc56fe7c55"
+  },
+  "roi_selection": {
+    "policy": "ROI mask \u2229 valid_nsdimagery \u2229 finite ncsnr; strict > ROI 98th pct; NSD-core betas_fithrf/ncsnr; identical voxels B0/B1",
+    "no_adaptation": true,
+    "pattern_reliability_min_voxels": 3,
+    "manifest": "roi_selection_manifest.json"
+  },
+  "reliability_estimator": "S2.1B unchanged: mean over unordered repeat-pair Pearson r, averaged over 12 identities (per state)",
+  "primary_endpoint": "RAW_S2_MATCHED four-fold aggregate vis2img mean r (NOT historical D0)",
+  "secondary_endpoints": [
+    "D1_STRICT_CROSSFIT",
+    "vision reliability",
+    "identity SNR",
+    "cross_state geometry (H-B)",
+    "B0<->B1 rescale/rotation (H-F falsification)"
+  ],
+  "forbidden_variants": [
+    "D1b",
+    "alternate preprocessing",
+    "alternate pairing",
+    "train+validation refit"
+  ],
+  "loss_definitions": {
+    "L_rel_img": "R0_img - R1_img (B0-B1 imagery reliability; >0 = B1 lower)",
+    "L_perf_RAW": "P0_RAW - P1_RAW (B0-B1 RAW vis2img; >0 = B1 worse)"
+  },
+  "primary_scorecard_criteria": {
+    "A": "median(L_rel_img over evaluable ROIs) > 0",
+    "B": "median(L_perf_RAW over evaluable ROIs) > 0",
+    "C": "Spearman(L_rel_img, L_perf_RAW) > 0",
+    "D": ">=4 of 6 (or >=ceil(2/3*n_evaluable) if some non-evaluable) ROIs with L_rel_img>0 AND L_perf_RAW>0"
+  },
+  "classification": {
+    "SUPPORTED": "all A-D pass",
+    "PARTIAL": "exactly 2 or 3 pass",
+    "NOT_SUPPORTED": "0 or 1 pass",
+    "INCONCLUSIVE": "<4 evaluable ROIs"
+  },
+  "statistics_boundary": {
+    "allowed": [
+      "descriptive values",
+      "signs",
+      "medians",
+      "Spearman spatial-profile",
+      "leave-one-ROI descriptive sensitivity",
+      "prospective directional classification"
+    ],
+    "forbidden": [
+      "six ROIs as subjects",
+      "population p-values",
+      "voxel p-values as replication",
+      "folds as independent obs",
+      "participant generalization",
+      "test-driven model changes"
+    ]
+  },
+  "chronology": "Phase1 freeze (this commit) BEFORE any B0/B1 outcome; Phase2 execute. Violation=S2_2B_PROSPECTIVE_FREEZE_VIOLATION.",
+  "no_author_dependency": true
+}

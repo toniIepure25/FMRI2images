@@ -1,0 +1,16 @@
+{
+  "lane": "Lane E (local authorized real-data replay); all data-free tests CI-capable",
+  "total_reproduction_tests": 136,
+  "passed": 136,
+  "failed": 0,
+  "skipped": 0,
+  "note": "Real-data replay executed locally in Lane E. All data-free correctness/integrity tests are CI-capable.",
+  "categories": {
+    "four_fold_construction_determinism_overlap": "test_s2_folds.py (9)",
+    "zscore_train_only_zero_variance_leakage": "test_s2_preprocessing.py (6)",
+    "D1_crossfit_dependency_and_leakage": "test_s2_denoising.py (7)",
+    "reconstruction_engine_ranks_metrics": "test_s2_reconstruction.py (5)",
+    "frozen_config_immutability_registry": "test_s2_config.py (3)",
+    "prior_S1_S1.9_B1_infrastructure": "remaining 106"
+  }
+}

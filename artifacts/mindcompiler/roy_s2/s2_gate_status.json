@@ -1,0 +1,62 @@
+{
+  "gate": "S2.0",
+  "status": "S2_D1_FOUNDATION_PASS",
+  "meaning": "The independently defensible two-stage vis2vis->D1->vis2img pipeline executes reproducibly on subj01 x V1 across four folds for B0 and B1, leakage-clean. This does NOT mean Roy is reproduced.",
+  "scope": "subj01 x V1 only",
+  "non_interpretive": true,
+  "leakage": {
+    "self_target_violations": 0,
+    "clean": true
+  },
+  "finite_fraction_gate": {
+    "threshold": 0.9,
+    "all_folds_both_beta_pass": true
+  },
+  "results_non_interpretive": {
+    "B0_D1_vis2img_agg_r": {
+      "mean": 0.20282479618779314,
+      "median": 0.18379035446061925,
+      "std": 0.040348435176743865,
+      "min": 0.17224257858957545,
+      "max": 0.27147589724035864
+    },
+    "B1_D1_vis2img_agg_r": {
+      "mean": -0.029990112494126274,
+      "median": -0.05010926188917028,
+      "std": 0.07245941802676488,
+      "min": -0.10735118977851334,
+      "max": 0.08760926358034879
+    },
+    "historical_D0_reference": {
+      "B0_D0_vis2img_mean": 0.1650281390649757,
+      "B1_D0_vis2img_mean": 0.006993956265907372
+    }
+  },
+  "beta_version_sensitivity": {
+    "observation": "BETA_VERSION_SENSITIVITY_PERSISTS_UNDER_D1",
+    "detail": "B0 D1 agg vis2img r=0.2028 (positive, consistent); B1 D1 agg r=-0.0300 (near-zero/negative). D0 reference: B0=0.1650, B1=0.0070. Divergence persists (and widens) under D1.",
+    "radically_divergent": true
+  },
+  "allowed_conclusions_used": [
+    "D1_PIPELINE_EXECUTION_PASS",
+    "BETA_VERSION_SENSITIVITY_PERSISTS_UNDER_D1"
+  ],
+  "forbidden_conclusions_avoided": [
+    "no Roy reproduced/failed verdict",
+    "no claim which beta version Roy used",
+    "D1 is not claimed to be Roy's denoising",
+    "no population/mechanistic claims"
+  ],
+  "next_action": {
+    "decision": "S2.1B -- beta-preparation / denoising interaction audit",
+    "rationale": "Item 25: B0/B1 remain radically divergent under D1 (0.20 vs -0.03) -> DO NOT scale to seven ROI immediately; audit the beta-preparation/denoising interaction first. Recommendation follows the observed result.",
+    "not_chosen": "S2.1 seven-ROI spatial profile (deferred until divergence understood)"
+  },
+  "hard_constraints": {
+    "no_other_roi": true,
+    "no_other_participant": true,
+    "no_reproduction_verdict": true,
+    "no_author_dependency": true,
+    "no_raw_data_committed": true
+  }
+}

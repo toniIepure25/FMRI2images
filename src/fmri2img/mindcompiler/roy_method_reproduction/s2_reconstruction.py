@@ -79,9 +79,13 @@ def _select_and_report(Xtr, Ytr, Xva, Yva, Xte, Yte, n_train_conditions):
 
 def run_fold(M: np.ndarray, assignment, row_identity: Dict[int, str],
              row_beta_index: Dict[int, int], *, beta_version: str, preproc_policy: str,
-             vis2vis_pairing: str, pairing_seed: Optional[int]) -> FoldResult:
-    """Reconstruct one fold end to end (vis2vis → D1 → vis2img)."""
-    fold_name = "fold"  # label supplied by caller via assignment context
+             vis2vis_pairing: str, pairing_seed: Optional[int],
+             fold_name: str = "fold", return_records: bool = False):
+    """Reconstruct one fold end to end (vis2vis → D1 → vis2img).
+
+    Returns a :class:`FoldResult`; if ``return_records`` also returns the D1
+    dependency records for manifest emission.
+    """
     vis = _by_ident(assignment, "vision")
     img = _by_ident(assignment, "imagery")
     n_conditions = len(vis)  # identities in the fold
@@ -134,7 +138,7 @@ def run_fold(M: np.ndarray, assignment, row_identity: Dict[int, str],
         ix.transform(Xtr), iy.transform(Ytr), ix.transform(Xva), iy.transform(Yva),
         ix.transform(Xte), iy.transform(Yte), n_conditions)
 
-    return FoldResult(
+    result = FoldResult(
         fold=fold_name, beta_version=beta_version, preproc_policy=preproc_policy,
         vis2vis_pairing=vis2vis_pairing, pairing_seed=pairing_seed, denoising=dn.DENOISE_LABEL,
         vis2vis=dict(lam=v2v_sel.lam, rank=v2v_sel.rank, val_score=v2v_sel.val_score,
@@ -144,6 +148,7 @@ def run_fold(M: np.ndarray, assignment, row_identity: Dict[int, str],
                      rank_max=v2i_rmax, n_train=int(Xtr.shape[0]),
                      **_metric_dict(v2i_rep)),
         denoise_leakage=leak, n_denoise_records=len(recs))
+    return (result, recs) if return_records else result
 
 
 def _metric_dict(rep: MetricReport) -> dict:

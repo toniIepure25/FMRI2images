@@ -1,0 +1,27 @@
+{
+  "NON_INTERPRETIVE": true,
+  "disclaimer": "Engineering/method-reconstruction only (subj01 x V1). NOT compared to Roy; no reproduction verdict.",
+  "denoising": "D1_STRICT_CROSSFIT",
+  "preprocessing": "P1 train-only z-score",
+  "vis2vis_pairing": "all_ordered_distinct",
+  "n_folds": 4,
+  "B0_D1_vis2img_test_r": {
+    "mean": 0.20282479618779314,
+    "median": 0.18379035446061925,
+    "std": 0.040348435176743865,
+    "min": 0.17224257858957545,
+    "max": 0.27147589724035864
+  },
+  "B1_D1_vis2img_test_r": {
+    "mean": -0.029990112494126274,
+    "median": -0.05010926188917028,
+    "std": 0.07245941802676488,
+    "min": -0.10735118977851334,
+    "max": 0.08760926358034879
+  },
+  "self_target_violations": 0,
+  "historical_D0_reference": {
+    "B0_D0_vis2img_mean": 0.1650281390649757,
+    "B1_D0_vis2img_mean": 0.006993956265907372
+  }
+}

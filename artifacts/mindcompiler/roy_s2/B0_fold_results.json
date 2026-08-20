@@ -1,0 +1,210 @@
+{
+  "beta_version": "nsdimagerybetas_fithrf",
+  "n_voxels": 27,
+  "voxel_hash": "a1bc56fe7c55",
+  "folds": [
+    {
+      "fold": "fold_0",
+      "vis2vis": {
+        "lam": 148.49682622544665,
+        "rank": 3,
+        "val_score": 0.5804404288929731,
+        "rank_max": 12,
+        "n_train_pairs": 144,
+        "n_zero_var_src": 0,
+        "n_zero_var_tgt": 0
+      },
+      "vis2img": {
+        "lam": 0.001,
+        "rank": 9,
+        "val_score": 0.21403315116067986,
+        "rank_max": 12,
+        "n_train": 48,
+        "total": 27,
+        "finite": 27,
+        "nan": 0,
+        "target_constant": 0,
+        "prediction_constant": 0,
+        "both_constant": 0,
+        "mean": 0.17545011369182387,
+        "median": 0.18348355130690672,
+        "std": 0.2227544623854078,
+        "rmin": -0.32453666337200937,
+        "rmax": 0.554068456343008,
+        "p5": -0.22948014512885276,
+        "p25": 0.08676194310892862,
+        "p75": 0.3233976522555037,
+        "p95": 0.47703707337159185,
+        "finite_frac": 1.0
+      },
+      "denoise_leakage": {
+        "self_target": 0,
+        "self_source": 0,
+        "val_test_in_training": 0,
+        "cross_identity_target": 0,
+        "training_row_not_train_split": 0
+      },
+      "n_denoise_records": 96
+    },
+    {
+      "fold": "fold_1",
+      "vis2vis": {
+        "lam": 27.825594022071257,
+        "rank": 5,
+        "val_score": 0.6235851093216292,
+        "rank_max": 12,
+        "n_train_pairs": 144,
+        "n_zero_var_src": 0,
+        "n_zero_var_tgt": 0
+      },
+      "vis2img": {
+        "lam": 3.5938136638046294,
+        "rank": 3,
+        "val_score": 0.30430900568189884,
+        "rank_max": 12,
+        "n_train": 48,
+        "total": 27,
+        "finite": 27,
+        "nan": 0,
+        "target_constant": 0,
+        "prediction_constant": 0,
+        "both_constant": 0,
+        "mean": 0.17224257858957545,
+        "median": 0.1500869040634077,
+        "std": 0.1819487933959766,
+        "rmin": -0.1681641137603402,
+        "rmax": 0.577823443728596,
+        "p5": -0.10685915016036779,
+        "p25": 0.03885609466293606,
+        "p75": 0.26388115552614516,
+        "p95": 0.4980018734041322,
+        "finite_frac": 1.0
+      },
+      "denoise_leakage": {
+        "self_target": 0,
+        "self_source": 0,
+        "val_test_in_training": 0,
+        "cross_identity_target": 0,
+        "training_row_not_train_split": 0
+      },
+      "n_denoise_records": 96
+    },
+    {
+      "fold": "fold_2",
+      "vis2vis": {
+        "lam": 40.37017258596558,
+        "rank": 5,
+        "val_score": 0.6167117025923073,
+        "rank_max": 12,
+        "n_train_pairs": 144,
+        "n_zero_var_src": 0,
+        "n_zero_var_tgt": 0
+      },
+      "vis2img": {
+        "lam": 40.37017258596558,
+        "rank": 2,
+        "val_score": 0.284079976669246,
+        "rank_max": 12,
+        "n_train": 48,
+        "total": 27,
+        "finite": 27,
+        "nan": 0,
+        "target_constant": 0,
+        "prediction_constant": 0,
+        "both_constant": 0,
+        "mean": 0.1921305952294146,
+        "median": 0.18498064581703075,
+        "std": 0.2114717592004207,
+        "rmin": -0.21689732016549415,
+        "rmax": 0.5798668676243288,
+        "p5": -0.11981343670226018,
+        "p25": 0.06578390851897087,
+        "p75": 0.3716974678131076,
+        "p95": 0.49613304005710235,
+        "finite_frac": 1.0
+      },
+      "denoise_leakage": {
+        "self_target": 0,
+        "self_source": 0,
+        "val_test_in_training": 0,
+        "cross_identity_target": 0,
+        "training_row_not_train_split": 0
+      },
+      "n_denoise_records": 96
+    },
+    {
+      "fold": "fold_3",
+      "vis2vis": {
+        "lam": 33.516026509388475,
+        "rank": 5,
+        "val_score": 0.6116318635754739,
+        "rank_max": 12,
+        "n_train_pairs": 144,
+        "n_zero_var_src": 0,
+        "n_zero_var_tgt": 0
+      },
+      "vis2img": {
+        "lam": 33.516026509388475,
+        "rank": 2,
+        "val_score": 0.20075610958103215,
+        "rank_max": 12,
+        "n_train": 48,
+        "total": 27,
+        "finite": 27,
+        "nan": 0,
+        "target_constant": 0,
+        "prediction_constant": 0,
+        "both_constant": 0,
+        "mean": 0.27147589724035864,
+        "median": 0.19462395475969277,
+        "std": 0.20803461972325565,
+        "rmin": -0.1239026701118625,
+        "rmax": 0.6380209619146271,
+        "p5": -0.01065245420294917,
+        "p25": 0.1166943389058767,
+        "p75": 0.4460786580461569,
+        "p95": 0.593102870589281,
+        "finite_frac": 1.0
+      },
+      "denoise_leakage": {
+        "self_target": 0,
+        "self_source": 0,
+        "val_test_in_training": 0,
+        "cross_identity_target": 0,
+        "training_row_not_train_split": 0
+      },
+      "n_denoise_records": 96
+    }
+  ],
+  "aggregate": {
+    "vis2img_test_r": {
+      "mean": 0.20282479618779314,
+      "median": 0.18379035446061925,
+      "std": 0.040348435176743865,
+      "min": 0.17224257858957545,
+      "max": 0.27147589724035864
+    },
+    "vis2img_rank": {
+      "mean": 4.0,
+      "median": 2.5,
+      "std": 2.9154759474226504,
+      "min": 2.0,
+      "max": 9.0
+    },
+    "vis2vis_rank": {
+      "mean": 4.5,
+      "median": 5.0,
+      "std": 0.8660254037844386,
+      "min": 3.0,
+      "max": 5.0
+    },
+    "vis2img_finite_frac": {
+      "mean": 1.0,
+      "median": 1.0,
+      "std": 0.0,
+      "min": 1.0,
+      "max": 1.0
+    }
+  },
+  "all_folds_finite_ge_min": true
+}

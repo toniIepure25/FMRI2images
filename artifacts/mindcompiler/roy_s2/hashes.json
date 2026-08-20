@@ -1,0 +1,14 @@
+{
+  "ambiguity_registry.json": "e0c7e3d4fc4f5f9588bbb50a2ce4cbd03458e8b15057411d711277adc0675965",
+  "B0_fold_results.json": "5356fd87e2146199565d1351a8b724060e47d2f41481915b34544986be1995f6",
+  "B0_vs_B1_D1_comparison.json": "a7669ae210b65e02391a5067f1357597741af3e00315a555273050d5293921b2",
+  "B1_fold_results.json": "343f1d1792783cf21e43474e70308749dc38b75cfe25cfa3e78b07ff006e59d9",
+  "D1_dependency_manifest.csv": "6724e7f3df34d3514a6ac1d88be4d0ae0fa040c9ac2991fdeec89f0ee1607eb8",
+  "execution_provenance.json": "5151914145dba7dab657cf4c79523e40fff7416890f770753feebe37b377025c",
+  "fold_coverage.csv": "4e8470b8938b119add58f0ff831a37b86f6f2ce530f39054890ffcaf98e16da1",
+  "fold_manifest.csv": "243b2e07e9da76f1df1cbda08d7303fa4f725c061688ff8bfdb2ae501f782a2f",
+  "fold_manifest_summary.json": "f0d1390fd823552bf4bff36b48cf0bda93c31454253cfec4443785281a78cc8b",
+  "s2_frozen_config.json": "67dca1d01b76c50a7212a6b06910c879a6c5660cf8caad6332674b7a3cd064b7",
+  "s2_gate_status.json": "865bed70fda46711a516c30dfbc5150456a84e826fa3deecc4ddd4682aef3a1e",
+  "test_report.json": "b5cf85aa36411b1b4d723e9d73e37db4593138427de910b9d76ffc8c53121d58"
+}

@@ -1,0 +1,29 @@
+{
+  "fold_root_seed": 1234,
+  "derivation_version": "s2_folds_v1",
+  "n_folds": 4,
+  "per_identity_state": "4 train / 2 val / 2 test",
+  "identities": 12,
+  "states": [
+    "imagery",
+    "vision"
+  ],
+  "fold_manifest_csv": "fold_manifest.csv",
+  "fold_manifest_sha256": "243b2e07e9da76f1df1cbda08d7303fa4f725c061688ff8bfdb2ae501f782a2f",
+  "rows_in_manifest": 768,
+  "validation_all_folds_ok": true,
+  "coverage": {
+    "test_balanced_each_repeat_exactly_once": true,
+    "train_appearance_counts_across_4_folds_distinct_values": [
+      0,
+      2,
+      3
+    ],
+    "val_appearance_counts_across_4_folds_distinct_values": [
+      0,
+      1,
+      3
+    ],
+    "note": "Test coverage is balanced by construction (n_folds*n_test==n_repeats). Train/val counts reported as-is (NOT claimed balanced)."
+  }
+}

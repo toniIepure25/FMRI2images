@@ -49,18 +49,20 @@ def run_beta_boundaries() -> Dict[str, Tuple[int, int]]:
     return bounds
 
 
-def build_trial_table(bdata_dir: str) -> pd.DataFrame:
+def build_trial_table(bdata_dir: str, subject: str = "subj01") -> pd.DataFrame:
     """Build the 192-row Roy subset from the four selected behavioral TSVs.
 
     Beta trial order within each run follows the TSV ``TRIAL`` sequence (the NSD
     convention; ``designmatrixGLMsingle`` is condition-collapsed and is NOT the
-    single-trial order).
+    single-trial order). ``subject`` selects the participant's TSVs (default
+    ``subj01``; S2.3 passes subj02..subj08). The beta-run boundaries and the Roy
+    subset structure are identical across participants.
     """
     bounds = run_beta_boundaries()
     rows: List[dict] = []
     for run in SELECTED_RUNS:
         b0, _ = bounds[run]
-        df = pd.read_csv(f"{bdata_dir}/nsdimagery_subj01_{run}.tsv", sep="\t")
+        df = pd.read_csv(f"{bdata_dir}/nsdimagery_{subject}_{run}.tsv", sep="\t")
         df = df.sort_values("TRIAL").reset_index(drop=True)
         for k, (_, r) in enumerate(df.iterrows()):
             rows.append(dict(
@@ -69,7 +71,7 @@ def build_trial_table(bdata_dir: str) -> pd.DataFrame:
                 family=FAMILY[run], condition=str(r["CONDITION"]),
                 identity=f"{STIM_SET[run]}:{r['CONDITION']}", cue=str(r["CUE"]),
                 framefile=str(r["FRAMEFILE"]), trialonset=float(r["TRIALONSET"]),
-                roy_inclusion=True, source_tsv=f"nsdimagery_subj01_{run}.tsv"))
+                roy_inclusion=True, source_tsv=f"nsdimagery_{subject}_{run}.tsv"))
     tt = pd.DataFrame(rows)
     tt["repeat"] = tt.groupby(["identity", "run_name"]).cumcount()
     _validate_trial_table(tt)

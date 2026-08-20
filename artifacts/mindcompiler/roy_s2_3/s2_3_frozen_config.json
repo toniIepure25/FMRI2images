@@ -1,0 +1,81 @@
+{
+  "config_sha256": "fd9b9990d52beeac7525481cffe568372ac891241529799ba7403e301594b372",
+  "gate": "S2.3",
+  "analysis_class": "PROSPECTIVE_CROSS_PARTICIPANT_CONFIRMATION",
+  "frozen_before_outcome_evaluation": true,
+  "n_primary_participants": 7,
+  "development_reference_participant": "subj01 (excluded from primary test)",
+  "primary_participants": [
+    "subj02",
+    "subj03",
+    "subj04",
+    "subj05",
+    "subj06",
+    "subj07",
+    "subj08"
+  ],
+  "primary_unit": "participant (not ROI/voxel/fold/trial)",
+  "seven_rois": {
+    "V1": "prf-visualrois {1,2}",
+    "V2": "prf-visualrois {3,4}",
+    "V3": "prf-visualrois {5,6}",
+    "hV4": "prf-visualrois {7}",
+    "ventral": "streams {5}",
+    "lateral": "streams {6}",
+    "parietal": "streams {7}"
+  },
+  "voxel_selection": "per participant NSD-core betas_fithrf/ncsnr; ROI mask \u2229 valid_nsdimagery \u2229 finite ncsnr; strict > ROI 98th pct; identical B0/B1 voxels; min 3 voxels; NO adaptation/rescue",
+  "reliability_estimator": "S2.1B unchanged: mean over unordered repeat-pair Pearson r, averaged over 12 identities (imagery primary; vision secondary)",
+  "primary_endpoint": "RAW_S2_MATCHED four-fold aggregate vis2img mean r (NOT D0, NOT D1)",
+  "fold_algorithm": "s2_folds build_four_folds, root seed 1234, per participant from their own trial table; balanced test coverage; identical semantic policy across participants",
+  "loss_definitions": {
+    "L_rel_img(s,r)": "B0-B1 imagery reliability (>0 = B1 lower)",
+    "L_perf_RAW(s,r)": "B0-B1 RAW vis2img (>0 = B1 worse)"
+  },
+  "participant_reduction": {
+    "S_rel": "median over 7 ROIs of L_rel_img (equal ROI weight)",
+    "S_perf": "median over 7 ROIs of L_perf_RAW",
+    "note": "median frozen; NOT changed to mean after results"
+  },
+  "primary_statistic": "Spearman rho(S_rel, S_perf) across subj02-08",
+  "exact_permutation": {
+    "procedure": "enumerate all 7! = 5040 orderings of S_perf; count null rho >= observed",
+    "alternative": "positive",
+    "alpha": 0.05,
+    "asymptotic_p_forbidden": true
+  },
+  "criteria": {
+    "A": "median_s S_rel > 0",
+    "B": "median_s S_perf > 0",
+    "C": "rho_primary > 0 AND p_exact_one_sided <= 0.05",
+    "D": ">=5 of 7 participants with S_rel>0 AND S_perf>0"
+  },
+  "classification": {
+    "SUPPORTED": "A,B,C,D all pass",
+    "PARTIAL": "exactly 2 or 3",
+    "NOT_SUPPORTED": "0 or 1",
+    "INCONCLUSIVE": "<5 evaluable participants"
+  },
+  "participant_evaluability": "both B0/B1 verified; valid trial mapping; >=5/7 ROIs evaluable; >=3 voxels per used ROI; all 4 folds execute; finite-fraction passes; no alignment mismatch. Failure preserved, NO substitution.",
+  "secondary_analyses": [
+    "leave-one-participant sensitivity",
+    "mean-ROI aggregation sensitivity (AGGREGATION_SENSITIVITY_ONLY)",
+    "within-participant spatial rho",
+    "vision-reliability control",
+    "subj01 reference (post-hoc, excluded from primary)"
+  ],
+  "prohibited": [
+    "D1",
+    "D1b",
+    "new denoising",
+    "alternate pairing",
+    "alternate scaling",
+    "alternate ROI thresholds",
+    "new geometry sweeps",
+    "changing metrics/aggregation/criteria after outcomes",
+    "author dependency",
+    "Roy reproduction verdict"
+  ],
+  "acquisition": "certified atomic resumable downloader; anonymous public bucket; LOCALLY_COMPUTED_CONTENT_SHA256 (never S3 multipart ETag); raw HDF5 gitignored/uncommitted",
+  "chronology": "Phase1 freeze (this commit) BEFORE any subj02-08 outcome inspection; violation=PROSPECTIVE_PARTICIPANT_FREEZE_VIOLATION"
+}

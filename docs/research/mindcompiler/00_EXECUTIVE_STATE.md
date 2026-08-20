@@ -10,6 +10,32 @@ Corrected 2026-07-17.)
 
 ---
 
+## B1 (2026-08-20): SECOND BETA VERSION -- `B1_ENGINEERING_SMOKE_PASS__NON_INTERPRETIVE`
+
+**User-authorized. Output HEAD `104a6e5`, server-verified. Normal forward commits.**
+Charter: `40_B1_GATE_CHARTER.md`. Status: `subj01_b1_status.json`.
+
+Acquired the pre-registered second beta version via the hardened downloader:
+subj01 func1pt8mm `nsdimagerybetas_fithrf_GLMdenoise_RR/betas_nsdimagery.hdf5`
+(1,052,494,008 B, sha256 `cd42e680...`, verified; raw HDF5 gitignored, never
+committed; anonymous HTTPS, no credentials). Runner now uses a SHA-pinned
+beta-version registry (fithrf=B0, fithrf_GLMdenoise_RR=B1); subj01xV1xD0 stay
+fixed. Cross-artifact validator generalised to certify `beta_sha` per version.
+106 reproduction tests pass; B0 replay preserved bit-for-bit.
+
+**Controlled comparison** (voxel selection uses shared NSD-core ncsnr, so
+voxels/splits/pairings are IDENTICAL across B0/B1 -- voxel_hash `a1bc56fe7c55`
+for both; only beta VALUES differ). B1 smoke: P0/I0, cross-artifact validation
+19/19, finite_frac 1.00. **NON-INTERPRETIVE numbers** (never vs the paper):
+B0 vis2vis mean 0.6141 / vis2img 0.1650; B1 vis2vis mean 0.5042 / vis2img 0.0070.
+
+**Explicitly NOT done:** no Roy reproduction verdict; no other ROI/subject; the
+`beta_version` ambiguity (GLMdenoise_RR is itself denoised, interacting with
+Roy's separate vis2vis denoising) remains UNRESOLVED, deferred to the author
+request. See `B0_vs_B1_comparison.json`.
+
+---
+
 ## S1.9 (2026-07-31): PRE-B1 HARDENING COMPLETE -- `S1_PRE_B1_HARDENING_PASS`
 
 **Output HEAD `5d17c76`, server-verified. Normal forward commits only.** The subj01 x

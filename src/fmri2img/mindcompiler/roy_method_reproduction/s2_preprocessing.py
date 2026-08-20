@@ -70,6 +70,17 @@ class FittedScaler:
             raise ValueError(f"feature dim {X.shape[1]} != fitted {self.n_features}")
         return (X - self.mean_) / self.scale_
 
+    def inverse_transform(self, Z: np.ndarray) -> np.ndarray:
+        """Map scaled values back to raw units (Z * scale + mean).
+
+        Used so cross-fit denoised predictions from DIFFERENT per-model scalers all
+        land in the same raw-response space, keeping downstream inputs comparable.
+        """
+        Z = np.asarray(Z, dtype=np.float64)
+        if Z.shape[1] != self.n_features:
+            raise ValueError(f"feature dim {Z.shape[1]} != fitted {self.n_features}")
+        return Z * self.scale_ + self.mean_
+
     def report(self) -> dict:
         return {
             "policy": self.policy, "with_scaling": self.with_scaling,

@@ -10,6 +10,33 @@ Corrected 2026-07-17.)
 
 ---
 
+## S2.4H (2026-08-21): PARTICIPANT HETEROGENEITY AUDIT -- `S2_4H_HETEROGENEITY_AUDIT_PASS`
+
+**Input `682a1e0` -> output `dc78877`, server-verified. POST-HOC DESCRIPTIVE; committed
+S2.3 summaries ONLY (no raw data, no reruns, no models, no p-value rescue).** Doc
+`45_...md`; artifacts `artifacts/mindcompiler/roy_s2_4h/`. **Frozen S2.3 primary
+IMMUTABLE and UNCHANGED: H_A_CROSS_PARTICIPANT_PARTIAL (rho 0.6786, p 276/5040).**
+
+Descriptive heterogeneity findings: subj07 = `NO_TECHNICAL_ANOMALY` ->
+VALID_SCIENTIFIC_HETEROGENEITY (B1 imagery-reliability loss positive in 5/7 ROIs but
+a LOW-BASELINE RAW regime: B0 RAW itself weak/negative -> B1 not worse, L_perf_RAW<0
+in 6/7; participant-wide, not one ROI; NOT excluded). Imagery-vs-vision:
+rho(img,perf)=0.679, rho(vis,perf)=0.786, rho(img,vis)=0.393 ->
+GENERAL_RELIABILITY_FACTOR_PLAUSIBLE (label not renamed). Leave-one rho 7/7 positive
+(robust direction). median 0.679 vs mean 0.393 (no sign reversal). rho(nvox,perf)
+0.445 (MIXED). 172 tests.
+
+Descriptive mechanism statement: H-A captured a robust DIRECTIONAL component of
+beta-version sensitivity but does not fully explain participant heterogeneity; a
+broader beta-preparation reliability factor (vision + imagery) remains plausible.
+NOT causal; frozen criterion C not met.
+
+**Next (Path A): freeze BETA_PREPARATION_RELIABILITY_SENSITIVITY_WITH_PARTICIPANT_
+HETEROGENEITY -> S2.4R FULL CROSS-PARTICIPANT D1 ROY-PIPELINE CHARACTERIZATION**
+(both B0 and B1; no beta selection).
+
+---
+
 ## S2.3 (2026-08-21): PROSPECTIVE CROSS-PARTICIPANT CONFIRMATION -- `S2_3_PROSPECTIVE_CROSS_PARTICIPANT_PASS` / `H_A_CROSS_PARTICIPANT_PARTIAL`
 
 **Input `977b3cd` -> output `42974eb`, server-verified. PROSPECTIVE cross-participant;

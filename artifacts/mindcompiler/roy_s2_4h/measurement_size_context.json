@@ -1,0 +1,23 @@
+{
+  "median_nvox": {
+    "subj02": 23.0,
+    "subj03": 26.0,
+    "subj04": 18.0,
+    "subj05": 23.0,
+    "subj06": 24.0,
+    "subj07": 23.0,
+    "subj08": 22.0
+  },
+  "min_nvox": {
+    "subj02": 10,
+    "subj03": 9,
+    "subj04": 10,
+    "subj05": 11,
+    "subj06": 10,
+    "subj07": 8,
+    "subj08": 10
+  },
+  "rho_nvox_vs_S_rel_img": 0.14824986333222023,
+  "rho_nvox_vs_S_perf": 0.44474958999666075,
+  "note": "Confounding context only; no residualization."
+}

@@ -1,0 +1,22 @@
+{
+  "gate": "S2.4H",
+  "status": "S2_4H_HETEROGENEITY_AUDIT_PASS",
+  "frozen_S2_3_status_unchanged": "H_A_CROSS_PARTICIPANT_PARTIAL",
+  "subj07_case": "NO_TECHNICAL_ANOMALY_IDENTIFIED",
+  "answers": {
+    "Q1_subj07_technically_invalid": "NOT_SUPPORTED_BY_DESCRIPTIVE_PATTERN",
+    "Q2_subj07_discordance_localized_or_wide": "PARTICIPANT_WIDE: subj07 has 1/7 ROIs with L_perf_RAW>0 (median S_perf=-0.033); reliability loss positive in 5/7 -> discordance is a participant-wide RAW-performance shift, not one ROI.",
+    "Q3_imagery_specific_or_general": "GENERAL_RELIABILITY_FACTOR_PLAUSIBLE",
+    "Q4_heterogeneity_global_vs_spatial": "MAD S_perf across participants=0.005 vs median within-participant MAD_perf=0.051; within-participant ROI variation dominates",
+    "Q5_depends_on_one_participant": "NOT_SUPPORTED_BY_DESCRIPTIVE_PATTERN: leave-one-participant rho positive in 7/7 (min 0.600, max 0.714); the positive DIRECTION is robust to removing any one participant. (The frozen criterion C was not met; this is not a significance statement.)",
+    "Q6_median_created_the_result": "MIXED: frozen median rho=0.679 vs prespecified mean-aggregation rho=0.393; both positive; ordering is somewhat aggregation-dependent but not sign-reversing. Median is the frozen primary and is not re-chosen.",
+    "Q7_measurement_size_dominates": "MIXED: rho(median_nvox,S_perf)=+0.445, rho(median_nvox,S_rel_img)=+0.148 (no residualization; primary effect not corrected)."
+  },
+  "descriptive_mechanism_statement": "H-A captured a robust DIRECTIONAL component of beta-version sensitivity (leave-one-participant rho positive 7/7) but does not fully explain participant heterogeneity; subj07 is VALID heterogeneity (a low-baseline RAW regime), not a technical failure. A broader beta-preparation reliability factor involving BOTH vision and imagery remains plausible. NOT causal; NOT a population claim; frozen criterion C was not met.",
+  "next_action": {
+    "path": "A",
+    "freeze": "BETA_PREPARATION_RELIABILITY_SENSITIVITY_WITH_PARTICIPANT_HETEROGENEITY",
+    "next": "S2.4R -- FULL CROSS-PARTICIPANT D1 ROY-PIPELINE CHARACTERIZATION (both B0 and B1; no beta selection)",
+    "not_done_here": "No D1/Track-O work in S2.4H."
+  }
+}

@@ -1,0 +1,156 @@
+{
+  "primary_result_immutable": {
+    "rho_observed": 0.6785714285714286,
+    "n_permutations": 5040,
+    "n_null_ge_observed": 276,
+    "p_exact_one_sided": 0.05476190476190476,
+    "classification": "H_A_CROSS_PARTICIPANT_PARTIAL"
+  },
+  "technical_anomaly_status": "NO_TECHNICAL_ANOMALY_IDENTIFIED",
+  "participant_global_effects": {
+    "subj02": {
+      "S_rel_img": 0.1000066040727515,
+      "S_perf": 0.1428778349394249
+    },
+    "subj03": {
+      "S_rel_img": 0.1021414009195117,
+      "S_perf": 0.1977312130681257
+    },
+    "subj04": {
+      "S_rel_img": 0.1246338198297962,
+      "S_perf": 0.151066130633891
+    },
+    "subj05": {
+      "S_rel_img": 0.0835894879294625,
+      "S_perf": 0.1464611566281717
+    },
+    "subj06": {
+      "S_rel_img": 0.1137501521148113,
+      "S_perf": 0.1732345844405315
+    },
+    "subj07": {
+      "S_rel_img": 0.0643671861247033,
+      "S_perf": -0.0330213476606299
+    },
+    "subj08": {
+      "S_rel_img": 0.0598374028133895,
+      "S_perf": 0.1443008722286328
+    }
+  },
+  "within_participant_spatial_effects": {
+    "subj02": -0.4642857142857144,
+    "subj03": 0.5,
+    "subj04": -0.07142857142857144,
+    "subj05": -0.21428571428571433,
+    "subj06": 0.7500000000000002,
+    "subj07": 0.7500000000000002,
+    "subj08": 0.21428571428571433
+  },
+  "imagery_vs_vision_reliability": {
+    "rho_img": 0.6785714285714287,
+    "rho_vis": 0.7857142857142859,
+    "rho_img_vis": 0.39285714285714296
+  },
+  "baseline_RAW_context": {
+    "rho_PB0_vs_S_perf": 0.21428571428571433,
+    "rho_PB1_vs_S_perf": -0.5357142857142858
+  },
+  "ROI_heterogeneity": [
+    {
+      "ROI": "V1",
+      "median_L_rel_img": 0.0693988401340209,
+      "mad_L_rel_img": 0.0075240576794990965,
+      "n_rel_pos": 6,
+      "median_L_perf_RAW": 0.1967597781629572,
+      "mad_L_perf_RAW": 0.1659621543209437,
+      "n_perf_pos": 5,
+      "n_both_pos": 5,
+      "rho_across_participants": 0.7142857142857144
+    },
+    {
+      "ROI": "V2",
+      "median_L_rel_img": 0.0675037034511444,
+      "mad_L_rel_img": 0.021899028726650095,
+      "n_rel_pos": 7,
+      "median_L_perf_RAW": 0.1134629760918303,
+      "mad_L_perf_RAW": 0.06176275028345081,
+      "n_perf_pos": 5,
+      "n_both_pos": 5,
+      "rho_across_participants": 0.8214285714285715
+    },
+    {
+      "ROI": "V3",
+      "median_L_rel_img": 0.1142520145359802,
+      "mad_L_rel_img": 0.03515165460365609,
+      "n_rel_pos": 7,
+      "median_L_perf_RAW": 0.1555344070958976,
+      "mad_L_perf_RAW": 0.04219680597222808,
+      "n_perf_pos": 6,
+      "n_both_pos": 6,
+      "rho_across_participants": 0.14285714285714288
+    },
+    {
+      "ROI": "hV4",
+      "median_L_rel_img": 0.0512830493961311,
+      "mad_L_rel_img": 0.038636605006017594,
+      "n_rel_pos": 5,
+      "median_L_perf_RAW": 0.1543529749820801,
+      "mad_L_perf_RAW": 0.08645338762069121,
+      "n_perf_pos": 6,
+      "n_both_pos": 5,
+      "rho_across_participants": -0.14285714285714288
+    },
+    {
+      "ROI": "ventral",
+      "median_L_rel_img": 0.0850983873249441,
+      "mad_L_rel_img": 0.0334548218178107,
+      "n_rel_pos": 7,
+      "median_L_perf_RAW": 0.0956253367450684,
+      "mad_L_perf_RAW": 0.021068107826961197,
+      "n_perf_pos": 6,
+      "n_both_pos": 6,
+      "rho_across_participants": 0.7142857142857144
+    },
+    {
+      "ROI": "lateral",
+      "median_L_rel_img": 0.1172613841094592,
+      "mad_L_rel_img": 0.007372435720336995,
+      "n_rel_pos": 7,
+      "median_L_perf_RAW": 0.1084208681575445,
+      "mad_L_perf_RAW": 0.0646547909938765,
+      "n_perf_pos": 6,
+      "n_both_pos": 6,
+      "rho_across_participants": -0.25
+    },
+    {
+      "ROI": "parietal",
+      "median_L_rel_img": 0.1429910666146513,
+      "mad_L_rel_img": 0.028061384063830408,
+      "n_rel_pos": 7,
+      "median_L_perf_RAW": 0.1428778349394249,
+      "mad_L_perf_RAW": 0.05993514329624999,
+      "n_perf_pos": 7,
+      "n_both_pos": 7,
+      "rho_across_participants": 0.6071428571428572
+    }
+  ],
+  "aggregation_sensitivity": {
+    "median_rho": 0.6785714285714287,
+    "mean_rho": 0.39285714285714296
+  },
+  "influence_sensitivity": {
+    "leave_one_n_positive": 7
+  },
+  "measurement_size_context": {
+    "rho_nvox_vs_S_perf": 0.44474958999666075
+  },
+  "answers": {
+    "Q1_subj07_technically_invalid": "NOT_SUPPORTED_BY_DESCRIPTIVE_PATTERN",
+    "Q2_subj07_discordance_localized_or_wide": "PARTICIPANT_WIDE: subj07 has 1/7 ROIs with L_perf_RAW>0 (median S_perf=-0.033); reliability loss positive in 5/7 -> discordance is a participant-wide RAW-performance shift, not one ROI.",
+    "Q3_imagery_specific_or_general": "GENERAL_RELIABILITY_FACTOR_PLAUSIBLE",
+    "Q4_heterogeneity_global_vs_spatial": "MAD S_perf across participants=0.005 vs median within-participant MAD_perf=0.051; within-participant ROI variation dominates",
+    "Q5_depends_on_one_participant": "NOT_SUPPORTED_BY_DESCRIPTIVE_PATTERN: leave-one-participant rho positive in 7/7 (min 0.600, max 0.714); the positive DIRECTION is robust to removing any one participant. (The frozen criterion C was not met; this is not a significance statement.)",
+    "Q6_median_created_the_result": "MIXED: frozen median rho=0.679 vs prespecified mean-aggregation rho=0.393; both positive; ordering is somewhat aggregation-dependent but not sign-reversing. Median is the frozen primary and is not re-chosen.",
+    "Q7_measurement_size_dominates": "MIXED: rho(median_nvox,S_perf)=+0.445, rho(median_nvox,S_rel_img)=+0.148 (no residualization; primary effect not corrected)."
+  }
+}

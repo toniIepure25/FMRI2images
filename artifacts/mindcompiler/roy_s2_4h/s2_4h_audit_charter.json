@@ -1,0 +1,18 @@
+{
+  "analysis_class": "POST_HOC_DESCRIPTIVE_PARTICIPANT_HETEROGENEITY_AUDIT",
+  "S2_3_PRIMARY_RESULT_IMMUTABLE": true,
+  "frozen_primary": {
+    "rho_observed": 0.6785714285714286,
+    "n_permutations": 5040,
+    "n_null_ge_observed": 276,
+    "p_exact_one_sided": 0.05476190476190476,
+    "classification": "H_A_CROSS_PARTICIPANT_PARTIAL"
+  },
+  "forbidden": [
+    "primary recomputation",
+    "p-value rescue",
+    "subj07 exclusion",
+    "new models",
+    "raw data"
+  ]
+}

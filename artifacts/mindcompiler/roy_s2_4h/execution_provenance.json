@@ -1,0 +1,7 @@
+{
+  "gate": "S2.4H",
+  "input_commit": "682a1e0e527b09b141c9fc921067aef0be683c00",
+  "S2_3_PRIMARY_RESULT_IMMUTABLE": true,
+  "committed_data_only": true,
+  "no_raw_reruns": true
+}

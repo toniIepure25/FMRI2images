@@ -1,0 +1,16 @@
+{
+  "aggregation_sensitivity_audit.json": "71c714887154da0b3a4836a13a4a31bd5cbe4f2ab2f47e5aa85beb54a24d218c",
+  "baseline_RAW_context.json": "51a1050a655755da17a46404fea30faf1c8e7cdfe4f5ae0d61bd901de06ad93a",
+  "execution_provenance.json": "563031df4b20a6ed42db1541129820b5d25ec035c35bbf92f44b8941a9fbe007",
+  "global_vs_spatial_coupling.json": "95f9a3b16a5fd94bc1bdb30220c805566f4261e0c73e1afb8daf8275ee556f4a",
+  "heterogeneity_summary.json": "0aa670a8a5538128bc277127804206c0c9ba7b25e87b09b9fe6a7c9cee5aa4f2",
+  "imagery_vs_vision_reliability.json": "680f3eb6bd2331d5d316474aca7eda7862d3e5287ebb0f46ba5075e2706582af",
+  "influence_audit.json": "2718ca39cc308fbbba0576636d752333a2c530248ff46cf082301afa9640883a",
+  "measurement_size_context.json": "113c9705fd2ca36b12a726a51e99ff1f0a484e5dc2f90126ce9f37cdbeef895c",
+  "participant_heterogeneity_table.csv": "9349c16bc9cc26b861dad0d567af59841b157b32296ad4191171ad58036e4b52",
+  "ROI_heterogeneity_table.csv": "e9b070ce90e20489ac095a59862f9940aa867700a09f86160fef805b88047947",
+  "s2_4h_audit_charter.json": "86160a85b6a04b12d2e2bb1a16b69ec93d4316229c08a195ceff0366f8191187",
+  "s2_4h_gate_status.json": "5f8b9fde9c271fe595d6e1814d71ca07e30de74dd78349f9159c87233c7b188d",
+  "subj07_case_audit.json": "f76261c0d68baeb72d056532636f139fc852d33d5cda1cad1db82e97b1d1411c",
+  "test_report.json": "b21ef787021a3df6b249b661ff1a3f214fa6728d98709ee8400406a72ed6d477"
+}

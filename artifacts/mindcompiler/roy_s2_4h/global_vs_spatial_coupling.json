@@ -1,0 +1,51 @@
+{
+  "subj02": {
+    "S_rel_img": 0.1000066040727515,
+    "S_perf": 0.1428778349394249,
+    "rho_spatial": -0.4642857142857144,
+    "ROI_concordant_positive": 6,
+    "ROI_discordant": 1
+  },
+  "subj03": {
+    "S_rel_img": 0.1021414009195117,
+    "S_perf": 0.1977312130681257,
+    "rho_spatial": 0.5,
+    "ROI_concordant_positive": 7,
+    "ROI_discordant": 0
+  },
+  "subj04": {
+    "S_rel_img": 0.1246338198297962,
+    "S_perf": 0.151066130633891,
+    "rho_spatial": -0.07142857142857144,
+    "ROI_concordant_positive": 7,
+    "ROI_discordant": 0
+  },
+  "subj05": {
+    "S_rel_img": 0.0835894879294625,
+    "S_perf": 0.1464611566281717,
+    "rho_spatial": -0.21428571428571433,
+    "ROI_concordant_positive": 7,
+    "ROI_discordant": 0
+  },
+  "subj06": {
+    "S_rel_img": 0.1137501521148113,
+    "S_perf": 0.1732345844405315,
+    "rho_spatial": 0.7500000000000002,
+    "ROI_concordant_positive": 5,
+    "ROI_discordant": 2
+  },
+  "subj07": {
+    "S_rel_img": 0.0643671861247033,
+    "S_perf": -0.0330213476606299,
+    "rho_spatial": 0.7500000000000002,
+    "ROI_concordant_positive": 1,
+    "ROI_discordant": 4
+  },
+  "subj08": {
+    "S_rel_img": 0.0598374028133895,
+    "S_perf": 0.1443008722286328,
+    "rho_spatial": 0.21428571428571433,
+    "ROI_concordant_positive": 7,
+    "ROI_discordant": 0
+  }
+}

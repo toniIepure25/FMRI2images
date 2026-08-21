@@ -1,0 +1,25 @@
+{
+  "rho_img_vs_perf_context": 0.6785714285714287,
+  "rho_vis_vs_perf": 0.7857142857142859,
+  "rho_img_vs_vis": 0.39285714285714296,
+  "S_rel_img": {
+    "subj02": 0.1000066040727515,
+    "subj03": 0.1021414009195117,
+    "subj04": 0.1246338198297962,
+    "subj05": 0.0835894879294625,
+    "subj06": 0.1137501521148113,
+    "subj07": 0.0643671861247033,
+    "subj08": 0.0598374028133895
+  },
+  "S_rel_vis": {
+    "subj02": -0.0064969993504095,
+    "subj03": 0.1349621308167808,
+    "subj04": 0.1309006778641819,
+    "subj05": 0.0726916593280509,
+    "subj06": 0.1209066174143074,
+    "subj07": 0.0270675992158734,
+    "subj08": 0.1227832248952749
+  },
+  "pattern_status": "GENERAL_RELIABILITY_FACTOR_PLAUSIBLE",
+  "note": "Descriptive; imagery reliability remains the S2.3 primary mechanism label (not renamed)."
+}

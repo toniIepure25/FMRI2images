@@ -1,0 +1,84 @@
+{
+  "technical_integrity": "NO_TECHNICAL_ANOMALY_IDENTIFIED",
+  "B0_B1_verified": true,
+  "trial_mapping_valid": true,
+  "S_rel_img": 0.0643671861247033,
+  "S_rel_vis": 0.0270675992158734,
+  "S_perf": -0.0330213476606299,
+  "P_B0": -0.0042922040327016,
+  "P_B1": 0.0350640597042804,
+  "rho_spatial": 0.7500000000000002,
+  "roi_sign_pattern": [
+    {
+      "ROI": "V1",
+      "L_rel_img": -0.0144593340732431,
+      "L_perf_RAW": -0.1232530645629012,
+      "B0_RAW": -0.0297575137108137,
+      "B1_RAW": 0.0934955508520874,
+      "n_voxels": 23
+    },
+    {
+      "ROI": "V2",
+      "L_rel_img": 0.0388917997764413,
+      "L_perf_RAW": -0.039356263736982,
+      "B0_RAW": -0.0042922040327016,
+      "B1_RAW": 0.0350640597042804,
+      "n_voxels": 20
+    },
+    {
+      "ROI": "V3",
+      "L_rel_img": 0.0643671861247033,
+      "L_perf_RAW": -0.1035096080900109,
+      "B0_RAW": -0.0625614438926955,
+      "B1_RAW": 0.0409481641973153,
+      "n_voxels": 15
+    },
+    {
+      "ROI": "hV4",
+      "L_rel_img": -0.0125988995068404,
+      "L_perf_RAW": -0.0330213476606299,
+      "B0_RAW": -0.0782462085796615,
+      "B1_RAW": -0.0452248609190316,
+      "n_voxels": 8
+    },
+    {
+      "ROI": "ventral",
+      "L_rel_img": 0.0692220517698193,
+      "L_perf_RAW": -0.0044427278808327,
+      "B0_RAW": 0.0412488404433617,
+      "B1_RAW": 0.0456915683241945,
+      "n_voxels": 131
+    },
+    {
+      "ROI": "lateral",
+      "L_rel_img": 0.1369173284192367,
+      "L_perf_RAW": -0.0174608703525467,
+      "B0_RAW": 0.0031031152474621,
+      "B1_RAW": 0.0205639856000089,
+      "n_voxels": 123
+    },
+    {
+      "ROI": "parietal",
+      "L_rel_img": 0.0773217388424589,
+      "L_perf_RAW": 0.0469791837229728,
+      "B0_RAW": 0.0388585165482347,
+      "B1_RAW": -0.008120667174738,
+      "n_voxels": 50
+    }
+  ],
+  "ROI_concordance": {
+    "n_rel_positive": 5,
+    "n_perf_positive": 1,
+    "n_concordant_positive": 1,
+    "n_concordant_negative": 2,
+    "n_discordant": 4,
+    "n_roi": 7
+  },
+  "rank_positions": {
+    "rank_S_rel": 2,
+    "rank_S_perf": 1,
+    "abs_rank_diff": 1
+  },
+  "case_classification": "VALID_SCIENTIFIC_HETEROGENEITY",
+  "interpretation": "subj07 shows the expected B1 imagery-reliability loss (L_rel_img>0 in most ROIs) but a LOW-BASELINE RAW regime: its B0 RAW mapping is itself weak/negative, so B1 is not worse (L_perf_RAW<0). Valid heterogeneity, not a technical anomaly; not excluded."
+}

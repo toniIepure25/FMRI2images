@@ -1,0 +1,55 @@
+{
+  "leave_one_participant": {
+    "rhos": {
+      "subj02": 0.7142857142857143,
+      "subj03": 0.6571428571428573,
+      "subj04": 0.6571428571428573,
+      "subj05": 0.6,
+      "subj06": 0.6571428571428573,
+      "subj07": 0.6,
+      "subj08": 0.7142857142857143
+    },
+    "n_positive": 7,
+    "min": 0.6,
+    "max": 0.7142857142857143,
+    "median": 0.6571428571428573
+  },
+  "rank_influence": {
+    "subj02": {
+      "rank_S_rel": 4,
+      "rank_S_perf": 2,
+      "abs_rank_diff": 2
+    },
+    "subj03": {
+      "rank_S_rel": 5,
+      "rank_S_perf": 7,
+      "abs_rank_diff": 2
+    },
+    "subj04": {
+      "rank_S_rel": 7,
+      "rank_S_perf": 5,
+      "abs_rank_diff": 2
+    },
+    "subj05": {
+      "rank_S_rel": 3,
+      "rank_S_perf": 4,
+      "abs_rank_diff": 1
+    },
+    "subj06": {
+      "rank_S_rel": 6,
+      "rank_S_perf": 6,
+      "abs_rank_diff": 0
+    },
+    "subj07": {
+      "rank_S_rel": 2,
+      "rank_S_perf": 1,
+      "abs_rank_diff": 1
+    },
+    "subj08": {
+      "rank_S_rel": 1,
+      "rank_S_perf": 3,
+      "abs_rank_diff": 2
+    }
+  },
+  "note": "Descriptive only; no participant removed; no Cook's distance; no exclusion."
+}

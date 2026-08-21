@@ -10,6 +10,31 @@ Corrected 2026-07-17.)
 
 ---
 
+## S2.4R (2026-08-21): FULL-COHORT D1 CHARACTERIZATION -- `S2_4R_FULL_COHORT_D1_PASS`
+
+**Input `be84dea` -> output `73f2639`, server-verified. D1 contract frozen before any
+new-D1 outcome (`4633e4f`).** Doc `46_...md`; artifacts `artifacts/mindcompiler/roy_s2_4r/`.
+First full-cohort run of the reconstructed two-stage D1 pipeline (vis2vis ->
+D1_STRICT_CROSSFIT -> vis2img): 8 participants x 7 ROIs x 2 betas x 4 folds = 448
+cells, 8-way parallel on the pod. subj01 = DEVELOPMENT_REFERENCE_D1; subj02-08 new.
+
+Validator: **448/448 cells, 0 dup, leakage-clean** (all 5 invariants 0). NON-
+INTERPRETIVE (participant=unit; NO beta selection; NO Roy verdict):
+- B0 D1 new-cohort median vis2img r = **0.1319 (6/7 positive)**
+- B1 D1 new-cohort median r = **-0.0018 (3/7 positive)**
+- **D1_BETA_SENSITIVITY_PERSISTS** (median S_D1_beta_loss 0.118, 6/7) -- the B0/B1
+  divergence persists under the FULL D1 pipeline (consistent with the beta-prep-stage
+  origin from S2.1B/S2.4H).
+- D1-vs-RAW: mostly D1_NEAR_NEUTRAL for B0; mixed for B1. subj07 low-baseline regime
+  persists under D1 (D1_B0=-0.026; still included, not excluded). reliability-context
+  rho=-0.036 (H-A NOT reopened; H_A_CROSS_PARTICIPANT_PARTIAL immutable). 179 tests.
+
+**Next (item 41): S2.5R -- PAPER-CONCORDANCE AND INDEPENDENT-REPRODUCTION VERDICT
+AUDIT** (re-open Roy paper+supplement; freeze a concordance rubric INDEPENDENTLY
+before comparing; compare both B0 and B1). Track O (operator research) deferred.
+
+---
+
 ## S2.4H (2026-08-21): PARTICIPANT HETEROGENEITY AUDIT -- `S2_4H_HETEROGENEITY_AUDIT_PASS`
 
 **Input `682a1e0` -> output `dc78877`, server-verified. POST-HOC DESCRIPTIVE; committed

@@ -1,0 +1,110 @@
+{
+  "config_sha256": "ce4dc92f890cbd0abbe415cf701f120f850cc6673e7092a0d77fb5413dd8641d",
+  "gate": "S2.4R",
+  "analysis_class": "FROZEN_FULL_COHORT_INDEPENDENT_METHOD_RECONSTRUCTION_CHARACTERIZATION",
+  "frozen_before_new_D1_outcomes": true,
+  "participants": [
+    "subj01",
+    "subj02",
+    "subj03",
+    "subj04",
+    "subj05",
+    "subj06",
+    "subj07",
+    "subj08"
+  ],
+  "reference_D1": "subj01 (DEVELOPMENT_REFERENCE_D1)",
+  "new_D1_cohort": [
+    "subj02",
+    "subj03",
+    "subj04",
+    "subj05",
+    "subj06",
+    "subj07",
+    "subj08"
+  ],
+  "rois": [
+    "V1",
+    "V2",
+    "V3",
+    "hV4",
+    "ventral",
+    "lateral",
+    "parietal"
+  ],
+  "beta_branches": {
+    "B0": "fithrf (sha 31485ff0...)",
+    "B1": "fithrf_GLMdenoise_RR (sha cd42e680...)"
+  },
+  "no_beta_selection": true,
+  "no_reproduction_verdict": true,
+  "voxel_selection": "ROI mask \u2229 valid \u2229 finite NSD-core ncsnr; strict > ROI 98th pct; identical B0/B1; from S2.2B/S2.3 selection",
+  "folds": "reuse S2 four 4/2/2 folds per participant (root seed 1234); identical B0/B1; balanced test coverage",
+  "preprocessing": "PREPROC_ZSCORE_TRAIN_ONLY (both stages, train-only; frozen stats on val/test)",
+  "vis2vis_pairing": "V2V-P0 all_ordered_distinct (expanded pairs NOT inferential N)",
+  "denoising": {
+    "policy": "D1_STRICT_CROSSFIT",
+    "train": "LOTO",
+    "val_test": "full-train",
+    "D1b": "PROHIBITED",
+    "D2": "PROHIBITED",
+    "leakage_invariants": {
+      "self_target": 0,
+      "self_source": 0,
+      "val_test_in_training": 0,
+      "cross_split": 0,
+      "wrong_identity": 0
+    }
+  },
+  "vis2img_pairing": "within-identity, within-split, index-aligned",
+  "ridge_grid": {
+    "lo": 0.001,
+    "hi": 100000.0,
+    "n": 100,
+    "spacing": "log10"
+  },
+  "rank_rule": "min(12, n_train_conditions, src_dim, tgt_dim, effective_train_rank); smallest rank within 99% of selected-lambda peak",
+  "metric": "per-voxel Pearson r (Y_true,Y_pred); mean/median/std/percentiles; finite fraction; constant-voxel counts",
+  "participant_unit": true,
+  "aggregation": {
+    "ROI": "equal-weight median (mean secondary)",
+    "participant": "median over 7 ROIs",
+    "folds": "arithmetic mean/median/std/min/max"
+  },
+  "D1_vs_RAW": {
+    "G": "D1 - RAW (reuse frozen S2.3 RAW)",
+    "NEAR_NEUTRAL_ABS_THRESHOLD": 0.02,
+    "categories": {
+      "D1_GAIN": "G>+0.02",
+      "D1_LOSS": "G<-0.02",
+      "D1_NEAR_NEUTRAL": "otherwise"
+    }
+  },
+  "beta_sensitivity": {
+    "RAW_loss": "RAW_B0-RAW_B1",
+    "D1_loss": "D1_B0-D1_B1",
+    "Delta": "D1_loss-RAW_loss (NOT causal)",
+    "cohort_status": {
+      "PERSISTS": "median S_D1_beta_loss>0 AND >=5/7 participants >0",
+      "REVERSES": "median<0 AND >=5/7 <0",
+      "MIXED": "otherwise",
+      "note": "no significance; not used to select a beta"
+    }
+  },
+  "immutable_predecessors": {
+    "H_A_CROSS_PARTICIPANT_PARTIAL": "frozen, not reopened",
+    "S2_3_primary": "rho 0.6786 p 276/5040 immutable",
+    "s2_frozen_config_sha": "e3f32a0d1c0d48c336af667c3cf975f868829e1a98fa305391444bc9b86d54c9"
+  },
+  "expected_cells": 448,
+  "forbidden": [
+    "D1b",
+    "D2",
+    "alternate preprocessing/pairing/threshold",
+    "participant exclusion",
+    "beta selection",
+    "H-A rescue",
+    "Roy verdict",
+    "author dependency"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "role": "DEVELOPMENT_REFERENCE_PARTICIPANT",
+  "summary": {
+    "S_rel": 0.12672602981980335,
+    "S_perf": 0.06232410944318527,
+    "n_evaluable_rois": 7,
+    "S_rel_mean": 0.12628281944722977,
+    "S_perf_mean": 0.07420439002450933,
+    "min_L_rel": 0.05946723746681182,
+    "max_L_rel": 0.15843626069787814,
+    "iqr_L_rel": 0.037780793294213494,
+    "roi_concordant_signs": 7
+  },
+  "excluded_from_primary": true
+}

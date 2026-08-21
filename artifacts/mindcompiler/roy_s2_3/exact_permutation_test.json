@@ -1,0 +1,8 @@
+{
+  "rho_observed": 0.6785714285714287,
+  "n_permutations": 5040,
+  "n_null_ge_observed": 276,
+  "p_exact_one_sided": 0.05476190476190476,
+  "alternative": "positive",
+  "alpha": 0.05
+}

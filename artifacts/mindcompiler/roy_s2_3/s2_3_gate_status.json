@@ -1,0 +1,28 @@
+{
+  "gate": "S2.3",
+  "status": "S2_3_PROSPECTIVE_CROSS_PARTICIPANT_PASS",
+  "H_A_mechanism_status": "H_A_CROSS_PARTICIPANT_PARTIAL",
+  "primary_rho": 0.6785714285714287,
+  "p_exact_one_sided": 0.05476190476190476,
+  "criteria": {
+    "criterion_A": true,
+    "criterion_B": true,
+    "criterion_C": false,
+    "criterion_D": true
+  },
+  "n_criteria_passed": 3,
+  "concordant_participant_count": 6,
+  "secondary": {
+    "leave_one_participant_n_positive": 7,
+    "mean_agg_rho": 0.39285714285714296,
+    "vision_rho": 0.7857142857142859
+  },
+  "note": "Gate executed successfully; hypothesis status separate. Bounded to the NSD-Imagery sample; no causal/Roy claim.",
+  "next_action": {
+    "path": "item 36 (H-A partial)",
+    "next": "S2.4H -- PARTICIPANT HETEROGENEITY AUDIT (prespecified secondary summaries only)",
+    "rationale": "3/4 criteria pass; only Criterion C fails and only marginally (rho=0.6786 positive, exact one-sided p=0.0548 > 0.05). NOT rescued. Freeze the ambiguity; audit whether reliability explains only part of beta-version sensitivity and whether participant heterogeneity (subj07 is the sole discordant, S_perf=-0.033) is substantial.",
+    "not_done_here": "No heterogeneity audit or optimization run in S2.3."
+  },
+  "honesty_note": "Gate EXECUTED cleanly (PASS); hypothesis is PARTIAL. A near-miss on the frozen p<=0.05 bar is reported as PARTIAL, not upgraded. Vision-reliability secondary rho (0.786) exceeds imagery, but the mechanism label is NOT changed (per frozen contract)."
+}

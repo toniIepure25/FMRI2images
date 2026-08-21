@@ -1,0 +1,738 @@
+{
+  "subj01": {
+    "tsv_visA": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj01_visA.tsv",
+      "bytes": 6573,
+      "computed_sha256": "dbcbb906fff0933469667ad2b0cffa2abecd4fdd0be0e5587e7fa5f981e89677",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_visB": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj01_visB.tsv",
+      "bytes": 6542,
+      "computed_sha256": "2a20117fd849d453201d81a3b5829708f5e0b323ecd86770d4f62e89a654a9ee",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_imgA_2": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj01_imgA_2.tsv",
+      "bytes": 6788,
+      "computed_sha256": "219025c67d44ca741b1223e87582e549f30203cd93b6ff6103f427b074b8e5d9",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_imgB_2": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj01_imgB_2.tsv",
+      "bytes": 6775,
+      "computed_sha256": "f90c53cc3b8b690df2848eabe87e82258b696fa3f2c8ea6a8f6b98e9bce87408",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "prf": {
+      "key": "nsddata/ppdata/subj01/func1pt8mm/roi/prf-visualrois.nii.gz",
+      "bytes": 65583,
+      "computed_sha256": "ebc6af4b7aafff04a15ab1555d5f5fccbdbc3f80ffefee12443f9be568a45a1d",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "streams": {
+      "key": "nsddata/ppdata/subj01/func1pt8mm/roi/streams.nii.gz",
+      "bytes": 68115,
+      "computed_sha256": "9a9f6ad1c4af8e412ad137a1e09c5db3305677d5180c8c59df9857047323b9aa",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "valid": {
+      "key": "nsddata/ppdata/subj01/func1pt8mm/valid_nsdimagery.nii.gz",
+      "bytes": 2418,
+      "computed_sha256": "c6c21af1194344c036fd0f362b6148df03bc8fa97793d9d7ea13e879bbf5fdd4",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "ncsnr": {
+      "key": "nsddata_betas/ppdata/subj01/func1pt8mm/betas_fithrf/ncsnr.nii.gz",
+      "bytes": 1142862,
+      "computed_sha256": "39217f54a32fcc324b3718301b53affa52e39764339734f991468fe3d988cda9",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "B0": {
+      "key": "nsddata_betas/ppdata/subj01/func1pt8mm/nsdimagerybetas_fithrf/betas_nsdimagery.hdf5",
+      "bytes": 1052494008,
+      "computed_sha256": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": true,
+      "h5py_open_ok": true
+    },
+    "B1": {
+      "key": "nsddata_betas/ppdata/subj01/func1pt8mm/nsdimagerybetas_fithrf_GLMdenoise_RR/betas_nsdimagery.hdf5",
+      "bytes": 1052494008,
+      "computed_sha256": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": true,
+      "h5py_open_ok": true
+    }
+  },
+  "subj02": {
+    "tsv_visA": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj02_visA.tsv",
+      "bytes": 6414,
+      "computed_sha256": "383fdddb27de3cc91e7ebca561cfa41aad12c2567aeae6bcba4ef2fb9cabd5c6",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_visB": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj02_visB.tsv",
+      "bytes": 6327,
+      "computed_sha256": "0a2c92cf2e124fb0f40a32aa0272f49a48c62ca1abc0817c24e0b7b0e4eb3d95",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_imgA_2": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj02_imgA_2.tsv",
+      "bytes": 6693,
+      "computed_sha256": "e83fe058c09621fe8c9c217f06400b0e7af9012a47ae55ca28392a94cb2b6e22",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_imgB_2": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj02_imgB_2.tsv",
+      "bytes": 6728,
+      "computed_sha256": "885c721bedd34cc82024e9c413230ef1e70ef73b94cdd771a26c9ebe5087a147",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "prf": {
+      "key": "nsddata/ppdata/subj02/func1pt8mm/roi/prf-visualrois.nii.gz",
+      "bytes": 64801,
+      "computed_sha256": "1a1a14fd77d834f0aa1b8106c7bb7737a7c7026a444a2098ad96c0508d6c8d95",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "streams": {
+      "key": "nsddata/ppdata/subj02/func1pt8mm/roi/streams.nii.gz",
+      "bytes": 66775,
+      "computed_sha256": "e1e6009812b61b7ed39ba11d214fe4d20d0b85deb18701770477cbec2d50ecea",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "valid": {
+      "key": "nsddata/ppdata/subj02/func1pt8mm/valid_nsdimagery.nii.gz",
+      "bytes": 3313,
+      "computed_sha256": "cb935c427043fc3feac64236eb21bb4f2270fc57729c00ab1e63da8043a51d7b",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "ncsnr": {
+      "key": "nsddata_betas/ppdata/subj02/func1pt8mm/betas_fithrf/ncsnr.nii.gz",
+      "bytes": 1066447,
+      "computed_sha256": "af520545230547f3d13b91cb4f5657586b7964d5c4fb01adc5019927b3751a86",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "B0": {
+      "key": "nsddata_betas/ppdata/subj02/func1pt8mm/nsdimagerybetas_fithrf/betas_nsdimagery.hdf5",
+      "bytes": 1099059960,
+      "computed_sha256": "ac4e5c7ba014466073fe0e5fd46d44f1e3430e0fa5ea8925bc4d729fc6093a90",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": true,
+      "h5py_open_ok": true
+    },
+    "B1": {
+      "key": "nsddata_betas/ppdata/subj02/func1pt8mm/nsdimagerybetas_fithrf_GLMdenoise_RR/betas_nsdimagery.hdf5",
+      "bytes": 1099059960,
+      "computed_sha256": "c3f6c0a99e6f357548254d214032f5d58eb5d39f404ba9370dde9fa9ade1fe3c",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": true,
+      "h5py_open_ok": true
+    }
+  },
+  "subj03": {
+    "tsv_visA": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj03_visA.tsv",
+      "bytes": 6656,
+      "computed_sha256": "4ce7b94893e014047814cff7e3002b3f75a007968a8b24ebe1ac8374ab7af53d",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_visB": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj03_visB.tsv",
+      "bytes": 6528,
+      "computed_sha256": "9b3be8855e0e98bb1759014a6a50093b3346b70fa568e0ea78a4d6a237ff833b",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_imgA_2": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj03_imgA_2.tsv",
+      "bytes": 6802,
+      "computed_sha256": "fa35b484cef8ff1523b1eba751f411f0a9419358e6414d48bd0296ea4dfa488f",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_imgB_2": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj03_imgB_2.tsv",
+      "bytes": 6783,
+      "computed_sha256": "b3975cc4249ccf6d3115cfa0cfb8c1b5dc548b9022e798df77bd716b4c5aa723",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "prf": {
+      "key": "nsddata/ppdata/subj03/func1pt8mm/roi/prf-visualrois.nii.gz",
+      "bytes": 66150,
+      "computed_sha256": "7ec1626b72dcf434bfac247b0203bdb03d3fe73dff89d475f2a05392c45ad8bc",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "streams": {
+      "key": "nsddata/ppdata/subj03/func1pt8mm/roi/streams.nii.gz",
+      "bytes": 68622,
+      "computed_sha256": "f0983e8d8b5cfcb36a99ad4605cbc1d52216faf1eefe9a6016a423f6c973d540",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "valid": {
+      "key": "nsddata/ppdata/subj03/func1pt8mm/valid_nsdimagery.nii.gz",
+      "bytes": 3147,
+      "computed_sha256": "e947d9bb383645fcabc940f10d6399fe02dc63156aa5d8fe48d11e1a32269917",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "ncsnr": {
+      "key": "nsddata_betas/ppdata/subj03/func1pt8mm/betas_fithrf/ncsnr.nii.gz",
+      "bytes": 944217,
+      "computed_sha256": "8106e16de5edd94ef93872e3ebc6159026a56f7ce10057b3bc6a1c5027a52141",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "B0": {
+      "key": "nsddata_betas/ppdata/subj03/func1pt8mm/nsdimagerybetas_fithrf/betas_nsdimagery.hdf5",
+      "bytes": 1059806824,
+      "computed_sha256": "83f00922d35fd77137600f66a75d3ea930db414030a8bbb098611b5bee880320",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": true,
+      "h5py_open_ok": true
+    },
+    "B1": {
+      "key": "nsddata_betas/ppdata/subj03/func1pt8mm/nsdimagerybetas_fithrf_GLMdenoise_RR/betas_nsdimagery.hdf5",
+      "bytes": 1059806824,
+      "computed_sha256": "3578833b774967fe0ed8d8b3b4b39c1ca9dfe472002f1ac14195370d4778862b",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": true,
+      "h5py_open_ok": true
+    }
+  },
+  "subj04": {
+    "tsv_visA": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj04_visA.tsv",
+      "bytes": 6682,
+      "computed_sha256": "e19cb79271ad0f994da37edb3cec3e7ef8c80c7ba4353ed1801e9b60b4d9c619",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_visB": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj04_visB.tsv",
+      "bytes": 6572,
+      "computed_sha256": "ec085f3a8c0a7323dff458c2bb1bee5ddaa373a061ae2a574ff076b5732de926",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_imgA_2": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj04_imgA_2.tsv",
+      "bytes": 6819,
+      "computed_sha256": "0d571679a2742a4ee9fea9aeb3533011cd31f5f83bd5086eced48370315091cb",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_imgB_2": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj04_imgB_2.tsv",
+      "bytes": 6820,
+      "computed_sha256": "a9aca898cbcd1204e75e9b766c26e98eb635ad82f575bd05ca71b57c8f2b29d0",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "prf": {
+      "key": "nsddata/ppdata/subj04/func1pt8mm/roi/prf-visualrois.nii.gz",
+      "bytes": 61200,
+      "computed_sha256": "f14be25b721cf2ba2adbe2d97a9d536433510c5ecf2c5c3e72216790825c33ee",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "streams": {
+      "key": "nsddata/ppdata/subj04/func1pt8mm/roi/streams.nii.gz",
+      "bytes": 63267,
+      "computed_sha256": "554c9a76fe412e76068badd0b4632be78e793df6cdb124f46f29a8824f556990",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "valid": {
+      "key": "nsddata/ppdata/subj04/func1pt8mm/valid_nsdimagery.nii.gz",
+      "bytes": 1821,
+      "computed_sha256": "89584eba786eac588f0291472978c9db9971dcc231d5d62dbb4fa1cad8a1dbb2",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "ncsnr": {
+      "key": "nsddata_betas/ppdata/subj04/func1pt8mm/betas_fithrf/ncsnr.nii.gz",
+      "bytes": 965473,
+      "computed_sha256": "7566b0d45e6587b7ce3c1eb743f25eaaf3442428bca4550693a2d38727f8760a",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "B0": {
+      "key": "nsddata_betas/ppdata/subj04/func1pt8mm/nsdimagerybetas_fithrf/betas_nsdimagery.hdf5",
+      "bytes": 1013369144,
+      "computed_sha256": "fee591957aee73c3f200f837bb3840b4f526a88f6bd8e9d3ceccbbb8b21a9a8d",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": true,
+      "h5py_open_ok": true
+    },
+    "B1": {
+      "key": "nsddata_betas/ppdata/subj04/func1pt8mm/nsdimagerybetas_fithrf_GLMdenoise_RR/betas_nsdimagery.hdf5",
+      "bytes": 1013369144,
+      "computed_sha256": "68fd667b4e73b35eda8b10dbe6b51cc001f6d5dcfd7071f1820912ba4dbe00d1",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": true,
+      "h5py_open_ok": true
+    }
+  },
+  "subj05": {
+    "tsv_visA": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj05_visA.tsv",
+      "bytes": 6657,
+      "computed_sha256": "ad9e2ba94d36b12ac176c5763a71f9634db7d2e3c14b06e0724af75a52e33ac9",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_visB": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj05_visB.tsv",
+      "bytes": 6554,
+      "computed_sha256": "2ed84f541890f3c1c58d74845cc909dfbd26e587bef8118f4ec39436cfb6a623",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_imgA_2": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj05_imgA_2.tsv",
+      "bytes": 6806,
+      "computed_sha256": "306c9ec771c1637cbc7d4d66ad8a90eff84022ec4624f4ac830acea7b2364742",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_imgB_2": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj05_imgB_2.tsv",
+      "bytes": 6802,
+      "computed_sha256": "791f1da27ac74eef7dcfb9853f1ba839f0736474583d8b015179900b3b1cc867",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "prf": {
+      "key": "nsddata/ppdata/subj05/func1pt8mm/roi/prf-visualrois.nii.gz",
+      "bytes": 56595,
+      "computed_sha256": "2db32b75784b9d2708bae68566c2184496e52127d2c9c5545fbeaf3176cc3b33",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "streams": {
+      "key": "nsddata/ppdata/subj05/func1pt8mm/roi/streams.nii.gz",
+      "bytes": 58447,
+      "computed_sha256": "5953f01f05f226d8b4394005ed4a72498c0a0ad744851b45d1ae789a8917d096",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "valid": {
+      "key": "nsddata/ppdata/subj05/func1pt8mm/valid_nsdimagery.nii.gz",
+      "bytes": 1855,
+      "computed_sha256": "30528d1e0f36bdfc7a97527fe1c9427c7d9d904ba08249482138d2a39ca4399b",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "ncsnr": {
+      "key": "nsddata_betas/ppdata/subj05/func1pt8mm/betas_fithrf/ncsnr.nii.gz",
+      "bytes": 907848,
+      "computed_sha256": "c6d15bf72da9d0b86bba60c18761f450c88fb44d4a5bd438ce2376a31a59bb5f",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "B0": {
+      "key": "nsddata_betas/ppdata/subj05/func1pt8mm/nsdimagerybetas_fithrf/betas_nsdimagery.hdf5",
+      "bytes": 899741016,
+      "computed_sha256": "80c3b054376b9b44174c81187dd8e8c121fa906149a0bbe60b46fee1afa71737",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": true,
+      "h5py_open_ok": true
+    },
+    "B1": {
+      "key": "nsddata_betas/ppdata/subj05/func1pt8mm/nsdimagerybetas_fithrf_GLMdenoise_RR/betas_nsdimagery.hdf5",
+      "bytes": 899741016,
+      "computed_sha256": "25a15d8d7edce92c67fc7106cfe5766f0e884cda14ae86cc83bc9692e5eafe0b",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": true,
+      "h5py_open_ok": true
+    }
+  },
+  "subj06": {
+    "tsv_visA": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj06_visA.tsv",
+      "bytes": 6280,
+      "computed_sha256": "aeed6f0ca06a1d74d7028618af3d9ff1b562243e0dee7ea330a3121bd9f7ea4c",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_visB": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj06_visB.tsv",
+      "bytes": 6308,
+      "computed_sha256": "c48eda0e40ae0d522ee5d13f837e84f108e451dc79a09eee50021cdd278d7078",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_imgA_2": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj06_imgA_2.tsv",
+      "bytes": 6515,
+      "computed_sha256": "6d7034910f3cb19702d20151ff2a7f4ed3237593a97e93208431a57dfb23fbe0",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_imgB_2": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj06_imgB_2.tsv",
+      "bytes": 6540,
+      "computed_sha256": "0466f588582b6c058f0d3869a8e8f901bcdb9e7fa177d22dfd59250a044b945b",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "prf": {
+      "key": "nsddata/ppdata/subj06/func1pt8mm/roi/prf-visualrois.nii.gz",
+      "bytes": 72123,
+      "computed_sha256": "43f74675b7db936dcefdd6dda5a0a5b1863313cb91c80f75ab70146293c3f38f",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "streams": {
+      "key": "nsddata/ppdata/subj06/func1pt8mm/roi/streams.nii.gz",
+      "bytes": 73514,
+      "computed_sha256": "b26e0151a61694087db25d1101eb3e364e7dc4b98fe56d042f82356165f4186d",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "valid": {
+      "key": "nsddata/ppdata/subj06/func1pt8mm/valid_nsdimagery.nii.gz",
+      "bytes": 4614,
+      "computed_sha256": "25947f88174fd61adf504721c40350088a12c2ae0a35f97ece5858b2b8d5f434",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "ncsnr": {
+      "key": "nsddata_betas/ppdata/subj06/func1pt8mm/betas_fithrf/ncsnr.nii.gz",
+      "bytes": 1241884,
+      "computed_sha256": "9d0d09ceceda6394f9e03e46260cdfb50496cdf8fab9673daf5fdb0c63921741",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "B0": {
+      "key": "nsddata_betas/ppdata/subj06/func1pt8mm/nsdimagerybetas_fithrf/betas_nsdimagery.hdf5",
+      "bytes": 1200048784,
+      "computed_sha256": "dd6e5cb935f25055860d8a249f92f20372a4bd73cef8e1ebd0b25124b9d61386",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": true,
+      "h5py_open_ok": true
+    },
+    "B1": {
+      "key": "nsddata_betas/ppdata/subj06/func1pt8mm/nsdimagerybetas_fithrf_GLMdenoise_RR/betas_nsdimagery.hdf5",
+      "bytes": 1200048784,
+      "computed_sha256": "05a98a11e816fa0efd6d60f08762b249b19a61dab53a72c9926b917d98c4451e",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": true,
+      "h5py_open_ok": true
+    }
+  },
+  "subj07": {
+    "tsv_visA": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj07_visA.tsv",
+      "bytes": 6677,
+      "computed_sha256": "d0b55b90019e4babeb05dbdc43c733af43bf39dffe6a67d83a553e39e17f0fd4",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_visB": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj07_visB.tsv",
+      "bytes": 6562,
+      "computed_sha256": "03da2e222c4997edc06b2f48c20cd68daae694056c1d5015c89c3201aca5a81f",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_imgA_2": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj07_imgA_2.tsv",
+      "bytes": 6787,
+      "computed_sha256": "1cfe541afc546b10459ec1f501c265f7b87463ea71035119924dc9307c324726",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_imgB_2": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj07_imgB_2.tsv",
+      "bytes": 6820,
+      "computed_sha256": "5fde5ee8898fa10d170b383d4af7a3dbbdd221a44f0ec9519237e74e18e4216c",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "prf": {
+      "key": "nsddata/ppdata/subj07/func1pt8mm/roi/prf-visualrois.nii.gz",
+      "bytes": 54373,
+      "computed_sha256": "c50ec1ab28bb4be1d7bf7a2498c131cac1e5dd84e48e99b0242ec1d771d6fd80",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "streams": {
+      "key": "nsddata/ppdata/subj07/func1pt8mm/roi/streams.nii.gz",
+      "bytes": 56118,
+      "computed_sha256": "92bacce153a5651c1ba9145c037b10008807f462161cd5029755069b46c8036a",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "valid": {
+      "key": "nsddata/ppdata/subj07/func1pt8mm/valid_nsdimagery.nii.gz",
+      "bytes": 2027,
+      "computed_sha256": "8b38d3955e8e198eda05ce12a0f10be6da88dc947fba10e862771a88f74643ff",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "ncsnr": {
+      "key": "nsddata_betas/ppdata/subj07/func1pt8mm/betas_fithrf/ncsnr.nii.gz",
+      "bytes": 878273,
+      "computed_sha256": "f46b0c73c43c9081ea8e2bd05e686588f0187af6a207e39647ceac85d5b4497c",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "B0": {
+      "key": "nsddata_betas/ppdata/subj07/func1pt8mm/nsdimagerybetas_fithrf/betas_nsdimagery.hdf5",
+      "bytes": 903496120,
+      "computed_sha256": "c943bb70514861a9ae0666d26f8302d9e5bab34680337f46451853eef25b133b",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": true,
+      "h5py_open_ok": true
+    },
+    "B1": {
+      "key": "nsddata_betas/ppdata/subj07/func1pt8mm/nsdimagerybetas_fithrf_GLMdenoise_RR/betas_nsdimagery.hdf5",
+      "bytes": 903496120,
+      "computed_sha256": "2c9d18a79f7556139f9291e17d8609c4aa0a31c971981ea4e34ac4a8f331ec71",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": true,
+      "h5py_open_ok": true
+    }
+  },
+  "subj08": {
+    "tsv_visA": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj08_visA.tsv",
+      "bytes": 6668,
+      "computed_sha256": "87e406093329df02cf1eacf6c8ae56586410af0e876fb0d17e3356237367600a",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_visB": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj08_visB.tsv",
+      "bytes": 6584,
+      "computed_sha256": "66328558c8eeeefbcca746b4f1e4bc8d52814f33b1a394cde1ad11ede4d9b442",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_imgA_2": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj08_imgA_2.tsv",
+      "bytes": 6817,
+      "computed_sha256": "e7c68b8fd80b989d4f37b58b06c26fe488a34f8bc74b9896f650b3e6c0bc1bf2",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "tsv_imgB_2": {
+      "key": "nsddata/bdata/nsdimagery/nsdimagery_subj08_imgB_2.tsv",
+      "bytes": 6803,
+      "computed_sha256": "3631c257360e8697633968bdffff825874c782ee4651e036acf450f85525f07f",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "prf": {
+      "key": "nsddata/ppdata/subj08/func1pt8mm/roi/prf-visualrois.nii.gz",
+      "bytes": 62316,
+      "computed_sha256": "d8a66bf1ee1f5a93180baab8d40b25bcc6e4becbeabd535fae1dda4d86c8b2ae",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "streams": {
+      "key": "nsddata/ppdata/subj08/func1pt8mm/roi/streams.nii.gz",
+      "bytes": 64384,
+      "computed_sha256": "725f489f9f817fc3867785bc21c00afe9f87ab9bd58607881c3e244c440fbe69",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "valid": {
+      "key": "nsddata/ppdata/subj08/func1pt8mm/valid_nsdimagery.nii.gz",
+      "bytes": 2685,
+      "computed_sha256": "bdfe137a22b689dc2f308809217856ab85be1627219475d93ac6fedd77230cfc",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "ncsnr": {
+      "key": "nsddata_betas/ppdata/subj08/func1pt8mm/betas_fithrf/ncsnr.nii.gz",
+      "bytes": 785172,
+      "computed_sha256": "a58f5dd2fe22769723ab8dcc109e9d2131235efc147c289b88551902d427f60d",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": null,
+      "h5py_open_ok": null
+    },
+    "B0": {
+      "key": "nsddata_betas/ppdata/subj08/func1pt8mm/nsdimagerybetas_fithrf/betas_nsdimagery.hdf5",
+      "bytes": 967485424,
+      "computed_sha256": "c772c12f8d3f2d810cd7ae0c1bf050da00c353222e4624a91246ac8f43fabf0d",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": true,
+      "h5py_open_ok": true
+    },
+    "B1": {
+      "key": "nsddata_betas/ppdata/subj08/func1pt8mm/nsdimagerybetas_fithrf_GLMdenoise_RR/betas_nsdimagery.hdf5",
+      "bytes": 967485424,
+      "computed_sha256": "afed77f675b133c5c50dde1a8487b150861eac56699ef08ae077f214bc5291ee",
+      "sha_kind": "LOCALLY_COMPUTED_CONTENT_SHA256",
+      "status": "verified",
+      "hdf5_signature_ok": true,
+      "h5py_open_ok": true
+    }
+  }
+}

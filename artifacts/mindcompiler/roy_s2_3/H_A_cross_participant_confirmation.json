@@ -1,0 +1,49 @@
+{
+  "analysis_class": "PROSPECTIVE_CROSS_PARTICIPANT_CONFIRMATION",
+  "primary_participants": [
+    "subj02",
+    "subj03",
+    "subj04",
+    "subj05",
+    "subj06",
+    "subj07",
+    "subj08"
+  ],
+  "S_rel": {
+    "subj02": 0.10000660407275155,
+    "subj03": 0.1021414009195117,
+    "subj04": 0.12463381982979627,
+    "subj05": 0.08358948792946255,
+    "subj06": 0.11375015211481132,
+    "subj07": 0.06436718612470335,
+    "subj08": 0.0598374028133895
+  },
+  "S_perf": {
+    "subj02": 0.1428778349394249,
+    "subj03": 0.1977312130681257,
+    "subj04": 0.15106613063389102,
+    "subj05": 0.14646115662817175,
+    "subj06": 0.17323458444053152,
+    "subj07": -0.033021347660629904,
+    "subj08": 0.14430087222863283
+  },
+  "criterion_A": true,
+  "criterion_B": true,
+  "criterion_C": false,
+  "criterion_D": true,
+  "n_criteria_passed": 3,
+  "n_evaluable_participants": 7,
+  "concordant_participant_count": 6,
+  "median_S_rel": 0.10000660407275155,
+  "median_S_perf": 0.14646115662817175,
+  "permutation": {
+    "rho_observed": 0.6785714285714287,
+    "n_permutations": 5040,
+    "n_null_ge_observed": 276,
+    "p_exact_one_sided": 0.05476190476190476,
+    "alternative": "positive",
+    "alpha": 0.05
+  },
+  "primary_status": "H_A_CROSS_PARTICIPANT_PARTIAL",
+  "note": "Seven independent participants; participant-level inference permitted but bounded to the NSD-Imagery sample."
+}

@@ -1,0 +1,802 @@
+{
+  "subj01": {
+    "V1": {
+      "B0": {
+        "selected_voxels": 27,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "a1bc56fe7c55"
+      },
+      "B1": {
+        "selected_voxels": 27,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "a1bc56fe7c55"
+      }
+    },
+    "V2": {
+      "B0": {
+        "selected_voxels": 29,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "f18288ba2c73"
+      },
+      "B1": {
+        "selected_voxels": 29,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "f18288ba2c73"
+      }
+    },
+    "V3": {
+      "B0": {
+        "selected_voxels": 24,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "5fd2b36ac1a5"
+      },
+      "B1": {
+        "selected_voxels": 24,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "5fd2b36ac1a5"
+      }
+    },
+    "hV4": {
+      "B0": {
+        "selected_voxels": 14,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "788ad156aa0e"
+      },
+      "B1": {
+        "selected_voxels": 14,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "788ad156aa0e"
+      }
+    },
+    "ventral": {
+      "B0": {
+        "selected_voxels": 153,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "3d54a7fc3cb6"
+      },
+      "B1": {
+        "selected_voxels": 153,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "3d54a7fc3cb6"
+      }
+    },
+    "lateral": {
+      "B0": {
+        "selected_voxels": 156,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "cd85569a5f2b"
+      },
+      "B1": {
+        "selected_voxels": 156,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "cd85569a5f2b"
+      }
+    },
+    "parietal": {
+      "B0": {
+        "selected_voxels": 71,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "e8109c3e941c"
+      },
+      "B1": {
+        "selected_voxels": 71,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "e8109c3e941c"
+      }
+    }
+  },
+  "subj02": {
+    "V1": {
+      "B0": {
+        "selected_voxels": 23,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "53c23b2370aa"
+      },
+      "B1": {
+        "selected_voxels": 23,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "53c23b2370aa"
+      }
+    },
+    "V2": {
+      "B0": {
+        "selected_voxels": 22,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "4a4f6b77eb80"
+      },
+      "B1": {
+        "selected_voxels": 22,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "4a4f6b77eb80"
+      }
+    },
+    "V3": {
+      "B0": {
+        "selected_voxels": 22,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "cc0f5c073407"
+      },
+      "B1": {
+        "selected_voxels": 22,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "cc0f5c073407"
+      }
+    },
+    "hV4": {
+      "B0": {
+        "selected_voxels": 10,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "575dac0a44bb"
+      },
+      "B1": {
+        "selected_voxels": 10,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "575dac0a44bb"
+      }
+    },
+    "ventral": {
+      "B0": {
+        "selected_voxels": 164,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "f8e7156a2be5"
+      },
+      "B1": {
+        "selected_voxels": 164,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "f8e7156a2be5"
+      }
+    },
+    "lateral": {
+      "B0": {
+        "selected_voxels": 136,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "23b90aca64c8"
+      },
+      "B1": {
+        "selected_voxels": 136,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "23b90aca64c8"
+      }
+    },
+    "parietal": {
+      "B0": {
+        "selected_voxels": 68,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "f82b8fbbd621"
+      },
+      "B1": {
+        "selected_voxels": 68,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "f82b8fbbd621"
+      }
+    }
+  },
+  "subj03": {
+    "V1": {
+      "B0": {
+        "selected_voxels": 26,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "a439140c2172"
+      },
+      "B1": {
+        "selected_voxels": 26,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "a439140c2172"
+      }
+    },
+    "V2": {
+      "B0": {
+        "selected_voxels": 23,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "a184a44fa678"
+      },
+      "B1": {
+        "selected_voxels": 23,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "a184a44fa678"
+      }
+    },
+    "V3": {
+      "B0": {
+        "selected_voxels": 19,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "53e144442a35"
+      },
+      "B1": {
+        "selected_voxels": 19,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "53e144442a35"
+      }
+    },
+    "hV4": {
+      "B0": {
+        "selected_voxels": 9,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "8bfcf26b952b"
+      },
+      "B1": {
+        "selected_voxels": 9,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "8bfcf26b952b"
+      }
+    },
+    "ventral": {
+      "B0": {
+        "selected_voxels": 164,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "7ae15e423515"
+      },
+      "B1": {
+        "selected_voxels": 164,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "7ae15e423515"
+      }
+    },
+    "lateral": {
+      "B0": {
+        "selected_voxels": 172,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "40c1f65a91b3"
+      },
+      "B1": {
+        "selected_voxels": 172,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "40c1f65a91b3"
+      }
+    },
+    "parietal": {
+      "B0": {
+        "selected_voxels": 78,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "7a2f51bd966a"
+      },
+      "B1": {
+        "selected_voxels": 78,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "7a2f51bd966a"
+      }
+    }
+  },
+  "subj04": {
+    "V1": {
+      "B0": {
+        "selected_voxels": 18,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "5de8252b97a6"
+      },
+      "B1": {
+        "selected_voxels": 18,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "5de8252b97a6"
+      }
+    },
+    "V2": {
+      "B0": {
+        "selected_voxels": 18,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "3bf54f3d47c8"
+      },
+      "B1": {
+        "selected_voxels": 18,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "3bf54f3d47c8"
+      }
+    },
+    "V3": {
+      "B0": {
+        "selected_voxels": 17,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "e864d7c0a379"
+      },
+      "B1": {
+        "selected_voxels": 17,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "e864d7c0a379"
+      }
+    },
+    "hV4": {
+      "B0": {
+        "selected_voxels": 10,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "cf673e8d6140"
+      },
+      "B1": {
+        "selected_voxels": 10,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "cf673e8d6140"
+      }
+    },
+    "ventral": {
+      "B0": {
+        "selected_voxels": 153,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "b831cfe6c875"
+      },
+      "B1": {
+        "selected_voxels": 153,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "b831cfe6c875"
+      }
+    },
+    "lateral": {
+      "B0": {
+        "selected_voxels": 143,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "528c1da26c33"
+      },
+      "B1": {
+        "selected_voxels": 143,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "528c1da26c33"
+      }
+    },
+    "parietal": {
+      "B0": {
+        "selected_voxels": 67,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "a6cc7d69aaab"
+      },
+      "B1": {
+        "selected_voxels": 67,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "a6cc7d69aaab"
+      }
+    }
+  },
+  "subj05": {
+    "V1": {
+      "B0": {
+        "selected_voxels": 23,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "5b1f968d0c8d"
+      },
+      "B1": {
+        "selected_voxels": 23,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "5b1f968d0c8d"
+      }
+    },
+    "V2": {
+      "B0": {
+        "selected_voxels": 22,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "ec96b007aaec"
+      },
+      "B1": {
+        "selected_voxels": 22,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "ec96b007aaec"
+      }
+    },
+    "V3": {
+      "B0": {
+        "selected_voxels": 19,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "8bfbf17fc379"
+      },
+      "B1": {
+        "selected_voxels": 19,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "8bfbf17fc379"
+      }
+    },
+    "hV4": {
+      "B0": {
+        "selected_voxels": 11,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "c8c30896632c"
+      },
+      "B1": {
+        "selected_voxels": 11,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "c8c30896632c"
+      }
+    },
+    "ventral": {
+      "B0": {
+        "selected_voxels": 133,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "1cd311de469f"
+      },
+      "B1": {
+        "selected_voxels": 133,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "1cd311de469f"
+      }
+    },
+    "lateral": {
+      "B0": {
+        "selected_voxels": 141,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "8d0d9b353e84"
+      },
+      "B1": {
+        "selected_voxels": 141,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "8d0d9b353e84"
+      }
+    },
+    "parietal": {
+      "B0": {
+        "selected_voxels": 57,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "e4929ec8dd46"
+      },
+      "B1": {
+        "selected_voxels": 57,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "e4929ec8dd46"
+      }
+    }
+  },
+  "subj06": {
+    "V1": {
+      "B0": {
+        "selected_voxels": 23,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "0e33116af4d4"
+      },
+      "B1": {
+        "selected_voxels": 23,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "0e33116af4d4"
+      }
+    },
+    "V2": {
+      "B0": {
+        "selected_voxels": 24,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "e66a09e9e7e9"
+      },
+      "B1": {
+        "selected_voxels": 24,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "e66a09e9e7e9"
+      }
+    },
+    "V3": {
+      "B0": {
+        "selected_voxels": 24,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "9eccb4ed5b47"
+      },
+      "B1": {
+        "selected_voxels": 24,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "9eccb4ed5b47"
+      }
+    },
+    "hV4": {
+      "B0": {
+        "selected_voxels": 10,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "bc95f6996b29"
+      },
+      "B1": {
+        "selected_voxels": 10,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "bc95f6996b29"
+      }
+    },
+    "ventral": {
+      "B0": {
+        "selected_voxels": 194,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "4008a9821c6a"
+      },
+      "B1": {
+        "selected_voxels": 194,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "4008a9821c6a"
+      }
+    },
+    "lateral": {
+      "B0": {
+        "selected_voxels": 181,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "6b6563cf9556"
+      },
+      "B1": {
+        "selected_voxels": 181,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "6b6563cf9556"
+      }
+    },
+    "parietal": {
+      "B0": {
+        "selected_voxels": 68,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "3aaf74f8af81"
+      },
+      "B1": {
+        "selected_voxels": 68,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "3aaf74f8af81"
+      }
+    }
+  },
+  "subj07": {
+    "V1": {
+      "B0": {
+        "selected_voxels": 23,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "0cae7dc1482b"
+      },
+      "B1": {
+        "selected_voxels": 23,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "0cae7dc1482b"
+      }
+    },
+    "V2": {
+      "B0": {
+        "selected_voxels": 20,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "e98477ef4ce8"
+      },
+      "B1": {
+        "selected_voxels": 20,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "e98477ef4ce8"
+      }
+    },
+    "V3": {
+      "B0": {
+        "selected_voxels": 15,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "97fd5006e8ad"
+      },
+      "B1": {
+        "selected_voxels": 15,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "97fd5006e8ad"
+      }
+    },
+    "hV4": {
+      "B0": {
+        "selected_voxels": 8,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "3c03757df04e"
+      },
+      "B1": {
+        "selected_voxels": 8,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "3c03757df04e"
+      }
+    },
+    "ventral": {
+      "B0": {
+        "selected_voxels": 131,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "e3627edc4558"
+      },
+      "B1": {
+        "selected_voxels": 131,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "e3627edc4558"
+      }
+    },
+    "lateral": {
+      "B0": {
+        "selected_voxels": 123,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "8b40fe733797"
+      },
+      "B1": {
+        "selected_voxels": 123,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "8b40fe733797"
+      }
+    },
+    "parietal": {
+      "B0": {
+        "selected_voxels": 50,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "39f02e6d3639"
+      },
+      "B1": {
+        "selected_voxels": 50,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "39f02e6d3639"
+      }
+    }
+  },
+  "subj08": {
+    "V1": {
+      "B0": {
+        "selected_voxels": 22,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "3854432c4ae8"
+      },
+      "B1": {
+        "selected_voxels": 22,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "3854432c4ae8"
+      }
+    },
+    "V2": {
+      "B0": {
+        "selected_voxels": 21,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "b5e62f87f373"
+      },
+      "B1": {
+        "selected_voxels": 21,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "b5e62f87f373"
+      }
+    },
+    "V3": {
+      "B0": {
+        "selected_voxels": 18,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "5c4e0e8e7f91"
+      },
+      "B1": {
+        "selected_voxels": 18,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "5c4e0e8e7f91"
+      }
+    },
+    "hV4": {
+      "B0": {
+        "selected_voxels": 10,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "6814a93c4e24"
+      },
+      "B1": {
+        "selected_voxels": 10,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "6814a93c4e24"
+      }
+    },
+    "ventral": {
+      "B0": {
+        "selected_voxels": 167,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "2469bc09df14"
+      },
+      "B1": {
+        "selected_voxels": 167,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "2469bc09df14"
+      }
+    },
+    "lateral": {
+      "B0": {
+        "selected_voxels": 174,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "c0508c95897d"
+      },
+      "B1": {
+        "selected_voxels": 174,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "c0508c95897d"
+      }
+    },
+    "parietal": {
+      "B0": {
+        "selected_voxels": 68,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "060319e6392b"
+      },
+      "B1": {
+        "selected_voxels": 68,
+        "finite_fraction": 1.0,
+        "constant_voxels": 0,
+        "voxel_hash": "060319e6392b"
+      }
+    }
+  }
+}

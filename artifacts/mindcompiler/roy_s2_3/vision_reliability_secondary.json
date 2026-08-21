@@ -1,0 +1,14 @@
+{
+  "S_rel_vis": {
+    "subj01": 0.10832872648788475,
+    "subj02": -0.0064969993504095935,
+    "subj03": 0.13496213081678088,
+    "subj04": 0.13090067786418197,
+    "subj05": 0.07269165932805097,
+    "subj06": 0.12090661741430744,
+    "subj07": 0.0270675992158734,
+    "subj08": 0.12278322489527493
+  },
+  "rho_vis_reliability_vs_S_perf": 0.7857142857142859,
+  "note": "Secondary control; primary mechanism remains imagery reliability."
+}

@@ -1,0 +1,14 @@
+{
+  "rhos": {
+    "subj01": 0.7500000000000002,
+    "subj02": -0.4642857142857144,
+    "subj03": 0.5,
+    "subj04": -0.07142857142857144,
+    "subj05": -0.21428571428571433,
+    "subj06": 0.7500000000000002,
+    "subj07": 0.7500000000000002,
+    "subj08": 0.21428571428571433
+  },
+  "n_positive": 4,
+  "note": "Secondary: reproduces the subj01 spatial-profile test within each participant."
+}

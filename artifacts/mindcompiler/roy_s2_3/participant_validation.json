@@ -1,0 +1,58 @@
+{
+  "subj01": {
+    "rows": 192,
+    "vision": 96,
+    "imagery": 96,
+    "identities": 12,
+    "valid": true
+  },
+  "subj02": {
+    "rows": 192,
+    "vision": 96,
+    "imagery": 96,
+    "identities": 12,
+    "valid": true
+  },
+  "subj03": {
+    "rows": 192,
+    "vision": 96,
+    "imagery": 96,
+    "identities": 12,
+    "valid": true
+  },
+  "subj04": {
+    "rows": 192,
+    "vision": 96,
+    "imagery": 96,
+    "identities": 12,
+    "valid": true
+  },
+  "subj05": {
+    "rows": 192,
+    "vision": 96,
+    "imagery": 96,
+    "identities": 12,
+    "valid": true
+  },
+  "subj06": {
+    "rows": 192,
+    "vision": 96,
+    "imagery": 96,
+    "identities": 12,
+    "valid": true
+  },
+  "subj07": {
+    "rows": 192,
+    "vision": 96,
+    "imagery": 96,
+    "identities": 12,
+    "valid": true
+  },
+  "subj08": {
+    "rows": 192,
+    "vision": 96,
+    "imagery": 96,
+    "identities": 12,
+    "valid": true
+  }
+}

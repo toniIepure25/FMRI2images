@@ -1,0 +1,21 @@
+{
+  "beta_sensitivity_D1.json": "d091652a00d1368f205a14f475351a547d75682a84b6c3a01a3b50a70db3580d",
+  "D1_leakage_certification.csv": "b7598bbb58a80e0786b853bf4d2a11f06c366c6f9cc76ddb38e91852bdc7811b",
+  "D1_vs_RAW_by_participant_roi.csv": "98603942c34c7b60c59fc80b3a9b3bb9f9ca8350ce59f7cf72ac3853a93e0450",
+  "D1_vs_RAW_summary.json": "eafe2ae79ba5dc4328ba8035859f3ac877c00e4967754fd50f1f13ebe08c5d0f",
+  "execution_provenance.json": "bd1a9de60af731951ac8b9cdb0c0a565734983d5c306745ffd92462895289d32",
+  "full_cohort_characterization.json": "dc1530e8988d55c8b03666d3d63a42e8b91c1b585c9982cda2c86d437977f575",
+  "input_integrity_report.json": "ec7ef5411a80405a92a2aea56345427e37a61b25cdc759ca8b7067a0bcc5c1e5",
+  "paper_comparability_inventory.json": "87b25d4ee4172bea9f22a83aea785c715d27bf1d2551f95d33602dea084443fc",
+  "participant_D1_summary.csv": "dc7df694002c1ff054035c51bd72a9439a0d7605aade3394f98ff864dc20637d",
+  "participant_ROI_D1_table.csv": "c1f50667c4b587f29f685bd3742e5f2c30923e21281f4b3960f82142472b0ec4",
+  "participant_roi_value_qc.json": "7079fdf359e3937038c6951abef9e6516d5c44f8712606ea02145c638544a63c",
+  "reliability_context.json": "d9d7eada4f6676f4c876a41c61f1557361c51373d6f005bf8c9b1bf0fdecf36e",
+  "ROI_D1_summary.csv": "1d159932df48312d366f994f5e4b41b647f4f16079ccc93f604cb6597e31991d",
+  "s2_4r_frozen_config.json": "d39bf46f47aef78d50ab7ed4657137dc6d4b22825021bebd761d06d85eef6c07",
+  "s2_4r_gate_status.json": "e7fd3868d7306d0a72ac48b18e729f3ca860e619a9232610448c438141eb6db3",
+  "subj07_D1_context.json": "a27d12fbf80bfe42a48bd5e2658ff0b5a21a1f801452928c2eddea60ac4d4b00",
+  "test_report.json": "adb6b5e6a67ff7bccde0333e8654dde7fcc472a6d8d9dfed04414ea95a6dee8e",
+  "vis2img_D1_fold_results.csv": "014c6cd7e4615648e77b759048a1cf28cc3ab7ed94304ad0053076585ebd9466",
+  "vis2vis_fold_results.csv": "a13841b8306f9a9b742c9262aea2f5c10a8912bde06c4ea6633bffded98c469b"
+}

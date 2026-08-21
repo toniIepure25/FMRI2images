@@ -1,0 +1,81 @@
+{
+  "analysis_class": "FROZEN_FULL_COHORT_INDEPENDENT_METHOD_RECONSTRUCTION_CHARACTERIZATION",
+  "reference_D1": "subj01",
+  "new_D1_cohort": [
+    "subj02",
+    "subj03",
+    "subj04",
+    "subj05",
+    "subj06",
+    "subj07",
+    "subj08"
+  ],
+  "B0_D1_COHORT_CHARACTERIZATION": {
+    "participant_values": {
+      "subj02": 0.18076557216093853,
+      "subj03": 0.18995640171852293,
+      "subj04": 0.13188779563963368,
+      "subj05": 0.1042620361194667,
+      "subj06": 0.12973762283691265,
+      "subj07": -0.025878661280995707,
+      "subj08": 0.16000603762073962
+    },
+    "median": 0.13188779563963368,
+    "mean": 0.12439097211645977,
+    "mad": 0.028118241981105935,
+    "min": -0.025878661280995707,
+    "max": 0.18995640171852293,
+    "n_positive": 6,
+    "n_negative": 1
+  },
+  "B1_D1_COHORT_CHARACTERIZATION": {
+    "participant_values": {
+      "subj02": 0.014503518710073552,
+      "subj03": 0.012749171759986726,
+      "subj04": -0.005023970424677297,
+      "subj05": 0.037620003890506605,
+      "subj06": -0.003208168896648933,
+      "subj07": -0.00177041881291404,
+      "subj08": -0.03206280659975928
+    },
+    "median": -0.00177041881291404,
+    "mean": 0.0032581899466524763,
+    "mad": 0.014519590572900767,
+    "min": -0.03206280659975928,
+    "max": 0.037620003890506605,
+    "n_positive": 3,
+    "n_negative": 4
+  },
+  "beta_sensitivity_status": "D1_BETA_SENSITIVITY_PERSISTS",
+  "reliability_context_rho": -0.03571428571428572,
+  "validator": {
+    "expected_cells": 448,
+    "observed_cells": 448,
+    "duplicate_cells": 0,
+    "all_cells_present": true,
+    "leakage_clean": true,
+    "participants": [
+      "subj01",
+      "subj02",
+      "subj03",
+      "subj04",
+      "subj05",
+      "subj06",
+      "subj07",
+      "subj08"
+    ],
+    "rois": [
+      "V1",
+      "V2",
+      "V3",
+      "hV4",
+      "lateral",
+      "parietal",
+      "ventral"
+    ],
+    "betas": [
+      "B0",
+      "B1"
+    ]
+  }
+}

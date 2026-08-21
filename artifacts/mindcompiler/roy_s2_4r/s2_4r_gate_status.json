@@ -1,0 +1,46 @@
+{
+  "gate": "S2.4R",
+  "status": "S2_4R_FULL_COHORT_D1_PASS",
+  "validator": {
+    "expected_cells": 448,
+    "observed_cells": 448,
+    "duplicate_cells": 0,
+    "all_cells_present": true,
+    "leakage_clean": true,
+    "participants": [
+      "subj01",
+      "subj02",
+      "subj03",
+      "subj04",
+      "subj05",
+      "subj06",
+      "subj07",
+      "subj08"
+    ],
+    "rois": [
+      "V1",
+      "V2",
+      "V3",
+      "hV4",
+      "lateral",
+      "parietal",
+      "ventral"
+    ],
+    "betas": [
+      "B0",
+      "B1"
+    ]
+  },
+  "B0_D1_new_cohort_median": 0.13188779563963368,
+  "B0_n_positive": 6,
+  "B1_D1_new_cohort_median": -0.00177041881291404,
+  "B1_n_positive": 3,
+  "beta_sensitivity_status": "D1_BETA_SENSITIVITY_PERSISTS",
+  "reliability_context_rho": -0.03571428571428572,
+  "frozen_H_A_unchanged": "H_A_CROSS_PARTICIPANT_PARTIAL",
+  "next_action": {
+    "next": "S2.5R -- PAPER-CONCORDANCE AND INDEPENDENT-REPRODUCTION VERDICT AUDIT (freeze rubric independently first)",
+    "not_done_here": "No Roy verdict; no Track-O operator work."
+  },
+  "note": "Execution/characterization gate; NOT a Roy reproduction verdict; no beta selected."
+}

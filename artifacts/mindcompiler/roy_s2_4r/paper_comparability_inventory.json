@@ -1,0 +1,20 @@
+{
+  "DIRECTLY_COMPARABLE_PUBLIC_CLAIMS": [
+    "two-stage vis2vis->vis2img structure",
+    "reduced-rank ridge",
+    "4/2/2 split",
+    "ridge grid 1e-3..1e5",
+    "12 identities / 6+6 / 8 repeats",
+    "vision denoised before imagery",
+    "positive perception->imagery mapping in early visual ROIs (qualitative direction)"
+  ],
+  "NOT_IDENTIFIABLE_FROM_PUBLIC_METHODS": [
+    "exact beta version",
+    "exact author denoising implementation",
+    "exact centering/scaling scope",
+    "exact fold dependency graph",
+    "exact pairing/seed choices",
+    "tie-breaking"
+  ],
+  "note": "For S2.5R only; concordance rubric MUST be frozen independently before comparison."
+}

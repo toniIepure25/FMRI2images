@@ -1,0 +1,4 @@
+{
+  "note": "Reuses S2.3 participant_acquisition_registry; 16 HDF5 verified.",
+  "registry": "artifacts/mindcompiler/roy_s2_3/participant_acquisition_registry.json"
+}

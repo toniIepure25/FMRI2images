@@ -10,6 +10,32 @@ Corrected 2026-07-17.)
 
 ---
 
+## S2.3 (2026-08-21): PROSPECTIVE CROSS-PARTICIPANT CONFIRMATION -- `S2_3_PROSPECTIVE_CROSS_PARTICIPANT_PASS` / `H_A_CROSS_PARTICIPANT_PARTIAL`
+
+**Input `977b3cd` -> output `42974eb`, server-verified. PROSPECTIVE cross-participant;
+freeze committed before outcomes (`56c2093`); participant = unit of analysis.** Doc
+`44_...md`; artifacts `artifacts/mindcompiler/roy_s2_3/`. Acquisition on the pod
+(subj02-08 B0/B1 verified, 16 HDF5, LOCALLY_COMPUTED SHA; raw gitignored). Identity
+gate hardened for NFS worktree (`fe4d040`).
+
+Tested the S2.2B-frozen H-A prediction on 7 untouched participants (subj02-08),
+matched RAW endpoint, 7 ROIs each -> participant-level median losses:
+  subj02 S_rel+0.100/S_perf+0.143  subj03 +0.102/+0.198  subj04 +0.125/+0.151
+  subj05 +0.084/+0.147  subj06 +0.114/+0.173  subj07 +0.064/-0.033  subj08 +0.060/+0.144
+
+Primary Spearman rho=0.6786; EXACT 5040-permutation one-sided p=0.0548 (276/5040).
+Criteria A=T B=T C=F(p just >0.05) D=T (6/7 concordant) -> 3/4 ->
+**H_A_CROSS_PARTICIPANT_PARTIAL** (near-miss on the frozen p<=0.05 bar; NOT rescued).
+Leave-one-participant rho all 7 positive (0.60-0.71); mean-agg rho 0.393; vision
+secondary rho 0.786 (label unchanged per contract); subj07 sole discordant. 165
+tests. Bounded: directional cross-participant association present but not clearing
+the predeclared threshold; not causal/population/Roy.
+
+**Next (item 36, PARTIAL): freeze the ambiguity -> S2.4H PARTICIPANT HETEROGENEITY
+AUDIT** (prespecified secondary summaries only; no participant-level optimization).
+
+---
+
 ## S2.2B (2026-08-21): PROSPECTIVE MULTI-ROI CONFIRMATION -- `S2_2B_PROSPECTIVE_MULTI_ROI_PASS` / `H_A_SPATIAL_PROFILE_SUPPORTED`
 
 **Input `b4f472f` -> output `1b4eb08`, server-verified. PROSPECTIVE within-subject

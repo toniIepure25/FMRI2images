@@ -1,0 +1,19 @@
+{
+  "P_prediction": {
+    "class": "EXPLICIT_PUBLIC_RESULT",
+    "text": "vis2img predicts imagery activity with broad cortical distribution above a shuffle reference",
+    "confidence": "high",
+    "note": "exact null/shuffle metric + figure values not transcribed verbatim this session"
+  },
+  "D_dimensionality": {
+    "class": "EXPLICIT_PUBLIC_RESULT",
+    "quote": "in early visual areas the number of imagery subspace dimensions was on average slightly less than half the number of visual subspace dimensions",
+    "confidence": "high"
+  },
+  "G_alignment": {
+    "class": "EXPLICIT_PUBLIC_RESULT",
+    "text": "imagery subspace explains ~25-30% of visual-subspace variance in V1, ~50% in hV4, approaching ~100% in parietal",
+    "definition": "total variance in visual activity explained by the dim-dimensional imagery subspace divided by the total variance explained by the first dim dimensions of the visual subspace",
+    "confidence": "high (direction/rough values)"
+  }
+}

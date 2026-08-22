@@ -1,0 +1,15 @@
+{
+  "paper_language": "similar to beta version 2 or b2 version of NSD experiment",
+  "nsd_manual_mapping": {
+    "b1": "betas_assumehrf",
+    "b2": "betas_fithrf",
+    "b3": "betas_fithrf_GLMdenoise_RR"
+  },
+  "project_branches": {
+    "B0": "nsdimagerybetas_fithrf (= b2)",
+    "B1": "nsdimagerybetas_fithrf_GLMdenoise_RR (= b3)"
+  },
+  "conclusion": "PUBLIC_EVIDENCE_STRONGLY_IDENTIFIES_B0_AS_B2_COMPATIBLE",
+  "precise_wording": "The public method describes betas 'similar to b2' (= fithrf). B0 is the b2-compatible branch. This does NOT establish the released fithrf file is bitwise the exact file Roy used. B1 (=b3, GLMdenoise_RR) is NOT the publicly described preparation -> B1's weaker results are a beta-preparation SENSITIVITY branch, NOT a reproduction failure.",
+  "caveat": "'similar to b2' != bitwise-identical released file"
+}

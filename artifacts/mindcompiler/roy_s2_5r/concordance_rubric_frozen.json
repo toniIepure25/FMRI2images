@@ -1,0 +1,29 @@
+{
+  "gate": "S2.5R",
+  "RUBRIC_DERIVED_FROM_PUBLIC_CLAIMS_ONLY": true,
+  "chronology_honesty": "S2.4R results were committed in a prior gate (HEAD 1568ae4) and are already observed. This rubric is constructed solely from independently-retrieved public-paper METHOD claims. The material-gap outcome is driven by an explicit METHOD mismatch (vis2img random vs index-aligned pairing), independent of the observed result magnitudes; no criterion was tuned to our numbers.",
+  "verdict_statuses": [
+    "INDEPENDENT_METHOD_REPRODUCTION_SUPPORTED",
+    "INDEPENDENT_METHOD_REPRODUCTION_PARTIAL",
+    "INDEPENDENT_METHOD_REPRODUCTION_NOT_SUPPORTED",
+    "PUBLIC_METHODS_INSUFFICIENT_FOR_STRONG_VERDICT"
+  ],
+  "SUPPORTED_requires": [
+    "A: no unresolved HIGH-materiality explicit method mismatch",
+    "B: core prediction concordant (above paper null, not merely r>0)",
+    "C: core dimensionality concordant if evaluable",
+    "D: core alignment concordant if evaluable",
+    "E: no result relies solely on a beta preparation contradicted by public evidence"
+  ],
+  "PARTIAL": "substantial method components match AND >=1 central result concordant, but >=1 central method/result mismatched/unevaluated/ambiguous",
+  "NOT_SUPPORTED": "public method reconstructable AND implementation concordant AND central findings clearly fail (NOT merely because B1 -- a non-b2 branch -- is weak)",
+  "INSUFFICIENT": "strongest verdict blocked primarily by missing public method info",
+  "MATERIAL_GAP_rule": "If any HIGH-materiality explicit method mismatch means S2.4R is not yet a fair implementation of the public method, issue S2_5R_MATERIAL_METHOD_GAP_IDENTIFIED and do NOT force a reproduction status.",
+  "prediction_null_rule": "r>0 must NOT be substituted for 'above shuffled null' unless a paper-compatible null is available.",
+  "alignment_rule": "Do NOT substitute trial-correlation/Procrustes/principal-angles/centroid-corr for Roy's variance-projection alignment ratio.",
+  "terminology": {
+    "computational_reproducibility": "our analysis reruns identically (supported)",
+    "independent_method_reproduction": "the S2.5R question",
+    "exact_replication": "FORBIDDEN: ORIGINAL_CODE_REPRODUCTION_UNAVAILABLE; BITWISE_REPLICATION_UNAVAILABLE_WITHOUT_ORIGINAL_CODE_AND_SEEDS"
+  }
+}

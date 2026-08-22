@@ -1,0 +1,62 @@
+{
+  "M_beta": {
+    "class": "AMBIGUOUS_PUBLIC_METHOD",
+    "quote": "similar to beta version 2 or b2 version of NSD experiment",
+    "interpretation": "b2 = NSD betas_fithrf; 'similar to b2' is NOT a claim of the exact released file",
+    "confidence": "high (quote), moderate (exact-file identity)"
+  },
+  "M_voxel": {
+    "class": "EXPLICIT_PUBLIC_METHOD",
+    "quote": "voxels whose SNR exceeded the 98th percentile of all voxelwise SNR values in that ROI",
+    "interpretation": "Dataset-1 (NSD-Imagery) uses 98th pct of NSD-core SNR per ROI; DISTINCT from Dataset-2 80th pct",
+    "confidence": "high"
+  },
+  "M_rois": {
+    "class": "EXPLICIT_PUBLIC_METHOD",
+    "quote": "V1,V2,V3,hV4 (retinotopic); ventral,lateral,parietal (anatomical)",
+    "interpretation": "7 ROIs",
+    "confidence": "high"
+  },
+  "M_split": {
+    "class": "EXPLICIT_PUBLIC_METHOD",
+    "quote": "4-fold cross-validation; 50% train / 25% validation / 25% test",
+    "interpretation": "4 folds, 4/2/2 of 8 repeats",
+    "confidence": "high"
+  },
+  "M_ridge": {
+    "class": "EXPLICIT_PUBLIC_METHOD",
+    "quote": "logarithmically spaced range of 100 values between 10^-3 and 10^5",
+    "interpretation": "ridge grid identical",
+    "confidence": "high"
+  },
+  "M_scale": {
+    "class": "EXPLICIT_PUBLIC_METHOD",
+    "quote": "the columns of Rvis and Rim are centered and scaled so that the intercept terms can be omitted",
+    "interpretation": "centered+scaled; train-only vs whole-data scope NOT stated",
+    "confidence": "high (centered+scaled), scope AMBIGUOUS"
+  },
+  "M_vis2img_pairing": {
+    "class": "EXPLICIT_PUBLIC_METHOD",
+    "quote": "For a fixed seen/imagined stimulus, vision trial repeats were paired with randomly-selected imagery trial repeats",
+    "interpretation": "RANDOM within-identity vision<->imagery pairing",
+    "confidence": "high"
+  },
+  "M_vis2vis_pairing": {
+    "class": "EXPLICIT_PUBLIC_METHOD",
+    "quote": "shuffling was performed within each data split to prevent data leakage",
+    "interpretation": "within-split random shuffle to build the permuted vision matrix",
+    "confidence": "high"
+  },
+  "M_denoise_input": {
+    "class": "EXPLICIT_PUBLIC_METHOD",
+    "quote": "denoised vision trials (outputs of the vis2vis model) were used as inputs to the vis2img model",
+    "interpretation": "two-stage; train-set denoising dependency graph NOT precisely stated",
+    "confidence": "high (structure), NOT_IDENTIFIABLE (exact train dependency)"
+  },
+  "M_rank": {
+    "class": "EXPLICIT_PUBLIC_METHOD",
+    "quote": "average of the values at 99% of the peak (dots) of each curve",
+    "interpretation": "dimensionality = 99%-of-peak rank on the VALIDATION curve, averaged across 4 folds",
+    "confidence": "high"
+  }
+}

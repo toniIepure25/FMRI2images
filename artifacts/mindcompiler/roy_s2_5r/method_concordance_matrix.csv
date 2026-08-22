@@ -1,0 +1,18 @@
+method_item,Roy_public_method,our_method,status,materiality
+data_subset_participants,8 NSD subjects,8 (subj01-08),MATCH,LOW
+identities,6 simple + 6 naturalistic (12),12 (6+6),MATCH,LOW
+repeats_analyzed,8 per state (2nd imagery runs),8 (imgA_2/imgB_2),MATCH,LOW
+beta_preparation,'similar to b2' (=fithrf),"B0=fithrf(b2), B1=GLMdenoise_RR(b3) sensitivity",MATCH (B0),HIGH
+ROIs,"V1,V2,V3,hV4,ventral,lateral,parietal",same 7,MATCH,LOW
+voxel_SNR_selection,>98th pct NSD-core SNR per ROI,"strict >98th, NSD-core ncsnr, per ROI",MATCH,LOW
+scaling_centering,'centered and scaled' (scope not stated),train-only z-score,CLOSE_DEFENSIBLE_RECONSTRUCTION,MODERATE
+vis2vis_model_family,reduced-rank ridge (permuted vision),reduced-rank ridge,MATCH,LOW
+vis2img_model_family,reduced-rank ridge,reduced-rank ridge,MATCH,LOW
+ridge_grid,100 log values 1e-3..1e5,100 log values 1e-3..1e5,MATCH,LOW
+rank_selection,avg of 99%-of-peak validation-curve rank over 4 folds,per-fold smallest rank at 99% of selected-lambda peak,MATERIAL_MISMATCH,MODERATE
+four_fold_split,"4-fold, 50/25/25","4-fold, 4/2/2",MATCH,LOW
+refit_policy,not explicitly stated,train-only,NOT_IDENTIFIABLE,LOW
+vis2vis_pairing,shuffling within each data split,V2V-P0 all_ordered_distinct (P1 derangement closer),MATERIAL_MISMATCH,MODERATE
+vis2img_pairing,randomly-selected imagery repeats,index-aligned (I0),MATERIAL_MISMATCH,HIGH
+denoised_vision_construction,vis2vis outputs as vis2img inputs; train dependency not stated,"D1_STRICT_CROSSFIT (LOTO train, full-train val/test)",CLOSE_DEFENSIBLE_RECONSTRUCTION,MODERATE
+test_evaluation,cross-validated,one test eval per fold,MATCH,LOW

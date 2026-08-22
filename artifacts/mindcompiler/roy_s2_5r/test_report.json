@@ -1,0 +1,5 @@
+{
+  "lane": "audit; data-free",
+  "reproduction_tests_passed": 189,
+  "note": "Audit gate; data-free tests over committed artifacts; CI-capable."
+}

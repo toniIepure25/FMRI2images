@@ -1,0 +1,6 @@
+{
+  "public_beta_support": "b3 (GLMdenoise_RR) -- NOT the publicly described preparation",
+  "interpretation": "METHOD_SENSITIVITY_BRANCH_NOT_PRIMARY_PAPER_RECONSTRUCTION",
+  "prediction_concordance": "D1 median r=-0.0018 (3/7 positive) -- weaker, but this is NOT a reproduction failure since B1 is not b2",
+  "note": "B1 retained only as a beta-preparation sensitivity branch."
+}

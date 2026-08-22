@@ -1,0 +1,20 @@
+{
+  "gate": "S2.5R",
+  "status": "S2_5R_MATERIAL_METHOD_GAP_IDENTIFIED",
+  "reproduction_verdict": "NOT FORCED (withheld pending method alignment)",
+  "beta_evidence": "PUBLIC_EVIDENCE_STRONGLY_IDENTIFIES_B0_AS_B2_COMPATIBLE",
+  "material_gaps": [
+    "vis2img pairing (HIGH: index-aligned vs random)",
+    "vis2vis within-split shuffle (MOD)",
+    "rank-selection semantics (MOD)",
+    "alignment+dimensionality not reconstructed (HIGH)"
+  ],
+  "prediction": "B0 D1 directionally-concordant (median r=0.1319, 6/7) but NOT tested above a paper null",
+  "frozen_H_A_unchanged": "H_A_CROSS_PARTICIPANT_PARTIAL",
+  "next_action": {
+    "path": "A (HIGH-materiality pairing mismatch)",
+    "next": "S2.5M -- PUBLIC-METHOD-ALIGNED PAIRING AND RANK RECONSTRUCTION (random vis2img pairing; within-split vis2vis shuffle; paper-compatible rank semantics; B0/b2 primary, B1 sensitivity), then replay; alignment/dimensionality later in S2.6R",
+    "not_done_here": "No method changes/reruns; no verdict forced; Track-O deferred."
+  },
+  "note": "Gate executed successfully as an AUDIT; a reproduction verdict is deliberately withheld -- preferable to an invalid claim. Not a Roy verdict."
+}

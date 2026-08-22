@@ -1,0 +1,15 @@
+{
+  "public_beta_support": "b2-compatible (PRIMARY paper-supported preparation)",
+  "method_concordance": "many MATCH; HIGH-materiality vis2img pairing mismatch (index-aligned vs random); vis2vis pairing + rank semantics mismatch",
+  "prediction_concordance": "DIRECTIONALLY_CONCORDANT (D1 median r=0.1319, 6/7 positive) but NOT tested above a paper-compatible null",
+  "dimensionality_concordance": "NOT_EVALUATED (Roy-style d_vis/d_im not computed)",
+  "alignment_concordance": "NOT_EVALUATED (variance-projection alignment ratio not computed)",
+  "unresolved_items": [
+    "vis2img random pairing",
+    "vis2vis within-split shuffle",
+    "rank-selection semantics",
+    "shuffle null",
+    "alignment ratio",
+    "dimensionality estimate"
+  ]
+}

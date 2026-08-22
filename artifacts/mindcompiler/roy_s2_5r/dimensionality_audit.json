@@ -1,0 +1,6 @@
+{
+  "roy_claim": "imagery subspace dims ~ slightly less than half of vision dims in early visual cortex",
+  "our_status": "DIMENSIONALITY_NOT_DIRECTLY_COMPARABLE",
+  "reason": "rank-selection semantics differ (Roy averages 99%-of-peak validation-curve ranks across folds; we select per fold for the model). Roy-style d_vis/d_im not computed in S2.4R.",
+  "action": "deferred to S2.6R"
+}

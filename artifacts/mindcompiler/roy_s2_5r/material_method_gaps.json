@@ -1,0 +1,36 @@
+{
+  "MATERIAL_PUBLIC_METHOD_GAPS": [
+    {
+      "gap": "vis2img pairing",
+      "public_method": "randomly-selected imagery repeats (within identity)",
+      "our_method": "index-aligned (I0)",
+      "scientific_consequence": "training pairs formed under a spurious trial-index correspondence rather than the paper's random pairing; can bias the learned vision->imagery map",
+      "required_remediation": "implement random within-identity vision<->imagery pairing (averaged over realizations); replay",
+      "materiality": "HIGH"
+    },
+    {
+      "gap": "vis2vis pairing",
+      "public_method": "shuffling within each data split",
+      "our_method": "all_ordered_distinct (P0)",
+      "scientific_consequence": "different training multiplicity/weighting of the permuted vision matrix",
+      "required_remediation": "use within-split shuffle (our P1 derangement family is closer)",
+      "materiality": "MODERATE"
+    },
+    {
+      "gap": "rank-selection semantics",
+      "public_method": "avg of 99%-of-peak validation-curve rank across 4 folds (dimensionality estimate)",
+      "our_method": "per-fold smallest rank at 99% of the selected-lambda peak (for the model)",
+      "scientific_consequence": "our selected ranks are not Roy-style dimensionality estimates",
+      "required_remediation": "compute Roy-style averaged 99%-of-peak dimensionality",
+      "materiality": "MODERATE"
+    },
+    {
+      "gap": "alignment ratio + dimensionality results",
+      "public_method": "variance-projection alignment ratio; d_vis vs d_im",
+      "our_method": "not computed",
+      "scientific_consequence": "the paper's CENTRAL geometry/dimensionality claims are unevaluated",
+      "required_remediation": "S2.6R reconstruction with the exact alignment-ratio definition",
+      "materiality": "HIGH"
+    }
+  ]
+}

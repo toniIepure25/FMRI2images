@@ -1,0 +1,13 @@
+{
+  "gate": "S2.5R",
+  "reproduction_verdict": "WITHHELD_PENDING_METHOD_ALIGNMENT",
+  "reason": "HIGH-materiality explicit method mismatch (vis2img index-aligned vs paper random pairing) means S2.4R is not yet a fair implementation of the public vis2img method; the central dimensionality and alignment results are also not reconstructed.",
+  "not_forced": true,
+  "computational_reproducibility": "SUPPORTED (our analysis reruns identically; 448/448 leakage-clean)",
+  "independent_method_reproduction": "NOT YET ASSESSABLE -> S2_5R_MATERIAL_METHOD_GAP_IDENTIFIED",
+  "exact_replication": "ORIGINAL_CODE_REPRODUCTION_UNAVAILABLE; BITWISE_REPLICATION_UNAVAILABLE_WITHOUT_ORIGINAL_CODE_AND_SEEDS",
+  "branch_aware": {
+    "B0": "b2-compatible, directionally-concordant prediction, method gaps HIGH",
+    "B1": "non-primary (b3) sensitivity branch; weak results are NOT a reproduction failure"
+  }
+}

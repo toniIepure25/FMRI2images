@@ -1,0 +1,7 @@
+{
+  "roy_claim": "V1~25-30%, hV4~50%, parietal~100% (imagery-subspace variance projection onto visual subspace)",
+  "roy_definition": "var(visual activity explained by dim-dim imagery subspace) / var(explained by first dim of visual subspace)",
+  "our_status": "ROY_ALIGNMENT_RATIO_NOT_YET_RECONSTRUCTED",
+  "no_proxy": "trial-correlation / Procrustes / principal-angles / centroid-corr are NOT substituted",
+  "action": "deferred to S2.6R"
+}

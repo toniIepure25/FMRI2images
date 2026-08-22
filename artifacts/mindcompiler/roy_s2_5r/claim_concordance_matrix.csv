@@ -1,0 +1,10 @@
+claim_id,claim_class,Roy_claim,public_evidence,comparability,B0_result,B0_status,B1_result,B1_status,materiality,notes
+M1_beta,M,betas 'similar to b2',EXPLICIT (quote),COMPARABLE,B0=fithrf(b2),CONCORDANT,B1=GLMdenoise_RR(b3),NOT_PRIMARY_PAPER_BRANCH,HIGH,B0 is the b2-compatible branch; B1 is sensitivity
+M2_voxel,M,>98th pct NSD-core SNR,EXPLICIT,COMPARABLE,match,CONCORDANT,match,CONCORDANT,LOW,identical voxels B0/B1
+M3_split,M,4-fold 50/25/25,EXPLICIT,COMPARABLE,4/2/2,CONCORDANT,4/2/2,CONCORDANT,LOW,
+M4_vis2img_pairing,M,randomly-selected imagery repeats,EXPLICIT,COMPARABLE,index-aligned,METHOD_MISMATCH_BLOCKS,index-aligned,METHOD_MISMATCH_BLOCKS,HIGH,our I0 deterministic vs paper random
+M5_vis2vis_pairing,M,shuffling within split,EXPLICIT,COMPARABLE,all_ordered_distinct,DISCORDANT,all_ordered_distinct,DISCORDANT,MODERATE,P1 derangement would be closer
+M6_rank_semantics,M,avg 99%-of-peak validation rank over folds,EXPLICIT,PARTIAL,per-fold selection,NOT_DIRECTLY_COMPARABLE,per-fold,NOT_DIRECTLY_COMPARABLE,MODERATE,affects dimensionality
+P1_prediction,P,"vis2img above shuffle null, broad cortex",EXPLICIT,PARTIAL (no paper null),D1 median r=0.1319 (6/7 positive),DIRECTIONALLY_CONCORDANT,median r=-0.0018 (3/7),NOT_DIRECTLY_COMPARABLE,HIGH,PREDICTION_ABOVE_PAPER_NULL_NOT_DIRECTLY_TESTED
+D1_dimensionality,D,imagery dims ~<half of vision dims (early cortex),EXPLICIT,NOT_COMPARABLE,not computed (Roy-style),NOT_EVALUATED,not computed,NOT_EVALUATED,HIGH,DIMENSIONALITY_NOT_DIRECTLY_COMPARABLE
+G1_alignment,G,"V1~25-30%, hV4~50%, parietal~100% variance-projection",EXPLICIT,NOT_COMPARABLE,not computed,NOT_EVALUATED,not computed,NOT_EVALUATED,HIGH,ROY_ALIGNMENT_RATIO_NOT_YET_RECONSTRUCTED

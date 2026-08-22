@@ -1,0 +1,7 @@
+{
+  "gate": "S2.5R",
+  "input_commit": "3be93037318596e5567f603e01a8573ff7b9a4a4",
+  "rubric_frozen_before_comparison": true,
+  "no_models_rerun": true,
+  "no_beta_selection": true
+}

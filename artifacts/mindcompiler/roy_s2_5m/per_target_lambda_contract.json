@@ -1,0 +1,8 @@
+{
+  "structure": "Lambda = {lambda_1..lambda_n}, one independent ridge per target voxel",
+  "grid": "100 log-spaced 1e-3..1e5",
+  "selection": "validation per-voxel Pearson",
+  "tie": "largest lambda among exact ties",
+  "no_scalar_fallback": true,
+  "assembly": "W_Lambda column i uses lambda_i; W_RRR = W_Lambda V_r V_r^T"
+}

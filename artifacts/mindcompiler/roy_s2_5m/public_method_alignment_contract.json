@@ -1,0 +1,36 @@
+{
+  "vis2vis_pairing": {
+    "public": "shuffling within each data split (source!=target)",
+    "old": "all_ordered_distinct",
+    "new": "V2V_ROY_WITHIN_SPLIT_DERANGEMENT_V1",
+    "remaining_ambiguity": "author seed unknown"
+  },
+  "vis2img_pairing": {
+    "public": "randomly-selected imagery repeats",
+    "old": "index-aligned I0",
+    "new": "V2I_ROY_RANDOM_WITHIN_IDENTITY_V1",
+    "remaining_ambiguity": "exact realization unknown"
+  },
+  "ridge_lambda": {
+    "public": "n ridge regressions, voxel-specific lambda_i",
+    "old": "single scalar lambda",
+    "new": "per-target Lambda",
+    "remaining_ambiguity": "tie-break not public"
+  },
+  "operational_rank": {
+    "public": "validation-optimized rank",
+    "old": "smallest rank at 99% of selected-lambda peak",
+    "new": "argmax validation mean r (smallest on tie)",
+    "remaining_ambiguity": "99%-of-peak dimensionality is a separate reported quantity -> S2.6R"
+  },
+  "prediction_null": {
+    "public": "Fig-3 shuffle null",
+    "old": "r>0 only",
+    "new": "test-fold input<->output shuffle, N=1000",
+    "remaining_ambiguity": "author N unknown"
+  },
+  "D1": {
+    "public": "denoised vision as vis2img inputs; train dependency not stated",
+    "kept": "D1_STRICT_CROSSFIT (leakage-safe independent reconstruction)"
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "config_sha256": "40973f50a4260c19b4ed7bea97c82b0d5f1b800e75731c498c7da9a1d5dec770",
+  "gate": "S2.5M",
+  "analysis_class": "FROZEN_PUBLIC_METHOD_ALIGNMENT_RECONSTRUCTION",
+  "frozen_before_aligned_outcomes": true,
+  "epistemic_labels": {
+    "B0": "PUBLIC_B2_COMPATIBLE_PRIMARY_RECONSTRUCTION_BRANCH",
+    "B1": "PREDECLARED_BETA_PREPARATION_SENSITIVITY_BRANCH"
+  },
+  "preserved": [
+    "B0_IS_B2_COMPATIBLE_NOT_BITWISE_AUTHOR_CONFIRMED",
+    "B1_IS_NONPRIMARY_B3_SENSITIVITY"
+  ],
+  "participants": [
+    "subj01(reference)",
+    "subj02",
+    "subj03",
+    "subj04",
+    "subj05",
+    "subj06",
+    "subj07",
+    "subj08"
+  ],
+  "rois": [
+    "V1",
+    "V2",
+    "V3",
+    "hV4",
+    "ventral",
+    "lateral",
+    "parietal"
+  ],
+  "beta_branches": {
+    "B0": "nsdimagerybetas_fithrf(b2)",
+    "B1": "nsdimagerybetas_fithrf_GLMdenoise_RR(b3)"
+  },
+  "voxel_selection": "ROI mask \u2229 valid \u2229 finite NSD-core ncsnr; strict >98th pct; identical B0/B1",
+  "folds": "reuse S2 four 4/2/2 folds per participant (root seed 1234); same B0/B1",
+  "preprocessing": "PREPROC_ZSCORE_TRAIN_ONLY (train-only; CENTER_SCALE_SCOPE_NOT_IDENTIFIABLE_PUBLICLY)",
+  "vis2vis_pairing": "V2V_ROY_WITHIN_SPLIT_DERANGEMENT_V1 (within identity/split; source!=target; bijective)",
+  "vis2img_pairing": "V2I_ROY_RANDOM_WITHIN_IDENTITY_V1 (random one-to-one; no fixed-point constraint)",
+  "seed_derivation": {
+    "root": "SHA256(DOI|S2.5M|PAIRING_V1|realization=N)",
+    "child": "SHA256(root|participant|fold|split|identity|model|PAIRING_V1)",
+    "excludes": [
+      "ROI",
+      "beta",
+      "outcome"
+    ],
+    "note": "AUTHOR_RANDOM_SEED_NOT_PUBLICLY_IDENTIFIABLE"
+  },
+  "ridge": {
+    "per_target": true,
+    "grid": {
+      "lo": 0.001,
+      "hi": 100000.0,
+      "n": 100,
+      "spacing": "log10"
+    },
+    "lambda_selection": "per target voxel on validation per-voxel Pearson",
+    "LAMBDA_TIE_BREAK": "largest lambda among exact ties (LAMBDA_TIE_BREAK_NOT_PUBLICLY_SPECIFIED)"
+  },
+  "rank": {
+    "operational_r_model": "argmax validation mean voxelwise r; smallest rank on tie",
+    "rank_cap": "min(12, n_train_conditions, src_dim, tgt_dim, effective_train_rank)",
+    "note": "r_model (operational) SEPARATE from d_report (Roy 99%-of-peak dimensionality); d_report DEFERRED_TO_S2_6R",
+    "SAVE_FULL_RANK_CURVES": true
+  },
+  "denoising": "D1_STRICT_CROSSFIT with V2V Roy derangement + per-target Lambda (LOTO train, full-train val/test; no D1b/D2)",
+  "prediction_null": {
+    "style": "Figure-3 test-fold shuffle of input<->output correspondence",
+    "N_NULL": 1000,
+    "note": "PREDICTION_NULL_N_NOT_PUBLICLY_IDENTIFIABLE; N=1000 independent reconstruction value; seeds DOI-derived"
+  },
+  "pairing_sensitivity": {
+    "primary": "PAIRING_REALIZATION_0",
+    "sensitivity_seeds": [
+      1,
+      2,
+      3
+    ],
+    "restricted_to": "B0 x subj02-08 x 7 ROIs (frozen)",
+    "labels": {
+      "ROBUST": "sign-stable AND max |median-shift| across seeds <= 0.03",
+      "MODERATELY_SENSITIVE": "sign-stable AND 0.03 < shift <= 0.08",
+      "HIGHLY_SENSITIVE": "sign flips OR shift > 0.08"
+    }
+  },
+  "metrics": "mean voxelwise Pearson r; fraction voxels above null p95",
+  "aggregation": {
+    "ROI": "equal-weight; participant = median over 7 ROIs; folds = mean"
+  },
+  "prohibited": [
+    "beta selection by score",
+    "H-A rescue",
+    "D1b/D2",
+    "alternate ROI threshold",
+    "participant exclusion",
+    "test-driven policy change",
+    "author dependency",
+    "reproduction verdict"
+  ],
+  "reproduction_verdict": "NOT ISSUED (dimensionality+alignment deferred to S2.6R)",
+  "immutable": {
+    "H_A_CROSS_PARTICIPANT_PARTIAL": "unchanged",
+    "S2_5R_REPRODUCTION_VERDICT_WITHHELD": true
+  }
+}

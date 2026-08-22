@@ -10,6 +10,36 @@ Corrected 2026-07-17.)
 
 ---
 
+## S2.5R (2026-08-21): PAPER-CONCORDANCE AUDIT -- `S2_5R_MATERIAL_METHOD_GAP_IDENTIFIED` (verdict withheld)
+
+**Input `1568ae4` -> output `dfb2d76`, server-verified. Audit gate; no models rerun.**
+Doc `47_...md`; artifacts `artifacts/mindcompiler/roy_s2_5r/`. Rubric frozen from public
+claims first (`3be9303`).
+
+Re-verified the ACTUAL Roy et al. paper from open-access PMC (PMC12424947), short
+quotes only. Method MATCH: 8 subj, 12 identities (6+6), 8 repeats, 7 ROIs, >98th-pct
+NSD-core voxel selection, 4-fold 4/2/2 (=50/25/25), ridge 100x1e-3..1e5, reduced-rank
+two-stage. Beta: "similar to b2" -> b2=fithrf=**B0** (b2-compatible); B1(=b3) is a
+NON-primary sensitivity branch (its weak results are NOT a reproduction failure).
+
+**MATERIAL METHOD MISMATCHES:** vis2img pairing HIGH -- paper "randomly-selected
+imagery trial repeats" vs our index-aligned I0; vis2vis "shuffling within each data
+split" vs our all_ordered_distinct (MOD); rank-selection semantics (MOD). Central
+RESULTS unreconstructed: dimensionality NOT_DIRECTLY_COMPARABLE; alignment ratio
+NOT_YET_RECONSTRUCTED (no proxy). Prediction only DIRECTIONALLY_CONCORDANT for B0
+(median r 0.13, 6/7) -- no Roy shuffle null (r>0 != above-null).
+
+Verdict **WITHHELD** (HIGH-materiality method gap + unreconstructed central results)
+-> S2_5R_MATERIAL_METHOD_GAP_IDENTIFIED, preferable to an invalid claim. Exact-
+replication terminology preserved (ORIGINAL_CODE/BITWISE unavailable). H-A unchanged.
+189 tests.
+
+**Next (Path A): S2.5M -- PUBLIC-METHOD-ALIGNED PAIRING AND RANK RECONSTRUCTION**
+(random vis2img pairing; within-split vis2vis shuffle; paper-compatible rank semantics;
+B0/b2 primary, B1 sensitivity), then replay; alignment/dimensionality later in S2.6R.
+
+---
+
 ## S2.4R (2026-08-21): FULL-COHORT D1 CHARACTERIZATION -- `S2_4R_FULL_COHORT_D1_PASS`
 
 **Input `be84dea` -> output `73f2639`, server-verified. D1 contract frozen before any

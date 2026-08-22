@@ -1,0 +1,8 @@
+{
+  "vis2img_pairing": "MATCH (random within-identity)",
+  "vis2vis_pairing": "MATCH (within-split derangement)",
+  "per_target_lambda": "MATCH (voxel-specific)",
+  "operational_rank": "CLOSE_DEFENSIBLE (validation argmax)",
+  "prediction_null": "CLOSE_DEFENSIBLE (test-fold shuffle; N=1000)",
+  "note": "resolves the S2.5R prediction-class method gaps; dimensionality/alignment still DEFERRED_TO_S2_6R"
+}

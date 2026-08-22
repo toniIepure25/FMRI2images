@@ -1,0 +1,914 @@
+{
+  "subj01": {
+    "V1": {
+      "B0": {
+        "n_voxels": 27,
+        "voxel_hash": "a1bc56fe7c55",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 27,
+        "voxel_hash": "a1bc56fe7c55",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "V2": {
+      "B0": {
+        "n_voxels": 29,
+        "voxel_hash": "f18288ba2c73",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 29,
+        "voxel_hash": "f18288ba2c73",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "V3": {
+      "B0": {
+        "n_voxels": 24,
+        "voxel_hash": "5fd2b36ac1a5",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 24,
+        "voxel_hash": "5fd2b36ac1a5",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "hV4": {
+      "B0": {
+        "n_voxels": 14,
+        "voxel_hash": "788ad156aa0e",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 14,
+        "voxel_hash": "788ad156aa0e",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "ventral": {
+      "B0": {
+        "n_voxels": 153,
+        "voxel_hash": "3d54a7fc3cb6",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 153,
+        "voxel_hash": "3d54a7fc3cb6",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "lateral": {
+      "B0": {
+        "n_voxels": 156,
+        "voxel_hash": "cd85569a5f2b",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 156,
+        "voxel_hash": "cd85569a5f2b",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "parietal": {
+      "B0": {
+        "n_voxels": 71,
+        "voxel_hash": "e8109c3e941c",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 71,
+        "voxel_hash": "e8109c3e941c",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    }
+  },
+  "subj02": {
+    "V1": {
+      "B0": {
+        "n_voxels": 23,
+        "voxel_hash": "53c23b2370aa",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 23,
+        "voxel_hash": "53c23b2370aa",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "V2": {
+      "B0": {
+        "n_voxels": 22,
+        "voxel_hash": "4a4f6b77eb80",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 22,
+        "voxel_hash": "4a4f6b77eb80",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "V3": {
+      "B0": {
+        "n_voxels": 22,
+        "voxel_hash": "cc0f5c073407",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 22,
+        "voxel_hash": "cc0f5c073407",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "hV4": {
+      "B0": {
+        "n_voxels": 10,
+        "voxel_hash": "575dac0a44bb",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 10,
+        "voxel_hash": "575dac0a44bb",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "ventral": {
+      "B0": {
+        "n_voxels": 164,
+        "voxel_hash": "f8e7156a2be5",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 164,
+        "voxel_hash": "f8e7156a2be5",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "lateral": {
+      "B0": {
+        "n_voxels": 136,
+        "voxel_hash": "23b90aca64c8",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 136,
+        "voxel_hash": "23b90aca64c8",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "parietal": {
+      "B0": {
+        "n_voxels": 68,
+        "voxel_hash": "f82b8fbbd621",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 68,
+        "voxel_hash": "f82b8fbbd621",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    }
+  },
+  "subj03": {
+    "V1": {
+      "B0": {
+        "n_voxels": 26,
+        "voxel_hash": "a439140c2172",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 26,
+        "voxel_hash": "a439140c2172",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "V2": {
+      "B0": {
+        "n_voxels": 23,
+        "voxel_hash": "a184a44fa678",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 23,
+        "voxel_hash": "a184a44fa678",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "V3": {
+      "B0": {
+        "n_voxels": 19,
+        "voxel_hash": "53e144442a35",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 19,
+        "voxel_hash": "53e144442a35",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "hV4": {
+      "B0": {
+        "n_voxels": 9,
+        "voxel_hash": "8bfcf26b952b",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 9,
+        "voxel_hash": "8bfcf26b952b",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "ventral": {
+      "B0": {
+        "n_voxels": 164,
+        "voxel_hash": "7ae15e423515",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 164,
+        "voxel_hash": "7ae15e423515",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "lateral": {
+      "B0": {
+        "n_voxels": 172,
+        "voxel_hash": "40c1f65a91b3",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 172,
+        "voxel_hash": "40c1f65a91b3",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "parietal": {
+      "B0": {
+        "n_voxels": 78,
+        "voxel_hash": "7a2f51bd966a",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 78,
+        "voxel_hash": "7a2f51bd966a",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    }
+  },
+  "subj04": {
+    "V1": {
+      "B0": {
+        "n_voxels": 18,
+        "voxel_hash": "5de8252b97a6",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 18,
+        "voxel_hash": "5de8252b97a6",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "V2": {
+      "B0": {
+        "n_voxels": 18,
+        "voxel_hash": "3bf54f3d47c8",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 18,
+        "voxel_hash": "3bf54f3d47c8",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "V3": {
+      "B0": {
+        "n_voxels": 17,
+        "voxel_hash": "e864d7c0a379",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 17,
+        "voxel_hash": "e864d7c0a379",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "hV4": {
+      "B0": {
+        "n_voxels": 10,
+        "voxel_hash": "cf673e8d6140",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 10,
+        "voxel_hash": "cf673e8d6140",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "ventral": {
+      "B0": {
+        "n_voxels": 153,
+        "voxel_hash": "b831cfe6c875",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 153,
+        "voxel_hash": "b831cfe6c875",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "lateral": {
+      "B0": {
+        "n_voxels": 143,
+        "voxel_hash": "528c1da26c33",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 143,
+        "voxel_hash": "528c1da26c33",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "parietal": {
+      "B0": {
+        "n_voxels": 67,
+        "voxel_hash": "a6cc7d69aaab",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 67,
+        "voxel_hash": "a6cc7d69aaab",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    }
+  },
+  "subj05": {
+    "V1": {
+      "B0": {
+        "n_voxels": 23,
+        "voxel_hash": "5b1f968d0c8d",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 23,
+        "voxel_hash": "5b1f968d0c8d",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "V2": {
+      "B0": {
+        "n_voxels": 22,
+        "voxel_hash": "ec96b007aaec",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 22,
+        "voxel_hash": "ec96b007aaec",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "V3": {
+      "B0": {
+        "n_voxels": 19,
+        "voxel_hash": "8bfbf17fc379",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 19,
+        "voxel_hash": "8bfbf17fc379",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "hV4": {
+      "B0": {
+        "n_voxels": 11,
+        "voxel_hash": "c8c30896632c",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 11,
+        "voxel_hash": "c8c30896632c",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "ventral": {
+      "B0": {
+        "n_voxels": 133,
+        "voxel_hash": "1cd311de469f",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 133,
+        "voxel_hash": "1cd311de469f",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "lateral": {
+      "B0": {
+        "n_voxels": 141,
+        "voxel_hash": "8d0d9b353e84",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 141,
+        "voxel_hash": "8d0d9b353e84",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "parietal": {
+      "B0": {
+        "n_voxels": 57,
+        "voxel_hash": "e4929ec8dd46",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 57,
+        "voxel_hash": "e4929ec8dd46",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    }
+  },
+  "subj06": {
+    "V1": {
+      "B0": {
+        "n_voxels": 23,
+        "voxel_hash": "0e33116af4d4",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 23,
+        "voxel_hash": "0e33116af4d4",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "V2": {
+      "B0": {
+        "n_voxels": 24,
+        "voxel_hash": "e66a09e9e7e9",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 24,
+        "voxel_hash": "e66a09e9e7e9",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "V3": {
+      "B0": {
+        "n_voxels": 24,
+        "voxel_hash": "9eccb4ed5b47",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 24,
+        "voxel_hash": "9eccb4ed5b47",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "hV4": {
+      "B0": {
+        "n_voxels": 10,
+        "voxel_hash": "bc95f6996b29",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 10,
+        "voxel_hash": "bc95f6996b29",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "ventral": {
+      "B0": {
+        "n_voxels": 194,
+        "voxel_hash": "4008a9821c6a",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 194,
+        "voxel_hash": "4008a9821c6a",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "lateral": {
+      "B0": {
+        "n_voxels": 181,
+        "voxel_hash": "6b6563cf9556",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 181,
+        "voxel_hash": "6b6563cf9556",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "parietal": {
+      "B0": {
+        "n_voxels": 68,
+        "voxel_hash": "3aaf74f8af81",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 68,
+        "voxel_hash": "3aaf74f8af81",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    }
+  },
+  "subj07": {
+    "V1": {
+      "B0": {
+        "n_voxels": 23,
+        "voxel_hash": "0cae7dc1482b",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 23,
+        "voxel_hash": "0cae7dc1482b",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "V2": {
+      "B0": {
+        "n_voxels": 20,
+        "voxel_hash": "e98477ef4ce8",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 20,
+        "voxel_hash": "e98477ef4ce8",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "V3": {
+      "B0": {
+        "n_voxels": 15,
+        "voxel_hash": "97fd5006e8ad",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 15,
+        "voxel_hash": "97fd5006e8ad",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "hV4": {
+      "B0": {
+        "n_voxels": 8,
+        "voxel_hash": "3c03757df04e",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 8,
+        "voxel_hash": "3c03757df04e",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "ventral": {
+      "B0": {
+        "n_voxels": 131,
+        "voxel_hash": "e3627edc4558",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 131,
+        "voxel_hash": "e3627edc4558",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "lateral": {
+      "B0": {
+        "n_voxels": 123,
+        "voxel_hash": "8b40fe733797",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 123,
+        "voxel_hash": "8b40fe733797",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "parietal": {
+      "B0": {
+        "n_voxels": 50,
+        "voxel_hash": "39f02e6d3639",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 50,
+        "voxel_hash": "39f02e6d3639",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    }
+  },
+  "subj08": {
+    "V1": {
+      "B0": {
+        "n_voxels": 22,
+        "voxel_hash": "3854432c4ae8",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 22,
+        "voxel_hash": "3854432c4ae8",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "V2": {
+      "B0": {
+        "n_voxels": 21,
+        "voxel_hash": "b5e62f87f373",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 21,
+        "voxel_hash": "b5e62f87f373",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "V3": {
+      "B0": {
+        "n_voxels": 18,
+        "voxel_hash": "5c4e0e8e7f91",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 18,
+        "voxel_hash": "5c4e0e8e7f91",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "hV4": {
+      "B0": {
+        "n_voxels": 10,
+        "voxel_hash": "6814a93c4e24",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 10,
+        "voxel_hash": "6814a93c4e24",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "ventral": {
+      "B0": {
+        "n_voxels": 167,
+        "voxel_hash": "2469bc09df14",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 167,
+        "voxel_hash": "2469bc09df14",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "lateral": {
+      "B0": {
+        "n_voxels": 174,
+        "voxel_hash": "c0508c95897d",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 174,
+        "voxel_hash": "c0508c95897d",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    },
+    "parietal": {
+      "B0": {
+        "n_voxels": 68,
+        "voxel_hash": "060319e6392b",
+        "beta_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      },
+      "B1": {
+        "n_voxels": 68,
+        "voxel_hash": "060319e6392b",
+        "beta_sha": "cd42e680617d6564f403c7855140c53c0a2fdb9eb382755b49765bf781c4af2e",
+        "finite_fraction": 1.0,
+        "constant_voxels": 0
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "B0_new_cohort_median": {
+    "S2_4R_scalar_lambda_indexaligned": 0.1319,
+    "S2_5M_pertarget_royaligned": 0.1169
+  },
+  "B1_new_cohort_median": {
+    "S2_4R": -0.0018,
+    "S2_5M": 0.0023
+  },
+  "note": "Descriptive post-hoc method-remediation comparison; no pipeline selected by score."
+}

@@ -1,0 +1,28 @@
+{
+  "gate": "S2.5M",
+  "status": "S2_5M_PUBLIC_METHOD_ALIGNMENT_PASS",
+  "validator": {
+    "expected_cells": 448,
+    "observed_cells": 448,
+    "duplicate_cells": 0,
+    "all_cells_present": true,
+    "leakage_clean": true,
+    "no_scalar_lambda_fallback": true,
+    "n_unique_lambda_median": 17.0
+  },
+  "B0_PUBLIC_METHOD_ALIGNED_CHARACTERIZATION": {
+    "median_test_r": 0.1169,
+    "n_positive": 7,
+    "median_fraction_voxels_above_null_p95": 0.1732
+  },
+  "B1_METHOD_SENSITIVITY_CHARACTERIZATION": {
+    "median_test_r": 0.0023,
+    "n_positive": 4
+  },
+  "reproduction_verdict": "STILL_DEFERRED (dimensionality+alignment -> S2.6R)",
+  "frozen_H_A_unchanged": "H_A_CROSS_PARTICIPANT_PARTIAL",
+  "next_action": {
+    "next": "S2.6R -- ROY-DEFINED DIMENSIONALITY AND ALIGNMENT RECONSTRUCTION (method-aligned B0; no proxies)",
+    "not_done_here": "No dimensionality/alignment verdict; no beta selection."
+  }
+}

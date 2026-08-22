@@ -1,0 +1,35 @@
+{
+  "cell": "subj01 x V1 x B0",
+  "folds": [
+    {
+      "fold": 0,
+      "test_mean_r": 0.2739604524537242,
+      "v2i_n_unique_lambdas": 17,
+      "v2i_r_model": 11,
+      "frac_voxels_above_null_p95": 0.3333333333333333
+    },
+    {
+      "fold": 1,
+      "test_mean_r": 0.06950442518360533,
+      "v2i_n_unique_lambdas": 17,
+      "v2i_r_model": 12,
+      "frac_voxels_above_null_p95": 0.037037037037037035
+    },
+    {
+      "fold": 2,
+      "test_mean_r": 0.2251084532597648,
+      "v2i_n_unique_lambdas": 20,
+      "v2i_r_model": 7,
+      "frac_voxels_above_null_p95": 0.3333333333333333
+    },
+    {
+      "fold": 3,
+      "test_mean_r": 0.19786067391759726,
+      "v2i_n_unique_lambdas": 19,
+      "v2i_r_model": 7,
+      "frac_voxels_above_null_p95": 0.18518518518518517
+    }
+  ],
+  "leakage": "clean (see D1_leakage_certification.csv)",
+  "status": "SMOKE_OK"
+}

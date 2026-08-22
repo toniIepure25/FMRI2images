@@ -1,0 +1,7 @@
+{
+  "gate": "S2.5M",
+  "input_commit": "1888cdd71115d1d503720c9d770999a9d1cd3381",
+  "frozen_before_outcomes": true,
+  "SAVE_FULL_RANK_CURVES": true,
+  "DIMENSIONALITY_VERDICT": "DEFERRED_TO_S2_6R"
+}

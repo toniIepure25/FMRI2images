@@ -1,0 +1,7 @@
+{
+  "B0_status": "PREDICTION_DIRECTIONALLY_CONCORDANT_ONLY",
+  "B0_median_r": 0.1169,
+  "B0_n_positive": 7,
+  "B0_median_fraction_voxels_above_null_p95": 0.1732,
+  "note": "prediction now tested against a paper-style shuffle null; still not a full Roy verdict"
+}

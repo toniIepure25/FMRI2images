@@ -10,6 +10,34 @@ Corrected 2026-07-17.)
 
 ---
 
+## S2.5M (2026-08-21): PUBLIC-METHOD-ALIGNED RECONSTRUCTION -- `S2_5M_PUBLIC_METHOD_ALIGNMENT_PASS`
+
+**Input `34b70f6` -> output `67e755f`, server-verified. Freeze (config `54e72e6` +
+pairing manifests `1888cdd`) before any aligned outcome.** Doc `48_...md`; artifacts
+`artifacts/mindcompiler/roy_s2_5m/`. New modules (`roy_public_rrr.py` per-target Lambda;
+`roy_pairing.py` Roy pairings; `roy_engine.py`) leave historical S2 code immutable.
+
+Repaired the S2.5R prediction-class method gaps: vis2vis within-split derangement,
+vis2img RANDOM within-identity pairing, PER-TARGET Lambda (one ridge per voxel),
+validation-selected operational rank, Fig-3 prediction null (N=1000). 448/448 cells,
+leakage-clean, no scalar-lambda fallback. NON-INTERPRETIVE (no beta selection):
+- B0 (b2-compatible PRIMARY) new-cohort median vis2img r = 0.1169, **7/7 positive**;
+  median fraction voxels above shuffle-null p95 = 0.173.
+- B1 (b3 sensitivity) median 0.0023 (4/7) -- weak, NOT a failure.
+- S2.4R->S2.5M B0 0.1319->0.1169: corrections did NOT materially change B0 (7/7 vs
+  6/7) -> earlier result not an artifact of index-aligned pairing / scalar lambda.
+- Pairing-randomness sensitivity (B0, realizations 0-3): medians 0.117/0.115/0.126/
+  0.107 (range 0.020), 7/7 positive each -> **PAIRING_REALIZATION_ROBUST**.
+
+Prediction: PREDICTION_DIRECTIONALLY_CONCORDANT_ONLY (B0, with a paper-style null).
+Full rank curves saved. **Dimensionality + alignment NOT reconstructed -> FULL
+INDEPENDENT REPRODUCTION VERDICT STILL DEFERRED.** H-A unchanged. 204 tests.
+
+**Next: S2.6R -- ROY-DEFINED DIMENSIONALITY AND ALIGNMENT RECONSTRUCTION** (method-
+aligned B0; exact variance-projection alignment ratio; d_vis/d_img; no proxies).
+
+---
+
 ## S2.5R (2026-08-21): PAPER-CONCORDANCE AUDIT -- `S2_5R_MATERIAL_METHOD_GAP_IDENTIFIED` (verdict withheld)
 
 **Input `1568ae4` -> output `dfb2d76`, server-verified. Audit gate; no models rerun.**

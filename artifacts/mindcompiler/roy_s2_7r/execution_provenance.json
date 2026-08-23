@@ -1,0 +1,16 @@
+{
+  "gate": "S2.7R",
+  "class": "AUDIT_VERDICT_ONLY_NO_MODELING",
+  "input_commit": "932b94f",
+  "rubric_freeze_commit": "a718faf",
+  "current_head": "a718faf902fec1f8b0a8db8d868124e20b3120d6",
+  "method_concordance": {
+    "MATCH": 9,
+    "CLOSE_DEFENSIBLE": 8,
+    "MATERIAL_MISMATCH": 0
+  },
+  "no_models_fit": true,
+  "no_beta_extraction": true,
+  "no_new_null": true,
+  "S2_6R_results_immutable": true
+}

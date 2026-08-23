@@ -1,0 +1,30 @@
+{
+  "gate": "S2.7R",
+  "execution_status": "S2_7R_FINAL_VERDICT_AUDIT_PASS",
+  "final_dataset1_verdict": "INDEPENDENT_METHOD_REPRODUCTION_PARTIAL",
+  "scope": "DATASET_1_NSD_IMAGERY only (Dataset 2 NOT reconstructed)",
+  "paper_status": "PREPRINT_NOT_PEER_REVIEWED",
+  "method_sufficiency": "METHOD_PARTIALLY_IDENTIFIABLE_BUT_ASSESSMENT_POSSIBLE",
+  "domain_status": {
+    "PREDICTION": "ROY_PREDICTION_DIRECTIONALLY_CONCORDANT",
+    "DIMENSIONALITY": "ROY_DIMENSIONALITY_MIXED",
+    "ALIGNMENT": "ROY_ALIGNMENT_DIRECTIONALLY_CONCORDANT",
+    "FEATURE_CORRESPONDENCE": "NOT_EVALUATED"
+  },
+  "central_claim_status": {
+    "P-C1": "DIRECTIONALLY_CONCORDANT",
+    "D-C1": "DIRECTIONALLY_DISCORDANT",
+    "A-C1": "MIXED",
+    "A-C2": "DIRECTIONALLY_CONCORDANT"
+  },
+  "supplement_material_gap": false,
+  "rubric_freeze_commit": "a718faf",
+  "rubric_sha256": "9acc7e1a657626f5150ae0a81ce19ad0a41c5bb00d4b8834bba3fb7f2258805a",
+  "immutable": {
+    "H_A_CROSS_PARTICIPANT_PARTIAL": "unchanged",
+    "S2_5R_VERDICT_WITHHELD": true,
+    "S2_6R_RESULTS_IMMUTABLE": true
+  },
+  "track_R_closure": "Track R (Roy Dataset-1 independent reproduction) CLOSES at INDEPENDENT_METHOD_REPRODUCTION_PARTIAL",
+  "next_action": "Optional Track O handoff (O1 -- perception->imagery neural-state operator; NOT executed here). Optional R-DIAG1 dimensionality-discrepancy diagnostic (predeclared ambiguities only; not a verdict rescue)."
+}

@@ -1,0 +1,33 @@
+{
+  "branch": "B0 (b2-compatible primary); B1 = METHOD_SENSITIVITY_BRANCH_NOT_PRIMARY (never used to downgrade)",
+  "participant_test_r_new_cohort": {
+    "subj02": 0.129,
+    "subj03": 0.145,
+    "subj04": 0.108,
+    "subj05": 0.132,
+    "subj06": 0.102,
+    "subj07": 0.055,
+    "subj08": 0.117
+  },
+  "median_test_r": 0.117,
+  "n_positive": "7/7 new-cohort participants",
+  "median_fraction_voxels_above_shuffle_null_p95": 0.173,
+  "above_null_interpretation": "17.3% of voxels exceed their p95 shuffle null (>> 5% expected by chance) at cohort level",
+  "pairing_realization_robust": {
+    "cohort_medians": {
+      "0": 0.11689754533650758,
+      "1": 0.11448591227271666,
+      "2": 0.1264164382380508,
+      "3": 0.10665333112416249
+    },
+    "max_minus_min": 0.02,
+    "sign_stable": true,
+    "label": "PAIRING_REALIZATION_ROBUST"
+  },
+  "supplement_S1": "per-subject vis2vis/vis2img cortical prediction maps subj02-08 corroborate broad-cortical prediction",
+  "roy_reference": "Figure 3 + Results + Fig S1: vis2img predicts imagery activity across cortex above shuffle reference",
+  "direction_status": "DIRECTIONALLY_CONCORDANT",
+  "magnitude_status": "NOT_DIRECTLY_COMPARABLE (no single paper r transcribed; matched via above-null fraction + S1 maps)",
+  "status": "ROY_PREDICTION_DIRECTIONALLY_CONCORDANT",
+  "caveat": "r>0 alone is not above-null validity; above-null validity established via the S2.5M shuffle-null fraction."
+}

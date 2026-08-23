@@ -1,0 +1,26 @@
+claim_id,claim_class,importance,paper_claim,paper_source,our_result,comparability,direction_status,magnitude_status,final_claim_status,notes
+M-DATA,M,METHOD,"Dataset-1 NSD-Imagery, 8 subjects",Methods,8 subjects (subj01 ref + subj02-08 cohort),COMPARABLE,-,-,MATCH,
+M-IDENT,M,METHOD,"12 identities (6+6), 8 repeats",Methods,"12 identities/fold, 8 repeats (4/2/2)",COMPARABLE,-,-,MATCH,
+M-BETA,M,METHOD,'similar to b2',Methods,B0 = nsdimagerybetas_fithrf (b2-compatible),COMPARABLE,-,-,CLOSE_DEFENSIBLE_RECONSTRUCTION,
+M-ROI,M,METHOD,"V1,V2,V3,hV4,ventral,lateral,parietal",Methods,same 7 ROIs,COMPARABLE,-,-,MATCH,
+M-VOXEL,M,METHOD,>98th pct NSD-core ncsnr per ROI,Methods,identical strict >98th pct,COMPARABLE,-,-,MATCH,
+M-FOLDS,M,METHOD,4-fold 50/25/25,Methods,"four 4/2/2 folds, seed 1234",COMPARABLE,-,-,MATCH,
+M-SCALE,M,METHOD,columns centered and scaled,Methods,train-only z-score (scope not public),COMPARABLE,-,-,CLOSE_DEFENSIBLE_RECONSTRUCTION,
+M-RIDGE,M,METHOD,100 log-spaced 1e-3..1e5,Methods,identical grid,COMPARABLE,-,-,MATCH,
+M-LAMBDA,M,METHOD,"n ridge regressions, voxel-specific lambda",Methods,per-target Lambda (tie->largest),COMPARABLE,-,-,MATCH,
+M-PAIR-V2V,M,METHOD,shuffling within each data split,Methods,within-split derangement (source!=target),COMPARABLE,-,-,CLOSE_DEFENSIBLE_RECONSTRUCTION,
+M-PAIR-V2I,M,METHOD,randomly-selected imagery repeats,Methods,random within-identity one-to-one,COMPARABLE,-,-,CLOSE_DEFENSIBLE_RECONSTRUCTION,
+M-RRR,M,METHOD,reduced-rank two-stage,Methods,W_RRR = W_Lambda V_r V_r^T,COMPARABLE,-,-,MATCH,
+M-DENOISE,M,METHOD,denoised vision as vis2img inputs,Methods,D1_STRICT_CROSSFIT (leakage-safe),COMPARABLE,-,-,CLOSE_DEFENSIBLE_RECONSTRUCTION,
+M-RANK,M,METHOD,dim by 4-fold CV line search; d_report 99%-of-peak,Methods,r_model=val argmax; d_report 99%-of-TEST-peak first-crossing,COMPARABLE,-,-,CLOSE_DEFENSIBLE_RECONSTRUCTION,
+M-PREDNULL,M,METHOD,Fig-3 shuffle null,Methods,"test input<->output shuffle, N=1000 (author N not public)",COMPARABLE,-,-,CLOSE_DEFENSIBLE_RECONSTRUCTION,
+M-ALIGN,M,METHOD,TV_img(d_img) / TV_vis(d_img),Methods,"a_g=TV_img/TV_vis, d=d_img both terms",COMPARABLE,-,-,MATCH,
+M-ALIGNNULL,M,METHOD,"d_img random visual singular vectors, x100",Methods,"full V_vis draws, N=100, DOI seeds",COMPARABLE,-,-,CLOSE_DEFENSIBLE_RECONSTRUCTION,
+P-C1,P,CENTRAL,vis2img predicts imagery across cortex & participants above null,Fig 3 / Results / Fig S1,"median r 0.117, 7/7 positive, 0.173 voxels>null p95, pairing-robust",COMPARABLE,DIRECTIONALLY_CONCORDANT,NOT_DIRECTLY_COMPARABLE,DIRECTIONALLY_CONCORDANT,above-null validity via S2.5M shuffle null; B1 not used to downgrade
+D-C1,D,CENTRAL,early visual d_img < d_vis (~half),Fig 4 / Results,early mean d_img/d_vis 1.475 (imagery HIGHER-dim),COMPARABLE,DIRECTIONALLY_DISCORDANT,DISCORDANT,DIRECTIONALLY_DISCORDANT,central claim; blocks SUPPORTED
+D-C2,D,SUPPORTING_CENTRAL,d_img/d_vis -> parity in higher cortex,Fig 4 / Results,"parietal 0.996 at parity, from above",COMPARABLE,MIXED,MIXED,MIXED,parietal parity agrees; approach direction differs
+D-C3,D,SUPPORTING,imagery dimensionality stable across visual ROIs,Fig 4 / Results,d_img 3.47-5.66 across visual ROIs,COMPARABLE,MIXED,-,MIXED,
+A-C1,A,CENTRAL,V1 substantially reoriented (~0.25-0.30),Fig 5 / Results,V1 alignment 0.705 (above null 0.19),COMPARABLE,reorientation present but weaker,DISCORDANT,MIXED,imagery more aligned to vision in V1 than reported
+A-C2,A,CENTRAL,alignment rises across hierarchy (~0.5 hV4),Fig 5 / Results,V1 0.705->hV4 0.765->parietal 0.921 monotone,COMPARABLE,DIRECTIONALLY_CONCORDANT,hV4 higher than ~0.5,DIRECTIONALLY_CONCORDANT,
+A-C3,A,SUPPORTING_CENTRAL,parietal ~1.0,Fig 5 / Results,parietal 0.921,COMPARABLE,CONCORDANT,NUMERICALLY_CLOSE,NUMERICALLY_CLOSE,
+F-C1,F,SUPPORTING_CENTRAL,imagery dims preserve coarse feature/tuning correspondence,Fig 5C-E,not reconstructed,NOT_COMPARABLE,-,-,NOT_EVALUATED,no proxy substituted

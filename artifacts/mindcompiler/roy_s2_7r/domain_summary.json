@@ -1,0 +1,46 @@
+{
+  "METHOD": {
+    "status": "METHOD_PARTIALLY_IDENTIFIABLE_BUT_ASSESSMENT_POSSIBLE",
+    "strongest_support": "voxel selection, ROIs, folds, ridge grid, per-target lambda, RRR, alignment formula all MATCH",
+    "strongest_contradiction": "none MATERIAL; several CLOSE_DEFENSIBLE (pairing seeds, scale scope, denoise dependency, null N)",
+    "remaining_ambiguity": [
+      "AUTHOR_RANDOM_SEED_UNKNOWN",
+      "LAMBDA_TIE_BREAK_NOT_PUBLICLY_SPECIFIED",
+      "CENTER_SCALE_SCOPE_NOT_IDENTIFIABLE",
+      "EXACT_DENOISING_TRAIN_DEPENDENCY_NOT_IDENTIFIABLE",
+      "PREDICTION_NULL_N_NOT_PUBLICLY_IDENTIFIABLE",
+      "B0_B2_COMPATIBLE_NOT_BITWISE_AUTHOR_CONFIRMED",
+      "ORIGINAL_CODE_REPRODUCTION_UNAVAILABLE",
+      "BITWISE_REPLICATION_UNAVAILABLE_WITHOUT_ORIGINAL_CODE_AND_SEEDS"
+    ],
+    "importance": "gating precondition"
+  },
+  "PREDICTION": {
+    "status": "ROY_PREDICTION_DIRECTIONALLY_CONCORDANT",
+    "strongest_support": "7/7 positive, 0.173 voxels>null p95, pairing-robust, S1 maps",
+    "strongest_contradiction": "no single paper r for numerical match",
+    "remaining_ambiguity": "PREDICTION_NULL_N_NOT_PUBLICLY_IDENTIFIABLE",
+    "importance": "CENTRAL headline domain"
+  },
+  "DIMENSIONALITY": {
+    "status": "ROY_DIMENSIONALITY_MIXED",
+    "strongest_support": "parietal ratio 0.996 at parity",
+    "strongest_contradiction": "early d_img/d_vis 1.475 (imagery HIGHER-dim) -- D-C1 DIRECTIONALLY_DISCORDANT vs ~0.5",
+    "remaining_ambiguity": "low imagery SNR (Fig S2), seeds, scale scope, D1 dependency",
+    "importance": "CENTRAL headline domain"
+  },
+  "ALIGNMENT": {
+    "status": "ROY_ALIGNMENT_DIRECTIONALLY_CONCORDANT",
+    "strongest_support": "monotone V1 0.705->parietal 0.921, all above null; parietal NUMERICALLY_CLOSE to ~1.0",
+    "strongest_contradiction": "early magnitude high (V1 0.705 vs 0.25-0.30) -- coupled to inflated d_img",
+    "remaining_ambiguity": "alignment null basis source; scale scope",
+    "importance": "CENTRAL headline domain"
+  },
+  "FEATURE_CORRESPONDENCE": {
+    "status": "NOT_EVALUATED",
+    "strongest_support": "-",
+    "strongest_contradiction": "-",
+    "remaining_ambiguity": "Fig 5C-E not reconstructed (no proxy)",
+    "importance": "SUPPORTING_CENTRAL (additional)"
+  }
+}

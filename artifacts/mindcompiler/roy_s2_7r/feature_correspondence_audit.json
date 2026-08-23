@@ -1,0 +1,7 @@
+{
+  "F-C1": "Despite reorientation, some imagery dimensions preserve coarse feature/tuning correspondence with leading visual dimensions (Fig 5C-E main text).",
+  "reconstructed_in_track_R": false,
+  "status": "NOT_EVALUATED",
+  "reason": "No exact analogue of Fig 5C-E (feature/tuning correspondence) was computed in S2.5M/S2.6R. Not inferred from prediction/alignment/dimensionality/RSA/centroid (would be a proxy).",
+  "consequence": "Recorded as a limitation; does NOT block PARTIAL, but prevents claiming every major result was reproduced."
+}

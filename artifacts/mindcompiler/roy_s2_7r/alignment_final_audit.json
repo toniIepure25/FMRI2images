@@ -1,0 +1,56 @@
+{
+  "roi_alignment_mean": {
+    "V1": 0.705,
+    "V2": 0.696,
+    "V3": 0.841,
+    "hV4": 0.765,
+    "ventral": 0.749,
+    "lateral": 0.921,
+    "parietal": 0.921
+  },
+  "roi_alignment_null_mean": {
+    "V1": 0.194,
+    "V2": 0.256,
+    "V3": 0.295,
+    "hV4": 0.414,
+    "ventral": 0.11,
+    "lateral": 0.117,
+    "parietal": 0.127
+  },
+  "V1": {
+    "ours": 0.705,
+    "paper": "0.25-0.30"
+  },
+  "hV4": {
+    "ours": 0.765,
+    "paper": "~0.50"
+  },
+  "parietal": {
+    "ours": 0.921,
+    "paper": "~1.0"
+  },
+  "A-C1_CENTRAL": {
+    "paper": "V1 substantially reoriented, alignment ~0.25-0.30",
+    "ours_V1": 0.705,
+    "direction_status": "reorientation present (a_g<1, above null) but WEAKER than reported",
+    "magnitude_status": "DISCORDANT (0.70 vs 0.25-0.30)",
+    "status": "MIXED"
+  },
+  "A-C2_CENTRAL": {
+    "paper": "alignment rises across visual hierarchy (~0.5 at hV4)",
+    "ours": "V1 0.705 -> hV4 0.765 -> parietal 0.921, monotone up; all far above null",
+    "direction_status": "DIRECTIONALLY_CONCORDANT",
+    "magnitude_status": "hV4 higher than ~0.5",
+    "status": "DIRECTIONALLY_CONCORDANT"
+  },
+  "A-C3_SUPPORTING_CENTRAL": {
+    "paper": "parietal ~1.0 / near-identical subspaces",
+    "ours_parietal": 0.921,
+    "status": "NUMERICALLY_CLOSE"
+  },
+  "alignment_direction": "CONCORDANT",
+  "alignment_magnitude_early": "DISCORDANT",
+  "alignment_parietal": "NUMERICALLY_CLOSE",
+  "above_null": "all ROIs exceed the reconstructed random-visual-subspace null (e.g. V1 0.70 vs null 0.19); 8/8 subjects above null in most ROIs. Reported as above the fold/subject null distribution only -- no inferential significance claim is made (voxels/ROIs/folds are not treated as independent participants).",
+  "domain_status": "ROY_ALIGNMENT_DIRECTIONALLY_CONCORDANT"
+}

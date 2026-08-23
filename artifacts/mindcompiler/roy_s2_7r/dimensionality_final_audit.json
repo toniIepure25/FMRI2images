@@ -1,0 +1,49 @@
+{
+  "roi_d_vis": {
+    "V1": 3.531,
+    "V2": 4.344,
+    "V3": 3.031,
+    "hV4": 2.562,
+    "ventral": 3.281,
+    "lateral": 4.344,
+    "parietal": 6.448
+  },
+  "roi_d_img": {
+    "V1": 4.479,
+    "V2": 5.312,
+    "V3": 5.135,
+    "hV4": 3.469,
+    "ventral": 5.656,
+    "lateral": 5.99,
+    "parietal": 5.448
+  },
+  "roi_d_img_over_d_vis": {
+    "V1": 1.331,
+    "V2": 1.4,
+    "V3": 1.694,
+    "hV4": 1.368,
+    "ventral": 2.016,
+    "lateral": 1.478,
+    "parietal": 0.996
+  },
+  "early_visual_mean_ratio": 1.475,
+  "higher_visual_mean_ratio": 1.497,
+  "D-C1_CENTRAL": {
+    "paper": "early visual d_img/d_vis ~0.5 (imagery ~half of visual)",
+    "ours_early_mean_ratio": 1.475,
+    "status": "DIRECTIONALLY_DISCORDANT",
+    "plain_statement": "THE CENTRAL EARLY-VISUAL DIMENSIONAL-COMPRESSION CLAIM IS DIRECTIONALLY DISCORDANT IN THIS INDEPENDENT RECONSTRUCTION: imagery subspaces are HIGHER-dimensional than visual in early visual cortex (ratio ~1.47, not ~0.5)."
+  },
+  "D-C2_SUPPORTING_CENTRAL": {
+    "paper": "d_img/d_vis -> parity toward higher/parietal cortex",
+    "ours": "parietal ratio 0.996 (at parity), but approached from ABOVE; ventral/lateral highest",
+    "status": "MIXED"
+  },
+  "D-C3_SUPPORTING": {
+    "paper": "imagery dimensionality comparatively stable across visual ROIs",
+    "ours": "d_img varies across visual ROIs (3.47-5.66); not clearly more stable than d_vis",
+    "status": "MIXED"
+  },
+  "domain_status": "ROY_DIMENSIONALITY_MIXED",
+  "domain_rationale": "central D-C1 directionally discordant, but parietal parity (D-C2) agrees -> overall MIXED (not fully discordant)."
+}

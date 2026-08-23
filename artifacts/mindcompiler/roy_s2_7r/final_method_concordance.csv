@@ -1,0 +1,18 @@
+row_id,paper,ours,status
+M-DATA,"Dataset-1 NSD-Imagery, 8 subjects",8 subjects (subj01 ref + subj02-08 cohort),MATCH
+M-IDENT,"12 identities (6+6), 8 repeats","12 identities/fold, 8 repeats (4/2/2)",MATCH
+M-BETA,'similar to b2',B0 = nsdimagerybetas_fithrf (b2-compatible),CLOSE_DEFENSIBLE_RECONSTRUCTION
+M-ROI,"V1,V2,V3,hV4,ventral,lateral,parietal",same 7 ROIs,MATCH
+M-VOXEL,>98th pct NSD-core ncsnr per ROI,identical strict >98th pct,MATCH
+M-FOLDS,4-fold 50/25/25,"four 4/2/2 folds, seed 1234",MATCH
+M-SCALE,columns centered and scaled,train-only z-score (scope not public),CLOSE_DEFENSIBLE_RECONSTRUCTION
+M-RIDGE,100 log-spaced 1e-3..1e5,identical grid,MATCH
+M-LAMBDA,"n ridge regressions, voxel-specific lambda",per-target Lambda (tie->largest),MATCH
+M-PAIR-V2V,shuffling within each data split,within-split derangement (source!=target),CLOSE_DEFENSIBLE_RECONSTRUCTION
+M-PAIR-V2I,randomly-selected imagery repeats,random within-identity one-to-one,CLOSE_DEFENSIBLE_RECONSTRUCTION
+M-RRR,reduced-rank two-stage,W_RRR = W_Lambda V_r V_r^T,MATCH
+M-DENOISE,denoised vision as vis2img inputs,D1_STRICT_CROSSFIT (leakage-safe),CLOSE_DEFENSIBLE_RECONSTRUCTION
+M-RANK,dim by 4-fold CV line search; d_report 99%-of-peak,r_model=val argmax; d_report 99%-of-TEST-peak first-crossing,CLOSE_DEFENSIBLE_RECONSTRUCTION
+M-PREDNULL,Fig-3 shuffle null,"test input<->output shuffle, N=1000 (author N not public)",CLOSE_DEFENSIBLE_RECONSTRUCTION
+M-ALIGN,TV_img(d_img) / TV_vis(d_img),"a_g=TV_img/TV_vis, d=d_img both terms",MATCH
+M-ALIGNNULL,"d_img random visual singular vectors, x100","full V_vis draws, N=100, DOI seeds",CLOSE_DEFENSIBLE_RECONSTRUCTION

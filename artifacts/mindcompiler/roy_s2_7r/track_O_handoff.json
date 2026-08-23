@@ -1,0 +1,9 @@
+{
+  "proposed_gate": "O1 -- PERCEPTION->IMAGERY NEURAL-STATE OPERATOR CHARACTERIZATION",
+  "execute_here": false,
+  "shift": "from 'Can we reproduce Roy?' to 'What transformation maps perception-state to imagery-state representations, and which parts are stable across people, ROIs and stimulus families?'",
+  "preserve_contradiction": "S2.6R dimensionality contradiction MUST be preserved: do NOT assume imagery is lower-dimensional; make dimensionality an empirical property of the operator.",
+  "precondition_met": "Dataset-1 verdict is PARTIAL and no blocking technical defect exists.",
+  "alternative": "Track R may close at INDEPENDENT_METHOD_REPRODUCTION_PARTIAL; the contradiction is itself methodological evidence.",
+  "optional_diagnostic_NOT_verdict_rescue": "R-DIAG1 (dimensionality discrepancy diagnostic) may later probe ONLY predeclared unresolved method ambiguities; must NOT be presented as part of this reproduction verdict."
+}

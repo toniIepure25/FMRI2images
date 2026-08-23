@@ -1,0 +1,8 @@
+{
+  "lane": "data-free audit tests (no modelling)",
+  "s2_7r_verdict_tests": {
+    "file": "test_roy_verdict.py",
+    "passed": 18
+  },
+  "reproduction_tests_passed": true
+}

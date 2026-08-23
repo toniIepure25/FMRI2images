@@ -1,0 +1,29 @@
+{
+  "dimensionality": {
+    "paper": "early d_img/d_vis ~0.5",
+    "ours": "early d_img/d_vis ~1.475",
+    "direction": "OPPOSITE",
+    "method_concordance": "core method MATCH/CLOSE_DEFENSIBLE; no MATERIAL_MISMATCH identified",
+    "possible_unresolved_explanations_UNRANKED": [
+      "exact author random seed unknown",
+      "exact center/scale scope unknown",
+      "exact D1 train-dependency unknown",
+      "numerical/SVD implementation details",
+      "beta file not bitwise author-confirmed",
+      "d_report tie/interpolation not publicly specified",
+      "low imagery SNR (Supplement Fig S2) may inflate noisy imagery reduced-rank curves"
+    ],
+    "note": "possible explanations ONLY; not ranked by plausibility without evidence"
+  },
+  "alignment": {
+    "paper_V1": "0.25-0.30",
+    "ours_V1": 0.705,
+    "paper_hV4": "~0.50",
+    "ours_hV4": 0.765,
+    "paper_parietal": "~1.0",
+    "ours_parietal": 0.921,
+    "directional_progression": "CONCORDANT (rises to parietal)",
+    "early_magnitude": "DISCORDANT (higher than reported)",
+    "coupling_note": "inflated early alignment is consistent with the inflated d_img (larger imagery subspace captures more visual variance)"
+  }
+}

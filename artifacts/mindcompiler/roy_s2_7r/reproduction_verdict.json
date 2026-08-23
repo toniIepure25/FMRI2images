@@ -1,0 +1,43 @@
+{
+  "scope": "DATASET_1_NSD_IMAGERY only (Dataset 2 / Spatial Imagery NOT reconstructed)",
+  "paper_status": "PREPRINT_NOT_PEER_REVIEWED (bioRxiv v1, 2025-09-03)",
+  "rubric_sha256": "9acc7e1a657626f5150ae0a81ce19ad0a41c5bb00d4b8834bba3fb7f2258805a",
+  "method_sufficiency": "METHOD_PARTIALLY_IDENTIFIABLE_BUT_ASSESSMENT_POSSIBLE",
+  "prediction_status": "ROY_PREDICTION_DIRECTIONALLY_CONCORDANT",
+  "dimensionality_status": "ROY_DIMENSIONALITY_MIXED",
+  "alignment_status": "ROY_ALIGNMENT_DIRECTIONALLY_CONCORDANT",
+  "feature_correspondence_status": "NOT_EVALUATED",
+  "central_claim_tally": {
+    "concordant_or_directional": [
+      "P-C1",
+      "A-C2"
+    ],
+    "mixed": [
+      "A-C1"
+    ],
+    "directionally_discordant": [
+      "D-C1"
+    ],
+    "not_evaluated_central_supporting": [
+      "F-C1"
+    ]
+  },
+  "central_claim_status": {
+    "P-C1": "DIRECTIONALLY_CONCORDANT",
+    "D-C1": "DIRECTIONALLY_DISCORDANT",
+    "A-C1": "MIXED",
+    "A-C2": "DIRECTIONALLY_CONCORDANT"
+  },
+  "FINAL_VERDICT": "INDEPENDENT_METHOD_REPRODUCTION_PARTIAL",
+  "rationale": "Method reconstructed sufficiently for scientific comparison (partial identifiability, no material mismatch). The perception->imagery PREDICTION and the cortical INCREASE in visual<->imagery subspace ALIGNMENT were directionally reproduced. However the paper's CENTRAL early-visual DIMENSIONAL-COMPRESSION result was NOT reproduced: the independent reconstruction estimated imagery dimensionality GREATER than visual dimensionality in early visual cortex (ratio ~1.47 vs ~0.5). Early-cortex alignment magnitudes were also substantially higher than reported (V1 ~0.70 vs ~0.25-0.30). Feature/tuning correspondence (Fig 5C-E) was not evaluated. A central directionally-discordant claim blocks SUPPORTED; concordant prediction and alignment domains preclude NOT_SUPPORTED; sufficient method identifiability precludes PUBLIC_METHODS_INSUFFICIENT. Therefore the Dataset-1 scientific result is PARTIALLY reproduced.",
+  "exact_replication_limitation": "No exact/bitwise replication: original author code and random seeds are unavailable; B0 is b2-COMPATIBLE, not author-bitwise-confirmed.",
+  "original_code_limitation": "ORIGINAL_CODE_REPRODUCTION_UNAVAILABLE.",
+  "dataset_2_limitation": "Dataset 2 (Spatial Imagery) NOT independently reconstructed; no claim about it.",
+  "no_numerical_score": true,
+  "no_misconduct_or_author_error_implied": true,
+  "immutable": {
+    "H_A_CROSS_PARTICIPANT_PARTIAL": "unchanged",
+    "S2_5R_VERDICT_WITHHELD": true,
+    "S2_6R_RESULTS_IMMUTABLE": true
+  }
+}

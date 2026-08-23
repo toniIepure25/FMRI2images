@@ -1,0 +1,11 @@
+{
+  "verdict_scope": "DATASET_1_NSD_IMAGERY_INDEPENDENT_REPRODUCTION_VERDICT",
+  "reconstructed": {
+    "dataset_1": "NSD-Imagery (8 subjects, 12 identities, 7 ROIs) -- reconstructed in Track R"
+  },
+  "NOT_reconstructed": {
+    "dataset_2": "Spatial Imagery -- NOT independently reconstructed in Track R"
+  },
+  "consequence": "The paper uses Dataset 2 as an independent generalization of several geometric findings; this verdict does NOT claim reproduction of the entire two-dataset paper.",
+  "forbidden_label": "FULL_PAPER_TWO_DATASET_REPRODUCTION"
+}

@@ -1,0 +1,90 @@
+{
+  "rubric_sha256": "9acc7e1a657626f5150ae0a81ce19ad0a41c5bb00d4b8834bba3fb7f2258805a",
+  "gate": "S2.7R",
+  "frozen_before_synthesis": true,
+  "scope_label": "DATASET_1_NSD_IMAGERY_INDEPENDENT_REPRODUCTION_VERDICT",
+  "headline_domains": [
+    "PREDICTION",
+    "DIMENSIONALITY",
+    "ALIGNMENT"
+  ],
+  "feature_correspondence": "additional supporting scientific claim (not one of the three headline domains)",
+  "claim_status_vocabulary": [
+    "CONCORDANT",
+    "DIRECTIONALLY_CONCORDANT",
+    "NUMERICALLY_CLOSE",
+    "MIXED",
+    "DIRECTIONALLY_DISCORDANT",
+    "DISCORDANT",
+    "NOT_DIRECTLY_COMPARABLE",
+    "NOT_EVALUATED"
+  ],
+  "importance": {
+    "P-C1": "CENTRAL",
+    "D-C1": "CENTRAL",
+    "D-C2": "SUPPORTING_CENTRAL",
+    "D-C3": "SUPPORTING",
+    "A-C1": "CENTRAL",
+    "A-C2": "CENTRAL",
+    "A-C3": "SUPPORTING_CENTRAL",
+    "F-C1": "SUPPORTING_CENTRAL"
+  },
+  "final_verdict_options": [
+    "INDEPENDENT_METHOD_REPRODUCTION_SUPPORTED",
+    "INDEPENDENT_METHOD_REPRODUCTION_PARTIAL",
+    "INDEPENDENT_METHOD_REPRODUCTION_NOT_SUPPORTED",
+    "PUBLIC_METHODS_INSUFFICIENT_FOR_STRONG_VERDICT"
+  ],
+  "SUPPORTED_requires_ALL": {
+    "A": "method sufficiently reconstructed for assessment",
+    "B": "P-C1 at least DIRECTIONALLY_CONCORDANT",
+    "C": "D-C1 NOT directionally discordant",
+    "D": "overall dimensionality domain at least directionally concordant",
+    "E": "overall alignment domain (A-C1/A-C2) at least directionally concordant",
+    "F": "no CENTRAL claim directionally opposite to the paper",
+    "G": "any unevaluated supporting claim does not materially undermine the headline conclusion",
+    "note": "a CENTRAL directionally-discordant claim AUTOMATICALLY blocks SUPPORTED"
+  },
+  "PARTIAL_requires": {
+    "base": "method sufficiently reconstructed AND >=1 headline domain concordant/directionally-concordant",
+    "and_one_or_more_of": [
+      "another CENTRAL claim directionally discordant",
+      "a central domain mixed",
+      "an important supporting claim not evaluated",
+      "quantitative magnitudes differ materially despite directional agreement"
+    ],
+    "must_preserve_contradictions": true,
+    "forbidden_phrasing": "essentially reproduced"
+  },
+  "NOT_SUPPORTED_requires": {
+    "base": "public method sufficiently reconstructed",
+    "and": "reconstructed findings fail the central scientific pattern broadly (prediction fails materially AND/OR both dimensional-compression AND reorientation directionally incompatible)",
+    "note": "one major discordant domain alone does NOT imply full NOT_SUPPORTED if other headline domains reproduce"
+  },
+  "PUBLIC_METHODS_INSUFFICIENT_requires": {
+    "only_when": "remaining public ambiguities materially prevent adjudication of the observed discrepancy",
+    "forbidden_use": "NOT to avoid a negative/mixed result when the method is sufficiently reconstructed and a claim genuinely disagrees"
+  },
+  "terminology_guards": {
+    "no_numerical_weighted_score": true,
+    "no_percent_or_x_of_y_reproduced": true,
+    "direction_and_magnitude_kept_distinct": true,
+    "no_significantly_aligned_without_inferential_unit": true,
+    "no_exact_replication_claim": true,
+    "forbidden_wording": [
+      "Roy was wrong",
+      "the paper is disproven",
+      "the reproduction failed",
+      "the paper was reproduced",
+      "scientific misconduct",
+      "author error (as cause)"
+    ]
+  },
+  "immutable_inputs": {
+    "S2_5R_VERDICT_WITHHELD": true,
+    "S2_6R_RESULTS_IMMUTABLE": true,
+    "H_A_CROSS_PARTICIPANT_PARTIAL": "unchanged",
+    "no_new_models": true,
+    "B1_role": "METHOD_SENSITIVITY_BRANCH_NOT_PRIMARY_PAPER_RECONSTRUCTION (never used to downgrade the verdict)"
+  }
+}

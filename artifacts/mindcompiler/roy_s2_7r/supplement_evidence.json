@@ -1,0 +1,44 @@
+{
+  "file": "media-1.pdf (Supplement 1)",
+  "source_url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC12424947/supplementaryFiles (media-1.pdf)",
+  "retrieval_date": "2026-08-23",
+  "sha256": "67afe50a6bcc4a37fcc16ff78b78b1a9ce04ffa94a8434b405a4dc12f0756bf3",
+  "bytes": 1537434,
+  "page_count": 3,
+  "committed_to_repo": false,
+  "contents": "THREE supplementary FIGURES only; no additional Methods text.",
+  "figures": {
+    "S1": {
+      "caption_excerpt": "Prediction accuracy of the vis2vis and vis2img models for subjects 2-8 of NSD Imagery dataset ... voxelwise prediction accuracies ... 2D colorbar where 'blue' regions indicate higher vis2vis accuracy, 'orange' indicate higher 'vis2img' accuracy",
+      "bearing": "Per-subject cortical prediction maps (subj02-08); supports the broad-cortical, across-subject prediction claim P-C1.",
+      "material_method_change": false
+    },
+    "S2": {
+      "caption_excerpt": "Average signal-to-noise ratio (SNR) for subjects 1-8 ... Top row ... two vision runs ... Middle/Bottom ... imagery runs",
+      "bearing": "Vision SNR high & concentrated in early visual cortex (up to ~0.5); imagery SNR markedly lower and diffuse. Context (possible explanation for noisy imagery reduced-rank curves); NOT a method spec.",
+      "material_method_change": false
+    },
+    "S3": {
+      "caption_excerpt": "The imagery subspace may exhibit lower dimensionality than the visual subspace through different configurations ... All data in this figure are simulated.",
+      "bearing": "Explicitly SIMULATED conceptual illustration of the alignment/dimensionality framework; reaffirms the paper's imagery-lower-dimensional framing (so our dimensionality discordance is a genuine disagreement, not a misreading). No data, no new method.",
+      "material_method_change": false
+    }
+  },
+  "audited_for": [
+    "prediction-null semantics",
+    "dimensionality estimation",
+    "99%-of-peak semantics",
+    "rank estimation",
+    "visual vs imagery dimensionality",
+    "reliability/SNR interpretation",
+    "alignment-ratio calculation",
+    "alignment null",
+    "feature/tuning correspondence",
+    "subject-level heterogeneity",
+    "Dataset-1 robustness",
+    "claims-qualifying analyses"
+  ],
+  "material_method_gap_found": false,
+  "verdict": "Supplement 1 introduces NO method detail that contradicts the S2.5M/S2.6R implementation; it is figures-only and consistent with the reconstruction. S2_7R_NEW_MATERIAL_METHOD_GAP NOT raised.",
+  "feature_correspondence_note": "Fig 5C-E (feature/tuning correspondence, F-C1) is in the MAIN text, not the supplement; NOT reconstructed in Track R."
+}

@@ -1,0 +1,23 @@
+{
+  "paper": "Saha Roy, Breedlove, St-Yves, Kay, Naselaris -- 'A transformation from vision to imagery in the human brain'",
+  "doi": "10.1101/2025.09.02.672180",
+  "pmcid": "PMC12424947",
+  "version": "v1",
+  "posted_date": "2025-09-03",
+  "publication_status": "PREPRINT_NOT_PEER_REVIEWED",
+  "status_quote": "This is a preprint. It has not yet been peer reviewed by a journal.",
+  "sources_accessed": [
+    {
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12424947/",
+      "type": "open-access full text (PMC)",
+      "retrieval": "WebFetch, short quotes"
+    },
+    {
+      "url": "https://www.ebi.ac.uk/europepmc/webservices/rest/PMC12424947/supplementaryFiles",
+      "type": "Europe PMC supplementary-files API (zip)",
+      "retrieval": "curl; media-1.pdf extracted"
+    }
+  ],
+  "access_date": "2026-08-23",
+  "note": "PMC binary supplement is behind a JS proof-of-work gate; Supplement 1 retrieved via Europe PMC mirror. Full PDF NOT committed (short figure-caption excerpts only)."
+}

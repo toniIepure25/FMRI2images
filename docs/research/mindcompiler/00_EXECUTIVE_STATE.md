@@ -10,6 +10,43 @@ Corrected 2026-07-17.)
 
 ---
 
+## S2.6R (2026-08-23): ROY DIMENSIONALITY + VISUAL<->IMAGERY ALIGNMENT -- `S2_6R_DIMENSIONALITY_ALIGNMENT_PASS`
+
+**Input `4aa5a8c` -> output `efccf35`, server-verified. Freeze (config + semantics `5257c14`)
+before any dimensionality/alignment outcome.** Doc `49_...md`; artifacts
+`artifacts/mindcompiler/roy_s2_6r/`. New: `roy_geometry.py` (d99 rule, output-space bases,
+alignment ratio + null, spectral diagnostics), `roy_geometry_engine.py` (replays S2.5M fold
++ derives geometry). B0 only; NO proxy geometry (no principal angles/CCA/Procrustes/RSA).
+
+Reconstructed the two deferred Roy quantities on the frozen public-method-aligned B0 pipeline,
+224/224 cells (8 subj x 7 ROI x 4 folds). **Ran on the S2.5M pod (identical LAPACK):**
+engine-fidelity 0.0 vs frozen `run_fold_roy` AND committed-pod curve replay 0.0 on all 224;
+0 reduced-rank-unstable cells; d_report platform-stable 1.0; pairing + voxel hashes match
+S2.5M. (A local Windows-BLAS run first exposed cross-platform reduced-rank SVD-tie instability
+in 2 cells -> resolved by same-platform pod execution.) Validator ALL_PASS.
+
+- `r_model` (validation-selected operational rank, S2.5M) kept SEPARATE from `d_report`
+  (99%-of-TEST-peak first-crossing). 209/224 folds evaluable (non-positive-peak rule).
+- **Dimensionality DISCORDANT on the headline claim:** d_img/d_vis ~1.47 early visual,
+  ~1.50 higher; imagery subspace is HIGHER-dimensional than visual (opposite of Roy ~0.5).
+  Parietal alone at parity (0.996). DIM-C1 DIRECTIONALLY_DISCORDANT -> `ROY_DIMENSIONALITY_MIXED`.
+- **Alignment DIRECTIONALLY concordant:** a_g = TV_img/TV_vis (d=d_img both terms), 100-draw
+  random-visual-subspace null. V1 0.70, hV4 0.77, parietal 0.92; monotone up; all far above
+  null (V1 null 0.19; 8/8 above null in most ROIs). Parietal NUMERICALLY_CLOSE to ~1.0; early
+  ROIs ~2x Roy (coupled to inflated d_img) -> `ROY_ALIGNMENT_DIRECTIONALLY_CONCORDANT`.
+- Dimension-ratio <-> alignment relation: median per-participant Spearman -0.14 (no consistent
+  within-subject relation; 56 ROI rows NOT treated as independent).
+
+**FULL INDEPENDENT REPRODUCTION VERDICT STILL DEFERRED -> S2.7R.** No beta selection, no B1
+primary geometry, no D1b, no proxy. H_A_CROSS_PARTICIPANT_PARTIAL unchanged. 22 new geometry
+tests (18+4); roy suite 215 local / 241 pod (1 pre-existing S1-manifest pod discrepancy).
+
+**Next: S2.7R -- FINAL CLAIM-BY-CLAIM INDEPENDENT REPRODUCTION VERDICT** (freeze rubric from
+public paper; combine PREDICTION + DIMENSIONALITY + ALIGNMENT + METHOD CONCORDANCE + ambiguities;
+no new models).
+
+---
+
 ## S2.5M (2026-08-21): PUBLIC-METHOD-ALIGNED RECONSTRUCTION -- `S2_5M_PUBLIC_METHOD_ALIGNMENT_PASS`
 
 **Input `34b70f6` -> output `67e755f`, server-verified. Freeze (config `54e72e6` +

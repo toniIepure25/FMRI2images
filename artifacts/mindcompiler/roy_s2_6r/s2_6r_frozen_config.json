@@ -1,0 +1,133 @@
+{
+  "config_sha256": "f29f975dcc64998fb8018f4a7e09cd332b6e0b60b39021ed41d6f35cde194877",
+  "gate": "S2.6R",
+  "analysis_class": "PUBLIC_RESULT_RECONSTRUCTION_AND_CLAIM_CONCORDANCE",
+  "not_prospective_confirmation": true,
+  "frozen_before_derivation": true,
+  "primary_branch": "B0 (nsdimagerybetas_fithrf / b2-compatible)",
+  "B1_geometry": "DEFERRED",
+  "participants": [
+    "subj01",
+    "subj02",
+    "subj03",
+    "subj04",
+    "subj05",
+    "subj06",
+    "subj07",
+    "subj08"
+  ],
+  "rois": [
+    "V1",
+    "V2",
+    "V3",
+    "hV4",
+    "ventral",
+    "lateral",
+    "parietal"
+  ],
+  "beta_branch": {
+    "sub": "nsdimagerybetas_fithrf",
+    "sha256": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64"
+  },
+  "reuse_from_s2_5m": {
+    "voxel_selection": ">98th pct NSD-core ncsnr per ROI (identical)",
+    "folds": "four 4/2/2 folds, root seed 1234",
+    "pairings": "frozen realization 0 manifests",
+    "preprocessing": "S2_5M_TRAIN_STANDARDIZED_MODEL_SPACE",
+    "per_target_lambda": "voxel-specific, tie->largest",
+    "operational_rank_r_model": "validation argmax (UNCHANGED, not d_report)",
+    "D1": "D1_STRICT_CROSSFIT (LOTO train / full-train val-test)"
+  },
+  "rank_semantics": {
+    "r_model_fold": "validation-selected operational rank (Roy line search) -- UNCHANGED",
+    "d_report_fold": "TEST-curve 99%-of-peak dimensionality (Roy Figure-4 dot) -- NEW",
+    "distinct": "OPERATIONAL_MODEL_RANK != REPORTED_DIMENSIONALITY_ESTIMATE"
+  },
+  "d_report_rule": {
+    "rule": "FIRST_INTEGER_RANK_REACHING_99_PERCENT_OF_TEST_PEAK",
+    "threshold": 0.99,
+    "ranks": "1..min(12, supported)",
+    "no_interpolation": true,
+    "tie_note": "D99_EXACT_TIE_INTERPOLATION_NOT_PUBLICLY_SPECIFIED",
+    "nonpositive_peak": "NOT_EVALUABLE_NONPOSITIVE_TEST_PEAK",
+    "fold_support": {
+      "4/4": "primary",
+      "3/4": "PARTIAL_FOLD_SUPPORT",
+      "<=2/4": "DIMENSIONALITY_NOT_RELIABLY_EVALUABLE"
+    }
+  },
+  "fold_aggregation": {
+    "subject": "mean of 4 fold values (dimension NOT rounded)",
+    "unit": "participant"
+  },
+  "basis_construction": {
+    "source": "right singular vectors of fitted TRAIN prediction X_train @ W_Lambda",
+    "V_vis": "vis2vis solution",
+    "V_img": "vis2img solution",
+    "sign_invariance": "projector P = V_d V_d^T",
+    "no_test_data_in_basis": true
+  },
+  "alignment_input": {
+    "X_test_vis": "held-out VISUAL source trials of the fold",
+    "standardization": "train-fitted VISUAL z-score",
+    "space": "S2_5M_TRAIN_STANDARDIZED_MODEL_SPACE"
+  },
+  "alignment_ratio": {
+    "formula": "a_g = TV(X_vis on d_img IMAGERY dims) / TV(X_vis on first d_img VISUAL dims)",
+    "d": "d_img_fold in BOTH numerator and denominator",
+    "var_ddof": 1,
+    "no_clipping": true,
+    "nonevaluable_if": "TV_vis <= 1e-12"
+  },
+  "alignment_null": {
+    "N": 100,
+    "basis": "FULL_V_VIS_FITTED_TRAIN_PREDICTION",
+    "draw": "d_img distinct visual singular vectors without replacement, / same TV_vis",
+    "seed": "SHA256(DOI|S2.6R|participant|ROI|fold|null=k)",
+    "ambiguity": "ALIGNMENT_NULL_BASIS_SOURCE_NOT_FULLY_IDENTIFIABLE"
+  },
+  "replay_tolerance": {
+    "vis2img_curve_ATOL": 1e-10,
+    "RTOL": 1e-10,
+    "on_discrepancy": "S2_6R_S2_5M_REPLAY_DISCREPANCY"
+  },
+  "claims": {
+    "DIM-C1": "early visual d_img < d_vis (~half)",
+    "DIM-C2": "d_img/d_vis -> parity higher cortex",
+    "DIM-C3": "imagery dimensionality relatively stable across visual ROIs",
+    "ALIGN-C1": "V1 ~0.25-0.30",
+    "ALIGN-C2": "~0.5 by hV4",
+    "ALIGN-C3": "parietal ~1.0",
+    "ALIGN-C4": "early-visual imagery subspace reoriented, not a mere lower-dim subset"
+  },
+  "prohibited_proxies": [
+    "principal_angles",
+    "CCA",
+    "Procrustes",
+    "centroid_correlation",
+    "RSA",
+    "B0_B1_correlation",
+    "D1_prediction_accuracy",
+    "raw_PCA_dimensionality",
+    "participation_ratio"
+  ],
+  "prohibited": [
+    "beta selection",
+    "B1 primary geometry",
+    "D1b",
+    "alternate preprocessing",
+    "alternate pairings",
+    "participant exclusion",
+    "reproduction verdict"
+  ],
+  "reproduction_verdict": "NOT ISSUED (deferred to S2.7R)",
+  "ambiguities": [
+    "AUTHOR_RANDOM_SEED_NOT_PUBLICLY_IDENTIFIABLE",
+    "D99_EXACT_TIE_INTERPOLATION_NOT_PUBLICLY_SPECIFIED",
+    "CENTER_SCALE_SCOPE_NOT_IDENTIFIABLE_PUBLICLY",
+    "ALIGNMENT_NULL_BASIS_SOURCE_NOT_FULLY_IDENTIFIABLE",
+    "ALIGNMENT_STIMULUS_SET_SCOPE_HELD_OUT_TEST_INDEPENDENT_RECONSTRUCTION_CHOICE",
+    "ORIGINAL_CODE_REPRODUCTION_UNAVAILABLE",
+    "BITWISE_REPLICATION_UNAVAILABLE_WITHOUT_ORIGINAL_CODE_AND_SEEDS"
+  ]
+}

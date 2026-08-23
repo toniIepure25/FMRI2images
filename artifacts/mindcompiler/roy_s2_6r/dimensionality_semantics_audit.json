@@ -1,0 +1,16 @@
+{
+  "OPERATIONAL_MODEL_RANK": {
+    "roy": "dim determined by 4-fold cross-validated line search",
+    "ours": "r_model_fold = validation argmax mean voxelwise r (S2.5M, UNCHANGED)"
+  },
+  "REPORTED_DIMENSIONALITY_ESTIMATE": {
+    "roy": "average of values at 99% of the peak of each fold curve",
+    "ours": "d_report_fold = first-crossing 99%-of-TEST-peak; subject = mean over folds"
+  },
+  "distinct_quantities": true,
+  "d_report_never_overwrites_r_model": true,
+  "quotes": {
+    "line_search": "The value of dim is determined by 4-fold cross-validated line search.",
+    "99pct": "The estimate of the optimal number of visual subspace dimensions (dvis) for each subject is the average of the values at 99% of the peak (dots) of each curve."
+  }
+}

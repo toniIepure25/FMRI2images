@@ -10,6 +10,44 @@ Corrected 2026-07-17.)
 
 ---
 
+## S2.7R (2026-08-23): FINAL CLAIM-BY-CLAIM REPRODUCTION VERDICT -- `S2_7R_FINAL_VERDICT_AUDIT_PASS`
+
+**Input `932b94f` -> rubric freeze `a718faf` -> verdict `03b8fa3`, server-verified.** Audit/verdict
+gate, NO modelling. Doc `50_...md`; artifacts `artifacts/mindcompiler/roy_s2_7r/`. Rubric (sha
+`9acc7e1a`) frozen BEFORE synthesis. New: `roy_verdict.py` (pure rubric decision logic) + 18 tests.
+
+Supplement 1 (`media-1.pdf`, sha `67afe50a`, 3 pp) retrieved via Europe PMC (PMC binary is behind a
+JS proof-of-work gate): THREE figures only (S1 prediction maps subj02-08; S2 SNR maps -- imagery SNR
+markedly lower than vision; S3 SIMULATED alignment illustration). **No material method gap** ->
+S2_7R_NEW_MATERIAL_METHOD_GAP NOT raised. Source is a bioRxiv **PREPRINT** (not peer reviewed).
+
+Method: 9 MATCH / 8 CLOSE_DEFENSIBLE / 0 MATERIAL_MISMATCH -> `METHOD_PARTIALLY_IDENTIFIABLE_BUT_
+ASSESSMENT_POSSIBLE`.
+
+### FINAL DATASET-1 VERDICT: `INDEPENDENT_METHOD_REPRODUCTION_PARTIAL`
+- PREDICTION `ROY_PREDICTION_DIRECTIONALLY_CONCORDANT` (B0 7/7 positive, 17.3% voxels > shuffle
+  null, pairing-robust; Fig S1 corroborates). B1 NOT used to downgrade.
+- DIMENSIONALITY `ROY_DIMENSIONALITY_MIXED`; **central D-C1 DIRECTIONALLY_DISCORDANT** -- early
+  d_img/d_vis ~1.47 vs paper ~0.5 (imagery HIGHER-dim, OPPOSITE). A central directional discordance
+  blocks SUPPORTED.
+- ALIGNMENT `ROY_ALIGNMENT_DIRECTIONALLY_CONCORDANT` -- monotone V1 0.70 -> hV4 0.77 -> parietal
+  0.92, all above null; early magnitude discordant (V1 0.70 vs 0.25-0.30, coupled to inflated d_img);
+  parietal NUMERICALLY_CLOSE to ~1.0.
+- FEATURE_CORRESPONDENCE (F-C1, Fig 5C-E) `NOT_EVALUATED` (no proxy).
+
+Concordant prediction + alignment preclude NOT_SUPPORTED; sufficient method identifiability precludes
+PUBLIC_METHODS_INSUFFICIENT; central D-C1 discordance precludes SUPPORTED -> **PARTIAL**. Scope =
+**Dataset 1 (NSD-Imagery) ONLY** (Dataset 2 / Spatial Imagery NOT reconstructed). No exact/bitwise
+replication claim. `H_A_CROSS_PARTICIPANT_PARTIAL` + `S2_5R_VERDICT_WITHHELD` + `S2_6R_RESULTS`
+immutable. 40 tests (18 verdict + 22 geometry).
+
+**TRACK R CLOSES at `INDEPENDENT_METHOD_REPRODUCTION_PARTIAL`.** Optional next: **Track O -- O1
+perception->imagery neural-state operator** (handoff prepared, NOT executed; S2.6R dimensionality
+contradiction must be preserved, not assumed away). Optional `R-DIAG1` diagnostic = predeclared
+ambiguities only, never a verdict rescue.
+
+---
+
 ## S2.6R (2026-08-23): ROY DIMENSIONALITY + VISUAL<->IMAGERY ALIGNMENT -- `S2_6R_DIMENSIONALITY_ALIGNMENT_PASS`
 
 **Input `4aa5a8c` -> output `efccf35`, server-verified. Freeze (config + semantics `5257c14`)

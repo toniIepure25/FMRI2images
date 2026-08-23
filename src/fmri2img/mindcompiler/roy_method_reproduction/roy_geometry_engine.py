@@ -131,12 +131,18 @@ def run_fold_geometry(M, vis_by: Dict[str, Dict[str, Sequence[int]]],
                                      participant, roi, fold_name, n=n_null)
         null_sum = rg.null_summary(align["a_g"], null_raw)
 
+    sig_vis = rg.output_spectrum(Xtr_v, v2v.W_lambda)
+    sig_img = rg.output_spectrum(Xtr_i, v2i.W_lambda)
     basis = dict(nv=int(nv), V_vis_cols=int(V_vis.shape[1]), V_img_cols=int(V_img.shape[1]),
                  vis_projector_hash=(rg.projector_hash(V_vis[:, :d_vis_r]) if d_vis_r else None),
                  img_projector_hash=(rg.projector_hash(V_img[:, :d_img_r]) if d_img_r else None),
                  v2v_lambda_hash=_lambda_hash(lam_v), v2i_lambda_hash=_lambda_hash(v2i.lambdas),
                  v2v_r_model=int(rank_v), v2i_r_model=int(v2i.r_model),
-                 rank_max_vis=int(rmax_v), rank_max_img=int(rmax_i))
+                 rank_max_vis=int(rmax_v), rank_max_img=int(rmax_i),
+                 vis_spectral_gap_at_dvis=rg.relative_spectral_gap(sig_vis, d_vis_r),
+                 img_spectral_gap_at_dimg=rg.relative_spectral_gap(sig_img, d_img_r),
+                 vis_degenerate=bool(rg.relative_spectral_gap(sig_vis, d_vis_r) < rg.DEGENERATE_GAP_TOL),
+                 img_degenerate=bool(rg.relative_spectral_gap(sig_img, d_img_r) < rg.DEGENERATE_GAP_TOL))
     provenance = dict(
         vis2vis_source_rows=list(map(int, S_tr)), vis2vis_target_rows=list(map(int, T_tr)),
         vis2vis_test_source=list(map(int, S_te)), vis2vis_test_target=list(map(int, T_te)),

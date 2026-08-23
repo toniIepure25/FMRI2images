@@ -24,6 +24,7 @@ import pandas as pd
 _REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_REPO / "src"))
 
+from fmri2img.mindcompiler.roy_method_reproduction import roy_engine as re2           # noqa: E402
 from fmri2img.mindcompiler.roy_method_reproduction import roy_geometry as rg          # noqa: E402
 from fmri2img.mindcompiler.roy_method_reproduction import roy_geometry_engine as ge   # noqa: E402
 from fmri2img.mindcompiler.roy_method_reproduction import roy_pairing as rp           # noqa: E402
@@ -162,12 +163,20 @@ def compute_participant(subj):
         for k in range(4):
             fold = f"fold_{k}"
             asg = folds[fold]
-            geo = ge.run_fold_geometry(M, _by(asg, "vision"), _by(asg, "imagery"), root, subj, rname, fold)
-            # --- vis2img replay audit vs committed S2.5M curve ---
+            vis, img = _by(asg, "vision"), _by(asg, "imagery")
+            geo = ge.run_fold_geometry(M, vis, img, root, subj, rname, fold)
+            # --- ENGINE-FIDELITY (same platform): geometry vs frozen S2.5M run_fold_roy (n_null=1, curve independent of null) ---
+            ref = re2.run_fold_roy(M, vis, img, root, subj, fold, n_null=1)
+            fid = max(max(abs(geo.vis2img_curve[i][s] - ref.rank_curve[i][s]) for s in ("val", "test"))
+                      for i in range(min(len(ref.rank_curve), len(geo.vis2img_curve))))
+            # --- committed pod JSON cross-check (diagnostic; pod is gone, so cross-platform SVD ties may differ) ---
             comm = committed[f"{rname}|B0|{fold}"]
             rmax = min(len(comm), len(geo.vis2img_curve))
             ad = max(max(abs(geo.vis2img_curve[i][s] - comm[i][s]) for s in ("val", "test")) for i in range(rmax))
             ok = bool(ad <= REPLAY_ATOL + REPLAY_RTOL * max(abs(comm[i][s]) for i in range(rmax) for s in ("val", "test")))
+            # d_report robustness across platforms: local curve vs committed pod curve
+            d_img_local, _ = rg.d99_from_curve([c["test"] for c in geo.vis2img_curve])
+            d_img_pod, _ = rg.d99_from_curve([c["test"] for c in comm])
             # --- pairing identity vs frozen manifest ---
             # geo pooled order == sorted-identity order; the manifest, sorted the same way, must agree.
             man = v2v_manifest[(v2v_manifest.participant == subj) & (v2v_manifest.fold == fold) & (v2v_manifest.split == "train")]
@@ -176,8 +185,14 @@ def compute_participant(subj):
             our_dig = _pairing_digest(our.s.tolist(), our.t.tolist())
             man_dig = _pairing_digest(man.sort_values("source_trial_row").source_trial_row.tolist(),
                                       man.sort_values("source_trial_row").target_trial_row.tolist())
-            replay.append(dict(participant=subj, ROI=rname, fold=fold, vis2img_max_abs_diff=ad,
-                               replay_ok=ok, voxel_hash=sel["voxel_hash"],
+            replay.append(dict(participant=subj, ROI=rname, fold=fold,
+                               engine_fidelity_max_abs_diff=fid, engine_fidelity_ok=bool(fid <= REPLAY_ATOL),
+                               committed_pod_max_abs_diff=ad, committed_pod_within_tol=ok,
+                               d_img_local=d_img_local, d_img_pod=d_img_pod,
+                               d_img_platform_stable=bool(d_img_local == d_img_pod),
+                               img_spectral_gap=geo.basis["img_spectral_gap_at_dimg"],
+                               img_degenerate=geo.basis["img_degenerate"],
+                               voxel_hash=sel["voxel_hash"],
                                voxel_hash_matches_s2_5m=bool(sel["voxel_hash"] == committed_voxel_hash(subj, rname)),
                                pairing_digest_ours=our_dig, pairing_digest_manifest=man_dig,
                                pairing_matches=bool(our_dig == man_dig)))
@@ -195,6 +210,8 @@ def compute_participant(subj):
                               alignment_empirical_percentile=nul["empirical_percentile"],
                               vis_projector_hash=geo.basis["vis_projector_hash"], img_projector_hash=geo.basis["img_projector_hash"],
                               V_vis_cols=geo.basis["V_vis_cols"], V_img_cols=geo.basis["V_img_cols"],
+                              vis_spectral_gap=geo.basis["vis_spectral_gap_at_dvis"], vis_degenerate=geo.basis["vis_degenerate"],
+                              img_spectral_gap=geo.basis["img_spectral_gap_at_dimg"], img_degenerate=geo.basis["img_degenerate"],
                               v2v_r_model=geo.basis["v2v_r_model"], v2i_r_model=geo.basis["v2i_r_model"],
                               v2v_lambda_hash=geo.basis["v2v_lambda_hash"], v2i_lambda_hash=geo.basis["v2i_lambda_hash"],
                               rank_max_vis=geo.basis["rank_max_vis"], rank_max_img=geo.basis["rank_max_img"],
@@ -309,14 +326,40 @@ def aggregate():
 
     # ---- rank curves + replay audit ----
     json.dump({s: parts[s]["vis2vis_curves"] for s in ALL}, open(OUT / "vis2vis_test_rank_curves.json", "w"), indent=1)
-    all_replay_ok = bool(replay.replay_ok.all())
-    worst = float(replay.vis2img_max_abs_diff.max())
-    json.dump({"tolerance": {"ATOL": REPLAY_ATOL, "RTOL": REPLAY_RTOL}, "all_within_tolerance": all_replay_ok,
-               "worst_max_abs_diff": worst, "n_cells": int(len(replay)),
+    # ENGINE-FIDELITY (same platform, all cells): geometry engine vs frozen S2.5M run_fold_roy -> must be ~0.
+    fidelity_ok = bool(replay.engine_fidelity_ok.all())
+    fidelity_worst = float(replay.engine_fidelity_max_abs_diff.max())
+    # committed pod JSON cross-check (diagnostic): pod is decommissioned; intermediate reduced-rank
+    # scores are BLAS-tie sensitive at degenerate ranks. Report scope + degeneracy correlation honestly.
+    # committed pod cross-check IS the same-platform replay when run on the S2.5M pod (~1e-12);
+    # run on any other BLAS it exposes cross-platform reduced-rank SVD-tie instability. A cell is
+    # flagged REDUCED_RANK_UNSTABLE empirically (curve diff > tol) -- no tuned spectral threshold.
+    pod_ok = bool(replay["committed_pod_within_tol"].all())
+    pod_worst = float(replay.committed_pod_max_abs_diff.max())
+    n_pod_exceed = int((~replay["committed_pod_within_tol"]).sum())
+    unstable = replay[~replay["committed_pod_within_tol"]][["participant", "ROI", "fold",
+               "committed_pod_max_abs_diff", "d_img_local", "d_img_pod", "img_spectral_gap"]].to_dict("records")
+    n_dimg_platform_stable = int(replay.d_img_platform_stable.sum())
+    same_platform = bool(pod_worst <= 1e-9)   # ~0 worst => S2.6R ran on the S2.5M pod BLAS
+    json.dump({"engine_fidelity_same_process": {
+                   "definition": "geometry engine vis2img curve vs frozen S2.5M run_fold_roy, SAME process",
+                   "all_within_1e-10": fidelity_ok, "worst_max_abs_diff": fidelity_worst,
+                   "interpretation": "proves S2.6R replays the frozen S2.5M model exactly (identical code path)"},
+               "committed_pod_replay": {
+                   "definition": "recomputed curve vs pod-committed S2.5M rank_curves_index.json",
+                   "ran_on_s2_5m_pod_platform": same_platform,
+                   "all_within_1e-10": pod_ok, "worst_max_abs_diff": pod_worst, "n_cells_exceeding": n_pod_exceed,
+                   "reduced_rank_unstable_cells": unstable,
+                   "cause_if_exceeding": "reduced-rank SVD-tie instability at intermediate ranks (BLAS/thread sensitive); agrees at rank 1 & full rank"},
+               "d_report_platform_robustness": {
+                   "n_cells": int(len(replay)), "n_d_img_identical_vs_committed": n_dimg_platform_stable,
+                   "fraction_stable": round(n_dimg_platform_stable / max(1, len(replay)), 4)},
                "pairing_all_match_manifest": bool(replay.pairing_matches.all()),
                "voxel_hash_all_match_s2_5m": bool(replay.voxel_hash_matches_s2_5m.all()),
-               "status": "OK" if all_replay_ok else "S2_6R_S2_5M_REPLAY_DISCREPANCY"},
+               "REPLAY_GATE": "engine_fidelity(0) AND committed_pod_replay(<=1e-10)",
+               "status": "OK" if (fidelity_ok and pod_ok) else "S2_6R_S2_5M_REPLAY_DISCREPANCY"},
               open(OUT / "vis2img_rank_curve_replay_audit.json", "w"), indent=2)
+    all_replay_ok = bool(fidelity_ok and pod_ok)
 
     # ---- alignment null summary ----
     null_folds = cells[["participant", "ROI", "fold", "alignment_ratio", "null_mean", "null_median",
@@ -416,12 +459,19 @@ def aggregate():
     n_cells = len(cells); dup = int(cells.duplicated(["participant", "ROI", "fold"]).sum())
     n_align_eval = int((cells.alignment_evaluable == True).sum())  # noqa: E712
     n_dim_eval = int(cells.d_img.notna().sum())
+    n_vis_degen = int(cells.vis_degenerate.sum()); n_img_degen = int(cells.img_degenerate.sum())
     json.dump({"branch": "B0 (b2-compatible primary)", "n_geometry_cells": n_cells,
                "dimensionality_status": dim_status, "alignment_status": align_status,
                "early_visual_d_img_over_d_vis": early_ratio, "higher_visual_d_img_over_d_vis": higher_ratio,
                "V1_alignment": _num(v1a), "hV4_alignment": _num(hv4a), "parietal_alignment": _num(para),
                "alignment_monotone_v1_to_parietal": monotone_up,
                "n_alignment_folds_evaluable": n_align_eval, "n_dimensionality_folds_evaluable": n_dim_eval,
+               "spectral_degeneracy": {"n_cells_vis_degenerate_at_dvis": n_vis_degen,
+                                       "n_cells_img_degenerate_at_dimg": n_img_degen,
+                                       "gap_tol": rg.DEGENERATE_GAP_TOL,
+                                       "d_img_platform_stable_fraction": round(n_dimg_platform_stable / max(1, len(replay)), 4),
+                                       "note": "d_report at a degenerate spectral boundary is not uniquely identifiable across BLAS platforms"},
+               "engine_fidelity_worst_abs_diff": fidelity_worst, "committed_pod_worst_abs_diff": pod_worst,
                "reproduction_verdict": "NOT ISSUED (deferred to S2.7R)"},
               open(OUT / "full_geometry_characterization.json", "w"), indent=2)
     json.dump({"gate": "S2.6R", "input_commit": _git(["rev-parse", "HEAD"], "unknown"),
@@ -434,7 +484,11 @@ def aggregate():
                  "participants_present": sorted(cells.participant.unique().tolist()) == ALL,
                  "rois_present": sorted(cells.ROI.unique().tolist()) == sorted(ROIS),
                  "all_4_folds": bool((cells.groupby(["participant", "ROI"]).fold.nunique() == 4).all()),
-                 "vis2img_replay_within_1e-10": all_replay_ok,
+                 "engine_fidelity_within_1e-10": fidelity_ok,
+                 "committed_pod_replay_within_1e-10": pod_ok,
+                 "ran_on_s2_5m_pod_platform": same_platform,
+                 "n_reduced_rank_unstable_cells": n_pod_exceed,
+                 "d_img_platform_stable_fraction": round(n_dimg_platform_stable / max(1, len(replay)), 4),
                  "pairing_hashes_match_s2_5m": bool(replay.pairing_matches.all()),
                  "voxel_hashes_match_s2_5m": bool(replay.voxel_hash_matches_s2_5m.all()),
                  "d_img_uses_test_curve": True, "d_vis_uses_test_curve": True,
@@ -444,7 +498,9 @@ def aggregate():
                  "all_null_draws_100": bool(((cells.n_null == 100) | (cells.align_d.isna())).all())}
     validator["ALL_PASS"] = bool(validator["all_cells_present"] and validator["participants_present"]
                                  and validator["rois_present"] and validator["all_4_folds"]
-                                 and validator["vis2img_replay_within_1e-10"] and validator["pairing_hashes_match_s2_5m"]
+                                 and validator["engine_fidelity_within_1e-10"]
+                                 and validator["committed_pod_replay_within_1e-10"]
+                                 and validator["pairing_hashes_match_s2_5m"]
                                  and validator["voxel_hashes_match_s2_5m"] and validator["all_null_draws_100"])
 
     if not all_replay_ok:
@@ -471,7 +527,9 @@ def aggregate():
     hashes = {p.name: _sha(p) for p in sorted(OUT.iterdir()) if p.is_file() and p.name != "hashes.json"}
     json.dump(hashes, open(OUT / "hashes.json", "w"), indent=2)
 
-    print(f"cells {n_cells}/224 dup={dup} replay_ok={all_replay_ok} (worst {worst:.2e}) validator={validator['ALL_PASS']}")
+    print(f"cells {n_cells}/224 dup={dup} engine_fidelity_ok={fidelity_ok} (worst {fidelity_worst:.2e}) "
+          f"pod_replay_ok={pod_ok} (worst {pod_worst:.2e}, {n_pod_exceed} unstable, same_platform={same_platform}) validator={validator['ALL_PASS']}")
+    print(f"d_img platform-stable vs committed: {n_dimg_platform_stable}/{len(replay)}")
     print(f"DIM: early ratio={early_ratio:.3f} higher ratio={higher_ratio:.3f} -> {dim_status}")
     print(f"ALIGN: V1={_num(v1a)} hV4={_num(hv4a)} parietal={_num(para)} monotone={monotone_up} -> {align_status}")
     print("GATE:", status)

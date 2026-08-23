@@ -81,6 +81,29 @@ def extract_output_basis(X_train: np.ndarray, W_lambda: np.ndarray) -> np.ndarra
     return V
 
 
+def output_spectrum(X_train: np.ndarray, W_lambda: np.ndarray) -> np.ndarray:
+    """Singular values of the fitted TRAIN prediction (spectrum of the output-space basis)."""
+    return np.linalg.svd(np.asarray(X_train, np.float64) @ np.asarray(W_lambda, np.float64),
+                         compute_uv=False)
+
+
+DEGENERATE_GAP_TOL = 1e-6      # relative gap below which a truncation boundary is spectrally ambiguous
+
+
+def relative_spectral_gap(sigma: np.ndarray, d: Optional[int]) -> float:
+    """Relative singular-value gap at the truncation boundary between kept dim d and dim d+1.
+
+    A small gap means the rank-d subspace is not uniquely determined (tied singular values),
+    so a reduced-rank quantity at that boundary is platform/BLAS sensitive. Full-rank d or a
+    non-evaluable d returns +inf (no boundary ambiguity).
+    """
+    sigma = np.asarray(sigma, np.float64)
+    if d is None or d >= sigma.size:
+        return float("inf")
+    s0 = sigma[0] if sigma.size and sigma[0] > 0 else 1.0
+    return float((sigma[d - 1] - sigma[d]) / s0)
+
+
 def projector(V_d: np.ndarray) -> np.ndarray:
     """Symmetric idempotent projector P = V_d V_d^T (sign-invariant subspace identity)."""
     return V_d @ V_d.T

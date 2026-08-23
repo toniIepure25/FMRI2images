@@ -1,0 +1,26 @@
+{
+  "engine_fidelity_same_process": {
+    "definition": "geometry engine vis2img curve vs frozen S2.5M run_fold_roy, SAME process",
+    "all_within_1e-10": true,
+    "worst_max_abs_diff": 0.0,
+    "interpretation": "proves S2.6R replays the frozen S2.5M model exactly (identical code path)"
+  },
+  "committed_pod_replay": {
+    "definition": "recomputed curve vs pod-committed S2.5M rank_curves_index.json",
+    "ran_on_s2_5m_pod_platform": true,
+    "all_within_1e-10": true,
+    "worst_max_abs_diff": 0.0,
+    "n_cells_exceeding": 0,
+    "reduced_rank_unstable_cells": [],
+    "cause_if_exceeding": "reduced-rank SVD-tie instability at intermediate ranks (BLAS/thread sensitive); agrees at rank 1 & full rank"
+  },
+  "d_report_platform_robustness": {
+    "n_cells": 224,
+    "n_d_img_identical_vs_committed": 224,
+    "fraction_stable": 1.0
+  },
+  "pairing_all_match_manifest": true,
+  "voxel_hash_all_match_s2_5m": true,
+  "REPLAY_GATE": "engine_fidelity(0) AND committed_pod_replay(<=1e-10)",
+  "status": "OK"
+}

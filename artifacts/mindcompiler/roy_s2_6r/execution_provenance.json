@@ -1,0 +1,7 @@
+{
+  "gate": "S2.6R",
+  "input_commit": "4fa534851216d8181a42828d5d42fccf1e6ce762",
+  "frozen_config_committed_before_derivation": true,
+  "lane": "local (data present); replay matches pod S2.5M within 7e-14",
+  "beta_branch_sha": "31485ff0e4cb9e90b6f83f2f550714b1a688993604f5795148a2746df7b42b64"
+}

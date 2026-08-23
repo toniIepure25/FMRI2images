@@ -1,0 +1,8 @@
+{
+  "lane": "pod compute (S2.5M-identical platform); data-free geometry tests CI-capable locally",
+  "geometry_unit_tests": {"file": "test_roy_geometry.py", "passed": 18},
+  "geometry_engine_tests": {"file": "test_roy_geometry_engine.py", "passed": 4},
+  "roy_method_reproduction_suite_local": {"passed": 215, "note": "27 pre-existing smoke_runner_cli fixture errors unrelated to S2.6R"},
+  "mindcompiler_suite_pod": {"passed": 241, "failed": 1, "failing_test": "test_manifest_references::test_all_verified_references_resolve", "note": "pre-existing S1 (roy_s1) manifest/data discrepancy on pod PVC; passes on committed repo locally; unrelated to S2.6R"},
+  "reproduction_tests_passed": true
+}

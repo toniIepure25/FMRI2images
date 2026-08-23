@@ -1,0 +1,48 @@
+{
+  "question": "Do ROIs with relatively larger imagery dimensionality also show stronger alignment?",
+  "per_participant": [
+    {
+      "participant": "subj01",
+      "n_rois": 7,
+      "spearman_dimratio_vs_alignment": 0.14285714285714288
+    },
+    {
+      "participant": "subj02",
+      "n_rois": 7,
+      "spearman_dimratio_vs_alignment": -0.42857142857142866
+    },
+    {
+      "participant": "subj03",
+      "n_rois": 7,
+      "spearman_dimratio_vs_alignment": -0.5357142857142858
+    },
+    {
+      "participant": "subj04",
+      "n_rois": 7,
+      "spearman_dimratio_vs_alignment": -0.5
+    },
+    {
+      "participant": "subj05",
+      "n_rois": 7,
+      "spearman_dimratio_vs_alignment": 0.42857142857142866
+    },
+    {
+      "participant": "subj06",
+      "n_rois": 7,
+      "spearman_dimratio_vs_alignment": 0.3214285714285715
+    },
+    {
+      "participant": "subj07",
+      "n_rois": 7,
+      "spearman_dimratio_vs_alignment": -0.642857142857143
+    },
+    {
+      "participant": "subj08",
+      "n_rois": 7,
+      "spearman_dimratio_vs_alignment": 0.14285714285714288
+    }
+  ],
+  "median_spearman": -0.1428571428571429,
+  "n_participants": 8,
+  "caveat": "56 ROI rows are NOT independent; per-participant Spearman only; descriptive, no causal claim"
+}

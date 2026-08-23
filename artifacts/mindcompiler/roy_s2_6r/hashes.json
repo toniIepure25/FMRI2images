@@ -1,0 +1,23 @@
+{
+  "ROI_alignment_summary.csv": "62fe2b55e16ce0b018074e1af7830595f7448016f0ecf5e6e04e826b2e249416",
+  "ROI_dimensionality_summary.csv": "44e14ffca895e3508b2ec4157bdb1dc1a8595a678942f7c9ce418fd825bd6c87",
+  "alignment_null_summary.json": "7d4d35022cbfcbc31a8a78c8b090e24942722ce43cfeb8d4ab97fbc64377b4bc",
+  "basis_manifest.json": "c751ed2e8ed49e728daca32988e938b79bdd73c15a698b73206136be2133a14a",
+  "dimension_alignment_relation.json": "8f5e4001d17405318c9a26df25f1e4416a81e6c5fe563432ccbf0c017775ef00",
+  "dimensionality_semantics_audit.json": "07da7e71db38edcd041d1b8a45f28723a5ba570cdbdcbb3affc2f8c70c31172a",
+  "execution_provenance.json": "53dc1ecfdba3bb4def64da51d0e23427ec9166c0482104ed8141dcf2a0e937fd",
+  "figure4_reconstruction_data.csv": "8e9ae462dbad84dfa9a526f5f7656cbd6779d49d004659666682db53b53e7c83",
+  "figure4c_reconstruction_data.csv": "781b56efc69679924dddb747704acb990d6a7cebadda8d94a2bde7b63b327315",
+  "figure5_reconstruction_data.csv": "91148aeac2785ab0b8c65449dd7baa482e55d4383335a5d128ff94b78ab28356",
+  "fold_alignment.csv": "08547a69586ea5a1fe84fa9f569ded47696089070a0455c6cf0a588346211768",
+  "fold_dimensionality.csv": "353935d940fd7f42a3e224d46f7f6c218ca174696ab47c071db978d56434a42c",
+  "full_geometry_characterization.json": "79698d27a811dea7167fae11cd38e95e79cddeb5cd107b4722418b1937d8dd6d",
+  "participant_ROI_alignment.csv": "e997692fa9c49255eb25497f68b75f33bc218aa30b85abac5a8b8f07835f4f6e",
+  "participant_ROI_dimensionality.csv": "c14b02861a4b92d9d7c0be81357fd3750b53edeb3f6872accbca14684c82697e",
+  "public_claim_comparison.json": "7f296170534bf107abd3ca3c560ce2753eaec0fbccf4359e131f0386621a9db0",
+  "s2_6r_frozen_config.json": "950b6e19541628d342af2de57a2934b70c3458c71a7c0861cac4449c2ca8780b",
+  "s2_6r_gate_status.json": "ba23113f8da6b984da77c14b3d241def81eb483f9fd8a3fbf12807ed2316e9f9",
+  "test_report.json": "c40830a1477ccb82189f503928e030cf0de2c989e6309a12676d2d5422d9ab8c",
+  "vis2img_rank_curve_replay_audit.json": "d8618ab2800e12dc0643af55169bdd5c99995624406ff71c3b86d8a9d810a811",
+  "vis2vis_test_rank_curves.json": "e11977b6ba87534fbb7915e53796c5654de9b742a6e4906470a9399049672d9f"
+}

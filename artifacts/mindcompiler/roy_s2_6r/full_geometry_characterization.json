@@ -1,0 +1,24 @@
+{
+  "branch": "B0 (b2-compatible primary)",
+  "n_geometry_cells": 224,
+  "dimensionality_status": "ROY_DIMENSIONALITY_MIXED",
+  "alignment_status": "ROY_ALIGNMENT_DIRECTIONALLY_CONCORDANT",
+  "early_visual_d_img_over_d_vis": 1.4747723997082645,
+  "higher_visual_d_img_over_d_vis": 1.4965251700098772,
+  "V1_alignment": 0.7046907448683448,
+  "hV4_alignment": 0.7651230605994777,
+  "parietal_alignment": 0.9207201003620828,
+  "alignment_monotone_v1_to_parietal": true,
+  "n_alignment_folds_evaluable": 209,
+  "n_dimensionality_folds_evaluable": 209,
+  "spectral_degeneracy": {
+    "n_cells_vis_degenerate_at_dvis": 0,
+    "n_cells_img_degenerate_at_dimg": 0,
+    "gap_tol": 1e-06,
+    "d_img_platform_stable_fraction": 1.0,
+    "note": "d_report at a degenerate spectral boundary is not uniquely identifiable across BLAS platforms"
+  },
+  "engine_fidelity_worst_abs_diff": 0.0,
+  "committed_pod_worst_abs_diff": 0.0,
+  "reproduction_verdict": "NOT ISSUED (deferred to S2.7R)"
+}

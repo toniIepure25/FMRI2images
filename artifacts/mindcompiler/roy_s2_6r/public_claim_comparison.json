@@ -1,0 +1,49 @@
+{
+  "dimensionality": {
+    "DIM-C1": {
+      "status": "DIRECTIONALLY_DISCORDANT",
+      "early_mean_ratio": 1.4747723997082645,
+      "public": "~0.5"
+    },
+    "DIM-C2": {
+      "status": "DIRECTIONALLY_CONCORDANT",
+      "higher_mean_ratio": 1.4965251700098772,
+      "public": "->parity"
+    },
+    "DIM-C3": {
+      "status": "MIXED",
+      "d_vis_spread_V1-hV4": 0.6597285041733076,
+      "d_img_spread_V1-hV4": 0.7226081534294903
+    }
+  },
+  "alignment": {
+    "ALIGN-C1": {
+      "status": "MIXED",
+      "V1_mean": 0.7046907448683448,
+      "public": "0.25-0.30"
+    },
+    "ALIGN-C2": {
+      "status": "DIRECTIONALLY_CONCORDANT",
+      "hV4_mean": 0.7651230605994777,
+      "public": "~0.5"
+    },
+    "ALIGN-C3": {
+      "status": "NUMERICALLY_CLOSE",
+      "parietal_mean": 0.9207201003620828,
+      "public": "~1.0"
+    },
+    "ALIGN-C4": {
+      "status": "MIXED",
+      "note": "low V1 alignment => early imagery subspace reoriented, not mere subset"
+    }
+  },
+  "alignment_progression_by_ROI": {
+    "V1": 0.7046907448683448,
+    "V2": 0.6955416343158682,
+    "V3": 0.8413619626885052,
+    "hV4": 0.7651230605994777,
+    "ventral": 0.7485516859250083,
+    "lateral": 0.9213105268385745,
+    "parietal": 0.9207201003620828
+  }
+}

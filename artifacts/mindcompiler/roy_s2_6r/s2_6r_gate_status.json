@@ -1,0 +1,42 @@
+{
+  "gate": "S2.6R",
+  "execution_status": "S2_6R_DIMENSIONALITY_ALIGNMENT_PASS",
+  "validator": {
+    "expected_cells": 224,
+    "observed_cells": 224,
+    "duplicate_cells": 0,
+    "all_cells_present": true,
+    "participants_present": true,
+    "rois_present": true,
+    "all_4_folds": true,
+    "engine_fidelity_within_1e-10": true,
+    "committed_pod_replay_within_1e-10": true,
+    "ran_on_s2_5m_pod_platform": true,
+    "n_reduced_rank_unstable_cells": 0,
+    "d_img_platform_stable_fraction": 1.0,
+    "pairing_hashes_match_s2_5m": true,
+    "voxel_hashes_match_s2_5m": true,
+    "d_img_uses_test_curve": true,
+    "d_vis_uses_test_curve": true,
+    "alignment_uses_d_img_both_terms": true,
+    "bases_from_train_only": true,
+    "x_test_never_in_basis": true,
+    "all_null_draws_100": true,
+    "ALL_PASS": true
+  },
+  "dimensionality_status": "ROY_DIMENSIONALITY_MIXED",
+  "alignment_status": "ROY_ALIGNMENT_DIRECTIONALLY_CONCORDANT",
+  "B0_dimensionality": {
+    "early_visual_ratio": 1.475,
+    "higher_visual_ratio": 1.497
+  },
+  "B0_alignment": {
+    "V1": 0.705,
+    "hV4": 0.765,
+    "parietal": 0.921,
+    "monotone_up": true
+  },
+  "reproduction_verdict": "STILL_DEFERRED (S2.7R -- final claim-by-claim verdict)",
+  "frozen_H_A_unchanged": "H_A_CROSS_PARTICIPANT_PARTIAL",
+  "next_action": "S2.7R -- FINAL CLAIM-BY-CLAIM INDEPENDENT REPRODUCTION VERDICT (no new models)"
+}

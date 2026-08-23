@@ -365,7 +365,7 @@ def aggregate():
     null_folds = cells[["participant", "ROI", "fold", "alignment_ratio", "null_mean", "null_median",
                         "null_p05", "null_p95", "alignment_empirical_percentile", "n_null"]].to_dict("records")
     json.dump({"N_ALIGNMENT_NULL": rg.N_ALIGNMENT_NULL, "basis": rg.ALIGNMENT_NULL_BASIS,
-               "all_folds_100_draws": bool((cells.n_null == rg.N_ALIGNMENT_NULL).all() | (cells.align_d.isna())),
+               "all_folds_100_draws": bool(((cells.n_null == rg.N_ALIGNMENT_NULL) | cells.align_d.isna()).all()),
                "n_fold_records": len(null_folds), "folds": null_folds},
               open(OUT / "alignment_null_summary.json", "w"), indent=2)
 

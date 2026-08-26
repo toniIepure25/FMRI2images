@@ -10,6 +10,43 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2 (2026-08-26): SHARED + SUBJECT-SPECIFIC PERCEPTION->IMAGERY OPERATOR -- `O2_SHARED_OPERATOR_PASS` / `SHARED_OPERATOR_PARTIAL`
+
+**Input `299df3c` -> freeze `e665cba` -> Phase A `c73be88` -> Phase B `3e06b28` -> Phase C `c48c7b7`,
+server-verified.** Cross-subject + cross-stimulus. Doc `54_...`; artifacts
+`artifacts/mindcompiler/operator_o2/`. New `operator_o2` pkg (det-SRM, gauge-equivariant scalar-ridge
+shared operator, vision-only new-subject calibration) + 18 tests. Config sha `f26c12c1`. B0 only
+(dependence is a limitation). Immutable: O1/O1.1/Track-R/H-A unchanged.
+
+Claim class IMAGERY_ZERO_SHOT_SUBJECT_TRANSFER_WITH_VISION_ONLY_CALIBRATION. 8 LOSO subject folds x
+6 global-identity-holdout folds x 3 primary ROIs (ventral/lateral/parietal; V2/hV4 prospectively
+excluded). Common space = DetSRM fit on VISION ONLY; same W maps both states; new subject calibrated
+from its VISION on training identities. Shared operator = FULL_SHARED_SCALAR_RIDGE (gauge-equivariant,
+verified T'=Q^T T Q err 4e-16; NO per-target/diagonal). Baselines S0 group-imagery-mean, S1 global-gain.
+
+- **Phase A `COMMON_SPACE_VALIDATED`** (vision-only): median VISION_IDENTITY_MARGIN ventral 1.57 /
+  lateral 1.11 / parietal 1.17; 100% outer cells positive; no subject fails. K mostly 2 (low-dim
+  identity-separating vision space).
+- **Phase B `SHARED_OPERATOR_PARTIAL`** (144 cells, leak-clean -- target imagery + test identities
+  never in SRM/lambda/T). G_shared=r(T_shared)-r(S0), exact 2^8 sign-flip + Holm/3:
+  **ventral +0.0145 Holm-significant (7/8); G_beyond_gain +0.0197 Holm-significant (8/8)** -> shared
+  operator beats BOTH group-mean and global-gain in ventral. lateral +0.0017 ns (6/8); parietal
+  -0.004 ns (3/8). Holm-reject 1/3 -> PARTIAL. Only ~5% of within-subject O1 gain transfers.
+- **Phase C**: secondary V1 +0.0044 (6/8 ns) / V3 +0.0008 (5/8 ns) -- cannot change primary. Delta_s
+  (training subjects only): median shared-action fraction 0.702 -> **SHARED_COMPONENT_DOMINANT**
+  (~70% shared, ~30% subject-specific). Ventral T_shared NTI=1.0 (pure reorientation), contractive,
+  effective rank ~2.
+
+**Bounded conclusion:** a shared perception->imagery operator learned from other participants predicted
+imagery patterns in an imagery-unseen participant for held-out stimulus identities, after vision-only
+calibration -- Holm-significant in ventral cortex (beating group-mean AND global-gain), with ~70% of
+the transformation shared across training subjects; but transfer is region-specific (ventral only) and
+much weaker than within-subject -> PARTIAL. No zero-calibration / universal-operator / brain-to-brain /
+causal claim; raw SRM axes have no biological meaning. **Next: O2.1 -- SHARED-OPERATOR HETEROGENEITY /
+CALIBRATION AUDIT** (per PARTIAL branch; no alternative common-space method rescue).
+
+---
+
 ## O1.1 (2026-08-26): OPERATOR HETEROGENEITY / FAILURE-MODE AUDIT -- `O1_1_HETEROGENEITY_AUDIT_PASS` / `OPERATOR_HETEROGENEITY_REGION_STRUCTURE_DOMINANT` / `O2_READY`
 
 **Input `64da8cf` -> freeze `12faabc` -> execute `e2618ac`, server-verified.** Post-hoc DESCRIPTIVE

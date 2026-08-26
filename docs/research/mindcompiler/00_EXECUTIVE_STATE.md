@@ -10,6 +10,41 @@ Corrected 2026-07-17.)
 
 ---
 
+## O1.1 (2026-08-26): OPERATOR HETEROGENEITY / FAILURE-MODE AUDIT -- `O1_1_HETEROGENEITY_AUDIT_PASS` / `OPERATOR_HETEROGENEITY_REGION_STRUCTURE_DOMINANT` / `O2_READY`
+
+**Input `64da8cf` -> freeze `12faabc` -> execute `e2618ac`, server-verified.** Post-hoc DESCRIPTIVE
+audit (NO refit, no new models). Doc `53_...`; artifacts `artifacts/mindcompiler/operator_o1_1/`.
+New `operator_o1_1` pkg (pure `audit_logic`) + 16 tests. Config sha `dbcbe657`, frozen before values.
+**O1 status `STIMULUS_INVARIANT_OPERATOR_PARTIAL` UNCHANGED** (explanatory only). Only betas touched:
+a one-time split-half repeat-reliability measurement summary (FM2/FM3/FM4); no operator refit.
+
+Authoritative effect `G = O4 - O0` (raw O4 not evidence; O0 baseline ~0.71-0.78). Findings:
+- **FM1 baseline-ceiling NOT primary** -- evidence ROIs (ventral/lateral/parietal) have LOWER O0
+  baseline (0.65-0.71) / more headroom, not higher.
+- **FM2 imagery measurement PARTIAL**, **FM3 vision measurement NOT_SUPPORTED** (vision reliable
+  everywhere ~0.9; not the limiter), **FM4 beta-dependence PARTLY tracks reliability** (B0->B1
+  operator loss vs imagery-reliability loss; Spearman 0.2-0.5). Does NOT reopen H-A.
+- **FM5 instability CONTRIBUTES** (std-median-diff action-cosine FULL-vs-NO = 3.13; per-ROI median
+  Spearman(G,stability)=0.38). **FM6 region-structure**: evidence ROIs have high out-of-visual-span
+  (0.30-0.61) + stable operators; 4 geometry vars separate FULL-cross-voxel vs no-evidence cells.
+- **V2 & hV4 MULTIFACTORIAL** (hV4: lowest imagery reliability 0.64, lowest stability 0.53, ~zero
+  out-of-span). V1(+0.051, 6/8)/V3(+0.033, 5/8) positive trends not surviving Holm.
+- O3 low-rank failure interpreted via identity-map anchor + strong contraction. Cross-family
+  increment NOT supported (O4~=O0). Dimensionality context: high-rank/mixing operator (not
+  compressing) -- consistent with S2.6R; Roy NOT reopened.
+
+**OVERALL `OPERATOR_HETEROGENEITY_REGION_STRUCTURE_DOMINANT`** (frozen rule; transparently
+near-multifactorial -- instability + imagery-measurement co-contribute). **`O2_READY`**: A) 3 ROIs
+(ventral/lateral/parietal) Holm-significant B0 evidence; B) not baseline-ceiling; C) stability 0.739
+>= 0.50; D) contract freezable; E) B0-dependence acknowledged. Candidate primary O2 ROIs
+ventral/lateral/parietal; V1/V3 secondary; V2/hV4 prospectively justified out (not silently dropped).
+
+**Next: O2 -- SHARED + SUBJECT-SPECIFIC PERCEPTION->IMAGERY OPERATORS** (T_s = T_shared + Delta_s;
+critical test = LEAVE_ONE_SUBJECT_OUT + HELD_OUT_STIMULUS_IDENTITIES; common-space method to be
+validated in O2, NOT selected here; no raw-W cross-subject comparison).
+
+---
+
 ## O1 (2026-08-26): STIMULUS-INVARIANT PERCEPTION->IMAGERY OPERATOR -- `O1_OPERATOR_CHARACTERIZATION_PASS` / `STIMULUS_INVARIANT_OPERATOR_PARTIAL`
 
 **Input `e378288` -> freeze `a4fe0fa` -> execute `84d6405`, server-verified.** FIRST Track-O

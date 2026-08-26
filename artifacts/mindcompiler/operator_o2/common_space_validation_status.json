@@ -1,0 +1,24 @@
+{
+  "COMMON_SPACE_VALIDATED": true,
+  "roi_median_selected_margin": {
+    "ventral": 1.5707575743884912,
+    "lateral": 1.1099596904058542,
+    "parietal": 1.1712117466909278
+  },
+  "fraction_outer_cells_positive_margin": 1.0,
+  "subjects_failing_all_primary_rois": [],
+  "K_selected_distribution": {
+    "ventral": {
+      "2": 48
+    },
+    "lateral": {
+      "2": 34,
+      "3": 14
+    },
+    "parietal": {
+      "2": 45,
+      "3": 3
+    }
+  },
+  "status": "COMMON_SPACE_VALIDATED"
+}

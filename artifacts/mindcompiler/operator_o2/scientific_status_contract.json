@@ -1,0 +1,13 @@
+{
+  "SHARED_OPERATOR_SUPPORTED_requires_ALL": {
+    "A": "COMMON_SPACE_VALIDATED",
+    "B": "G_shared Holm-rejects in >=2/3 primary ROIs",
+    "C": "all 3 primary ROIs median G_shared > 0",
+    "D": "for each ROI under B, >=6/8 participants G_shared>0",
+    "E": "G_beyond_gain positive median in >=2/3 ROIs AND Holm-rejects in >=1/3",
+    "F": "leave-one-participant sensitivity does not reverse median G_shared sign in any ROI under B"
+  },
+  "SHARED_OPERATOR_PARTIAL": "common space validates AND (only one ROI passes OR beats S0 not gain coherently OR substantial heterogeneity)",
+  "SHARED_OPERATOR_NOT_SUPPORTED": "common space validates AND zero ROI passes G_shared inference AND median G_shared<=0 in >=2/3 ROIs",
+  "SHARED_OPERATOR_INCONCLUSIVE": "common space fails / too few evaluable / leakage / numerical failure"
+}

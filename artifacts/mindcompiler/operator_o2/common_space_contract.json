@@ -1,0 +1,8 @@
+{
+  "method": "DETERMINISTIC_SHARED_RESPONSE_MODEL",
+  "fit_on": "VISION ONLY (never imagery)",
+  "new_subject": "vision-only calibration on TRAIN identities; orthogonal Procrustes to trained S",
+  "same_W_both_states": true,
+  "hyperalignment": "COMMON_SPACE_METHOD_SENSITIVITY_FUTURE (not an O2 selection branch)",
+  "K_selection_metric": "VISION_IDENTITY_MARGIN (no imagery metric permitted)"
+}

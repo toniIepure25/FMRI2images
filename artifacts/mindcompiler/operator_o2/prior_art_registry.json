@@ -1,0 +1,33 @@
+{
+  "novelty_label_overall": "NOVELTY_CANDIDATE",
+  "question": "State-to-state perception->imagery OPERATOR tested on an imagery-unseen participant AND held-out stimulus identities, with vision-only SRM calibration and a shared-vs-subject-specific decomposition.",
+  "close_prior_art": [
+    {
+      "work": "Shared Response Model (Chen et al. NeurIPS 2015)",
+      "relation": "the common-space method used here; aligns responses, not a state-to-state operator",
+      "label": "METHOD_USED"
+    },
+    {
+      "work": "Hyperalignment (Haxby/Guntupalli)",
+      "relation": "cross-subject common space incl. held-out subjects; not perception->imagery operator",
+      "label": "CLOSE_PRIOR_ART_EXISTS"
+    },
+    {
+      "work": "MindEye2 / MindBridge / MindAligner / MindAdapter / Duala (2024-2026)",
+      "relation": "cross-subject VISUAL DECODING (brain->image), some new-subject calibration; not a neural-state->state operator transferred zero-shot to imagery",
+      "label": "CLOSE_PRIOR_ART_EXISTS"
+    },
+    {
+      "work": "Roy et al. 2025",
+      "relation": "within-subject vision->imagery transformation, same-identity",
+      "label": "CLOSE_PRIOR_ART_EXISTS"
+    }
+  ],
+  "novelty_statement": "Cross-subject alignment (SRM/hyperalignment) and cross-subject visual decoding are established; a SHARED perception->imagery neural-state OPERATOR transferred zero-shot (imagery-wise) to a new subject on held-out identities, with shared/subject-specific split, is a NOVELTY_CANDIDATE. No 'first ever'.",
+  "sources": [
+    "https://dl.acm.org/doi/10.5555/2969239.2969291",
+    "https://arxiv.org/pdf/2403.11207",
+    "https://arxiv.org/pdf/2502.05034",
+    "https://pubmed.ncbi.nlm.nih.gov/40950062/"
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "config_sha256": "f26c12c18d5c7ad8a632a7eb25fe0e373545e233855efe36eb616daec51f6ff8",
+  "gate": "O2",
+  "analysis_class": "FROZEN_CROSS_SUBJECT_AND_CROSS_STIMULUS_OPERATOR_GENERALIZATION",
+  "primary_claim_class": "IMAGERY_ZERO_SHOT_SUBJECT_TRANSFER_WITH_VISION_ONLY_CALIBRATION",
+  "primary_beta": "B0 only",
+  "B0_measurement_dependence_is_a_limitation": true,
+  "participants": [
+    "subj01",
+    "subj02",
+    "subj03",
+    "subj04",
+    "subj05",
+    "subj06",
+    "subj07",
+    "subj08"
+  ],
+  "primary_rois": [
+    "ventral",
+    "lateral",
+    "parietal"
+  ],
+  "secondary_rois": [
+    "V1",
+    "V3"
+  ],
+  "excluded_rois": [
+    "V2",
+    "hV4"
+  ],
+  "excluded_justification": "V2/hV4 lacked cohort Holm evidence in O1 and O1.1 classified their failures MULTIFACTORIAL",
+  "common_space_method": "DETERMINISTIC_SHARED_RESPONSE_MODEL",
+  "common_space_from": "VISION_ONLY",
+  "same_W_applied_to_vision_and_imagery": true,
+  "K_candidates": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "K_selection": "nested vision-only: inner LOO subject (7) x inner identity fold (5) = 35 cells; max mean VISION_IDENTITY_MARGIN; tie smaller K",
+  "outer_design": "8 LOSO subject folds x 6 identity folds x 3 primary ROIs = 144 primary cells; each: 7 train subjects x 10 train identities, 1 target x 2 held-out identities",
+  "global_identity_holdout": true,
+  "target_subject_vision_only_calibration": true,
+  "shared_operator": "FULL_SHARED_SCALAR_RIDGE (gauge-equivariant; NO per-target lambda, NO diagonal)",
+  "ridge_grid": {
+    "lo": 0.0001,
+    "hi": 10000.0,
+    "n": 25
+  },
+  "lambda_selection": "training-subjects-only nested CV (LOO train subject x identity holdout); mean held-out identity pattern r; tie larger lambda",
+  "baselines": {
+    "S0": "GROUP_IMAGERY_MEAN (train subjects x train identities, shared space)",
+    "S1": "GLOBAL_SHARED_GAIN (gauge-invariant); NO diagonal common-space baseline"
+  },
+  "primary_metric": "NATIVE_HELD_OUT_PATTERN_R (Pearson across target-native voxels)",
+  "primary_effect": "G_shared = r(T_shared) - r(S0)",
+  "secondary_effect": "G_beyond_gain = r(T_shared) - r(S1)",
+  "inference": {
+    "unit": "participant (N=8)",
+    "test": "exact 2^8 sign-flip",
+    "correction": "Holm across 3 primary ROIs",
+    "alpha": 0.05
+  },
+  "delta_s": "subject-specific residual operator for TRAINING subjects only (never target); scalar ridge; identity-held-out CV",
+  "gauge_invariants_only": [
+    "singular values",
+    "spectral/frobenius norm",
+    "effective rank",
+    "NONTRIVIAL_TRANSFORMATION_INDEX",
+    "polar stretch"
+  ],
+  "no_offdiagonal_fraction_reported": true,
+  "prohibited": [
+    "target-subject imagery in SRM/lambda/T",
+    "test-identity leakage",
+    "B1 primary",
+    "raw-W cross-subject comparison",
+    "diagonal/per-target lambda in common coords",
+    "V2/hV4 primary",
+    "zero-calibration wording",
+    "causal claim"
+  ],
+  "immutable": {
+    "O1_STATUS": "STIMULUS_INVARIANT_OPERATOR_PARTIAL",
+    "O1_1_STATUS": "OPERATOR_HETEROGENEITY_REGION_STRUCTURE_DOMINANT",
+    "TRACK_R": "INDEPENDENT_METHOD_REPRODUCTION_PARTIAL"
+  }
+}

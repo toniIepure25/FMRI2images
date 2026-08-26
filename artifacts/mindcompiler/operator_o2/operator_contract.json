@@ -1,0 +1,12 @@
+{
+  "estimator": "FULL_SHARED_SCALAR_RIDGE",
+  "gauge_equivariant": "T' = Q^T T Q for X'=XQ,Y'=YQ",
+  "forbidden": [
+    "per-target lambda",
+    "diagonal penalty",
+    "coordinate-specific sparsity"
+  ],
+  "S0": "GROUP_IMAGERY_MEAN",
+  "S1": "GLOBAL_SHARED_GAIN",
+  "no_diagonal_baseline": true
+}

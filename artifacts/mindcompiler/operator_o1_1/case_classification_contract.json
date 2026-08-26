@@ -1,0 +1,31 @@
+{
+  "per_ROI_case_rules_ordered": [
+    {
+      "BASELINE_LIMITED": "FM1 == BASELINE_CEILING_PLAUSIBLE"
+    },
+    {
+      "MEASUREMENT_LIMITED": "reliability available AND ROI median imagery reliability in bottom-2 of 7 AND FM2 SUPPORTED/PARTIAL"
+    },
+    {
+      "ESTIMATION_INSTABILITY": "ROI median action_cosine in bottom-2 of 7 AND FM5 INSTABILITY_DOMINANT/CONTRIBUTES"
+    },
+    {
+      "VISION_DEPENDENT_SIGNAL_WEAK": "ROI median G <= 0.02 AND ROI median G_gain (O4-O1) <= 0.01 (little gain from vision beyond global)"
+    },
+    {
+      "STRUCTURAL_OPERATOR_DIFFERENCE": "ROI geometry regime differs notably (>=2 FM6 vars |std diff|>=0.8) from EVIDENCE ROIs"
+    },
+    {
+      "MULTIFACTORIAL": ">=2 of the above rules fire"
+    },
+    {
+      "UNRESOLVED": "none fire"
+    }
+  ],
+  "note": "rules evaluated per ROI; MULTIFACTORIAL overrides a single label when >=2 fire; mixed participant signs recorded descriptively (n_positive/8)",
+  "participant_regime": {
+    "BROAD_OPERATOR_EVIDENCE": ">=4 of 7 ROIs with G>0",
+    "REGION_SPECIFIC_OPERATOR_EVIDENCE": "1-3 ROIs with G>0",
+    "WEAK_OPERATOR_EVIDENCE": "0 ROIs with G>0"
+  }
+}

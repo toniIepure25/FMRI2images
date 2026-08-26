@@ -1,0 +1,21 @@
+{
+  "O2_READY_FOR_SHARED_OPERATOR_TEST_requires_ALL": {
+    "A": "at least one coherent ROI set with reproducible B0 operator evidence (>=3 ROIs O4>O0 Holm-significant in O1)",
+    "B": "those ROIs NOT explained primarily by baseline-ceiling artifact (FM1 != BASELINE_CEILING_PLAUSIBLE for the evidence set)",
+    "C": "operator stability at least MODERATE for the evidence set (median action_cosine >= 0.50)",
+    "D": "a cross-subject measurement contract can be frozen (B0, identity centroids, common-space method to be validated in O2)",
+    "E": "B0 measurement dependence explicitly acknowledged (B1 non-replication recorded)"
+  },
+  "otherwise": "O2_NOT_READY -> issue the unresolved blocker",
+  "candidate_primary_O2_rois_if_ready": [
+    "ventral",
+    "lateral",
+    "parietal"
+  ],
+  "secondary": [
+    "V1",
+    "V3"
+  ],
+  "v2_hv4_rule": "must NOT be silently dropped; exclusion from primary O2 justified prospectively from O1/O1.1 evidence",
+  "o2_method_note": "O1.1 does NOT select the common-space method; only determines scientific justification. O2 critical test = LEAVE_ONE_SUBJECT_OUT + HELD_OUT_STIMULUS_IDENTITIES."
+}

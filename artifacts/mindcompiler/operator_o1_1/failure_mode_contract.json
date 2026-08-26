@@ -1,0 +1,44 @@
+{
+  "FM1_baseline_ceiling": {
+    "BASELINE_CEILING_PLAUSIBLE": "ROI median O0 in top-2 of 7 ROIs AND ROI median G <= 0.02 AND normalization improves the ROI's rank (rank by normalized_G at least 2 positions better than rank by raw G)",
+    "BASELINE_CEILING_NOT_PRIMARY": "ROI median O0 not in top-2 OR ROI median G > 0.02",
+    "MIXED": "otherwise"
+  },
+  "FM4_beta_dependence": {
+    "unit": "participant (N=8); Delta_G_beta = G_B0 - G_B1; Delta_R = R_B0 - R_B1 (median over 7 ROIs per participant)",
+    "BETA_OPERATOR_DEPENDENCE_TRACKS_RELIABILITY": "Spearman(Delta_R_img, Delta_G_beta) >= 0.5",
+    "BETA_OPERATOR_DEPENDENCE_PARTLY_TRACKS_RELIABILITY": "0.2 <= Spearman < 0.5 (either imagery or vision)",
+    "BETA_OPERATOR_DEPENDENCE_NOT_EXPLAINED_BY_RELIABILITY": "Spearman < 0.2 for both imagery and vision",
+    "BETA_OPERATOR_DEPENDENCE_INCONCLUSIVE": "reliability NOT_AVAILABLE or n<6"
+  },
+  "FM5_stability": {
+    "compare": "FULL_CROSS_VOXEL vs NO_EVIDENCE cells on mean_pairwise_action_cosine; and G vs action_cosine Spearman per ROI",
+    "INSTABILITY_DOMINANT": "std_median_diff(action_cosine, FULL-vs-NO) >= 1.0 AND median per-ROI Spearman(G, action_cosine) >= 0.5",
+    "INSTABILITY_CONTRIBUTES": "0.4 <= std_median_diff < 1.0 OR median Spearman in [0.2,0.5)",
+    "STABILITY_NOT_EXPLANATORY": "std_median_diff < 0.4 AND |median Spearman| < 0.2",
+    "MIXED": "otherwise"
+  },
+  "FM6_geometry": {
+    "metric": "standardized median difference = (median_FULL - median_NO)/pooled_MAD",
+    "notable_threshold": 0.8,
+    "descriptive_only": true
+  },
+  "FM2_FM3_measurement": {
+    "metric": "per-ROI Spearman(reliability, G) across 8 participants; and per-participant across 7 ROIs",
+    "SUPPORTED_PATTERN": "median rho >= 0.4 with majority positive",
+    "PARTIAL_PATTERN": "0.2 <= median rho < 0.4",
+    "NOT_SUPPORTED": "median rho < 0.2",
+    "INCONCLUSIVE": "reliability NOT_AVAILABLE"
+  },
+  "FM8_stimulus": {
+    "SUPPORTED_PATTERN": "failure concentrated (top-2 identities contribute > 40% of excess residual)",
+    "NOT_SUPPORTED": "diffuse (<= 40%)",
+    "family_contrast": "median residual simple vs naturalistic"
+  },
+  "decision_table_axis_status": [
+    "SUPPORTED_PATTERN",
+    "PARTIAL_PATTERN",
+    "NOT_SUPPORTED",
+    "INCONCLUSIVE"
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "config_sha256": "dbcbe657e9cff1ace355a581e3dfe5069b8b7376f14ff6ad2966e1b134afba0f",
+  "gate": "O1.1",
+  "analysis_class": "POST_HOC_DESCRIPTIVE_OPERATOR_HETEROGENEITY_AUDIT",
+  "immutable": {
+    "O1_scientific_status": "STIMULUS_INVARIANT_OPERATOR_PARTIAL (NOT changed by O1.1)",
+    "O1_predictions": "O0-O4 immutable; no refit",
+    "TRACK_R": "INDEPENDENT_METHOD_REPRODUCTION_PARTIAL CLOSED",
+    "H_A_CROSS_PARTICIPANT_PARTIAL": "unchanged"
+  },
+  "authoritative_effect": {
+    "G": "held_out_r_O4 - held_out_r_O0 (OPERATOR_INCREMENTAL_GAIN)",
+    "secondary": {
+      "G_gain": "O4-O1",
+      "G_diag": "O4-O2",
+      "G_lowrank": "O4-O3"
+    },
+    "rule": "raw O4 alone is NOT operator evidence (O0 baseline ~0.7-0.8)"
+  },
+  "normalized_headroom": {
+    "ceiling_headroom": "1 - O0",
+    "epsilon": 0.05,
+    "normalized_incremental_gain": "(O4-O0)/max(1-O0, 0.05)",
+    "diagnostic_only": true
+  },
+  "allowed_sources": [
+    "operator_outer_fold_results.csv",
+    "participant_ROI_model_summary.csv",
+    "primary_hypothesis_tests.json",
+    "operator_classification.json",
+    "cross_family_transfer.csv",
+    "cross_family_summary.json",
+    "final_operator_summary.csv",
+    "operator_spectrum.json",
+    "operator_dimension_signature.json",
+    "operator_polar_decomposition.json",
+    "operator_stability.json",
+    "stimulus_residuals.csv",
+    "B1_measurement_sensitivity.json",
+    "value_qc.json",
+    "o1_frozen_config.json",
+    "TrackR measurement context: repeat reliability (split-half, computed once as a measurement summary), voxel counts, B0/B1 sensitivity"
+  ],
+  "measurement_context_reliability": {
+    "definition": "split-half (even vs odd repeats) mean-centroid pattern correlation across voxels per identity, averaged over 12 identities, Spearman-Brown corrected; per participant x ROI x beta x state",
+    "justification": "measurement-quality context (FM2/FM3/FM4), NOT an operator predictor sweep; computed once, frozen; no operator refit",
+    "not_available_fallback": "NOT_AVAILABLE_UNDER_O1_1_SOURCE_BOUNDARY"
+  },
+  "failure_mode_axes": {
+    "FM1": "baseline/ceiling",
+    "FM2": "imagery measurement quality",
+    "FM3": "vision measurement quality",
+    "FM4": "beta-preparation sensitivity (B0 vs B1)",
+    "FM5": "operator stability",
+    "FM6": "operator complexity/geometry",
+    "FM7": "model-class necessity",
+    "FM8": "stimulus residual heterogeneity",
+    "FM9": "ROI measurement size (voxel count)"
+  },
+  "two_levels": {
+    "L1": "across participants within ROI (N=8)",
+    "L2": "across ROIs within participant (N=7)",
+    "no_pooling_56_rows_as_independent": true
+  },
+  "roi_groups_descriptive": {
+    "EVIDENCE": [
+      "ventral",
+      "lateral",
+      "parietal"
+    ],
+    "TRANSITIONAL": [
+      "V1",
+      "V3"
+    ],
+    "LOW_NO_EVIDENCE": [
+      "V2",
+      "hV4"
+    ],
+    "note": "derived from frozen O1 result; descriptive, not new confirmatory grouping"
+  },
+  "prohibited": [
+    "new O5/O6 or nonlinear models",
+    "alternate ridge/rank/scaler/centroid/folds",
+    "D1 input",
+    "participant/ROI exclusion",
+    "operator refit",
+    "raw-W cross-subject comparison",
+    "stepwise/feature-selection/RF/SHAP/multivariable model over 56 cells",
+    "p-values on N=8 Spearman",
+    "pooling 56 rows as independent",
+    "changing O1 status",
+    "reopening Roy dimensionality / new d_img-d_vis"
+  ],
+  "statistics_policy": "descriptive Spearman only (report rho, n positive, range across the level's unit); NO p-values; NO pooled 56-row inference"
+}

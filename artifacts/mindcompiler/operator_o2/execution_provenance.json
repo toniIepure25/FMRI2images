@@ -1,0 +1,8 @@
+{
+  "gate": "O2",
+  "phase": "B",
+  "input_commit": "e665cba9c16d0cd09796704fd82c385951764e3a",
+  "no_B1": true,
+  "no_raw_W_cross_subject": true,
+  "target_imagery_never_used": true
+}

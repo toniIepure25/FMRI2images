@@ -1,0 +1,367 @@
+{
+ "subj01|ventral": {
+  "spectral_norm": 0.17067345804026973,
+  "frobenius_norm": 0.23187784615120052,
+  "singular_values": [
+   0.17067345804026973,
+   0.1569646656298675
+  ],
+  "effective_rank_participation": 1.9965047367982993,
+  "energy90_rank": 2,
+  "condition_number": 1.0873368051044585,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9997581317004803,
+  "distance_to_best_scalar_identity": 0.23182176225085566
+ },
+ "subj02|ventral": {
+  "spectral_norm": 0.14795686934928545,
+  "frobenius_norm": 0.18738630348327678,
+  "singular_values": [
+   0.14795686934928545,
+   0.11498865833413825
+  ],
+  "effective_rank_participation": 1.9690461214445312,
+  "energy90_rank": 2,
+  "condition_number": 1.286708371875659,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9956031318331807,
+  "distance_to_best_scalar_identity": 0.18656239061059324
+ },
+ "subj03|ventral": {
+  "spectral_norm": 0.17304290391947713,
+  "frobenius_norm": 0.23264645738114406,
+  "singular_values": [
+   0.17304290391947713,
+   0.15550089239329493
+  ],
+  "effective_rank_participation": 1.994314536226613,
+  "energy90_rank": 2,
+  "condition_number": 1.1128097161128485,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9997111969880271,
+  "distance_to_best_scalar_identity": 0.23257926838352758
+ },
+ "subj04|ventral": {
+  "spectral_norm": 0.15613949446784073,
+  "frobenius_norm": 0.17906932370505457,
+  "singular_values": [
+   0.15613949446784073,
+   0.08767143753533845
+  ],
+  "effective_rank_participation": 1.8538046297731572,
+  "energy90_rank": 2,
+  "condition_number": 1.7809619513185728,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9781730898443725,
+  "distance_to_best_scalar_identity": 0.17516079366491535
+ },
+ "subj05|ventral": {
+  "spectral_norm": 0.16934309830663027,
+  "frobenius_norm": 0.22573781984075428,
+  "singular_values": [
+   0.16934309830663027,
+   0.14926646764215926
+  ],
+  "effective_rank_participation": 1.9920900633255652,
+  "energy90_rank": 2,
+  "condition_number": 1.1345019479699976,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9986249002248695,
+  "distance_to_best_scalar_identity": 0.2254274078154528
+ },
+ "subj06|ventral": {
+  "spectral_norm": 0.1380137876419228,
+  "frobenius_norm": 0.157432611094848,
+  "singular_values": [
+   0.1380137876419228,
+   0.07574444835677326
+  ],
+  "effective_rank_participation": 1.8435559255450908,
+  "energy90_rank": 2,
+  "condition_number": 1.8220977330489894,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9644312110025579,
+  "distance_to_best_scalar_identity": 0.15183292376949897
+ },
+ "subj07|ventral": {
+  "spectral_norm": 0.17210612717563886,
+  "frobenius_norm": 0.22031894065389732,
+  "singular_values": [
+   0.17210612717563886,
+   0.13754968774758575
+  ],
+  "effective_rank_participation": 1.975398912454802,
+  "energy90_rank": 2,
+  "condition_number": 1.2512287740810204,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9944629541566333,
+  "distance_to_best_scalar_identity": 0.2190990245793347
+ },
+ "subj08|ventral": {
+  "spectral_norm": 0.18230235066751102,
+  "frobenius_norm": 0.190480204260752,
+  "singular_values": [
+   0.18230235066751102,
+   0.055213776870611214
+  ],
+  "effective_rank_participation": 1.5548428884105254,
+  "energy90_rank": 1,
+  "condition_number": 3.301754761220575,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.8823220144210892,
+  "distance_to_best_scalar_identity": 0.16806487753068722
+ },
+ "subj01|lateral": {
+  "spectral_norm": 0.4853082826381013,
+  "frobenius_norm": 0.4860348110105154,
+  "singular_values": [
+   0.4853082826381013,
+   0.02656517112468953
+  ],
+  "effective_rank_participation": 1.1091504588258865,
+  "energy90_rank": 1,
+  "condition_number": 18.268592374586976,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9827294135827175,
+  "distance_to_best_scalar_identity": 0.4776407048051507
+ },
+ "subj02|lateral": {
+  "spectral_norm": 0.33013864211769495,
+  "frobenius_norm": 0.3307954227196492,
+  "singular_values": [
+   0.33013864211769495,
+   0.020834794766348922
+  ],
+  "effective_rank_participation": 1.125717750106013,
+  "energy90_rank": 1,
+  "condition_number": 15.845543276044866,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9957739682838532,
+  "distance_to_best_scalar_identity": 0.32939747077167975
+ },
+ "subj03|lateral": {
+  "spectral_norm": 0.34549606458697474,
+  "frobenius_norm": 0.3506237564081366,
+  "singular_values": [
+   0.34549606458697474,
+   0.053317339106180826,
+   0.026958287469751666
+  ],
+  "effective_rank_participation": 1.4745886562277513,
+  "energy90_rank": 1,
+  "condition_number": 12.81595001072067,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9997460316578208,
+  "distance_to_best_scalar_identity": 0.350534709073993
+ },
+ "subj04|lateral": {
+  "spectral_norm": 0.4499833386431783,
+  "frobenius_norm": 0.4529033799257217,
+  "singular_values": [
+   0.4499833386431783,
+   0.051269796812532256,
+   0.0028061408523033324
+  ],
+  "effective_rank_participation": 1.2386599614098734,
+  "energy90_rank": 1,
+  "condition_number": 160.356647198883,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9946112411191741,
+  "distance_to_best_scalar_identity": 0.4504627928149909
+ },
+ "subj05|lateral": {
+  "spectral_norm": 0.40636178412857593,
+  "frobenius_norm": 0.4069311051748343,
+  "singular_values": [
+   0.40636178412857593,
+   0.021518010099743048
+  ],
+  "effective_rank_participation": 1.1056095483413448,
+  "energy90_rank": 1,
+  "condition_number": 18.88472875721108,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9962238521578114,
+  "distance_to_best_scalar_identity": 0.4053944731601089
+ },
+ "subj06|lateral": {
+  "spectral_norm": 0.30267072895983976,
+  "frobenius_norm": 0.30654490348861213,
+  "singular_values": [
+   0.30267072895983976,
+   0.04744642841846116,
+   0.010442419072876897
+  ],
+  "effective_rank_participation": 1.3834576513682084,
+  "energy90_rank": 1,
+  "condition_number": 28.98473302474478,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9986876892359758,
+  "distance_to_best_scalar_identity": 0.3061426213121073
+ },
+ "subj07|lateral": {
+  "spectral_norm": 0.4194177394775086,
+  "frobenius_norm": 0.4228630436480661,
+  "singular_values": [
+   0.4194177394775086,
+   0.0450038180069974,
+   0.02960692249586265
+  ],
+  "effective_rank_participation": 1.3649115515515848,
+  "energy90_rank": 1,
+  "condition_number": 14.166205202047566,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9989430939176704,
+  "distance_to_best_scalar_identity": 0.4224161171252421
+ },
+ "subj08|lateral": {
+  "spectral_norm": 0.2444382228454554,
+  "frobenius_norm": 0.25361582218500617,
+  "singular_values": [
+   0.2444382228454554,
+   0.06345710257890355,
+   0.023326735884444127
+  ],
+  "effective_rank_participation": 1.705633914807009,
+  "energy90_rank": 1,
+  "condition_number": 10.478886718499849,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9968203922283336,
+  "distance_to_best_scalar_identity": 0.25280942334576917
+ },
+ "subj01|parietal": {
+  "spectral_norm": 0.16108044137433827,
+  "frobenius_norm": 0.1678058709798969,
+  "singular_values": [
+   0.16108044137433827,
+   0.04703085946450673
+  ],
+  "effective_rank_participation": 1.53807327160085,
+  "energy90_rank": 1,
+  "condition_number": 3.4249946356158456,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9847237350415591,
+  "distance_to_best_scalar_identity": 0.16524242403322606
+ },
+ "subj02|parietal": {
+  "spectral_norm": 0.056770798749030564,
+  "frobenius_norm": 0.05774534949148188,
+  "singular_values": [
+   0.056770798749030564,
+   0.010564175182684899
+  ],
+  "effective_rank_participation": 1.3597133585626084,
+  "energy90_rank": 1,
+  "condition_number": 5.37389789238635,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9317939545465467,
+  "distance_to_best_scalar_identity": 0.053806767559340316
+ },
+ "subj03|parietal": {
+  "spectral_norm": 0.11509833365267447,
+  "frobenius_norm": 0.12205548952120529,
+  "singular_values": [
+   0.11509833365267447,
+   0.0406191594280172
+  ],
+  "effective_rank_participation": 1.6276468159162572,
+  "energy90_rank": 2,
+  "condition_number": 2.8335971318324478,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9881189317285051,
+  "distance_to_best_scalar_identity": 0.12060533991729312
+ },
+ "subj04|parietal": {
+  "spectral_norm": 0.16065397680377788,
+  "frobenius_norm": 0.1642830462961072,
+  "singular_values": [
+   0.16065397680377788,
+   0.03433975884394226
+  ],
+  "effective_rank_participation": 1.408821024611741,
+  "energy90_rank": 1,
+  "condition_number": 4.678366482824564,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9538330868950232,
+  "distance_to_best_scalar_identity": 0.15669860517313394
+ },
+ "subj05|parietal": {
+  "spectral_norm": 0.18595502906749078,
+  "frobenius_norm": 0.1884478815540501,
+  "singular_values": [
+   0.18595502906749078,
+   0.030550470155432233
+  ],
+  "effective_rank_participation": 1.319943508272566,
+  "energy90_rank": 1,
+  "condition_number": 6.086813987523063,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9552377302351793,
+  "distance_to_best_scalar_identity": 0.18001252664331874
+ },
+ "subj06|parietal": {
+  "spectral_norm": 0.17229184784551668,
+  "frobenius_norm": 0.17396212145647635,
+  "singular_values": [
+   0.17229184784551668,
+   0.02404867704500905
+  ],
+  "effective_rank_participation": 1.2738271613269685,
+  "energy90_rank": 1,
+  "condition_number": 7.164296294680099,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9228007970701984,
+  "distance_to_best_scalar_identity": 0.16053238434005904
+ },
+ "subj07|parietal": {
+  "spectral_norm": 0.2553045426729765,
+  "frobenius_norm": 0.25725719660612006,
+  "singular_values": [
+   0.2553045426729765,
+   0.03163630345318888
+  ],
+  "effective_rank_participation": 1.2440839400662163,
+  "energy90_rank": 1,
+  "condition_number": 8.069986528316798,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9537894661473214,
+  "distance_to_best_scalar_identity": 0.24536920421350775
+ },
+ "subj08|parietal": {
+  "spectral_norm": 0.04074249994452133,
+  "frobenius_norm": 0.04228534734406585,
+  "singular_values": [
+   0.04074249994452133,
+   0.011318096053620332
+  ],
+  "effective_rank_participation": 1.5157880071565912,
+  "energy90_rank": 1,
+  "condition_number": 3.5997662284805387,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "nontrivial_transformation_index": 0.9446206077814567,
+  "distance_to_best_scalar_identity": 0.03994361050840149
+ }
+}

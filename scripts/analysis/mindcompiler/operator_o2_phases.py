@@ -217,7 +217,29 @@ def phase_b(load_roi, identities, OUT, ALL, PRIMARY, _git, _sha):
     return 0
 
 
+def _kselect_secondary(load_roi, identities, OUT, ALL, SECONDARY):
+    """Vision-only K-selection for the secondary ROIs (identical procedure to Phase A)."""
+    K_CANDIDATES = [2, 3, 4, 5, 6, 7]
+    ids, fam = identities(); outer = ofo.outer_folds(ids, fam); dim_rows = []
+    for rname in SECONDARY:
+        cvis, _, nvox = load_roi(rname)
+        Ks = [K for K in K_CANDIDATES if K <= min(nvox.values()) - 1 and K <= len(ids) - 1]
+        for target in ALL:
+            train_subjects = [s for s in ALL if s != target]
+            for kf, f in enumerate(outer):
+                train_ids = list(f.train); inner = ofo.inner_folds(train_ids, fam); scoreK = {}
+                for K in Ks:
+                    margins = [pl.vision_identity_margin(cvis, [s for s in train_subjects if s != it], it, list(inf.train), list(inf.test), K)
+                               for it in train_subjects for inf in inner]
+                    scoreK[K] = float(np.mean(margins))
+                Kstar = max(Ks, key=lambda k: (scoreK[k], -k))
+                dim_rows.append(dict(ROI=rname, target_subject=target, identity_fold=kf, K_selected=Kstar, selected_margin=scoreK[Kstar]))
+        print(f"phase-C kselect {rname} done", flush=True)
+    pd.DataFrame(dim_rows).to_csv(OUT / "common_space_dimension_selection_secondary.csv", index=False)
+
+
 def phase_c(load_roi, identities, OUT, ALL, SECONDARY, _git, _sha):
+    _kselect_secondary(load_roi, identities, OUT, ALL, SECONDARY)
     ids, fam, pred_rows, leak_rows, cell, spectra = _run_primary(
         load_roi, identities, OUT, ALL, SECONDARY, "common_space_dimension_selection_secondary.csv", _git, _sha, "phase-C", 2)
     gsh = {r: [cell[(s, r)]["G_shared"] for s in ALL] for r in SECONDARY}

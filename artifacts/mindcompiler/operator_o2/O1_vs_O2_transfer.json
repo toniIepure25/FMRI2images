@@ -1,0 +1,174 @@
+{
+  "per_cell": [
+    {
+      "subject": "subj01",
+      "ROI": "ventral",
+      "G_native_O1": 0.055776398283117534,
+      "G_shared_O2": 0.00701420815092674,
+      "shared_transfer_fraction": 0.12575584596414877
+    },
+    {
+      "subject": "subj01",
+      "ROI": "lateral",
+      "G_native_O1": 0.07235617121607141,
+      "G_shared_O2": 0.005230237249588761,
+      "shared_transfer_fraction": 0.07228460491600812
+    },
+    {
+      "subject": "subj01",
+      "ROI": "parietal",
+      "G_native_O1": 0.008446045871274621,
+      "G_shared_O2": -0.004778321409072139,
+      "shared_transfer_fraction": null
+    },
+    {
+      "subject": "subj02",
+      "ROI": "ventral",
+      "G_native_O1": 0.10488995656355249,
+      "G_shared_O2": 0.02444643473228522,
+      "shared_transfer_fraction": 0.23306745024222797
+    },
+    {
+      "subject": "subj02",
+      "ROI": "lateral",
+      "G_native_O1": 0.10895804296157952,
+      "G_shared_O2": 0.004490154785097174,
+      "shared_transfer_fraction": 0.04120994341537944
+    },
+    {
+      "subject": "subj02",
+      "ROI": "parietal",
+      "G_native_O1": 0.03751444648214286,
+      "G_shared_O2": 0.0006463758100662941,
+      "shared_transfer_fraction": 0.017230050571956954
+    },
+    {
+      "subject": "subj03",
+      "ROI": "ventral",
+      "G_native_O1": 0.07435451067591403,
+      "G_shared_O2": -0.0008770267764850251,
+      "shared_transfer_fraction": -0.011795206081143966
+    },
+    {
+      "subject": "subj03",
+      "ROI": "lateral",
+      "G_native_O1": 0.15090562835844856,
+      "G_shared_O2": -0.007051741994993672,
+      "shared_transfer_fraction": -0.04672948300008768
+    },
+    {
+      "subject": "subj03",
+      "ROI": "parietal",
+      "G_native_O1": 0.0759833628930825,
+      "G_shared_O2": -0.014669871544655906,
+      "shared_transfer_fraction": -0.19306688972555922
+    },
+    {
+      "subject": "subj04",
+      "ROI": "ventral",
+      "G_native_O1": 0.1496531307909743,
+      "G_shared_O2": 0.021982399973355566,
+      "shared_transfer_fraction": 0.146889008316566
+    },
+    {
+      "subject": "subj04",
+      "ROI": "lateral",
+      "G_native_O1": 0.015191069528655232,
+      "G_shared_O2": 0.004756895853193425,
+      "shared_transfer_fraction": null
+    },
+    {
+      "subject": "subj04",
+      "ROI": "parietal",
+      "G_native_O1": 0.04682006663306393,
+      "G_shared_O2": 0.0031101748631135935,
+      "shared_transfer_fraction": 0.066428245125931
+    },
+    {
+      "subject": "subj05",
+      "ROI": "ventral",
+      "G_native_O1": 0.03744407877183176,
+      "G_shared_O2": 0.004924720353880807,
+      "shared_transfer_fraction": 0.13152200602637207
+    },
+    {
+      "subject": "subj05",
+      "ROI": "lateral",
+      "G_native_O1": 0.06638293895499392,
+      "G_shared_O2": 0.003607574572026114,
+      "shared_transfer_fraction": 0.054344905917346704
+    },
+    {
+      "subject": "subj05",
+      "ROI": "parietal",
+      "G_native_O1": 0.036641509529734884,
+      "G_shared_O2": -0.003596290874047466,
+      "shared_transfer_fraction": -0.09814799991056719
+    },
+    {
+      "subject": "subj06",
+      "ROI": "ventral",
+      "G_native_O1": 0.10762798057087886,
+      "G_shared_O2": 0.027722835707333415,
+      "shared_transfer_fraction": 0.2575801902097051
+    },
+    {
+      "subject": "subj06",
+      "ROI": "lateral",
+      "G_native_O1": 0.016317066397045443,
+      "G_shared_O2": -0.0017037437192916431,
+      "shared_transfer_fraction": null
+    },
+    {
+      "subject": "subj06",
+      "ROI": "parietal",
+      "G_native_O1": 0.09899354854438791,
+      "G_shared_O2": 0.0019782426649882583,
+      "shared_transfer_fraction": 0.019983551393768152
+    },
+    {
+      "subject": "subj07",
+      "ROI": "ventral",
+      "G_native_O1": 0.07562288326342692,
+      "G_shared_O2": 0.017352702354077338,
+      "shared_transfer_fraction": 0.22946364387655568
+    },
+    {
+      "subject": "subj07",
+      "ROI": "lateral",
+      "G_native_O1": 0.10319246489758149,
+      "G_shared_O2": 0.0006427835671054307,
+      "shared_transfer_fraction": 0.00622897774312682
+    },
+    {
+      "subject": "subj07",
+      "ROI": "parietal",
+      "G_native_O1": 0.017256495099658653,
+      "G_shared_O2": -0.01224543141144814,
+      "shared_transfer_fraction": null
+    },
+    {
+      "subject": "subj08",
+      "ROI": "ventral",
+      "G_native_O1": 0.06164074581350387,
+      "G_shared_O2": 0.01379218348192196,
+      "shared_transfer_fraction": 0.2237510805539354
+    },
+    {
+      "subject": "subj08",
+      "ROI": "lateral",
+      "G_native_O1": 0.2079326992058717,
+      "G_shared_O2": 0.003953075970382772,
+      "shared_transfer_fraction": 0.019011324267324006
+    },
+    {
+      "subject": "subj08",
+      "ROI": "parietal",
+      "G_native_O1": 0.03550786633598213,
+      "G_shared_O2": -0.0044429562825856845,
+      "shared_transfer_fraction": -0.12512597182116195
+    }
+  ],
+  "median_transfer_fraction_where_native_gt_0.02": 0.047777424666363075,
+  "note": "diagnostic only; not in primary classification"
+}

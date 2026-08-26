@@ -1,0 +1,32 @@
+{
+  "gate": "O2",
+  "execution_status": "O2_SHARED_OPERATOR_PASS",
+  "scientific_status": "SHARED_OPERATOR_PARTIAL",
+  "common_space_validated": true,
+  "leakage_clean": true,
+  "n_rois_G_shared_holm_reject": 1,
+  "all_rois_median_G_shared_positive": false,
+  "G_shared_median_by_ROI": {
+    "ventral": 0.015572442917999649,
+    "lateral": 0.0037803252712044428,
+    "parietal": -0.004019623578316575
+  },
+  "G_beyond_gain_median_by_ROI": {
+    "ventral": 0.01967003616720337,
+    "lateral": 0.00185530070943999,
+    "parietal": -0.0010239440712512826
+  },
+  "criteria": {
+    "A_common_space": true,
+    "B_holm_reject_ge2": false,
+    "C_all_median_pos": false,
+    "D_6of8_per_reject_roi": true,
+    "E_beyond_gain": true,
+    "F_no_sign_flip": true
+  },
+  "immutable": {
+    "O1_STATUS": "STIMULUS_INVARIANT_OPERATOR_PARTIAL",
+    "TRACK_R": "INDEPENDENT_METHOD_REPRODUCTION_PARTIAL"
+  },
+  "B0_measurement_dependence_caveat": true
+}

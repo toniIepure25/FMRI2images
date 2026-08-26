@@ -1,0 +1,37 @@
+{
+  "G_beyond_gain": {
+    "ventral": {
+      "n": 8,
+      "observed_mean": 0.019993809221597915,
+      "n_assignments": 256,
+      "p_one_sided_greater": 0.00390625,
+      "raw_p": 0.00390625,
+      "holm_p": 0.01171875,
+      "reject": true,
+      "median": 0.01967003616720337,
+      "n_positive": 8
+    },
+    "lateral": {
+      "n": 8,
+      "observed_mean": 0.002672078596879815,
+      "n_assignments": 256,
+      "p_one_sided_greater": 0.07421875,
+      "raw_p": 0.07421875,
+      "holm_p": 0.1484375,
+      "reject": false,
+      "median": 0.00185530070943999,
+      "n_positive": 6
+    },
+    "parietal": {
+      "n": 8,
+      "observed_mean": 0.001632601973413136,
+      "n_assignments": 256,
+      "p_one_sided_greater": 0.375,
+      "raw_p": 0.375,
+      "holm_p": 0.375,
+      "reject": false,
+      "median": -0.0010239440712512826,
+      "n_positive": 4
+    }
+  }
+}

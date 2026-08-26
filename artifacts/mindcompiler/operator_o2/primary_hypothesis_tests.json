@@ -1,0 +1,34 @@
+{
+  "G_shared": {
+    "ventral": {
+      "n": 8,
+      "observed_mean": 0.014544807247162003,
+      "n_assignments": 256,
+      "p_one_sided_greater": 0.0078125,
+      "raw_p": 0.0078125,
+      "holm_p": 0.0234375,
+      "reject": true,
+      "n_positive": 7
+    },
+    "lateral": {
+      "n": 8,
+      "observed_mean": 0.001740654535388545,
+      "n_assignments": 256,
+      "p_one_sided_greater": 0.1328125,
+      "raw_p": 0.1328125,
+      "holm_p": 0.265625,
+      "reject": false,
+      "n_positive": 6
+    },
+    "parietal": {
+      "n": 8,
+      "observed_mean": -0.004249759772955149,
+      "n_assignments": 256,
+      "p_one_sided_greater": 0.9453125,
+      "raw_p": 0.9453125,
+      "holm_p": 0.9453125,
+      "reject": false,
+      "n_positive": 3
+    }
+  }
+}

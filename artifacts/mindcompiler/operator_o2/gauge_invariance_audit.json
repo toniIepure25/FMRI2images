@@ -1,0 +1,6 @@
+{
+  "T_prime_equals_Qt_T_Q_max_abs_err": 4.440892098500626e-16,
+  "prediction_equivariant_max_abs_err": 5.551115123125783e-16,
+  "nti_rotation_invariant": true,
+  "PASS": true
+}

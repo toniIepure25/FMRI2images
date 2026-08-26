@@ -1,0 +1,121 @@
+{
+  "config_sha256": "c8ebd4afc9366d719e9b32beb0b020212c9340e83742e8b524e84746d769f540",
+  "gate": "O1",
+  "analysis_class": "FROZEN_ORIGINAL_OPERATOR_DISCOVERY_ON_PREVIOUSLY_USED_DATA",
+  "frozen_before_outcomes": true,
+  "not_independent_dataset_confirmation": true,
+  "participants": [
+    "subj01",
+    "subj02",
+    "subj03",
+    "subj04",
+    "subj05",
+    "subj06",
+    "subj07",
+    "subj08"
+  ],
+  "rois": [
+    "V1",
+    "V2",
+    "V3",
+    "hV4",
+    "ventral",
+    "lateral",
+    "parietal"
+  ],
+  "primary_beta": "B0 (fithrf, b2-compatible)",
+  "B0_selection_basis": "PRE_O1_MEASUREMENT_QUALITY_AND_PUBLIC_METHOD_EVIDENCE",
+  "B1_role": "MEASUREMENT_PREPARATION_SENSITIVITY (never selects operator family)",
+  "primary_source": "RAW_VISION_B0",
+  "primary_target": "RAW_IMAGERY_B0",
+  "no_D1_primary": true,
+  "representation_unit": "identity centroid = mean of 8 repeats; fitting N = number of training identities",
+  "common_scaling": "COMMON_VISION_SCALE_TRAIN_ONLY (mu_vis/sigma_vis from TRAIN vision centroids applied to BOTH states; zero-var vision dims dropped)",
+  "outer_folds": "6 identity folds, each holds out 1 simple + 1 naturalistic (every identity tested once)",
+  "inner_folds": "5 identity folds within each outer train (1 simple + 1 naturalistic each)",
+  "operator_ladder": {
+    "O0": "IMAGERY_MEAN",
+    "O1": "GLOBAL_GAIN",
+    "O2": "DIAGONAL_AFFINE",
+    "O3": "LOW_RANK_RESIDUAL",
+    "O4": "FULL_RRR_OPERATOR"
+  },
+  "ridge_grid": {
+    "lo": 0.0001,
+    "hi": 10000.0,
+    "n": 50
+  },
+  "rank_candidates": "1..min(8, n_inner_train-1, eff_source_rank, tgt_dim)",
+  "hyperparam_selection": "inner identity-held-out CV; primary metric mean held-out-identity pattern r; tie -> larger ridge then smaller rank",
+  "primary_metric": "HELD_OUT_IDENTITY_PATTERN_R (Pearson across voxels, common-vision-scaled space)",
+  "metric_space": "COMMON_VISION_SCALED",
+  "secondary_metrics": [
+    "normalized_mse",
+    "cosine",
+    "explained_variance",
+    "centroid_norm_ratio"
+  ],
+  "hypotheses": {
+    "H-O1": "O4 > O0",
+    "H-O2": "O4 > O1",
+    "H-O3": "O4 > O2",
+    "H-O4": "O3 competitive with O4 if median(O4-O3)<= 0.02 and not worse by >0.05 in >2/8"
+  },
+  "inference": {
+    "unit": "participant (N=8)",
+    "test": "exact 2^8 sign-flip one-sided",
+    "correction": "Holm across 7 ROIs per hypothesis family",
+    "alpha": 0.05
+  },
+  "cross_family_transfer": "SECONDARY: train all 6 simple -> test 6 naturalistic and reverse; hyperparams via identity-held-out CV inside source family",
+  "final_descriptive_fit": "O4 on all 12 identities (hyperparams via identity-held-out CV over all 12); geometry only, NOT generalization evidence",
+  "geometry": "supported visual-centroid span B_v; identity deviation; out-of-span fraction; restricted spectrum; effective ranks; residual operator; off-diagonal mixing; polar decomposition",
+  "stability": {
+    "HIGH": 0.8,
+    "MODERATE": 0.5,
+    "compare_on": "common supported span action cosine"
+  },
+  "classification": {
+    "competitive_tol": 0.02,
+    "existence_margin": 0.0,
+    "labels": [
+      "GLOBAL_GAIN_SUFFICIENT",
+      "DIAGONAL_REWEIGHTING_SUFFICIENT",
+      "LOW_RANK_DEFORMATION_SUFFICIENT",
+      "FULL_CROSS_VOXEL_OPERATOR_NEEDED",
+      "NO_REUSABLE_OPERATOR_EVIDENCE"
+    ]
+  },
+  "prohibited": [
+    "nonlinear/NN/kernel/diffusion/transformer models",
+    "D1 as primary source",
+    "identity leakage",
+    "trial-level random validation",
+    "inflating N by repeats",
+    "cross-subject raw-W comparison",
+    "assuming imagery lower-dimensional",
+    "causal operator claim",
+    "reopening Roy reproduction",
+    "B1 selecting operator family"
+  ],
+  "immutable": {
+    "TRACK_R_STATUS": "INDEPENDENT_METHOD_REPRODUCTION_PARTIAL",
+    "TRACK_R_REOPEN_ALLOWED": false,
+    "H_A_CROSS_PARTICIPANT_PARTIAL": "unchanged"
+  },
+  "fold_leakage_certificate": {
+    "every_identity_tested_once": true,
+    "each_outer_fold_1simple_1nat": true,
+    "inner_disjoint_from_outer_test": true,
+    "inner_covers_outer_train_once": true,
+    "n_outer": 6,
+    "n_inner_per_outer": [
+      5,
+      5,
+      5,
+      5,
+      5,
+      5
+    ]
+  }
+}

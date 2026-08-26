@@ -1,0 +1,46 @@
+{
+  "novelty_label_overall": "NOVELTY_CANDIDATE",
+  "question": "Within-subject, stimulus-IDENTITY-held-out perception->imagery neural-state linear OPERATOR + operator-class ladder + cross-family transfer + supported-span geometry.",
+  "close_prior_art": [
+    {
+      "work": "Roy et al. 2025 (bioRxiv, PMC12424947)",
+      "relation": "vision->imagery transformation, SAME-identity repeats; Track R reproduced partially",
+      "identities_held_out": false,
+      "operator_generalizes_to_unseen_identity": false,
+      "operator_class_analyzed": false,
+      "label": "CLOSE_PRIOR_ART_EXISTS"
+    },
+    {
+      "work": "General Transformations of Object Representations in Human Visual Cortex (J Neurosci 2018, PubMed 30126975)",
+      "relation": "L2-regularized transformation matrices between pre/post AFFINE-change patterns, generalized to HELD-OUT objects (not perception->imagery states)",
+      "identities_held_out": true,
+      "operator_generalizes_to_unseen_identity": true,
+      "operator_class_analyzed": false,
+      "label": "CLOSE_PRIOR_ART_EXISTS"
+    },
+    {
+      "work": "MIRAGE (Kneeland et al. 2025, PLOS Comput Biol)",
+      "relation": "seen->imagined IMAGE reconstruction generalization on NSD-Imagery (decoding to images, not neural-state operator)",
+      "identities_held_out": true,
+      "operator_generalizes_to_unseen_identity": "reconstruction, not operator",
+      "operator_class_analyzed": false,
+      "label": "CLOSE_PRIOR_ART_EXISTS"
+    },
+    {
+      "work": "Hyperalignment (Haxby/Guntupalli) & Shared Response Model (Chen et al.)",
+      "relation": "CROSS-SUBJECT common representational space (Procrustes/joint-SVD); different question -- O1 is within-subject cross-state; cross-subject deferred to O2",
+      "identities_held_out": "n/a",
+      "operator_generalizes_to_unseen_identity": "n/a",
+      "operator_class_analyzed": false,
+      "label": "RELATED_DIFFERENT_QUESTION"
+    }
+  ],
+  "novelty_statement": "The specific combination (within-subject perception->imagery neural-state operator, identity-held-out, with an O0-O4 operator-class ladder and simple<->naturalistic family transfer) is a NOVELTY_CANDIDATE. Component techniques (held-out neural transformation operators; vision->imagery mapping) each have close prior art. NO 'first ever' claim.",
+  "sources": [
+    "https://pubmed.ncbi.nlm.nih.gov/40950062/",
+    "https://www.jneurosci.org/content/38/40/8526",
+    "https://pubmed.ncbi.nlm.nih.gov/30126975/",
+    "https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1014263",
+    "https://www.biorxiv.org/content/10.1101/2020.11.25.398883v1.full"
+  ]
+}

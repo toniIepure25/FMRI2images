@@ -1,0 +1,8 @@
+{
+  "O0": "IMAGERY_MEAN  y=b (no vision) -- negative control",
+  "O1": "GLOBAL_GAIN  y=b+a x  (one scalar gain)",
+  "O2": "DIAGONAL_AFFINE  y=b+D x  (voxelwise gain, no cross-voxel mixing)",
+  "O3": "LOW_RANK_RESIDUAL  y=b+x+Delta_r x  (identity + low-dim deformation)",
+  "O4": "FULL_RRR_OPERATOR  y=b+W_r x  (regularized reduced-rank multivariate map)",
+  "no_nonlinear": true
+}

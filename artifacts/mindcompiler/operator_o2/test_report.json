@@ -1,4 +1,18 @@
 {
-  "lane": "pod compute",
-  "o2_tests": null
+  "lane": "pod compute (3 phases); data-free tests local",
+  "operator_o2_tests": {
+    "files": [
+      "test_operator_o2.py",
+      "test_o2_design.py"
+    ],
+    "passed": 18,
+    "includes": [
+      "gauge_equivariance",
+      "shared_beats_group_mean",
+      "identity_shuffle_collapse",
+      "different_voxel_counts",
+      "vision_only_new_subject_map"
+    ]
+  },
+  "reproduction_tests_passed": true
 }

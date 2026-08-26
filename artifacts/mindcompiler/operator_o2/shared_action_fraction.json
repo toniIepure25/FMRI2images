@@ -1,0 +1,151 @@
+{
+  "per_subject_roi": [
+    {
+      "ROI": "ventral",
+      "subject": "subj01",
+      "shared_action_fraction": 0.9887289731972535,
+      "lambda_delta": 10000.0
+    },
+    {
+      "ROI": "ventral",
+      "subject": "subj02",
+      "shared_action_fraction": 0.6616023647318172,
+      "lambda_delta": 100.0
+    },
+    {
+      "ROI": "ventral",
+      "subject": "subj03",
+      "shared_action_fraction": 0.82515732329185,
+      "lambda_delta": 2154.4346900318824
+    },
+    {
+      "ROI": "ventral",
+      "subject": "subj04",
+      "shared_action_fraction": 0.9828915666530773,
+      "lambda_delta": 4641.588833612773
+    },
+    {
+      "ROI": "ventral",
+      "subject": "subj05",
+      "shared_action_fraction": 0.8661812647909659,
+      "lambda_delta": 2154.4346900318824
+    },
+    {
+      "ROI": "ventral",
+      "subject": "subj06",
+      "shared_action_fraction": 0.49481134693353523,
+      "lambda_delta": 464.1588833612773
+    },
+    {
+      "ROI": "ventral",
+      "subject": "subj07",
+      "shared_action_fraction": 0.4531830435174416,
+      "lambda_delta": 215.44346900318823
+    },
+    {
+      "ROI": "ventral",
+      "subject": "subj08",
+      "shared_action_fraction": 0.6206237414335266,
+      "lambda_delta": 2154.4346900318824
+    },
+    {
+      "ROI": "lateral",
+      "subject": "subj01",
+      "shared_action_fraction": 0.7091239937347366,
+      "lambda_delta": 2154.4346900318824
+    },
+    {
+      "ROI": "lateral",
+      "subject": "subj02",
+      "shared_action_fraction": 0.9980244700049719,
+      "lambda_delta": 10000.0
+    },
+    {
+      "ROI": "lateral",
+      "subject": "subj03",
+      "shared_action_fraction": 0.4450467516185335,
+      "lambda_delta": 100.0
+    },
+    {
+      "ROI": "lateral",
+      "subject": "subj04",
+      "shared_action_fraction": 0.37336440059960335,
+      "lambda_delta": 100.0
+    },
+    {
+      "ROI": "lateral",
+      "subject": "subj05",
+      "shared_action_fraction": 0.6189589462604514,
+      "lambda_delta": 100.0
+    },
+    {
+      "ROI": "lateral",
+      "subject": "subj06",
+      "shared_action_fraction": 0.9979015838112748,
+      "lambda_delta": 10000.0
+    },
+    {
+      "ROI": "lateral",
+      "subject": "subj07",
+      "shared_action_fraction": 0.6954723361899012,
+      "lambda_delta": 215.44346900318823
+    },
+    {
+      "ROI": "lateral",
+      "subject": "subj08",
+      "shared_action_fraction": 0.13249563270162015,
+      "lambda_delta": 100.0
+    },
+    {
+      "ROI": "parietal",
+      "subject": "subj01",
+      "shared_action_fraction": 0.46056486512729167,
+      "lambda_delta": 21.54434690031882
+    },
+    {
+      "ROI": "parietal",
+      "subject": "subj02",
+      "shared_action_fraction": 0.9990404818430022,
+      "lambda_delta": 10000.0
+    },
+    {
+      "ROI": "parietal",
+      "subject": "subj03",
+      "shared_action_fraction": 0.9981723432792939,
+      "lambda_delta": 10000.0
+    },
+    {
+      "ROI": "parietal",
+      "subject": "subj04",
+      "shared_action_fraction": 0.9994881965662954,
+      "lambda_delta": 10000.0
+    },
+    {
+      "ROI": "parietal",
+      "subject": "subj05",
+      "shared_action_fraction": 0.9847961494595052,
+      "lambda_delta": 2154.4346900318824
+    },
+    {
+      "ROI": "parietal",
+      "subject": "subj06",
+      "shared_action_fraction": 0.7342051990836084,
+      "lambda_delta": 100.0
+    },
+    {
+      "ROI": "parietal",
+      "subject": "subj07",
+      "shared_action_fraction": 0.568436668301399,
+      "lambda_delta": 46.41588833612773
+    },
+    {
+      "ROI": "parietal",
+      "subject": "subj08",
+      "shared_action_fraction": 0.6345104350166215,
+      "lambda_delta": 215.44346900318823
+    }
+  ],
+  "median_shared_action_fraction": 0.7022981649623189,
+  "decomposition_status": "SHARED_COMPONENT_DOMINANT",
+  "note": "training subjects only; Delta_target never estimated"
+}

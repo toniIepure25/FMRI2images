@@ -1,0 +1,149 @@
+{
+  "per_subject_roi": [
+    {
+      "ROI": "ventral",
+      "subject": "subj01",
+      "delta_frobenius": 0.018427451692655604,
+      "delta_nti": 0.010315986081422047
+    },
+    {
+      "ROI": "ventral",
+      "subject": "subj02",
+      "delta_frobenius": 0.14933030603597677,
+      "delta_nti": 0.09126345946267603
+    },
+    {
+      "ROI": "ventral",
+      "subject": "subj03",
+      "delta_frobenius": 0.0696759177407988,
+      "delta_nti": 0.040588160057590535
+    },
+    {
+      "ROI": "ventral",
+      "subject": "subj04",
+      "delta_frobenius": 0.02739943720363516,
+      "delta_nti": 0.01816651091876082
+    },
+    {
+      "ROI": "ventral",
+      "subject": "subj05",
+      "delta_frobenius": 0.06607867101581377,
+      "delta_nti": 0.03733091862399995
+    },
+    {
+      "ROI": "ventral",
+      "subject": "subj06",
+      "delta_frobenius": 0.189560719113543,
+      "delta_nti": 0.12606759168691672
+    },
+    {
+      "ROI": "ventral",
+      "subject": "subj07",
+      "delta_frobenius": 0.2271709812126349,
+      "delta_nti": 0.12974949630170718
+    },
+    {
+      "ROI": "ventral",
+      "subject": "subj08",
+      "delta_frobenius": 0.12319557080465546,
+      "delta_nti": 0.059299989987797334
+    },
+    {
+      "ROI": "lateral",
+      "subject": "subj01",
+      "delta_frobenius": 0.16782883027066936,
+      "delta_nti": 0.0839438882727895
+    },
+    {
+      "ROI": "lateral",
+      "subject": "subj02",
+      "delta_frobenius": 0.010202829275982815,
+      "delta_nti": 0.005783113027335421
+    },
+    {
+      "ROI": "lateral",
+      "subject": "subj03",
+      "delta_frobenius": 0.41541066943510785,
+      "delta_nti": 0.23903994632034087
+    },
+    {
+      "ROI": "lateral",
+      "subject": "subj04",
+      "delta_frobenius": 0.7431770496987313,
+      "delta_nti": 0.42663583405472216
+    },
+    {
+      "ROI": "lateral",
+      "subject": "subj05",
+      "delta_frobenius": 0.3220948033209767,
+      "delta_nti": 0.1853935249115991
+    },
+    {
+      "ROI": "lateral",
+      "subject": "subj06",
+      "delta_frobenius": 0.01699452295476437,
+      "delta_nti": 0.009530389377838917
+    },
+    {
+      "ROI": "lateral",
+      "subject": "subj07",
+      "delta_frobenius": 0.22906684545148237,
+      "delta_nti": 0.13088644748886494
+    },
+    {
+      "ROI": "lateral",
+      "subject": "subj08",
+      "delta_frobenius": 0.9345510002631565,
+      "delta_nti": 0.48256804667336684
+    },
+    {
+      "ROI": "parietal",
+      "subject": "subj01",
+      "delta_frobenius": 0.34838674990690716,
+      "delta_nti": 0.21420038104639572
+    },
+    {
+      "ROI": "parietal",
+      "subject": "subj02",
+      "delta_frobenius": 0.009332026444757092,
+      "delta_nti": 0.0055329046452559615
+    },
+    {
+      "ROI": "parietal",
+      "subject": "subj03",
+      "delta_frobenius": 0.015430337737244799,
+      "delta_nti": 0.009397665011050419
+    },
+    {
+      "ROI": "parietal",
+      "subject": "subj04",
+      "delta_frobenius": 0.006291615385674633,
+      "delta_nti": 0.003910620370674074
+    },
+    {
+      "ROI": "parietal",
+      "subject": "subj05",
+      "delta_frobenius": 0.03999560253758787,
+      "delta_nti": 0.024181226955762806
+    },
+    {
+      "ROI": "parietal",
+      "subject": "subj06",
+      "delta_frobenius": 0.24418928281152266,
+      "delta_nti": 0.09206234421620502
+    },
+    {
+      "ROI": "parietal",
+      "subject": "subj07",
+      "delta_frobenius": 0.36724389142084474,
+      "delta_nti": 0.19636387984688222
+    },
+    {
+      "ROI": "parietal",
+      "subject": "subj08",
+      "delta_frobenius": 0.2498782773988563,
+      "delta_nti": 0.17457513674887273
+    }
+  ],
+  "note": "T_s = T_shared + Delta_s (training subjects only)"
+}

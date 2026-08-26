@@ -1,0 +1,842 @@
+{
+ "subj01|V1": {
+  "rotation_frobenius": 4.39417272784566,
+  "rotation_mean_angle_proxy": 1.374061097638511,
+  "stretch_singular_values": {
+   "mean": 0.05793445383217637,
+   "min": 7.850887994980439e-19,
+   "max": 0.6952134459861161
+  },
+  "stretch_anisotropy": 695212900182.255,
+  "mean_contraction": 0.05793445383217637,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj01|V2": {
+  "rotation_frobenius": 5.07939735135037,
+  "rotation_mean_angle_proxy": 1.6458784110662095,
+  "stretch_singular_values": {
+   "mean": 0.08419511816045351,
+   "min": 4.5805421426469764e-18,
+   "max": 0.4288189674471482
+  },
+  "stretch_anisotropy": 428817003232.7934,
+  "mean_contraction": 0.08419511816045351,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj01|V3": {
+  "rotation_frobenius": 4.116623708460499,
+  "rotation_mean_angle_proxy": 1.2725001523344506,
+  "stretch_singular_values": {
+   "mean": 0.07125646384439333,
+   "min": 1.1293302828766585e-18,
+   "max": 0.3437124556925813
+  },
+  "stretch_anisotropy": 343712067528.1348,
+  "mean_contraction": 0.07125646384439333,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj01|hV4": {
+  "rotation_frobenius": 4.477693615527501,
+  "rotation_mean_angle_proxy": 1.405449779336807,
+  "stretch_singular_values": {
+   "mean": 0.07226494970752738,
+   "min": 4.452648288377359e-18,
+   "max": 0.5105403028099188
+  },
+  "stretch_anisotropy": 510538029563.6353,
+  "mean_contraction": 0.07226494970752738,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj01|ventral": {
+  "rotation_frobenius": 4.936589867792036,
+  "rotation_mean_angle_proxy": 1.5862102506003484,
+  "stretch_singular_values": {
+   "mean": 0.03599112818975027,
+   "min": 6.152246335754887e-19,
+   "max": 0.23757000456764032
+  },
+  "stretch_anisotropy": 237569858408.81125,
+  "mean_contraction": 0.03599112818975027,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj01|lateral": {
+  "rotation_frobenius": 4.941610093500025,
+  "rotation_mean_angle_proxy": 1.5882768135333794,
+  "stretch_singular_values": {
+   "mean": 0.058839824016351905,
+   "min": 6.124445616976105e-20,
+   "max": 0.7060778881962225
+  },
+  "stretch_anisotropy": 706077844952.8689,
+  "mean_contraction": 0.058839824016351905,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj01|parietal": {
+  "rotation_frobenius": 4.900066792249227,
+  "rotation_mean_angle_proxy": 1.5712402671637966,
+  "stretch_singular_values": {
+   "mean": 0.0992594019877719,
+   "min": 1.1614775489319235e-18,
+   "max": 0.7750038954588806
+  },
+  "stretch_anisotropy": 775002995310.3013,
+  "mean_contraction": 0.0992594019877719,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj02|V1": {
+  "rotation_frobenius": 4.9523824538983305,
+  "rotation_mean_angle_proxy": 1.592718581408065,
+  "stretch_singular_values": {
+   "mean": 0.038287177968004384,
+   "min": 7.076059033873935e-19,
+   "max": 0.264262737467535
+  },
+  "stretch_anisotropy": 264262550473.79425,
+  "mean_contraction": 0.038287177968004384,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj02|V2": {
+  "rotation_frobenius": 4.770423552872262,
+  "rotation_mean_angle_proxy": 1.5189790111052244,
+  "stretch_singular_values": {
+   "mean": 0.04406739841752575,
+   "min": 8.403093335952391e-19,
+   "max": 0.23604248693523314
+  },
+  "stretch_anisotropy": 236042288586.69492,
+  "mean_contraction": 0.04406739841752575,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj02|V3": {
+  "rotation_frobenius": 4.415661093632813,
+  "rotation_mean_angle_proxy": 1.3820977698986352,
+  "stretch_singular_values": {
+   "mean": 0.0427842265765084,
+   "min": 7.656931682504124e-20,
+   "max": 0.3431208620631285
+  },
+  "stretch_anisotropy": 343120835790.6005,
+  "mean_contraction": 0.0427842265765084,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj02|hV4": {
+  "rotation_frobenius": 4.508310769569268,
+  "rotation_mean_angle_proxy": 1.5870403409154217,
+  "stretch_singular_values": {
+   "mean": 0.06190530561776085,
+   "min": 8.520625928594996e-19,
+   "max": 0.4975659388755472
+  },
+  "stretch_anisotropy": 497565514918.5844,
+  "mean_contraction": 0.06190530561776085,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj02|ventral": {
+  "rotation_frobenius": 4.705538434822075,
+  "rotation_mean_angle_proxy": 1.4933059633487176,
+  "stretch_singular_values": {
+   "mean": 0.10900081855146027,
+   "min": 1.914572298015085e-18,
+   "max": 0.5320660333798876
+  },
+  "stretch_anisotropy": 532065014702.9497,
+  "mean_contraction": 0.10900081855146027,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj02|lateral": {
+  "rotation_frobenius": 5.225964342106854,
+  "rotation_mean_angle_proxy": 1.70918358489742,
+  "stretch_singular_values": {
+   "mean": 0.2583207156508418,
+   "min": 2.6341864625290387e-18,
+   "max": 2.428944406127651
+  },
+  "stretch_anisotropy": 2428938007852.032,
+  "mean_contraction": 0.060991289243859124,
+  "mean_expansion": 2.428944406127651,
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333,
+  "determinant_sign": -1.0
+ },
+ "subj02|parietal": {
+  "rotation_frobenius": 4.787371601253244,
+  "rotation_mean_angle_proxy": 1.5257363654045744,
+  "stretch_singular_values": {
+   "mean": 0.1291651993815777,
+   "min": 1.1934627642685747e-18,
+   "max": 0.8653158237050262
+  },
+  "stretch_anisotropy": 865314790984.0438,
+  "mean_contraction": 0.1291651993815777,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj03|V1": {
+  "rotation_frobenius": 5.359615894893658,
+  "rotation_mean_angle_proxy": 1.768986347233982,
+  "stretch_singular_values": {
+   "mean": 0.10373274778850343,
+   "min": 4.8720043118323535e-18,
+   "max": 0.9841217755136632
+  },
+  "stretch_anisotropy": 984116980891.4889,
+  "mean_contraction": 0.10373274778850343,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj03|V2": {
+  "rotation_frobenius": 4.746785691927992,
+  "rotation_mean_angle_proxy": 1.5095903862169016,
+  "stretch_singular_values": {
+   "mean": 0.3069909196625143,
+   "min": 6.147120403328537e-19,
+   "max": 2.7458677405293113
+  },
+  "stretch_anisotropy": 2745866052612.3877,
+  "mean_contraction": 0.08527484503826001,
+  "mean_expansion": 2.7458677405293113,
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333,
+  "determinant_sign": -1.0
+ },
+ "subj03|V3": {
+  "rotation_frobenius": 4.813766868745675,
+  "rotation_mean_angle_proxy": 1.5363041323515192,
+  "stretch_singular_values": {
+   "mean": 0.0393644691741167,
+   "min": 2.0555240442746586e-19,
+   "max": 0.3014491721252183
+  },
+  "stretch_anisotropy": 301449110161.62897,
+  "mean_contraction": 0.0393644691741167,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj03|hV4": {
+  "rotation_frobenius": 4.407405605105058,
+  "rotation_mean_angle_proxy": 1.6500584148968578,
+  "stretch_singular_values": {
+   "mean": 0.569890184383458,
+   "min": 7.396688089337724e-18,
+   "max": 2.6596055996172465
+  },
+  "stretch_anisotropy": 2659585927489.694,
+  "mean_contraction": 0.09429082341349622,
+  "mean_expansion": 2.234487947778324,
+  "fraction_contracted": 0.7777777777777778,
+  "fraction_expanded": 0.2222222222222222,
+  "determinant_sign": 1.0
+ },
+ "subj03|ventral": {
+  "rotation_frobenius": 4.910102990729577,
+  "rotation_mean_angle_proxy": 1.5753426499383942,
+  "stretch_singular_values": {
+   "mean": 0.1416960854315274,
+   "min": 2.2954973512136106e-18,
+   "max": 1.1580283487781189
+  },
+  "stretch_anisotropy": 1158025690533.2136,
+  "mean_contraction": 0.04930224330910997,
+  "mean_expansion": 1.1580283487781189,
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333,
+  "determinant_sign": 1.0
+ },
+ "subj03|lateral": {
+  "rotation_frobenius": 5.032626914248002,
+  "rotation_mean_angle_proxy": 1.626130128668592,
+  "stretch_singular_values": {
+   "mean": 0.14401604903261686,
+   "min": 7.900677611333071e-18,
+   "max": 1.7281925883914016
+  },
+  "stretch_anisotropy": 1728178934606.7847,
+  "mean_contraction": 9.458033060829256e-17,
+  "mean_expansion": 1.7281925883914016,
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333,
+  "determinant_sign": -1.0
+ },
+ "subj03|parietal": {
+  "rotation_frobenius": 5.007907710699377,
+  "rotation_mean_angle_proxy": 1.6157756434485975,
+  "stretch_singular_values": {
+   "mean": 0.2744094283967862,
+   "min": 3.5918833004347763e-19,
+   "max": 3.2929131407614336
+  },
+  "stretch_anisotropy": 3292911957985.886,
+  "mean_contraction": 1.1995565582809653e-16,
+  "mean_expansion": 3.2929131407614336,
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333,
+  "determinant_sign": 1.0
+ },
+ "subj04|V1": {
+  "rotation_frobenius": 4.922969914776035,
+  "rotation_mean_angle_proxy": 1.5806145171091723,
+  "stretch_singular_values": {
+   "mean": 0.08085172647277464,
+   "min": 4.192892418383537e-19,
+   "max": 0.4270259566198567
+  },
+  "stretch_anisotropy": 427025777572.5422,
+  "mean_contraction": 0.08085172647277464,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj04|V2": {
+  "rotation_frobenius": 5.042590977221057,
+  "rotation_mean_angle_proxy": 1.6303199600461686,
+  "stretch_singular_values": {
+   "mean": 0.076131330176832,
+   "min": 1.751861851944635e-18,
+   "max": 0.6176108755966053
+  },
+  "stretch_anisotropy": 617609793629.5685,
+  "mean_contraction": 0.076131330176832,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj04|V3": {
+  "rotation_frobenius": 4.393309589880903,
+  "rotation_mean_angle_proxy": 1.447812408872907,
+  "stretch_singular_values": {
+   "mean": 0.094889884274155,
+   "min": 7.432437622722163e-19,
+   "max": 0.4551976915257705
+  },
+  "stretch_anisotropy": 455197353203.1771,
+  "mean_contraction": 0.094889884274155,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj04|hV4": {
+  "rotation_frobenius": 4.150164219118507,
+  "rotation_mean_angle_proxy": 1.4315398296548667,
+  "stretch_singular_values": {
+   "mean": 0.5303331330967018,
+   "min": 1.1621552255588377e-17,
+   "max": 2.5913327002873423
+  },
+  "stretch_anisotropy": 2591302585328.937,
+  "mean_contraction": 0.1686731945105169,
+  "mean_expansion": 1.9769728874414416,
+  "fraction_contracted": 0.8,
+  "fraction_expanded": 0.2,
+  "determinant_sign": 1.0
+ },
+ "subj04|ventral": {
+  "rotation_frobenius": 4.816381085608621,
+  "rotation_mean_angle_proxy": 1.537353708466171,
+  "stretch_singular_values": {
+   "mean": 0.20719454525754724,
+   "min": 6.3938979734232874e-18,
+   "max": 0.9608526831071834
+  },
+  "stretch_anisotropy": 960846539552.4414,
+  "mean_contraction": 0.20719454525754724,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj04|lateral": {
+  "rotation_frobenius": 5.095287810216038,
+  "rotation_mean_angle_proxy": 1.6526358971014325,
+  "stretch_singular_values": {
+   "mean": 0.28235389801736155,
+   "min": 5.399247509071765e-18,
+   "max": 2.510222685907304
+  },
+  "stretch_anisotropy": 2510209132666.8975,
+  "mean_contraction": 0.07982037184554862,
+  "mean_expansion": 2.510222685907304,
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333,
+  "determinant_sign": 1.0
+ },
+ "subj04|parietal": {
+  "rotation_frobenius": 4.974806324908731,
+  "rotation_mean_angle_proxy": 1.6019971375958046,
+  "stretch_singular_values": {
+   "mean": 0.06948378499994588,
+   "min": 6.028000883398696e-19,
+   "max": 0.8338054199993503
+  },
+  "stretch_anisotropy": 833804917381.6725,
+  "mean_contraction": 0.06948378499994588,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj05|V1": {
+  "rotation_frobenius": 4.812892225988311,
+  "rotation_mean_angle_proxy": 1.5359530927700284,
+  "stretch_singular_values": {
+   "mean": 0.23099660376820885,
+   "min": 9.970469174108084e-18,
+   "max": 2.771959245218505
+  },
+  "stretch_anisotropy": 2771931607759.8574,
+  "mean_contraction": 9.633536677378475e-17,
+  "mean_expansion": 2.771959245218505,
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333,
+  "determinant_sign": -1.0
+ },
+ "subj05|V2": {
+  "rotation_frobenius": 4.506286144881576,
+  "rotation_mean_angle_proxy": 1.41629129188357,
+  "stretch_singular_values": {
+   "mean": 0.0642376352777065,
+   "min": 2.2134736132696317e-19,
+   "max": 0.3389215880549443
+  },
+  "stretch_anisotropy": 338921513035.5617,
+  "mean_contraction": 0.0642376352777065,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj05|V3": {
+  "rotation_frobenius": 5.021872152748393,
+  "rotation_mean_angle_proxy": 1.6216181982279285,
+  "stretch_singular_values": {
+   "mean": 0.09032856980209668,
+   "min": 1.2746757378542799e-18,
+   "max": 1.0839428376251596
+  },
+  "stretch_anisotropy": 1083941455951.2845,
+  "mean_contraction": 3.419023340537694e-17,
+  "mean_expansion": 1.0839428376251596,
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333,
+  "determinant_sign": 1.0
+ },
+ "subj05|hV4": {
+  "rotation_frobenius": 4.463451557526975,
+  "rotation_mean_angle_proxy": 1.4762190205023602,
+  "stretch_singular_values": {
+   "mean": 0.07836512585974217,
+   "min": 9.663365148824608e-20,
+   "max": 0.41796379652059434
+  },
+  "stretch_anisotropy": 417963756131.2304,
+  "mean_contraction": 0.07836512585974217,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj05|ventral": {
+  "rotation_frobenius": 4.954817238820893,
+  "rotation_mean_angle_proxy": 1.5937239134038599,
+  "stretch_singular_values": {
+   "mean": 0.025342851617113585,
+   "min": 9.253313369775552e-19,
+   "max": 0.3041142194053629
+  },
+  "stretch_anisotropy": 304113937999.206,
+  "mean_contraction": 0.025342851617113585,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj05|lateral": {
+  "rotation_frobenius": 4.73159986511177,
+  "rotation_mean_angle_proxy": 1.503580612141844,
+  "stretch_singular_values": {
+   "mean": 0.03741293129526852,
+   "min": 6.996568884277428e-19,
+   "max": 0.44895517554322195
+  },
+  "stretch_anisotropy": 448954861428.86053,
+  "mean_contraction": 0.03741293129526852,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj05|parietal": {
+  "rotation_frobenius": 5.086281633247932,
+  "rotation_mean_angle_proxy": 1.6488029504089265,
+  "stretch_singular_values": {
+   "mean": 0.030108629679576376,
+   "min": 8.235278362566553e-19,
+   "max": 0.3613035561549163
+  },
+  "stretch_anisotropy": 361303258611.62555,
+  "mean_contraction": 0.030108629679576376,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj06|V1": {
+  "rotation_frobenius": 4.891302460214196,
+  "rotation_mean_angle_proxy": 1.567664644896667,
+  "stretch_singular_values": {
+   "mean": 0.0018227537170811235,
+   "min": 7.014559277427791e-20,
+   "max": 0.021873044604973472
+  },
+  "stretch_anisotropy": 21873043070.675903,
+  "mean_contraction": 0.0018227537170811235,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj06|V2": {
+  "rotation_frobenius": 4.674836849056294,
+  "rotation_mean_angle_proxy": 1.4812642418350765,
+  "stretch_singular_values": {
+   "mean": 0.018612494284548687,
+   "min": 2.529506689654288e-19,
+   "max": 0.0860305017953355
+  },
+  "stretch_anisotropy": 86030480033.86803,
+  "mean_contraction": 0.018612494284548687,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj06|V3": {
+  "rotation_frobenius": 4.678285362903974,
+  "rotation_mean_angle_proxy": 1.4826134972001572,
+  "stretch_singular_values": {
+   "mean": 0.08127759980866318,
+   "min": 1.1175228492959121e-18,
+   "max": 0.3624484072861961
+  },
+  "stretch_anisotropy": 362448002242.2719,
+  "mean_contraction": 0.08127759980866318,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj06|hV4": {
+  "rotation_frobenius": 4.5355797096732875,
+  "rotation_mean_angle_proxy": 1.5993743817505202,
+  "stretch_singular_values": {
+   "mean": 0.042773291886066975,
+   "min": 1.4899978738150073e-19,
+   "max": 0.42773291886066955
+  },
+  "stretch_anisotropy": 427732855128.56506,
+  "mean_contraction": 0.042773291886066975,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj06|ventral": {
+  "rotation_frobenius": 4.960268726971409,
+  "rotation_mean_angle_proxy": 1.5959767311518072,
+  "stretch_singular_values": {
+   "mean": 0.11390352100514117,
+   "min": 4.3940804666888603e-20,
+   "max": 1.0376399561142466
+  },
+  "stretch_anisotropy": 1037639910519.514,
+  "mean_contraction": 0.029927481449767954,
+  "mean_expansion": 1.0376399561142466,
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333,
+  "determinant_sign": 1.0
+ },
+ "subj06|lateral": {
+  "rotation_frobenius": 5.453778683235072,
+  "rotation_mean_angle_proxy": 1.8124627065348957,
+  "stretch_singular_values": {
+   "mean": 0.10807786731090174,
+   "min": 3.102285593435799e-19,
+   "max": 1.2969344077308207
+  },
+  "stretch_anisotropy": 1296934005384.8525,
+  "mean_contraction": 2.819298880571381e-17,
+  "mean_expansion": 1.2969344077308207,
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333,
+  "determinant_sign": 1.0
+ },
+ "subj06|parietal": {
+  "rotation_frobenius": 4.851385356111369,
+  "rotation_mean_angle_proxy": 1.5514592831243044,
+  "stretch_singular_values": {
+   "mean": 0.09923899722267399,
+   "min": 5.853763744824882e-19,
+   "max": 1.1908679666720872
+  },
+  "stretch_anisotropy": 1190867269566.5225,
+  "mean_contraction": 5.308114358346062e-17,
+  "mean_expansion": 1.1908679666720872,
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333,
+  "determinant_sign": -1.0
+ },
+ "subj07|V1": {
+  "rotation_frobenius": 4.5160853591629175,
+  "rotation_mean_angle_proxy": 1.4977781399634416,
+  "stretch_singular_values": {
+   "mean": 0.0029712032499018067,
+   "min": 1.011967373858273e-20,
+   "max": 0.032683235748919875
+  },
+  "stretch_anisotropy": 32683235418.176197,
+  "mean_contraction": 0.0029712032499018067,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj07|V2": {
+  "rotation_frobenius": 4.967161103419982,
+  "rotation_mean_angle_proxy": 1.5988287241704697,
+  "stretch_singular_values": {
+   "mean": 0.014945036940559776,
+   "min": 5.503224744594036e-19,
+   "max": 0.0803280366239189
+  },
+  "stretch_anisotropy": 80327992417.61934,
+  "mean_contraction": 0.014945036940559776,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj07|V3": {
+  "rotation_frobenius": 4.552011824093889,
+  "rotation_mean_angle_proxy": 1.5126185886587007,
+  "stretch_singular_values": {
+   "mean": 0.010212784261484725,
+   "min": 1.9412186274424453e-19,
+   "max": 0.11234062687633194
+  },
+  "stretch_anisotropy": 112340605068.5644,
+  "mean_contraction": 0.010212784261484725,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj07|hV4": {
+  "rotation_frobenius": 3.8499977442011653,
+  "rotation_mean_angle_proxy": 1.497134894693041,
+  "stretch_singular_values": {
+   "mean": 0.009049495879849198,
+   "min": 9.296704978832474e-20,
+   "max": 0.050953898012274526
+  },
+  "stretch_anisotropy": 50953893275.241394,
+  "mean_contraction": 0.009049495879849198,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj07|ventral": {
+  "rotation_frobenius": 4.866553841785119,
+  "rotation_mean_angle_proxy": 1.5576020395924415,
+  "stretch_singular_values": {
+   "mean": 0.04859284945656527,
+   "min": 1.8348485608171052e-19,
+   "max": 0.5831141934787829
+  },
+  "stretch_anisotropy": 583114086486.1787,
+  "mean_contraction": 0.04859284945656527,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj07|lateral": {
+  "rotation_frobenius": 4.9269812210807045,
+  "rotation_mean_angle_proxy": 1.5822609093077165,
+  "stretch_singular_values": {
+   "mean": 0.06848777748881825,
+   "min": 2.288093384760417e-18,
+   "max": 0.8218533298658186
+  },
+  "stretch_anisotropy": 821851449392.9541,
+  "mean_contraction": 0.06848777748881825,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj07|parietal": {
+  "rotation_frobenius": 4.6019855416763935,
+  "rotation_mean_angle_proxy": 1.4529517130771323,
+  "stretch_singular_values": {
+   "mean": 0.1550720181813598,
+   "min": 3.9576002535926435e-18,
+   "max": 0.7265115801651791
+  },
+  "stretch_anisotropy": 726508704934.1442,
+  "mean_contraction": 0.1550720181813598,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj08|V1": {
+  "rotation_frobenius": 5.078927274561008,
+  "rotation_mean_angle_proxy": 1.6456788840640733,
+  "stretch_singular_values": {
+   "mean": 0.14639562768555286,
+   "min": 2.594762744257816e-18,
+   "max": 1.2757511499889678
+  },
+  "stretch_anisotropy": 1275747839726.0022,
+  "mean_contraction": 0.043726943839787875,
+  "mean_expansion": 1.2757511499889678,
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333,
+  "determinant_sign": -1.0
+ },
+ "subj08|V2": {
+  "rotation_frobenius": 4.881053835933023,
+  "rotation_mean_angle_proxy": 1.5634915347176546,
+  "stretch_singular_values": {
+   "mean": 0.01819248890005964,
+   "min": 2.676768623815216e-19,
+   "max": 0.2183098668007156
+  },
+  "stretch_anisotropy": 218309808364.23108,
+  "mean_contraction": 0.01819248890005964,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj08|V3": {
+  "rotation_frobenius": 4.982140778503417,
+  "rotation_mean_angle_proxy": 1.6050416339164928,
+  "stretch_singular_values": {
+   "mean": 0.015199511970168689,
+   "min": 4.626720039166297e-20,
+   "max": 0.1823941436420242
+  },
+  "stretch_anisotropy": 182394135203.1582,
+  "mean_contraction": 0.015199511970168689,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": -1.0
+ },
+ "subj08|hV4": {
+  "rotation_frobenius": 4.5006673215947055,
+  "rotation_mean_angle_proxy": 1.5835969933554968,
+  "stretch_singular_values": {
+   "mean": 0.016146141586256997,
+   "min": 3.235116805800058e-19,
+   "max": 0.12726110155397655
+  },
+  "stretch_anisotropy": 127261060383.53703,
+  "mean_contraction": 0.016146141586256997,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj08|ventral": {
+  "rotation_frobenius": 4.860307932375841,
+  "rotation_mean_angle_proxy": 1.5550703951826685,
+  "stretch_singular_values": {
+   "mean": 0.09214513392523593,
+   "min": 1.1929633720570108e-18,
+   "max": 0.8381735975947148
+  },
+  "stretch_anisotropy": 838172597685.5062,
+  "mean_contraction": 0.09214513392523593,
+  "mean_expansion": null,
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0,
+  "determinant_sign": 1.0
+ },
+ "subj08|lateral": {
+  "rotation_frobenius": 4.992483546130957,
+  "rotation_mean_angle_proxy": 1.6093430367827142,
+  "stretch_singular_values": {
+   "mean": 0.27131419469826057,
+   "min": 1.4063511416471234e-18,
+   "max": 2.155569865549627
+  },
+  "stretch_anisotropy": 2155566834065.749,
+  "mean_contraction": 1.3977542797482296e-16,
+  "mean_expansion": 1.6278851681895627,
+  "fraction_contracted": 0.8333333333333334,
+  "fraction_expanded": 0.16666666666666666,
+  "determinant_sign": 1.0
+ },
+ "subj08|parietal": {
+  "rotation_frobenius": 4.996101490819652,
+  "rotation_mean_angle_proxy": 1.6108499566710743,
+  "stretch_singular_values": {
+   "mean": 0.15358293215116534,
+   "min": 1.7276573693651972e-18,
+   "max": 1.8429951858139832
+  },
+  "stretch_anisotropy": 1842992001755.2698,
+  "mean_contraction": 8.614512957344067e-17,
+  "mean_expansion": 1.8429951858139832,
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333,
+  "determinant_sign": -1.0
+ }
+}

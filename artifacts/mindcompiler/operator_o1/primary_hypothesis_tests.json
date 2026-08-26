@@ -1,0 +1,182 @@
+{
+  "H-O1_O4_gt_O0": {
+    "V1": {
+      "observed_mean_diff": 0.05489375268713003,
+      "n": 8,
+      "p_raw": 0.0234375,
+      "raw_p": 0.0234375,
+      "holm_p": 0.09375,
+      "reject": false
+    },
+    "V2": {
+      "observed_mean_diff": 0.02310990432681516,
+      "n": 8,
+      "p_raw": 0.08984375,
+      "raw_p": 0.08984375,
+      "holm_p": 0.1796875,
+      "reject": false
+    },
+    "V3": {
+      "observed_mean_diff": 0.04606328651972738,
+      "n": 8,
+      "p_raw": 0.03515625,
+      "raw_p": 0.03515625,
+      "holm_p": 0.10546875,
+      "reject": false
+    },
+    "hV4": {
+      "observed_mean_diff": -0.00021664210589943111,
+      "n": 8,
+      "p_raw": 0.50390625,
+      "raw_p": 0.50390625,
+      "holm_p": 0.50390625,
+      "reject": false
+    },
+    "ventral": {
+      "observed_mean_diff": 0.08337621059164997,
+      "n": 8,
+      "p_raw": 0.00390625,
+      "raw_p": 0.00390625,
+      "holm_p": 0.02734375,
+      "reject": true
+    },
+    "lateral": {
+      "observed_mean_diff": 0.0926545101900309,
+      "n": 8,
+      "p_raw": 0.00390625,
+      "raw_p": 0.00390625,
+      "holm_p": 0.02734375,
+      "reject": true
+    },
+    "parietal": {
+      "observed_mean_diff": 0.044645417673665935,
+      "n": 8,
+      "p_raw": 0.00390625,
+      "raw_p": 0.00390625,
+      "holm_p": 0.02734375,
+      "reject": true
+    }
+  },
+  "H-O2_O4_gt_O1": {
+    "V1": {
+      "observed_mean_diff": 0.06914370207331816,
+      "n": 8,
+      "p_raw": 0.01171875,
+      "raw_p": 0.01171875,
+      "holm_p": 0.03515625,
+      "reject": true
+    },
+    "V2": {
+      "observed_mean_diff": 0.031121774723449097,
+      "n": 8,
+      "p_raw": 0.0859375,
+      "raw_p": 0.0859375,
+      "holm_p": 0.171875,
+      "reject": false
+    },
+    "V3": {
+      "observed_mean_diff": 0.06361616165730483,
+      "n": 8,
+      "p_raw": 0.0078125,
+      "raw_p": 0.0078125,
+      "holm_p": 0.03125,
+      "reject": true
+    },
+    "hV4": {
+      "observed_mean_diff": 0.01508525174737256,
+      "n": 8,
+      "p_raw": 0.25,
+      "raw_p": 0.25,
+      "holm_p": 0.25,
+      "reject": false
+    },
+    "ventral": {
+      "observed_mean_diff": 0.0885065955627272,
+      "n": 8,
+      "p_raw": 0.00390625,
+      "raw_p": 0.00390625,
+      "holm_p": 0.02734375,
+      "reject": true
+    },
+    "lateral": {
+      "observed_mean_diff": 0.09949902858579254,
+      "n": 8,
+      "p_raw": 0.00390625,
+      "raw_p": 0.00390625,
+      "holm_p": 0.02734375,
+      "reject": true
+    },
+    "parietal": {
+      "observed_mean_diff": 0.058273602430240476,
+      "n": 8,
+      "p_raw": 0.00390625,
+      "raw_p": 0.00390625,
+      "holm_p": 0.02734375,
+      "reject": true
+    }
+  },
+  "H-O3_O4_gt_O2": {
+    "V1": {
+      "observed_mean_diff": 0.03121586326453886,
+      "n": 8,
+      "p_raw": 0.02734375,
+      "raw_p": 0.02734375,
+      "holm_p": 0.08203125,
+      "reject": false
+    },
+    "V2": {
+      "observed_mean_diff": 0.015140879114785538,
+      "n": 8,
+      "p_raw": 0.13671875,
+      "raw_p": 0.13671875,
+      "holm_p": 0.2734375,
+      "reject": false
+    },
+    "V3": {
+      "observed_mean_diff": 0.04524260594009112,
+      "n": 8,
+      "p_raw": 0.01953125,
+      "raw_p": 0.01953125,
+      "holm_p": 0.078125,
+      "reject": false
+    },
+    "hV4": {
+      "observed_mean_diff": -0.004166039543484323,
+      "n": 8,
+      "p_raw": 0.5546875,
+      "raw_p": 0.5546875,
+      "holm_p": 0.5546875,
+      "reject": false
+    },
+    "ventral": {
+      "observed_mean_diff": 0.07616836385697717,
+      "n": 8,
+      "p_raw": 0.00390625,
+      "raw_p": 0.00390625,
+      "holm_p": 0.02734375,
+      "reject": true
+    },
+    "lateral": {
+      "observed_mean_diff": 0.08540350472548702,
+      "n": 8,
+      "p_raw": 0.00390625,
+      "raw_p": 0.00390625,
+      "holm_p": 0.02734375,
+      "reject": true
+    },
+    "parietal": {
+      "observed_mean_diff": 0.04313987873603023,
+      "n": 8,
+      "p_raw": 0.00390625,
+      "raw_p": 0.00390625,
+      "holm_p": 0.02734375,
+      "reject": true
+    }
+  },
+  "H-O4_lowrank_competitive": {
+    "median_O4_minus_O3": 0.152005721711619,
+    "n_participant_roi_O4_better_than_O3_by_0.05": 52,
+    "competitive_rule": "median<= 0.02 and not worse in >2/8 per ROI",
+    "competitive": false
+  }
+}

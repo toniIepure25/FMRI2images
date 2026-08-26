@@ -1,0 +1,13 @@
+{
+  "lane": "pod compute (B0 primary + B1 sensitivity); data-free operator tests local",
+  "operator_o1_tests": {
+    "file": "test_operator_o1.py",
+    "passed": 22,
+    "includes_negative_controls": [
+      "A_global_gain",
+      "D_full_beats_diagonal",
+      "E_shuffle_collapses"
+    ]
+  },
+  "reproduction_tests_passed": true
+}

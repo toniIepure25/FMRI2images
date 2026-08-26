@@ -1,0 +1,45 @@
+{
+  "label": "CROSS_FAMILY_TRANSFER_SECONDARY",
+  "summary": {
+    "simple_to_naturalistic|O0": {
+      "cohort_median": 0.4571483681599299,
+      "n_positive": 8
+    },
+    "simple_to_naturalistic|O1": {
+      "cohort_median": 0.4424289548769593,
+      "n_positive": 8
+    },
+    "simple_to_naturalistic|O2": {
+      "cohort_median": 0.4570967728892962,
+      "n_positive": 8
+    },
+    "simple_to_naturalistic|O3": {
+      "cohort_median": 0.3945010098606184,
+      "n_positive": 8
+    },
+    "simple_to_naturalistic|O4": {
+      "cohort_median": 0.4116894480075866,
+      "n_positive": 8
+    },
+    "naturalistic_to_simple|O0": {
+      "cohort_median": 0.731503461798032,
+      "n_positive": 8
+    },
+    "naturalistic_to_simple|O1": {
+      "cohort_median": 0.7432698508103689,
+      "n_positive": 8
+    },
+    "naturalistic_to_simple|O2": {
+      "cohort_median": 0.7481582115093867,
+      "n_positive": 8
+    },
+    "naturalistic_to_simple|O3": {
+      "cohort_median": 0.683755781688143,
+      "n_positive": 8
+    },
+    "naturalistic_to_simple|O4": {
+      "cohort_median": 0.7358981302999896,
+      "n_positive": 8
+    }
+  }
+}

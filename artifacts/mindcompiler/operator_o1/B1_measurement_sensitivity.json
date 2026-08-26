@@ -1,0 +1,58 @@
+{
+  "role": "MEASUREMENT_PREPARATION_SENSITIVITY (B1 = b3 GLMdenoise_RR; NON-PRIMARY; never selects operator family)",
+  "B0_is_primary": true,
+  "B1_cohort_median_O4_minus_O0": -0.005662608635004118,
+  "B1_n_rois_O4_gt_O0_holm_reject": 0,
+  "B1_classification_cohort": {
+    "GLOBAL_GAIN_SUFFICIENT": 13,
+    "DIAGONAL_REWEIGHTING_SUFFICIENT": 3,
+    "NO_REUSABLE_OPERATOR_EVIDENCE": 35,
+    "FULL_CROSS_VOXEL_OPERATOR_NEEDED": 3,
+    "LOW_RANK_DEFORMATION_SUFFICIENT": 2
+  },
+  "per_roi": {
+    "V1": {
+      "B1_median_O4_minus_O0": -0.014530024916118323,
+      "B0_median_O4_minus_O0": 0.050691837537838624,
+      "B1_signflip_raw_p": 0.75390625,
+      "B1_holm_reject": false
+    },
+    "V2": {
+      "B1_median_O4_minus_O0": 0.00741857641796051,
+      "B0_median_O4_minus_O0": 0.01899340872973998,
+      "B1_signflip_raw_p": 0.23046875,
+      "B1_holm_reject": false
+    },
+    "V3": {
+      "B1_median_O4_minus_O0": -0.01000337026142989,
+      "B0_median_O4_minus_O0": 0.033352207011332125,
+      "B1_signflip_raw_p": 0.64453125,
+      "B1_holm_reject": false
+    },
+    "hV4": {
+      "B1_median_O4_minus_O0": -0.03817057877225216,
+      "B0_median_O4_minus_O0": 0.010668550919995967,
+      "B1_signflip_raw_p": 0.984375,
+      "B1_holm_reject": false
+    },
+    "ventral": {
+      "B1_median_O4_minus_O0": 0.0006762924771765155,
+      "B0_median_O4_minus_O0": 0.07498869696967048,
+      "B1_signflip_raw_p": 0.47265625,
+      "B1_holm_reject": false
+    },
+    "lateral": {
+      "B1_median_O4_minus_O0": -0.010476331335979805,
+      "B0_median_O4_minus_O0": 0.08777431805682645,
+      "B1_signflip_raw_p": 0.671875,
+      "B1_holm_reject": false
+    },
+    "parietal": {
+      "B1_median_O4_minus_O0": -0.00693064540628105,
+      "B0_median_O4_minus_O0": 0.03707797800593887,
+      "B1_signflip_raw_p": 0.7265625,
+      "B1_holm_reject": false
+    }
+  },
+  "note": "B0 (b2-compatible) remains the sole primary operator branch. B1 reported only to show the operator conclusion is not an artifact of one beta preparation."
+}

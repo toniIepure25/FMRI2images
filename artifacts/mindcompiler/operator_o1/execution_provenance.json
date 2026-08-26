@@ -1,0 +1,8 @@
+{
+  "gate": "O1",
+  "input_commit": "a4fe0fa39bfb326185b291db95ddfbb8b5dc0364",
+  "no_D1_primary": true,
+  "no_nonlinear_models": true,
+  "identity_grouping_unit": true,
+  "TRACK_R_REOPEN_ALLOWED": false
+}

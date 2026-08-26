@@ -1,0 +1,1383 @@
+{
+ "subj01|V1": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.7793244252488779,
+   1.0625199108198938e-16,
+   1.0123787342528259e-16,
+   5.576977059318553e-17,
+   4.1001721085873186e-17,
+   3.1559590515910836e-17,
+   2.7579870537072083e-17,
+   1.6890914274982822e-17,
+   1.3954336534081988e-17,
+   1.271545199961543e-17,
+   9.41799247998813e-18,
+   5.412289708196729e-18
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj01|V2": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 7,
+   "participation_ratio": 4.512179706936706,
+   "energy90_rank": 3
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.4622176920408037,
+   0.31079110460619175,
+   0.13565401897598786,
+   0.1127983138653398,
+   0.10719846074426576,
+   0.08550657116432035,
+   0.06904876178154565,
+   3.754307722980545e-17,
+   2.6134991778531953e-17,
+   1.9650299042268292e-17,
+   1.5489229297871445e-17,
+   1.0274099764434666e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj01|V3": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 5,
+   "participation_ratio": 3.98997331009551,
+   "energy90_rank": 3
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.3670576601652906,
+   0.23868514447490763,
+   0.15879873640313658,
+   0.11481384353845503,
+   0.09902060834122607,
+   3.908524994311003e-17,
+   2.6259246518083908e-17,
+   1.8772367598828923e-17,
+   1.6712822279021727e-17,
+   1.511327871985865e-17,
+   1.3967053396465976e-17,
+   9.388125827994203e-18
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj01|hV4": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 2,
+   "participation_ratio": 1.9389251657347244,
+   "energy90_rank": 2
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.5168082262608866,
+   0.3610122210735928,
+   5.180308942603692e-17,
+   4.220612443762593e-17,
+   2.2285543715918172e-17,
+   1.907272888293691e-17,
+   1.3529904624743568e-17,
+   1.143209480982188e-17,
+   1.0296713765729695e-17,
+   5.687709330906015e-18,
+   2.894763536682951e-18,
+   2.1453729080759814e-18
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj01|ventral": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 2,
+   "participation_ratio": 1.8943332941614104,
+   "energy90_rank": 2
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.5524975180728519,
+   0.34138211132538193,
+   1.1488749569216496e-16,
+   7.514559423220705e-17,
+   5.553475933311123e-17,
+   4.258175173203598e-17,
+   4.003109065160238e-17,
+   2.6648850079247154e-17,
+   2.425675539333288e-17,
+   2.390040808235535e-17,
+   1.870392870177349e-17,
+   1.7668452565110265e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj01|lateral": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   1.2126383517696306,
+   2.8741926279847186e-16,
+   1.9070170075214565e-16,
+   1.5850651603939516e-16,
+   1.358963841893145e-16,
+   1.0151206141908286e-16,
+   8.800364480094108e-17,
+   8.131222707623563e-17,
+   7.037264760572424e-17,
+   6.346349149931723e-17,
+   5.066900187122504e-17,
+   3.919984740168396e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj01|parietal": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 2,
+   "participation_ratio": 1.8842363686176888,
+   "energy90_rank": 2
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.9829691752586887,
+   0.5924700725129629,
+   1.2610254472558823e-16,
+   8.882971719338831e-17,
+   7.605166802015354e-17,
+   7.144746896984323e-17,
+   6.494365959020287e-17,
+   4.4160648532846936e-17,
+   4.02020749144974e-17,
+   3.5523208149150586e-17,
+   2.5354581109824982e-17,
+   2.403662113272001e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj02|V1": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 2,
+   "participation_ratio": 1.9758244769605358,
+   "energy90_rank": 2
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.27382795602078686,
+   0.21928256860678177,
+   4.326980302455227e-17,
+   2.5892463284777814e-17,
+   2.3206243059665477e-17,
+   2.1163515205187902e-17,
+   1.5422669465919593e-17,
+   1.407848398496296e-17,
+   1.073210492094195e-17,
+   9.361458668266307e-18,
+   6.44925214374644e-18,
+   5.634390477197655e-18
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj02|V2": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 3,
+   "participation_ratio": 2.8478613525489496,
+   "energy90_rank": 3
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.2406091031644381,
+   0.18272641547381996,
+   0.13534946496004083,
+   2.673132481915938e-17,
+   2.29508167977348e-17,
+   1.7459111398223618e-17,
+   1.5414654989434407e-17,
+   1.1317364364735285e-17,
+   8.838646258469387e-18,
+   8.06916913409542e-18,
+   6.320779411985352e-18,
+   5.97323793907475e-18
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj02|V3": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 2,
+   "participation_ratio": 1.8621202584202516,
+   "energy90_rank": 2
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.3480158549472013,
+   0.19913106657098634,
+   5.3890612533907774e-17,
+   3.4505200888716195e-17,
+   2.8520506972047444e-17,
+   2.646190110899072e-17,
+   1.4882573784456846e-17,
+   1.1645385317170834e-17,
+   8.555987406259423e-18,
+   7.78608118875968e-18,
+   5.339221481103766e-18,
+   4.1447494188898984e-18
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj02|hV4": {
+  "supported_source_rank": 10,
+  "effective_output_rank": {
+   "numerical_rank": 2,
+   "participation_ratio": 1.4608517860281,
+   "energy90_rank": 1
+  },
+  "residual_rank": 10,
+  "singular_value_profile": [
+   0.497565939768967,
+   0.12148711635915635,
+   7.301865182569746e-17,
+   2.543571422951401e-17,
+   1.7804776488534337e-17,
+   1.4011630283766722e-17,
+   1.104156408321106e-17,
+   4.795089064747689e-18,
+   2.899219701792937e-18,
+   1.7350414062975095e-18
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj02|ventral": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 4,
+   "participation_ratio": 3.7632775253871897,
+   "energy90_rank": 4
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.7012493152801014,
+   0.5657029693645917,
+   0.4558256867495919,
+   0.3509499986496343,
+   1.6599516276351467e-16,
+   1.222614483090187e-16,
+   1.0571274793101894e-16,
+   9.116816478833006e-17,
+   8.132805565960136e-17,
+   7.267400476476147e-17,
+   4.273663151216455e-17,
+   3.100779541322173e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj02|lateral": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 2,
+   "participation_ratio": 1.6457880040362443,
+   "energy90_rank": 2
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   2.9397222724114025,
+   1.0765065657426636,
+   6.054918600134949e-16,
+   4.100470699390526e-16,
+   3.596737105670251e-16,
+   3.10572240890259e-16,
+   2.6214860395406824e-16,
+   2.4925012314362805e-16,
+   2.325837352537771e-16,
+   1.8810007556827678e-16,
+   1.531680986514806e-16,
+   7.608362369709179e-17
+  ],
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333
+ },
+ "subj02|parietal": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 4,
+   "participation_ratio": 2.978126085647314,
+   "energy90_rank": 3
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.9444318583153045,
+   0.43431432885914,
+   0.29827510403981644,
+   0.23158772842557054,
+   1.1628908349881535e-16,
+   1.0665119621254515e-16,
+   7.267052418768684e-17,
+   5.90317134038962e-17,
+   5.0254626461542496e-17,
+   4.61622871170763e-17,
+   3.903516805478996e-17,
+   3.03009747271809e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj03|V1": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 3,
+   "participation_ratio": 1.6662087413604592,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.9939318914079768,
+   0.17358670487949004,
+   0.14901202167404062,
+   1.0670099817388069e-16,
+   6.311503383833107e-17,
+   5.77312964745612e-17,
+   5.131782560977089e-17,
+   4.055182995036469e-17,
+   2.9247828449467775e-17,
+   2.0985000678000797e-17,
+   1.754615701134409e-17,
+   1.1692588451797311e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj03|V2": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 3,
+   "participation_ratio": 1.7558695912897484,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   2.794326596481281,
+   0.6743490303177694,
+   0.3721504367591758,
+   2.7625168904190293e-16,
+   1.5189015868942723e-16,
+   1.3627453983410335e-16,
+   9.932839127190006e-17,
+   8.83672286074625e-17,
+   6.922476318866628e-17,
+   4.7141360788638757e-17,
+   4.515592382348208e-17,
+   3.3902699168275297e-17
+  ],
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333
+ },
+ "subj03|V3": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 3,
+   "participation_ratio": 2.2155005520820357,
+   "energy90_rank": 2
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.3151119523157423,
+   0.1201766222260645,
+   0.08095328462906026,
+   2.967033760504755e-17,
+   2.857679455985496e-17,
+   1.301731792113152e-17,
+   1.0687337532313602e-17,
+   8.670115634481594e-18,
+   7.114853781158853e-18,
+   5.266802468094418e-18,
+   5.184879941822012e-18,
+   2.795508257541131e-18
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj03|hV4": {
+  "supported_source_rank": 9,
+  "effective_output_rank": {
+   "numerical_rank": 3,
+   "participation_ratio": 2.4396581370547836,
+   "energy90_rank": 2
+  },
+  "residual_rank": 9,
+  "singular_value_profile": [
+   2.6596056035902764,
+   1.809370294021735,
+   0.6600357594750257,
+   3.64213598434292e-16,
+   1.6022167943386402e-16,
+   7.744879361113513e-17,
+   2.7998154034972845e-17,
+   1.3148233965554716e-17,
+   1.7170775861553747e-18
+  ],
+  "fraction_contracted": 0.7777777777777778,
+  "fraction_expanded": 0.2222222222222222
+ },
+ "subj03|ventral": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 2,
+   "participation_ratio": 1.9508168228134628,
+   "energy90_rank": 2
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   1.4014998597259596,
+   1.0174200076750743,
+   2.6840235170005333e-16,
+   2.2972687614220345e-16,
+   2.2278724727312017e-16,
+   1.8696932550508856e-16,
+   1.5030873422785121e-16,
+   1.2418841977032348e-16,
+   1.0693023672103115e-16,
+   9.59367630397878e-17,
+   6.862108385228109e-17,
+   4.4486796069865357e-17
+  ],
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333
+ },
+ "subj03|lateral": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   2.1583038605768188,
+   4.508475255731064e-16,
+   3.653474199012385e-16,
+   2.919630545323966e-16,
+   2.450594110383834e-16,
+   2.3328348232589705e-16,
+   1.4902226990694569e-16,
+   1.1612237805989567e-16,
+   1.0233233364459049e-16,
+   9.06758355565058e-17,
+   6.449712153652462e-17,
+   6.173316658509789e-17
+  ],
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333
+ },
+ "subj03|parietal": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   3.4547406465099555,
+   5.510166759778524e-16,
+   3.8693588691317913e-16,
+   3.785868424902564e-16,
+   2.820823334661551e-16,
+   2.0298127783624044e-16,
+   1.9079389637565748e-16,
+   1.6561166313060975e-16,
+   1.5951079344876228e-16,
+   9.736472537278113e-17,
+   8.88698980125395e-17,
+   6.882885974615914e-17
+  ],
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333
+ },
+ "subj04|V1": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 5,
+   "participation_ratio": 3.578517873736518,
+   "energy90_rank": 3
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.4365907102352315,
+   0.279754582181793,
+   0.14336636782239026,
+   0.1159205330144479,
+   0.07507094339703962,
+   3.633368607480209e-17,
+   3.314782954661316e-17,
+   2.6046066151827492e-17,
+   2.138115030644853e-17,
+   1.3737748629109648e-17,
+   1.0705584564378316e-17,
+   7.718346661461694e-18
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj04|V2": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 2,
+   "participation_ratio": 1.8227031150643513,
+   "energy90_rank": 2
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.6203363298372461,
+   0.3253821990921314,
+   5.485745809503608e-17,
+   4.199005337879947e-17,
+   3.783637958046415e-17,
+   2.7041483139746564e-17,
+   2.5537234535485468e-17,
+   2.1815051264325572e-17,
+   1.4990387000369703e-17,
+   1.34250335859615e-17,
+   1.056397032968195e-17,
+   4.2352424914841045e-18
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj04|V3": {
+  "supported_source_rank": 11,
+  "effective_output_rank": {
+   "numerical_rank": 8,
+   "participation_ratio": 4.096668572333958,
+   "energy90_rank": 3
+  },
+  "residual_rank": 11,
+  "singular_value_profile": [
+   0.4641587332433415,
+   0.2332283511906232,
+   0.1346203383463161,
+   0.09660754210578286,
+   0.07130690216324319,
+   0.04897289585635756,
+   0.042690524270315104,
+   0.03088829345219084,
+   4.262139491348472e-17,
+   1.3534022968742764e-17,
+   9.557203574571694e-18
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj04|hV4": {
+  "supported_source_rank": 10,
+  "effective_output_rank": {
+   "numerical_rank": 5,
+   "participation_ratio": 3.0504231954579004,
+   "energy90_rank": 2
+  },
+  "residual_rank": 10,
+  "singular_value_profile": [
+   2.5913327046782966,
+   1.3626130706066049,
+   0.6111330999579531,
+   0.40395852344615435,
+   0.3342939421894082,
+   1.7455662946833895e-16,
+   1.2250967889330134e-16,
+   4.7329030965829085e-17,
+   4.224550326010734e-17,
+   5.7996245335331065e-18
+  ],
+  "fraction_contracted": 0.8,
+  "fraction_expanded": 0.2
+ },
+ "subj04|ventral": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 4,
+   "participation_ratio": 3.740828442846069,
+   "energy90_rank": 3
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   1.340658117713702,
+   1.0498907864641733,
+   0.8740636730399438,
+   0.6371032163200485,
+   3.084931287497169e-16,
+   2.840225255866966e-16,
+   2.445023428383279e-16,
+   1.9025548967126678e-16,
+   1.3675988721410246e-16,
+   1.228845557861177e-16,
+   9.93914014766061e-17,
+   4.300225104490078e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj04|lateral": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 3,
+   "participation_ratio": 2.25867525838259,
+   "energy90_rank": 2
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   2.8389571120708093,
+   1.098869417341264,
+   0.78811041968918,
+   5.0055560406138075e-16,
+   4.2377440625585816e-16,
+   2.986259136432697e-16,
+   2.442923071233007e-16,
+   2.3544049620876264e-16,
+   2.2518139329484815e-16,
+   1.916349868662655e-16,
+   1.6989202338350927e-16,
+   7.301461881957238e-17
+  ],
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333
+ },
+ "subj04|parietal": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   1.1829682302787907,
+   1.8285911615829895e-16,
+   1.5163648218730708e-16,
+   1.2567791470110798e-16,
+   9.098999296703208e-17,
+   5.975967930144133e-17,
+   4.944202540104434e-17,
+   4.8809191945028035e-17,
+   4.038834416353459e-17,
+   3.229976722162121e-17,
+   2.8057586004535924e-17,
+   2.581998199109634e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj05|V1": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   2.8067651874241757,
+   2.616586453757702e-16,
+   2.2202950157493577e-16,
+   1.4365140069037948e-16,
+   1.0097408130176066e-16,
+   7.186194040914721e-17,
+   6.518235262817092e-17,
+   5.821214015416287e-17,
+   4.7414933348599187e-17,
+   4.345760319330781e-17,
+   2.8561870265412866e-17,
+   2.403440329098934e-17
+  ],
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333
+ },
+ "subj05|V2": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 5,
+   "participation_ratio": 3.5709032340236515,
+   "energy90_rank": 3
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.34347954017646193,
+   0.19703074597308326,
+   0.11059274344976087,
+   0.08932039517195894,
+   0.06366036136721538,
+   1.8825512522239566e-17,
+   1.3421752726272409e-17,
+   1.1587403360666091e-17,
+   9.283167925107139e-18,
+   8.093973697760768e-18,
+   6.228292720894579e-18,
+   4.193129219791978e-18
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj05|V3": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   1.1603296214563266,
+   1.7825537973522801e-16,
+   1.0659198610163928e-16,
+   5.527071857245167e-17,
+   3.517762552978304e-17,
+   3.1205313860289576e-17,
+   2.7657305154068085e-17,
+   2.0647528506691445e-17,
+   1.7420074386135678e-17,
+   1.129982916960197e-17,
+   6.581634471874634e-18,
+   2.2441412245073464e-18
+  ],
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333
+ },
+ "subj05|hV4": {
+  "supported_source_rank": 11,
+  "effective_output_rank": {
+   "numerical_rank": 3,
+   "participation_ratio": 2.6824457152203967,
+   "energy90_rank": 3
+  },
+  "residual_rank": 11,
+  "singular_value_profile": [
+   0.41796379956572954,
+   0.2651996726927625,
+   0.17885291602708644,
+   4.087420093576284e-17,
+   3.474908562153472e-17,
+   2.6770132580025717e-17,
+   1.1684441459501261e-17,
+   8.19697069781768e-18,
+   6.012669644682947e-18,
+   3.856657294596223e-18,
+   2.3557730292327387e-18
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj05|ventral": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.5542194521631549,
+   1.086370774595785e-16,
+   5.644235940301375e-17,
+   4.3831625607164414e-17,
+   3.4761219530061666e-17,
+   3.026153657131433e-17,
+   2.92453934218124e-17,
+   2.1690342994519658e-17,
+   1.954505050214001e-17,
+   1.569003999713247e-17,
+   1.4885714900465227e-17,
+   1.396107836178306e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj05|lateral": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.9483880386230429,
+   1.9178314328113469e-16,
+   1.5239080159659413e-16,
+   9.406083542137315e-17,
+   6.63489662063428e-17,
+   5.4051728453158644e-17,
+   5.0586434109159656e-17,
+   4.762423666697397e-17,
+   4.454552380397275e-17,
+   4.0352420887153277e-17,
+   2.5280994713731687e-17,
+   2.183800887179893e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj05|parietal": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.6357333225592405,
+   1.3213872028617095e-16,
+   6.713568126191076e-17,
+   2.980794478552799e-17,
+   2.478157106873603e-17,
+   2.3554021019566586e-17,
+   2.097951530751068e-17,
+   2.0123227658277972e-17,
+   1.4092118691298964e-17,
+   1.3067794618949668e-17,
+   1.2400794063058265e-17,
+   1.029525189631994e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj06|V1": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.023326483170679906,
+   1.4477165115599622e-18,
+   1.2879167410344227e-18,
+   1.000049446300285e-18,
+   7.75697723950918e-19,
+   6.606790446842312e-19,
+   6.039677236849906e-19,
+   4.480115721358596e-19,
+   4.237414663313893e-19,
+   3.315024229097443e-19,
+   3.006573409962237e-19,
+   2.4380557055530376e-19
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj06|V2": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 4,
+   "participation_ratio": 3.505944075310567,
+   "energy90_rank": 3
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.09448369989802893,
+   0.080022031985108,
+   0.0492337787678328,
+   0.03353300688324262,
+   7.507791180319885e-18,
+   6.019638851633139e-18,
+   5.736526173447397e-18,
+   4.628314634837836e-18,
+   3.6339557055978436e-18,
+   3.109576199721027e-18,
+   2.185263906255659e-18,
+   1.8480735519190327e-18
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj06|V3": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 4,
+   "participation_ratio": 3.6611829145372434,
+   "energy90_rank": 4
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.44392437144000946,
+   0.29022606287815916,
+   0.24693767805375602,
+   0.20522908766903852,
+   5.605973717962275e-17,
+   4.560799076826812e-17,
+   2.859357656234388e-17,
+   2.4761259315093307e-17,
+   1.872498444844785e-17,
+   1.2927095919075428e-17,
+   1.2343376805302151e-17,
+   1.0515780209862715e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj06|hV4": {
+  "supported_source_rank": 10,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 10,
+  "singular_value_profile": [
+   0.427732920230518,
+   8.579515777806767e-17,
+   5.1551990440062136e-17,
+   2.7263430931333514e-17,
+   1.4616590448038264e-17,
+   1.141727017321311e-17,
+   7.63176616339236e-18,
+   3.738033301696816e-18,
+   2.8991346491149872e-18,
+   6.38318551722119e-19
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj06|ventral": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 2,
+   "participation_ratio": 1.715977426828131,
+   "energy90_rank": 2
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   1.3494822267708875,
+   0.568980319625522,
+   2.419329863400866e-16,
+   2.0613626643445273e-16,
+   1.6847503710212672e-16,
+   1.0872669828570558e-16,
+   8.990628904323324e-17,
+   8.127873263739342e-17,
+   8.069677099955609e-17,
+   6.489589473158299e-17,
+   4.6430033232654193e-17,
+   3.871599847126245e-17
+  ],
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333
+ },
+ "subj06|lateral": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   1.588034919062162,
+   3.3696304788711816e-16,
+   2.8343753848965394e-16,
+   2.1904027888114633e-16,
+   1.8570555685432026e-16,
+   1.4924016049117547e-16,
+   1.3290888889262176e-16,
+   8.783818828766172e-17,
+   7.304045714040326e-17,
+   6.7864205225083e-17,
+   4.601671323891924e-17,
+   3.634558495605795e-17
+  ],
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333
+ },
+ "subj06|parietal": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   1.3980719187761823,
+   2.508498442630818e-16,
+   1.1820030593343238e-16,
+   9.124246516525525e-17,
+   7.556707643014162e-17,
+   6.63254509038809e-17,
+   6.293743547409718e-17,
+   5.265113594139469e-17,
+   4.1151914939195256e-17,
+   3.752998775170358e-17,
+   3.021357784007527e-17,
+   2.5322332646106407e-17
+  ],
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333
+ },
+ "subj07|V1": {
+  "supported_source_rank": 11,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 11,
+  "singular_value_profile": [
+   0.04717651604708872,
+   2.9380842038490407e-18,
+   1.9607234897055855e-18,
+   1.4448088490598997e-18,
+   1.4216756286260254e-18,
+   1.134220073356705e-18,
+   1.0266972652539432e-18,
+   6.30991251348929e-19,
+   5.276745085050247e-19,
+   4.2753585931356667e-19,
+   3.1369732619422277e-19
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj07|V2": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 4,
+   "participation_ratio": 3.314644569848855,
+   "energy90_rank": 3
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.08578319620193264,
+   0.04735760980405682,
+   0.0357930024576524,
+   0.02746458033798091,
+   8.741286014224354e-18,
+   5.3560844176548694e-18,
+   5.066330252644199e-18,
+   3.3767726352660537e-18,
+   2.61512828939794e-18,
+   1.8105566876478907e-18,
+   1.6090089975746952e-18,
+   1.0477711641597586e-18
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj07|V3": {
+  "supported_source_rank": 11,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 11,
+  "singular_value_profile": [
+   0.11434021928583615,
+   7.620961567632251e-18,
+   5.346820180445094e-18,
+   3.662843710595383e-18,
+   3.0846056886229997e-18,
+   2.7645075052102487e-18,
+   1.2804502845062821e-18,
+   1.129124915407013e-18,
+   7.7710648724956925e-19,
+   3.8626051423104225e-19,
+   2.665430435168376e-19
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj07|hV4": {
+  "supported_source_rank": 8,
+  "effective_output_rank": {
+   "numerical_rank": 2,
+   "participation_ratio": 1.7150096924260332,
+   "energy90_rank": 2
+  },
+  "residual_rank": 8,
+  "singular_value_profile": [
+   0.050953897947888654,
+   0.021442068822663075,
+   3.75327060313413e-18,
+   1.9426187985666146e-18,
+   1.4749084365314924e-18,
+   5.101154273639139e-19,
+   1.693937115811181e-19,
+   5.122752326214041e-20
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj07|ventral": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   1.0791795979099283,
+   2.2201874685468832e-16,
+   1.7058332251308503e-16,
+   1.3752920893068912e-16,
+   1.1251015731266666e-16,
+   7.849302378377635e-17,
+   7.072571816198738e-17,
+   4.7678394582118806e-17,
+   4.22797156405391e-17,
+   3.6084780939469725e-17,
+   2.8683593699839366e-17,
+   2.0282487359784278e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj07|lateral": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   1.644061700598204,
+   2.496473028216138e-16,
+   1.5910210530510857e-16,
+   1.18067491963541e-16,
+   1.0371460882418602e-16,
+   8.398473835366723e-17,
+   7.946896794739859e-17,
+   6.464720678539316e-17,
+   5.05071552734654e-17,
+   4.018963023765856e-17,
+   3.9173440175817085e-17,
+   3.144990937871438e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj07|parietal": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 5,
+   "participation_ratio": 4.065378557348324,
+   "energy90_rank": 3
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.7819828723752179,
+   0.7563278323167578,
+   0.40793189658250634,
+   0.2599576351844822,
+   0.2444431761287274,
+   1.582566638791775e-16,
+   1.0925689373314035e-16,
+   1.0746657775298224e-16,
+   5.992942437360487e-17,
+   5.2998956258167954e-17,
+   4.454813194639998e-17,
+   3.374745346953012e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj08|V1": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 2,
+   "participation_ratio": 1.7939200898568075,
+   "energy90_rank": 2
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   1.3848545097763372,
+   0.683736751737097,
+   2.1344876388232279e-16,
+   9.274690140295475e-17,
+   6.647860977926574e-17,
+   4.72629116439924e-17,
+   4.277080390300258e-17,
+   3.379807212982229e-17,
+   2.412753627241594e-17,
+   2.099765072502508e-17,
+   1.7803808238649615e-17,
+   9.029554952552262e-18
+  ],
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333
+ },
+ "subj08|V2": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.28852443331966576,
+   4.2077896720063466e-17,
+   1.3540617458803972e-17,
+   1.1223126104541438e-17,
+   1.0266270424293066e-17,
+   8.493086593495155e-18,
+   6.5779930232275274e-18,
+   5.93843355908854e-18,
+   5.130182179850999e-18,
+   2.327810873799567e-18,
+   1.4673085760434894e-18,
+   8.366293081180693e-19
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj08|V3": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   0.20112950119208792,
+   1.1675694928034703e-17,
+   1.1477926255634805e-17,
+   9.505315874075576e-18,
+   6.992690129536282e-18,
+   5.575016468660441e-18,
+   4.6135398903343626e-18,
+   4.136599544389132e-18,
+   2.7380363428966604e-18,
+   2.5292081633172472e-18,
+   2.060960815114134e-18,
+   9.192901166842218e-19
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj08|hV4": {
+  "supported_source_rank": 10,
+  "effective_output_rank": {
+   "numerical_rank": 5,
+   "participation_ratio": 1.574859964182687,
+   "energy90_rank": 1
+  },
+  "residual_rank": 10,
+  "singular_value_profile": [
+   0.12726110193307394,
+   0.014349109762404817,
+   0.009061920411294819,
+   0.007855435245433553,
+   0.002933848834784539,
+   3.456724605290699e-18,
+   2.381273954921333e-18,
+   1.7954625005553943e-18,
+   9.21636514090694e-19,
+   2.335881546105459e-19
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj08|ventral": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 2,
+   "participation_ratio": 1.8814347223172063,
+   "energy90_rank": 2
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   1.2620849241292331,
+   0.755580413650291,
+   3.1287217523166833e-16,
+   2.2268439144495366e-16,
+   1.5143481216859766e-16,
+   1.253216427748419e-16,
+   1.119601556965187e-16,
+   8.481836558024689e-17,
+   7.108494951821281e-17,
+   6.174736318333973e-17,
+   5.79857371096846e-17,
+   4.5650628651408346e-17
+  ],
+  "fraction_contracted": 1.0,
+  "fraction_expanded": 0.0
+ },
+ "subj08|lateral": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 2,
+   "participation_ratio": 1.9951500503577029,
+   "energy90_rank": 2
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   3.253235383231377,
+   2.9475145395326594,
+   9.618387030629374e-16,
+   7.047174598322679e-16,
+   6.238397019321306e-16,
+   4.737417863367767e-16,
+   4.492600417021061e-16,
+   4.2546061992802384e-16,
+   3.3644971206121153e-16,
+   2.8977786503653056e-16,
+   1.9616594361024758e-16,
+   1.2442501007038566e-16
+  ],
+  "fraction_contracted": 0.8333333333333334,
+  "fraction_expanded": 0.16666666666666666
+ },
+ "subj08|parietal": {
+  "supported_source_rank": 12,
+  "effective_output_rank": {
+   "numerical_rank": 1,
+   "participation_ratio": 1.0,
+   "energy90_rank": 1
+  },
+  "residual_rank": 12,
+  "singular_value_profile": [
+   2.0867553883219703,
+   3.500756050209934e-16,
+   2.282978147534492e-16,
+   1.8887358199554218e-16,
+   1.5453021228505575e-16,
+   1.1772161890913471e-16,
+   9.866668061750301e-17,
+   7.912618134521265e-17,
+   7.220123402035738e-17,
+   6.139488448871562e-17,
+   4.4925770651194965e-17,
+   2.9305006389145457e-17
+  ],
+  "fraction_contracted": 0.9166666666666666,
+  "fraction_expanded": 0.08333333333333333
+ }
+}

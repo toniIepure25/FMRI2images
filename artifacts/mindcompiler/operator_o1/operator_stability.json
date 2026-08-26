@@ -1,0 +1,394 @@
+{
+ "subj01|V1": {
+  "mean_pairwise_action_cosine": 0.6580594925791441,
+  "mean_subspace_principal_cosine": 0.7265730417086742,
+  "mean_singular_profile_corr": 0.9421157652006027,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj01|V2": {
+  "mean_pairwise_action_cosine": 0.6304353466819076,
+  "mean_subspace_principal_cosine": 0.6389966414314203,
+  "mean_singular_profile_corr": 0.8571998873085557,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj01|V3": {
+  "mean_pairwise_action_cosine": 0.7623451797376103,
+  "mean_subspace_principal_cosine": 0.7177226064457184,
+  "mean_singular_profile_corr": 0.9484106236991293,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj01|hV4": {
+  "mean_pairwise_action_cosine": 0.5256965265559737,
+  "mean_subspace_principal_cosine": 0.8947841529615732,
+  "mean_singular_profile_corr": 0.9229840905124597,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj01|ventral": {
+  "mean_pairwise_action_cosine": 0.7622109362537389,
+  "mean_subspace_principal_cosine": 0.4000802203146753,
+  "mean_singular_profile_corr": 0.8577489683313666,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj01|lateral": {
+  "mean_pairwise_action_cosine": 0.6478548920892533,
+  "mean_subspace_principal_cosine": 0.39320906125798083,
+  "mean_singular_profile_corr": 0.907644589295515,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj01|parietal": {
+  "mean_pairwise_action_cosine": 0.6788931109624965,
+  "mean_subspace_principal_cosine": 0.4900375718161772,
+  "mean_singular_profile_corr": 0.8908114139343044,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj02|V1": {
+  "mean_pairwise_action_cosine": 0.5283995401725183,
+  "mean_subspace_principal_cosine": 0.7049610584184303,
+  "mean_singular_profile_corr": 0.8598068093627965,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj02|V2": {
+  "mean_pairwise_action_cosine": 0.7489488135943264,
+  "mean_subspace_principal_cosine": 0.7220099070723595,
+  "mean_singular_profile_corr": 0.9270872108429133,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj02|V3": {
+  "mean_pairwise_action_cosine": 0.7278178263759972,
+  "mean_subspace_principal_cosine": 0.7308110691195083,
+  "mean_singular_profile_corr": 0.9459750713513285,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj02|hV4": {
+  "mean_pairwise_action_cosine": 0.5058319738584401,
+  "mean_subspace_principal_cosine": 1.0,
+  "mean_singular_profile_corr": 0.9496315641400902,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj02|ventral": {
+  "mean_pairwise_action_cosine": 0.7898067437776359,
+  "mean_subspace_principal_cosine": 0.4263857397158421,
+  "mean_singular_profile_corr": 0.926550629747841,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj02|lateral": {
+  "mean_pairwise_action_cosine": 0.7598875094436518,
+  "mean_subspace_principal_cosine": 0.3820081883749645,
+  "mean_singular_profile_corr": 0.9670053149383261,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj02|parietal": {
+  "mean_pairwise_action_cosine": 0.7512189961446788,
+  "mean_subspace_principal_cosine": 0.4985387129618754,
+  "mean_singular_profile_corr": 0.9080428576829954,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj03|V1": {
+  "mean_pairwise_action_cosine": 0.7362485332346075,
+  "mean_subspace_principal_cosine": 0.669323600650528,
+  "mean_singular_profile_corr": 0.9884089179900916,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj03|V2": {
+  "mean_pairwise_action_cosine": 0.5888242117762225,
+  "mean_subspace_principal_cosine": 0.7226246921447178,
+  "mean_singular_profile_corr": 0.9693893634558399,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj03|V3": {
+  "mean_pairwise_action_cosine": 0.6182116017454387,
+  "mean_subspace_principal_cosine": 0.7597629123796247,
+  "mean_singular_profile_corr": 0.9197353952494881,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj03|hV4": {
+  "mean_pairwise_action_cosine": 0.6226914681128711,
+  "mean_subspace_principal_cosine": 1.0,
+  "mean_singular_profile_corr": 0.9076002285861846,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj03|ventral": {
+  "mean_pairwise_action_cosine": 0.6311248289378122,
+  "mean_subspace_principal_cosine": 0.4223567086933648,
+  "mean_singular_profile_corr": 0.8775332863769206,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj03|lateral": {
+  "mean_pairwise_action_cosine": 0.8386161041303587,
+  "mean_subspace_principal_cosine": 0.4301721184461335,
+  "mean_singular_profile_corr": 0.9999999999999998,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_HIGH"
+ },
+ "subj03|parietal": {
+  "mean_pairwise_action_cosine": 0.7799559418476552,
+  "mean_subspace_principal_cosine": 0.4439598118671055,
+  "mean_singular_profile_corr": 0.9876362629703451,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj04|V1": {
+  "mean_pairwise_action_cosine": 0.6542228693797428,
+  "mean_subspace_principal_cosine": 0.8131560741845362,
+  "mean_singular_profile_corr": 0.8951490623035508,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj04|V2": {
+  "mean_pairwise_action_cosine": 0.5184456365170221,
+  "mean_subspace_principal_cosine": 0.8011470562060683,
+  "mean_singular_profile_corr": 0.8919855319924002,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj04|V3": {
+  "mean_pairwise_action_cosine": 0.7821731068094124,
+  "mean_subspace_principal_cosine": 0.7825869785468627,
+  "mean_singular_profile_corr": 0.9377621787192625,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj04|hV4": {
+  "mean_pairwise_action_cosine": 0.5403820039038638,
+  "mean_subspace_principal_cosine": 1.0000000000000002,
+  "mean_singular_profile_corr": 0.9037019646222195,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj04|ventral": {
+  "mean_pairwise_action_cosine": 0.6289882443773326,
+  "mean_subspace_principal_cosine": 0.4406254520468201,
+  "mean_singular_profile_corr": 0.7944670987827176,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj04|lateral": {
+  "mean_pairwise_action_cosine": 0.6090275807610526,
+  "mean_subspace_principal_cosine": 0.43651334287195637,
+  "mean_singular_profile_corr": 0.939943541802868,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj04|parietal": {
+  "mean_pairwise_action_cosine": 0.615740357402346,
+  "mean_subspace_principal_cosine": 0.49812867170501995,
+  "mean_singular_profile_corr": 0.9298083572864648,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj05|V1": {
+  "mean_pairwise_action_cosine": 0.6638883203676251,
+  "mean_subspace_principal_cosine": 0.7035013082209693,
+  "mean_singular_profile_corr": 0.9936749613820005,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj05|V2": {
+  "mean_pairwise_action_cosine": 0.7079900894077894,
+  "mean_subspace_principal_cosine": 0.743471295654093,
+  "mean_singular_profile_corr": 0.930122068245431,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj05|V3": {
+  "mean_pairwise_action_cosine": 0.8210931666766013,
+  "mean_subspace_principal_cosine": 0.7905337998426503,
+  "mean_singular_profile_corr": 0.9310328949682204,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_HIGH"
+ },
+ "subj05|hV4": {
+  "mean_pairwise_action_cosine": 0.41744433737579334,
+  "mean_subspace_principal_cosine": 1.0,
+  "mean_singular_profile_corr": 0.8502574823168528,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_LOW"
+ },
+ "subj05|ventral": {
+  "mean_pairwise_action_cosine": 0.8453598669265088,
+  "mean_subspace_principal_cosine": 0.4445479917926577,
+  "mean_singular_profile_corr": 0.9999999999999999,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_HIGH"
+ },
+ "subj05|lateral": {
+  "mean_pairwise_action_cosine": 0.7403510754256942,
+  "mean_subspace_principal_cosine": 0.4736099343085625,
+  "mean_singular_profile_corr": 0.9999999999999999,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj05|parietal": {
+  "mean_pairwise_action_cosine": 0.7475423169531376,
+  "mean_subspace_principal_cosine": 0.5188998138894484,
+  "mean_singular_profile_corr": 0.8561704180260182,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj06|V1": {
+  "mean_pairwise_action_cosine": 0.5439631181273192,
+  "mean_subspace_principal_cosine": 0.6840171577615416,
+  "mean_singular_profile_corr": 0.8839901039583851,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj06|V2": {
+  "mean_pairwise_action_cosine": 0.579548347134979,
+  "mean_subspace_principal_cosine": 0.6712319971583398,
+  "mean_singular_profile_corr": 0.8135617411871611,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj06|V3": {
+  "mean_pairwise_action_cosine": 0.6908488699584324,
+  "mean_subspace_principal_cosine": 0.680132017417285,
+  "mean_singular_profile_corr": 0.8481463717085866,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj06|hV4": {
+  "mean_pairwise_action_cosine": 0.7186044658359552,
+  "mean_subspace_principal_cosine": 1.0,
+  "mean_singular_profile_corr": 0.8881722052697965,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj06|ventral": {
+  "mean_pairwise_action_cosine": 0.7776431140791628,
+  "mean_subspace_principal_cosine": 0.4227990493038905,
+  "mean_singular_profile_corr": 0.9353136875124977,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj06|lateral": {
+  "mean_pairwise_action_cosine": 0.7078593020395457,
+  "mean_subspace_principal_cosine": 0.3298593492243606,
+  "mean_singular_profile_corr": 0.9287381569348236,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj06|parietal": {
+  "mean_pairwise_action_cosine": 0.7301980706295992,
+  "mean_subspace_principal_cosine": 0.4802093981929867,
+  "mean_singular_profile_corr": 0.9383385872996379,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj07|V1": {
+  "mean_pairwise_action_cosine": 0.558234231104268,
+  "mean_subspace_principal_cosine": 0.672014359019968,
+  "mean_singular_profile_corr": 0.9165009867820542,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj07|V2": {
+  "mean_pairwise_action_cosine": 0.7164965846931969,
+  "mean_subspace_principal_cosine": 0.7278331719626949,
+  "mean_singular_profile_corr": 0.8396547160045768,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj07|V3": {
+  "mean_pairwise_action_cosine": 0.5791147874142861,
+  "mean_subspace_principal_cosine": 0.8464108463859532,
+  "mean_singular_profile_corr": 0.8672703617857083,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj07|hV4": {
+  "mean_pairwise_action_cosine": 0.5690459810934044,
+  "mean_subspace_principal_cosine": 1.0,
+  "mean_singular_profile_corr": 0.9275639359348704,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj07|ventral": {
+  "mean_pairwise_action_cosine": 0.6930980507910943,
+  "mean_subspace_principal_cosine": 0.43766979277746476,
+  "mean_singular_profile_corr": 0.8342091326802027,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj07|lateral": {
+  "mean_pairwise_action_cosine": 0.7281747079610391,
+  "mean_subspace_principal_cosine": 0.473536543350729,
+  "mean_singular_profile_corr": 0.931447278454372,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj07|parietal": {
+  "mean_pairwise_action_cosine": 0.5459689711021961,
+  "mean_subspace_principal_cosine": 0.5162721024117343,
+  "mean_singular_profile_corr": 0.8167153348716346,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj08|V1": {
+  "mean_pairwise_action_cosine": 0.660712312354864,
+  "mean_subspace_principal_cosine": 0.7467705737974962,
+  "mean_singular_profile_corr": 0.9784391413692162,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj08|V2": {
+  "mean_pairwise_action_cosine": 0.481109008818072,
+  "mean_subspace_principal_cosine": 0.7444581068363655,
+  "mean_singular_profile_corr": 0.9219517354894187,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_LOW"
+ },
+ "subj08|V3": {
+  "mean_pairwise_action_cosine": 0.6449511431541816,
+  "mean_subspace_principal_cosine": 0.8223731628168356,
+  "mean_singular_profile_corr": 0.9889962554401172,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj08|hV4": {
+  "mean_pairwise_action_cosine": 0.4836522235334931,
+  "mean_subspace_principal_cosine": 1.0,
+  "mean_singular_profile_corr": 0.9765419358334978,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_LOW"
+ },
+ "subj08|ventral": {
+  "mean_pairwise_action_cosine": 0.7281875569102306,
+  "mean_subspace_principal_cosine": 0.40064555467645746,
+  "mean_singular_profile_corr": 0.91410672345726,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj08|lateral": {
+  "mean_pairwise_action_cosine": 0.7801785617887251,
+  "mean_subspace_principal_cosine": 0.4150015929282118,
+  "mean_singular_profile_corr": 0.9527916985985747,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ },
+ "subj08|parietal": {
+  "mean_pairwise_action_cosine": 0.7541639245537408,
+  "mean_subspace_principal_cosine": 0.5870525491104792,
+  "mean_singular_profile_corr": 0.9846242058896292,
+  "n_pairs": 15,
+  "label": "OPERATOR_STABILITY_MODERATE"
+ }
+}

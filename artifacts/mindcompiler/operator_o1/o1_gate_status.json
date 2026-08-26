@@ -1,0 +1,25 @@
+{
+  "gate": "O1",
+  "execution_status": "O1_OPERATOR_CHARACTERIZATION_PASS",
+  "scientific_status": "STIMULUS_INVARIANT_OPERATOR_PARTIAL",
+  "n_cells": 56,
+  "expected_cells": 56,
+  "n_rois_O4_gt_O0_holm_reject": 3,
+  "n_rois_median_O4_positive": 7,
+  "cohort_median_O4_minus_O0": 0.038041191262779495,
+  "cross_family_O4_both_positive": true,
+  "n_low_stability_cells": 3,
+  "classification_cohort": {
+    "FULL_CROSS_VOXEL_OPERATOR_NEEDED": 33,
+    "DIAGONAL_REWEIGHTING_SUFFICIENT": 7,
+    "GLOBAL_GAIN_SUFFICIENT": 2,
+    "NO_REUSABLE_OPERATOR_EVIDENCE": 13,
+    "LOW_RANK_DEFORMATION_SUFFICIENT": 1
+  },
+  "immutable": {
+    "TRACK_R_STATUS": "INDEPENDENT_METHOD_REPRODUCTION_PARTIAL",
+    "TRACK_R_REOPEN_ALLOWED": false,
+    "H_A_CROSS_PARTICIPANT_PARTIAL": "unchanged"
+  },
+  "next_action": "O2 (shared+subject-specific operator) if SUPPORTED; O1.1 heterogeneity audit if PARTIAL; stop if NOT_SUPPORTED"
+}

@@ -10,6 +10,50 @@ Corrected 2026-07-17.)
 
 ---
 
+## O1 (2026-08-26): STIMULUS-INVARIANT PERCEPTION->IMAGERY OPERATOR -- `O1_OPERATOR_CHARACTERIZATION_PASS` / `STIMULUS_INVARIANT_OPERATOR_PARTIAL`
+
+**Input `e378288` -> freeze `a4fe0fa` -> execute `84d6405`, server-verified.** FIRST Track-O
+(original research, NOT Roy reproduction). Docs `51_...` (charter) + `52_...` (prior art);
+artifacts `artifacts/mindcompiler/operator_o1/`. New `operator_o1` package (folds/operators/
+evaluate/geometry) + driver + 22 data-free tests (incl negative controls). Config sha `c8ebd4af`,
+frozen before cohort outcomes. TRACK_R sealed immutable (REOPEN_ALLOWED=false); H-A unchanged.
+
+Question: does a reusable linear operator map perception-state -> imagery-state neural
+representations for stimulus IDENTITIES never used to fit it? B0 primary, RAW vision/imagery
+centroids (NO D1), identity = grouping+fitting unit. 6 outer x 5 inner identity folds (1 simple +
+1 naturalistic each; leakage cert all-True). Operator ladder O0 imagery-mean / O1 global-gain /
+O2 diagonal / O3 low-rank-residual / O4 full-RRR. Common vision scaling (both states). Primary
+metric held-out-identity pattern r; inference = participant (N=8) exact 2^8 sign-flip + Holm/7 ROIs.
+Prior art = NOVELTY_CANDIDATE (Roy same-identity; "General Transformations" 2018 held-out affine;
+MIRAGE seen->imagined reconstruction; hyperalignment/SRM cross-subject -> O2). 56/56 cells.
+
+### SCIENCE: `STIMULUS_INVARIANT_OPERATOR_PARTIAL`
+- **O4>O0 (reusable operator vs imagery-mean) Holm-significant in 3/7 ROIs:** ventral +0.083,
+  lateral +0.093, parietal +0.045; V1 +0.055 / V3 +0.046 positive but NOT Holm-significant;
+  V2/hV4 no evidence. Cohort median O4-O0 +0.038. (Note: O0 baseline ~0.71-0.78 -- imagery
+  centroids share strong common structure -- so O4-O0 is the meaningful signal.)
+- **Where present, needs cross-voxel mixing:** O4>O1 in 5/7, O4>O2 in 3/7; O3 low-rank-residual
+  NOT competitive (median O4-O3 +0.152). FULL_CROSS_VOXEL_OPERATOR_NEEDED modal in 5/7 ROIs.
+- Operator far from identity (dev 1.09), CONTRACTS ~97% of supported directions (consistent with
+  lower imagery amplitude/SNR, Supplement Fig S2), off-diagonal mixing 0.86, out-of-visual-span
+  0.28; MODERATE fold stability (50/56). Cross-family transfer positive both directions but
+  O4~=O0 (carried by shared imagery structure, not the vision-dependent operator).
+- **B1 (b3) MEASUREMENT SENSITIVITY:** operator evidence does NOT replicate (median O4-O0 -0.006,
+  0/7 Holm) -> the reusable-operator evidence is B0-specific. Honest caveat; B1 non-primary,
+  never downgrades the B0 verdict (frozen rule).
+- Operator-dimension context (NOT a Roy re-analysis): the operator is high-rank / strongly
+  mixing (not low-rank-compressing), consistent with the S2.6R "imagery not lower-dimensional"
+  finding; dimensionality treated as an empirical operator property, never assumed.
+
+**Bounded conclusion:** a linear perception->imagery operator learned from one set of stimuli
+generalizes to entirely unseen stimulus identities in higher-level ventral/lateral/parietal cortex
+(above the imagery-mean baseline, participant-level Holm-significant), requires cross-voxel mixing
+where it exists, but generalization is ROI/participant-dependent and B0-preparation-specific ->
+PARTIAL. No causal/universal/thought-reading claim. **Next: O1.1 -- OPERATOR HETEROGENEITY AND
+FAILURE-MODE AUDIT** (per PARTIAL branch; no shared-operator O2 claim yet).
+
+---
+
 ## S2.7R (2026-08-23): FINAL CLAIM-BY-CLAIM REPRODUCTION VERDICT -- `S2_7R_FINAL_VERDICT_AUDIT_PASS`
 
 **Input `932b94f` -> rubric freeze `a718faf` -> verdict `03b8fa3`, server-verified.** Audit/verdict

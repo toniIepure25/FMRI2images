@@ -1,0 +1,8 @@
+{
+  "lane": "local derived analysis + one pod split-half reliability summary",
+  "o1_1_audit_tests": {
+    "file": "test_o1_1_audit.py",
+    "passed": 16
+  },
+  "reproduction_tests_passed": true
+}

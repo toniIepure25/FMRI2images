@@ -1,0 +1,68 @@
+{
+  "per_identity_median_residual": [
+    {
+      "identity": "A:E",
+      "family": "simple",
+      "residual_norm": 3.4491524347377385
+    },
+    {
+      "identity": "A:H",
+      "family": "simple",
+      "residual_norm": 3.298380003372177
+    },
+    {
+      "identity": "A:L",
+      "family": "simple",
+      "residual_norm": 2.950162626438739
+    },
+    {
+      "identity": "A:P",
+      "family": "simple",
+      "residual_norm": 2.2087531620790566
+    },
+    {
+      "identity": "A:R",
+      "family": "simple",
+      "residual_norm": 3.632282210149768
+    },
+    {
+      "identity": "A:V",
+      "family": "simple",
+      "residual_norm": 2.828738915257352
+    },
+    {
+      "identity": "B:B",
+      "family": "naturalistic",
+      "residual_norm": 2.245474310965317
+    },
+    {
+      "identity": "B:C",
+      "family": "naturalistic",
+      "residual_norm": 2.5287986942135623
+    },
+    {
+      "identity": "B:D",
+      "family": "naturalistic",
+      "residual_norm": 3.1780687181982836
+    },
+    {
+      "identity": "B:K",
+      "family": "naturalistic",
+      "residual_norm": 3.3375733019450893
+    },
+    {
+      "identity": "B:T",
+      "family": "naturalistic",
+      "residual_norm": 3.5635731786713993
+    },
+    {
+      "identity": "B:W",
+      "family": "naturalistic",
+      "residual_norm": 3.1171782542952884
+    }
+  ],
+  "median_residual_simple": 3.1260609265352115,
+  "median_residual_naturalistic": 3.0908712569260803,
+  "top2_excess_fraction": 0.5724367593180446,
+  "FM8_status": "SUPPORTED_PATTERN(concentrated)"
+}

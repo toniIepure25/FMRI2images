@@ -1,0 +1,80 @@
+{
+  "L1_within_ROI_across_participants": {
+    "V1": {
+      "rho_Rimg_G": 0.3333333333333333,
+      "rho_Rvis_G": 0.30952380952380953,
+      "rho_Rimg_headroomnorm": 0.5714285714285714
+    },
+    "V2": {
+      "rho_Rimg_G": 0.6666666666666666,
+      "rho_Rvis_G": 0.14285714285714285,
+      "rho_Rimg_headroomnorm": 0.6190476190476191
+    },
+    "V3": {
+      "rho_Rimg_G": 0.42857142857142855,
+      "rho_Rvis_G": 0.38095238095238093,
+      "rho_Rimg_headroomnorm": 0.5
+    },
+    "hV4": {
+      "rho_Rimg_G": 0.11904761904761904,
+      "rho_Rvis_G": -0.23809523809523808,
+      "rho_Rimg_headroomnorm": 0.11904761904761904
+    },
+    "ventral": {
+      "rho_Rimg_G": 0.42857142857142855,
+      "rho_Rvis_G": 0.2619047619047619,
+      "rho_Rimg_headroomnorm": 0.6190476190476191
+    },
+    "lateral": {
+      "rho_Rimg_G": -0.2619047619047619,
+      "rho_Rvis_G": -0.5,
+      "rho_Rimg_headroomnorm": -0.3333333333333333
+    },
+    "parietal": {
+      "rho_Rimg_G": -0.07142857142857142,
+      "rho_Rvis_G": 0.11904761904761904,
+      "rho_Rimg_headroomnorm": 0.023809523809523808
+    }
+  },
+  "L2_within_participant_across_ROI": {
+    "subj01": {
+      "rho_Rimg_G": -0.07142857142857142,
+      "rho_Rvis_G": 0.7142857142857143
+    },
+    "subj02": {
+      "rho_Rimg_G": -0.8928571428571429,
+      "rho_Rvis_G": 0.21428571428571427
+    },
+    "subj03": {
+      "rho_Rimg_G": 0.07142857142857142,
+      "rho_Rvis_G": -0.6428571428571429
+    },
+    "subj04": {
+      "rho_Rimg_G": 0.6785714285714286,
+      "rho_Rvis_G": -0.17857142857142858
+    },
+    "subj05": {
+      "rho_Rimg_G": -0.14285714285714285,
+      "rho_Rvis_G": -0.03571428571428571
+    },
+    "subj06": {
+      "rho_Rimg_G": 0.5714285714285714,
+      "rho_Rvis_G": -0.5357142857142857
+    },
+    "subj07": {
+      "rho_Rimg_G": 0.5,
+      "rho_Rvis_G": -0.6785714285714286
+    },
+    "subj08": {
+      "rho_Rimg_G": 0.5357142857142857,
+      "rho_Rvis_G": -0.6071428571428571
+    }
+  },
+  "median_L1_rho_Rimg_G": 0.3333333333333333,
+  "median_L1_rho_Rvis_G": 0.14285714285714285,
+  "median_L2_rho_Rimg_G": 0.2857142857142857,
+  "median_L2_rho_Rvis_G": -0.35714285714285715,
+  "FM2_imagery_status": "PARTIAL_PATTERN",
+  "FM3_vision_status": "NOT_SUPPORTED",
+  "note": "descriptive Spearman, N=8 (L1) / N=7 (L2); no p-values"
+}

@@ -1,0 +1,58 @@
+{
+  "V1": {
+    "median_O0": 0.7282727311054866,
+    "O0_rank": 4,
+    "median_G": 0.050691837537838624,
+    "median_normalized_G": 0.1798027611293625,
+    "norm_rank_improvement": -1,
+    "status": "BASELINE_CEILING_NOT_PRIMARY"
+  },
+  "V2": {
+    "median_O0": 0.7556911073625088,
+    "O0_rank": 3,
+    "median_G": 0.01899340872973998,
+    "median_normalized_G": 0.07336216402214749,
+    "norm_rank_improvement": 0,
+    "status": "BASELINE_CEILING_NOT_PRIMARY"
+  },
+  "V3": {
+    "median_O0": 0.7627203663190206,
+    "O0_rank": 2,
+    "median_G": 0.033352207011332125,
+    "median_normalized_G": 0.20616761749364892,
+    "norm_rank_improvement": 2,
+    "status": "BASELINE_CEILING_NOT_PRIMARY"
+  },
+  "hV4": {
+    "median_O0": 0.7676041945815086,
+    "O0_rank": 1,
+    "median_G": 0.010668550919995967,
+    "median_normalized_G": 0.006577047062746002,
+    "norm_rank_improvement": 0,
+    "status": "MIXED"
+  },
+  "ventral": {
+    "median_O0": 0.6548175352315109,
+    "O0_rank": 7,
+    "median_G": 0.07498869696967048,
+    "median_normalized_G": 0.2403309625354476,
+    "norm_rank_improvement": 0,
+    "status": "BASELINE_CEILING_NOT_PRIMARY"
+  },
+  "lateral": {
+    "median_O0": 0.6549057438969612,
+    "O0_rank": 6,
+    "median_G": 0.08777431805682645,
+    "median_normalized_G": 0.2566114142393444,
+    "norm_rank_improvement": 0,
+    "status": "BASELINE_CEILING_NOT_PRIMARY"
+  },
+  "parietal": {
+    "median_O0": 0.7146770904461544,
+    "O0_rank": 5,
+    "median_G": 0.03707797800593887,
+    "median_normalized_G": 0.16063262418900998,
+    "norm_rank_improvement": -1,
+    "status": "BASELINE_CEILING_NOT_PRIMARY"
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "EVIDENCE_rois": [
+    "ventral",
+    "lateral",
+    "parietal"
+  ],
+  "LOW_NO_rois": [
+    "V2",
+    "hV4"
+  ],
+  "median_G": {
+    "EVIDENCE": 0.07498869696967048,
+    "LOW_NO": 0.014830979824867974
+  },
+  "median_O0": {
+    "EVIDENCE": 0.6549057438969612,
+    "LOW_NO": 0.7616476509720087
+  },
+  "median_R_img": {
+    "EVIDENCE": 0.7002430127094827,
+    "LOW_NO": 0.6548508432154232
+  },
+  "median_R_vis": {
+    "EVIDENCE": 0.7812546474164614,
+    "LOW_NO": 0.8900209731660969
+  },
+  "median_action_cosine": {
+    "EVIDENCE": 0.7388701937913684,
+    "LOW_NO": 0.5713345222294919
+  },
+  "median_offdiag": {
+    "EVIDENCE": 0.8896440598167128,
+    "LOW_NO": 0.9001019675585831
+  },
+  "median_out_of_span": {
+    "EVIDENCE": 0.509908646757949,
+    "LOW_NO": 0.059712556441029116
+  },
+  "median_contraction": {
+    "EVIDENCE": 1.0,
+    "LOW_NO": 1.0
+  },
+  "median_residual_rank": {
+    "EVIDENCE": 12.0,
+    "LOW_NO": 11.0
+  },
+  "median_voxels": {
+    "EVIDENCE": 149.5,
+    "LOW_NO": 16.0
+  },
+  "allowed_statement": "higher-level ROIs in this dataset showed stronger incremental stimulus-held-out operator evidence (descriptive; no causal hierarchy claim)"
+}

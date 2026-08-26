@@ -1,0 +1,8 @@
+{
+  "gate": "O1.1",
+  "class": "POST_HOC_DESCRIPTIVE_OPERATOR_HETEROGENEITY_AUDIT",
+  "no_refit": true,
+  "no_new_models": true,
+  "reliability_source": "split-half measurement summary (pod, once)",
+  "O1_status_unchanged": "STIMULUS_INVARIANT_OPERATOR_PARTIAL"
+}

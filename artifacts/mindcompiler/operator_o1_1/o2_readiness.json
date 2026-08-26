@@ -1,0 +1,38 @@
+{
+  "criteria": {
+    "A_coherent_holm_evidence_set": {
+      "pass": true,
+      "rois": [
+        "ventral",
+        "lateral",
+        "parietal"
+      ]
+    },
+    "B_not_baseline_ceiling": {
+      "pass": true
+    },
+    "C_stability_moderate": {
+      "pass": true,
+      "median_action_cosine_evidence": 0.7388701937913684
+    },
+    "D_cross_subject_contract_freezable": {
+      "pass": true
+    },
+    "E_B0_measurement_dependence_acknowledged": {
+      "pass": true
+    }
+  },
+  "status": "O2_READY_FOR_SHARED_OPERATOR_TEST",
+  "candidate_primary_O2_rois": [
+    "ventral",
+    "lateral",
+    "parietal"
+  ],
+  "secondary": [
+    "V1",
+    "V3"
+  ],
+  "v2_hv4_justification": "excluded from primary O2 by O1 (no cohort Holm evidence) + O1.1 case classification; not silently dropped",
+  "critical_O2_test": "LEAVE_ONE_SUBJECT_OUT + HELD_OUT_STIMULUS_IDENTITIES",
+  "method_not_selected_here": true
+}

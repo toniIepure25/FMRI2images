@@ -1,0 +1,51 @@
+{
+  "per_participant_delta": {
+    "subj01": {
+      "dG_beta": 0.06912423097532217,
+      "dR_img": 0.1729750532379436,
+      "dR_vis": 0.15825620994671707
+    },
+    "subj02": {
+      "dG_beta": 0.06772511951688587,
+      "dR_img": 0.13614863201319516,
+      "dR_vis": 0.023382237156273966
+    },
+    "subj03": {
+      "dG_beta": 0.08461461718804952,
+      "dR_img": 0.2910854468673759,
+      "dR_vis": 0.13452022963807397
+    },
+    "subj04": {
+      "dG_beta": 0.07034445171615877,
+      "dR_img": 0.34218221374077773,
+      "dR_vis": 0.13280632082297084
+    },
+    "subj05": {
+      "dG_beta": 0.027876585372092588,
+      "dR_img": 0.23506968106222959,
+      "dR_vis": 0.14560750606671746
+    },
+    "subj06": {
+      "dG_beta": 0.03970286173770779,
+      "dR_img": 0.35803445902475206,
+      "dR_vis": 0.10530474403558743
+    },
+    "subj07": {
+      "dG_beta": 0.012257905679779468,
+      "dR_img": 0.23499848629161002,
+      "dR_vis": 0.03637258214577044
+    },
+    "subj08": {
+      "dG_beta": 0.0489599204575252,
+      "dR_img": 0.4054790112957689,
+      "dR_vis": 0.029284838260230206
+    }
+  },
+  "spearman_dRimg_dGbeta": 0.023809523809523808,
+  "spearman_dRvis_dGbeta": 0.2619047619047619,
+  "cohort_median_dG_beta": 0.058342519987205535,
+  "cohort_median_dR_img": 0.26307756396480275,
+  "cohort_median_dR_vis": 0.11905553242927913,
+  "status": "BETA_OPERATOR_DEPENDENCE_PARTLY_TRACKS_RELIABILITY",
+  "note": "B0-B1 operator dependence vs reliability loss; does NOT reopen H-A"
+}

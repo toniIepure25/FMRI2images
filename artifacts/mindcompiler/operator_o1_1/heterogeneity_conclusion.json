@@ -1,0 +1,14 @@
+{
+  "axes_supported": [
+    "region_structure"
+  ],
+  "overall_status": "OPERATOR_HETEROGENEITY_REGION_STRUCTURE_DOMINANT",
+  "decision_table_ref": "failure_mode_decision_table.json",
+  "does_not_modify": "STIMULUS_INVARIANT_OPERATOR_PARTIAL",
+  "secondary_contributions_transparency": {
+    "FM5_instability": "CONTRIBUTES (std_median_diff action_cosine FULL-vs-NO = 3.13, per-ROI median Spearman(G,stability)=0.38) -- strong separation, did not meet frozen DOMINANT bar (needs rho>=0.5)",
+    "FM2_imagery_measurement": "PARTIAL_PATTERN",
+    "FM4_beta": "BETA_OPERATOR_DEPENDENCE_PARTLY_TRACKS_RELIABILITY",
+    "note": "region-structure is the single frozen-supported dominant axis, but estimation instability and imagery measurement/beta-preparation partially co-explain the heterogeneity; picture is near-multifactorial. Frozen status unchanged."
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "std_median_diff_action_cosine_FULL_vs_NO": 3.1275783399441757,
+  "median_full_action_cosine": 0.7362485332346075,
+  "median_no_action_cosine": 0.5690459810934044,
+  "per_ROI_spearman_G_actioncosine": {
+    "V1": 0.16666666666666666,
+    "V2": 0.38095238095238093,
+    "V3": 0.6666666666666666,
+    "hV4": 0.8095238095238095,
+    "ventral": -0.40476190476190477,
+    "lateral": 0.8571428571428571,
+    "parietal": 0.3333333333333333
+  },
+  "median_per_ROI_spearman": 0.38095238095238093,
+  "status": "INSTABILITY_CONTRIBUTES"
+}

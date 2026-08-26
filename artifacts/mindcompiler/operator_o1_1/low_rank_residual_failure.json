@@ -1,0 +1,9 @@
+{
+  "spearman_identity_deviation_vs_O4minusO3": -0.21954887218045113,
+  "spearman_contraction_vs_O4minusO3": 0.23459416096667673,
+  "spearman_rotation_vs_O4minusO3": 0.18735475051264525,
+  "spearman_offdiag_vs_O4minusO3": 0.40464798359535203,
+  "median_O4minusO3": 0.152005721711619,
+  "median_identity_deviation": 1.020875181974588,
+  "interpretation": "O3 anchors on the identity map (y=x+low-rank); larger identity_deviation / stronger contraction => I+low-rank residual is structurally inappropriate"
+}

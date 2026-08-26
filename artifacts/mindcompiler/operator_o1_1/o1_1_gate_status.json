@@ -1,0 +1,74 @@
+{
+  "gate": "O1.1",
+  "execution_status": "O1_1_HETEROGENEITY_AUDIT_PASS",
+  "overall_heterogeneity_status": "OPERATOR_HETEROGENEITY_REGION_STRUCTURE_DOMINANT",
+  "o2_readiness": "O2_READY_FOR_SHARED_OPERATOR_TEST",
+  "n_cells": 56,
+  "O1_status_immutable": "STIMULUS_INVARIANT_OPERATOR_PARTIAL",
+  "decision_table": {
+    "V1": {
+      "FM1_baseline": "NOT_SUPPORTED",
+      "FM2_imagery_measurement": "PARTIAL_PATTERN",
+      "FM3_vision_measurement": "NOT_SUPPORTED",
+      "FM4_beta_sensitivity": "BETA_OPERATOR_DEPENDENCE_PARTLY_TRACKS_RELIABILITY",
+      "FM5_instability": "INSTABILITY_CONTRIBUTES",
+      "FM6_structural_geometry": "SUPPORTED_PATTERN",
+      "FM8_stimulus": "SUPPORTED_PATTERN(concentrated)"
+    },
+    "V2": {
+      "FM1_baseline": "NOT_SUPPORTED",
+      "FM2_imagery_measurement": "PARTIAL_PATTERN",
+      "FM3_vision_measurement": "NOT_SUPPORTED",
+      "FM4_beta_sensitivity": "BETA_OPERATOR_DEPENDENCE_PARTLY_TRACKS_RELIABILITY",
+      "FM5_instability": "INSTABILITY_CONTRIBUTES",
+      "FM6_structural_geometry": "SUPPORTED_PATTERN",
+      "FM8_stimulus": "SUPPORTED_PATTERN(concentrated)"
+    },
+    "V3": {
+      "FM1_baseline": "NOT_SUPPORTED",
+      "FM2_imagery_measurement": "PARTIAL_PATTERN",
+      "FM3_vision_measurement": "NOT_SUPPORTED",
+      "FM4_beta_sensitivity": "BETA_OPERATOR_DEPENDENCE_PARTLY_TRACKS_RELIABILITY",
+      "FM5_instability": "INSTABILITY_CONTRIBUTES",
+      "FM6_structural_geometry": "SUPPORTED_PATTERN",
+      "FM8_stimulus": "SUPPORTED_PATTERN(concentrated)"
+    },
+    "hV4": {
+      "FM1_baseline": "PARTIAL_PATTERN",
+      "FM2_imagery_measurement": "PARTIAL_PATTERN",
+      "FM3_vision_measurement": "NOT_SUPPORTED",
+      "FM4_beta_sensitivity": "BETA_OPERATOR_DEPENDENCE_PARTLY_TRACKS_RELIABILITY",
+      "FM5_instability": "INSTABILITY_CONTRIBUTES",
+      "FM6_structural_geometry": "SUPPORTED_PATTERN",
+      "FM8_stimulus": "SUPPORTED_PATTERN(concentrated)"
+    },
+    "ventral": {
+      "FM1_baseline": "NOT_SUPPORTED",
+      "FM2_imagery_measurement": "PARTIAL_PATTERN",
+      "FM3_vision_measurement": "NOT_SUPPORTED",
+      "FM4_beta_sensitivity": "BETA_OPERATOR_DEPENDENCE_PARTLY_TRACKS_RELIABILITY",
+      "FM5_instability": "INSTABILITY_CONTRIBUTES",
+      "FM6_structural_geometry": "SUPPORTED_PATTERN",
+      "FM8_stimulus": "SUPPORTED_PATTERN(concentrated)"
+    },
+    "lateral": {
+      "FM1_baseline": "NOT_SUPPORTED",
+      "FM2_imagery_measurement": "PARTIAL_PATTERN",
+      "FM3_vision_measurement": "NOT_SUPPORTED",
+      "FM4_beta_sensitivity": "BETA_OPERATOR_DEPENDENCE_PARTLY_TRACKS_RELIABILITY",
+      "FM5_instability": "INSTABILITY_CONTRIBUTES",
+      "FM6_structural_geometry": "SUPPORTED_PATTERN",
+      "FM8_stimulus": "SUPPORTED_PATTERN(concentrated)"
+    },
+    "parietal": {
+      "FM1_baseline": "NOT_SUPPORTED",
+      "FM2_imagery_measurement": "PARTIAL_PATTERN",
+      "FM3_vision_measurement": "NOT_SUPPORTED",
+      "FM4_beta_sensitivity": "BETA_OPERATOR_DEPENDENCE_PARTLY_TRACKS_RELIABILITY",
+      "FM5_instability": "INSTABILITY_CONTRIBUTES",
+      "FM6_structural_geometry": "SUPPORTED_PATTERN",
+      "FM8_stimulus": "SUPPORTED_PATTERN(concentrated)"
+    }
+  },
+  "next_action": "O2 shared+subject-specific operator (LOSO + held-out identities)"
+}

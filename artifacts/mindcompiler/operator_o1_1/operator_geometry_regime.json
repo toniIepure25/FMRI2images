@@ -1,0 +1,38 @@
+{
+  "off_diagonal_mixing": {
+    "median_FULL": 0.8865183905212172,
+    "median_NO": 0.7846613152346251,
+    "std_median_diff": 1.0671595480364928,
+    "notable": true
+  },
+  "out_of_span_fraction": {
+    "median_FULL": 0.3171990842270932,
+    "median_NO": 0.107094449132027,
+    "std_median_diff": 1.262635096803808,
+    "notable": true
+  },
+  "identity_deviation": {
+    "median_FULL": 1.0421541444871398,
+    "median_NO": 1.0011715097358067,
+    "std_median_diff": 1.8992035994183032,
+    "notable": true
+  },
+  "fraction_contracted": {
+    "median_FULL": 1.0,
+    "median_NO": 1.0,
+    "std_median_diff": 0.0,
+    "notable": false
+  },
+  "residual_rank": {
+    "median_FULL": 12.0,
+    "median_NO": 12.0,
+    "std_median_diff": 0.0,
+    "notable": false
+  },
+  "rotation_frobenius": {
+    "median_FULL": 4.9269812210807045,
+    "median_NO": 4.552011824093889,
+    "std_median_diff": 3.2127590383904057,
+    "notable": true
+  }
+}

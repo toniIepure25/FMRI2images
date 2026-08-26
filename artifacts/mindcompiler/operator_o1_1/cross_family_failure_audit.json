@@ -1,0 +1,20 @@
+{
+  "by_direction": {
+    "simple_to_naturalistic": {
+      "median_O4": 0.39710759803483064,
+      "median_O0": 0.41955549245245666,
+      "median_O4_minus_O0": -0.02027379910927843,
+      "n_positive_increment": 3,
+      "increment_dispersion_MAD": 0.06017531769033635
+    },
+    "naturalistic_to_simple": {
+      "median_O4": 0.7149873438498224,
+      "median_O0": 0.7162016122823669,
+      "median_O4_minus_O0": 0.0016308936299053722,
+      "n_positive_increment": 5,
+      "increment_dispersion_MAD": 0.004557418686246983
+    }
+  },
+  "status": "CROSS_FAMILY_OPERATOR_INCREMENT_NOT_SUPPORTED",
+  "interpretation": "positive absolute O4 is NOT operator transfer; only O4-O0 increment counts"
+}

@@ -1,0 +1,15 @@
+{
+  "DELTA_UPPER_BOUNDARY_RATE_overall": 0.25,
+  "per_ROI_upper_boundary_rate": {
+    "ventral": 0.125,
+    "lateral": 0.25,
+    "parietal": 0.375
+  },
+  "per_ROI_median_delta_cv_increment": {
+    "ventral": 5.5511151231257815e-17,
+    "lateral": 0.00547946697108475,
+    "parietal": 0.09999999790541375
+  },
+  "overall_median_delta_cv_increment": 0.00010136471208096102,
+  "status": "DELTA_REGULARIZATION_BOUNDARY_CONCERN"
+}

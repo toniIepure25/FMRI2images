@@ -1,0 +1,8 @@
+{
+  "lane": "pod frozen-SRM replay (exact, err 1.1e-16) + local analysis",
+  "o2_1_audit_tests": {
+    "file": "test_o2_1_audit.py",
+    "passed": 15
+  },
+  "reproduction_tests_passed": true
+}

@@ -1,0 +1,13 @@
+{
+  "overall_bottleneck_status": "O2_TRANSFER_LIMIT_CROSS_STATE_SPACE_DOMINANT",
+  "Q1_Q5": {
+    "Q1_visual_alignment_sufficient": "NOT_SUPPORTED_BY_DESCRIPTIVE_PATTERN (vision aligned everywhere; transfer only ventral and even there contrast capture ~0)",
+    "Q2_vision_W_preserves_imagery": "NOT_SUPPORTED_BY_DESCRIPTIVE_PATTERN (imagery retention ~0.10-0.17 vs vision ~0.49-0.55 everywhere)",
+    "Q3_Tshared_encodes_imagery_contrasts": "NOT_SUPPORTED_BY_DESCRIPTIVE_PATTERN (median shared-contrast capture ~0; negative in ventral)",
+    "Q4_ventral_special_more_shared_or_easier_projection": "INCONCLUSIVE (ventral has the WORST imagery retention and negative contrast capture; its small G_shared is not explained by better state-transfer or easier projection)",
+    "Q5_70pct_shared_robust_to_delta_reg": "MIXED (DECOMPOSITION_CONFIDENCE_MODERATE; 25% Delta at upper boundary; median CV increment ~0)"
+  },
+  "decomposition_confidence": "DECOMPOSITION_CONFIDENCE_MODERATE",
+  "key_finding": "The vision-derived SRM common space was validated on vision but preserves imagery identity structure poorly (~10% retention), so the shared operator cannot transfer stimulus-specific imagery even where vision alignment is perfect. Cross-state common-space adequacy -- not calibration, vision capacity, or low K -- is the dominant transfer bottleneck.",
+  "immutable": "SHARED_OPERATOR_PARTIAL (unchanged)"
+}

@@ -1,0 +1,8 @@
+{
+  "decomposition_confidence": "DECOMPOSITION_CONFIDENCE_MODERATE",
+  "boundary_concern": true,
+  "overall_median_delta_cv_increment": 0.00010136471208096102,
+  "preserve": "SHARED_COMPONENT_DOMINANT unchanged",
+  "median_shared_action_fraction": 0.7022981649623189,
+  "caveat": "median Delta CV increment ~0 -> shared-action fraction partly a regularization artifact (25% of Delta at upper grid boundary)"
+}

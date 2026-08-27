@@ -1,0 +1,23 @@
+{
+  "ventral": {
+    "median_S0": 0.08280332495147982,
+    "median_headroom": 0.9171966750485201,
+    "median_G_shared": 0.015572442917999599,
+    "normalized_shared_gain": 0.016978302845652826,
+    "status": "BASELINE_LIMITATION_WEAK"
+  },
+  "lateral": {
+    "median_S0": 0.06562908045695318,
+    "median_headroom": 0.9343709195430467,
+    "median_G_shared": 0.0037803252712044003,
+    "normalized_shared_gain": 0.004045850734581043,
+    "status": "BASELINE_LIMITATION_WEAK"
+  },
+  "parietal": {
+    "median_S0": 0.18240269906042766,
+    "median_headroom": 0.8175973009395723,
+    "median_G_shared": -0.0040196235783165005,
+    "normalized_shared_gain": -0.0049163855772238986,
+    "status": "BASELINE_LIMITATION_STRONG"
+  }
+}

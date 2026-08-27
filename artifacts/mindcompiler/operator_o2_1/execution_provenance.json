@@ -1,0 +1,9 @@
+{
+  "gate": "O2.1",
+  "class": "POST_HOC_SHARED_OPERATOR_TRANSFER_BOTTLENECK_AUDIT",
+  "frozen_srm_replay_exact": true,
+  "no_refit": true,
+  "no_alternative_common_space": true,
+  "no_K_change": true,
+  "no_status_change": true
+}

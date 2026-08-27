@@ -1,0 +1,92 @@
+{
+  "ROI": "ventral",
+  "median_G_shared": 0.015572442917999599,
+  "median_vision_retention": 0.550282210111618,
+  "median_imagery_retention": 0.0960886143147945,
+  "median_cross_state_gap": 0.44908761233091354,
+  "median_oracle_r": 0.1467988491058349,
+  "median_shared_contrast_capture": -0.02379812915771265,
+  "per_participant": [
+    {
+      "subject": "subj01",
+      "G_native_O1": 0.0558,
+      "G_shared": 0.007,
+      "R_vis": 0.512,
+      "R_img": 0.051,
+      "shared_capture": -0.884,
+      "oracle_r": 0.128,
+      "S0": 0.066
+    },
+    {
+      "subject": "subj02",
+      "G_native_O1": 0.1049,
+      "G_shared": 0.0244,
+      "R_vis": 0.559,
+      "R_img": 0.132,
+      "shared_capture": 0.163,
+      "oracle_r": 0.124,
+      "S0": 0.049
+    },
+    {
+      "subject": "subj03",
+      "G_native_O1": 0.0744,
+      "G_shared": -0.0009,
+      "R_vis": 0.672,
+      "R_img": 0.122,
+      "shared_capture": -1.306,
+      "oracle_r": 0.117,
+      "S0": 0.091
+    },
+    {
+      "subject": "subj04",
+      "G_native_O1": 0.1497,
+      "G_shared": 0.022,
+      "R_vis": 0.699,
+      "R_img": 0.032,
+      "shared_capture": 0.205,
+      "oracle_r": 0.174,
+      "S0": 0.075
+    },
+    {
+      "subject": "subj05",
+      "G_native_O1": 0.0374,
+      "G_shared": 0.0049,
+      "R_vis": 0.481,
+      "R_img": 0.03,
+      "shared_capture": -1.696,
+      "oracle_r": 0.224,
+      "S0": 0.258
+    },
+    {
+      "subject": "subj06",
+      "G_native_O1": 0.1076,
+      "G_shared": 0.0277,
+      "R_vis": 0.581,
+      "R_img": 0.192,
+      "shared_capture": 0.242,
+      "oracle_r": 0.138,
+      "S0": 0.14
+    },
+    {
+      "subject": "subj07",
+      "G_native_O1": 0.0756,
+      "G_shared": 0.0174,
+      "R_vis": 0.412,
+      "R_img": 0.069,
+      "shared_capture": -0.596,
+      "oracle_r": 0.095,
+      "S0": -0.024
+    },
+    {
+      "subject": "subj08",
+      "G_native_O1": 0.0616,
+      "G_shared": 0.0138,
+      "R_vis": 0.446,
+      "R_img": 0.138,
+      "shared_capture": 0.122,
+      "oracle_r": 0.061,
+      "S0": 0.144
+    }
+  ],
+  "subj03_note": "sole ventral subject with negative G_shared: {\"subject\": \"subj03\", \"G_native_O1\": 0.0744, \"G_shared\": -0.0009, \"R_vis\": 0.672, \"R_img\": 0.122, \"shared_capture\": -1.306, \"oracle_r\": 0.117, \"S0\": 0.091}"
+}

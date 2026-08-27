@@ -1,0 +1,9 @@
+{
+  "gate": "O2.1",
+  "execution_status": "O2_1_TRANSFER_BOTTLENECK_AUDIT_PASS",
+  "overall_bottleneck_status": "O2_TRANSFER_LIMIT_CROSS_STATE_SPACE_DOMINANT",
+  "o3_readiness": "O3_NOT_READY",
+  "decomposition_confidence": "DECOMPOSITION_CONFIDENCE_MODERATE",
+  "immutable_O2_status": "SHARED_OPERATOR_PARTIAL",
+  "frozen_srm_replay_max_err": 1.1e-16
+}

@@ -1,0 +1,12 @@
+{
+  "criteria": {
+    "A_ventral_broad": false,
+    "B_not_projection_artifact": true,
+    "C_shared_contrast_present": false,
+    "D_decomposition_confidence": "DECOMPOSITION_CONFIDENCE_MODERATE",
+    "E_no_leakage": true
+  },
+  "status": "O3_NOT_READY",
+  "next_if_not_ready": "O2.2 -- VISION-DERIVED COMMON-SPACE STATE-TRANSPORT DIAGNOSTIC (cross-state-space dominant bottleneck)",
+  "reason_not_ready": "shared-space operator contrast NOT genuinely present in ventral (median capture <=0); cross-state common-space adequacy is the dominant bottleneck"
+}

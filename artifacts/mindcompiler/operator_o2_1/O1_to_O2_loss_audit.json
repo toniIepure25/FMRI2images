@@ -1,0 +1,9 @@
+{
+  "committed_median_transfer_fraction": 0.047777424666363075,
+  "candidate_loss_stages_descriptive": {
+    "common_space_imagery_contrast_lost": "imagery retention ~0.14 vs vision ~0.55 (large cross-state gap)",
+    "shared_operator_contrast_error": "median shared-contrast capture ~0.04 (near zero)",
+    "native_backprojection_limitation": "oracle native r ~0.15 (low even for the ideal in-subspace reconstruction)"
+  },
+  "note": "bottleneck attribution, not an accounting identity; terms not forced to sum to 1"
+}

@@ -1,0 +1,91 @@
+{
+  "ROI": "parietal",
+  "median_G_shared": -0.0040196235783165005,
+  "median_vision_retention": 0.5466437339782715,
+  "median_imagery_retention": 0.1706040874123573,
+  "median_cross_state_gap": 0.2759483829140663,
+  "median_oracle_r": 0.17888336442410946,
+  "median_shared_contrast_capture": 0.044614442275466654,
+  "per_participant": [
+    {
+      "subject": "subj01",
+      "G_native_O1": 0.0084,
+      "G_shared": -0.0048,
+      "R_vis": 0.316,
+      "R_img": 0.124,
+      "shared_capture": 0.072,
+      "oracle_r": 0.129,
+      "S0": 0.213
+    },
+    {
+      "subject": "subj02",
+      "G_native_O1": 0.0375,
+      "G_shared": 0.0006,
+      "R_vis": 0.743,
+      "R_img": 0.379,
+      "shared_capture": 0.152,
+      "oracle_r": 0.16,
+      "S0": -0.124
+    },
+    {
+      "subject": "subj03",
+      "G_native_O1": 0.076,
+      "G_shared": -0.0147,
+      "R_vis": 0.534,
+      "R_img": 0.667,
+      "shared_capture": 0.043,
+      "oracle_r": 0.154,
+      "S0": 0.08
+    },
+    {
+      "subject": "subj04",
+      "G_native_O1": 0.0468,
+      "G_shared": 0.0031,
+      "R_vis": 0.534,
+      "R_img": 0.26,
+      "shared_capture": -0.032,
+      "oracle_r": -0.019,
+      "S0": 0.013
+    },
+    {
+      "subject": "subj05",
+      "G_native_O1": 0.0366,
+      "G_shared": -0.0036,
+      "R_vis": 0.694,
+      "R_img": 0.068,
+      "shared_capture": -1.744,
+      "oracle_r": 0.384,
+      "S0": 0.483
+    },
+    {
+      "subject": "subj06",
+      "G_native_O1": 0.099,
+      "G_shared": 0.002,
+      "R_vis": 0.47,
+      "R_img": 0.143,
+      "shared_capture": 0.055,
+      "oracle_r": 0.152,
+      "S0": 0.152
+    },
+    {
+      "subject": "subj07",
+      "G_native_O1": 0.0173,
+      "G_shared": -0.0122,
+      "R_vis": 0.422,
+      "R_img": 0.159,
+      "shared_capture": -0.139,
+      "oracle_r": 0.207,
+      "S0": 0.332
+    },
+    {
+      "subject": "subj08",
+      "G_native_O1": 0.0355,
+      "G_shared": -0.0044,
+      "R_vis": 0.476,
+      "R_img": 0.151,
+      "shared_capture": 0.092,
+      "oracle_r": 0.345,
+      "S0": 0.43
+    }
+  ]
+}

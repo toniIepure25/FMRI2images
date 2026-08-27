@@ -1,0 +1,71 @@
+{
+  "per_ROI_invariant_dispersion": {
+    "ventral": {
+      "T_spectral_norm": {
+        "median": 0.1820046847957959,
+        "MAD": 0.016066609122291853
+      },
+      "T_frobenius": {
+        "median": 0.22942234916567888,
+        "MAD": 0.026988938409223895
+      },
+      "T_nti": {
+        "median": 0.9911244166471453,
+        "MAD": 0.008261489352550777
+      },
+      "T_eff_rank": {
+        "median": 1.9452552750763736,
+        "MAD": 0.04119908795234273
+      },
+      "T_frac_contracted": {
+        "median": 1.0,
+        "MAD": 0.0
+      }
+    },
+    "lateral": {
+      "T_spectral_norm": {
+        "median": 0.3625922088278552,
+        "MAD": 0.09071935526334529
+      },
+      "T_frobenius": {
+        "median": 0.36272978717431903,
+        "MAD": 0.09284051804638124
+      },
+      "T_nti": {
+        "median": 0.9936089723355443,
+        "MAD": 0.006276319850950729
+      },
+      "T_eff_rank": {
+        "median": 1.0739429142607306,
+        "MAD": 0.0546663918767325
+      },
+      "T_frac_contracted": {
+        "median": 1.0,
+        "MAD": 0.0
+      }
+    },
+    "parietal": {
+      "T_spectral_norm": {
+        "median": 0.11058171076619665,
+        "MAD": 0.06500631590242914
+      },
+      "T_frobenius": {
+        "median": 0.11567919436986925,
+        "MAD": 0.0691555728807957
+      },
+      "T_nti": {
+        "median": 0.9366005040730916,
+        "MAD": 0.04344926504825464
+      },
+      "T_eff_rank": {
+        "median": 1.2865147252016405,
+        "MAD": 0.08114656606154869
+      },
+      "T_frac_contracted": {
+        "median": 1.0,
+        "MAD": 0.0
+      }
+    }
+  },
+  "note": "gauge invariants across LOSO folds; no raw-W comparison"
+}

@@ -1,0 +1,10 @@
+{
+  "median_K": {
+    "ventral": 2,
+    "lateral": 2,
+    "parietal": 2
+  },
+  "ventral_transfers_at_K": 2,
+  "status": "LOW_K_GLOBAL_BOTTLENECK_NOT_SUPPORTED",
+  "note": "ventral (transferring) uses the smallest K -> low K cannot explain the regional difference"
+}

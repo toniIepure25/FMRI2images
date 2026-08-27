@@ -10,6 +10,38 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.1 (2026-08-27): SHARED-OPERATOR TRANSFER BOTTLENECK AUDIT -- `O2_1_TRANSFER_BOTTLENECK_AUDIT_PASS` / `O2_TRANSFER_LIMIT_CROSS_STATE_SPACE_DOMINANT` / `O3_NOT_READY`
+
+**Input `adcb244` -> freeze `85d793f` -> execute `a9db401`, server-verified.** Post-hoc audit, NO
+refit / no new common-space. Doc `55_...`; artifacts `artifacts/mindcompiler/operator_o2_1/`. New
+`operator_o2_1` pkg (pure `audit_logic`) + 15 tests. Config sha `22bde42f`. Frozen-SRM replay EXACT
+(r_Tshared err 1.1e-16, committed K/lambda). **O2 `SHARED_OPERATOR_PARTIAL` immutable.**
+
+Question: where is the ~95% O1->O2 transfer loss, and why does the frozen pipeline transfer in
+ventral but not lateral/parietal? **KEY FINDING -> `O2_TRANSFER_LIMIT_CROSS_STATE_SPACE_DOMINANT`:**
+the vision-derived SRM common space is validated on VISION (identity-contrast retention ~0.49-0.55)
+but preserves IMAGERY identity structure POORLY -- retention ventral 0.096 / lateral 0.144 /
+parietal 0.171 (cross-state gap +0.28..+0.45). Native oracle r ~0.15 (low even for the ideal
+in-subspace reconstruction). Shared-space contrast capture ~0 (NEGATIVE in ventral) -> T_shared does
+NOT transfer stimulus-specific imagery even where vision alignment is perfect.
+- **Low-K NOT the cause** (ventral transfers at the smallest K=2; failing ROIs use same/lower K).
+- **Delta regularization**: upper-boundary rate 0.25 + median CV increment ~0 ->
+  `DECOMPOSITION_CONFIDENCE_MODERATE` (70%-shared is partly a regularization artifact; the
+  `SHARED_COMPONENT_DOMINANT` label is preserved but qualified).
+- Baseline headroom not the primary limiter; calibration/vision-capacity NOT_SUPPORTED as causes.
+- Identity breadth LIMITED (ventral increment concentrated); 7/8 target subjects BROAD, subj03 WEAK.
+- Q1-Q5: visual alignment NOT sufficient for operator transfer; vision-W does NOT preserve imagery
+  structure; T_shared does NOT encode imagery contrasts; ventral specialness INCONCLUSIVE.
+
+**Bounded conclusion:** the visual common space aligned unseen subjects successfully, but cross-state
+transfer was limited because imagery identity structure was poorly represented in that vision-derived
+shared space; most within-subject operator advantage is lost during cross-subject STATE transport, not
+calibration or low K. O2 status unchanged. **O3_NOT_READY** (ventral shared-space contrast <=0) ->
+**Next: O2.2 -- VISION-DERIVED COMMON-SPACE STATE-TRANSPORT DIAGNOSTIC** (no alternative common-space
+method rescue in this line).
+
+---
+
 ## O2 (2026-08-26): SHARED + SUBJECT-SPECIFIC PERCEPTION->IMAGERY OPERATOR -- `O2_SHARED_OPERATOR_PASS` / `SHARED_OPERATOR_PARTIAL`
 
 **Input `299df3c` -> freeze `e665cba` -> Phase A `c73be88` -> Phase B `3e06b28` -> Phase C `c48c7b7`,

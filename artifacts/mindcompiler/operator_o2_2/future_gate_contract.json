@@ -1,0 +1,18 @@
+{
+  "future_gate_decision_values": [
+    "O2_3_RICHER_VISION_SPACE_FEASIBLE",
+    "O2_3_STATE_AWARE_SHARED_SPACE_FEASIBLE",
+    "O2_3_SUBJECT_SPECIFIC_STATE_MAPPING_REQUIRED",
+    "O2_3_MEASUREMENT_BOTTLENECK",
+    "O2_3_NO_CLEAR_REMEDY"
+  ],
+  "mapping": {
+    "SRM_TRUNCATION_DOMINANT -> O2_3_RICHER_VISION_SPACE_FEASIBLE": true,
+    "SHARED_IMAGERY_SPACE_OUTSIDE_VISION + identifiable -> O2_3_STATE_AWARE_SHARED_SPACE_FEASIBLE": true,
+    "SHARED_IMAGERY_SPACE_OUTSIDE_VISION + NOT identifiable -> O2_3_SUBJECT_SPECIFIC_STATE_MAPPING_REQUIRED": true,
+    "SUBJECT_SPECIFIC_IMAGERY_SPACE -> O2_3_SUBJECT_SPECIFIC_STATE_MAPPING_REQUIRED": true,
+    "MEASUREMENT_LIMITED -> O2_3_MEASUREMENT_BOTTLENECK": true
+  },
+  "identifiability_note": "shared geometry != known native orientation in an unseen brain; state-aware feasibility REQUIRES vision-only identifiability of the residual orientation",
+  "no_method_competition": "connectivity-SRM/hyperalignment/joint-SRM cited in future design only; never run here"
+}

@@ -1,0 +1,8 @@
+{
+  "P_SRM": "frozen O2 W W^T",
+  "P_VIS_FULL": "full centered TRAIN vision identity span (all nonzero SVs, rank<=9)",
+  "P_IMG_FULL": "full centered TRAIN imagery identity span",
+  "held_out_evaluation": "delta on the 2 held-out identities only",
+  "sign_invariant": "projector-based; never raw singular-vector signs",
+  "no_refit": true
+}

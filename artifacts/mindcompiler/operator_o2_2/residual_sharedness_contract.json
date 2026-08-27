@@ -1,0 +1,16 @@
+{
+  "rdm_metric": "1 - Pearson between identity patterns (12 identities)",
+  "components": [
+    "FULL_IMG",
+    "VISUAL_SPAN_IMG",
+    "OUTSIDE_VISUAL_IMG",
+    "SRM_IMG"
+  ],
+  "LOSO_sharedness": "per subject: Spearman(upper-tri RDM_s, mean upper-tri RDM_other_7); ROI-level = distribution over 8 subjects",
+  "categories": {
+    "HIGH": ">=0.40",
+    "MODERATE": "0.20-0.40",
+    "LOW": "<0.20"
+  },
+  "no_pseudoreplication": "participant is the unit; not 28 pair-distances"
+}

@@ -1,0 +1,17 @@
+{
+  "split": "FIXED odd vs even repeats (indices 0,2,4,6 vs 1,3,5,7)",
+  "no_search": true,
+  "primary_metric": "cross-half identical-identity pattern correlation, averaged over 12 identities, per component",
+  "components": [
+    "INSIDE_SRM",
+    "INSIDE_VISUAL_SPAN",
+    "OUTSIDE_VISUAL_SPAN",
+    "FULL"
+  ],
+  "categories": {
+    "HIGH": ">=0.40",
+    "MODERATE": "0.20-0.40",
+    "LOW": "<0.20"
+  },
+  "noise_ceiling": "descriptive; reliability normalization only SECONDARY context"
+}

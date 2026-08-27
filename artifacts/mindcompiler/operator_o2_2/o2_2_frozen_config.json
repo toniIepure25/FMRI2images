@@ -1,0 +1,122 @@
+{
+  "config_sha256": "bbc9487c0aa1bb18e9566b2a060584deb87851f2b56285ad7005ea67e380331a",
+  "gate": "O2.2",
+  "analysis_class": "POST_HOC_CROSS_STATE_REPRESENTATIONAL_GEOMETRY_AUDIT",
+  "immutable": {
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2_1": "O2_TRANSFER_LIMIT_CROSS_STATE_SPACE_DOMINANT",
+    "O3": "O3_NOT_READY (locked through O2.2)",
+    "O1": "STIMULUS_INVARIANT_OPERATOR_PARTIAL",
+    "SHARED_COMPONENT_DOMINANT": "immutable but qualified by DECOMPOSITION_CONFIDENCE_MODERATE"
+  },
+  "no_remedy_fitting": [
+    "imagery-SRM",
+    "joint vision+imagery SRM",
+    "hyperalignment",
+    "connectivity-SRM",
+    "increase/rerun O2 K",
+    "imagery target calibration",
+    "new cross-state mapper",
+    "modify T_shared",
+    "change baselines",
+    "alternative common-space competition"
+  ],
+  "beta": "B0 only",
+  "primary_rois": [
+    "ventral",
+    "lateral",
+    "parietal"
+  ],
+  "secondary_rois": [
+    "V1",
+    "V3"
+  ],
+  "excluded_rois": [
+    "V2",
+    "hV4"
+  ],
+  "subspaces": {
+    "P_SRM": "W W^T (exact frozen O2 vision-derived target mapping)",
+    "P_VIS_FULL": "projector of ALL nonzero right-singular vectors of centered TRAIN vision identity centroids (rank<=9)",
+    "P_IMG_FULL": "same for centered TRAIN imagery centroids; imagery used ONLY for post-hoc geometry, never O2 fit"
+  },
+  "retention_formulas": {
+    "generic": "||delta P||^2 / ||delta||^2 on held-out identity contrast delta (target std native)",
+    "R_Y_SRM": "imagery retention in frozen SRM (reproduces O2.1)",
+    "R_Y_VISFULL": "imagery retention in full visual identity span (NEW critical)",
+    "SRM_TRUNCATION_LOSS": "R_Y_VISFULL - R_Y_SRM",
+    "CROSS_STATE_SPAN_LOSS": "1 - R_Y_VISFULL"
+  },
+  "vision_rank_curve": "held-out R_X_VIS(k), R_Y_VIS(k) for k=1..rank_VIS_FULL ordered by TRAIN vision singular value; descriptive, NO selection",
+  "principal_angles": "projector-based sign-invariant cos(theta_j) of B_VIS_FULL vs B_IMG_FULL; mean_sq_cos, min_cos, max_angle, chordal; CROSS_STATE_SUBSPACE_OVERLAP=||Bv^T Bi||_F^2/min(rank)",
+  "imagery_residual": {
+    "outside_fraction": "||delta_y (I-P_VIS_FULL)||^2/||delta_y||^2",
+    "inside": "P_VIS_FULL component"
+  },
+  "reliability": {
+    "split": "FIXED odd vs even of the 8 imagery repeats (no search)",
+    "primary": "cross-half identical-identity pattern correlation across voxels/components, averaged equally over 12 identities",
+    "secondary": "RDM split-half reliability",
+    "components": [
+      "INSIDE_SRM (representative fold_0 W_target)",
+      "INSIDE_VISUAL_SPAN (full-12 vision span)",
+      "OUTSIDE_VISUAL_SPAN"
+    ],
+    "noise_ceiling": "descriptive from odd/even; NOT a primary inferential statistic"
+  },
+  "rdm": {
+    "metric": "1 - Pearson between identity patterns",
+    "items": "12 identities",
+    "components": [
+      "full imagery",
+      "inside P_VIS_FULL",
+      "outside P_VIS_FULL",
+      "inside P_SRM"
+    ],
+    "LOSO_sharedness": "Spearman(upper-tri RDM_s, mean upper-tri RDM_other_7); participant is the unit; NO 28-pair pseudoreplication"
+  },
+  "O1_replay_contract": {
+    "exact": "deterministic frozen O1 O4 re-selection (operator_o1 select_hyperparams/fit_operator); verify recomputed O4 held-out r vs committed within 1e-8",
+    "decompose": "Yhat_O1 and Y_true split by P_VIS_FULL -> parallel/perp; G_O1_PARALLEL=r_parallel_O4-r_parallel_O0; G_O1_PERP=r_perp_O4-r_perp_O0"
+  },
+  "regime_thresholds": {
+    "RELIABILITY_HIGH": 0.4,
+    "RELIABILITY_MODERATE": 0.2,
+    "LOSO_RDM_SHAREDNESS_HIGH": 0.4,
+    "LOSO_RDM_SHAREDNESS_MODERATE": 0.2,
+    "R_Y_VISFULL_HIGH": 0.4,
+    "SRM_TRUNCATION_LOSS_LARGE": 0.15,
+    "note": "descriptive categories, not significance thresholds"
+  },
+  "regimes": {
+    "A_SRM_DIMENSION_TRUNCATION_DOMINANT": "R_Y_VISFULL high AND R_Y_SRM low AND SRM_TRUNCATION_LOSS large",
+    "B_STATE_SPECIFIC_SHARED_GEOMETRY_OUTSIDE_VISUAL_SPAN": "R_Y_VISFULL low AND outside reliability moderate/high AND outside LOSO-RDM sharedness moderate/high",
+    "C_SUBJECT_SPECIFIC_IMAGERY_GEOMETRY": "R_Y_VISFULL low AND outside reliable AND outside cross-subject sharedness low",
+    "D_IMAGERY_MEASUREMENT_LIMITED": "R_Y_VISFULL low AND outside reliability low",
+    "CROSS_STATE_TRANSPORT_MULTIREGIME": "ROIs occupy different regimes"
+  },
+  "overall_status_values": [
+    "CROSS_STATE_TRANSPORT_SRM_TRUNCATION_DOMINANT",
+    "CROSS_STATE_TRANSPORT_SHARED_IMAGERY_SPACE_OUTSIDE_VISION",
+    "CROSS_STATE_TRANSPORT_SUBJECT_SPECIFIC_IMAGERY_SPACE",
+    "CROSS_STATE_TRANSPORT_MEASUREMENT_LIMITED",
+    "CROSS_STATE_TRANSPORT_MULTIREGIME",
+    "CROSS_STATE_TRANSPORT_UNRESOLVED"
+  ],
+  "identifiability_values": [
+    "TARGET_STATE_ORIENTATION_IDENTIFIABLE_FROM_VISION",
+    "TARGET_STATE_ORIENTATION_NOT_IDENTIFIABLE_FROM_CURRENT_VISION_ONLY_DATA",
+    "TARGET_STATE_ORIENTATION_IDENTIFIABILITY_UNKNOWN"
+  ],
+  "identifiability_rule": "IDENTIFIABLE requires a frozen observed relationship predicting the state-specific residual ORIENTATION from vision-derived quantities WITHOUT target imagery; shared RDM geometry alone is NOT sufficient",
+  "prohibited": [
+    "alternative SRM/hyperalignment run",
+    "imagery calibration",
+    "O2 rescue",
+    "O3 composition",
+    "raw cross-subject residual voxel comparison",
+    "p-values on N=8",
+    "any O2/O3 status change"
+  ],
+  "O3_lock": "O3_NOT_READY MUST remain through O2.2; explaining the bottleneck does not make O3 ready"
+}

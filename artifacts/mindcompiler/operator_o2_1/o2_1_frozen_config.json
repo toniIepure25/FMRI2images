@@ -1,0 +1,70 @@
+{
+  "config_sha256": "22bde42f2652fa02a228fba3b917a7f07dae4895c380f4e76a27f2f680597229",
+  "gate": "O2.1",
+  "analysis_class": "POST_HOC_SHARED_OPERATOR_TRANSFER_BOTTLENECK_AUDIT",
+  "immutable": {
+    "O2_scientific_status": "SHARED_OPERATOR_PARTIAL (NOT changed)",
+    "O2_primary_result": "immutable",
+    "O2_common_space_method": "DETERMINISTIC_SRM (immutable)",
+    "O2_K_selection": "immutable (frozen selections only)",
+    "O1": "STIMULUS_INVARIANT_OPERATOR_PARTIAL",
+    "O1_1": "OPERATOR_HETEROGENEITY_REGION_STRUCTURE_DOMINANT",
+    "TRACK_R": "INDEPENDENT_METHOD_REPRODUCTION_PARTIAL"
+  },
+  "source_boundary": "committed O2 artifacts + frozen O1/O1.1 summaries; deterministic frozen-SRM replay allowed only to derive non-persisted projection diagnostics (same K, subjects, identities, scaler, W, seeds, committed lambda from outer_fold_predictions.csv)",
+  "authoritative_effects": {
+    "G_shared": "r(T_shared)-r(S0)",
+    "G_beyond_gain": "r(T_shared)-r(S1)",
+    "transfer_fraction": "G_shared / G_native (committed ~0.0478 denominator; not redefined)"
+  },
+  "contrast_retention": {
+    "vision": "||delta_x W W^T||^2 / ||delta_x||^2 (delta_x = x_A - x_B, target vision std native)",
+    "imagery": "||delta_y W W^T||^2 / ||delta_y||^2 (delta_y = y_A - y_B, target imagery std native; imagery used only as evaluation, no fit)",
+    "cross_state_gap": "vision_contrast_retention - imagery_contrast_retention"
+  },
+  "oracle": {
+    "definition": "Y_oracle_std = Y_img_std W W^T; inverse frozen VISION scaler; NATIVE pattern r (capacity diagnostic, NOT a predictor)",
+    "metrics": [
+      "COMMON_SPACE_ORACLE_PATTERN_R",
+      "COMMON_SPACE_ORACLE_NMSE",
+      "IMAGERY_PROJECTION_ENERGY"
+    ]
+  },
+  "shared_space_contrast": {
+    "epsilon": 1e-12,
+    "primary_not_pearson_over_K": true,
+    "delta_y_shared": "(y_A - y_B) W (actual imagery projected)",
+    "delta_yhat_shared": "yhatA_shared - yhatB_shared",
+    "SHARED_CONTRAST_RELATIVE_ERROR": "||dyhat-dy||^2 / max(||dy||^2, eps)",
+    "SHARED_CONTRAST_CAPTURE": "1 - rel_err",
+    "also": "cosine(dyhat, dy)"
+  },
+  "SMD": {
+    "formula": "(median_A - median_B)/max(pooled_MAD, eps)",
+    "STRONG": 1.0,
+    "MODERATE": 0.5
+  },
+  "normalized_shared_gain": {
+    "formula": "G_shared / max(1 - S0, 0.05)",
+    "diagnostic_only": true
+  },
+  "prohibited": [
+    "hyperalignment / other SRM variant",
+    "change/expand K",
+    "change selection metric",
+    "imagery in SRM fit",
+    "change lambda grid",
+    "nonlinear operators",
+    "change baselines",
+    "B1 O2",
+    "add V2/hV4",
+    "subject exclusion",
+    "tuning by O2 outcome",
+    "redefine ~5% via subset",
+    "Pearson over K=2 as primary shared metric",
+    "raw-W cross-subject correlation",
+    "any repair inside O2.1",
+    "status upgrade"
+  ],
+  "statistics_policy": "descriptive Spearman/median only; NO p-values; participant/ROI as unit, never pooled 288 rows"
+}

@@ -1,0 +1,51 @@
+{
+  "axes": [
+    "CALIBRATION_QUALITY",
+    "VISION_COMMON_SPACE_CAPACITY",
+    "CROSS_STATE_COMMON_SPACE_ADEQUACY",
+    "SHARED_OPERATOR_INVARIANCE",
+    "NATIVE_BACKPROJECTION_CAPACITY",
+    "BASELINE_HEADROOM",
+    "SUBJECT_SPECIFICITY",
+    "IDENTITY_HETEROGENEITY",
+    "DELTA_REGULARIZATION"
+  ],
+  "axis_status_values": [
+    "SUPPORTED_PATTERN",
+    "PARTIAL_PATTERN",
+    "NOT_SUPPORTED",
+    "INCONCLUSIVE"
+  ],
+  "cross_state_adequacy_rule": {
+    "SUPPORTED_PATTERN": "cross_state_gap positive with SMD(vis vs img retention) >= 0.5 in the failing ROIs; imagery retention notably below vision",
+    "meaning": "vision common space validated does NOT imply state-transfer adequate"
+  },
+  "baseline_headroom_rule": {
+    "BASELINE_LIMITATION_STRONG": "ROI median (1-S0) in bottom-2 of primary ROIs AND median G_shared <= 0.005",
+    "BASELINE_LIMITATION_PARTIAL": "ROI median (1-S0) below cohort median AND median G_shared <= 0.01",
+    "BASELINE_LIMITATION_WEAK": "otherwise"
+  },
+  "low_K_rule": {
+    "LOW_K_GLOBAL_BOTTLENECK_NOT_SUPPORTED": "a passing ROI (ventral) uses the same or lower K than a failing ROI",
+    "LOW_K_MAY_CONTRIBUTE_REGIONALLY": "failing ROIs use strictly higher K than ventral with worse retention",
+    "LOW_K_BOTTLENECK_PLAUSIBLE": "K monotonically tracks G_shared across ROIs",
+    "INCONCLUSIVE": "otherwise"
+  },
+  "overall_bottleneck_status": [
+    "O2_TRANSFER_LIMIT_COMMON_SPACE_CALIBRATION_DOMINANT",
+    "O2_TRANSFER_LIMIT_CROSS_STATE_SPACE_DOMINANT",
+    "O2_TRANSFER_LIMIT_SHARED_OPERATOR_HETEROGENEITY_DOMINANT",
+    "O2_TRANSFER_LIMIT_BASELINE_DOMINANT",
+    "O2_TRANSFER_LIMIT_MULTIFACTORIAL",
+    "O2_TRANSFER_LIMIT_UNRESOLVED"
+  ],
+  "identity_breadth": {
+    "IDENTITY_BREADTH_ROBUST": "no single identity-pair > 35% of total positive ventral increment AND both families positive median contribution",
+    "else": "IDENTITY_BREADTH_LIMITED or MIXED"
+  },
+  "target_subject_status": {
+    "BROAD_SHARED_TRANSFER": ">=2/3 primary ROIs G_shared>0",
+    "VENTRAL_SPECIFIC_TRANSFER": "ventral G_shared>0 and <2/3 ROIs positive",
+    "WEAK_SHARED_TRANSFER": "ventral G_shared<=0"
+  }
+}

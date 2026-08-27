@@ -1,0 +1,15 @@
+{
+  "O3_READY_FOR_MULTI_STATE_FEASIBILITY_requires_ALL": {
+    "A": "ventral O2 transfer broad across subjects/identities (>=6/8 participants positive AND IDENTITY_BREADTH_ROBUST)",
+    "B": "ventral not primarily a calibration/projection artifact (ventral not the worst on retention/oracle; cross-state gap not dominant for ventral)",
+    "C": "shared-space operator contrast genuinely present in ventral (median SHARED_CONTRAST_CAPTURE > 0)",
+    "D": "decomposition confidence >= MODERATE",
+    "E": "no leakage/provenance issue"
+  },
+  "if_ready": "next = O3.0 MULTI_STATE_DATA_CONTRACT_AND_COMPOSITION_FEASIBILITY (audit ATTENTION state; NOT composition execution)",
+  "if_not_ready": {
+    "CROSS_STATE_SPACE_DOMINANT": "O2.2 vision-derived common-space state-transport diagnostic",
+    "SHARED_OPERATOR_HETEROGENEITY_DOMINANT": "O2.2H shared-transformation heterogeneity audit"
+  },
+  "attention_caveat": "NSD-Imagery attention runs have different beta/trial structure; NOT assumed interchangeable"
+}

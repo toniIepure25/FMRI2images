@@ -1,0 +1,5 @@
+{
+  "future_gate_decision": "O2_3_SUBJECT_SPECIFIC_STATE_MAPPING_REQUIRED",
+  "reasoning": "reliable imagery structure lives largely outside the vision identity span and its native orientation is not identifiable from vision-only calibration; SRM truncation also discards in-span imagery (partial). A vision-only or state-aware TRAINING-subject space cannot place the residual basis in an unseen brain without a target-state-independent anchor.",
+  "does_not_modify_O2_or_O3": true
+}

@@ -1,0 +1,351 @@
+{
+  "per_ROI_component_median_LOSO_sharedness": {
+    "ventral|FULL_IMG": 0.7254775075670599,
+    "ventral|VISUAL_SPAN_IMG": 0.4867759106565076,
+    "ventral|OUTSIDE_VISUAL_IMG": 0.7532616637094249,
+    "ventral|SRM_IMG": 0.16956476359461434,
+    "lateral|FULL_IMG": 0.715415927356226,
+    "lateral|VISUAL_SPAN_IMG": 0.4491597954284522,
+    "lateral|OUTSIDE_VISUAL_IMG": 0.7310927878092057,
+    "lateral|SRM_IMG": 0.16566120446717464,
+    "parietal|FULL_IMG": 0.738628535643461,
+    "parietal|VISUAL_SPAN_IMG": 0.4951466444003757,
+    "parietal|OUTSIDE_VISUAL_IMG": 0.697776850015656,
+    "parietal|SRM_IMG": 0.03504853355599624,
+    "V1|FULL_IMG": 0.614967122429809,
+    "V1|VISUAL_SPAN_IMG": 0.6423964095605887,
+    "V1|OUTSIDE_VISUAL_IMG": 0.48850850641895416,
+    "V1|SRM_IMG": 0.28337334307483564,
+    "V3|FULL_IMG": 0.42588456319799606,
+    "V3|VISUAL_SPAN_IMG": 0.3108235048533556,
+    "V3|OUTSIDE_VISUAL_IMG": 0.36810353825279196,
+    "V3|SRM_IMG": -0.024277215321991445
+  },
+  "detail": [
+    {
+      "ROI": "ventral",
+      "component": "FULL_IMG",
+      "median_LOSO_sharedness": 0.7254775075670599,
+      "n_positive": 8,
+      "values": [
+        0.712,
+        0.709,
+        0.758,
+        0.742,
+        0.739,
+        0.859,
+        0.655,
+        0.603
+      ]
+    },
+    {
+      "ROI": "ventral",
+      "component": "VISUAL_SPAN_IMG",
+      "median_LOSO_sharedness": 0.4867759106565076,
+      "n_positive": 8,
+      "values": [
+        0.219,
+        0.437,
+        0.464,
+        0.689,
+        0.399,
+        0.766,
+        0.51,
+        0.575
+      ]
+    },
+    {
+      "ROI": "ventral",
+      "component": "OUTSIDE_VISUAL_IMG",
+      "median_LOSO_sharedness": 0.7532616637094249,
+      "n_positive": 8,
+      "values": [
+        0.729,
+        0.756,
+        0.838,
+        0.738,
+        0.751,
+        0.864,
+        0.783,
+        0.623
+      ]
+    },
+    {
+      "ROI": "ventral",
+      "component": "SRM_IMG",
+      "median_LOSO_sharedness": 0.16956476359461434,
+      "n_positive": 5,
+      "values": [
+        -0.034,
+        0.324,
+        -0.091,
+        0.237,
+        0.102,
+        0.317,
+        0.324,
+        -0.037
+      ]
+    },
+    {
+      "ROI": "lateral",
+      "component": "FULL_IMG",
+      "median_LOSO_sharedness": 0.715415927356226,
+      "n_positive": 8,
+      "values": [
+        0.722,
+        0.772,
+        0.785,
+        0.685,
+        0.716,
+        0.64,
+        0.713,
+        0.715
+      ]
+    },
+    {
+      "ROI": "lateral",
+      "component": "VISUAL_SPAN_IMG",
+      "median_LOSO_sharedness": 0.4491597954284522,
+      "n_positive": 8,
+      "values": [
+        0.421,
+        0.434,
+        0.65,
+        0.464,
+        0.345,
+        0.131,
+        0.654,
+        0.678
+      ]
+    },
+    {
+      "ROI": "lateral",
+      "component": "OUTSIDE_VISUAL_IMG",
+      "median_LOSO_sharedness": 0.7310927878092057,
+      "n_positive": 8,
+      "values": [
+        0.701,
+        0.803,
+        0.746,
+        0.65,
+        0.688,
+        0.74,
+        0.722,
+        0.741
+      ]
+    },
+    {
+      "ROI": "lateral",
+      "component": "SRM_IMG",
+      "median_LOSO_sharedness": 0.16566120446717464,
+      "n_positive": 7,
+      "values": [
+        -0.062,
+        0.395,
+        0.522,
+        0.076,
+        0.173,
+        0.518,
+        0.158,
+        0.094
+      ]
+    },
+    {
+      "ROI": "parietal",
+      "component": "FULL_IMG",
+      "median_LOSO_sharedness": 0.738628535643461,
+      "n_positive": 8,
+      "values": [
+        0.774,
+        0.762,
+        0.655,
+        0.598,
+        0.715,
+        0.796,
+        0.765,
+        0.473
+      ]
+    },
+    {
+      "ROI": "parietal",
+      "component": "VISUAL_SPAN_IMG",
+      "median_LOSO_sharedness": 0.4951466444003757,
+      "n_positive": 8,
+      "values": [
+        0.633,
+        0.407,
+        0.53,
+        0.381,
+        0.461,
+        0.626,
+        0.635,
+        0.412
+      ]
+    },
+    {
+      "ROI": "parietal",
+      "component": "OUTSIDE_VISUAL_IMG",
+      "median_LOSO_sharedness": 0.697776850015656,
+      "n_positive": 8,
+      "values": [
+        0.726,
+        0.786,
+        0.647,
+        0.538,
+        0.783,
+        0.702,
+        0.694,
+        0.654
+      ]
+    },
+    {
+      "ROI": "parietal",
+      "component": "SRM_IMG",
+      "median_LOSO_sharedness": 0.03504853355599624,
+      "n_positive": 5,
+      "values": [
+        0.029,
+        -0.093,
+        0.231,
+        -0.196,
+        0.167,
+        -0.086,
+        0.203,
+        0.042
+      ]
+    },
+    {
+      "ROI": "V1",
+      "component": "FULL_IMG",
+      "median_LOSO_sharedness": 0.614967122429809,
+      "n_positive": 8,
+      "values": [
+        0.724,
+        0.862,
+        0.595,
+        0.635,
+        0.164,
+        0.156,
+        0.167,
+        0.809
+      ]
+    },
+    {
+      "ROI": "V1",
+      "component": "VISUAL_SPAN_IMG",
+      "median_LOSO_sharedness": 0.6423964095605887,
+      "n_positive": 6,
+      "values": [
+        0.687,
+        0.866,
+        0.63,
+        0.655,
+        0.185,
+        -0.001,
+        -0.048,
+        0.828
+      ]
+    },
+    {
+      "ROI": "V1",
+      "component": "OUTSIDE_VISUAL_IMG",
+      "median_LOSO_sharedness": 0.48850850641895416,
+      "n_positive": 8,
+      "values": [
+        0.597,
+        0.498,
+        0.479,
+        0.258,
+        0.521,
+        0.113,
+        0.253,
+        0.587
+      ]
+    },
+    {
+      "ROI": "V1",
+      "component": "SRM_IMG",
+      "median_LOSO_sharedness": 0.28337334307483564,
+      "n_positive": 8,
+      "values": [
+        0.378,
+        0.61,
+        0.267,
+        0.3,
+        0.141,
+        0.127,
+        0.251,
+        0.306
+      ]
+    },
+    {
+      "ROI": "V3",
+      "component": "FULL_IMG",
+      "median_LOSO_sharedness": 0.42588456319799606,
+      "n_positive": 8,
+      "values": [
+        0.416,
+        0.589,
+        0.422,
+        0.43,
+        0.623,
+        0.432,
+        0.11,
+        0.115
+      ]
+    },
+    {
+      "ROI": "V3",
+      "component": "VISUAL_SPAN_IMG",
+      "median_LOSO_sharedness": 0.3108235048533556,
+      "n_positive": 7,
+      "values": [
+        0.263,
+        0.548,
+        0.35,
+        0.271,
+        0.501,
+        0.442,
+        0.093,
+        -0.008
+      ]
+    },
+    {
+      "ROI": "V3",
+      "component": "OUTSIDE_VISUAL_IMG",
+      "median_LOSO_sharedness": 0.36810353825279196,
+      "n_positive": 7,
+      "values": [
+        0.548,
+        0.451,
+        0.451,
+        0.285,
+        0.656,
+        0.062,
+        -0.027,
+        0.175
+      ]
+    },
+    {
+      "ROI": "V3",
+      "component": "SRM_IMG",
+      "median_LOSO_sharedness": -0.024277215321991445,
+      "n_positive": 4,
+      "values": [
+        0.171,
+        -0.137,
+        0.077,
+        -0.122,
+        0.063,
+        -0.111,
+        0.163,
+        -0.212
+      ]
+    }
+  ],
+  "categories": {
+    "HIGH": ">=0.40",
+    "MODERATE": "0.20-0.40",
+    "LOW": "<0.20"
+  }
+}

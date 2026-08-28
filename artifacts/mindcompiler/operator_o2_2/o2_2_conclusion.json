@@ -1,0 +1,17 @@
+{
+  "gate": "O2.2",
+  "overall_status": "CROSS_STATE_TRANSPORT_MULTIREGIME",
+  "future_gate_decision": "O2_3_SUBJECT_SPECIFIC_STATE_MAPPING_REQUIRED",
+  "identifiability": "TARGET_STATE_ORIENTATION_NOT_IDENTIFIABLE_FROM_CURRENT_VISION_ONLY_DATA",
+  "regimes": {
+    "ventral": "B_STATE_SPECIFIC_SHARED_GEOMETRY_OUTSIDE_VISUAL_SPAN",
+    "lateral": "B_STATE_SPECIFIC_SHARED_GEOMETRY_OUTSIDE_VISUAL_SPAN",
+    "parietal": "A_SRM_DIMENSION_TRUNCATION_DOMINANT"
+  },
+  "multiregime": true,
+  "immutable": {
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O3": "O3_NOT_READY"
+  },
+  "key_finding": "Most reliable imagery identity structure (43-75%) lies OUTSIDE the vision identity span (SRM truncation adds a further +0.15..+0.29 loss inside it); the within-subject O1 operator advantage lives more in that out-of-span component (G_O1_perp > G_O1_parallel). The residual is reliable but its native orientation is not identifiable from vision-only calibration, so imagery-zero-shot subject transfer is structurally blocked under the current vision-only contract."
+}

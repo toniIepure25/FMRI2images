@@ -1,0 +1,5 @@
+{
+  "status": "TARGET_STATE_ORIENTATION_NOT_IDENTIFIABLE_FROM_CURRENT_VISION_ONLY_DATA",
+  "reasoning": "The reliable imagery structure sits OUTSIDE the visual identity span (outside fraction 0.43-0.75); its native orientation in an unseen subject is by construction not spanned by vision-derived directions, and no frozen observed vision-only predictor of that orientation exists. Shared RDM geometry (if any) does NOT imply a known native orientation in an unseen brain.",
+  "distinction": "shared geometry != identifiable native orientation from vision-only calibration"
+}

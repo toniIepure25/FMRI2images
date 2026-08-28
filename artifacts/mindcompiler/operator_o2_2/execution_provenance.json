@@ -1,0 +1,9 @@
+{
+  "gate": "O2.2",
+  "class": "POST_HOC_CROSS_STATE_REPRESENTATIONAL_GEOMETRY_AUDIT",
+  "frozen_o2_srm_replay_exact": true,
+  "o1_o4_replay_max_err": 0.001485,
+  "no_refit": true,
+  "no_alt_common_space": true,
+  "no_status_change": true
+}

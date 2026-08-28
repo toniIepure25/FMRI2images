@@ -1,0 +1,8 @@
+{
+  "requirements": [
+    "INCLUDE_STATE_SPECIFIC_SHARED_GEOMETRY",
+    "MODEL_SUBJECT_SPECIFIC_STATE_GEOMETRY",
+    "PRESERVE_MORE_VISUAL_DIRECTIONS"
+  ],
+  "note": "O2.2 identifies requirements; it fits NONE of them"
+}

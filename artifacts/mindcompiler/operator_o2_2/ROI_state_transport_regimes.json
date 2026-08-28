@@ -1,0 +1,33 @@
+{
+  "per_ROI": {
+    "ventral": {
+      "R_Y_VISFULL": 0.2479349225759506,
+      "R_Y_SRM": 0.0960886143147945,
+      "SRM_truncation_loss": 0.14993048459291455,
+      "outside_reliability": 0.619147084012704,
+      "outside_LOSO_sharedness": 0.7532616637094249,
+      "regime": "B_STATE_SPECIFIC_SHARED_GEOMETRY_OUTSIDE_VISUAL_SPAN"
+    },
+    "lateral": {
+      "R_Y_VISFULL": 0.3073419034481048,
+      "R_Y_SRM": 0.14372953772544855,
+      "SRM_truncation_loss": 0.15041662007570264,
+      "outside_reliability": 0.5737405368761679,
+      "outside_LOSO_sharedness": 0.7310927878092057,
+      "regime": "B_STATE_SPECIFIC_SHARED_GEOMETRY_OUTSIDE_VISUAL_SPAN"
+    },
+    "parietal": {
+      "R_Y_VISFULL": 0.5691781938076019,
+      "R_Y_SRM": 0.1706040874123573,
+      "SRM_truncation_loss": 0.28717365860939026,
+      "outside_reliability": 0.5759292577059674,
+      "outside_LOSO_sharedness": 0.697776850015656,
+      "regime": "A_SRM_DIMENSION_TRUNCATION_DOMINANT"
+    }
+  },
+  "multiregime": true,
+  "distinct_regimes": [
+    "A_SRM_DIMENSION_TRUNCATION_DOMINANT",
+    "B_STATE_SPECIFIC_SHARED_GEOMETRY_OUTSIDE_VISUAL_SPAN"
+  ]
+}

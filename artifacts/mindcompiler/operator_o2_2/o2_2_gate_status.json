@@ -1,0 +1,10 @@
+{
+  "gate": "O2.2",
+  "execution_status": "O2_2_STATE_TRANSPORT_DIAGNOSTIC_PASS",
+  "overall_status": "CROSS_STATE_TRANSPORT_MULTIREGIME",
+  "future_gate_decision": "O2_3_SUBJECT_SPECIFIC_STATE_MAPPING_REQUIRED",
+  "immutable_O2": "SHARED_OPERATOR_PARTIAL",
+  "immutable_O3": "O3_NOT_READY",
+  "o2_srm_replay": "EXACT (reproduces O2.1 retentions)",
+  "o1_o4_replay_max_err": 0.001485
+}

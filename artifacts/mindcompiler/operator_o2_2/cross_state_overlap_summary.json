@@ -1,0 +1,27 @@
+{
+  "ventral": {
+    "median_overlap": 0.2116187438368797,
+    "median_mean_sq_cos": 0.2116187363862991,
+    "median_max_angle_deg": 88.46097564697266
+  },
+  "lateral": {
+    "median_overlap": 0.19659391045570368,
+    "median_mean_sq_cos": 0.1965939179062843,
+    "median_max_angle_deg": 89.12259292602539
+  },
+  "parietal": {
+    "median_overlap": 0.3347240686416626,
+    "median_mean_sq_cos": 0.3347240686416626,
+    "median_max_angle_deg": 88.29324722290039
+  },
+  "V1": {
+    "median_overlap": 0.535876989364624,
+    "median_mean_sq_cos": 0.5358770191669464,
+    "median_max_angle_deg": 86.00587844848633
+  },
+  "V3": {
+    "median_overlap": 0.5908028781414032,
+    "median_mean_sq_cos": 0.5908029079437256,
+    "median_max_angle_deg": 85.3551139831543
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "per_ROI": {
+    "ventral": {
+      "median_G_O1_parallel": 0.049712911415519145,
+      "median_G_O1_perp": 0.07221388547868435,
+      "perp_exceeds_parallel": true
+    },
+    "lateral": {
+      "median_G_O1_parallel": 0.05051859704605455,
+      "median_G_O1_perp": 0.08023472102373949,
+      "perp_exceeds_parallel": true
+    },
+    "parietal": {
+      "median_G_O1_parallel": 0.0325704943928749,
+      "median_G_O1_perp": 0.06358811111469484,
+      "perp_exceeds_parallel": true
+    }
+  },
+  "link_to_o1_out_of_span": {
+    "ventral": {
+      "spearman_o1outofspan_vs_G_O1_perp": -0.5476190476190477,
+      "spearman_o1outofspan_vs_outside_fraction": 0.5714285714285714
+    },
+    "lateral": {
+      "spearman_o1outofspan_vs_G_O1_perp": 0.42857142857142855,
+      "spearman_o1outofspan_vs_outside_fraction": 0.8333333333333334
+    },
+    "parietal": {
+      "spearman_o1outofspan_vs_G_O1_perp": -0.40476190476190477,
+      "spearman_o1outofspan_vs_outside_fraction": 0.9047619047619048
+    }
+  },
+  "finding": "within-subject O1 operator advantage lives MORE in the perpendicular (out-of-visual-span) imagery component -> O1 predicts what the cross-subject vision-only space discards",
+  "o1_o4_replay_max_err_vs_committed": 0.001485,
+  "replay_note": "O2 SRM object replays EXACT (R_Y_SRM reproduces O2.1); O1 O4 re-selection reproduces committed to 1.5e-3 (thread-count SVD-tie sensitivity in rank selection); descriptive conclusions robust (G_O1_perp ~0.07 >> 1.5e-3)"
+}

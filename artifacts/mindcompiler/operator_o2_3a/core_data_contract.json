@@ -1,0 +1,8 @@
+{
+  "config_sha256": "53d8a7b21007fb3bbdbd15376fbee18e271c68b077094a1ca2da700549e8328a",
+  "required_beta": "betas_fithrf (b2 / B0-aligned) NSD-core session betas",
+  "prohibited_beta": "betas_fithrf_GLMdenoise_RR (b3 / B1)",
+  "required_coverage": "all 8 subjects, native func1pt8mm, same voxel semantics as O1/O2 B0 (no resampling)",
+  "expdesign": "nsd_expdesign.mat + nsd_stim_info_merged for shared-image list / trial ordering / 73k IDs (present)",
+  "on_missing": "O2_3A_CORE_DATA_UNAVAILABLE (technical blocker; NOT scientific failure; do not substitute b3 or interpolate)"
+}

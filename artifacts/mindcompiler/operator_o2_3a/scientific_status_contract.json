@@ -1,0 +1,24 @@
+{
+  "config_sha256": "b0ab2bc7c853008cba2c287ddc5e2516303074fdc8382257488381ba0cc11e9e",
+  "execution_status_values": [
+    "O2_3A_CORE_ANCHOR_FEASIBILITY_PASS",
+    "O2_3A_CORE_DATA_UNAVAILABLE",
+    "O2_3A_CORE_IMAGERY_MAPPING_FAILURE",
+    "O2_3A_CORE_ANCHOR_VALIDATION_FAILURE",
+    "O2_3A_TARGET_STATE_LEAKAGE_FAILURE",
+    "O2_3A_NUMERICAL_FAILURE",
+    "O2_3A_EXECUTION_FAILURE"
+  ],
+  "orientation_status_values": [
+    "CORE_ANCHOR_TARGET_ORIENTATION_IDENTIFIABLE",
+    "CORE_ANCHOR_TARGET_ORIENTATION_PARTIAL",
+    "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+    "CORE_ANCHOR_TARGET_ORIENTATION_INCONCLUSIVE"
+  ],
+  "inconclusive_only_for": [
+    "data availability",
+    "mapping failure",
+    "too few evaluable subjects",
+    "numerical/provenance"
+  ]
+}

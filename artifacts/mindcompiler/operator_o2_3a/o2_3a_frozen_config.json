@@ -1,0 +1,76 @@
+{
+  "config_sha256": "39d7bc9725f71a711641d445d4aeeb3bda128b0d06c45566a1c229ca9a537050",
+  "gate": "O2.3A",
+  "analysis_class": "FROZEN_POST_HOC_TARGET_STATE_ORIENTATION_FEASIBILITY_ON_EXISTING_DATA",
+  "immutable": {
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2_1": "O2_TRANSFER_LIMIT_CROSS_STATE_SPACE_DOMINANT",
+    "O2_2": "CROSS_STATE_TRANSPORT_MULTIREGIME",
+    "O3": "O3_NOT_READY (locked through O2.3A)",
+    "O1": "STIMULUS_INVARIANT_OPERATOR_PARTIAL"
+  },
+  "question": "Can dense target-state-INDEPENDENT PERCEPTION (original NSD core) identify the subject-specific native ORIENTATION of the reliable shared imagery residual that lies OUTSIDE the small NSD-Imagery visual span, in an imagery-unseen participant, with ZERO target imagery in fitting?",
+  "beta": "B0 lineage only: NSD-core betas_fithrf (b2-compatible); B1/b3 (GLMdenoise_RR) PROHIBITED",
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "secondary_roi": "parietal (SRM-truncation regime; separate family)",
+  "excluded_rois": [
+    "V2",
+    "hV4"
+  ],
+  "cohort": "same 8 NSD subjects",
+  "anchor": {
+    "source": "shared NSD-core natural scenes with complete repeat coverage across all 8 subjects",
+    "leakage_guard": "exclude ALL NSD-Imagery scene identities (shared1000 overlap) from the anchor pool globally",
+    "scaler": "TRAIN_ONLY_VOXEL_ZSCORE",
+    "common_space": "DETERMINISTIC_SRM (same family as O2; tests information support not algorithm)"
+  },
+  "K_anchor_candidates": [
+    2,
+    4,
+    8,
+    16,
+    32,
+    64
+  ],
+  "K_selection": "VISION-ONLY nested (LOSO subject x anchor-image blocks); metric CROSS_SUBJECT_NATIVE_PATTERN_RECONSTRUCTION_R; tie smaller K",
+  "retention": {
+    "R_Y_SRM": "O2 low-K 10-identity retention (frozen)",
+    "R_Y_VISFULL_small": "O2.2 full 10-identity visual span (frozen)",
+    "R_Y_CORE": "dense NSD-core anchor SRM retention (NEW)",
+    "R_Y_CORE_VISFULL": "full core anchor native span (capacity oracle)",
+    "CORE_GAIN_OVER_SMALL_VISUAL_SPAN": "R_Y_CORE - R_Y_VISFULL_small (recovery threshold median>=0.15 AND >=6/8 positive)"
+  },
+  "residual_definition": "delta_y_perp relative to the FROZEN O2.2 SMALL visual span (never redefined)",
+  "residual_orientation_template": "shared residual covariance in anchor coords from TRAINING subjects only; rank r in {1..6} nested-CV (LOSO train subject x identity pair); predict target native residual subspace Bhat=W_core_target U_res (ZERO target imagery)",
+  "primary_test": "PREDICTED_RESIDUAL_RETENTION = ||delta_y_perp P_RESID_PRED||^2/||delta_y_perp||^2 vs random-anchor-subspace null (100 draws) + full-core oracle + small-vision baseline; participant unit N=8; Holm across ventral/lateral",
+  "inference": {
+    "unit": "participant (N=8)",
+    "test": "exact 2^8 sign-flip",
+    "correction": "Holm across ventral/lateral",
+    "alpha": 0.05
+  },
+  "gauge": "projectors / singular values / subspace retention only; W_s->W_s Q, U_res->Q^T U_res leaves native predicted projector invariant",
+  "nulls": {
+    "random_residual_subspace": 100,
+    "seed": "SHA256(O2.3A|subject|ROI|identity_fold|null_iteration)"
+  },
+  "phases": {
+    "A": "core acquisition/mapping certification",
+    "B": "VISION-ONLY anchor K selection + validation (go/no-go)",
+    "C": "imagery residual orientation evaluation (only after B passes)"
+  },
+  "prohibited": [
+    "target imagery in anchor/K/template/rank/orientation",
+    "test-identity leakage",
+    "B1/b3 core",
+    "alternative alignment competition",
+    "new O2 shared operator",
+    "O2/O3 status change",
+    "participant exclusion by imagery result"
+  ],
+  "O3_lock": "O3_NOT_READY through O2.3A; orientation identifiability is only a representation-feasibility result -- actual shared-operator generalization must be shown in a later O2.3B",
+  "interpretation_boundary": "dense NSD-core is still substantial TARGET-SUBJECT functional calibration; NOT zero-calibration; NOT 'imagery is visually encoded'; NOT 'shared operator supported'"
+}

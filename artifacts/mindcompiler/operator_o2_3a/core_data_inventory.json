@@ -1,0 +1,23 @@
+{
+  "required": "NSD-core betas_fithrf (b2/B0) session betas for ALL 8 subjects (native func1pt8mm)",
+  "available": {
+    "local_machine": {
+      "subj01": "betas_fithrf 40/40 sessions (b2, B0-aligned) PRESENT",
+      "subj02_08": "ABSENT (0 sessions)"
+    },
+    "pod_work": {
+      "betas_fithrf_b2_core": "ABSENT for all 8 subjects",
+      "nsd_betas_download": "subj02/subj05/subj07 in betas_fithrf_GLMdenoise_RR (b3/B1) 40 sessions each (227 GB) -- WRONG beta version (B1), belongs to a DIFFERENT track (C3R cohort subj02/05/07); NOT admissible and NOT touched"
+    }
+  },
+  "metadata": {
+    "nsd_expdesign.mat": "PRESENT (local + pod)",
+    "nsd_stim_info_merged": "PRESENT"
+  },
+  "credentials": {
+    "aws": "none (~/.aws absent)",
+    "nsd_access": "none found"
+  },
+  "verdict": "B0-ALIGNED NSD-CORE PERCEPTION DATA IS UNAVAILABLE FOR THE 8-SUBJECT COHORT (only subj01 in b2; 7/8 missing). LOSO cross-subject anchor is not constructable. Acquiring b2 core for subj02-08 (~280 GB, access-controlled) is not feasible autonomously.",
+  "b1_prohibited_note": "the only multi-subject core present (pod b3) is prohibited by the frozen B0 contract (Part C.3) and Part AI (no B1), and is the C3R track's data (do-not-touch)."
+}

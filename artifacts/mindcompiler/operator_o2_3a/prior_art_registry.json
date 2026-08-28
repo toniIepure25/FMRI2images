@@ -1,0 +1,33 @@
+{
+  "novelty_label_overall": "NOVELTY_CANDIDATE",
+  "question": "target-state-INDEPENDENT dense perceptual anchor to test IDENTIFIABILITY of a reliable state-specific imagery-residual ORIENTATION in an imagery-unseen participant (geometry identifiability, not decoding).",
+  "close_prior_art": [
+    {
+      "work": "Hyperalignment / SRM / connectivity-hyperalignment",
+      "relation": "cross-subject common spaces from shared stimuli or connectivity; alignment, not imagery-residual orientation identifiability",
+      "label": "CLOSE_PRIOR_ART_EXISTS"
+    },
+    {
+      "work": "Duala / MindAligner / MindEye2 (2024-2026)",
+      "relation": "cross-subject VISUAL decoding via functional alignment; some limited-data calibration; not a state-residual orientation identifiability probe",
+      "label": "CLOSE_PRIOR_ART_EXISTS"
+    },
+    {
+      "work": "'Seeing the imagined' latent functional alignment (arXiv 2604.15374)",
+      "relation": "perception<->imagery latent alignment for reconstruction on NSD-Imagery; not target-state-independent orientation identifiability with zero target imagery",
+      "label": "CLOSE_PRIOR_ART_EXISTS"
+    },
+    {
+      "work": "NSD-Imagery benchmark (arXiv 2506.06898)",
+      "relation": "dataset/benchmark for imagery decoding",
+      "label": "DATASET"
+    }
+  ],
+  "novelty_statement": "Cross-subject alignment/decoding via dense perception is established; using a target-state-independent dense perceptual anchor to test whether the native orientation of the O2.2 out-of-visual-span imagery residual is recoverable in an imagery-unseen subject is a NOVELTY_CANDIDATE. No 'first ever'.",
+  "sources": [
+    "https://arxiv.org/abs/2502.05034",
+    "https://arxiv.org/html/2603.07625",
+    "https://arxiv.org/pdf/2604.15374",
+    "https://arxiv.org/html/2506.06898v1"
+  ]
+}

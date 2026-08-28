@@ -1,0 +1,22 @@
+{
+  "note": "inventory only; O2.3A fits NONE of these",
+  "types": {
+    "RESTING_CONNECTIVITY": {
+      "availability": "NOT_PRESENT locally/pod for cohort",
+      "subject_coverage": "unknown"
+    },
+    "RETINOTOPY": {
+      "availability": "NOT_PRESENT for cohort"
+    },
+    "FLOC": {
+      "availability": "NOT_PRESENT for cohort"
+    },
+    "ANATOMICAL_SURFACE": {
+      "availability": "partial ppdata present (roi masks) but full surface/anat not inventoried"
+    },
+    "DIFFUSION_CONNECTIVITY": {
+      "availability": "NOT_PRESENT for cohort"
+    }
+  },
+  "conclusion": "no alternative target-state-independent anchor is presently available for the cohort either; any future anchor gate requires data acquisition"
+}

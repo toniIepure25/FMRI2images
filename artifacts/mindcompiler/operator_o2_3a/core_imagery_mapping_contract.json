@@ -1,0 +1,6 @@
+{
+  "config_sha256": "eff60141916409431a4c87649337c451eabc2eb9de473ffd83f882894e324fb8",
+  "rule": "index EXISTING O1/O2 B0 ROI voxel coordinates into NSD-core betas without resampling; certify same reference/affine/axis-order and identical ROI voxel hash",
+  "on_fail": "O2_3A_CORE_IMAGERY_MAPPING_FAILURE (no spatial interpolation rescue)",
+  "status": "NOT_CERTIFIED -- core betas absent for 7/8 subjects; mapping cannot be certified for the cohort"
+}

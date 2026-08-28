@@ -1,0 +1,15 @@
+{
+  "alternative_anchor_inventory.json": "e6558dc4bd79ca62cc93c62962e7ebc92b3b24439f13ed0fecb82b45699ca80d",
+  "anchor_common_space_contract.json": "d2e4deaed1542655aa7a78d8683bdcb2735984f1acc6ce273c278c7c764644fa",
+  "core_data_contract.json": "e2ede2877ba4a3775e4e6b31ce15c163a629a1f874acc8e84fc693fee2d54276",
+  "core_data_inventory.json": "cdb794d1a5724dedb34934f2d953db9e9dcae0c06e66232b1c7c0bcdedb05945",
+  "core_imagery_mapping_contract.json": "36e303e3fdd841cd882a334f1fc9bf12d440e12b8de357524cb89bcfe4792788",
+  "execution_provenance.json": "7f3de9c19287a3af9691a6ee0581a562c814ae0a6632a86f4e0b7dee527c626a",
+  "next_gate_decision.json": "72c9b390aee1affd77852faa8b6adbf96aefa98920987106266f6ea2df56c11d",
+  "o2_3a_frozen_config.json": "abda017ac9a4d326de5bc0356bee2eb90d43da49af6394f4b636a802f44c995b",
+  "prior_art_registry.json": "4e1100eb3c1b94597390cc07f020f938a4e765c10c0d150dc3a84341728d14f3",
+  "residual_orientation_contract.json": "2eef4e5f7f61cce7a1055b1d359a1c15bdf342571632efeaf2640a8956dbd309",
+  "scientific_status.json": "694a6af6e330fe25c5cffd2c41ec5db7ceb8611794ae6f01dfd45e8d730b8961",
+  "scientific_status_contract.json": "2b8298bc00eb7bff383f7eeec242974cb0f74b6af30679236f5909a96b019f77",
+  "test_report.json": "f3b54c49b5f8af95dc37e629731435f8cc0916337d2b348227fd3c54c43205de"
+}

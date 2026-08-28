@@ -1,0 +1,18 @@
+{
+  "gate": "O2.3A",
+  "execution_status": "O2_3A_CORE_DATA_UNAVAILABLE",
+  "orientation_status": "CORE_ANCHOR_TARGET_ORIENTATION_INCONCLUSIVE",
+  "parietal_status": "PARIETAL_RICH_VISION_RECOVERY_INCONCLUSIVE",
+  "reason": "NSD-core B0/b2 perception data unavailable for 7/8 subjects; the frozen vision-only anchor (Phase A/B/C) cannot be executed. Technical data-availability blocker, NOT a scientific failure (Part AF.79).",
+  "immutable": {
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O3": "O3_NOT_READY"
+  },
+  "not_executed": [
+    "Phase A core mapping certification",
+    "Phase B vision-only anchor K selection/validation",
+    "Phase C imagery residual orientation"
+  ],
+  "leakage_certification": "N/A (no fitting performed; no target imagery touched)",
+  "o2_2_finding_preserved": "SHARED_IMAGERY_GEOMETRY_EXISTS_OUTSIDE_VISION_IDENTITY_SPAN; TARGET_STATE_ORIENTATION_NOT_IDENTIFIABLE_FROM_CURRENT_(small)_VISION_ONLY_DATA -- O2.3A could NOT test the dense-perception qualifier due to data unavailability"
+}

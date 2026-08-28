@@ -1,0 +1,7 @@
+{
+  "config_sha256": "dc27234e9a4ad381a8f80d603dcd3db9eff9ea9f49cb34a0c7b730dba669ff04",
+  "residual": "O2.2 small-visual-span perpendicular (frozen)",
+  "template": "shared residual covariance in anchor coords, TRAINING subjects only",
+  "identifiable_requires": "median PREDICTED_RESIDUAL_RETENTION > random null AND >=6/8 positive AND Holm-reject in >=1 of ventral/lateral AND median oracle-recovery fraction >= 0.50",
+  "not_executed_reason": "requires validated core anchor (data unavailable)"
+}

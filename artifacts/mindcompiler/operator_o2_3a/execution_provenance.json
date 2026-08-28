@@ -1,0 +1,12 @@
+{
+  "gate": "O2.3A",
+  "class": "FROZEN_POST_HOC_TARGET_STATE_ORIENTATION_FEASIBILITY_ON_EXISTING_DATA",
+  "halted_at": "PART C DATA AVAILABILITY GATE",
+  "execution_status": "O2_3A_CORE_DATA_UNAVAILABLE",
+  "no_fitting_performed": true,
+  "no_target_imagery_touched": true,
+  "no_b1_used": true,
+  "c3r_data_untouched": true,
+  "no_o2_o3_status_change": true,
+  "methodology_frozen_for_future_execution": true
+}

@@ -1,0 +1,7 @@
+{
+  "config_sha256": "34caa5eda82e5bfd942e5ecae692a3c708796c4fe54ad618d54e2dbdf8a30c27",
+  "method": "DETERMINISTIC_SRM on training-subjects x anchor-images (VISION only)",
+  "new_subject": "vision-only calibration from target's anchor-image responses; orthogonal Procrustes to trained S",
+  "validation_status_required": "CORE_ANCHOR_COMMON_SPACE_VALIDATED (all primary ROIs positive held-out reconstruction, no catastrophic subject failure, different voxel counts ok, leakage guards pass)",
+  "not_executed_reason": "Phase A/B not reachable: NSD-core cohort data unavailable"
+}

@@ -10,6 +10,47 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.2 (2026-08-28): CROSS-STATE TRANSPORT GEOMETRY AUDIT -- `O2_2_STATE_TRANSPORT_DIAGNOSTIC_PASS` / `CROSS_STATE_TRANSPORT_MULTIREGIME` / `O2_3_SUBJECT_SPECIFIC_STATE_MAPPING_REQUIRED`
+
+**Input `760a54b` -> freeze `76af537` -> execute `6b653cd`, server-verified.** Post-hoc geometry audit,
+NO refit / no new common-space. Doc `56_...`; artifacts `artifacts/mindcompiler/operator_o2_2/`. New
+`operator_o2_2` pkg (pure `audit_logic`) + 13 tests. Config sha `bbc9487c`. Frozen O2 SRM replay EXACT
+(R_Y_SRM reproduces O2.1: ventral 0.096 / lateral 0.144 / parietal 0.171); O1 O4 re-selection err
+1.5e-3 (thread-tie; descriptive conclusions robust). **O2 `SHARED_OPERATOR_PARTIAL` + O3 `O3_NOT_READY`
+immutable.**
+
+Question: is imagery lost by SRM truncation of an adequate visual span, or does it live outside the
+visual identity span (shared? subject-specific? noise?)? THREE nested subspaces P_SRM / P_VIS_FULL /
+P_IMG_FULL; held-out identity contrasts; odd/even reliability; RDM LOSO sharedness; exact O1 O4
+parallel/perp decomposition.
+
+### KEY FINDINGS
+- **SRM truncation contributes** (R_Y_VISFULL > R_Y_SRM by +0.15/+0.15/+0.29) -- the low-K SRM space
+  discarded imagery structure that IS in the visual span. BUT R_Y_VISFULL still LOW (0.25/0.31/0.57):
+  **43-75% of imagery identity structure lies OUTSIDE the vision identity span** (outside fraction).
+- **That out-of-visual-span component is RELIABLE** (odd/even 0.57-0.62, HIGH) **AND cross-subject
+  SHARED** (LOSO RDM sharedness 0.70-0.75, HIGH) -> `SHARED_IMAGERY_GEOMETRY_EXISTS_OUTSIDE_VISION_
+  IDENTITY_SPAN`. It is NOT measurement noise.
+- **Within-subject O1 advantage lives MORE in the perpendicular (out-of-span) component**
+  (G_O1_perp +0.06..+0.08 > G_O1_parallel +0.03..+0.05, all ROIs) -> O1 predicts exactly what the
+  vision-only cross-subject space discards.
+- **Regimes**: ventral B / lateral B (shared geometry outside vision) + parietal A (SRM truncation of
+  in-span imagery) -> **`CROSS_STATE_TRANSPORT_MULTIREGIME`**.
+- **Identifiability**: `TARGET_STATE_ORIENTATION_NOT_IDENTIFIABLE_FROM_CURRENT_VISION_ONLY_DATA` --
+  shared RDM geometry does NOT imply a known native orientation in an unseen brain; the residual sits
+  outside the visual span by construction and no vision-only predictor of its orientation exists.
+
+**Bounded conclusion:** reliable, cross-subject-shared imagery identity geometry exists but lies
+largely OUTSIDE the vision identity span; vision-only functional alignment (validated on vision)
+discards it, and its orientation in a new subject cannot be recovered from vision alone. Imagery-
+zero-shot subject transfer is structurally blocked under the current vision-only calibration contract
+-> **`O2_3_SUBJECT_SPECIFIC_STATE_MAPPING_REQUIRED`**. Future representation would need a target-
+state-independent anchor (imagery calibration, connectivity/anatomical, or richer multimodal data) --
+O2.2 fits NONE of it. O2/O3 status unchanged. **Next: a separate O2.3 / O3.0-class gate (user-issued);
+awaiting brief.**
+
+---
+
 ## O2.1 (2026-08-27): SHARED-OPERATOR TRANSFER BOTTLENECK AUDIT -- `O2_1_TRANSFER_BOTTLENECK_AUDIT_PASS` / `O2_TRANSFER_LIMIT_CROSS_STATE_SPACE_DOMINANT` / `O3_NOT_READY`
 
 **Input `adcb244` -> freeze `85d793f` -> execute `a9db401`, server-verified.** Post-hoc audit, NO

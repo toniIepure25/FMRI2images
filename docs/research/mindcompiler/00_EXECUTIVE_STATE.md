@@ -10,6 +10,38 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.3A (2026-08-28): NSD-CORE PERCEPTUAL ANCHOR FEASIBILITY -- `O2_3A_CORE_DATA_UNAVAILABLE` / `CORE_ANCHOR_TARGET_ORIENTATION_INCONCLUSIVE`
+
+**Input `4498f65` -> `d2b2bc7`, server-verified.** Doc `57_...`; artifacts
+`artifacts/mindcompiler/operator_o2_3a/`. Config sha `39d7bc97`. **Full methodology FROZEN for future
+execution**; execution HALTED at the Part-C data-availability gate. O2 `SHARED_OPERATOR_PARTIAL` +
+O3 `O3_NOT_READY` immutable; C3R untouched.
+
+Question: can dense target-state-INDEPENDENT NSD-core PERCEPTION identify the native orientation of
+the O2.2 out-of-visual-span imagery residual in an imagery-unseen subject (zero target imagery)?
+Frozen: B0/b2 core only (B1/b3 prohibited); ventral/lateral primary (parietal secondary); shared-scene
+anchor excluding all NSD-Imagery/shared1000 overlap; DetSRM; vision-only K in {2..64}; residual-
+orientation template from TRAINING subjects only; predicted-residual retention vs random-anchor null +
+full-core oracle; Holm ventral/lateral; gauge-invariant. Prior art NOVELTY_CANDIDATE.
+
+### DATA BLOCKER (technical, NOT a scientific failure -- Part AF.79)
+B0-aligned NSD-core `betas_fithrf` (b2) is UNAVAILABLE for 7/8 subjects: local has subj01 only
+(40 sessions b2); pod has none in b2. The only multi-subject core present (pod `nsd_betas_download`
+subj02/05/07) is `betas_fithrf_GLMdenoise_RR` (b3/B1) -- WRONG beta version (prohibited by the frozen
+B0 contract + Part AI) and belongs to the C3R track (do-not-touch). No NSD/AWS credentials. A LOSO
+cross-subject anchor is not constructable; ~280 GB access-controlled acquisition is not feasible
+autonomously. No fitting performed, no target imagery touched, no B1 used.
+
+-> `O2_3A_CORE_DATA_UNAVAILABLE`; orientation `CORE_ANCHOR_TARGET_ORIENTATION_INCONCLUSIVE`; parietal
+`INCONCLUSIVE`. O2.2's finding preserved; the dense-perception qualifier could NOT be tested.
+
+**Admissible next (user-issued):** O2.3A-ACQUIRE (obtain NSD-core b2 for subj02-08 with NSD/AWS
+credentials + storage, certify core<->imagery voxel mapping, then run the FROZEN O2.3A unchanged), or
+O2.3C connectivity/anatomical anchor. Not admissible: pod b3/B1, subj01-only, interpolation rescue,
+alignment-method competition. O3 stays NOT_READY. **Awaiting user brief / credentials.**
+
+---
+
 ## O2.2 (2026-08-28): CROSS-STATE TRANSPORT GEOMETRY AUDIT -- `O2_2_STATE_TRANSPORT_DIAGNOSTIC_PASS` / `CROSS_STATE_TRANSPORT_MULTIREGIME` / `O2_3_SUBJECT_SPECIFIC_STATE_MAPPING_REQUIRED`
 
 **Input `760a54b` -> freeze `76af537` -> execute `6b653cd`, server-verified.** Post-hoc geometry audit,

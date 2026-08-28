@@ -1,0 +1,55 @@
+{
+  "NSD_PUBLIC_UNSIGNED_ACCESS_CONFIRMED": true,
+  "bucket": "s3://natural-scenes-dataset",
+  "access": "--no-sign-request (anonymous NSD AWS Open Data)",
+  "awscli": "1.46.1 (installed in roy-s1 venv on pod)",
+  "required_product": "nsddata_betas/ppdata/subjXX/func1pt8mm/betas_fithrf/betas_session*.nii.gz (b2/B0-aligned)",
+  "format": "NIfTI .nii.gz 4D volumes (NOT hdf5); NSD int16 betas scaled x300 (divide by 300 for % signal change)",
+  "per_subject": {
+    "subj01": {
+      "sessions": 40,
+      "GB": 20.0
+    },
+    "subj02": {
+      "sessions": 40,
+      "GB": 18.6
+    },
+    "subj03": {
+      "sessions": 32,
+      "GB": 15.5
+    },
+    "subj04": {
+      "sessions": 30,
+      "GB": 13.4
+    },
+    "subj05": {
+      "sessions": 40,
+      "GB": 16.5
+    },
+    "subj06": {
+      "sessions": 32,
+      "GB": 17.7
+    },
+    "subj07": {
+      "sessions": 40,
+      "GB": 16.1
+    },
+    "subj08": {
+      "sessions": 30,
+      "GB": 13.3
+    }
+  },
+  "session_counts_read_from_S3_not_hardcoded": true,
+  "total_GB": 131.1,
+  "download_target": "~/work/FMRI2images_roy/data/nsd/nsddata_betas/ppdata/subjXX/func1pt8mm/betas_fithrf/ (canonical NSD structure under project data root)",
+  "download_policy": "aws s3 sync --no-sign-request <subject-b2-dir> <local> --exclude \"*\" --include \"betas_session*.nii.gz\" (resumable; excludes HRFindex/b1/b3/surfaces/1mm/timeseries)",
+  "pod_PVC_free_TB": 107,
+  "subj01_note": "local machine has subj01 b2 core but the POD does not; downloading all 8 to the pod compute node",
+  "checksum_policy": "S3 multipart ETags are NOT SHA256; local file sizes verified vs S3; any content hashes recorded as LOCAL_COMPUTED_SHA256",
+  "prohibited": [
+    "b1/b3 substitution",
+    "HRFindex/surfaces/1mm/timeseries products",
+    "touching C3R nsd_betas_download files"
+  ],
+  "supersedes_blocker": "historical O2_3A_CORE_DATA_UNAVAILABLE (commit d2b2bc7) remains the truthful first-attempt status; continuation enabled by anonymous unsigned NSD access"
+}

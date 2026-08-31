@@ -10,6 +10,40 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.3A-EXECUTE (2026-08-31): NSD-CORE PERCEPTUAL ANCHOR -- `O2_3A_CORE_ANCHOR_FEASIBILITY_PASS` / `CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE`
+
+**`d2b2bc7`(blocker) -> acquire `7a0f653`/`66d48fa` -> execute `5f13e4a`, server-verified.** Continuation
+of the FROZEN O2.3A (methodology sha `39d7bc97`, unchanged) after acquiring NSD-core b2 for all 8
+subjects via **public unsigned AWS Open Data** (s3://natural-scenes-dataset, --no-sign-request; 131 GB,
+284 session files on the PVC). Historical `O2_3A_CORE_DATA_UNAVAILABLE` preserved as first-attempt truth.
+O2 `SHARED_OPERATOR_PARTIAL` + O3 `O3_NOT_READY` immutable; no B1; C3R untouched.
+
+- **Phase A**: core<->imagery voxel mapping CERTIFIED (8 subjects, native func1pt8mm, affine matches
+  ncsnr, no resampling, existing O1/O2 ROI xyz). Anchor = **512 shared NSD-core images** (leakage-safe:
+  0 NSD-Imagery overlaps; the 3-image leak that would have entered a naive 515-set was caught+removed).
+- **Phase B (VISION-ONLY)**: DetSRM anchor common space VALIDATED STRONGLY -- cross-subject native
+  reconstruction r **0.61 ventral / 0.37 lateral** (K median 8-16); far better than the 12-identity O2 space.
+- **Phase C**: residual-orientation prediction (from vision-only anchor) vs random-anchor null, Holm
+  ventral/lateral.
+
+### KEY FINDINGS
+- **Dense perception CAPTURES far more imagery structure than the small visual span**: R_Y_CORE 0.39 /
+  0.34 / 0.62 (ventral/lateral/parietal) vs O2.2 R_Y_VISFULL 0.25 / 0.31 / 0.57 (V1 0.92, V3 0.74) ->
+  `PARIETAL_RICH_VISION_RECOVERY_SUPPORTED`; confirms O2.2 small-vision insufficiency.
+- **BUT target-state ORIENTATION is NOT identifiable**: predicted residual retention ~= random-anchor
+  null in every ROI (ventral 0.081 vs 0.077; lateral 0.107 vs 0.121; parietal 0.109 vs 0.112; no Holm
+  significance) -> `CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE`. The shared cross-subject
+  orientation template does not recover a new subject's residual orientation from vision-only calibration.
+
+**Bounded conclusion:** even dense (512-image) NSD-core perception validates a strong cross-subject
+common space and recovers much of the imagery structure's PRESENCE, yet still cannot IDENTIFY the
+subject-specific native ORIENTATION of the imagery residual without target imagery. Imagery-zero-shot
+subject transfer remains structurally blocked under vision-only calibration. O2/O3 unchanged. Leakage-
+clean. **Next: O2.3C -- target-state-independent CONNECTIVITY/ANATOMICAL anchor feasibility** (one new
+anchor family; needs that ancillary NSD data). 9 data-free tests.
+
+---
+
 ## O2.3A (2026-08-28): NSD-CORE PERCEPTUAL ANCHOR FEASIBILITY -- `O2_3A_CORE_DATA_UNAVAILABLE` / `CORE_ANCHOR_TARGET_ORIENTATION_INCONCLUSIVE`
 
 **Input `4498f65` -> `d2b2bc7`, server-verified.** Doc `57_...`; artifacts

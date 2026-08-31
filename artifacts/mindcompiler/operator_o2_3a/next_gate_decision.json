@@ -1,22 +1,11 @@
 {
-  "blocker": "O2_3A_CORE_DATA_UNAVAILABLE",
-  "not_a_scientific_failure": true,
-  "admissible_next_options": [
-    {
-      "option": "O2.3A-ACQUIRE",
-      "action": "obtain NSD-core betas_fithrf (b2) for subj02-08 (~280 GB) with NSD data-access credentials, certify core<->imagery voxel mapping, then execute the FROZEN O2.3A methodology unchanged (config sha in o2_3a_frozen_config.json)",
-      "requires": "user-provided NSD/AWS credentials + storage"
-    },
-    {
-      "option": "O2.3C",
-      "action": "target-state-independent CONNECTIVITY/ANATOMICAL anchor feasibility (ONE new anchor family), also requires acquiring that ancillary NSD data for the cohort"
-    }
-  ],
+  "blocker_resolved": "public NSD AWS unsigned access",
+  "next_gate": "O2.3C TARGET-STATE-INDEPENDENT CONNECTIVITY/ANATOMICAL ANCHOR FEASIBILITY",
+  "orientation_status": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+  "O3": "remains O3_NOT_READY (orientation feasibility is representation-only; operator generalization must be shown in O2.3B)",
   "not_admissible": [
-    "use pod b3/B1 core (violates frozen B0 contract + Part AI + C3R do-not-touch)",
-    "subj01-only demonstration (LOSO needs >=2 core subjects)",
-    "spatial interpolation rescue",
+    "b3/B1 core",
+    "imagery calibration",
     "alternative alignment competition"
-  ],
-  "O3": "remains O3_NOT_READY"
+  ]
 }

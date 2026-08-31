@@ -1,0 +1,32 @@
+{
+  "ventral": {
+    "median_predicted": 0.08003870201271326,
+    "median_null": 0.07713115450741455,
+    "median_oracle": 0.21728271934303925,
+    "median_oracle_recovery": 0.3992381102026615
+  },
+  "lateral": {
+    "median_predicted": 0.10660587387194757,
+    "median_null": 0.12081026899281308,
+    "median_oracle": 0.14617919923778977,
+    "median_oracle_recovery": 0.884835661904519
+  },
+  "parietal": {
+    "median_predicted": 0.10641044510518044,
+    "median_null": 0.12405497976998768,
+    "median_oracle": 0.36305122631645126,
+    "median_oracle_recovery": 0.34105505422265125
+  },
+  "V1": {
+    "median_predicted": 0.23564309176076642,
+    "median_null": 0.22849771940630914,
+    "median_oracle": 0.6243062162749885,
+    "median_oracle_recovery": 0.3889997380757526
+  },
+  "V3": {
+    "median_predicted": 0.21791768142625279,
+    "median_null": 0.23567634180083413,
+    "median_oracle": 0.28306151572693355,
+    "median_oracle_recovery": 0.8794016216582218
+  }
+}

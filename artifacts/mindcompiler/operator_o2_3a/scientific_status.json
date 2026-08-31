@@ -1,18 +1,59 @@
 {
   "gate": "O2.3A",
-  "execution_status": "O2_3A_CORE_DATA_UNAVAILABLE",
-  "orientation_status": "CORE_ANCHOR_TARGET_ORIENTATION_INCONCLUSIVE",
-  "parietal_status": "PARIETAL_RICH_VISION_RECOVERY_INCONCLUSIVE",
-  "reason": "NSD-core B0/b2 perception data unavailable for 7/8 subjects; the frozen vision-only anchor (Phase A/B/C) cannot be executed. Technical data-availability blocker, NOT a scientific failure (Part AF.79).",
+  "execution_status": "O2_3A_CORE_ANCHOR_FEASIBILITY_PASS",
+  "orientation_status": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+  "parietal_status": "PARIETAL_RICH_VISION_RECOVERY_SUPPORTED",
+  "anchor_common_space_validated": {
+    "ventral": "CORE_ANCHOR_COMMON_SPACE_VALIDATED",
+    "lateral": "CORE_ANCHOR_COMMON_SPACE_VALIDATED",
+    "parietal": "CORE_ANCHOR_COMMON_SPACE_VALIDATED",
+    "V1": "CORE_ANCHOR_COMMON_SPACE_VALIDATED",
+    "V3": "CORE_ANCHOR_COMMON_SPACE_VALIDATED"
+  },
+  "n_anchor_images": 512,
+  "K_selected_median": {
+    "ventral": 16,
+    "lateral": 8,
+    "parietal": 16,
+    "V1": 16,
+    "V3": 8
+  },
+  "median_anchor_recon_r": {
+    "ventral": 0.621,
+    "lateral": 0.381,
+    "parietal": 0.397,
+    "V1": 0.397,
+    "V3": 0.411
+  },
+  "primary_inference_ventral_lateral": {
+    "ventral": {
+      "median_predicted": 0.08003870201271326,
+      "median_null": 0.07713115450741455,
+      "median_diff": 0.0037942804436843086,
+      "n_participants_pred_gt_null": 6,
+      "median_oracle_recovery": 0.3992381102026615,
+      "signflip_p": 0.078125,
+      "holm_p": 0.15625,
+      "reject": false
+    },
+    "lateral": {
+      "median_predicted": 0.10660587387194757,
+      "median_null": 0.12081026899281308,
+      "median_diff": 0.004236183559618793,
+      "n_participants_pred_gt_null": 7,
+      "median_oracle_recovery": 0.884835661904519,
+      "signflip_p": 0.3359375,
+      "holm_p": 0.3359375,
+      "reject": false
+    }
+  },
+  "median_oracle_recovery_primary": 0.6420368860535902,
+  "leakage_clean": true,
   "immutable": {
     "O2": "SHARED_OPERATOR_PARTIAL",
     "O3": "O3_NOT_READY"
   },
-  "not_executed": [
-    "Phase A core mapping certification",
-    "Phase B vision-only anchor K selection/validation",
-    "Phase C imagery residual orientation"
-  ],
-  "leakage_certification": "N/A (no fitting performed; no target imagery touched)",
-  "o2_2_finding_preserved": "SHARED_IMAGERY_GEOMETRY_EXISTS_OUTSIDE_VISION_IDENTITY_SPAN; TARGET_STATE_ORIENTATION_NOT_IDENTIFIABLE_FROM_CURRENT_(small)_VISION_ONLY_DATA -- O2.3A could NOT test the dense-perception qualifier due to data unavailability"
+  "supersedes": "historical O2_3A_CORE_DATA_UNAVAILABLE (d2b2bc7); continuation via public NSD unsigned access",
+  "next_gate": "O2.3C TARGET-STATE-INDEPENDENT CONNECTIVITY/ANATOMICAL ANCHOR FEASIBILITY",
+  "key_finding": "Dense NSD-core perception (512 shared images) common space validated strongly (recon r 0.62 ventral); orientation status CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE; median oracle recovery 0.64."
 }

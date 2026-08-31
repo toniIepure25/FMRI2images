@@ -1,0 +1,47 @@
+{
+  "ventral": {
+    "ROI": "ventral",
+    "median_selected_recon_r": 0.6213085958037377,
+    "all_targets_positive": true,
+    "K_distribution": {
+      "16": 8
+    },
+    "status": "CORE_ANCHOR_COMMON_SPACE_VALIDATED"
+  },
+  "lateral": {
+    "ROI": "lateral",
+    "median_selected_recon_r": 0.38067164434019213,
+    "all_targets_positive": true,
+    "K_distribution": {
+      "8": 8
+    },
+    "status": "CORE_ANCHOR_COMMON_SPACE_VALIDATED"
+  },
+  "parietal": {
+    "ROI": "parietal",
+    "median_selected_recon_r": 0.3971616556555299,
+    "all_targets_positive": true,
+    "K_distribution": {
+      "16": 8
+    },
+    "status": "CORE_ANCHOR_COMMON_SPACE_VALIDATED"
+  },
+  "V1": {
+    "ROI": "V1",
+    "median_selected_recon_r": 0.39698692706989563,
+    "all_targets_positive": true,
+    "K_distribution": {
+      "16": 8
+    },
+    "status": "CORE_ANCHOR_COMMON_SPACE_VALIDATED"
+  },
+  "V3": {
+    "ROI": "V3",
+    "median_selected_recon_r": 0.4107982735479808,
+    "all_targets_positive": true,
+    "K_distribution": {
+      "8": 8
+    },
+    "status": "CORE_ANCHOR_COMMON_SPACE_VALIDATED"
+  }
+}

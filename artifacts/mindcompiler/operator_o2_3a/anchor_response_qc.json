@@ -1,0 +1,342 @@
+{
+  "n_anchor_images": 512,
+  "per_subject_ROI": {
+    "subj01": {
+      "ventral": {
+        "shape": [
+          512,
+          153
+        ],
+        "voxel_hash": "3d54a7fc3cb6",
+        "finite_frac": 1.0
+      },
+      "lateral": {
+        "shape": [
+          512,
+          156
+        ],
+        "voxel_hash": "cd85569a5f2b",
+        "finite_frac": 1.0
+      },
+      "parietal": {
+        "shape": [
+          512,
+          71
+        ],
+        "voxel_hash": "e8109c3e941c",
+        "finite_frac": 1.0
+      },
+      "V1": {
+        "shape": [
+          512,
+          27
+        ],
+        "voxel_hash": "a1bc56fe7c55",
+        "finite_frac": 1.0
+      },
+      "V3": {
+        "shape": [
+          512,
+          24
+        ],
+        "voxel_hash": "5fd2b36ac1a5",
+        "finite_frac": 1.0
+      }
+    },
+    "subj02": {
+      "ventral": {
+        "shape": [
+          512,
+          164
+        ],
+        "voxel_hash": "f8e7156a2be5",
+        "finite_frac": 1.0
+      },
+      "lateral": {
+        "shape": [
+          512,
+          136
+        ],
+        "voxel_hash": "23b90aca64c8",
+        "finite_frac": 1.0
+      },
+      "parietal": {
+        "shape": [
+          512,
+          68
+        ],
+        "voxel_hash": "f82b8fbbd621",
+        "finite_frac": 1.0
+      },
+      "V1": {
+        "shape": [
+          512,
+          23
+        ],
+        "voxel_hash": "53c23b2370aa",
+        "finite_frac": 1.0
+      },
+      "V3": {
+        "shape": [
+          512,
+          22
+        ],
+        "voxel_hash": "cc0f5c073407",
+        "finite_frac": 1.0
+      }
+    },
+    "subj03": {
+      "ventral": {
+        "shape": [
+          512,
+          164
+        ],
+        "voxel_hash": "7ae15e423515",
+        "finite_frac": 1.0
+      },
+      "lateral": {
+        "shape": [
+          512,
+          172
+        ],
+        "voxel_hash": "40c1f65a91b3",
+        "finite_frac": 1.0
+      },
+      "parietal": {
+        "shape": [
+          512,
+          78
+        ],
+        "voxel_hash": "7a2f51bd966a",
+        "finite_frac": 1.0
+      },
+      "V1": {
+        "shape": [
+          512,
+          26
+        ],
+        "voxel_hash": "a439140c2172",
+        "finite_frac": 1.0
+      },
+      "V3": {
+        "shape": [
+          512,
+          19
+        ],
+        "voxel_hash": "53e144442a35",
+        "finite_frac": 1.0
+      }
+    },
+    "subj04": {
+      "ventral": {
+        "shape": [
+          512,
+          153
+        ],
+        "voxel_hash": "b831cfe6c875",
+        "finite_frac": 1.0
+      },
+      "lateral": {
+        "shape": [
+          512,
+          143
+        ],
+        "voxel_hash": "528c1da26c33",
+        "finite_frac": 1.0
+      },
+      "parietal": {
+        "shape": [
+          512,
+          67
+        ],
+        "voxel_hash": "a6cc7d69aaab",
+        "finite_frac": 1.0
+      },
+      "V1": {
+        "shape": [
+          512,
+          18
+        ],
+        "voxel_hash": "5de8252b97a6",
+        "finite_frac": 1.0
+      },
+      "V3": {
+        "shape": [
+          512,
+          17
+        ],
+        "voxel_hash": "e864d7c0a379",
+        "finite_frac": 1.0
+      }
+    },
+    "subj05": {
+      "ventral": {
+        "shape": [
+          512,
+          133
+        ],
+        "voxel_hash": "1cd311de469f",
+        "finite_frac": 1.0
+      },
+      "lateral": {
+        "shape": [
+          512,
+          141
+        ],
+        "voxel_hash": "8d0d9b353e84",
+        "finite_frac": 1.0
+      },
+      "parietal": {
+        "shape": [
+          512,
+          57
+        ],
+        "voxel_hash": "e4929ec8dd46",
+        "finite_frac": 1.0
+      },
+      "V1": {
+        "shape": [
+          512,
+          23
+        ],
+        "voxel_hash": "5b1f968d0c8d",
+        "finite_frac": 1.0
+      },
+      "V3": {
+        "shape": [
+          512,
+          19
+        ],
+        "voxel_hash": "8bfbf17fc379",
+        "finite_frac": 1.0
+      }
+    },
+    "subj06": {
+      "ventral": {
+        "shape": [
+          512,
+          194
+        ],
+        "voxel_hash": "4008a9821c6a",
+        "finite_frac": 1.0
+      },
+      "lateral": {
+        "shape": [
+          512,
+          181
+        ],
+        "voxel_hash": "6b6563cf9556",
+        "finite_frac": 1.0
+      },
+      "parietal": {
+        "shape": [
+          512,
+          68
+        ],
+        "voxel_hash": "3aaf74f8af81",
+        "finite_frac": 1.0
+      },
+      "V1": {
+        "shape": [
+          512,
+          23
+        ],
+        "voxel_hash": "0e33116af4d4",
+        "finite_frac": 1.0
+      },
+      "V3": {
+        "shape": [
+          512,
+          24
+        ],
+        "voxel_hash": "9eccb4ed5b47",
+        "finite_frac": 1.0
+      }
+    },
+    "subj07": {
+      "ventral": {
+        "shape": [
+          512,
+          131
+        ],
+        "voxel_hash": "e3627edc4558",
+        "finite_frac": 1.0
+      },
+      "lateral": {
+        "shape": [
+          512,
+          123
+        ],
+        "voxel_hash": "8b40fe733797",
+        "finite_frac": 1.0
+      },
+      "parietal": {
+        "shape": [
+          512,
+          50
+        ],
+        "voxel_hash": "39f02e6d3639",
+        "finite_frac": 1.0
+      },
+      "V1": {
+        "shape": [
+          512,
+          23
+        ],
+        "voxel_hash": "0cae7dc1482b",
+        "finite_frac": 1.0
+      },
+      "V3": {
+        "shape": [
+          512,
+          15
+        ],
+        "voxel_hash": "97fd5006e8ad",
+        "finite_frac": 1.0
+      }
+    },
+    "subj08": {
+      "ventral": {
+        "shape": [
+          512,
+          167
+        ],
+        "voxel_hash": "2469bc09df14",
+        "finite_frac": 1.0
+      },
+      "lateral": {
+        "shape": [
+          512,
+          174
+        ],
+        "voxel_hash": "c0508c95897d",
+        "finite_frac": 1.0
+      },
+      "parietal": {
+        "shape": [
+          512,
+          68
+        ],
+        "voxel_hash": "060319e6392b",
+        "finite_frac": 1.0
+      },
+      "V1": {
+        "shape": [
+          512,
+          22
+        ],
+        "voxel_hash": "3854432c4ae8",
+        "finite_frac": 1.0
+      },
+      "V3": {
+        "shape": [
+          512,
+          18
+        ],
+        "voxel_hash": "5c4e0e8e7f91",
+        "finite_frac": 1.0
+      }
+    }
+  },
+  "note": "512-image mean-of-3-reps NSD-core perception centroids; finite"
+}

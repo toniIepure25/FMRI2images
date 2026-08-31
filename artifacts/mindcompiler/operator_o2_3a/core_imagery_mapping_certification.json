@@ -1,0 +1,105 @@
+{
+  "n_anchor_images": 512,
+  "mapping_certified_all": true,
+  "per_subject": {
+    "subj01": {
+      "subject": "subj01",
+      "core_shape": [
+        81,
+        104,
+        83,
+        750
+      ],
+      "affine_matches_ncsnr": true,
+      "same_func1pt8mm_space": true,
+      "dtype": "int16"
+    },
+    "subj02": {
+      "subject": "subj02",
+      "core_shape": [
+        82,
+        106,
+        84,
+        750
+      ],
+      "affine_matches_ncsnr": true,
+      "same_func1pt8mm_space": true,
+      "dtype": "int16"
+    },
+    "subj03": {
+      "subject": "subj03",
+      "core_shape": [
+        81,
+        106,
+        82,
+        750
+      ],
+      "affine_matches_ncsnr": true,
+      "same_func1pt8mm_space": true,
+      "dtype": "int16"
+    },
+    "subj04": {
+      "subject": "subj04",
+      "core_shape": [
+        85,
+        99,
+        80,
+        750
+      ],
+      "affine_matches_ncsnr": true,
+      "same_func1pt8mm_space": true,
+      "dtype": "int16"
+    },
+    "subj05": {
+      "subject": "subj05",
+      "core_shape": [
+        79,
+        97,
+        78,
+        750
+      ],
+      "affine_matches_ncsnr": true,
+      "same_func1pt8mm_space": true,
+      "dtype": "int16"
+    },
+    "subj06": {
+      "subject": "subj06",
+      "core_shape": [
+        85,
+        113,
+        83,
+        750
+      ],
+      "affine_matches_ncsnr": true,
+      "same_func1pt8mm_space": true,
+      "dtype": "int16"
+    },
+    "subj07": {
+      "subject": "subj07",
+      "core_shape": [
+        78,
+        95,
+        81,
+        750
+      ],
+      "affine_matches_ncsnr": true,
+      "same_func1pt8mm_space": true,
+      "dtype": "int16"
+    },
+    "subj08": {
+      "subject": "subj08",
+      "core_shape": [
+        80,
+        103,
+        78,
+        750
+      ],
+      "affine_matches_ncsnr": true,
+      "same_func1pt8mm_space": true,
+      "dtype": "int16"
+    }
+  },
+  "no_resampling": true,
+  "existing_o1_o2_roi_xyz_used": true,
+  "note": "each subject native func1pt8mm; core betas share affine/dims with ncsnr per subject; ROI xyz index directly"
+}

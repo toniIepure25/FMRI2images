@@ -1,8 +1,8 @@
 {
-  "lane": "freeze + data-availability audit (execution blocked at Part C)",
-  "o2_3a_blocker_tests": {
-    "file": "test_o2_3a_blocker.py",
-    "passed": 7
+  "lane": "public NSD unsigned download (131 GB, 8 subj b2 core) + pod compute (Phase A/B/C)",
+  "o2_3a_execution_tests": {
+    "file": "test_o2_3a_execution.py",
+    "passed": 9
   },
   "reproduction_tests_passed": true
 }

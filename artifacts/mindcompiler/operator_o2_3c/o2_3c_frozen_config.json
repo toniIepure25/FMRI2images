@@ -1,0 +1,66 @@
+{
+  "gate": "O2.3C",
+  "title": "Resting-state connectivity anchor -- target-state orientation identifiability",
+  "input_head": "c73f3040dbc7822d3e865ec971232c590dfc4eec",
+  "anchor_family": "RESTING_STATE_FUNCTIONAL_CONNECTIVITY",
+  "one_anchor_family_only": true,
+  "no_method_leaderboard": true,
+  "common_space_method": "DETERMINISTIC_CONNECTIVITY_SRM",
+  "reference_space": "native_func1pt8mm",
+  "no_resampling": true,
+  "target_parcellation": {
+    "atlas": "FreeSurfer_DesikanKilliany_aparc",
+    "n_cortical_parcels": 68,
+    "must_be_available_in": "native_func1pt8mm_volume"
+  },
+  "qc": {
+    "framewise_displacement_metric": "FD_Power",
+    "FD_censor_threshold_mm": 0.25,
+    "min_usable_rest_minutes_per_subject": 30
+  },
+  "temporal_cleaning": {
+    "global_signal_regression": false,
+    "detrend": true,
+    "nuisance": [
+      "motion_24",
+      "wm",
+      "csf"
+    ],
+    "bandpass_hz": "per_brief_O2_3C_partH",
+    "note": "cleaning hyperparameters never exercised -- gate halted at data-availability"
+  },
+  "fitting_exclusions": {
+    "no_target_perception_in_fitting": true,
+    "no_target_imagery_in_fitting": true,
+    "connectivity_fit_uses": "resting_state_only"
+  },
+  "residual_under_test": {
+    "source_gate": "O2.2",
+    "definition": "imagery centroid component perpendicular to the SMALL 10-identity vision span (P_VIS_SMALL)",
+    "imported_unchanged": true
+  },
+  "phases": {
+    "A": "per-subject resting connectivity matrices C_s (parcel x voxel Fisher-z), native func1pt8mm",
+    "B": "vision-free cSRM shared connectivity space + nested K-selection; new-subject Procrustes W_target",
+    "C": "shared residual-orientation template from connectivity space; predict target native subspace; retention vs matched random-subspace null (100 draws) + oracle",
+    "D": "participant-level exact 2^N sign-flip tests, Holm across {ventral, lateral}"
+  },
+  "inference_unit": "participant_N8",
+  "execution_status_catalog": [
+    "O2_3C_CONNECTIVITY_ANCHOR_FEASIBILITY_PASS",
+    "O2_3C_REST_PRODUCT_INCOMPATIBLE",
+    "O2_3C_INSUFFICIENT_REST_DATA",
+    "O2_3C_REST_DATA_UNAVAILABLE"
+  ],
+  "orientation_status_catalog": [
+    "CONNECTIVITY_ANCHOR_TARGET_ORIENTATION_IDENTIFIABLE",
+    "CONNECTIVITY_ANCHOR_TARGET_ORIENTATION_PARTIAL",
+    "CONNECTIVITY_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+    "CONNECTIVITY_ANCHOR_TARGET_ORIENTATION_INCONCLUSIVE"
+  ],
+  "data_source": {
+    "bucket": "s3://natural-scenes-dataset",
+    "access": "public_unsigned_no_credentials"
+  },
+  "frozen_methodology_sha": "528f23eb"
+}

@@ -1,0 +1,12 @@
+{
+  "gate": "O2.3C",
+  "input_head": "c73f3040dbc7822d3e865ec971232c590dfc4eec",
+  "frozen_methodology_sha": "528f23eb",
+  "data_probe_tool": "boto3 UNSIGNED (public NSD Open Data)",
+  "no_credentials_used": true,
+  "no_target_imagery_in_fitting": true,
+  "no_fitting_performed": true,
+  "no_b1_b3_files_used": true,
+  "residual_source_gate": "O2.2",
+  "o2_2_residual_modified": false
+}

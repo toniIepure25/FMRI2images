@@ -1,0 +1,118 @@
+{
+  "gate": "O2.3C",
+  "probe_access": {
+    "bucket": "s3://natural-scenes-dataset",
+    "signature": "UNSIGNED",
+    "credentials": "none"
+  },
+  "probe_scope": "exhaustive func1pt8mm timeseries listing (all 8 subj) + restingbetas header + raw BIDS task scan",
+  "findings": {
+    "prepared_native_func1pt8mm_rest_timeseries_runs": 0,
+    "prepared_rest_timeseries_runs_any_subject": 0,
+    "restingbetas_product": {
+      "space_func1pt8mm_present": true,
+      "contents": [
+        "R2 variance maps (3D)",
+        "R2run (3D)",
+        "betas single-volume (3D)"
+      ],
+      "nifti_ndim_checked": 3,
+      "nifti_dim_example": [
+        81,
+        104,
+        83
+      ],
+      "usable_as_timeseries_for_connectivity": false,
+      "reason": "single-volume GLM outputs, no temporal dimension"
+    },
+    "raw_bids_task_rest": {
+      "present": true,
+      "run_nTR": 188,
+      "run_TR_sec": 1.6,
+      "run_minutes": 5.01,
+      "raw_grid": [
+        120,
+        120,
+        84
+      ],
+      "space": "raw_acquisition (NOT preprocessed func1pt8mm reference)",
+      "official_cleaned_product": false,
+      "official_motion_params_product": false
+    },
+    "desikan_killiany_aparc": {
+      "surface_and_anatomical_present": true,
+      "native_func1pt8mm_volume_present": false,
+      "func1pt8mm_volume_atlases_available": [
+        "HCP_MMP1",
+        "Kastner2015",
+        "streams"
+      ]
+    }
+  },
+  "per_subject": {
+    "subj01": {
+      "raw_task_rest_runs": 36,
+      "native_func1pt8mm_rest_timeseries": 0,
+      "raw_rest_minutes_est": 180.5,
+      "meets_30min_in_raw": true,
+      "has_prepared_native_rest_timeseries": false
+    },
+    "subj02": {
+      "raw_task_rest_runs": 20,
+      "native_func1pt8mm_rest_timeseries": 0,
+      "raw_rest_minutes_est": 100.3,
+      "meets_30min_in_raw": true,
+      "has_prepared_native_rest_timeseries": false
+    },
+    "subj03": {
+      "raw_task_rest_runs": 20,
+      "native_func1pt8mm_rest_timeseries": 0,
+      "raw_rest_minutes_est": 100.3,
+      "meets_30min_in_raw": true,
+      "has_prepared_native_rest_timeseries": false
+    },
+    "subj04": {
+      "raw_task_rest_runs": 20,
+      "native_func1pt8mm_rest_timeseries": 0,
+      "raw_rest_minutes_est": 100.3,
+      "meets_30min_in_raw": true,
+      "has_prepared_native_rest_timeseries": false
+    },
+    "subj05": {
+      "raw_task_rest_runs": 36,
+      "native_func1pt8mm_rest_timeseries": 0,
+      "raw_rest_minutes_est": 180.5,
+      "meets_30min_in_raw": true,
+      "has_prepared_native_rest_timeseries": false
+    },
+    "subj06": {
+      "raw_task_rest_runs": 20,
+      "native_func1pt8mm_rest_timeseries": 0,
+      "raw_rest_minutes_est": 100.3,
+      "meets_30min_in_raw": true,
+      "has_prepared_native_rest_timeseries": false
+    },
+    "subj07": {
+      "raw_task_rest_runs": 20,
+      "native_func1pt8mm_rest_timeseries": 0,
+      "raw_rest_minutes_est": 100.3,
+      "meets_30min_in_raw": true,
+      "has_prepared_native_rest_timeseries": false
+    },
+    "subj08": {
+      "raw_task_rest_runs": 20,
+      "native_func1pt8mm_rest_timeseries": 0,
+      "raw_rest_minutes_est": 100.3,
+      "meets_30min_in_raw": true,
+      "has_prepared_native_rest_timeseries": false
+    }
+  },
+  "gate_evaluation": {
+    "compatible_prepared_rest_timeseries_product_exists": false,
+    "min_30min_criterion_blocked": false,
+    "raw_only_and_preprocessing_forbidden_partF6": true,
+    "native_DK_parcellation_product_exists": false
+  },
+  "verdict": "O2_3C_REST_PRODUCT_INCOMPATIBLE",
+  "verdict_rationale": "NSD provides no prepared resting-state functional TIMESERIES product compatible with the native func1pt8mm reference (0 resting timeseries runs across all 8 subjects; restingbetas are 3D single-volume GLM/R2 maps). Raw BIDS task-rest bold exists in sufficient volume (100-180 min/subject) but only in the raw acquisition grid with no cleaned/motion product; brief Part F.6 forbids constructing a raw-fMRI preprocessing pipeline inside this gate. Additionally the Desikan-Killiany target parcellation is not provided as a native func1pt8mm volume. Blocker is PRODUCT_INCOMPATIBLE, not INSUFFICIENT_REST_DATA (volume adequate) nor REST_DATA_UNAVAILABLE (raw data present)."
+}

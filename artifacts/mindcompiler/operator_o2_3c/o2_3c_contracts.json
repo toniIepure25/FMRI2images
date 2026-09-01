@@ -1,0 +1,26 @@
+{
+  "gate": "O2.3C",
+  "frozen_methodology_sha": "528f23eb",
+  "freeze_before_outcomes": true,
+  "leakage_contract": {
+    "no_target_perception_in_any_fit": true,
+    "no_target_imagery_in_any_fit": true,
+    "connectivity_anchor_independent_of_target_state": true,
+    "status": "VACUOUS_NO_FIT_PERFORMED"
+  },
+  "immutability_contract": {
+    "O2.2_residual_imported_unchanged": true,
+    "must_not_modify": [
+      "artifacts/mindcompiler/operator_o2/scientific_status.json",
+      "artifacts/mindcompiler/operator_o2_3a/scientific_status.json"
+    ]
+  },
+  "carried_immutable_statuses": {
+    "TRACK_R": "INDEPENDENT_METHOD_REPRODUCTION_PARTIAL",
+    "O1": "STIMULUS_INVARIANT_OPERATOR_PARTIAL",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2.3A_execution": "O2_3A_CORE_ANCHOR_FEASIBILITY_PASS",
+    "O2.3A_orientation": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+    "O3": "O3_NOT_READY"
+  }
+}

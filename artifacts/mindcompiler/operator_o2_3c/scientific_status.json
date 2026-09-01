@@ -1,0 +1,20 @@
+{
+  "gate": "O2.3C",
+  "execution_status": "O2_3C_REST_PRODUCT_INCOMPATIBLE",
+  "orientation_status": "CONNECTIVITY_ANCHOR_TARGET_ORIENTATION_INCONCLUSIVE",
+  "orientation_test_performed": false,
+  "halted_at": "DATA_AVAILABILITY_GATE (brief Part C / F.6)",
+  "leakage_clean": true,
+  "leakage_note": "vacuous -- no fitting performed",
+  "frozen_methodology_sha": "528f23eb",
+  "immutable": {
+    "TRACK_R": "INDEPENDENT_METHOD_REPRODUCTION_PARTIAL",
+    "O1": "STIMULUS_INVARIANT_OPERATOR_PARTIAL",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2.3A_execution": "O2_3A_CORE_ANCHOR_FEASIBILITY_PASS",
+    "O2.3A_orientation": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+    "O3": "O3_NOT_READY"
+  },
+  "supersedes": [],
+  "blocker_is_technical_not_scientific": true
+}

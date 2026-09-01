@@ -10,6 +10,36 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.3C (2026-09-01): RESTING-STATE CONNECTIVITY ANCHOR -- `O2_3C_REST_PRODUCT_INCOMPATIBLE` / `CONNECTIVITY_ANCHOR_TARGET_ORIENTATION_INCONCLUSIVE`
+
+**Input HEAD `c73f304`; frozen methodology sha `528f23eb`.** Tests whether intrinsic resting-state
+functional connectivity (deterministic connectivity-SRM / cSRM) can identify the native orientation of
+the O2.2 imagery residual in an imagery-unseen subject, without target imagery/perception. Methodology
+FROZEN before any outcome (Parts A-D, Desikan-Killiany 68 parcels in native func1pt8mm, FD>0.25mm QC,
+>=30 usable rest min, NO GSR, one anchor family, no leaderboard). O2.2 residual imported unchanged.
+
+**Gate halted at the frozen DATA-AVAILABILITY precondition (brief Part C / F.6).** Probe of public NSD
+Open Data (unsigned, no credentials):
+- **0 prepared resting-state TIMESERIES runs** in native func1pt8mm for all 8 subjects (the 548 native
+  runs are nsdimagery/nsdsynthetic/prffloc/main-NSD only).
+- **`restingbetas_fithrf` are 3D single-volume** GLM betas + `R2` maps (verified ndim=3, [81,104,83]) --
+  unusable for temporal connectivity.
+- **Raw BIDS `task-rest` exists in abundance** (20-36 runs/subj, 188 TR x 1.6s = 5.0 min/run =>
+  100-180 min/subj) but only in the raw acquisition grid [120,120,84], no cleaned/motion product;
+  **Part F.6 forbids** building a raw preprocessing pipeline in this gate.
+- Desikan-Killiany aparc is surface/anatomical only, **not** a native func1pt8mm volume.
+
+**Verdict = `O2_3C_REST_PRODUCT_INCOMPATIBLE`** (NOT insufficient -- raw volume exceeds 30 min; NOT
+unavailable -- raw exists). No fitting performed => orientation `INCONCLUSIVE`, leakage vacuously clean.
+Technical blocker, not a scientific result on connectivity. Immutable carried forward: TRACK_R
+`INDEPENDENT_METHOD_REPRODUCTION_PARTIAL`, O1 `STIMULUS_INVARIANT_OPERATOR_PARTIAL`, O2
+`SHARED_OPERATOR_PARTIAL`, O2.3A `FEASIBILITY_PASS`/`ORIENTATION_NOT_IDENTIFIABLE`, O3 `O3_NOT_READY`.
+Artifacts: `artifacts/mindcompiler/operator_o2_3c/` (frozen_config, contracts, rest_data_inventory,
+scientific_status, provenance) + `docs/research/mindcompiler/58_O2_3C_CONNECTIVITY_ANCHOR.md` + 8
+data-free tests (`tests/mindcompiler/operator_o2_3c/`).
+
+---
+
 ## O2.3A-EXECUTE (2026-08-31): NSD-CORE PERCEPTUAL ANCHOR -- `O2_3A_CORE_ANCHOR_FEASIBILITY_PASS` / `CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE`
 
 **`d2b2bc7`(blocker) -> acquire `7a0f653`/`66d48fa` -> execute `5f13e4a`, server-verified.** Continuation

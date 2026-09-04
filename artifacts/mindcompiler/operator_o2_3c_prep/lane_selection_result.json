@@ -1,0 +1,49 @@
+{
+  "gate": "O2.3C-PREP",
+  "lane_A_eligibility": {
+    "criteria": {
+      "A_runtime_executable": false,
+      "B_input_output_adapter_only": true,
+      "C_metadata_public": true,
+      "D_distortion_gradunwarp_inputs_public": false,
+      "E_no_algorithm_modification": true
+    },
+    "eligible": false,
+    "status": "NSD_AUTHOR_LINEAGE_NOT_EXECUTABLE_FROM_PUBLIC_RELEASE",
+    "missing_elements": [
+      "MATLAB runtime + licensed Kendrick-Kay toolchain (preprocessfmri/alignvolumedata/knkutils) not available locally nor on the designated pod",
+      "vendor gradient-nonlinearity coefficient files not present in the public NSD release (Part D.D)"
+    ],
+    "decided_before_any_prepared_rest_QC_metric": true
+  },
+  "lane_B_activated": true,
+  "PREPROCESSING_LANE": "FMRIPREP_BIDS_RECONSTRUCTION",
+  "runtime_inventory": {
+    "local_windows": {
+      "docker": false,
+      "singularity": false,
+      "apptainer": false,
+      "matlab": false,
+      "octave": false,
+      "ants": false,
+      "fsl": false,
+      "freesurfer": false,
+      "python_libs": [
+        "nibabel",
+        "numpy",
+        "scipy",
+        "sklearn",
+        "boto3",
+        "h5py"
+      ],
+      "can_execute_either_lane": false
+    },
+    "pod_a100": {
+      "host": "jovyan@10.130.123.131 (RunAI/Atlas)",
+      "network_port22": "UNREACHABLE (this session)",
+      "note": "Preemptible; documented flaky. Did execute O2.3A (131GB acquire + compute) previously, so environment is capable; currently down at network level. MATLAB not expected on a datascience pod; container runtime (singularity/apptainer) presence UNVERIFIED (pod down)."
+    }
+  },
+  "compute_executor": "pod_a100 (only environment with a possible container runtime + PVC + NSD data)",
+  "compute_state": "BLOCKED_ON_POD_INFRASTRUCTURE (network-unreachable this session)"
+}

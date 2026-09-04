@@ -1,0 +1,23 @@
+{
+  "gate": "O2.3C-PREP",
+  "frozen_config_sha": "2d1a26a5",
+  "grid": [
+    81,
+    104,
+    83
+  ],
+  "affine_source": "existing prepared NSD func1pt8mm product (per subject)",
+  "reference_file_hash": "PENDING_AT_EXECUTION",
+  "no_resampling_beyond_single_design": true,
+  "implementation": "ANTs",
+  "transforms": [
+    "rigid",
+    "affine"
+  ],
+  "no_nonlinear_SyN_rest_to_func": true,
+  "cost_metric": "Mattes mutual information",
+  "bold_interpolation": "LanczosWindowedSinc",
+  "atlas_interpolation": "NearestNeighbor",
+  "reference_relationship": "same-participant same-session prepared NSD-core EPI where available",
+  "frozen_before_benchmark": true
+}

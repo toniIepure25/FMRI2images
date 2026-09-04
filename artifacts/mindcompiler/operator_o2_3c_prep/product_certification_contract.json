@@ -1,0 +1,15 @@
+{
+  "gate": "O2.3C-PREP",
+  "frozen_config_sha": "2d1a26a5",
+  "subject_pass_requires": [
+    "all raw rest files accounted",
+    "output grid exact",
+    "motion present",
+    "frozen ROI coords valid (finite fraction >=0.99)",
+    "WM/CSF valid",
+    "DK valid",
+    "no corrupt/nonfinite product",
+    "benchmark lane passed"
+  ],
+  "cohort_pass": "8/8 mapped OR >=7/8 plus explicit technical blocker for the remainder; O2.3C cohort-sufficiency remains authoritative"
+}

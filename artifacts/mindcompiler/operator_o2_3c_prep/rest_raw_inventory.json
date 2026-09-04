@@ -1,0 +1,27 @@
+{
+  "gate": "O2.3C-PREP",
+  "source": "carried from e215f3f rest_data_inventory + re-listing",
+  "per_subject_raw_task_rest_runs": {
+    "subj01": 36,
+    "subj02": 20,
+    "subj03": 20,
+    "subj04": 20,
+    "subj05": 36,
+    "subj06": 20,
+    "subj07": 20,
+    "subj08": 20
+  },
+  "run_nTR_expected": 188,
+  "run_TR_sec_expected": 1.6,
+  "raw_grid": [
+    120,
+    120,
+    84
+  ],
+  "target_grid": [
+    81,
+    104,
+    83
+  ],
+  "note": "TR/nTR to be re-verified from actual BIDS metadata at processing time (Part L.33)."
+}

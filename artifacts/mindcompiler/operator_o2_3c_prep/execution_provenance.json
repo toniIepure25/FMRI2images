@@ -1,0 +1,12 @@
+{
+  "gate": "O2.3C-PREP",
+  "input_head": "e215f3f57db13ffba5b4319bce84beca8e801a04",
+  "frozen_config_sha": "2d1a26a5",
+  "resume_o2_3c_frozen_sha": "528f23eb",
+  "phase0_complete": true,
+  "compute_phases_1_4": "PENDING_POD_INFRASTRUCTURE",
+  "no_credentials_used": true,
+  "target_imagery_files_opened_by_PREP": 0,
+  "o2_2_residual_modified": false,
+  "public_data_access": "s3://natural-scenes-dataset unsigned"
+}

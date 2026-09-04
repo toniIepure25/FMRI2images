@@ -10,6 +10,35 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.3C-PREP (2026-09-04): RAW REST PREPROCESSING PRODUCT GATE -- `PHASE0_FROZEN` (Lane B fMRIPrep 25.2.5); compute PENDING pod
+
+**Input HEAD `e215f3f`; frozen config SHA `2d1a26a5`; resumes frozen O2.3C SHA `528f23eb`.** TECHNICAL
+gate (no science): build+certify native func1pt8mm rest timeseries + motion + WM/CSF + Desikan-Killiany
+68-parcel products for the frozen O2.3C input contract. Historical `O2_3C_REST_PRODUCT_INCOMPATIBLE`
+preserved unchanged.
+
+- **Audit (Part B)**: 5 public NSD preprocessing repos pinned; core (`preprocessfmri`/`alignvolumedata`/
+  `knkutils`/`nsddatapaper`) is **MATLAB**, only `nsdcode` Python. Fieldmaps present (SDC feasible),
+  FreeSurfer `aparc+aseg` present (DK source), **released `anat->func1pt8mm` transforms present**
+  (DK mappable in pure Python via nsd_mapdata, NN), prepared main-NSD func1pt8mm timeseries present.
+- **Lane decision (frozen before any QC)**: Lane A **INELIGIBLE** -- no MATLAB runtime locally/on pod +
+  gradient-nonlinearity vendor coeffs not public -> `NSD_AUTHOR_LINEAGE_NOT_EXECUTABLE_FROM_PUBLIC_RELEASE`.
+  **Lane B activated+frozen**: fMRIPrep **25.2.5** (no `latest`), phasediff SDC (no SyN), rigid motion,
+  no smoothing/AROMA/denoise/GSR; raw->func1pt8mm ANTs rigid+affine (Mattes MI, BOLD LanczosSinc, atlas NN).
+- **Benchmark (frozen selection)**: `session01_run01` all 8; thresholds Dice>=0.90, spatial r>=0.95,
+  ROI-temporal r>=0.90, voxel-temporal r>=0.70, tSNR ratio in [0.5,2.0]; STOP-on-fail, no tuning/lane-switch.
+- **Compute Phases 1-4 PENDING**: pod is **network-unreachable this session** (port22 timeout x3). NO benchmark/
+  product metric fabricated -- result artifacts are explicit `PENDING_POD_COMPUTE`. NOT `PUBLIC_ASSET_FAILURE`
+  (assets all present) nor `LANE_SELECTION_FAILURE` (lane selected); a transient infra hold, no terminal Part-AC
+  status issued. Guard: `target_imagery_files_opened_by_PREP = 0`. 25 data-free tests pass.
+
+Artifacts: `artifacts/mindcompiler/operator_o2_3c_prep/` (frozen_config + 8 contracts + audit + lane result +
+benchmark manifest + DK 68 manifest + PENDING result placeholders + hashes) + `docs/research/mindcompiler/59_O2_3C_PREP_REST_PRODUCT.md`.
+**Next:** when pod+container available, pull fMRIPrep 25.2.5 (record digest) -> Phase 1 benchmark -> on PASS,
+Phases 2-4 then terminal status; on fail `O2_3C_PREP_TASK_BENCHMARK_FAILURE`. Then O2.3C-RESUME (SHA `528f23eb`).
+
+---
+
 ## O2.3C (2026-09-01): RESTING-STATE CONNECTIVITY ANCHOR -- `O2_3C_REST_PRODUCT_INCOMPATIBLE` / `CONNECTIVITY_ANCHOR_TARGET_ORIENTATION_INCONCLUSIVE`
 
 **Input HEAD `c73f304`; frozen methodology sha `528f23eb`.** Tests whether intrinsic resting-state

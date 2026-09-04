@@ -1,0 +1,143 @@
+{
+  "gate": "O2.3C-PREP",
+  "epistemic_class": "TECHNICAL_PREPROCESSING_AND_REGISTRATION_CERTIFICATION",
+  "input_head": "e215f3f57db13ffba5b4319bce84beca8e801a04",
+  "resume_o2_3c_frozen_sha": "528f23eb",
+  "purpose": "produce+certify native func1pt8mm resting timeseries, motion, WM/CSF, and DK-68 volume products satisfying the frozen O2.3C input contract. No scientific orientation test here.",
+  "lanes": {
+    "A": "NSD_AUTHOR_LINEAGE (MATLAB) -- INELIGIBLE this environment",
+    "B": "FMRIPREP_BIDS_RECONSTRUCTION -- SELECTED"
+  },
+  "preprocessing_lane": "FMRIPREP_BIDS_RECONSTRUCTION",
+  "lane_B": {
+    "fmriprep_version": "25.2.5",
+    "container_name": "nipreps/fmriprep",
+    "container_digest": "PENDING_PULL_AT_EXECUTION",
+    "no_latest_tag": true,
+    "task_filter": "rest (plus predeclared task benchmark run only)",
+    "sdc": "acquired phasediff fieldmaps (BIDS); SyN-SDC forbidden if valid fieldmaps exist",
+    "slice_timing": "from BIDS metadata",
+    "motion": "rigid head-motion estimation",
+    "no_smoothing": true,
+    "no_ica_aroma": true,
+    "no_scientific_denoising": true,
+    "no_gsr": true,
+    "confounds": "standard fMRIPrep confounds exported",
+    "temporal_cleaning_here": false
+  },
+  "func1pt8mm_reference": {
+    "grid": [
+      81,
+      104,
+      83
+    ],
+    "affine_source": "existing prepared NSD func1pt8mm product (per subject)",
+    "reference_file_hash": "PENDING_AT_EXECUTION",
+    "no_resampling_beyond_single_design": true
+  },
+  "raw_to_func_registration": {
+    "implementation": "ANTs",
+    "transforms": [
+      "rigid",
+      "affine"
+    ],
+    "no_nonlinear_SyN_rest_to_func": true,
+    "cost_metric": "Mattes mutual information",
+    "bold_interpolation": "LanczosWindowedSinc",
+    "atlas_interpolation": "NearestNeighbor",
+    "reference_relationship": "same-participant same-session prepared NSD-core EPI where available",
+    "frozen_before_benchmark": true
+  },
+  "task_benchmark": {
+    "selection": "earliest session with raw task-nsdcore run-01 AND matching prepared func1pt8mm; first valid run",
+    "manifest": "task_benchmark_manifest.csv (resolved to session01_run01 for all subjects)",
+    "no_score_based_selection": true,
+    "metrics": [
+      "geometry(shape,affine,axis)",
+      "brainmask Dice",
+      "mean-BOLD spatial Pearson",
+      "ROI-mean temporal r (ventral/lateral/parietal)",
+      "voxelwise temporal r (median)",
+      "tSNR ratio"
+    ],
+    "pass_thresholds": {
+      "geometry_exact": true,
+      "brainmask_dice_min": 0.9,
+      "mean_volume_spatial_r_min": 0.95,
+      "roi_mean_temporal_r_min": 0.9,
+      "voxelwise_temporal_r_min": 0.7,
+      "no_subject_primary_roi_voxel_r_below": 0.5,
+      "group_tsnr_ratio_range": [
+        0.5,
+        2.0
+      ]
+    },
+    "on_fail": "STOP -- no tuning, no lane switch -> O2_3C_PREP_TASK_BENCHMARK_FAILURE"
+  },
+  "motion": {
+    "params": 6,
+    "translation_units": "mm",
+    "rotation_units": "rad",
+    "motion24": "6 params + temporal derivatives + squares of both (24)",
+    "final_run_rejection_owned_by": "O2.3C (not PREP)"
+  },
+  "tissue": {
+    "wm_csf_source": "FreeSurfer aparc+aseg (imagery-independent)",
+    "mapping_interpolation": "NearestNeighbor",
+    "space": "func1pt8mm"
+  },
+  "dk_atlas": {
+    "atlas": "FreeSurfer Desikan-Killiany aparc",
+    "n_cortical_parcels": 68,
+    "source_files": [
+      "aparc+aseg.mgz"
+    ],
+    "manifest": "DK_parcel_manifest.csv",
+    "mapping": "released NSD anat->func1pt8mm transform via cvnlab/nsdcode nsd_mapdata",
+    "interpolation": "NearestNeighbor (categorical); per-parcel binary fallback if integer map unsupported",
+    "scientific_target_filtering_owned_by": "O2.3C (the <10-voxel rule is NOT applied by PREP)"
+  },
+  "product_label": {
+    "name": "MINDIR_DERIVED_NSD_REST_FUNC1PT8MM",
+    "preprocessing_lane_field": true,
+    "must_not_claim_official_nsd": true
+  },
+  "certification_rules": {
+    "subject_pass_requires": [
+      "all raw rest files accounted",
+      "output grid exact",
+      "motion present",
+      "frozen ROI coords valid (finite fraction >=0.99)",
+      "WM/CSF valid",
+      "DK valid",
+      "no corrupt/nonfinite product",
+      "benchmark lane passed"
+    ],
+    "cohort_pass": "8/8 mapped OR >=7/8 plus explicit technical blocker for the remainder; O2.3C cohort-sufficiency remains authoritative"
+  },
+  "guards": {
+    "target_imagery_files_opened_by_PREP": 0,
+    "o2_2_residual_hash_checked_only": true,
+    "no_imagery_score_influences_any_stage": true
+  },
+  "phases": {
+    "0": "audit+inventory+lane selection (DONE, frozen)",
+    "1": "task benchmark (PENDING pod)",
+    "2": "rest preprocessing (PENDING pod)",
+    "3": "motion/tissue/DK (PENDING pod)",
+    "4": "cohort certification (PENDING pod)"
+  },
+  "execution_status_catalog": [
+    "O2_3C_PREP_PASS",
+    "O2_3C_PREP_PUBLIC_ASSET_FAILURE",
+    "O2_3C_PREP_LANE_SELECTION_FAILURE",
+    "O2_3C_PREP_TASK_BENCHMARK_FAILURE",
+    "O2_3C_PREP_FUNC1PT8MM_MAPPING_FAILURE",
+    "O2_3C_PREP_MOTION_PRODUCT_FAILURE",
+    "O2_3C_PREP_TISSUE_MAPPING_FAILURE",
+    "O2_3C_PREP_DK_MAPPING_FAILURE",
+    "O2_3C_PREP_PRODUCT_CERTIFICATION_FAILURE",
+    "O2_3C_PREP_EXECUTION_FAILURE"
+  ],
+  "frozen_config_sha": "2d1a26a5"
+}

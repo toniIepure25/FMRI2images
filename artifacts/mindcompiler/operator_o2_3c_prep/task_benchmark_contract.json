@@ -1,0 +1,28 @@
+{
+  "gate": "O2.3C-PREP",
+  "frozen_config_sha": "2d1a26a5",
+  "selection": "earliest session with raw task-nsdcore run-01 AND matching prepared func1pt8mm; first valid run",
+  "manifest": "task_benchmark_manifest.csv (resolved to session01_run01 for all subjects)",
+  "no_score_based_selection": true,
+  "metrics": [
+    "geometry(shape,affine,axis)",
+    "brainmask Dice",
+    "mean-BOLD spatial Pearson",
+    "ROI-mean temporal r (ventral/lateral/parietal)",
+    "voxelwise temporal r (median)",
+    "tSNR ratio"
+  ],
+  "pass_thresholds": {
+    "geometry_exact": true,
+    "brainmask_dice_min": 0.9,
+    "mean_volume_spatial_r_min": 0.95,
+    "roi_mean_temporal_r_min": 0.9,
+    "voxelwise_temporal_r_min": 0.7,
+    "no_subject_primary_roi_voxel_r_below": 0.5,
+    "group_tsnr_ratio_range": [
+      0.5,
+      2.0
+    ]
+  },
+  "on_fail": "STOP -- no tuning, no lane switch -> O2_3C_PREP_TASK_BENCHMARK_FAILURE"
+}

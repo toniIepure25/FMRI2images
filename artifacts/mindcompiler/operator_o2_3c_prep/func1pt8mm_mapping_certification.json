@@ -1,0 +1,6 @@
+{
+  "gate": "O2.3C-PREP",
+  "status": "PENDING_POD_COMPUTE",
+  "note": "Phase 1-4 output; NOT computed this session (pod unreachable). No values fabricated per research discipline.",
+  "frozen_config_sha": "2d1a26a5"
+}

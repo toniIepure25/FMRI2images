@@ -1,0 +1,28 @@
+{
+  "gate": "O2.3C-PREP",
+  "suite": "tests/mindcompiler/operator_o2_3c_prep/test_o2_3c_prep_freeze.py",
+  "phase0_freeze_tests_passed": 17,
+  "o2_3c_immutability_tests_passed": 8,
+  "total_passed": 25,
+  "failed": 0,
+  "coverage": [
+    "frozen_config_sha",
+    "prior_immutability+historical_blocker",
+    "no_imagery_access",
+    "lane_A_ineligible/lane_B_selected",
+    "no_lane_switch",
+    "fmriprep_pinned_no_latest",
+    "exact_func1pt8mm_grid",
+    "registration_frozen",
+    "deterministic_benchmark_selection",
+    "benchmark_thresholds",
+    "motion_units+motion24",
+    "wm/csf_categorical",
+    "DK_68_NN",
+    "product_label_not_official",
+    "no_timepoint_removal",
+    "results_pending_not_fabricated",
+    "O3_locked"
+  ],
+  "compute_phase_tests": "deferred until pod compute (no fabricated benchmark tests)"
+}

@@ -1,0 +1,22 @@
+{
+  "gate": "O2.3C-PREP",
+  "frozen_config_sha": "2d1a26a5",
+  "freeze_before_outputs": true,
+  "repos_pinned": {
+    "cvnlab/nsddatapaper": "80e891b8bd734a985d3621a0495f2cc91b9d3cfa",
+    "kendrickkay/preprocessfmri": "ab09d30d5801d9ca8f5782e5c769106d860e2e5e",
+    "kendrickkay/alignvolumedata": "b51311628c81d34c1afd95daa7f1a6770bd1e1ad",
+    "cvnlab/nsdcode": "bfd36a503cc90a3eb3ebfd69b269403f7e186924",
+    "kendrickkay/knkutils": "c321b292d32564813fb049c0ddb3500bc053e1fa"
+  },
+  "reproducibility_freeze": [
+    "software versions",
+    "container digest (at exec)",
+    "repo SHAs",
+    "commands",
+    "registration params",
+    "interpolation",
+    "atlas mapping",
+    "reference hashes"
+  ]
+}

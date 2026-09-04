@@ -1,0 +1,111 @@
+{
+  "gate": "O2.3C-PREP",
+  "probe": "git ls-remote HEAD (public GitHub) + S3 unsigned asset listing",
+  "repositories": {
+    "cvnlab/nsddatapaper": {
+      "sha": "80e891b8bd734a985d3621a0495f2cc91b9d3cfa",
+      "runtime": "MATLAB",
+      "role": "NSD preprocessing driver scripts (preprocess_nsd*.m)",
+      "url": "https://github.com/cvnlab/nsddatapaper",
+      "license": "public (BSD/MIT-family, per repo)",
+      "obtainable": true,
+      "functionality_public": true
+    },
+    "kendrickkay/preprocessfmri": {
+      "sha": "ab09d30d5801d9ca8f5782e5c769106d860e2e5e",
+      "runtime": "MATLAB",
+      "role": "core EPI preprocessing (motion, slice-time, undistortion, resampling)",
+      "url": "https://github.com/kendrickkay/preprocessfmri",
+      "license": "public (BSD/MIT-family, per repo)",
+      "obtainable": true,
+      "functionality_public": true
+    },
+    "kendrickkay/alignvolumedata": {
+      "sha": "b51311628c81d34c1afd95daa7f1a6770bd1e1ad",
+      "runtime": "MATLAB",
+      "role": "EPI<->anatomy alignment",
+      "url": "https://github.com/kendrickkay/alignvolumedata",
+      "license": "public (BSD/MIT-family, per repo)",
+      "obtainable": true,
+      "functionality_public": true
+    },
+    "cvnlab/nsdcode": {
+      "sha": "bfd36a503cc90a3eb3ebfd69b269403f7e186924",
+      "runtime": "Python",
+      "role": "nsd_mapdata: apply released NSD transforms across spaces",
+      "url": "https://github.com/cvnlab/nsdcode",
+      "license": "public (BSD/MIT-family, per repo)",
+      "obtainable": true,
+      "functionality_public": true
+    },
+    "kendrickkay/knkutils": {
+      "sha": "c321b292d32564813fb049c0ddb3500bc053e1fa",
+      "runtime": "MATLAB",
+      "role": "utility dependency for the MATLAB toolchain",
+      "url": "https://github.com/kendrickkay/knkutils",
+      "license": "public (BSD/MIT-family, per repo)",
+      "obtainable": true,
+      "functionality_public": true
+    }
+  },
+  "preprocess_nsd_scripts_public_method_facts": {
+    "scripts": [
+      "preprocess_nsd.m",
+      "preprocess_nsd_secondstage.m",
+      "preprocess_nsd_epialignment.m",
+      "preprocess_nsd_calculatetransformations.m",
+      "preprocess_nsd_functionaltostructuralalignment.m"
+    ],
+    "runtime": "MATLAB (all core preprocessing scripts)",
+    "documented_operations": [
+      "slice-time correction",
+      "rigid motion correction",
+      "fieldmap/distortion correction",
+      "gradient-nonlinearity unwarp",
+      "session-to-reference EPI registration",
+      "single-spatial-resampling design",
+      "second-stage func1pt8mm grid construction (1.8mm)"
+    ],
+    "note": "Operations described at the level of the public method; not modified by this gate."
+  },
+  "released_assets": {
+    "raw_bids_fieldmaps": {
+      "present": true,
+      "type": "phasediff + magnitude1/2 (per run)",
+      "example": "nsddata_rawdata/sub-01/ses-nsd21/fmap/"
+    },
+    "freesurfer_aparc_aseg": {
+      "present": true,
+      "files": [
+        "aparc+aseg.mgz",
+        "aparc.DKTatlas+aseg.mgz"
+      ],
+      "path": "nsddata/freesurfer/subjNN/mri/",
+      "provides": "Desikan-Killiany source"
+    },
+    "released_anat_to_func1pt8mm_transforms": {
+      "present": true,
+      "files": [
+        "anat0pt5-to-func1pt8.nii.gz",
+        "anat0pt8-to-func1pt8.nii.gz",
+        "anat1pt0-to-func1pt8.nii.gz",
+        "MNI-to-func1pt8.nii.gz"
+      ],
+      "path": "nsddata/ppdata/subjNN/transforms/",
+      "usable_by": "cvnlab/nsdcode nsd_mapdata (Python, NN interpolation)"
+    },
+    "prepared_main_nsd_func1pt8mm_timeseries": {
+      "present": true,
+      "naming": "timeseries_sessionNN_runMM.nii.gz",
+      "role": "official reference for the task benchmark"
+    },
+    "raw_task_rest": {
+      "present": true,
+      "naming": "sub-NN_ses-nsdSS_task-rest_run-R_bold.nii.gz"
+    }
+  },
+  "gradient_nonlinearity_coefficients": {
+    "vendor_coefficient_file_in_public_release": false,
+    "note": "Siemens gradient-nonlinearity coefficients are scanner/vendor-proprietary and are not part of the public NSD release; the MATLAB lineage's gradunwarp step is therefore not fully reproducible from public assets alone."
+  }
+}

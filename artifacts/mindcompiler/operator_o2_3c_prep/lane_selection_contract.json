@@ -1,0 +1,10 @@
+{
+  "gate": "O2.3C-PREP",
+  "frozen_config_sha": "2d1a26a5",
+  "two_lanes_only": true,
+  "lane_A": "NSD_AUTHOR_LINEAGE (preferred if executable)",
+  "lane_B": "FMRIPREP_BIDS_RECONSTRUCTION (fallback)",
+  "no_third_lane": true,
+  "selection_before_any_QC_metric": true,
+  "no_lane_switch_after_benchmark": true
+}

@@ -1,0 +1,9 @@
+subject,session,raw_task_run,prepared_reference,selection_rule
+subj01,ses-nsd01,sub-01_ses-nsd01_task-nsdcore_run-01_bold.nii.gz,timeseries_session01_run01.nii.gz,earliest session with raw task-nsdcore run-01 AND matching prepared func1pt8mm
+subj02,ses-nsd01,sub-02_ses-nsd01_task-nsdcore_run-01_bold.nii.gz,timeseries_session01_run01.nii.gz,earliest session with raw task-nsdcore run-01 AND matching prepared func1pt8mm
+subj03,ses-nsd01,sub-03_ses-nsd01_task-nsdcore_run-01_bold.nii.gz,timeseries_session01_run01.nii.gz,earliest session with raw task-nsdcore run-01 AND matching prepared func1pt8mm
+subj04,ses-nsd01,sub-04_ses-nsd01_task-nsdcore_run-01_bold.nii.gz,timeseries_session01_run01.nii.gz,earliest session with raw task-nsdcore run-01 AND matching prepared func1pt8mm
+subj05,ses-nsd01,sub-05_ses-nsd01_task-nsdcore_run-01_bold.nii.gz,timeseries_session01_run01.nii.gz,earliest session with raw task-nsdcore run-01 AND matching prepared func1pt8mm
+subj06,ses-nsd01,sub-06_ses-nsd01_task-nsdcore_run-01_bold.nii.gz,timeseries_session01_run01.nii.gz,earliest session with raw task-nsdcore run-01 AND matching prepared func1pt8mm
+subj07,ses-nsd01,sub-07_ses-nsd01_task-nsdcore_run-01_bold.nii.gz,timeseries_session01_run01.nii.gz,earliest session with raw task-nsdcore run-01 AND matching prepared func1pt8mm
+subj08,ses-nsd01,sub-08_ses-nsd01_task-nsdcore_run-01_bold.nii.gz,timeseries_session01_run01.nii.gz,earliest session with raw task-nsdcore run-01 AND matching prepared func1pt8mm

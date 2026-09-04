@@ -1,0 +1,20 @@
+{
+  "gate": "O2.3C-PREP",
+  "phase0_status": "PHASE0_FROZEN",
+  "terminal_execution_status": null,
+  "terminal_status_reason": "compute Phases 1-4 (benchmark, rest preprocessing, product certification) require the pod + container runtime, which is network-unreachable this session; no benchmark or product result is fabricated (research discipline).",
+  "not_public_asset_failure_because": "all public assets present (repos, fieldmaps, FreeSurfer, released transforms, raw data); blocker is transient pod infrastructure, not assets",
+  "not_lane_selection_failure_because": "Lane A objectively ineligible (MATLAB) -> Lane B selected+frozen",
+  "preprocessing_lane": "FMRIPREP_BIDS_RECONSTRUCTION",
+  "immutable": {
+    "TRACK_R": "INDEPENDENT_METHOD_REPRODUCTION_PARTIAL",
+    "O1": "STIMULUS_INVARIANT_OPERATOR_PARTIAL",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2.2": "CROSS_STATE_TRANSPORT_MULTIREGIME",
+    "O2.3A": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+    "O2.3C_first_attempt": "O2_3C_REST_PRODUCT_INCOMPATIBLE",
+    "O2.3C_orientation": "CONNECTIVITY_ANCHOR_TARGET_ORIENTATION_INCONCLUSIVE",
+    "O3": "O3_NOT_READY"
+  },
+  "preserves_historical_blocker": "O2_3C_REST_PRODUCT_INCOMPATIBLE (unchanged)"
+}

@@ -1,0 +1,29 @@
+{
+  "gate": "O2.3C-PREP",
+  "frozen_config_sha": "2d1a26a5",
+  "artifact_sha256_16": {
+    "author_preprocessing_audit.json": "75b59788221c0ad8",
+    "cohort_product_certification.json": "a9a1e2c48d7eac48",
+    "DK_mapping_certification.json": "a9a1e2c48d7eac48",
+    "DK_mapping_contract.json": "eb8c951e7d8bba4b",
+    "DK_parcel_manifest.csv": "4c2a583c90ccf85f",
+    "execution_provenance.json": "9a92af7921669d61",
+    "func1pt8mm_mapping_certification.json": "a9a1e2c48d7eac48",
+    "func1pt8mm_mapping_contract.json": "9e2702a6cb858099",
+    "lane_selection_contract.json": "d53de28bab36d3ff",
+    "lane_selection_result.json": "47a5fc250274a61c",
+    "motion_contract.json": "fceab12a14d571d0",
+    "o2_3c_prep_frozen_config.json": "36ef6e0cfa4f98a6",
+    "preprocessing_provenance_contract.json": "0627445348ef8413",
+    "product_certification_contract.json": "b6b0aa7a846dcacf",
+    "rest_raw_inventory.json": "91022ff08d4d6a92",
+    "scientific_status.json": "4235f277dd12aad4",
+    "task_benchmark_contract.json": "94097fb10cd5b691",
+    "task_benchmark_manifest.csv": "c36c80540e923e90",
+    "task_benchmark_results.json": "a9a1e2c48d7eac48",
+    "task_benchmark_status.json": "a9a1e2c48d7eac48",
+    "test_report.json": "2d0479d17c3e634d",
+    "tissue_mask_certification.json": "a9a1e2c48d7eac48",
+    "tissue_mask_contract.json": "56fa6538aa793a8c"
+  }
+}

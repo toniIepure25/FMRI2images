@@ -1,0 +1,9 @@
+{
+  "gate": "O2.3C-PREP",
+  "frozen_config_sha": "2d1a26a5",
+  "params": 6,
+  "translation_units": "mm",
+  "rotation_units": "rad",
+  "motion24": "6 params + temporal derivatives + squares of both (24)",
+  "final_run_rejection_owned_by": "O2.3C (not PREP)"
+}

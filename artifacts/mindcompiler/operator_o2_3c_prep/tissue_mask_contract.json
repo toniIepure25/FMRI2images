@@ -1,0 +1,7 @@
+{
+  "gate": "O2.3C-PREP",
+  "frozen_config_sha": "2d1a26a5",
+  "wm_csf_source": "FreeSurfer aparc+aseg (imagery-independent)",
+  "mapping_interpolation": "NearestNeighbor",
+  "space": "func1pt8mm"
+}

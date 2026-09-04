@@ -1,0 +1,13 @@
+{
+  "gate": "O2.3C-PREP",
+  "frozen_config_sha": "2d1a26a5",
+  "atlas": "FreeSurfer Desikan-Killiany aparc",
+  "n_cortical_parcels": 68,
+  "source_files": [
+    "aparc+aseg.mgz"
+  ],
+  "manifest": "DK_parcel_manifest.csv",
+  "mapping": "released NSD anat->func1pt8mm transform via cvnlab/nsdcode nsd_mapdata",
+  "interpolation": "NearestNeighbor (categorical); per-parcel binary fallback if integer map unsupported",
+  "scientific_target_filtering_owned_by": "O2.3C (the <10-voxel rule is NOT applied by PREP)"
+}

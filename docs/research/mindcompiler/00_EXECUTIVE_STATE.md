@@ -41,9 +41,18 @@ benchmark manifest + DK 68 manifest + PENDING result placeholders + hashes) + `d
 **udocker runs containers via proot only** (fakechroot F1-F4 fail) = not a supportable fMRIPrep runtime (too slow/fragile,
 correctness risk); **fMRIPrep 25.2.5 requires a FreeSurfer license** even with `--fs-no-reconall` (authoritative docs),
 **absent on PVC** (external credential). => Lane B not executable in a supported way. `compute_state = BLOCKED_PENDING_USER_ENABLERS`;
-terminal-if-unresolved `O2_3C_PREP_PUBLIC_ASSET_FAILURE`. No benchmark/product fabricated. **Two enablers needed** (user-domain,
-mirrors O2.3A blocker->acquire): (1) FreeSurfer `license.txt` on the PVC; (2) a container-capable runtime (apptainer/singularity/docker
-node whose securityContext permits mount setup). **Next:** on enablers -> Phase 1 benchmark (session01_run01) -> Phases 2-4 -> O2.3C-RESUME `528f23eb`.
+terminal-if-unresolved `O2_3C_PREP_PUBLIC_ASSET_FAILURE`. No benchmark/product fabricated.
+
+**COMPUTE FEASIBILITY (empirically tested, same session):** attempted to establish the Lane B runtime end-to-end. Findings:
+udocker pull FAILS on the ~15GB fMRIPrep layer (NFS root_squash 'delete not owner' -> hang; local overlay -> zombie curl @30MB);
+`skopeo` 1.24.0 transfers robustly (after v1->v2 registries.conf + `--insecure-policy`) BUT the **pod preempted mid-copy at ~2.7/20GB**
+and the ephemeral overlay (`/home/jovyan`) is wiped on rollout -> tar lost; NFS PVC root_squash breaks container image stores. Pod cycled
+up/down repeatedly this session (uptime ~tens of min). **Decisive:** fMRIPrep 25.2.5 cannot be executed to completion here -- no supported
+container runtime (apptainer blocked by securityContext mount restriction; no docker/singularity/sudo), udocker only via proot (slow/unsupported),
+sustained compute defeated by preemption + ephemeral-wipe, FreeSurfer license absent. Infrastructure limitation, NOT a scientific result.
+`compute_state=BLOCKED_PENDING_STABLE_CONTAINER_HOST_AND_FS_LICENSE`. **Two enablers needed (user-domain):** (1) a STABLE non-preemptible
+container-capable host (Docker or Apptainer/Singularity permitted, persistent storage for the ~20GB image + outputs); (2) FreeSurfer `license.txt`
+on persistent storage. **Next:** on enablers -> Phase 1 benchmark (session01_run01) -> Phases 2-4 -> O2.3C-RESUME `528f23eb`.
 
 ---
 

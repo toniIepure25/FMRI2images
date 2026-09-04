@@ -42,7 +42,19 @@
   },
   "conclusion": "Neither preprocessing lane is executable in a supported, research-grade manner in the current environment: Lane A lacks MATLAB; Lane B (fMRIPrep 25.2.5) cannot run under the only supported runtime (apptainer, blocked by pod mount restriction) and requires an absent FreeSurfer license. udocker/proot is technically able to run containers but is not a supportable fMRIPrep runtime.",
   "enablers_needed_to_proceed": [
-    "FreeSurfer license.txt placed on the PVC (free; external registration) -- HARD dependency, user-domain",
-    "a container-capable execution environment for fMRIPrep: a node/pod whose securityContext permits apptainer/singularity mount setup (or a Docker/Singularity host) -- infrastructure, user-domain"
-  ]
+    "A STABLE, container-capable execution host: non-preemptible, with Docker OR Apptainer/Singularity permitted to set up mounts, and persistent writable storage for the ~20GB image + fMRIPrep outputs. (The current preemptible pod cannot host fMRIPrep.)",
+    "A FreeSurfer license.txt placed on persistent storage (free registration; external credential)."
+  ],
+  "image_acquisition_attempt": {
+    "official_image_tag_exists": "nipreps/fmriprep:25.2.5 confirmed on Docker Hub (latest release)",
+    "udocker_pull": "FAILS on the large fMRIPrep layer (sha256:660ffc76...): NFS store -> 'delete not owner' (root_squash) then hang at 5GB; local overlay store -> zombie curl, stalls at 30MB. udocker downloader unreliable for the ~15GB layer.",
+    "skopeo_copy": "installed skopeo 1.24.0 (conda-forge); after fixing v1->v2 registries.conf + --insecure-policy it transfers robustly, BUT the pod preempted mid-copy at ~2.7GB of ~20GB; ephemeral local overlay (/home/jovyan) is wiped on rollout so the tar is lost.",
+    "nfs_pvc_container_store": "UNUSABLE for container images: root_squash makes udocker/skopeo layer files owned by nobody -> 'delete not owner'.",
+    "local_overlay_store": "431G disk /101G free but EPHEMERAL -> wiped on the frequent pod rollouts."
+  },
+  "pod_preemption_observed": {
+    "pattern": "pod cycled up/down multiple times this session; uptime windows only ~tens of minutes; port22 DOWN/refused between.",
+    "impact": "defeats even a ~20-min image copy; a multi-hour fMRIPrep run (min. needed for this gate) cannot survive; ephemeral working storage is wiped each rollout."
+  },
+  "decisive_conclusion": "Lane B (fMRIPrep 25.2.5) CANNOT be executed to completion on this pod: no supported container runtime (apptainer blocked by securityContext; no docker/singularity; no sudo); only udocker/proot runs (slow/unsupported) and its downloader fails on the large layer; robust skopeo transfer + any sustained compute are defeated by frequent preemption that wipes ephemeral storage, while the persistent NFS PVC's root_squash breaks container image stores; plus the FreeSurfer license is still absent. This is an infrastructure limitation, not a scientific result."
 }

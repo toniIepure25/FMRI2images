@@ -2,7 +2,7 @@
   "gate": "O2.3C-PREP",
   "phase0_status": "PHASE0_FROZEN",
   "terminal_execution_status": null,
-  "terminal_status_reason": "Pod reachable and container runtime installable, but neither preprocessing lane is executable in a supported manner: Lane A lacks MATLAB; Lane B (fMRIPrep 25.2.5) needs apptainer/singularity (blocked by pod securityContext) + a FreeSurfer license (absent external credential). No benchmark/product fabricated. Resolvable via two user-provided enablers (see runtime_probe.json); mirrors the O2.3A blocker->acquire pattern.",
+  "terminal_status_reason": "Verified empirically this session: the available execution environment cannot run fMRIPrep 25.2.5 to completion (runtime + preemption + storage + license). No benchmark/product fabricated. Resolvable with a stable container-capable host + a FreeSurfer license (see runtime_probe.json enablers).",
   "not_public_asset_failure_because": "all public assets present (repos, fieldmaps, FreeSurfer, released transforms, raw data); blocker is transient pod infrastructure, not assets",
   "not_lane_selection_failure_because": "Lane A objectively ineligible (MATLAB) -> Lane B selected+frozen",
   "preprocessing_lane": "FMRIPREP_BIDS_RECONSTRUCTION",
@@ -17,10 +17,10 @@
     "O3": "O3_NOT_READY"
   },
   "preserves_historical_blocker": "O2_3C_REST_PRODUCT_INCOMPATIBLE (unchanged)",
-  "compute_state": "BLOCKED_PENDING_USER_ENABLERS",
+  "compute_state": "BLOCKED_PENDING_STABLE_CONTAINER_HOST_AND_FS_LICENSE",
   "verified_runtime_blockers": {
     "lane_A": "no MATLAB runtime",
-    "lane_B": "apptainer cannot execute (pod mount-propagation restriction); FreeSurfer license absent (external credential); udocker runs only via proot -> not a supportable fMRIPrep runtime"
+    "lane_B": "no supported container runtime on pod (apptainer blocked by securityContext mount restriction; no docker/singularity/sudo); udocker runs only via proot (unsupported/slow) and its downloader fails on the ~15GB fMRIPrep layer; skopeo transfer + any sustained compute defeated by frequent pod preemption wiping ephemeral storage; NFS PVC root_squash breaks container stores; FreeSurfer license absent"
   },
   "terminal_execution_status_if_unresolved": "O2_3C_PREP_PUBLIC_ASSET_FAILURE"
 }

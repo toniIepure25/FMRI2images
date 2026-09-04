@@ -2,7 +2,7 @@
   "gate": "O2.3C-PREP",
   "phase0_status": "PHASE0_FROZEN",
   "terminal_execution_status": null,
-  "terminal_status_reason": "compute Phases 1-4 (benchmark, rest preprocessing, product certification) require the pod + container runtime, which is network-unreachable this session; no benchmark or product result is fabricated (research discipline).",
+  "terminal_status_reason": "Pod reachable and container runtime installable, but neither preprocessing lane is executable in a supported manner: Lane A lacks MATLAB; Lane B (fMRIPrep 25.2.5) needs apptainer/singularity (blocked by pod securityContext) + a FreeSurfer license (absent external credential). No benchmark/product fabricated. Resolvable via two user-provided enablers (see runtime_probe.json); mirrors the O2.3A blocker->acquire pattern.",
   "not_public_asset_failure_because": "all public assets present (repos, fieldmaps, FreeSurfer, released transforms, raw data); blocker is transient pod infrastructure, not assets",
   "not_lane_selection_failure_because": "Lane A objectively ineligible (MATLAB) -> Lane B selected+frozen",
   "preprocessing_lane": "FMRIPREP_BIDS_RECONSTRUCTION",
@@ -16,5 +16,11 @@
     "O2.3C_orientation": "CONNECTIVITY_ANCHOR_TARGET_ORIENTATION_INCONCLUSIVE",
     "O3": "O3_NOT_READY"
   },
-  "preserves_historical_blocker": "O2_3C_REST_PRODUCT_INCOMPATIBLE (unchanged)"
+  "preserves_historical_blocker": "O2_3C_REST_PRODUCT_INCOMPATIBLE (unchanged)",
+  "compute_state": "BLOCKED_PENDING_USER_ENABLERS",
+  "verified_runtime_blockers": {
+    "lane_A": "no MATLAB runtime",
+    "lane_B": "apptainer cannot execute (pod mount-propagation restriction); FreeSurfer license absent (external credential); udocker runs only via proot -> not a supportable fMRIPrep runtime"
+  },
+  "terminal_execution_status_if_unresolved": "O2_3C_PREP_PUBLIC_ASSET_FAILURE"
 }

@@ -1,0 +1,48 @@
+{
+  "gate": "O2.3C-PREP",
+  "probe_date": "2026-09-04",
+  "pod_reachable": true,
+  "pod": {
+    "os": "Ubuntu 24.04.4",
+    "cpu": 256,
+    "ram_gb": 1007,
+    "work_pvc_free": "107T",
+    "nsd_data_on_pvc_gb": 262,
+    "sudo": false
+  },
+  "matlab": {
+    "available": false,
+    "impact": "Lane A not executable"
+  },
+  "container_runtimes": {
+    "apptainer": {
+      "installed": "1.5.3 (conda-forge, userspace)",
+      "userns_enabled": true,
+      "executes_containers": false,
+      "blocker": "pod securityContext blocks mount propagation: 'mount --make-rprivate /' -> Permission denied; apptainer 'Failed to set mount propagation: Permission denied'. Not fixable without k8s privileges."
+    },
+    "docker_podman_singularity": {
+      "available": false
+    },
+    "udocker": {
+      "installed": true,
+      "executes_containers": true,
+      "working_engine": "P1 (proot/ptrace) only",
+      "fakechroot_engines_F1_F4": "FAILED",
+      "viability_for_fmriprep": "NOT VIABLE for research-grade run: proot ptrace overhead (~5-50x) over 8 subj + ~200 rest runs is prohibitively slow/fragile; udocker is an unsupported fMRIPrep runtime -> correctness risk for geometric preprocessing feeding frozen O2.3C."
+    }
+  },
+  "freesurfer_license": {
+    "required_by_fmriprep": true,
+    "required_even_with_fs_no_reconall": true,
+    "source": "fmriprep.org/en/stable/usage.html (authoritative)",
+    "present_on_pvc": false,
+    "obtainable": "free registration at surfer.nmr.mgh.harvard.edu/registration.html (external credential; cannot be obtained autonomously)",
+    "note": "NSD FreeSurfer subjects exist (nsddata/freesurfer) and can be reused via --fs-subjects-dir, avoiding recon-all, but the license file is still mandatory at startup."
+  },
+  "conclusion": "Neither preprocessing lane is executable in a supported, research-grade manner in the current environment: Lane A lacks MATLAB; Lane B (fMRIPrep 25.2.5) cannot run under the only supported runtime (apptainer, blocked by pod mount restriction) and requires an absent FreeSurfer license. udocker/proot is technically able to run containers but is not a supportable fMRIPrep runtime.",
+  "enablers_needed_to_proceed": [
+    "FreeSurfer license.txt placed on the PVC (free; external registration) -- HARD dependency, user-domain",
+    "a container-capable execution environment for fMRIPrep: a node/pod whose securityContext permits apptainer/singularity mount setup (or a Docker/Singularity host) -- infrastructure, user-domain"
+  ]
+}

@@ -34,8 +34,16 @@ preserved unchanged.
 
 Artifacts: `artifacts/mindcompiler/operator_o2_3c_prep/` (frozen_config + 8 contracts + audit + lane result +
 benchmark manifest + DK 68 manifest + PENDING result placeholders + hashes) + `docs/research/mindcompiler/59_O2_3C_PREP_REST_PRODUCT.md`.
-**Next:** when pod+container available, pull fMRIPrep 25.2.5 (record digest) -> Phase 1 benchmark -> on PASS,
-Phases 2-4 then terminal status; on fail `O2_3C_PREP_TASK_BENCHMARK_FAILURE`. Then O2.3C-RESUME (SHA `528f23eb`).
+
+**RUNTIME PROBE (2026-09-04, pod recovered)** -- `runtime_probe.json`: pod back (256 CPU / 1TB RAM / 107TB free /
+262GB NSD present). Verified: **no MATLAB** (Lane A out); **apptainer 1.5.3 installs** (conda-forge, userns enabled)
+**but cannot execute** -- pod securityContext blocks mount propagation (`mount --make-rprivate /` -> Permission denied);
+**udocker runs containers via proot only** (fakechroot F1-F4 fail) = not a supportable fMRIPrep runtime (too slow/fragile,
+correctness risk); **fMRIPrep 25.2.5 requires a FreeSurfer license** even with `--fs-no-reconall` (authoritative docs),
+**absent on PVC** (external credential). => Lane B not executable in a supported way. `compute_state = BLOCKED_PENDING_USER_ENABLERS`;
+terminal-if-unresolved `O2_3C_PREP_PUBLIC_ASSET_FAILURE`. No benchmark/product fabricated. **Two enablers needed** (user-domain,
+mirrors O2.3A blocker->acquire): (1) FreeSurfer `license.txt` on the PVC; (2) a container-capable runtime (apptainer/singularity/docker
+node whose securityContext permits mount setup). **Next:** on enablers -> Phase 1 benchmark (session01_run01) -> Phases 2-4 -> O2.3C-RESUME `528f23eb`.
 
 ---
 

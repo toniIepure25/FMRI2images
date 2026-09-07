@@ -7,7 +7,7 @@
     "DK_mapping_certification.json": "a9a1e2c48d7eac48",
     "DK_mapping_contract.json": "eb8c951e7d8bba4b",
     "DK_parcel_manifest.csv": "4c2a583c90ccf85f",
-    "execution_provenance.json": "9a92af7921669d61",
+    "execution_provenance.json": "f901aa144f5d4588",
     "func1pt8mm_mapping_certification.json": "a9a1e2c48d7eac48",
     "func1pt8mm_mapping_contract.json": "9e2702a6cb858099",
     "lane_selection_contract.json": "d53de28bab36d3ff",
@@ -18,13 +18,20 @@
     "product_certification_contract.json": "b6b0aa7a846dcacf",
     "rest_raw_inventory.json": "91022ff08d4d6a92",
     "runtime_probe.json": "1710373dfbd8d9b9",
-    "scientific_status.json": "42ba2afffa36e069",
+    "scientific_status.json": "010630fe58848c80",
     "task_benchmark_contract.json": "94097fb10cd5b691",
     "task_benchmark_manifest.csv": "c36c80540e923e90",
     "task_benchmark_results.json": "a9a1e2c48d7eac48",
     "task_benchmark_status.json": "a9a1e2c48d7eac48",
-    "test_report.json": "2d0479d17c3e634d",
+    "test_report.json": "e9e3e078d51919aa",
     "tissue_mask_certification.json": "a9a1e2c48d7eac48",
-    "tissue_mask_contract.json": "56fa6538aa793a8c"
+    "tissue_mask_contract.json": "56fa6538aa793a8c",
+    "baremetal_dependency_inventory.json": "51268a0461edcdef",
+    "baremetal_environment_manifest.json": "d0eac5838ea878f5",
+    "persistent_workdir_certification.json": "f0ac81c88c2d4e8b",
+    "resume_certification.json": "268ff47f86854e32",
+    "runtime_amendment_contract.json": "3050353e79fad0c2",
+    "runtime_amendment_status.json": "6229b32cc5a744b6",
+    "single_run_runtime_result.json": "72e197bbd708edd6"
   }
 }

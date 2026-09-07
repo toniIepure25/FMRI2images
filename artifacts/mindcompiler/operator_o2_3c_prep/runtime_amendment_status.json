@@ -1,0 +1,15 @@
+{
+  "gate": "O2.3C-PREP-RUNTIME",
+  "status": "RUNTIME_AMENDMENT_FROZEN",
+  "terminal_status": null,
+  "contract_sha": "24e6ca83",
+  "phases": {
+    "R0": "FROZEN",
+    "R1": "TARGETS_FROZEN_OBSERVED_PENDING",
+    "R2": "PENDING",
+    "R3": "PENDING",
+    "R4": "PENDING"
+  },
+  "preserves_historical_blocker": "O2_3C_REST_PRODUCT_INCOMPATIBLE (unchanged); container-path infra blocker preserved at fbab942",
+  "no_scientific_track_O_status_modified": true
+}

@@ -1,0 +1,98 @@
+{
+  "gate": "O2.3C-PREP-RUNTIME",
+  "phase": "R1_external_dependency_audit",
+  "runtime_probe_evidence": {
+    "host": "orchestraiq-jupyter (pod)",
+    "sudo": false,
+    "user": "uid=1000(jovyan)",
+    "pvc_writable": true,
+    "pvc_free": "107T persistent NFS",
+    "network": {
+      "conda_forge": 200,
+      "github": 200,
+      "templateflow_s3": 200,
+      "pypi": 200,
+      "fsl": 302
+    },
+    "userns_mount_propagation": "Permission denied (container runtime still blocked -> bare-metal only)",
+    "preexisting_neuro_tools": "none (clean slate)"
+  },
+  "dependencies": [
+    {
+      "name": "python",
+      "required_version": "3.12",
+      "executable": "python",
+      "install_source": "conda-forge via micromamba",
+      "installable_without_sudo": true,
+      "version_after_install": "PENDING"
+    },
+    {
+      "name": "fmriprep",
+      "required_version": "25.2.5",
+      "executable": "fmriprep",
+      "install_source": "PyPI (pip)",
+      "installable_without_sudo": true,
+      "version_after_install": "PENDING"
+    },
+    {
+      "name": "ANTs",
+      "required_version": "2.5.1",
+      "executable": "antsRegistration",
+      "install_source": "conda-forge",
+      "installable_without_sudo": true,
+      "version_after_install": "PENDING"
+    },
+    {
+      "name": "AFNI",
+      "required_version": "24.0.05",
+      "executable": "3dTshift",
+      "install_source": "conda-forge",
+      "installable_without_sudo": true,
+      "version_after_install": "PENDING"
+    },
+    {
+      "name": "FSL",
+      "required_version": "6.0.7.7",
+      "executable": "flirt",
+      "install_source": "fslinstaller.py (user-space)",
+      "installable_without_sudo": true,
+      "version_after_install": "PENDING"
+    },
+    {
+      "name": "connectome-workbench",
+      "required_version": "1.5.0",
+      "executable": "wb_command",
+      "install_source": "conda-forge",
+      "installable_without_sudo": true,
+      "version_after_install": "PENDING"
+    },
+    {
+      "name": "FreeSurfer",
+      "required_version": "7.3.2",
+      "executable": "mri_convert/bbregister (only if invoked)",
+      "install_source": "official tarball",
+      "installable_without_sudo": true,
+      "execution_requires_license": true,
+      "invoked_by_frozen_path": "PENDING_WORKFLOW_GRAPH_DETERMINATION",
+      "version_after_install": "PENDING"
+    },
+    {
+      "name": "bids-validator",
+      "required_version": "1.14.10",
+      "executable": "bids-validator",
+      "install_source": "npm (node via conda-forge)",
+      "installable_without_sudo": true,
+      "version_after_install": "PENDING"
+    },
+    {
+      "name": "templateflow",
+      "required_version": "resolved-by-fmriprep-25.2.5",
+      "executable": "(python pkg)",
+      "install_source": "PyPI + S3 template cache",
+      "installable_without_sudo": true,
+      "version_after_install": "PENDING"
+    }
+  ],
+  "installability_summary": "All required external dependencies are installable user-space (no sudo) from reachable sources; exact version-match verification is PENDING install. FreeSurfer execution/license necessity is PENDING a workflow-graph determination.",
+  "status": "R1_AUDIT_TARGETS_FROZEN_OBSERVED_PENDING"
+}

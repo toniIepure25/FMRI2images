@@ -1,9 +1,10 @@
 {
   "gate": "O2.3C-PREP",
-  "suite": "tests/mindcompiler/operator_o2_3c_prep/test_o2_3c_prep_freeze.py",
+  "suite": "tests/mindcompiler/operator_o2_3c_prep/ + tests/mindcompiler/operator_o2_3c/",
   "phase0_freeze_tests_passed": 17,
   "o2_3c_immutability_tests_passed": 8,
-  "total_passed": 25,
+  "runtime_amendment_R0_freeze_tests_passed": 9,
+  "total_passed": 34,
   "failed": 0,
   "coverage": [
     "frozen_config_sha",

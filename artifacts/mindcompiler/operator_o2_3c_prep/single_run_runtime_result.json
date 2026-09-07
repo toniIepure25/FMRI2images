@@ -1,0 +1,9 @@
+{
+  "gate": "O2.3C-PREP-RUNTIME",
+  "phase": "R4",
+  "status": "PENDING_RUNTIME_AMENDMENT",
+  "subject": "subj01",
+  "session": "ses-nsd01",
+  "run": "run-01",
+  "benchmark": null
+}

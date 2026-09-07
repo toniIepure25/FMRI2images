@@ -1,0 +1,137 @@
+{
+  "gate": "O2.3C-PREP-RUNTIME",
+  "amendment_class": "TECHNICAL_RUNTIME_PACKAGING_ONLY",
+  "supersedes_runtime_only_of": "O2.3C-PREP Lane B container packaging",
+  "input_head": "fbab9428870488751f24679918c1c7e61bd1a042",
+  "preserves": {
+    "phase0_frozen_config_sha": "2d1a26a5",
+    "lane_B_algorithm": "fMRIPrep 25.2.5",
+    "benchmark_thresholds": "UNCHANGED (task_benchmark_contract.json)",
+    "registration_policy": "UNCHANGED (func1pt8mm_mapping_contract.json)",
+    "historical_infra_blocker_commit": "fbab942",
+    "historical_first_attempt": "O2_3C_REST_PRODUCT_INCOMPATIBLE",
+    "O3": "O3_NOT_READY"
+  },
+  "change": {
+    "from": "official fMRIPrep 25.2.5 container (nipreps/fmriprep:25.2.5)",
+    "to": "fMRIPrep 25.2.5 manually prepared environment with container-equivalent pinned external dependencies",
+    "unchanged": [
+      "algorithm",
+      "version",
+      "input data",
+      "command options",
+      "benchmark"
+    ],
+    "admissible_because": "official fMRIPrep docs support a Manually Prepared Environment (Python 3.10+); Nipype reuses completed nodes across interruption when the same persistent -w WORK_DIR is reused; no Phase-1 benchmark outcome has yet been produced"
+  },
+  "runtime_target": {
+    "python": "3.12",
+    "fmriprep": "25.2.5",
+    "container_equivalence_source": "official fMRIPrep 25.2.5 manual-environment docs + Dockerfile (base ghcr.io/nipreps/fmriprep-base:20251006, pixi.lock)",
+    "external_dependencies_pinned": {
+      "FSL": "6.0.7.7",
+      "ANTs": "2.5.1",
+      "AFNI": "24.0.05",
+      "FreeSurfer": "7.3.2",
+      "connectome-workbench": "1.5.0",
+      "bids-validator": "1.14.10"
+    },
+    "templateflow": {
+      "package": "pinned to fmriprep==25.2.5 resolved dependency (recorded in manifest)",
+      "cache": "/home/jovyan/work/o2_3c_prep_fmriprep/templateflow",
+      "required_templates_default_fmriprep": [
+        "MNI152NLin2009cAsym",
+        "MNI152NLin6Asym",
+        "OASIS30ANTs",
+        "fsaverage",
+        "fsLR"
+      ]
+    },
+    "install_sources": {
+      "conda_forge": [
+        "ANTs",
+        "AFNI",
+        "connectome-workbench"
+      ],
+      "pypi": [
+        "fmriprep==25.2.5",
+        "nipype",
+        "templateflow",
+        "niworkflows",
+        "sdcflows",
+        "smriprep"
+      ],
+      "fsl_installer": "https://fsl.fmrib.ox.ac.uk fslinstaller.py (user-space, no key file, license-accept at install)",
+      "freesurfer_tarball": "official FreeSurfer 7.3.2 linux tarball (extract user-space; execution license-gated)",
+      "bootstrap": "micromamba static binary (user-space, no sudo)"
+    }
+  },
+  "environment_variables_frozen": {
+    "MAMBA_ROOT_PREFIX": "/home/jovyan/work/micromamba",
+    "FSLDIR": "/home/jovyan/work/envs/fmriprep-25.2.5-baremetal/fsl",
+    "FREESURFER_HOME": "/home/jovyan/work/freesurfer-7.3.2",
+    "ANTSPATH": "/home/jovyan/work/envs/fmriprep-25.2.5-baremetal/bin",
+    "TEMPLATEFLOW_HOME": "/home/jovyan/work/o2_3c_prep_fmriprep/templateflow",
+    "FS_LICENSE": "/home/jovyan/work/o2_3c_prep_fmriprep/freesurfer_license.txt",
+    "OMP_NUM_THREADS": "8",
+    "note": "FS_LICENSE path is declared; the license file itself is NOT provided/fabricated by this amendment"
+  },
+  "persistent_paths": {
+    "env_prefix": "/home/jovyan/work/envs/fmriprep-25.2.5-baremetal",
+    "work_dir": "/home/jovyan/work/o2_3c_prep_fmriprep/work",
+    "output_dir": "/home/jovyan/work/derivatives/o2_3c_prep",
+    "templateflow_home": "/home/jovyan/work/o2_3c_prep_fmriprep/templateflow",
+    "all_on_persistent_PVC": true,
+    "no_ephemeral_for_post_restart_artifacts": true
+  },
+  "invariants": {
+    "no_benchmark_policy_change": true,
+    "no_registration_policy_change": true,
+    "no_scientific_methodology_change": true,
+    "no_scientific_outcome_access_during_runtime_setup": true,
+    "target_imagery_files_opened": 0,
+    "o2_2_residual_hash_checked_only": true,
+    "container_equivalence_required_or_dependency_failure": true
+  },
+  "freesurfer_license_policy": {
+    "do_not_fabricate_or_download": true,
+    "determination_rule": "prove from the actual fMRIPrep workflow graph/runtime whether the frozen Lane-B path (--fs-no-reconall, existing NSD FreeSurfer derivatives reused OUTSIDE fMRIPrep via nsdcode) invokes any licensed FreeSurfer binary before removing or asserting the requirement",
+    "if_required_stop_at": "O2_3C_PREP_FS_LICENSE_REQUIRED"
+  },
+  "hard_stops": {
+    "single_indispensable_node_runtime_exceeds_pod_uptime": "O2_3C_PREP_BAREMETAL_PREEMPTION_BLOCKED",
+    "required_binary_not_installable_user_space": "O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE",
+    "versions_not_pinnable_defensibly": "O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE",
+    "nfs_causes_nipype_correctness_or_cache_failure": "O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE",
+    "freesurfer_license_absent_and_required": "O2_3C_PREP_FS_LICENSE_REQUIRED",
+    "native_not_container_equivalent_enough": "O2_3C_PREP_RUNTIME_AMENDMENT_FAILURE",
+    "baremetal_cannot_be_certified": "O2_3C_PREP_RUNTIME_HOST_REQUIRED"
+  },
+  "terminal_status_catalog": [
+    "O2_3C_PREP_BAREMETAL_RUNTIME_PASS",
+    "O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE",
+    "O2_3C_PREP_BAREMETAL_PREEMPTION_BLOCKED",
+    "O2_3C_PREP_FS_LICENSE_REQUIRED",
+    "O2_3C_PREP_RUNTIME_HOST_REQUIRED",
+    "O2_3C_PREP_RUNTIME_AMENDMENT_FAILURE"
+  ],
+  "external_host_spec_if_host_required": {
+    "type": "non-preemptible Linux VM/bare metal",
+    "docker_permitted": true,
+    "vcpu_min": 16,
+    "ram_gb_min": 64,
+    "ssd_gb_min": 500,
+    "network": "NSD public S3 fetch capable",
+    "image": "nipreps/fmriprep:25.2.5",
+    "gpu_required": false
+  },
+  "single_run_feasibility_case": {
+    "subject": "subj01",
+    "session": "ses-nsd01",
+    "run": "run-01",
+    "effective_cpus_max": 16,
+    "no_clean_workdir": true,
+    "rerun_identical_command_on_preempt": true
+  },
+  "contract_sha": "24e6ca83"
+}

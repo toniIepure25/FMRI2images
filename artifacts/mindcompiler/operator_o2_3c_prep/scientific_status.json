@@ -17,10 +17,17 @@
     "O3": "O3_NOT_READY"
   },
   "preserves_historical_blocker": "O2_3C_REST_PRODUCT_INCOMPATIBLE (unchanged)",
-  "compute_state": "BLOCKED_PENDING_STABLE_CONTAINER_HOST_AND_FS_LICENSE",
+  "compute_state": "RUNTIME_AMENDMENT_IN_PROGRESS_BAREMETAL (container path preserved-blocked at fbab942)",
   "verified_runtime_blockers": {
     "lane_A": "no MATLAB runtime",
     "lane_B": "no supported container runtime on pod (apptainer blocked by securityContext mount restriction; no docker/singularity/sudo); udocker runs only via proot (unsupported/slow) and its downloader fails on the ~15GB fMRIPrep layer; skopeo transfer + any sustained compute defeated by frequent pod preemption wiping ephemeral storage; NFS PVC root_squash breaks container stores; FreeSurfer license absent"
   },
-  "terminal_execution_status_if_unresolved": "O2_3C_PREP_PUBLIC_ASSET_FAILURE"
+  "terminal_execution_status_if_unresolved": "O2_3C_PREP_PUBLIC_ASSET_FAILURE",
+  "runtime_amendment": {
+    "class": "TECHNICAL_RUNTIME_PACKAGING_ONLY",
+    "contract_sha": "24e6ca83",
+    "status": "RUNTIME_AMENDMENT_FROZEN",
+    "route": "bare-metal manually-prepared fMRIPrep 25.2.5 env on persistent PVC (container runtime blocked by pod securityContext)",
+    "does_not_modify_scientific_methodology_or_track_O": true
+  }
 }

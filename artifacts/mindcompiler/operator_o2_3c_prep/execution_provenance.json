@@ -8,5 +8,12 @@
   "no_credentials_used": true,
   "target_imagery_files_opened_by_PREP": 0,
   "o2_2_residual_modified": false,
-  "public_data_access": "s3://natural-scenes-dataset unsigned"
+  "public_data_access": "s3://natural-scenes-dataset unsigned",
+  "runtime_amendment": {
+    "input_head": "fbab9428870488751f24679918c1c7e61bd1a042",
+    "route": "bare-metal manual environment on PVC",
+    "no_scientific_outcome_access_during_setup": true,
+    "target_imagery_files_opened_by_PREP": 0,
+    "container_pull_loops_reentered": false
+  }
 }

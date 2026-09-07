@@ -10,6 +10,34 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.3C-PREP-RUNTIME (2026-09-07): BARE-METAL RUNTIME AMENDMENT -- SEALED `O2_3C_PREP_FS_LICENSE_REQUIRED`
+
+**Input HEAD `fbab942`; amendment contract SHA `24e6ca83`; Phase-0 `2d1a26a5` preserved.** TECHNICAL
+runtime-packaging amendment ONLY (no scientific/benchmark/registration/Track-O change): try fMRIPrep 25.2.5
+as a **manually-prepared bare-metal env** (container runtime blocked by pod securityContext) resumable via a
+persistent Nipype `-w` on the PVC. Frozen (R0) + committed **before** install (`660777d`).
+
+- **Runtime IS installable, container blocker bypassed.** On the pod, user-space (no sudo) on the **107TB
+  persistent PVC**: micromamba(static) -> conda-forge `python=3.12` (**3.12.14**) -> `pip fmriprep==25.2.5`
+  (**fmriprep 25.2.5**, **nipype 1.12.0**), importable. Packaging is not the obstacle. Network open
+  (conda-forge/PyPI/TemplateFlow-S3/GitHub all reachable).
+- **Binding constraint = FreeSurfer license, PROVEN from the installed 25.2.5 source (not assumed):**
+  (1) `init_fsl_bbr_wf` (the `--fs-no-reconall` branch) initializes BOLD->anat coreg with FreeSurfer
+  `mri_coreg`/`MRICoreg` -- `fmriprep/workflows/bold/registration.py:283,333`; (2) unconditional license gate
+  `if not check_valid_fs_license(): return_code=126` -- `fmriprep/cli/workflow.py:119,137`, **no `run_reconall`
+  guard** in that file. Cannot be avoided within the frozen methodology (gate precedes all nodes; swapping the
+  coreg initializer = forbidden registration-policy change).
+- **License absent** on PVC/home (`FS_LICENSE`/`FREESURFER_HOME` unset); **neither fabricated nor downloaded**
+  per brief. Heavy binaries (ANTs/AFNI/FSL/workbench) not installed -- the hard stop preempts them. R3/R4
+  `NOT_REACHED`; no benchmark/product metric fabricated. Scientific `terminal_execution_status` stays `null`.
+- **Unblock:** user places a valid FreeSurfer `license.txt` at the declared `FS_LICENSE` PVC path; the proven
+  env then completes (heavy binaries) + R3 resume-cert + R4 frozen `subj01/ses-nsd01/run-01` benchmark, unchanged.
+
+Artifacts: `runtime_amendment_contract.json` (`24e6ca83`), `baremetal_dependency_inventory.json`,
+`baremetal_environment_manifest.json`, `runtime_amendment_status.json` (terminal `O2_3C_PREP_FS_LICENSE_REQUIRED`),
+R3/R4 `NOT_REACHED` placeholders + `docs/research/mindcompiler/59A_O2_3C_PREP_RUNTIME_AMENDMENT.md`. 35 data-free
+tests pass. Preserves `O2_3C_REST_PRODUCT_INCOMPATIBLE`, `O3_NOT_READY`, container-path blocker `fbab942`.
+
 ## O2.3C-PREP (2026-09-04): RAW REST PREPROCESSING PRODUCT GATE -- `PHASE0_FROZEN` (Lane B fMRIPrep 25.2.5); compute PENDING pod
 
 **Input HEAD `e215f3f`; frozen config SHA `2d1a26a5`; resumes frozen O2.3C SHA `528f23eb`.** TECHNICAL

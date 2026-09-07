@@ -76,17 +76,40 @@ def test_hard_stops_enumerated():
         assert s in cat
 
 
-def test_amendment_status_frozen_no_terminal_yet():
+def test_amendment_status_sealed_fs_license_required():
     s = _j("runtime_amendment_status.json")
-    assert s["status"] == "RUNTIME_AMENDMENT_FROZEN"
-    assert s["terminal_status"] is None
+    assert s["status"] == "RUNTIME_AMENDMENT_SEALED"
+    assert s["terminal_status"] == "O2_3C_PREP_FS_LICENSE_REQUIRED"
+    assert s["contract_sha"] == "24e6ca83"
+    assert s["runtime_installable_user_space"] is True
+    assert s["container_blocker_bypassed"] is True
     assert s["no_scientific_track_O_status_modified"] is True
+    # exact licensed tool named (mri_coreg + unconditional gate)
+    tool = s["exact_tool_requiring_license"]
+    assert "mri_coreg" in tool["licensed_binary"]
+    assert "check_valid_fs_license" in tool["unconditional_license_gate"]
 
 
-def test_r2_r4_results_are_honest_pending():
-    for n in ["baremetal_environment_manifest.json", "persistent_workdir_certification.json",
-              "resume_certification.json", "single_run_runtime_result.json"]:
-        assert _j(n)["status"] == "PENDING_RUNTIME_AMENDMENT"
+def test_fs_license_determination_evidence_based_and_absent():
+    inv = _j("baremetal_dependency_inventory.json")
+    d = inv["freesurfer_license_determination"]
+    assert d["required"] is True and d["present_on_pvc"] is False
+    assert "installed fMRIPrep 25.2.5" in d["proven_from"]
+    fs = next(x for x in inv["dependencies"] if x["name"] == "FreeSurfer")
+    assert fs["invoked_by_frozen_path"] is True and fs["determination"] == "REQUIRED"
+    # license neither fabricated nor downloaded
+    ep = _j("execution_provenance.json")["runtime_amendment"]
+    assert ep["fs_license_present_on_pvc"] is False
+    assert ep["fs_license_fabricated_or_downloaded"] is False
+
+
+def test_r3_r4_not_reached_and_r2_partial_honest():
+    assert _j("baremetal_environment_manifest.json")["status"].startswith("PARTIAL_PYTHON_LAYER_INSTALLED")
+    assert _j("baremetal_environment_manifest.json")["installed_versions"]["fmriprep"] == "25.2.5"
+    for n in ["persistent_workdir_certification.json", "resume_certification.json", "single_run_runtime_result.json"]:
+        assert _j(n)["status"] == "NOT_REACHED_FS_LICENSE_REQUIRED"
+    # no benchmark metric fabricated
+    assert _j("single_run_runtime_result.json")["benchmark"] is None
 
 
 def test_prior_phase0_and_immutables_untouched():

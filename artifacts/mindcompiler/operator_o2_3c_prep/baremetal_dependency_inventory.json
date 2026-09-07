@@ -24,7 +24,7 @@
       "executable": "python",
       "install_source": "conda-forge via micromamba",
       "installable_without_sudo": true,
-      "version_after_install": "PENDING"
+      "version_after_install": "3.12.14"
     },
     {
       "name": "fmriprep",
@@ -32,7 +32,7 @@
       "executable": "fmriprep",
       "install_source": "PyPI (pip)",
       "installable_without_sudo": true,
-      "version_after_install": "PENDING"
+      "version_after_install": "25.2.5"
     },
     {
       "name": "ANTs",
@@ -40,7 +40,7 @@
       "executable": "antsRegistration",
       "install_source": "conda-forge",
       "installable_without_sudo": true,
-      "version_after_install": "PENDING"
+      "version_after_install": "NOT_INSTALLED_FS_LICENSE_STOP_PREEMPTED_HEAVY_BINARIES"
     },
     {
       "name": "AFNI",
@@ -48,7 +48,7 @@
       "executable": "3dTshift",
       "install_source": "conda-forge",
       "installable_without_sudo": true,
-      "version_after_install": "PENDING"
+      "version_after_install": "NOT_INSTALLED_FS_LICENSE_STOP_PREEMPTED_HEAVY_BINARIES"
     },
     {
       "name": "FSL",
@@ -56,7 +56,7 @@
       "executable": "flirt",
       "install_source": "fslinstaller.py (user-space)",
       "installable_without_sudo": true,
-      "version_after_install": "PENDING"
+      "version_after_install": "NOT_INSTALLED_FS_LICENSE_STOP_PREEMPTED_HEAVY_BINARIES"
     },
     {
       "name": "connectome-workbench",
@@ -64,7 +64,7 @@
       "executable": "wb_command",
       "install_source": "conda-forge",
       "installable_without_sudo": true,
-      "version_after_install": "PENDING"
+      "version_after_install": "NOT_INSTALLED_FS_LICENSE_STOP_PREEMPTED_HEAVY_BINARIES"
     },
     {
       "name": "FreeSurfer",
@@ -73,8 +73,17 @@
       "install_source": "official tarball",
       "installable_without_sudo": true,
       "execution_requires_license": true,
-      "invoked_by_frozen_path": "PENDING_WORKFLOW_GRAPH_DETERMINATION",
-      "version_after_install": "PENDING"
+      "invoked_by_frozen_path": true,
+      "version_after_install": "PENDING",
+      "determination": "REQUIRED",
+      "evidence": {
+        "licensed_binary": "FreeSurfer mri_coreg (nipype.interfaces.freesurfer.MRICoreg)",
+        "invoked_in": "fmriprep/workflows/bold/registration.py: init_fsl_bbr_wf (import L283 `from fmriprep.interfaces.patches import FreeSurferSource, MRICoreg`; node L333 `mri_coreg = pe.Node(...)`)",
+        "coregistration_branch": "used when FreeSurfer disabled (--fs-no-reconall) -> init_fsl_bbr_wf; mri_coreg is the rigid initializer (equivalent to bbregister --init-coreg)",
+        "unconditional_license_gate": "fmriprep/cli/workflow.py: L119 `if not check_valid_fs_license():` -> L137 `return_code = 126`; NOT gated on run_reconall (grep run_reconall in workflow.py: no matches)",
+        "license_module": "niworkflows.utils.misc.check_valid_fs_license (fmriprep/cli/workflow.py:38)",
+        "cannot_be_removed_because": "the license gate fires at build_workflow before any node runs regardless of flags; and swapping the coregistration initializer away from mri_coreg would be a forbidden registration-policy/methodology change"
+      }
     },
     {
       "name": "bids-validator",
@@ -82,7 +91,7 @@
       "executable": "bids-validator",
       "install_source": "npm (node via conda-forge)",
       "installable_without_sudo": true,
-      "version_after_install": "PENDING"
+      "version_after_install": "NOT_INSTALLED_FS_LICENSE_STOP_PREEMPTED_HEAVY_BINARIES"
     },
     {
       "name": "templateflow",
@@ -90,9 +99,23 @@
       "executable": "(python pkg)",
       "install_source": "PyPI + S3 template cache",
       "installable_without_sudo": true,
-      "version_after_install": "PENDING"
+      "version_after_install": "NOT_INSTALLED_FS_LICENSE_STOP_PREEMPTED_HEAVY_BINARIES"
     }
   ],
-  "installability_summary": "All required external dependencies are installable user-space (no sudo) from reachable sources; exact version-match verification is PENDING install. FreeSurfer execution/license necessity is PENDING a workflow-graph determination.",
-  "status": "R1_AUDIT_TARGETS_FROZEN_OBSERVED_PENDING"
+  "installability_summary": "Python-layer bare-metal env installs cleanly user-space on the persistent PVC (micromamba + conda-forge python 3.12.14; pip fmriprep==25.2.5 + nipype 1.12.0). The container blocker is genuinely bypassed. Heavy neuro binaries (ANTs/AFNI/FSL/workbench) were NOT installed because the FreeSurfer license requirement is a hard stop that preempts them: fMRIPrep 25.2.5 refuses to run without a valid license.",
+  "status": "R1_DETERMINATION_FS_LICENSE_REQUIRED",
+  "nipype_version_after_install": "1.12.0",
+  "freesurfer_license_determination": {
+    "required": true,
+    "present_on_pvc": false,
+    "exact_tool": {
+      "licensed_binary": "FreeSurfer mri_coreg (nipype.interfaces.freesurfer.MRICoreg)",
+      "invoked_in": "fmriprep/workflows/bold/registration.py: init_fsl_bbr_wf (import L283 `from fmriprep.interfaces.patches import FreeSurferSource, MRICoreg`; node L333 `mri_coreg = pe.Node(...)`)",
+      "coregistration_branch": "used when FreeSurfer disabled (--fs-no-reconall) -> init_fsl_bbr_wf; mri_coreg is the rigid initializer (equivalent to bbregister --init-coreg)",
+      "unconditional_license_gate": "fmriprep/cli/workflow.py: L119 `if not check_valid_fs_license():` -> L137 `return_code = 126`; NOT gated on run_reconall (grep run_reconall in workflow.py: no matches)",
+      "license_module": "niworkflows.utils.misc.check_valid_fs_license (fmriprep/cli/workflow.py:38)",
+      "cannot_be_removed_because": "the license gate fires at build_workflow before any node runs regardless of flags; and swapping the coregistration initializer away from mri_coreg would be a forbidden registration-policy/methodology change"
+    },
+    "proven_from": "installed fMRIPrep 25.2.5 site-packages source (actual runtime), corroborated by 25.2.5 GitHub tag"
+  }
 }

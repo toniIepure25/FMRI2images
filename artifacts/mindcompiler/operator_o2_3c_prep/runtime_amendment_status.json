@@ -1,15 +1,32 @@
 {
   "gate": "O2.3C-PREP-RUNTIME",
-  "status": "RUNTIME_AMENDMENT_FROZEN",
-  "terminal_status": null,
+  "status": "RUNTIME_AMENDMENT_SEALED",
+  "terminal_status": "O2_3C_PREP_FS_LICENSE_REQUIRED",
   "contract_sha": "24e6ca83",
   "phases": {
     "R0": "FROZEN",
-    "R1": "TARGETS_FROZEN_OBSERVED_PENDING",
-    "R2": "PENDING",
-    "R3": "PENDING",
-    "R4": "PENDING"
+    "R1": "DETERMINATION_FS_LICENSE_REQUIRED",
+    "R2": "PARTIAL_PYTHON_LAYER_INSTALLED",
+    "R3": "NOT_REACHED",
+    "R4": "NOT_REACHED"
+  },
+  "runtime_installable_user_space": true,
+  "container_blocker_bypassed": true,
+  "binding_constraint": "FreeSurfer license (absent; not fabricated/downloaded)",
+  "exact_tool_requiring_license": {
+    "licensed_binary": "FreeSurfer mri_coreg (nipype.interfaces.freesurfer.MRICoreg)",
+    "invoked_in": "fmriprep/workflows/bold/registration.py: init_fsl_bbr_wf (import L283 `from fmriprep.interfaces.patches import FreeSurferSource, MRICoreg`; node L333 `mri_coreg = pe.Node(...)`)",
+    "coregistration_branch": "used when FreeSurfer disabled (--fs-no-reconall) -> init_fsl_bbr_wf; mri_coreg is the rigid initializer (equivalent to bbregister --init-coreg)",
+    "unconditional_license_gate": "fmriprep/cli/workflow.py: L119 `if not check_valid_fs_license():` -> L137 `return_code = 126`; NOT gated on run_reconall (grep run_reconall in workflow.py: no matches)",
+    "license_module": "niworkflows.utils.misc.check_valid_fs_license (fmriprep/cli/workflow.py:38)",
+    "cannot_be_removed_because": "the license gate fires at build_workflow before any node runs regardless of flags; and swapping the coregistration initializer away from mri_coreg would be a forbidden registration-policy/methodology change"
+  },
+  "installed_versions": {
+    "python": "3.12.14",
+    "fmriprep": "25.2.5",
+    "nipype": "1.12.0"
   },
   "preserves_historical_blocker": "O2_3C_REST_PRODUCT_INCOMPATIBLE (unchanged); container-path infra blocker preserved at fbab942",
-  "no_scientific_track_O_status_modified": true
+  "no_scientific_track_O_status_modified": true,
+  "unblock_condition": "user places a valid FreeSurfer license.txt on the PVC (declared FS_LICENSE path); then heavy binaries install + R3/R4 proceed under the unchanged frozen methodology"
 }

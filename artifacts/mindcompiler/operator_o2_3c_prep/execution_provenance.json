@@ -14,6 +14,16 @@
     "route": "bare-metal manual environment on PVC",
     "no_scientific_outcome_access_during_setup": true,
     "target_imagery_files_opened_by_PREP": 0,
-    "container_pull_loops_reentered": false
+    "container_pull_loops_reentered": false,
+    "installed_versions": {
+      "python": "3.12.14",
+      "fmriprep": "25.2.5",
+      "nipype": "1.12.0"
+    },
+    "fs_license_present_on_pvc": false,
+    "fs_license_fabricated_or_downloaded": false,
+    "determination": "O2_3C_PREP_FS_LICENSE_REQUIRED",
+    "evidence_source": "installed fMRIPrep 25.2.5 site-packages (registration.py:283/333; cli/workflow.py:119/137)",
+    "heavy_binaries_installed": false
   }
 }

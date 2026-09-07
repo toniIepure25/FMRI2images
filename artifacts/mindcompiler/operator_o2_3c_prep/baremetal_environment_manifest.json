@@ -1,7 +1,16 @@
 {
   "gate": "O2.3C-PREP-RUNTIME",
   "phase": "R2",
-  "status": "PENDING_RUNTIME_AMENDMENT",
-  "installed_versions": null,
-  "env_prefix": "/home/jovyan/work/envs/fmriprep-25.2.5-baremetal"
+  "status": "PARTIAL_PYTHON_LAYER_INSTALLED_HALTED_AT_FS_LICENSE",
+  "env_prefix": "/home/jovyan/work/envs/fmriprep-25.2.5-baremetal",
+  "installed_versions": {
+    "python": "3.12.14",
+    "fmriprep": "25.2.5",
+    "nipype": "1.12.0"
+  },
+  "install_route": "micromamba (static) -> conda-forge python=3.12 -> pip fmriprep==25.2.5",
+  "persistent_pvc": true,
+  "survives_pod_replacement": true,
+  "heavy_binaries_installed": false,
+  "reason_halted": "FreeSurfer license required by frozen fMRIPrep 25.2.5 path (see dependency inventory); not fabricated/downloaded"
 }

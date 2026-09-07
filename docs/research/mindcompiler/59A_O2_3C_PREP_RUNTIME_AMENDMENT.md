@@ -90,3 +90,42 @@ user-space, versions not pinnable defensibly, or NFS-induced Nipype cache/correc
 On `subj01` benchmark completion it is evaluated against the **unchanged** frozen thresholds: PASS →
 continue the original O2.3C-PREP workflow with this runtime; FAIL → genuine
 `O2_3C_PREP_TASK_BENCHMARK_FAILURE` (no tuning). This amendment modifies no scientific Track-O status.
+
+## Determination (SEALED) — `O2_3C_PREP_FS_LICENSE_REQUIRED`
+
+**The bare-metal runtime is genuinely installable and the container blocker is bypassed.** On the pod
+this session, a manually-prepared environment was built **user-space on the persistent PVC** with no
+sudo: micromamba (static) → conda-forge `python=3.12` (observed **3.12.14**) → `pip install
+fmriprep==25.2.5` (observed **fmriprep 25.2.5**, **nipype 1.12.0**), all importable. Runtime packaging is
+therefore **not** the obstacle.
+
+**The binding constraint is the FreeSurfer license**, proven from the *installed* fMRIPrep 25.2.5 source
+(the actual runtime — corroborated by the 25.2.5 GitHub tag), not assumed:
+
+- **FACT 1 — a licensed FreeSurfer binary is in the coregistration path.** `init_fsl_bbr_wf` — the branch
+  used when FreeSurfer is disabled (`--fs-no-reconall`) — initializes BOLD→anat coregistration with
+  FreeSurfer's `mri_coreg` (`nipype.interfaces.freesurfer.MRICoreg`).
+  `site-packages/fmriprep/workflows/bold/registration.py:283` (import), `:333` (node); the docstring notes
+  this is "equivalent to running `bbregister --init-coreg`".
+- **FACT 2 — the license gate is unconditional.** `build_workflow()` runs
+  `if not check_valid_fs_license(): return_code = 126` (`niworkflows.utils.misc.check_valid_fs_license`)
+  at `site-packages/fmriprep/cli/workflow.py:119` → `:137`. There is **no `run_reconall` guard** in that
+  file (grep: 0 matches) — fMRIPrep 25.2.5 refuses to run at all without a valid license, regardless of
+  `--fs-no-reconall`.
+
+**It cannot be avoided within the frozen methodology:** the gate fires before any node executes, and
+replacing the `mri_coreg` initializer would be a forbidden registration-policy/methodology change.
+
+**License availability:** none present on the PVC or home; `FS_LICENSE`/`FREESURFER_HOME` unset; the
+declared `FS_LICENSE` path is absent. Per the brief the license is **neither fabricated nor downloaded**.
+
+**Terminal status:** `O2_3C_PREP_FS_LICENSE_REQUIRED`. Heavy binaries (ANTs/AFNI/FSL/workbench) were not
+installed because this hard stop preempts them. Scientific `terminal_execution_status` stays `null`;
+Phase-0 `2d1a26a5`, `O2_3C_REST_PRODUCT_INCOMPATIBLE`, `O3_NOT_READY`, and the container-path blocker at
+`fbab942` are all preserved.
+
+**Exact unblock:** place a valid FreeSurfer `license.txt` at the declared `FS_LICENSE` path on the PVC
+(`/home/jovyan/work/o2_3c_prep_fmriprep/freesurfer_license.txt`). The bare-metal env already proven here
+then completes with the heavy binaries and proceeds through R3 (resume certification) → R4 (frozen
+`subj01/ses-nsd01/run-01` benchmark) under the unchanged methodology. The FreeSurfer license is free for
+individual use from the FreeSurfer project; it is the user's to obtain and place — not mine to supply.

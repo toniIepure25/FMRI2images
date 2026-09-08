@@ -1,0 +1,29 @@
+{
+  "gate": "O2.3C-PREP-RUNTIME",
+  "phase": "R3.2_pre_restart_seal",
+  "source_head": "578b0a96d73d11df8a46a52a7ea7cf4858a819b1",
+  "sealed_before_restart": true,
+  "identity_pre_restart": {
+    "pod_name": "o23c-fmriprep-bench-qcmlk",
+    "pod_uid": "aa24e087-03e2-40a2-848c-f25c31997bc0",
+    "job_uid": "7647643d-0554-46c4-8059-5ab3142dc04c",
+    "container_restart_count": 0,
+    "node": "k8s-worker-cpu-node-r770",
+    "image_digest": "docker.io/nipreps/fmriprep@sha256:15cbf8dcd17440d26ff5e80e9f7313f1cb3c54f13673f1ec4aed4465e8e12d77"
+  },
+  "storage": {
+    "work_pvc": "o23c-prep-work",
+    "work_pv": "pvc-d0243c4a-d1bb-411d-b3a3-e7af188f7c5f",
+    "work_pvc_selected_node": "k8s-worker-cpu-node-r770",
+    "node_locality": "local-path selected-node annotation = r770 (no PV nodeAffinity field for this provisioner)"
+  },
+  "workdir_root": "/work/fmriprep_25_2_wf/sub_01_ses_multi-0f91_wf",
+  "completed_nodes": [
+    {"node": "about", "type": "anatomical utility/reference (BIDS about)", "result_file": "/work/fmriprep_25_2_wf/sub_01_ses_multi-0f91_wf/about/result_about.pklz", "size": 11307, "mtime_epoch": 1788873139, "mtime_ns": "2026-09-08 13:12:19.374357425 +0000", "sha256": "04e171ce4ca6369fbfa03c52024ab7a3037307bd5419dec82258f9d53e478da3"},
+    {"node": "phdiff_wf/calc_phdiff", "type": "SDC fieldmap preprocessing (phasediff calc)", "result_file": "/work/fmriprep_25_2_wf/sub_01_ses_multi-0f91_wf/fmap_preproc_wf/wf_auto_00000/phdiff_wf/calc_phdiff/result_calc_phdiff.pklz", "size": 12779, "mtime_epoch": 1788873145, "mtime_ns": "2026-09-08 13:12:25.504292138 +0000", "sha256": "1fc9f1f3257eb5ca6a9a8b59d70da3bec286aa765fee6b0c7d45402ca5702bc3"},
+    {"node": "phdiff_wf/prelude", "type": "SDC phase-unwrap (FSL PRELUDE)", "result_file": "/work/fmriprep_25_2_wf/sub_01_ses_multi-0f91_wf/fmap_preproc_wf/wf_auto_00000/phdiff_wf/prelude/result_prelude.pklz", "size": 11467, "mtime_epoch": 1788873155, "mtime_ns": "2026-09-08 13:12:35.943180949 +0000", "sha256": "4fdf3e036963eb7a774ee5d67ab6f7f7fb7cb7506ae3f88d792f99f46f41f99f"},
+    {"node": "phdiff_wf/phmap2rads", "type": "SDC phase->rad conversion", "result_file": "/work/fmriprep_25_2_wf/sub_01_ses_multi-0f91_wf/fmap_preproc_wf/wf_auto_00000/phdiff_wf/phmap2rads/result_phmap2rads.pklz", "size": 11201, "mtime_epoch": 1788873143, "mtime_ns": "2026-09-08 13:12:23.990308263 +0000", "sha256": "b835db58e55121a7af581925a4af473f9ebfff9759826e403fb0682005855841"}
+  ],
+  "note": "These fully-completed deterministic nodes are selected only to demonstrate cache persistence/reuse across a pod restart, not for benchmark quality. Nodes executing mid-restart may legitimately rerun.",
+  "no_methodology_or_config_change": true
+}

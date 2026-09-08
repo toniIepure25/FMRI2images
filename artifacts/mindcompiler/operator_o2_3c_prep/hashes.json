@@ -38,6 +38,7 @@
     "host_migration_provenance.json": "cd32a590e18ffab6",
     "orchestraiq_infra_audit.json": "230132ea497a4cc5",
     "k8s_fmriprep_workload_PROPOSED.yaml": "d98c804af73a3f62",
-    "k8s_execution_provenance.json": "c4dd16f4e30c21f5"
+    "k8s_execution_provenance.json": "c4dd16f4e30c21f5",
+    "r3_pre_restart_evidence.json": "017914884a3fd7da"
   }
 }

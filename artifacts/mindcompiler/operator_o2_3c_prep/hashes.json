@@ -18,12 +18,12 @@
     "product_certification_contract.json": "b6b0aa7a846dcacf",
     "rest_raw_inventory.json": "91022ff08d4d6a92",
     "runtime_probe.json": "1710373dfbd8d9b9",
-    "scientific_status.json": "d119b1dc779a0ab8",
+    "scientific_status.json": "cffb218abe60d537",
     "task_benchmark_contract.json": "94097fb10cd5b691",
     "task_benchmark_manifest.csv": "c36c80540e923e90",
     "task_benchmark_results.json": "a9a1e2c48d7eac48",
     "task_benchmark_status.json": "a9a1e2c48d7eac48",
-    "test_report.json": "39a957789bfe9d13",
+    "test_report.json": "6e22e316d9e2e14a",
     "tissue_mask_certification.json": "a9a1e2c48d7eac48",
     "tissue_mask_contract.json": "56fa6538aa793a8c",
     "baremetal_dependency_inventory.json": "d5f15d0940f4e5ca",
@@ -31,8 +31,10 @@
     "persistent_workdir_certification.json": "5c691ed894b1a92e",
     "resume_certification.json": "f320246a45b961ca",
     "runtime_amendment_contract.json": "3050353e79fad0c2",
-    "runtime_amendment_status.json": "e128ca78c36595fb",
+    "runtime_amendment_status.json": "07265d541c822c9f",
     "single_run_runtime_result.json": "b169add478730d90",
-    "fs_license_status.json": "e7eba13462f5b1a1"
+    "fs_license_status.json": "e7eba13462f5b1a1",
+    "benchmark_input_manifest.json": "8cb53761b39b4e9c",
+    "host_migration_provenance.json": "8a489370f50864b6"
   }
 }

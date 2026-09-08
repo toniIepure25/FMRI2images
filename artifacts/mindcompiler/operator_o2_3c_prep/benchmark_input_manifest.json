@@ -1,0 +1,21 @@
+{
+  "gate": "O2.3C-PREP-RUNTIME",
+  "purpose": "feasibility-first inputs for the frozen benchmark subj01 / ses-nsd01 / run-01 (task-nsdcore)",
+  "access": "unsigned anonymous public S3 (boto3 UNSIGNED / HTTPS REST); verified present 2026-09-08",
+  "bucket": "s3://natural-scenes-dataset",
+  "inputs": {
+    "raw_task_bold": "s3://natural-scenes-dataset/nsddata_rawdata/sub-01/ses-nsd01/func/sub-01_ses-nsd01_task-nsdcore_run-01_bold.nii.gz",
+    "raw_task_sbref": "s3://natural-scenes-dataset/nsddata_rawdata/sub-01/ses-nsd01/func/sub-01_ses-nsd01_task-nsdcore_run-01_sbref.nii.gz",
+    "raw_task_events": "s3://natural-scenes-dataset/nsddata_rawdata/sub-01/ses-nsd01/func/sub-01_ses-nsd01_task-nsdcore_run-01_events.tsv",
+    "fieldmap_phasediff": "s3://natural-scenes-dataset/nsddata_rawdata/sub-01/ses-nsd01/fmap/sub-01_ses-nsd01_run-01_phasediff.nii.gz",
+    "fieldmap_magnitude1": "s3://natural-scenes-dataset/nsddata_rawdata/sub-01/ses-nsd01/fmap/sub-01_ses-nsd01_run-01_magnitude1.nii.gz",
+    "fieldmap_magnitude2": "s3://natural-scenes-dataset/nsddata_rawdata/sub-01/ses-nsd01/fmap/sub-01_ses-nsd01_run-01_magnitude2.nii.gz",
+    "anatomy_session": "s3://natural-scenes-dataset/nsddata_rawdata/sub-01/ses-nsdanat/",
+    "freesurfer_derivatives": "s3://natural-scenes-dataset/nsddata/freesurfer/subj01/",
+    "freesurfer_aparc_aseg": "s3://natural-scenes-dataset/nsddata/freesurfer/subj01/mri/aparc+aseg.mgz",
+    "prepared_func1pt8mm_groundtruth": "s3://natural-scenes-dataset/nsddata_timeseries/ppdata/subj01/func1pt8mm/timeseries/",
+    "prepared_func1pt8mm_motion": "s3://natural-scenes-dataset/nsddata_timeseries/ppdata/subj01/func1pt8mm/motion/"
+  },
+  "all_verified_present": true,
+  "data_strategy": "feasibility-first: fetch ONLY these subj01 inputs directly from public S3 to the host; do NOT transfer the full 262GB dataset before the benchmark passes; do NOT route large files through the old pod."
+}

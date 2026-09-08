@@ -10,6 +10,25 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.3C-PREP-RUNTIME (2026-09-08): PATH A CHOSEN -- OFFICIAL DOCKER-HOST MIGRATION -- `BLOCKED_PENDING_HOST_PROVISIONING`
+
+User chose **Path A** (official `nipreps/fmriprep:25.2.5` on a non-preemptible Docker host); bare-metal branch
+closed historically at `4377100`. TECHNICAL host/runtime migration ONLY -- no methodology/benchmark/registration/
+output-space/Track-O change; Phase-0 `2d1a26a5`, `O2_3C_REST_PRODUCT_INCOMPATIBLE`, `O3_NOT_READY` preserved.
+
+**Ready (host-independent, verified):** FS license in hand (hash `6f7afab5...`, hash-only record, never committed);
+ALL feasibility-first benchmark inputs fetchable from public NSD S3 (verified 2026-09-08: `task-nsdcore run-01`
+bold+sbref+events, run-01 phasediff+magnitude fmaps, `ses-nsdanat`, `freesurfer/subj01 aparc+aseg.mgz`, prepared
+`func1pt8mm/{timeseries,motion,design}` ground-truth -> `benchmark_input_manifest.json`); frozen benchmark command
+derived from `2d1a26a5` recorded. **Sole blocker = a qualifying host.** Local Windows workstation INADEQUATE
+(12 vCPU / 13.9GB RAM / ~38GB free SSD; Docker not operational) -- fails vCPU/RAM/SSD; old RunAI pod EXCLUDED
+(preemptible + container-blocked). Host provisioning/access is the user's to provide.
+
+**Status `BLOCKED_PENDING_HOST_PROVISIONING`.** On host: record digest+provenance (before benchmark) -> R3 resume
+cert -> R4 frozen `subj01/ses-nsd01/run-01` benchmark (unchanged thresholds) -> on PASS Phases 2-4 -> on
+`O2_3C_PREP_PASS` the scientific `O2.3C-RESUME` (SHA `528f23eb`). Artifacts: `host_migration_provenance.json`,
+`benchmark_input_manifest.json`, `docs/.../59B_O2_3C_PREP_HOST_MIGRATION.md`. 38 data-free tests pass. Nothing fabricated.
+
 ## O2.3C-PREP-RUNTIME (2026-09-08): FS LICENSE RESOLVED -> R2 RE-SEAL `O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE`
 
 **FS-license blocker RESOLVED by user.** `license.txt` placed -> copied to declared PVC path, hash-verified

@@ -1,0 +1,99 @@
+{
+  "gate": "O2.3C-PREP-RUNTIME",
+  "migration_class": "TECHNICAL_HOST_RUNTIME_MIGRATION_ONLY",
+  "resolution_path": "O2_3C_PREP_RUNTIME_HOST_REQUIRED",
+  "status": "BLOCKED_PENDING_HOST_PROVISIONING",
+  "source_head": "437710011c407415ae1af56d3530143b3d659b08",
+  "preserves": {
+    "phase0_frozen_config_sha": "2d1a26a5",
+    "runtime_amendment_contract_sha": "24e6ca83",
+    "benchmark_manifest": "task_benchmark_manifest.csv (unchanged)",
+    "benchmark_thresholds": "unchanged",
+    "registration_policy": "unchanged",
+    "output_space_policy": "unchanged",
+    "lane_B_algorithm": "fMRIPrep 25.2.5 (official image)",
+    "bare_metal_terminal": "O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE @ 4377100 (history, unchanged)",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2.2": "CROSS_STATE_TRANSPORT_MULTIREGIME",
+    "O2.3A": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+    "O2_3C_first_attempt": "O2_3C_REST_PRODUCT_INCOMPATIBLE",
+    "O3": "O3_NOT_READY"
+  },
+  "official_image": {
+    "tag": "nipreps/fmriprep:25.2.5",
+    "platform": "linux/amd64",
+    "no_latest_no_unstable_no_custom": true,
+    "full_repo_digest": "PENDING_HOST_PROVISIONING",
+    "in_container_fmriprep_version_check": "PENDING_HOST_PROVISIONING",
+    "embedded_dependency_versions": "PENDING_HOST_PROVISIONING"
+  },
+  "required_host_spec": {
+    "type": "non-preemptible Linux + Docker Engine",
+    "platform": "linux/amd64",
+    "vcpu_min": 16,
+    "vcpu_ok_alt": 32,
+    "ram_gb_min": 64,
+    "ram_gb_ok_alt": 128,
+    "ssd_gb_min": 500,
+    "ssd_gb_preferred": 1000,
+    "internet": true,
+    "public_nsd_s3_access": true,
+    "gpu": "NONE (do not provision H100/A100)"
+  },
+  "candidate_hosts_evaluated": {
+    "local_windows_workstation": {
+      "cpu_logical": 12,
+      "ram_gb": 13.9,
+      "free_ssd_gb": "~38 total (C 4 / D 34)",
+      "docker": "not operational (no CLI; service unregistered; docker-desktop WSL stopped)",
+      "verdict": "INADEQUATE (fails vCPU, RAM, SSD; Docker not running)"
+    },
+    "old_runai_pod": {
+      "verdict": "EXCLUDED (preemptible + container runtime blocked by securityContext -- the host being migrated away from)"
+    }
+  },
+  "host_facts": {
+    "os": "PENDING_HOST_PROVISIONING",
+    "kernel": "PENDING_HOST_PROVISIONING",
+    "docker_version": "PENDING_HOST_PROVISIONING",
+    "cpu": "PENDING_HOST_PROVISIONING",
+    "ram_gb": "PENDING_HOST_PROVISIONING",
+    "storage_type_capacity": "PENDING_HOST_PROVISIONING"
+  },
+  "freesurfer_license": {
+    "present_in_hand": true,
+    "sha256": "6f7afab5b5201aa8b0aca10e29ff04802c6d279a0a1c7ddfeae9dd13ae52a152",
+    "transfer_to_host": "PENDING_HOST_PROVISIONING",
+    "dest_path_on_host": "PENDING_HOST_PROVISIONING",
+    "in_container_validation": "PENDING_HOST_PROVISIONING",
+    "contents_committed_or_printed": false
+  },
+  "persistent_directories_plan": {
+    "bids_input": "/data/nsd/ (host SSD)",
+    "workdir": "/work/o2_3c_prep/ (host SSD, NOT /tmp)",
+    "derivatives": "/derivatives/o2_3c_prep/ (host SSD)",
+    "templateflow": "/opt/templateflow/ (host SSD)",
+    "no_clean_workdir": true
+  },
+  "frozen_benchmark_command_derived_from_2d1a26a5": "docker run --platform linux/amd64 --rm -u $(id -u):$(id -g) -v /data/nsd/bids:/bids:ro -v /derivatives/o2_3c_prep:/out -v /work/o2_3c_prep:/work -v /data/nsd/freesurfer:/fs:ro -v /opt/templateflow:/opt/templateflow -v <FS_LICENSE_HOST_PATH>:/opt/freesurfer/license.txt:ro -e TEMPLATEFLOW_HOME=/opt/templateflow nipreps/fmriprep:25.2.5 /bids /out participant --participant-label 01 --task-id nsdcore --bids-filter-file /bids/o2_3c_prep_bench_filter.json --fs-no-reconall --fs-license-file /opt/freesurfer/license.txt --output-spaces boldref --nprocs 16 --omp-nthreads 8 --mem-mb <=HOST_MEM -w /work --stop-on-first-crash    # SDC from phasediff (no --use-syn-sdc/--force syn); slice-timing from BIDS (not ignored); no smoothing/AROMA/GSR; confounds default. Finalize exact flags on host against fMRIPrep 25.2.5 --help; the func1pt8mm mapping is the separate frozen ANTs rigid+affine step.",
+  "R3_resume_certification_checks": [
+    "docker image starts",
+    "fmriprep --version == 25.2.5",
+    "FreeSurfer license validates",
+    "input mounts readable",
+    "workdir writable",
+    "outdir writable",
+    "TemplateFlow resolves",
+    "restart with same persistent workdir preserves Nipype intermediates",
+    "completed node reused not recomputed"
+  ],
+  "R3_target_status": "PERSISTENT_NIPYPE_RESUME_CERTIFIED (PENDING host)",
+  "R4_benchmark": {
+    "case": "subj01 / ses-nsd01 / run-01",
+    "thresholds": "frozen (task_benchmark_contract.json) -- unchanged",
+    "concurrency": "8-16 effective CPUs initially",
+    "status": "PENDING_HOST_PROVISIONING"
+  },
+  "commit_provenance_before_benchmark_outcome": true,
+  "no_scientific_methodology_change": true
+}

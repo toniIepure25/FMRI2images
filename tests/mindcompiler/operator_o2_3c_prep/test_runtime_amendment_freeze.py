@@ -121,6 +121,34 @@ def test_r3_r4_not_reached_and_r2_halted_honest():
     assert _j("single_run_runtime_result.json")["benchmark"] is None
 
 
+def test_host_migration_pending_and_honest():
+    hm = _j("host_migration_provenance.json")
+    assert hm["migration_class"] == "TECHNICAL_HOST_RUNTIME_MIGRATION_ONLY"
+    assert hm["status"] == "BLOCKED_PENDING_HOST_PROVISIONING"
+    assert hm["source_head"].startswith("4377100")
+    assert hm["official_image"]["tag"] == "nipreps/fmriprep:25.2.5"
+    # host-dependent fields must be explicit PENDING, never fabricated
+    assert hm["official_image"]["full_repo_digest"] == "PENDING_HOST_PROVISIONING"
+    assert hm["host_facts"]["os"] == "PENDING_HOST_PROVISIONING"
+    assert hm["R4_benchmark"]["status"] == "PENDING_HOST_PROVISIONING"
+    assert hm["no_scientific_methodology_change"] is True
+    # license recorded hash-only, never committed
+    assert hm["freesurfer_license"]["contents_committed_or_printed"] is False
+    assert hm["freesurfer_license"]["sha256"] == "6f7afab5b5201aa8b0aca10e29ff04802c6d279a0a1c7ddfeae9dd13ae52a152"
+    # bare-metal terminal preserved as history
+    assert "O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE" in hm["preserves"]["bare_metal_terminal"]
+
+
+def test_benchmark_inputs_verified_on_s3():
+    m = _j("benchmark_input_manifest.json")
+    assert m["all_verified_present"] is True
+    assert "run-01_bold.nii.gz" in m["inputs"]["raw_task_bold"]
+    assert "phasediff" in m["inputs"]["fieldmap_phasediff"]
+    assert "aparc+aseg.mgz" in m["inputs"]["freesurfer_aparc_aseg"]
+    # no benchmark result fabricated anywhere
+    assert _j("single_run_runtime_result.json")["benchmark"] is None
+
+
 def test_prior_phase0_and_immutables_untouched():
     # Phase-0 frozen config SHA still recomputes; Track-O immutables preserved.
     cfg = _j("o2_3c_prep_frozen_config.json")

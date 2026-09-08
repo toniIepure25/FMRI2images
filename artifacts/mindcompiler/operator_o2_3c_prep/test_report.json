@@ -3,10 +3,11 @@
   "suite": "tests/mindcompiler/operator_o2_3c_prep/ + tests/mindcompiler/operator_o2_3c/",
   "phase0_freeze_tests_passed": 17,
   "o2_3c_immutability_tests_passed": 8,
-  "runtime_amendment_tests_passed": 10,
+  "runtime_amendment_tests_passed": 12,
   "runtime_amendment_terminal": "O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE",
   "fs_license_prior_terminal_resolved": "O2_3C_PREP_FS_LICENSE_REQUIRED",
-  "total_passed": 36,
+  "path_A_host_migration": "BLOCKED_PENDING_HOST_PROVISIONING",
+  "total_passed": 38,
   "failed": 0,
   "coverage": [
     "frozen_config_sha",

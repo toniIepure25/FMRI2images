@@ -6,8 +6,8 @@
   "runtime_amendment_tests_passed": 12,
   "runtime_amendment_terminal": "O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE",
   "fs_license_prior_terminal_resolved": "O2_3C_PREP_FS_LICENSE_REQUIRED",
-  "path_A_host_migration": "BLOCKED_PENDING_HOST_PROVISIONING",
-  "total_passed": 38,
+  "path_A_host_migration": "ORCHESTRAIQ_DIRECT_K8S_FMRIPREP_FEASIBLE (avoids AWS)",
+  "total_passed": 39,
   "failed": 0,
   "coverage": [
     "frozen_config_sha",

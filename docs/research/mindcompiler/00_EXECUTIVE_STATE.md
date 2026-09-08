@@ -10,6 +10,32 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.3C-PREP-RUNTIME (2026-09-08): ORCHESTRAIQ AUDIT -- `ORCHESTRAIQ_DIRECT_K8S_FMRIPREP_FEASIBLE` (avoids AWS)
+
+Read-only Kubernetes/Run:ai audit (kubeconfig `antoniu_iepure.yaml`; **no cluster mutation**) to qualify orchestraiq
+against Path-A host spec. **Verdict: DIRECT_K8S FEASIBLE -- run the official image as a native pod; no AWS.**
+Cluster `10.130.123.31:10443`, ns `runai-romania-dev`, project `romania-dev`, on-prem bare metal.
+
+- **orchestraiq = interactive jupyter Deployment** (`schedulerName=runai-scheduler`); this IS the previously-unstable
+  resource -- unstable because INTERACTIVE (preemptible/idle-timeout), NOT node recycling. Fix = a separate batch Job.
+- **Node `k8s-worker-cpu-node-r770`: 256 CPU / ~503 GiB / ~6.4 TiB, no taints, no pressure** -- vastly exceeds
+  16 vCPU/64 GiB/500 GiB. (GPU node xe9680 EXCLUDED: tainted unreachable.)
+- **Direct pod image works (no DinD):** egress CONFIRMED (public Docker Hub images running); server-dry-run of a
+  Job with `nipreps/fmriprep:25.2.5` ACCEPTED by admission (created nothing).
+- **RBAC:** create pods/jobs/pvcs/secrets/configmaps = yes; create `trainingworkloads.run.ai` = NO (can't make the
+  Run:ai native non-preemptible CR); metrics/priorityclasses forbidden.
+- **Stability:** batch Jobs run to completion here -- `eval-index` ran **~2.9 days** to Completed; multiple multi-hour
+  `phase2-*`; NO preemption/OOM/eviction events. Interactive=preemptible, batch Job=stable.
+- **Storage:** `local-path` (node-local, **no root-squash**, used by prior 200-500 Gi fmri2img jobs) recommended for
+  workdir/derivatives/TemplateFlow; `nfs-client` default has root-squash risk. License -> K8s Secret (never committed).
+
+**Recommendation: option A** -- native K8s batch Job (image = `nipreps/fmriprep:25.2.5`) on r770 + local-path PVCs +
+license Secret. Proposed manifest `k8s_fmriprep_workload_PROPOSED.yaml`; audit `orchestraiq_infra_audit.json`;
+`docs/.../59C_ORCHESTRAIQ_INFRA_AUDIT.md`. Audit mutated nothing; **execution needs one-time `kubectl apply` approval**
+(harness auto-mode gated the write). No scientific methodology changed; preserves Phase-0 `2d1a26a5`, contract
+`24e6ca83`, `O2_3C_REST_PRODUCT_INCOMPATIBLE`, `O2 SHARED_OPERATOR_PARTIAL`, `O3_NOT_READY`, blockers `fbab942`/`4377100`.
+39 data-free tests pass.
+
 ## O2.3C-PREP-RUNTIME (2026-09-08): PATH A CHOSEN -- OFFICIAL DOCKER-HOST MIGRATION -- `BLOCKED_PENDING_HOST_PROVISIONING`
 
 User chose **Path A** (official `nipreps/fmriprep:25.2.5` on a non-preemptible Docker host); bare-metal branch

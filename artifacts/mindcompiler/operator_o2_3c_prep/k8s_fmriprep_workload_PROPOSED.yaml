@@ -1,0 +1,84 @@
+# PROPOSED -- NOT APPLIED. Option A: run the official fMRIPrep image as a native Kubernetes batch Job
+# on the orchestraiq cluster (namespace runai-romania-dev, project romania-dev), node k8s-worker-cpu-node-r770.
+# Technical host/runtime only -- encodes the frozen O2.3C-PREP Lane-B benchmark (subj01/ses-nsd01/run-01);
+# changes NO scientific methodology (Phase-0 2d1a26a5). Requires a one-time `kubectl apply` approval.
+#
+# Storage: local-path (node-local on r770) for BIDS input, Nipype workdir, derivatives, TemplateFlow --
+# avoids the historical NFS root-squash failure; survives pod restart (WaitForFirstConsumer binds to r770).
+# License: Kubernetes Secret (never committed; created from the in-hand license.txt, sha256 6f7afab5...).
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: o23c-prep-bids, labels: {app: o23c-prep}}
+spec: {accessModes: [ReadWriteOnce], storageClassName: local-path, resources: {requests: {storage: 100Gi}}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: o23c-prep-work, labels: {app: o23c-prep}}
+spec: {accessModes: [ReadWriteOnce], storageClassName: local-path, resources: {requests: {storage: 500Gi}}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: o23c-prep-derivatives, labels: {app: o23c-prep}}
+spec: {accessModes: [ReadWriteOnce], storageClassName: local-path, resources: {requests: {storage: 200Gi}}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: o23c-prep-templateflow, labels: {app: o23c-prep}}
+spec: {accessModes: [ReadWriteOnce], storageClassName: local-path, resources: {requests: {storage: 20Gi}}}
+---
+# Secret created out-of-band (NOT in this file, never committed):
+#   kubectl create secret generic o23c-fs-license --from-file=license.txt=<local license.txt>
+# (sha256 6f7afab5b5201aa8b0aca10e29ff04802c6d279a0a1c7ddfeae9dd13ae52a152)
+---
+# STAGE 1 (staging Job, sketch): fetch ONLY subj01/ses-nsd01/run-01 benchmark inputs from public NSD S3
+# (unsigned) into o23c-prep-bids + FreeSurfer derivs -- image e.g. amazon/aws-cli or a python+boto3 image;
+# feasibility-first, not the full 262GB. See benchmark_input_manifest.json for exact keys.
+---
+# STAGE 2: fMRIPrep benchmark Job (official image as the pod image; run-to-completion; resumable workdir)
+apiVersion: batch/v1
+kind: Job
+metadata: {name: o23c-prep-fmriprep-bench, labels: {app: o23c-prep}}
+spec:
+  backoffLimit: 6            # retries reuse the same persistent workdir -> Nipype node reuse on preempt/restart
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata: {labels: {app: o23c-prep}}
+    spec:
+      restartPolicy: Never
+      nodeSelector: {kubernetes.io/hostname: k8s-worker-cpu-node-r770}
+      securityContext: {runAsUser: 0, fsGroup: 0}   # local-path (no root-squash) tolerates root; fMRIPrep default user
+      containers:
+      - name: fmriprep
+        image: nipreps/fmriprep:25.2.5    # pin by @sha256 digest at execution time (record in provenance)
+        args:
+          - /bids
+          - /out
+          - participant
+          - --participant-label=01
+          - --task-id=nsdcore
+          - --bids-filter-file=/bids/o2_3c_prep_bench_filter.json
+          - --fs-no-reconall
+          - --fs-license-file=/opt/freesurfer/license.txt
+          - --output-spaces=boldref
+          - --nprocs=16
+          - --omp-nthreads=8
+          - --mem-mb=90000
+          - -w=/work
+          - --stop-on-first-crash
+        # SDC from phasediff (no --use-syn-sdc/--force syn); slice-timing from BIDS (not ignored);
+        # no smoothing/AROMA/GSR; confounds default. func1pt8mm mapping = separate frozen ANTs rigid+affine step.
+        resources: {requests: {cpu: "16", memory: 64Gi}, limits: {cpu: "24", memory: 110Gi}}
+        env: [{name: TEMPLATEFLOW_HOME, value: /opt/templateflow}]
+        volumeMounts:
+        - {name: bids, mountPath: /bids}
+        - {name: work, mountPath: /work}
+        - {name: out, mountPath: /out}
+        - {name: tf, mountPath: /opt/templateflow}
+        - {name: fslic, mountPath: /opt/freesurfer, readOnly: true}
+      volumes:
+      - {name: bids, persistentVolumeClaim: {claimName: o23c-prep-bids}}
+      - {name: work, persistentVolumeClaim: {claimName: o23c-prep-work}}
+      - {name: out, persistentVolumeClaim: {claimName: o23c-prep-derivatives}}
+      - {name: tf, persistentVolumeClaim: {claimName: o23c-prep-templateflow}}
+      - {name: fslic, secret: {secretName: o23c-fs-license, items: [{key: license.txt, path: license.txt}]}}

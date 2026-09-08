@@ -124,7 +124,9 @@ def test_r3_r4_not_reached_and_r2_halted_honest():
 def test_host_migration_pending_and_honest():
     hm = _j("host_migration_provenance.json")
     assert hm["migration_class"] == "TECHNICAL_HOST_RUNTIME_MIGRATION_ONLY"
-    assert hm["status"] == "BLOCKED_PENDING_HOST_PROVISIONING"
+    assert hm["status"] == "ORCHESTRAIQ_DIRECT_K8S_FMRIPREP_FEASIBLE_PENDING_EXECUTION_APPROVAL"
+    assert hm["orchestraiq_audit"]["verdict"] == "ORCHESTRAIQ_DIRECT_K8S_FMRIPREP_FEASIBLE"
+    assert hm["orchestraiq_audit"]["cluster_mutation_performed"] is False
     assert hm["source_head"].startswith("4377100")
     assert hm["official_image"]["tag"] == "nipreps/fmriprep:25.2.5"
     # host-dependent fields must be explicit PENDING, never fabricated
@@ -147,6 +149,25 @@ def test_benchmark_inputs_verified_on_s3():
     assert "aparc+aseg.mgz" in m["inputs"]["freesurfer_aparc_aseg"]
     # no benchmark result fabricated anywhere
     assert _j("single_run_runtime_result.json")["benchmark"] is None
+
+
+def test_orchestraiq_audit_verdict_feasible_and_readonly():
+    a = _j("orchestraiq_infra_audit.json")
+    assert a["verdict"] == "ORCHESTRAIQ_DIRECT_K8S_FMRIPREP_FEASIBLE"
+    assert a["avoids_aws"] is True
+    assert a["does_not_change_scientific_methodology"] is True
+    # audit performed no cluster mutation
+    assert a["persistence_test"]["executed"] is False
+    assert "READ_ONLY" in a["audit_class"]
+    # official image runs as native pod; egress + admission confirmed read-only
+    assert "CONFIRMED" in a["container_runtime_capability"]["image_pull_egress"]
+    assert "ACCEPTED" in a["container_runtime_capability"]["official_image_admission"]
+    # the previously-unstable resource identified as the interactive workload, not batch jobs
+    assert a["orchestraiq_workload_reconciliation"]["same_as_previously_tested_unstable_pod"] is True
+    assert a["stability"]["batch_jobs_run_to_completion"] is True
+    # preserves frozen states
+    assert a["preserves"]["bare_metal_terminal"].startswith("O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE")
+    assert a["preserves"]["O3"] == "O3_NOT_READY"
 
 
 def test_prior_phase0_and_immutables_untouched():

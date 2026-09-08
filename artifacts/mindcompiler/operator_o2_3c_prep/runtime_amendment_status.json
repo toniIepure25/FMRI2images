@@ -71,14 +71,15 @@
   "preserves_historical_blocker": "O2_3C_REST_PRODUCT_INCOMPATIBLE (unchanged); container-path infra blocker preserved at fbab942",
   "no_scientific_track_O_status_modified": true,
   "host_migration": {
-    "resolution_path": "O2_3C_PREP_RUNTIME_HOST_REQUIRED",
-    "status": "BLOCKED_PENDING_HOST_PROVISIONING",
+    "resolution_path": "ORCHESTRAIQ_DIRECT_K8S (avoids AWS)",
+    "status": "ORCHESTRAIQ_DIRECT_K8S_FMRIPREP_FEASIBLE_PENDING_EXECUTION_APPROVAL",
     "source_head": "437710011c407415ae1af56d3530143b3d659b08",
     "data_verified_fetchable_from_public_s3": true,
     "freesurfer_license_in_hand": true,
     "local_host_inadequate": true,
     "old_pod_excluded": true,
-    "awaiting": "user-provided non-preemptible Linux Docker host access (SSH/host details) meeting the frozen spec, OR explicit authorization of a specific cloud host",
-    "note": "bare-metal terminal O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE @ 4377100 unchanged; this is the authorized official-container resolution, pending only host access."
+    "awaiting": "one-time approval for cluster writes (kubectl apply of PVCs+Secret+Job); audit itself mutated nothing",
+    "note": "bare-metal terminal O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE @ 4377100 unchanged; this is the authorized official-container resolution, pending only host access.",
+    "orchestraiq_verdict": "ORCHESTRAIQ_DIRECT_K8S_FMRIPREP_FEASIBLE"
   }
 }

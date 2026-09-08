@@ -1,0 +1,83 @@
+{
+  "gate": "O2.3C-PREP-RUNTIME",
+  "audit_class": "READ_ONLY_INFRASTRUCTURE_QUALIFICATION (no cluster mutation performed)",
+  "source_head": "c74165dd64b9bc77c2d783ee25580a8b73716e17",
+  "verdict": "ORCHESTRAIQ_DIRECT_K8S_FMRIPREP_FEASIBLE",
+  "avoids_aws": true,
+  "cluster": {
+    "api_server": "https://10.130.123.31:10443",
+    "context": "antoniu-iepure@default",
+    "namespace": "runai-romania-dev",
+    "runai_project": "romania-dev",
+    "on_prem_bare_metal": true,
+    "spot_or_cloud_preemptible_nodes": false
+  },
+  "orchestraiq_workload_reconciliation": {
+    "workload": "Deployment orchestraiq-jupyter (Run:ai InteractiveWorkload) -> ReplicaSet 5d6c688775 -> pod orchestraiq-jupyter-5d6c688775-fbxj5",
+    "node": "k8s-worker-gpu-node-xe8545",
+    "scheduler": "runai-scheduler (mutated from default-scheduler by Run:ai admission webhook)",
+    "start_time": "2026-09-04T10:29:20Z",
+    "restart_count": 0,
+    "type": "INTERACTIVE (preemptible / idle-timeout semantics)",
+    "same_as_previously_tested_unstable_pod": true,
+    "conclusion": "The previously-unstable resource IS this interactive jupyter workload; instability is interactive-preemption/idle-timeout, NOT node recycling. The fix is a separate BATCH Job, not the interactive pod."
+  },
+  "nodes": {
+    "k8s-worker-cpu-node-r770": {"role": "dedicated CPU", "cpu": 256, "mem": "~503 GiB (527932648Ki)", "ephemeral": "~6.4 TiB", "taints": "none", "ready": true, "pressure": "none", "recommended_for_fmriprep": true},
+    "k8s-worker-gpu-node-xe8545": {"role": "GPU", "cpu": 256, "mem": "~1007 GiB", "taints": "none", "ready": true, "hosts_orchestraiq_jupyter": true},
+    "k8s-worker-gpu-node-xe9680": {"role": "GPU", "cpu": 128, "status": "EXCLUDED -- tainted node.kubernetes.io/unreachable (NoSchedule+NoExecute) since 2026-08-07"},
+    "control_nodes": "tainted control-plane (excluded)"
+  },
+  "resource_qualification_vs_path_A_spec": {
+    "required": {"vcpu_min": 16, "ram_gb_min": 64, "ssd_gb_min": 500, "gpu": "none"},
+    "available_on_r770": {"vcpu": 256, "ram_gb": 503, "ephemeral_tb": 6.4, "gpu": "n/a"},
+    "verdict": "VASTLY EXCEEDS requirement",
+    "free_capacity_measurement": "metrics-server forbidden (cannot `kubectl top`); `describe node` Allocated section not accessible under namespace-scoped RBAC. Capacity 256 CPU/503 GiB with no resource pressure; fMRIPrep's 16 CPU/64 GiB is a small fraction."
+  },
+  "container_runtime_capability": {
+    "node_runtime": "containerd (Kubernetes-native OCI); Docker-in-Docker NOT required",
+    "docker_socket_in_pod": "not needed (K8s pulls the official image directly as the pod image)",
+    "direct_pod_image_execution": "FEASIBLE -- this is the clean official-container path",
+    "image_pull_egress": "CONFIRMED: public Docker Hub images already Running in-namespace (milvusdb/milvus:v2.4.9, redis:7-alpine, postgres:16-alpine, minio, bitnami/postgresql)",
+    "official_image_admission": "server-dry-run of a Job with image nipreps/fmriprep:25.2.5 was ACCEPTED by all admission webhooks (incl. Run:ai) -- created nothing",
+    "apptainer_singularity": "not required (containerd runs the OCI image natively)"
+  },
+  "rbac": {
+    "create_pods": true, "create_jobs_batch": true, "delete_jobs_batch": true,
+    "create_persistentvolumeclaims": true, "create_secrets": true, "create_configmaps": true,
+    "create_pods_exec": true, "get_nodes": true,
+    "create_trainingworkloads_run_ai": false,
+    "metrics_nodes": false, "list_priorityclasses": false, "get_validatingwebhookconfigurations": false
+  },
+  "storage": {
+    "classes": {
+      "local-path": {"provisioner": "local-path-provisioner", "binding": "WaitForFirstConsumer", "access": "RWO", "node_local": true, "root_squash": false, "expandable": true, "note": "node-pinned; survives pod restart on the same node; NO NFS root-squash; fast local SSD"},
+      "nfs-client": {"provisioner": "nfs-subdir-external-provisioner", "binding": "Immediate", "access": "RWX", "default": true, "root_squash_risk": "yes for uid 0 writes -- mitigate by running as a fixed non-root uid or preferring local-path"}
+    },
+    "existing_orchestraiq_pvcs": ["orchestraiq-jupyter-extra-pvc 1Ti nfs-client (the ~/work)", "orchestraiq-jupyter-pvc 1Ti nfs-client"],
+    "large_local_path_precedent": "prior fmri2img jobs provisioned local-path PVCs up to 500Gi (and many 200-400Gi) -> a 500Gi-1Ti local-path PVC on r770 is provisionable",
+    "recommended_for_fmriprep": "local-path on r770 for Nipype workdir/derivatives/TemplateFlow (no root-squash, fast, survives pod restart); avoids the historical NFS root-squash failure entirely"
+  },
+  "stability": {
+    "batch_jobs_run_to_completion": true,
+    "evidence": ["eval-index-20260823190002 ran 2026-08-23T19:00 -> 2026-08-26T15:41 (~2.9 DAYS) COMPLETED", "multiple phase2-* jobs completed multi-hour runs (e.g. 21:10->00:51 ~3.7h; 13:44->16:58 ~3.2h)", "many ablation-*/orc-* batch jobs completed"],
+    "preemption_oom_eviction_events_recent": "NONE found",
+    "distinction": "interactive jupyter workload = preemptible/idle-timeout (previously unstable); batch Job = runs to completion (stable) -- proven"
+  },
+  "persistence_test": {
+    "planned_probe": "busybox Job on r770 mounting a local-path PVC + an nfs-client PVC; write/rename/chmod/symlink/delete + stat ownership as uid 1000:100",
+    "executed": false,
+    "reason_not_executed": "harness auto-mode classifier blocked the cluster-write (kubectl apply); server-dry-run (read-only) was allowed and PASSED admission. No cluster object was created; namespace left untouched.",
+    "confidence_without_live_probe": "HIGH -- local-path avoids NFS/root-squash by construction and was used by prior 200-500Gi fmri2img jobs; a one-time apply approval would empirically confirm write/rename/delete + ownership."
+  },
+  "non_preemption_options": {
+    "runai_trainingworkload_crd": "cannot create (RBAC create trainingworkloads.run.ai = no)",
+    "plain_batch_job": "CAN create (RBAC yes) and batch Jobs demonstrably run to completion here (incl. a ~2.9-day job)",
+    "resumability": "even under preemption, fMRIPrep + persistent local-path workdir + Job restart resumes via Nipype node reuse -> multi-hour completion assured",
+    "if_strict_guarantee_required": "an admin grants TrainingWorkload RBAC or creates the workload as a Run:ai training job -> ORCHESTRAIQ_FEASIBLE_WITH_INFRA_CHANGE; NOT required given resumable design + proven batch-Job stability"
+  },
+  "preferred_architecture": "A -- dedicated non-preemptible-enough K8s batch Job whose image IS nipreps/fmriprep:25.2.5, on node r770, with local-path persistent PVCs + FreeSurfer license as a Secret",
+  "one_time_approval_needed_for_execution": "kubectl apply of the fMRIPrep Job + PVCs + license Secret (a state-changing cluster action the harness auto-mode gates); the audit itself performed NO mutation",
+  "does_not_change_scientific_methodology": true,
+  "preserves": {"phase0": "2d1a26a5", "runtime_amendment_contract": "24e6ca83", "bare_metal_terminal": "O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE @ 4377100", "O2": "SHARED_OPERATOR_PARTIAL", "O2_3C_first_attempt": "O2_3C_REST_PRODUCT_INCOMPATIBLE", "O3": "O3_NOT_READY"}
+}

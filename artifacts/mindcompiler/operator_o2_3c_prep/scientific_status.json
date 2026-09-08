@@ -17,7 +17,7 @@
     "O3": "O3_NOT_READY"
   },
   "preserves_historical_blocker": "O2_3C_REST_PRODUCT_INCOMPATIBLE (unchanged)",
-  "compute_state": "PATH_A_HOST_MIGRATION_BLOCKED_PENDING_HOST_PROVISIONING (official nipreps/fmriprep:25.2.5; local host inadequate; old pod excluded)",
+  "compute_state": "ORCHESTRAIQ_DIRECT_K8S_FMRIPREP_FEASIBLE (Path A resolves on existing cluster; official image as native pod on r770; pending execution approval)",
   "verified_runtime_blockers": {
     "lane_A": "no MATLAB runtime",
     "lane_B": "no supported container runtime on pod (apptainer blocked by securityContext mount restriction; no docker/singularity/sudo); udocker runs only via proot (unsupported/slow) and its downloader fails on the ~15GB fMRIPrep layer; skopeo transfer + any sustained compute defeated by frequent pod preemption wiping ephemeral storage; NFS PVC root_squash breaks container stores; FreeSurfer license absent"
@@ -31,6 +31,6 @@
     "fs_license": "RESOLVED_BY_USER (present on PVC; hash-recorded; not committed)",
     "finding": "FS license resolved; but R0-frozen bare-metal external-dependency pins (docs-derived) are not container-equivalent to the authoritative fMRIPrep 25.2.5 image (pixi.lock: ANTs 2.6.2, workbench 2.0.1, componentized FSL; AFNI/FreeSurfer from a base image whose pull is blocked). Cannot certify equivalence; will not silently substitute versions. Recommended resolution: official container on a Docker host (O2_3C_PREP_RUNTIME_HOST_REQUIRED).",
     "does_not_modify_scientific_methodology_or_track_O": true,
-    "host_migration": "BLOCKED_PENDING_HOST_PROVISIONING (Path A authorized; data verified on S3; FS license in hand; awaiting user-provided Docker host)"
+    "host_migration": "ORCHESTRAIQ_DIRECT_K8S_FMRIPREP_FEASIBLE on orchestraiq (avoids AWS); audit read-only, no cluster mutation; pending one-time apply approval"
   }
 }

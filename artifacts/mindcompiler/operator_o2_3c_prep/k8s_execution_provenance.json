@@ -2,21 +2,50 @@
   "gate": "O2.3C-PREP-RUNTIME",
   "execution_class": "ORCHESTRAIQ_DIRECT_K8S (official image as native pod; technical runtime only)",
   "source_head": "4b276d5e0ff4d278d0524f0f866ea02bea34a4a6",
-  "status": "STORAGE_PERSISTENCE_SECRET_VALIDATED (staging + image-digest + R3 + R4 pending)",
-  "cluster": {"api_server": "https://10.130.123.31:10443", "context": "antoniu-iepure@default", "namespace": "runai-romania-dev", "runai_project": "romania-dev"},
-  "target_node": {"name": "k8s-worker-cpu-node-r770", "node_pool": "cpu-worker", "cpu": 256, "mem_gib": 503, "local_disk": "XFS /dev/sda3 ~7.2 TiB free", "runtime": "containerd"},
+  "status": "PROVENANCE_SEALED_PRE_BENCHMARK (R3/R4 execution next)",
+  "cluster": {
+    "api_server": "https://10.130.123.31:10443",
+    "context": "antoniu-iepure@default",
+    "namespace": "runai-romania-dev",
+    "runai_project": "romania-dev"
+  },
+  "target_node": {
+    "name": "k8s-worker-cpu-node-r770",
+    "node_pool": "cpu-worker",
+    "cpu": 256,
+    "mem_gib": 503,
+    "local_disk": "XFS /dev/sda3 ~7.2 TiB free",
+    "runtime": "containerd"
+  },
   "scheduling_recipe_verified": {
-    "pod_label": {"runai/node-pool": "cpu-worker"},
-    "nodeSelector": {"node-role.kubernetes.io/runai-cpu-worker": "true", "kubernetes.io/hostname": "k8s-worker-cpu-node-r770"},
+    "pod_label": {
+      "runai/node-pool": "cpu-worker"
+    },
+    "nodeSelector": {
+      "node-role.kubernetes.io/runai-cpu-worker": "true",
+      "kubernetes.io/hostname": "k8s-worker-cpu-node-r770"
+    },
     "note": "Run:ai pod-group node-pool is chosen from the pod's runai/node-pool LABEL (not nodeSelector); label must be cpu-worker to place on r770. Confirmed: 'Successfully assigned ... to node k8s-worker-cpu-node-r770 at node-pool cpu-worker'."
   },
   "pvcs": {
     "storage_class": "local-path (node-local XFS on r770; no NFS root-squash)",
     "bound": {
-      "o23c-prep-bids": {"capacity": "100Gi", "selected_node": "k8s-worker-cpu-node-r770"},
-      "o23c-prep-work": {"capacity": "500Gi", "selected_node": "k8s-worker-cpu-node-r770"},
-      "o23c-prep-derivatives": {"capacity": "200Gi", "selected_node": "k8s-worker-cpu-node-r770"},
-      "o23c-prep-templateflow": {"capacity": "20Gi", "selected_node": "k8s-worker-cpu-node-r770"}
+      "o23c-prep-bids": {
+        "capacity": "100Gi",
+        "selected_node": "k8s-worker-cpu-node-r770"
+      },
+      "o23c-prep-work": {
+        "capacity": "500Gi",
+        "selected_node": "k8s-worker-cpu-node-r770"
+      },
+      "o23c-prep-derivatives": {
+        "capacity": "200Gi",
+        "selected_node": "k8s-worker-cpu-node-r770"
+      },
+      "o23c-prep-templateflow": {
+        "capacity": "20Gi",
+        "selected_node": "k8s-worker-cpu-node-r770"
+      }
     },
     "node_locality_mechanism": "volume.kubernetes.io/selected-node = k8s-worker-cpu-node-r770 on every PVC (this local-path provisioner records node here rather than PV nodeAffinity); every consumer Job pins r770, so data is always co-located"
   },
@@ -31,7 +60,8 @@
     "mounted_path": "/opt/freesurfer/license.txt",
     "mounted_sha256": "6f7afab5b5201aa8b0aca10e29ff04802c6d279a0a1c7ddfeae9dd13ae52a152",
     "expected_sha256": "6f7afab5b5201aa8b0aca10e29ff04802c6d279a0a1c7ddfeae9dd13ae52a152",
-    "match": true, "bytes": 133,
+    "match": true,
+    "bytes": 133,
     "contents_committed_or_printed": false,
     "secret_object_committed": false
   },
@@ -39,11 +69,68 @@
     "o23c_pvcs.yaml": "6bc2b655806b0aaea593c31c12b781912a02cbdb5b9d7ab51193258ced710843",
     "note": "persist test manifests iterated to find the node-pool recipe; final scheduling recipe recorded above"
   },
-  "image_digest": "PENDING (resolve nipreps/fmriprep:25.2.5 @sha256 at pull; verify fmriprep --version == 25.2.5)",
-  "staging": "PENDING (subj01/ses-nsd01/run-01 from public NSD S3 per benchmark_input_manifest.json)",
-  "R3_resume_certification": "PENDING",
+  "image_digest": "docker.io/nipreps/fmriprep@sha256:15cbf8dcd17440d26ff5e80e9f7313f1cb3c54f13673f1ec4aed4465e8e12d77",
+  "staging": {
+    "status": "STAGING_OK",
+    "node": "k8s-worker-cpu-node-r770",
+    "access": "public NSD S3 unsigned via HTTPS",
+    "manifest_sha256": "e04ec4c5282b2e34b36f57819828b2a411365f840a45852e7d9be1a5349d0838",
+    "staged": {
+      "anat_T1w_runs": 6,
+      "func_bold_run01_bytes": 235532187,
+      "sbref": true,
+      "events": true,
+      "fmap_phasediff_magnitude1_2": true,
+      "groundtruth": "/out/groundtruth/timeseries_session01_run01.nii.gz (126938528 bytes, nsdcore NOT imagery)"
+    },
+    "all_gzip_valid_nonzero": true
+  },
+  "R3_resume_certification": "to be certified during execution: prove launch+license+mounts+TemplateFlow+workdir, then a mid-run pod restart on r770 reuses completed Nipype nodes",
   "R4_benchmark": "PENDING (frozen thresholds; requests 16 CPU/64Gi, limits 24 CPU/110Gi)",
   "authorized_prefix": "o23c-",
   "no_scientific_methodology_change": true,
-  "preserves": {"phase0": "2d1a26a5", "contract": "24e6ca83", "bare_metal_terminal": "O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE @ 4377100", "O2": "SHARED_OPERATOR_PARTIAL", "O2_3C_first_attempt": "O2_3C_REST_PRODUCT_INCOMPATIBLE", "O3": "O3_NOT_READY"}
+  "preserves": {
+    "phase0": "2d1a26a5",
+    "contract": "24e6ca83",
+    "bare_metal_terminal": "O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE @ 4377100",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2_3C_first_attempt": "O2_3C_REST_PRODUCT_INCOMPATIBLE",
+    "O3": "O3_NOT_READY"
+  },
+  "image_tag": "nipreps/fmriprep:25.2.5",
+  "fmriprep_version_verified": "25.2.5 (in-container `fmriprep --version` -> 'fMRIPrep v25.2.5')",
+  "R4_benchmark_command": {
+    "image": "nipreps/fmriprep@sha256:15cbf8dcd17440d26ff5e80e9f7313f1cb3c54f13673f1ec4aed4465e8e12d77",
+    "args": [
+      "/bids",
+      "/out",
+      "participant",
+      "--participant-label=01",
+      "--task-id=nsdcore",
+      "--fs-no-reconall",
+      "--fs-license-file=/opt/freesurfer/license.txt",
+      "--output-spaces=boldref",
+      "--skip-bids-validation",
+      "--nprocs=16",
+      "--omp-nthreads=8",
+      "--mem-mb=90000",
+      "-w=/work",
+      "--stop-on-first-crash",
+      "--notrack"
+    ],
+    "runtime_flags_note": "--skip-bids-validation and --notrack are runtime-only (no preprocessing/methodology change); SDC=phasediff (no SyN), slice-timing from BIDS, rigid motion, no smoothing/AROMA/GSR",
+    "resources": {
+      "requests": {
+        "cpu": 16,
+        "memory": "64Gi"
+      },
+      "limits": {
+        "cpu": 24,
+        "memory": "110Gi"
+      }
+    },
+    "workdir": "/work (local-path PVC o23c-prep-work on r770, persistent, no --clean-workdir)",
+    "manifest_sha256": "be4c2aee163851b5aee14cc1ca65e21ba177921f2d4ae882d456160814806735"
+  },
+  "provenance_sealed_before_outcome": true
 }

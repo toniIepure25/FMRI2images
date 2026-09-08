@@ -29,7 +29,7 @@
     "baremetal_dependency_inventory.json": "d5f15d0940f4e5ca",
     "baremetal_environment_manifest.json": "7a449e1d3a914071",
     "persistent_workdir_certification.json": "5c691ed894b1a92e",
-    "resume_certification.json": "f320246a45b961ca",
+    "resume_certification.json": "3f05defd31404e45",
     "runtime_amendment_contract.json": "3050353e79fad0c2",
     "runtime_amendment_status.json": "dce8bb133444c2de",
     "single_run_runtime_result.json": "b169add478730d90",
@@ -38,7 +38,8 @@
     "host_migration_provenance.json": "cd32a590e18ffab6",
     "orchestraiq_infra_audit.json": "230132ea497a4cc5",
     "k8s_fmriprep_workload_PROPOSED.yaml": "d98c804af73a3f62",
-    "k8s_execution_provenance.json": "c4dd16f4e30c21f5",
-    "r3_pre_restart_evidence.json": "017914884a3fd7da"
+    "k8s_execution_provenance.json": "6a573943bb116943",
+    "r3_pre_restart_evidence.json": "017914884a3fd7da",
+    "fmriprep_run_provenance.json": "e3a2d1a868c73778"
   }
 }

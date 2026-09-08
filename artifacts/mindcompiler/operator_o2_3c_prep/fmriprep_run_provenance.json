@@ -1,0 +1,29 @@
+{
+  "gate": "O2.3C-PREP-RUNTIME",
+  "phase": "R4_fmriprep_completion",
+  "source_head": "578b0a9",
+  "image_digest": "docker.io/nipreps/fmriprep@sha256:15cbf8dcd17440d26ff5e80e9f7313f1cb3c54f13673f1ec4aed4465e8e12d77",
+  "terminal_job_status": "Complete (succeeded=1) for o23c-fmriprep-bench and o23c-fmriprep-resume",
+  "fmriprep_finished_successfully": true,
+  "pod_exit_code": 0,
+  "elapsed_original": "~35 min on r770",
+  "crashfiles": 0,
+  "crashfiles_out": 0,
+  "crashfiles_work": 0,
+  "output_inventory_key": {
+    "preproc_bold_func": "sub-01_ses-nsd01_task-nsdcore_run-01_desc-preproc_bold.nii.gz",
+    "func_brain_mask": "sub-01_ses-nsd01_task-nsdcore_run-01_desc-brain_mask.nii.gz",
+    "confounds": "sub-01_ses-nsd01_task-nsdcore_run-01_desc-confounds_timeseries.tsv (+ .json)",
+    "hmc": "desc-hmc_boldref.nii.gz + from-orig_to-boldref_mode-image_desc-hmc_xfm.txt",
+    "sdc": "fmap desc-brain_mask + from-boldref_to-auto00000_mode-image_desc-fmap_xfm.txt (phasediff fieldmap SDC)",
+    "coreg_bold_to_anat": "from-boldref_to-T1w_mode-image_desc-coreg_xfm.txt + desc-coreg_boldref.nii.gz",
+    "anat": "6x T1w from-orig_to-T1w xfm + sub-01_ses-nsdanat_desc-brain_mask.nii.gz"
+  },
+  "sdc_evidence": true,
+  "slice_timing_applied": "per BIDS SliceTiming (default STC; not --ignore slicetiming)",
+  "hmc_evidence": true,
+  "bold_to_anat_registration_evidence": true,
+  "confounds_motion_evidence": true,
+  "benchmark_metrics_evaluated": false,
+  "note": "outputs complete; benchmark agreement NOT yet interpreted (R4 func1pt8mm mapping + frozen metrics next)"
+}

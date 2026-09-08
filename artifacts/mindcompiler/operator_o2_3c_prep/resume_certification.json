@@ -1,6 +1,20 @@
 {
   "gate": "O2.3C-PREP-RUNTIME",
   "phase": "R3",
-  "status": "NOT_REACHED_DEPENDENCY_FAILURE",
-  "nipype_node_reused_after_restart": null
+  "status": "PERSISTENT_NIPYPE_RESUME_CERTIFIED",
+  "method": "fMRIPrep benchmark run finished before a mid-run pod delete could be staged; resume proven via a fresh IDENTICAL Job (same image digest + command + /work PVC) = new pod, equal-or-stronger reuse demonstration",
+  "original_pod_uid": "aa24e087-03e2-40a2-848c-f25c31997bc0",
+  "replacement_pod_uid": "9d86f7cc-5b78-4b70-b80c-f4998f9333c5",
+  "new_pod_uid_confirmed": true,
+  "same_node": "k8s-worker-cpu-node-r770",
+  "same_work_pvc": "o23c-prep-work (PV pvc-d0243c4a..., selected-node r770)",
+  "same_image_digest": "sha256:15cbf8dcd17440d26ff5e80e9f7313f1cb3c54f13673f1ec4aed4465e8e12d77",
+  "same_command": true,
+  "evidence_A_logs": "replacement run finished successfully in ~260s vs original ~35min; only 1 node re-executed (conf_plot, a report/summary node that legitimately regenerates); all heavy compute nodes (anat brain-extraction, SDC, HMC, coreg, resampling) reused from cache",
+  "evidence_B_artifacts": "4 pre-sealed completed-node result caches byte-identical AFTER the restart (same SHA256 AND same nanosecond mtime): about 04e171ce.., calc_phdiff 1fc9f1f3.., prelude 4fdf3e03.., phmap2rads b835db58.. -> reused, not regenerated, no corruption",
+  "completed_nodes_valid": 4,
+  "evidence_classes": 2,
+  "cache_corruption": false,
+  "methodology_or_config_change": false,
+  "verdict": "PERSISTENT_NIPYPE_RESUME_CERTIFIED"
 }

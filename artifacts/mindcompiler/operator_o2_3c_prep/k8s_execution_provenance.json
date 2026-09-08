@@ -2,7 +2,7 @@
   "gate": "O2.3C-PREP-RUNTIME",
   "execution_class": "ORCHESTRAIQ_DIRECT_K8S (official image as native pod; technical runtime only)",
   "source_head": "4b276d5e0ff4d278d0524f0f866ea02bea34a4a6",
-  "status": "PROVENANCE_RESEALED_PRE_BENCHMARK (corrected command; R3/R4 launching)",
+  "status": "R3_CERTIFIED + R4_FMRIPREP_COMPLETE (func1pt8mm mapping + frozen metrics next)",
   "cluster": {
     "api_server": "https://10.130.123.31:10443",
     "context": "antoniu-iepure@default",
@@ -85,8 +85,8 @@
     },
     "all_gzip_valid_nonzero": true
   },
-  "R3_resume_certification": "to be certified during execution: prove launch+license+mounts+TemplateFlow+workdir, then a mid-run pod restart on r770 reuses completed Nipype nodes",
-  "R4_benchmark": "PENDING (frozen thresholds; requests 16 CPU/64Gi, limits 24 CPU/110Gi)",
+  "R3_resume_certification": "PERSISTENT_NIPYPE_RESUME_CERTIFIED (see resume_certification.json)",
+  "R4_benchmark": "fMRIPrep COMPLETE (crashfiles=0, all derivatives); func1pt8mm mapping + metrics pending",
   "authorized_prefix": "o23c-",
   "no_scientific_methodology_change": true,
   "preserves": {

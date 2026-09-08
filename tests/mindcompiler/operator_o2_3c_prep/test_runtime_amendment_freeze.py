@@ -113,9 +113,12 @@ def test_dependency_equivalence_failure_evidence_based():
 
 
 def test_r3_r4_not_reached_and_r2_halted_honest():
+    # bare-metal branch record (superseded by the orchestraiq direct-K8s path) stays honest:
     assert _j("baremetal_environment_manifest.json")["status"] == "HALTED_DEPENDENCY_EQUIVALENCE_FAILURE"
     assert _j("baremetal_environment_manifest.json")["installed_versions"]["fmriprep"] == "25.2.5"
-    for n in ["persistent_workdir_certification.json", "resume_certification.json", "single_run_runtime_result.json"]:
+    # the bare-metal placeholders remain NOT_REACHED (resume_certification.json was repurposed for the
+    # orchestraiq R3 certification and is asserted separately in test_r3_resume_certified)
+    for n in ["persistent_workdir_certification.json", "single_run_runtime_result.json"]:
         assert _j(n)["status"] == "NOT_REACHED_DEPENDENCY_FAILURE"
     # no benchmark metric fabricated
     assert _j("single_run_runtime_result.json")["benchmark"] is None
@@ -168,6 +171,36 @@ def test_orchestraiq_audit_verdict_feasible_and_readonly():
     # preserves frozen states
     assert a["preserves"]["bare_metal_terminal"].startswith("O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE")
     assert a["preserves"]["O3"] == "O3_NOT_READY"
+
+
+def test_r3_resume_certified():
+    r = _j("resume_certification.json")
+    assert r["status"] == "PERSISTENT_NIPYPE_RESUME_CERTIFIED"
+    assert r["new_pod_uid_confirmed"] is True
+    assert r["completed_nodes_valid"] >= 3 and r["evidence_classes"] >= 2
+    assert r["cache_corruption"] is False
+
+
+def test_r4_benchmark_failure_temporal_incompatibility():
+    s = _j("r4_benchmark_status.json")
+    assert s["status"] == "O2_3C_PREP_TASK_BENCHMARK_FAILURE"
+    assert s["stop"] is True
+    assert s["cohort_phases_2_4"].startswith("NOT AUTHORIZED")
+    m = _j("r4_benchmark_metrics.json")
+    assert m["candidate"]["nvols"] == 188 and m["ground_truth"]["nvols"] == 226
+    assert m["temporal_alignment_guard"]["verdict"] == "FAIL"
+    assert m["thresholds_weakened"] is False
+    assert m["pass_contract_satisfiable"] is False
+    # transform not applied (no inverse-direction risk)
+    assert _j("r4_transform_certification.json")["transform_applied"] is False
+
+
+def test_o3_and_track_o_preserved_after_benchmark():
+    imm = _j("scientific_status.json")["immutable"]
+    assert imm["O2"] == "SHARED_OPERATOR_PARTIAL"
+    assert imm["O2.3A"] == "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE"
+    assert imm["O2.3C_first_attempt"] == "O2_3C_REST_PRODUCT_INCOMPATIBLE"
+    assert imm["O3"] == "O3_NOT_READY"
 
 
 def test_prior_phase0_and_immutables_untouched():

@@ -18,12 +18,12 @@
     "product_certification_contract.json": "b6b0aa7a846dcacf",
     "rest_raw_inventory.json": "91022ff08d4d6a92",
     "runtime_probe.json": "1710373dfbd8d9b9",
-    "scientific_status.json": "ab1c72679cc64eea",
+    "scientific_status.json": "5ac09471214fa8ff",
     "task_benchmark_contract.json": "94097fb10cd5b691",
     "task_benchmark_manifest.csv": "c36c80540e923e90",
     "task_benchmark_results.json": "a9a1e2c48d7eac48",
     "task_benchmark_status.json": "a9a1e2c48d7eac48",
-    "test_report.json": "e8d2a59bcb8f6615",
+    "test_report.json": "ed817f24b54854df",
     "tissue_mask_certification.json": "a9a1e2c48d7eac48",
     "tissue_mask_contract.json": "56fa6538aa793a8c",
     "baremetal_dependency_inventory.json": "d5f15d0940f4e5ca",
@@ -38,8 +38,11 @@
     "host_migration_provenance.json": "cd32a590e18ffab6",
     "orchestraiq_infra_audit.json": "230132ea497a4cc5",
     "k8s_fmriprep_workload_PROPOSED.yaml": "d98c804af73a3f62",
-    "k8s_execution_provenance.json": "6a573943bb116943",
+    "k8s_execution_provenance.json": "4b9d341738ab1549",
     "r3_pre_restart_evidence.json": "017914884a3fd7da",
-    "fmriprep_run_provenance.json": "e3a2d1a868c73778"
+    "fmriprep_run_provenance.json": "e3a2d1a868c73778",
+    "r4_benchmark_metrics.json": "a9a515c1cba8ef7e",
+    "r4_benchmark_status.json": "e1cf80b12b5c557f",
+    "r4_transform_certification.json": "ee0ae1d8d03c0683"
   }
 }

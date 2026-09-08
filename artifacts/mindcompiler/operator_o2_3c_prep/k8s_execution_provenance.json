@@ -2,7 +2,7 @@
   "gate": "O2.3C-PREP-RUNTIME",
   "execution_class": "ORCHESTRAIQ_DIRECT_K8S (official image as native pod; technical runtime only)",
   "source_head": "4b276d5e0ff4d278d0524f0f866ea02bea34a4a6",
-  "status": "R3_CERTIFIED + R4_FMRIPREP_COMPLETE (func1pt8mm mapping + frozen metrics next)",
+  "status": "R4 EVALUATED -> O2_3C_PREP_TASK_BENCHMARK_FAILURE (temporal-grid product incompatibility; STOP)",
   "cluster": {
     "api_server": "https://10.130.123.31:10443",
     "context": "antoniu-iepure@default",
@@ -86,7 +86,7 @@
     "all_gzip_valid_nonzero": true
   },
   "R3_resume_certification": "PERSISTENT_NIPYPE_RESUME_CERTIFIED (see resume_certification.json)",
-  "R4_benchmark": "fMRIPrep COMPLETE (crashfiles=0, all derivatives); func1pt8mm mapping + metrics pending",
+  "R4_benchmark": "O2_3C_PREP_TASK_BENCHMARK_FAILURE (candidate 188@1.6s vs GT 226@1.333s)",
   "authorized_prefix": "o23c-",
   "no_scientific_methodology_change": true,
   "preserves": {

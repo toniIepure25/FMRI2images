@@ -1,0 +1,79 @@
+{
+  "gate": "O2.3C-PREP-RUNTIME",
+  "phase": "R4_frozen_benchmark_metrics",
+  "candidate": {
+    "source": "fMRIPrep 25.2.5 desc-preproc_bold (func space)",
+    "shape": [
+      120,
+      120,
+      84,
+      188
+    ],
+    "voxel_mm": 1.8,
+    "nvols": 188,
+    "TR_s": 1.6
+  },
+  "ground_truth": {
+    "file": "timeseries_session01_run01.nii.gz (NSD prepared func1pt8mm, nsdcore)",
+    "shape": [
+      81,
+      104,
+      83,
+      226
+    ],
+    "voxel_mm": 1.8,
+    "nvols": 226,
+    "TR_s": 1.3333
+  },
+  "temporal_alignment_guard": {
+    "same_nvols": false,
+    "candidate_nvols": 188,
+    "gt_nvols": 226,
+    "same_TR": false,
+    "candidate_TR_s": 1.6,
+    "gt_TR_s": 1.3333,
+    "deterministic_cause": "NSD prepared product temporally UPSAMPLED 1.6s->1.3333s (226 = 188 * 1.6/1.3333, x1.2); frozen methodology performs NO temporal resampling",
+    "verdict": "FAIL",
+    "lag_search_or_resample_to_fix": "FORBIDDEN by brief (not performed)"
+  },
+  "geometry": {
+    "spatial_voxel_mm_match": true,
+    "func1pt8mm_spatial_grid": [
+      81,
+      104,
+      83
+    ],
+    "candidate_native_grid": [
+      120,
+      120,
+      84
+    ],
+    "spatial_mapping_well_defined": true,
+    "shape_equality_4D": "FAIL (candidate 188 timepoints vs ground-truth 226)",
+    "verdict": "FAIL (temporal dimension)"
+  },
+  "brainmask_dice": "NOT_COMPUTED (PASS already precluded by temporal/geometry gate; would require the moot spatial mapping)",
+  "mean_bold_spatial_r": "NOT_COMPUTED (non-determining; would require registration to a contrast-mismatched R2 reference)",
+  "roi_mean_temporal_r": {
+    "ventral": "NOT_COMPUTABLE",
+    "lateral": "NOT_COMPUTABLE",
+    "parietal": "NOT_COMPUTABLE",
+    "reason": "candidate (188@1.6s) and ground-truth (226@1.3333s) on incompatible temporal grids; frozen methodology forbids temporal resampling",
+    "roi_source": "NSD streams.nii.gz (ventral=5, lateral=6, parietal=7)"
+  },
+  "voxelwise_temporal_r": "NOT_COMPUTABLE (same temporal-grid incompatibility)",
+  "tsnr_ratio": "NOT_COMPUTED (non-determining given the gate)",
+  "frozen_thresholds": {
+    "brainmask_dice_min": 0.9,
+    "mean_volume_spatial_r_min": 0.95,
+    "roi_mean_temporal_r_min": 0.9,
+    "voxelwise_temporal_r_min": 0.7,
+    "group_tsnr_ratio_range": [
+      0.5,
+      2.0
+    ]
+  },
+  "thresholds_weakened": false,
+  "pass_contract_satisfiable": false,
+  "decision": "O2_3C_PREP_TASK_BENCHMARK_FAILURE"
+}

@@ -1,0 +1,25 @@
+{
+  "gate": "O2.3C-PREP-RUNTIME",
+  "phase": "R4_transform_cert",
+  "transform_applied": false,
+  "reason_not_applied": "Frozen GEOMETRY metric (4D shape equality) and the temporal-alignment guard fail PRE-transform: candidate 188 vols @ TR 1.6s vs ground-truth 226 vols @ TR 1.3333s. Applying the spatial ANTs rigid+affine map cannot reconcile a temporal-grid difference; and temporal resampling to force comparability is outside the frozen methodology and forbidden by the brief. No transform is applied, so there is no inverse-direction risk.",
+  "intended_frozen_policy": {
+    "implementation": "ANTs",
+    "transforms": [
+      "rigid",
+      "affine"
+    ],
+    "cost_metric": "Mattes MI",
+    "bold_interpolation": "LanczosWindowedSinc",
+    "atlas_interpolation": "NearestNeighbor",
+    "moving": "fMRIPrep desc-coreg_boldref (native func 120x120x84 @1.8mm)",
+    "fixed": "func1pt8mm reference (R2.nii.gz, 81x104x83 @1.8mm)",
+    "target_grid": [
+      81,
+      104,
+      83
+    ],
+    "target_voxel_mm": 1.8
+  },
+  "note": "No standalone mean-EPI ships in NSD func1pt8mm ppdata; R2.nii.gz was the only imagery-independent EPI-derived reference. Moot given the temporal gate."
+}

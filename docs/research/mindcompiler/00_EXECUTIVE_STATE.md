@@ -10,6 +10,29 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.3C-PREP-RUNTIME (2026-09-08): ORCHESTRAIQ EXECUTION -- R3 CERTIFIED, R4 `O2_3C_PREP_TASK_BENCHMARK_FAILURE`
+
+Ran the frozen benchmark on orchestraiq/r770 via the official image `nipreps/fmriprep@sha256:15cbf8dc...` as a
+native K8s Job (ORCHESTRAIQ_DIRECT_K8S). **Runtime succeeded end-to-end**: o23c- PVCs (local-path r770),
+FreeSurfer Secret (hash 6f7afab5..), staged subj01/ses-nsd01/run-01 from public S3, **fMRIPrep finished exit 0,
+crashfiles=0**, full derivatives (preproc_bold func, HMC, phasediff SDC, boldref->T1w coreg, confounds).
+
+- **R3 `PERSISTENT_NIPYPE_RESUME_CERTIFIED`**: fresh identical Job (new pod 9d86f7cc vs aa24e087, same /work PVC
+  r770, same digest+cmd); replacement finished ~260s vs ~35min, only 1 report node re-ran; 4 pre-sealed node caches
+  byte-identical (SHA256+ns-mtime) -> reused, uncorrupted. Two evidence classes.
+- **R4 `O2_3C_PREP_TASK_BENCHMARK_FAILURE`**: decisive frozen-metric incompatibility. Candidate (fMRIPrep) =
+  188 vols @ TR 1.6s; NSD prepared ground-truth `timeseries_session01_run01` = **226 vols @ TR 1.3333s** (NSD
+  temporally UPSAMPLED x1.2). Frozen methodology does NO temporal resampling -> geometry 4D-shape equality FAILS and
+  the temporal-alignment guard FAILS (188!=226, 1.6!=1.333s); PASS-critical temporal-r thresholds unmeetable without
+  a FORBIDDEN temporal-resample. Prepared-PRODUCT temporal-grid incompatibility (echoes O2_3C_REST_PRODUCT_INCOMPATIBLE),
+  NOT a pipeline deficiency. STOP per brief: no tuning/resample/alt-registration/version-change/AWS.
+
+**Cohort Phases 2-4 NOT started** (only on PASS). **O2.3C-RESUME (528f23eb) NOT run.** Artifacts: r3_pre_restart_evidence,
+resume_certification (CERTIFIED), fmriprep_run_provenance, r4_transform_certification, r4_benchmark_metrics,
+r4_benchmark_status, k8s_execution_provenance + `docs/.../59C`,`59D`. 42 data-free tests pass. Preserves 2d1a26a5,
+24e6ca83, O2 SHARED_OPERATOR_PARTIAL, O2.3A CORE_ANCHOR..NOT_IDENTIFIABLE, O2_3C_REST_PRODUCT_INCOMPATIBLE, O3_NOT_READY,
+blockers fbab942/4377100.
+
 ## O2.3C-PREP-RUNTIME (2026-09-08): ORCHESTRAIQ AUDIT -- `ORCHESTRAIQ_DIRECT_K8S_FMRIPREP_FEASIBLE` (avoids AWS)
 
 Read-only Kubernetes/Run:ai audit (kubeconfig `antoniu_iepure.yaml`; **no cluster mutation**) to qualify orchestraiq

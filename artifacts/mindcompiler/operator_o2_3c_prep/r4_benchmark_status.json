@@ -1,0 +1,18 @@
+{
+  "gate": "O2.3C-PREP-RUNTIME",
+  "status": "O2_3C_PREP_TASK_BENCHMARK_FAILURE",
+  "stop": true,
+  "root_cause": "NSD prepared func1pt8mm task product is temporally resampled (226 vols @ 1.3333s); the frozen minimal O2.3C-PREP methodology produces native 188 vols @ 1.6s with no temporal resampling. The frozen benchmark's geometry (4D shape) and temporal-agreement thresholds cannot be satisfied without a temporal-resampling step outside the frozen methodology (forbidden).",
+  "nature": "frozen-benchmark / prepared-product temporal-grid INCOMPATIBILITY surfaced at execution -- NOT a preprocessing-quality deficiency. fMRIPrep executed correctly (crashfiles=0; R3 PERSISTENT_NIPYPE_RESUME_CERTIFIED). Echoes the prior O2_3C_REST_PRODUCT_INCOMPATIBLE pattern for the task product.",
+  "forbidden_and_not_attempted": [
+    "threshold weakening",
+    "temporal resampling/lag search to force comparability",
+    "alternate registration",
+    "different fMRIPrep version",
+    "selectively changed flags",
+    "AWS rescue"
+  ],
+  "cohort_phases_2_4": "NOT AUTHORIZED (only on PASS) -- not started",
+  "o2_3c_resume_528f23eb": "NOT RUN (requires O2_3C_PREP_PASS)",
+  "runtime_amendment_note": "ORCHESTRAIQ_DIRECT_K8S runtime itself SUCCEEDED end-to-end (infra, image, license, staging, fMRIPrep run, resume cert); the STOP is a scientific-benchmark outcome, not a runtime/host failure."
+}

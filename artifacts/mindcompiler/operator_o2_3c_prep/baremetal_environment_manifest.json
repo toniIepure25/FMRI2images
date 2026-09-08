@@ -1,16 +1,14 @@
 {
   "gate": "O2.3C-PREP-RUNTIME",
   "phase": "R2",
-  "status": "PARTIAL_PYTHON_LAYER_INSTALLED_HALTED_AT_FS_LICENSE",
+  "status": "HALTED_DEPENDENCY_EQUIVALENCE_FAILURE",
   "env_prefix": "/home/jovyan/work/envs/fmriprep-25.2.5-baremetal",
   "installed_versions": {
     "python": "3.12.14",
     "fmriprep": "25.2.5",
     "nipype": "1.12.0"
   },
-  "install_route": "micromamba (static) -> conda-forge python=3.12 -> pip fmriprep==25.2.5",
-  "persistent_pvc": true,
-  "survives_pod_replacement": true,
   "heavy_binaries_installed": false,
-  "reason_halted": "FreeSurfer license required by frozen fMRIPrep 25.2.5 path (see dependency inventory); not fabricated/downloaded"
+  "reason_halted": "The R0-frozen external-dependency pins were transcribed from fMRIPrep's 'Manually Prepared Environment' docs page, which is stale relative to the actual 25.2.5 image. Against the authoritative container spec (pixi.lock + base image): ANTs (2.5.1 vs 2.6.2), connectome-workbench (1.5.0 vs 2.0.1), and FSL (monolithic 6.0.7.7 vs componentized fsl-*) are DEFINITIVELY mismatched; AFNI and FreeSurfer target versions are UNVERIFIABLE because the base image ghcr pull is blocked. The frozen bare-metal dependency set therefore cannot be certified container-equivalent, and installing the container's actual versions would deviate from the frozen inventory (a forbidden methodology change). No env was built past the python layer; no benchmark run; nothing fabricated.",
+  "fs_license_resolved": true
 }

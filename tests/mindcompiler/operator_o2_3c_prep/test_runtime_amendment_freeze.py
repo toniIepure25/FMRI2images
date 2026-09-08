@@ -76,38 +76,47 @@ def test_hard_stops_enumerated():
         assert s in cat
 
 
-def test_amendment_status_sealed_fs_license_required():
+def test_amendment_status_sealed_dependency_failure():
     s = _j("runtime_amendment_status.json")
     assert s["status"] == "RUNTIME_AMENDMENT_SEALED"
-    assert s["terminal_status"] == "O2_3C_PREP_FS_LICENSE_REQUIRED"
+    assert s["terminal_status"] == "O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE"
     assert s["contract_sha"] == "24e6ca83"
-    assert s["runtime_installable_user_space"] is True
-    assert s["container_blocker_bypassed"] is True
     assert s["no_scientific_track_O_status_modified"] is True
-    # exact licensed tool named (mri_coreg + unconditional gate)
-    tool = s["exact_tool_requiring_license"]
-    assert "mri_coreg" in tool["licensed_binary"]
-    assert "check_valid_fs_license" in tool["unconditional_license_gate"]
+    # recommended resolution points at the official container on a Docker host
+    assert s["recommended_resolution"]["path"] == "O2_3C_PREP_RUNTIME_HOST_REQUIRED"
+    assert s["recommended_resolution"]["external_host_spec"]["image"] == "nipreps/fmriprep:25.2.5"
 
 
-def test_fs_license_determination_evidence_based_and_absent():
-    inv = _j("baremetal_dependency_inventory.json")
-    d = inv["freesurfer_license_determination"]
-    assert d["required"] is True and d["present_on_pvc"] is False
-    assert "installed fMRIPrep 25.2.5" in d["proven_from"]
-    fs = next(x for x in inv["dependencies"] if x["name"] == "FreeSurfer")
-    assert fs["invoked_by_frozen_path"] is True and fs["determination"] == "REQUIRED"
-    # license neither fabricated nor downloaded
+def test_fs_license_resolved_hash_only_never_committed():
+    # license blocker resolved by the user; recorded by hash only, never contents
+    ls = _j("fs_license_status.json")
+    assert ls["fs_license_present_on_pvc"] is True
+    assert ls["fs_license_sha256"] == "6f7afab5b5201aa8b0aca10e29ff04802c6d279a0a1c7ddfeae9dd13ae52a152"
+    assert ls["contents_committed_or_printed"] is False
     ep = _j("execution_provenance.json")["runtime_amendment"]
-    assert ep["fs_license_present_on_pvc"] is False
-    assert ep["fs_license_fabricated_or_downloaded"] is False
+    assert ep["fs_license_present_on_pvc"] is True
+    assert ep["fs_license_contents_committed_or_printed"] is False
+    # the actual license file must never be committed to the repo
+    P_root = ROOT
+    assert not (P_root / "artifacts/mindcompiler/operator_o2_3c_prep/freesurfer_license.txt").exists()
 
 
-def test_r3_r4_not_reached_and_r2_partial_honest():
-    assert _j("baremetal_environment_manifest.json")["status"].startswith("PARTIAL_PYTHON_LAYER_INSTALLED")
+def test_dependency_equivalence_failure_evidence_based():
+    inv = _j("baremetal_dependency_inventory.json")
+    auth = inv["authoritative_container_versions"]
+    assert auth["ants"]["container"] == "2.6.2" and auth["ants"]["frozen_pin"] == "2.5.1"
+    assert auth["connectome_workbench"]["container"] == "2.0.1" and auth["connectome_workbench"]["frozen_pin"] == "1.5.0"
+    assert "componentized" in auth["fsl"]["container"]
+    f = inv["container_equivalence_finding"]
+    assert f["conclusion"] == "frozen bare-metal dependency set cannot be certified container-equivalent"
+    assert len(f["definitive_mismatches"]) >= 3
+
+
+def test_r3_r4_not_reached_and_r2_halted_honest():
+    assert _j("baremetal_environment_manifest.json")["status"] == "HALTED_DEPENDENCY_EQUIVALENCE_FAILURE"
     assert _j("baremetal_environment_manifest.json")["installed_versions"]["fmriprep"] == "25.2.5"
     for n in ["persistent_workdir_certification.json", "resume_certification.json", "single_run_runtime_result.json"]:
-        assert _j(n)["status"] == "NOT_REACHED_FS_LICENSE_REQUIRED"
+        assert _j(n)["status"] == "NOT_REACHED_DEPENDENCY_FAILURE"
     # no benchmark metric fabricated
     assert _j("single_run_runtime_result.json")["benchmark"] is None
 

@@ -1,6 +1,6 @@
 {
   "gate": "O2.3C-PREP-RUNTIME",
   "phase": "R3",
-  "status": "NOT_REACHED_FS_LICENSE_REQUIRED",
+  "status": "NOT_REACHED_DEPENDENCY_FAILURE",
   "nipype_node_reused_after_restart": null
 }

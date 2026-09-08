@@ -17,7 +17,7 @@
     "O3": "O3_NOT_READY"
   },
   "preserves_historical_blocker": "O2_3C_REST_PRODUCT_INCOMPATIBLE (unchanged)",
-  "compute_state": "RUNTIME_AMENDMENT_SEALED_FS_LICENSE_REQUIRED (bare-metal runtime installable; FreeSurfer license is the binding constraint)",
+  "compute_state": "RUNTIME_AMENDMENT_SEALED_BAREMETAL_DEPENDENCY_FAILURE (FS license resolved; bare-metal not container-equivalent; official container on a Docker host recommended)",
   "verified_runtime_blockers": {
     "lane_A": "no MATLAB runtime",
     "lane_B": "no supported container runtime on pod (apptainer blocked by securityContext mount restriction; no docker/singularity/sudo); udocker runs only via proot (unsupported/slow) and its downloader fails on the ~15GB fMRIPrep layer; skopeo transfer + any sustained compute defeated by frequent pod preemption wiping ephemeral storage; NFS PVC root_squash breaks container stores; FreeSurfer license absent"
@@ -27,16 +27,9 @@
     "class": "TECHNICAL_RUNTIME_PACKAGING_ONLY",
     "contract_sha": "24e6ca83",
     "status": "RUNTIME_AMENDMENT_SEALED",
-    "terminal_status": "O2_3C_PREP_FS_LICENSE_REQUIRED",
-    "finding": "bare-metal fMRIPrep 25.2.5 env installs user-space on PVC (container blocker bypassed); binding constraint is the FreeSurfer license, required unconditionally by fMRIPrep 25.2.5 and by the mri_coreg coregistration node. License absent; not fabricated.",
-    "exact_tool_requiring_license": {
-      "licensed_binary": "FreeSurfer mri_coreg (nipype.interfaces.freesurfer.MRICoreg)",
-      "invoked_in": "fmriprep/workflows/bold/registration.py: init_fsl_bbr_wf (import L283 `from fmriprep.interfaces.patches import FreeSurferSource, MRICoreg`; node L333 `mri_coreg = pe.Node(...)`)",
-      "coregistration_branch": "used when FreeSurfer disabled (--fs-no-reconall) -> init_fsl_bbr_wf; mri_coreg is the rigid initializer (equivalent to bbregister --init-coreg)",
-      "unconditional_license_gate": "fmriprep/cli/workflow.py: L119 `if not check_valid_fs_license():` -> L137 `return_code = 126`; NOT gated on run_reconall (grep run_reconall in workflow.py: no matches)",
-      "license_module": "niworkflows.utils.misc.check_valid_fs_license (fmriprep/cli/workflow.py:38)",
-      "cannot_be_removed_because": "the license gate fires at build_workflow before any node runs regardless of flags; and swapping the coregistration initializer away from mri_coreg would be a forbidden registration-policy/methodology change"
-    },
+    "terminal_status": "O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE",
+    "fs_license": "RESOLVED_BY_USER (present on PVC; hash-recorded; not committed)",
+    "finding": "FS license resolved; but R0-frozen bare-metal external-dependency pins (docs-derived) are not container-equivalent to the authoritative fMRIPrep 25.2.5 image (pixi.lock: ANTs 2.6.2, workbench 2.0.1, componentized FSL; AFNI/FreeSurfer from a base image whose pull is blocked). Cannot certify equivalence; will not silently substitute versions. Recommended resolution: official container on a Docker host (O2_3C_PREP_RUNTIME_HOST_REQUIRED).",
     "does_not_modify_scientific_methodology_or_track_O": true
   }
 }

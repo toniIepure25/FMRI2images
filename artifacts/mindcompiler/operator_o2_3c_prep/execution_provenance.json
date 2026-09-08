@@ -20,10 +20,13 @@
       "fmriprep": "25.2.5",
       "nipype": "1.12.0"
     },
-    "fs_license_present_on_pvc": false,
+    "fs_license_present_on_pvc": true,
     "fs_license_fabricated_or_downloaded": false,
-    "determination": "O2_3C_PREP_FS_LICENSE_REQUIRED",
+    "determination": "O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE",
     "evidence_source": "installed fMRIPrep 25.2.5 site-packages (registration.py:283/333; cli/workflow.py:119/137)",
-    "heavy_binaries_installed": false
+    "heavy_binaries_installed": false,
+    "fs_license_sha256": "6f7afab5b5201aa8b0aca10e29ff04802c6d279a0a1c7ddfeae9dd13ae52a152",
+    "fs_license_contents_committed_or_printed": false,
+    "authoritative_container_source": "fMRIPrep 25.2.5 pixi.lock (fmriprep env, linux-64) + base image ghcr.io/nipreps/fmriprep-base:20251006"
   }
 }

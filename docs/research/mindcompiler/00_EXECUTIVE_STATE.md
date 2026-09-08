@@ -10,6 +10,31 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.3C-PREP-RUNTIME (2026-09-08): FS LICENSE RESOLVED -> R2 RE-SEAL `O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE`
+
+**FS-license blocker RESOLVED by user.** `license.txt` placed -> copied to declared PVC path, hash-verified
+(`sha256 6f7afab5...`, 133B, perms 600), structurally valid (5 lines, email, keys). Recorded **hash-only**
+(`fs_license_status.json`); contents never printed/committed; file stays on PVC, never in git. `FS_LICENSE_REQUIRED`
+is no longer the blocker.
+
+**New binding constraint = external-dependency container-equivalence.** The authoritative fMRIPrep 25.2.5 spec
+(`pixi.lock` + base image `ghcr.io/nipreps/fmriprep-base:20251006`) uses versions that **materially differ** from the
+R0-frozen (docs-page-derived) pins: **ANTs 2.5.1->2.6.2**, **workbench 1.5.0->2.0.1**, **FSL monolithic 6.0.7.7 ->
+componentized `fsl-*`** (definitive mismatches); **AFNI 24.0.05** and **FreeSurfer 7.3.2** target versions
+**UNVERIFIABLE** (base-image ghcr pull blocked). The R0 pins came from fMRIPrep's stale *Manually Prepared
+Environment* docs page. The frozen bare-metal dependency set **cannot be certified container-equivalent**, and
+installing the container's *actual* versions would deviate from the frozen inventory (forbidden). No env built past
+the python layer; **no benchmark run; nothing fabricated.**
+
+**Terminal `O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE`** (brief: "versions cannot be pinned defensibly / not
+container-equivalent enough"). **Recommended resolution `O2_3C_PREP_RUNTIME_HOST_REQUIRED`**: run the official
+`nipreps/fmriprep:25.2.5` on a **non-preemptible Docker host** (>=16 vCPU / >=64GB / >=500GB SSD, no GPU) -- the only
+defensibly container-equivalent runtime; FS license already in hand. Alt: user authorizes a corrected dependency
+re-freeze matching `pixi.lock`. Artifacts: `fs_license_status.json`, `baremetal_dependency_inventory.json`
+(authoritative-vs-frozen table), `runtime_amendment_status.json` (terminal + resolution). 36 data-free tests pass.
+Preserves contract `24e6ca83`, Phase-0 `2d1a26a5`, `O2_3C_REST_PRODUCT_INCOMPATIBLE`, `O2 SHARED_OPERATOR_PARTIAL`,
+`O3_NOT_READY`, container-path blocker `fbab942`. Scientific terminal status unchanged (`null`).
+
 ## O2.3C-PREP-RUNTIME (2026-09-07): BARE-METAL RUNTIME AMENDMENT -- SEALED `O2_3C_PREP_FS_LICENSE_REQUIRED`
 
 **Input HEAD `fbab942`; amendment contract SHA `24e6ca83`; Phase-0 `2d1a26a5` preserved.** TECHNICAL

@@ -1,32 +1,73 @@
 {
   "gate": "O2.3C-PREP-RUNTIME",
   "status": "RUNTIME_AMENDMENT_SEALED",
-  "terminal_status": "O2_3C_PREP_FS_LICENSE_REQUIRED",
+  "terminal_status": "O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE",
   "contract_sha": "24e6ca83",
   "phases": {
     "R0": "FROZEN",
-    "R1": "DETERMINATION_FS_LICENSE_REQUIRED",
-    "R2": "PARTIAL_PYTHON_LAYER_INSTALLED",
+    "R1": "DEPENDENCY_EQUIVALENCE_FAILURE",
+    "R2": "HALTED",
     "R3": "NOT_REACHED",
     "R4": "NOT_REACHED"
   },
-  "runtime_installable_user_space": true,
-  "container_blocker_bypassed": true,
-  "binding_constraint": "FreeSurfer license (absent; not fabricated/downloaded)",
-  "exact_tool_requiring_license": {
-    "licensed_binary": "FreeSurfer mri_coreg (nipype.interfaces.freesurfer.MRICoreg)",
-    "invoked_in": "fmriprep/workflows/bold/registration.py: init_fsl_bbr_wf (import L283 `from fmriprep.interfaces.patches import FreeSurferSource, MRICoreg`; node L333 `mri_coreg = pe.Node(...)`)",
-    "coregistration_branch": "used when FreeSurfer disabled (--fs-no-reconall) -> init_fsl_bbr_wf; mri_coreg is the rigid initializer (equivalent to bbregister --init-coreg)",
-    "unconditional_license_gate": "fmriprep/cli/workflow.py: L119 `if not check_valid_fs_license():` -> L137 `return_code = 126`; NOT gated on run_reconall (grep run_reconall in workflow.py: no matches)",
-    "license_module": "niworkflows.utils.misc.check_valid_fs_license (fmriprep/cli/workflow.py:38)",
-    "cannot_be_removed_because": "the license gate fires at build_workflow before any node runs regardless of flags; and swapping the coregistration initializer away from mri_coreg would be a forbidden registration-policy/methodology change"
+  "fs_license_prior_terminal": "O2_3C_PREP_FS_LICENSE_REQUIRED",
+  "fs_license_now": "RESOLVED_BY_USER (present on PVC, hash 6f7afab5b520, structurally valid)",
+  "binding_constraint": "external-dependency container-equivalence (frozen docs-derived pins != authoritative fMRIPrep 25.2.5 pixi.lock/base image)",
+  "authoritative_container_versions": {
+    "source": "fMRIPrep 25.2.5 pixi.lock (fmriprep env, linux-64) + base image ghcr.io/nipreps/fmriprep-base:20251006",
+    "ants": {
+      "container": "2.6.2",
+      "channel": "conda-forge",
+      "frozen_pin": "2.5.1",
+      "conda_forge_now": "2.6.5",
+      "verdict": "MISMATCH"
+    },
+    "connectome_workbench": {
+      "container": "2.0.1",
+      "channel": "conda-forge",
+      "frozen_pin": "1.5.0",
+      "conda_forge_now": "2.2.1",
+      "verdict": "MISMATCH"
+    },
+    "python": {
+      "container": "3.12.11",
+      "installed": "3.12.14",
+      "frozen_pin": "3.12",
+      "verdict": "MINOR_PATCH_MISMATCH"
+    },
+    "fsl": {
+      "container": "componentized fsl-* (fsl-base 2508.1, fsl-flirt 2111.4, fsl-bet2 2111.8, fsl-avwutils 2209.3, fsl-fnirt 2203.2, fsl-armawrap 0.7.0)",
+      "channel": "fslconda",
+      "frozen_pin": "6.0.7.7 (monolithic)",
+      "verdict": "STRUCTURAL_MISMATCH"
+    },
+    "afni": {
+      "container": "base image (ghcr pull BLOCKED -> target version UNVERIFIABLE)",
+      "frozen_pin": "24.0.05",
+      "conda_forge_now": "25.0.00",
+      "verdict": "UNVERIFIABLE_TARGET"
+    },
+    "freesurfer": {
+      "container": "base image (ghcr pull BLOCKED -> target version UNVERIFIABLE)",
+      "frozen_pin": "7.3.2",
+      "verdict": "UNVERIFIABLE_TARGET"
+    }
   },
-  "installed_versions": {
-    "python": "3.12.14",
-    "fmriprep": "25.2.5",
-    "nipype": "1.12.0"
+  "failure_reason": "The R0-frozen external-dependency pins were transcribed from fMRIPrep's 'Manually Prepared Environment' docs page, which is stale relative to the actual 25.2.5 image. Against the authoritative container spec (pixi.lock + base image): ANTs (2.5.1 vs 2.6.2), connectome-workbench (1.5.0 vs 2.0.1), and FSL (monolithic 6.0.7.7 vs componentized fsl-*) are DEFINITIVELY mismatched; AFNI and FreeSurfer target versions are UNVERIFIABLE because the base image ghcr pull is blocked. The frozen bare-metal dependency set therefore cannot be certified container-equivalent, and installing the container's actual versions would deviate from the frozen inventory (a forbidden methodology change). No env was built past the python layer; no benchmark run; nothing fabricated.",
+  "recommended_resolution": {
+    "path": "O2_3C_PREP_RUNTIME_HOST_REQUIRED",
+    "why": "the only defensibly container-equivalent runtime for fMRIPrep 25.2.5 is the official image itself; a hand-assembled bare-metal env from the docs page is not version-equivalent and the base-image AFNI/FreeSurfer versions cannot be verified without pulling the (blocked) image",
+    "external_host_spec": {
+      "type": "non-preemptible Linux VM/bare metal",
+      "docker": true,
+      "vcpu_min": 16,
+      "ram_gb_min": 64,
+      "ssd_gb_min": 500,
+      "image": "nipreps/fmriprep:25.2.5",
+      "gpu_required": false
+    },
+    "alternative": "user issues a CORRECTED dependency re-freeze whose pins match the authoritative pixi.lock (a new methodology decision the user must authorize; not taken unilaterally)"
   },
   "preserves_historical_blocker": "O2_3C_REST_PRODUCT_INCOMPATIBLE (unchanged); container-path infra blocker preserved at fbab942",
-  "no_scientific_track_O_status_modified": true,
-  "unblock_condition": "user places a valid FreeSurfer license.txt on the PVC (declared FS_LICENSE path); then heavy binaries install + R3/R4 proceed under the unchanged frozen methodology"
+  "no_scientific_track_O_status_modified": true
 }

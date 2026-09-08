@@ -91,7 +91,7 @@ On `subj01` benchmark completion it is evaluated against the **unchanged** froze
 continue the original O2.3C-PREP workflow with this runtime; FAIL → genuine
 `O2_3C_PREP_TASK_BENCHMARK_FAILURE` (no tuning). This amendment modifies no scientific Track-O status.
 
-## Determination (SEALED) — `O2_3C_PREP_FS_LICENSE_REQUIRED`
+## Determination — `O2_3C_PREP_FS_LICENSE_REQUIRED` (RESOLVED 2026-09-07, superseded — see R2 below)
 
 **The bare-metal runtime is genuinely installable and the container blocker is bypassed.** On the pod
 this session, a manually-prepared environment was built **user-space on the persistent PVC** with no
@@ -129,3 +129,46 @@ Phase-0 `2d1a26a5`, `O2_3C_REST_PRODUCT_INCOMPATIBLE`, `O3_NOT_READY`, and the c
 then completes with the heavy binaries and proceeds through R3 (resume certification) → R4 (frozen
 `subj01/ses-nsd01/run-01` benchmark) under the unchanged methodology. The FreeSurfer license is free for
 individual use from the FreeSurfer project; it is the user's to obtain and place — not mine to supply.
+
+## R2 Determination (SEALED, supersedes the FS-license terminal) — `O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE`
+
+**FS-license blocker RESOLVED (2026-09-07).** The user placed a valid `license.txt`; it was copied to the
+declared PVC path, hash-verified (`sha256 6f7afab5…`, 133 B, perms 600), and is structurally valid
+(5 lines, email line, key lines). Recorded by **hash only** in `fs_license_status.json` — contents never
+printed or committed; the file lives on the PVC, never in git. `FS_LICENSE_REQUIRED` is no longer the blocker.
+
+**New binding constraint — external-dependency container-equivalence.** Continuing into R2, the
+authoritative fMRIPrep 25.2.5 container spec (its own `pixi.lock` + base image
+`ghcr.io/nipreps/fmriprep-base:20251006`) uses external-dependency versions that **materially differ**
+from the R0-frozen (docs-derived) pins:
+
+| Dependency | R0-frozen pin | Actual 25.2.5 container | conda-forge now | Verdict |
+|---|---|---|---|---|
+| ANTs | 2.5.1 | **2.6.2** (conda-forge, pixi.lock) | 2.6.5 | MISMATCH |
+| connectome-workbench | 1.5.0 | **2.0.1** (conda-forge, pixi.lock) | 2.2.1 | MISMATCH |
+| FSL | 6.0.7.7 (monolithic) | **componentized** `fsl-base 2508.1`, `fsl-flirt 2111.4`, `fsl-bet2 2111.8`, … (fslconda) | — | STRUCTURAL MISMATCH |
+| python | 3.12 | 3.12.11 | (installed 3.12.14) | minor patch |
+| AFNI | 24.0.05 | base image — **ghcr pull blocked** | 25.0.00 | UNVERIFIABLE TARGET |
+| FreeSurfer | 7.3.2 | base image — **ghcr pull blocked** | tarball | UNVERIFIABLE TARGET |
+
+The R0 pins were transcribed from fMRIPrep's *Manually Prepared Environment* docs page, which is **stale**
+relative to the actual image. ANTs, connectome-workbench, and FSL are **definitively mismatched** against
+the authoritative `pixi.lock`; AFNI and FreeSurfer target versions **cannot even be verified** because the
+base-image pull is blocked. So the frozen bare-metal dependency set **cannot be certified
+container-equivalent**, and installing the container's *actual* versions instead would deviate from the
+frozen inventory — a **forbidden** methodology change. No env was built past the Python layer; **no
+benchmark was run; nothing fabricated.**
+
+**Terminal status:** `O2_3C_PREP_BAREMETAL_DEPENDENCY_FAILURE` (brief criterion: "external dependency
+versions cannot be pinned defensibly / native execution cannot be made container-equivalent enough").
+Scientific `terminal_execution_status` stays `null`; Phase-0 `2d1a26a5`, `O2_3C_REST_PRODUCT_INCOMPATIBLE`,
+`O2 SHARED_OPERATOR_PARTIAL`, `O3_NOT_READY`, and the container-path blocker `fbab942` all preserved.
+
+**Recommended resolution — `O2_3C_PREP_RUNTIME_HOST_REQUIRED`.** The only defensibly container-equivalent
+runtime for fMRIPrep 25.2.5 is the **official image itself**; a hand-assembled bare-metal env from the docs
+page is not version-equivalent, and the base-image AFNI/FreeSurfer versions can't be verified without
+pulling the (blocked) image. Provide a **non-preemptible Docker-capable host** (≥16 vCPU, ≥64 GB RAM,
+≥500 GB SSD, no GPU) running `nipreps/fmriprep:25.2.5`; the FreeSurfer license is already in hand. The
+persistent NSD data + the frozen benchmark then run unchanged. **Alternative:** the user authorizes a
+**corrected dependency re-freeze** whose pins match the authoritative `pixi.lock` (a new methodology
+decision — not taken unilaterally). Either way, the FS-license step is done.

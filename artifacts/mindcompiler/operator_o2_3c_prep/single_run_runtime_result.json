@@ -1,10 +1,10 @@
 {
   "gate": "O2.3C-PREP-RUNTIME",
   "phase": "R4",
-  "status": "NOT_REACHED_FS_LICENSE_REQUIRED",
+  "status": "NOT_REACHED_DEPENDENCY_FAILURE",
   "subject": "subj01",
   "session": "ses-nsd01",
   "run": "run-01",
   "benchmark": null,
-  "reason": "frozen benchmark not run: fMRIPrep 25.2.5 cannot execute without FreeSurfer license"
+  "reason": "env not built past python layer due to dependency-equivalence failure"
 }

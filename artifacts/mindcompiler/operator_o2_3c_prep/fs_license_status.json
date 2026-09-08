@@ -1,0 +1,17 @@
+{
+  "gate": "O2.3C-PREP-RUNTIME",
+  "fs_license_present_on_pvc": true,
+  "fs_license_path": "/home/jovyan/work/o2_3c_prep_fmriprep/freesurfer_license.txt",
+  "fs_license_sha256": "6f7afab5b5201aa8b0aca10e29ff04802c6d279a0a1c7ddfeae9dd13ae52a152",
+  "fs_license_size_bytes": 133,
+  "structural_validation": {
+    "lines": 5,
+    "line1_has_email_at": true,
+    "nonblank_lines": 5,
+    "format_plausible_freesurfer_license": true
+  },
+  "authoritative_binary_validation": "NOT_RUN",
+  "authoritative_binary_validation_reason": "R2 dependency-equivalence stop preempted the FreeSurfer install; check_valid_fs_license requires a FreeSurfer binary. License PRESENCE + structure confirmed; the FS_LICENSE_REQUIRED blocker is RESOLVED.",
+  "contents_committed_or_printed": false,
+  "note": "License file lives on the PVC only; never committed to git."
+}

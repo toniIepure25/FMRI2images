@@ -103,7 +103,7 @@
     }
   ],
   "installability_summary": "Python-layer bare-metal env installs cleanly user-space on the persistent PVC (micromamba + conda-forge python 3.12.14; pip fmriprep==25.2.5 + nipype 1.12.0). The container blocker is genuinely bypassed. Heavy neuro binaries (ANTs/AFNI/FSL/workbench) were NOT installed because the FreeSurfer license requirement is a hard stop that preempts them: fMRIPrep 25.2.5 refuses to run without a valid license.",
-  "status": "R1_DETERMINATION_FS_LICENSE_REQUIRED",
+  "status": "R2_DEPENDENCY_EQUIVALENCE_FAILURE",
   "nipype_version_after_install": "1.12.0",
   "freesurfer_license_determination": {
     "required": true,
@@ -117,5 +117,66 @@
       "cannot_be_removed_because": "the license gate fires at build_workflow before any node runs regardless of flags; and swapping the coregistration initializer away from mri_coreg would be a forbidden registration-policy/methodology change"
     },
     "proven_from": "installed fMRIPrep 25.2.5 site-packages source (actual runtime), corroborated by 25.2.5 GitHub tag"
+  },
+  "authoritative_container_versions": {
+    "source": "fMRIPrep 25.2.5 pixi.lock (fmriprep env, linux-64) + base image ghcr.io/nipreps/fmriprep-base:20251006",
+    "ants": {
+      "container": "2.6.2",
+      "channel": "conda-forge",
+      "frozen_pin": "2.5.1",
+      "conda_forge_now": "2.6.5",
+      "verdict": "MISMATCH"
+    },
+    "connectome_workbench": {
+      "container": "2.0.1",
+      "channel": "conda-forge",
+      "frozen_pin": "1.5.0",
+      "conda_forge_now": "2.2.1",
+      "verdict": "MISMATCH"
+    },
+    "python": {
+      "container": "3.12.11",
+      "installed": "3.12.14",
+      "frozen_pin": "3.12",
+      "verdict": "MINOR_PATCH_MISMATCH"
+    },
+    "fsl": {
+      "container": "componentized fsl-* (fsl-base 2508.1, fsl-flirt 2111.4, fsl-bet2 2111.8, fsl-avwutils 2209.3, fsl-fnirt 2203.2, fsl-armawrap 0.7.0)",
+      "channel": "fslconda",
+      "frozen_pin": "6.0.7.7 (monolithic)",
+      "verdict": "STRUCTURAL_MISMATCH"
+    },
+    "afni": {
+      "container": "base image (ghcr pull BLOCKED -> target version UNVERIFIABLE)",
+      "frozen_pin": "24.0.05",
+      "conda_forge_now": "25.0.00",
+      "verdict": "UNVERIFIABLE_TARGET"
+    },
+    "freesurfer": {
+      "container": "base image (ghcr pull BLOCKED -> target version UNVERIFIABLE)",
+      "frozen_pin": "7.3.2",
+      "verdict": "UNVERIFIABLE_TARGET"
+    }
+  },
+  "container_equivalence_finding": {
+    "frozen_pins_source": "fMRIPrep 25.2.5 Manually Prepared Environment docs page (stale)",
+    "authoritative_source": "fMRIPrep 25.2.5 pixi.lock (fmriprep env, linux-64) + base image ghcr.io/nipreps/fmriprep-base:20251006",
+    "definitive_mismatches": [
+      "ANTs 2.5.1!=2.6.2",
+      "connectome-workbench 1.5.0!=2.0.1",
+      "FSL monolithic 6.0.7.7 != componentized fsl-*"
+    ],
+    "unverifiable_targets": [
+      "AFNI (base image ghcr pull blocked)",
+      "FreeSurfer (base image ghcr pull blocked)"
+    ],
+    "conclusion": "frozen bare-metal dependency set cannot be certified container-equivalent"
+  },
+  "freesurfer_license_status": {
+    "required": true,
+    "present_on_pvc": true,
+    "resolved_by_user": true,
+    "sha256": "6f7afab5b5201aa8b0aca10e29ff04802c6d279a0a1c7ddfeae9dd13ae52a152",
+    "supersedes": "O2_3C_PREP_FS_LICENSE_REQUIRED"
   }
 }

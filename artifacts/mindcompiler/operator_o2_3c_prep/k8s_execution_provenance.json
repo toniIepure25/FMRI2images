@@ -2,7 +2,7 @@
   "gate": "O2.3C-PREP-RUNTIME",
   "execution_class": "ORCHESTRAIQ_DIRECT_K8S (official image as native pod; technical runtime only)",
   "source_head": "4b276d5e0ff4d278d0524f0f866ea02bea34a4a6",
-  "status": "PROVENANCE_SEALED_PRE_BENCHMARK (R3/R4 execution next)",
+  "status": "PROVENANCE_RESEALED_PRE_BENCHMARK (corrected command; R3/R4 launching)",
   "cluster": {
     "api_server": "https://10.130.123.31:10443",
     "context": "antoniu-iepure@default",
@@ -109,14 +109,13 @@
       "--task-id=nsdcore",
       "--fs-no-reconall",
       "--fs-license-file=/opt/freesurfer/license.txt",
-      "--output-spaces=boldref",
+      "--output-spaces=func",
       "--skip-bids-validation",
       "--nprocs=16",
       "--omp-nthreads=8",
       "--mem-mb=90000",
       "-w=/work",
-      "--stop-on-first-crash",
-      "--notrack"
+      "--stop-on-first-crash"
     ],
     "runtime_flags_note": "--skip-bids-validation and --notrack are runtime-only (no preprocessing/methodology change); SDC=phasediff (no SyN), slice-timing from BIDS, rigid motion, no smoothing/AROMA/GSR",
     "resources": {
@@ -130,7 +129,8 @@
       }
     },
     "workdir": "/work (local-path PVC o23c-prep-work on r770, persistent, no --clean-workdir)",
-    "manifest_sha256": "be4c2aee163851b5aee14cc1ca65e21ba177921f2d4ae882d456160814806735"
+    "manifest_sha256": "37af42817e86b494b6c9a3c5f05f98eb8a6beaa600d534a75cdfdd5c8be59cac",
+    "pre_outcome_correction": "initial launch errored at argparse ('boldref' invalid --output-spaces token) BEFORE any processing/metric; corrected to the valid native-space token 'func' (same intent) and dropped '--notrack'. No benchmark outcome existed at correction time."
   },
   "provenance_sealed_before_outcome": true
 }

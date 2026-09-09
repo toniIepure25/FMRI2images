@@ -1,0 +1,151 @@
+{
+  "gate": "O2.3C-PREP-BENCHFIX",
+  "analysis_class": "PROSPECTIVE_CORRECTION_OF_INVALID_TECHNICAL_BENCHMARK_COMPARATOR",
+  "reason_known_before_any_metric": true,
+  "outcome_adaptive_parameter_selection": false,
+  "source_head": "c3143c1721a5945be32c3e46d3306101d66095f5",
+  "repairs": "ONLY the benchmark comparator (temporal-grid harmonization + the spatial mapping historical R4 stopped before)",
+  "does_not_modify": [
+    "fMRIPrep",
+    "preprocessing",
+    "registration",
+    "SDC",
+    "slice-time correction",
+    "spatial mapping policy",
+    "candidate derivative",
+    "scientific Track-O methodology"
+  ],
+  "immutable_history": {
+    "R3": "PERSISTENT_NIPYPE_RESUME_CERTIFIED",
+    "historical_R4": "O2_3C_PREP_TASK_BENCHMARK_FAILURE",
+    "historical_R4_reason": "TEMPORAL_GRID_PRODUCT_INCOMPATIBILITY",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2.3A": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+    "O2.3C": "O2_3C_REST_PRODUCT_INCOMPATIBLE",
+    "O3": "O3_NOT_READY",
+    "phase0": "2d1a26a5",
+    "runtime_contract": "24e6ca83",
+    "scientific_o2_3c_methodology": "528f23eb"
+  },
+  "candidate_immutability_rule": "reuse EXACTLY the R4 candidate derivative; byte-identical; fMRIPrep is NOT rerun. SHA256 of candidate preproc BOLD, BOLD reference, brain mask, motion/confounds recorded before any metric.",
+  "time_axes": {
+    "candidate": {
+      "TR_RAW_s": 1.6,
+      "N_CANDIDATE": 188,
+      "stc_reference": "middle of each TR (fMRIPrep AFNI 3dTshift)",
+      "effective_timestamps": "t_candidate[n] = 0.8 + 1.6*n, n=0..187",
+      "offset_s": 0.8,
+      "offset_prospectively_derived_not_estimated": true,
+      "t_min_s": 0.8,
+      "t_max_s": 300.0
+    },
+    "official_nsd": {
+      "TR_NSD_s_exact": "4/3",
+      "TR_NSD_s_float": 1.3333333333333333,
+      "N_GT": 226,
+      "timestamps": "t_nsd[m] = m*(4/3), m=0..225",
+      "resampling_of_nsd": "cubic (NSD documented)",
+      "first_sample_at": "start of first RF pulse (t=0)",
+      "t_min_s": 0.0,
+      "t_max_s": 300.0
+    },
+    "note": "use exact 4/3 for computation, NOT the rounded 1.3333 header value; candidate signal reference is middle-of-TR, NOT nominal 0,1.6,... header times"
+  },
+  "harmonization": {
+    "direction": "resample OFFICIAL_NSD_REFERENCE -> CANDIDATE_EFFECTIVE_TIMESTAMPS",
+    "candidate_temporally_resampled": false,
+    "result_name": "NSD_GT_MATCHED_1P6_EFFECTIVE",
+    "result_nvols": 188
+  },
+  "interpolation": {
+    "implementation": "scipy.interpolate.CubicSpline",
+    "axis": "time",
+    "boundary_condition": "not-a-knot (default)",
+    "extrapolation": "FORBIDDEN (extrapolate=False)",
+    "input_time_vector": "arange(226)*(4/3)",
+    "query_time_vector": "0.8 + arange(188)*1.6",
+    "in_bounds_required": "min(query)>=min(input) and max(query)<=max(input) within tolerance",
+    "no_lag_search": true,
+    "no_offset_search": true,
+    "no_phase_search": true,
+    "no_interpolation_family_competition": true,
+    "no_spline_setting_competition": true
+  },
+  "forbidden": [
+    "shift candidate +/-1 TR",
+    "fractional offset search",
+    "maximize correlation over offsets",
+    "drop leading/trailing samples to improve correlation",
+    "DTW",
+    "temporal warping"
+  ],
+  "spatial_transform": {
+    "moving": "fMRIPrep native BOLD reference (desc-coreg_boldref, 120x120x84)",
+    "fixed": "frozen imagery-independent NSD func1pt8mm reference (R2.nii.gz, 81x104x83)",
+    "implementation": "ANTs",
+    "transforms": [
+      "rigid",
+      "affine"
+    ],
+    "metric": "Mattes MI",
+    "bold_interpolation": "LanczosWindowedSinc",
+    "atlas_interpolation": "NearestNeighbor",
+    "nonlinear": false,
+    "gt_timeseries_used_for_registration": false,
+    "target_shape": [
+      81,
+      104,
+      83
+    ],
+    "target_affine": "canonical func1pt8mm within frozen tolerance"
+  },
+  "geometry_correction": {
+    "old_invalid_requirement": "raw candidate 4D shape == prepared GT 4D shape BEFORE temporal harmonization",
+    "corrected_requirement": "AFTER (candidate spatial mapping + GT temporal harmonization) both == [81,104,83,188] and identical spatial affine within frozen tolerance",
+    "no_geometry_threshold_change_beyond_fixing_invalid_stage": true
+  },
+  "quality_metrics_frozen_UNCHANGED": {
+    "brainmask_dice_min": 0.9,
+    "mean_volume_spatial_r_min": 0.95,
+    "roi_mean_temporal_r_min": 0.9,
+    "roi_set": {
+      "ventral": 5,
+      "lateral": 6,
+      "parietal": 7,
+      "atlas": "NSD streams.nii.gz (func1pt8mm)"
+    },
+    "voxelwise_temporal_r_median_min": 0.7,
+    "tsnr_ratio_range": [
+      0.5,
+      2.0
+    ],
+    "temporal_metrics_between": "SPATIALLY_MAPPED_CANDIDATE vs NSD_GT_MATCHED_1P6_EFFECTIVE",
+    "no_additional_filtering_unless_already_frozen": true
+  },
+  "tsnr_rule": {
+    "candidate_tSNR_on": "untouched 188 samples",
+    "gt_tSNR_on": "NSD_GT_MATCHED_1P6_EFFECTIVE (188)",
+    "do_not_use_original_226_gt_tsnr": true
+  },
+  "status_rules": {
+    "O2_3C_PREP_CORRECTED_BENCHMARK_PASS": "ALL frozen quality gates pass after the prospectively-defined temporal harmonization",
+    "O2_3C_PREP_CORRECTED_BENCHMARK_FAILURE": "at least one quality gate genuinely fails",
+    "O2_3C_PREP_CORRECTED_BENCHMARK_TECHNICAL_FAILURE": "transform failure / interpolation implementation failure / missing-corrupt artifact / provenance failure"
+  },
+  "relation_to_historical": {
+    "preserve": "O2_3C_PREP_TASK_BENCHMARK_FAILURE (historical truth, not rewritten)",
+    "report": "HISTORICAL_BENCHMARK_INVALID_FOR_PIPELINE_QUALITY_DUE_TO_TIMEGRID_MISMATCH",
+    "does_not_turn_old_into_pass": true,
+    "answers": "a newly well-posed technical question"
+  },
+  "interpretation_boundary": {
+    "allowed_on_pass": "The fMRIPrep-derived product meets the prospectively corrected technical fidelity benchmark after accounting for the known deterministic difference between fMRIPrep native-TR middle-of-TR sampling and NSD's documented 4/3-s temporally resampled product.",
+    "forbidden_claims": [
+      "fMRIPrep reproduces NSD preprocessing",
+      "bitwise equivalent",
+      "the two pipelines are the same"
+    ],
+    "scope": "only sufficient technical agreement for the planned resting-connectivity analysis"
+  },
+  "frozen_config_sha": "4b384f31"
+}

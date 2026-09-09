@@ -1,0 +1,10 @@
+{
+  "gate": "O2.3C-PREP-BENCHFIX",
+  "source_head": "c3143c1721a5945be32c3e46d3306101d66095f5",
+  "frozen_config_sha": "4b384f31",
+  "candidate_reprocessed": false,
+  "fmriprep_rerun_to_improve_candidate": false,
+  "gt_only_temporal_resampling": true,
+  "no_lag_search": true,
+  "runtime": "orchestraiq native K8s (r770) using the same certified fMRIPrep 25.2.5 image for ANTs+python"
+}

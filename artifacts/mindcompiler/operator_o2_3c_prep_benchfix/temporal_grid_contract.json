@@ -1,0 +1,17 @@
+{
+  "gate": "O2.3C-PREP-BENCHFIX",
+  "frozen_config_sha": "4b384f31",
+  "t_candidate_formula": "0.8 + 1.6*n (n=0..187)",
+  "t_candidate_count": 188,
+  "t_candidate_min": 0.8,
+  "t_candidate_max": 300.0,
+  "t_nsd_formula": "m*(4/3) (m=0..225)",
+  "t_nsd_count": 226,
+  "t_nsd_min": 0.0,
+  "t_nsd_max": 300.0,
+  "resample_direction": "GT -> candidate timestamps",
+  "candidate_never_resampled": true,
+  "interpolation": "scipy.interpolate.CubicSpline, not-a-knot, extrapolate=False",
+  "no_lag_search": true,
+  "in_bounds": "0.8>=0.0 and 300.0<=300.0"
+}

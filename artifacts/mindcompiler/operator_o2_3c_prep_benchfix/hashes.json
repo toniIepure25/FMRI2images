@@ -3,15 +3,15 @@
   "frozen_config_sha": "4b384f31",
   "artifact_sha256_16": {
     "benchfix_frozen_config.json": "6ee8be767a10fba1",
-    "candidate_immutability.json": "accd447c807e67c3",
-    "corrected_benchmark_metrics.json": "accd447c807e67c3",
-    "corrected_benchmark_status.json": "accd447c807e67c3",
-    "execution_provenance.json": "b570445b187c0076",
-    "gt_immutability.json": "accd447c807e67c3",
-    "matched_grid_certification.json": "accd447c807e67c3",
-    "spatial_transform_certification.json": "accd447c807e67c3",
+    "candidate_immutability.json": "4aeb5561859c0de5",
+    "corrected_benchmark_metrics.json": "1e016334c1a9f198",
+    "corrected_benchmark_status.json": "0c337929a6c98e3e",
+    "execution_provenance.json": "fe0fe146e3d98767",
+    "gt_immutability.json": "d80d54b2bf80306f",
+    "matched_grid_certification.json": "b9dd19ab534bce00",
+    "spatial_transform_certification.json": "cf51fad71685e2c0",
     "spatial_transform_contract.json": "882d4284accecb02",
-    "synthetic_interpolation_test.json": "accd447c807e67c3",
+    "synthetic_interpolation_test.json": "d5e18b0760bcae80",
     "temporal_grid_contract.json": "734d2d25dbe434af"
   }
 }

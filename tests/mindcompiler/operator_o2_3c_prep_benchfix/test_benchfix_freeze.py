@@ -114,8 +114,46 @@ def test_interpretation_boundary_forbids_overclaim():
     assert "bitwise equivalent" in ib["forbidden_claims"]
 
 
-def test_results_pending_not_fabricated():
-    for n in ["candidate_immutability.json", "gt_immutability.json", "synthetic_interpolation_test.json",
-              "spatial_transform_certification.json", "matched_grid_certification.json",
-              "corrected_benchmark_metrics.json", "corrected_benchmark_status.json"]:
-        assert _j(B, n)["status"] == "PENDING_EVALUATION"
+def test_candidate_byte_identical_no_reprocess():
+    c = _j(B, "candidate_immutability.json")
+    assert c["candidate_reprocessed"] is False and c["fmriprep_rerun"] is False
+    assert c["byte_identical_to_R4"] is True
+    assert c["artifacts"]["desc-preproc_bold"]["sha256_16"] == "3838946fec582b54"
+
+
+def test_gt_and_ref_hashes_recorded():
+    g = _j(B, "gt_immutability.json")
+    assert g["official_gt"]["sha256_16"] == "bf8fd6c18ba4ead7" and g["official_gt"]["shape"] == [81, 104, 83, 226]
+    assert g["fixed_reference_R2"]["sha256_16"] == "573cf2433b76bc9b"
+
+
+def test_synthetic_interpolation_passed():
+    s = _j(B, "synthetic_interpolation_test.json")
+    assert s["status"] == "PASS" and s["max_err_overall"] < 1e-2
+
+
+def test_gt_only_resample_no_extrapolation():
+    m = _j(B, "matched_grid_certification.json")
+    assert m["both_81_104_83_188"] is True and m["nan_from_extrapolation"] == 0
+    assert m["resample"].startswith("GT-only")
+
+
+def test_spatial_transform_direction_recorded():
+    x = _j(B, "spatial_transform_certification.json")
+    assert x["target_shape_ok"] is True and x["gt_used_for_registration"] is False
+    assert "moving(boldref)->fixed(func1pt8mm)" in x["transform_direction"]
+
+
+def test_corrected_status_failure_and_stop():
+    s = _j(B, "corrected_benchmark_status.json")
+    assert s["status"] == "O2_3C_PREP_CORRECTED_BENCHMARK_FAILURE"
+    assert s["stop"] is True
+    assert s["cohort_phases_2_4"].startswith("NOT AUTHORIZED")
+    assert s["historical"]["preserve"] == "O2_3C_PREP_TASK_BENCHMARK_FAILURE"
+    assert s["historical"]["corrected_does_not_turn_old_into_pass"] is True
+    # metrics honest: thresholds not weakened; the failing gates genuinely below threshold
+    m = _j(B, "corrected_benchmark_metrics.json")
+    assert m["thresholds_weakened"] is False
+    assert m["dice"]["pass"] is False and m["mean_bold_spatial_r"]["pass"] is False
+    assert m["voxelwise_temporal_r"]["pass"] is False
+    assert m["roi_mean_temporal_r"]["pass"] is True  # temporal correction validated at ROI level

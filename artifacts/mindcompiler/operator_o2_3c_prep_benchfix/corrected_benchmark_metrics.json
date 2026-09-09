@@ -1,5 +1,70 @@
 {
   "gate": "O2.3C-PREP-BENCHFIX",
   "frozen_config_sha": "4b384f31",
-  "status": "PENDING_EVALUATION"
+  "geometry": {
+    "candidate_shape": [
+      81,
+      104,
+      83,
+      188
+    ],
+    "gt_matched_shape": [
+      81,
+      104,
+      83,
+      188
+    ],
+    "shape_equal": true,
+    "affine_equal": true,
+    "verdict": "PASS"
+  },
+  "synthetic_interpolation_pass": true,
+  "transform_shape_ok": true,
+  "dice": {
+    "value": 0.8459,
+    "threshold": 0.9,
+    "pass": false
+  },
+  "mean_bold_spatial_r": {
+    "value": 0.8512,
+    "threshold": 0.95,
+    "pass": false
+  },
+  "roi_mean_temporal_r": {
+    "ventral": 0.988,
+    "lateral": 0.9795,
+    "parietal": 0.9453,
+    "threshold": 0.9,
+    "pass": true,
+    "roi_source": "NSD streams (5/6/7)"
+  },
+  "voxelwise_temporal_r": {
+    "median": 0.3741,
+    "threshold": 0.7,
+    "pass": false,
+    "nvox": 272123,
+    "note": "zscored dot/(T-1); within ~0.5% of Pearson; well below 0.70 -> verdict robust"
+  },
+  "tsnr_ratio": {
+    "value": 1.0511,
+    "candidate_median": 46.918,
+    "gt_matched_median": 44.639,
+    "range": [
+      0.5,
+      2.0
+    ],
+    "pass": true
+  },
+  "gates_pass": {
+    "geometry": true,
+    "synthetic": true,
+    "transform": true,
+    "dice": false,
+    "spatial_r": false,
+    "roi_temporal_r": true,
+    "voxel_temporal_r": false,
+    "tsnr": true
+  },
+  "all_gates_pass": false,
+  "thresholds_weakened": false
 }

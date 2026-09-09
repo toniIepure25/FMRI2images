@@ -1,5 +1,25 @@
 {
   "gate": "O2.3C-PREP-BENCHFIX",
   "frozen_config_sha": "4b384f31",
-  "status": "PENDING_EVALUATION"
+  "candidate_reprocessed": false,
+  "fmriprep_rerun": false,
+  "byte_identical_to_R4": true,
+  "artifacts": {
+    "desc-preproc_bold": {
+      "sha256_16": "3838946fec582b54",
+      "bytes": 827422894
+    },
+    "desc-coreg_boldref": {
+      "sha256_16": "8d0c1736d39c043f",
+      "bytes": 4320006
+    },
+    "desc-brain_mask": {
+      "sha256_16": "c4c7657d905a49c6",
+      "bytes": 11556
+    },
+    "desc-confounds_timeseries": {
+      "sha256_16": "ad098d97dc12d9d7",
+      "bytes": 613868
+    }
+  }
 }

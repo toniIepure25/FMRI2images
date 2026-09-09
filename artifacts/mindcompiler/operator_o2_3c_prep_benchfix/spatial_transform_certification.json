@@ -1,5 +1,22 @@
 {
   "gate": "O2.3C-PREP-BENCHFIX",
   "frozen_config_sha": "4b384f31",
-  "status": "PENDING_EVALUATION"
+  "moving": "fMRIPrep desc-coreg_boldref (120x120x84 native func)",
+  "fixed": "R2.nii.gz (81x104x83 func1pt8mm)",
+  "implementation": "ANTs rigid+affine, Mattes MI",
+  "bold_interpolation": "LanczosWindowedSinc",
+  "atlas_interpolation": "NearestNeighbor",
+  "transform_direction": "moving(boldref)->fixed(func1pt8mm); antsApplyTransforms resamples candidate into R2 grid",
+  "affine_matrix_file": "reg_0GenericAffine.mat",
+  "affine_matrix_sha256_16": "dccec2ea30478213",
+  "candidate_mapped_shape": [
+    81,
+    104,
+    83,
+    188
+  ],
+  "target_shape_ok": true,
+  "affine_matches_R2": true,
+  "nonlinear": false,
+  "gt_used_for_registration": false
 }

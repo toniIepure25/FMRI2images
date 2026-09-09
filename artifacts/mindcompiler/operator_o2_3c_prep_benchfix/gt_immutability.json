@@ -1,5 +1,26 @@
 {
   "gate": "O2.3C-PREP-BENCHFIX",
   "frozen_config_sha": "4b384f31",
-  "status": "PENDING_EVALUATION"
+  "official_gt": {
+    "file": "timeseries_session01_run01.nii.gz",
+    "sha256_16": "bf8fd6c18ba4ead7",
+    "bytes": 126938528,
+    "shape": [
+      81,
+      104,
+      83,
+      226
+    ],
+    "TR_s": "4/3"
+  },
+  "fixed_reference_R2": {
+    "file": "R2.nii.gz",
+    "sha256_16": "573cf2433b76bc9b",
+    "bytes": 2504482,
+    "shape": [
+      81,
+      104,
+      83
+    ]
+  }
 }

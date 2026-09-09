@@ -6,5 +6,9 @@
   "fmriprep_rerun_to_improve_candidate": false,
   "gt_only_temporal_resampling": true,
   "no_lag_search": true,
-  "runtime": "orchestraiq native K8s (r770) using the same certified fMRIPrep 25.2.5 image for ANTs+python"
+  "runtime": "orchestraiq native K8s (r770) using the same certified fMRIPrep 25.2.5 image for ANTs+python",
+  "evaluation_done": true,
+  "candidate_byte_identical_to_R4": true,
+  "eval_job": "o23c-benchfix-eval (fMRIPrep 25.2.5 image on r770)",
+  "status": "O2_3C_PREP_CORRECTED_BENCHMARK_FAILURE"
 }

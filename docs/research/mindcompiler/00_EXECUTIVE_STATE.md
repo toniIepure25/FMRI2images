@@ -10,6 +10,31 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.3C-PREP-BENCHFIX (2026-09-09): TEMPORAL-GRID-CORRECTED BENCHMARK -- `O2_3C_PREP_CORRECTED_BENCHMARK_FAILURE`
+
+Prospective correction (config `4b384f31`) of the historically-invalid comparator (frozen BEFORE any metric,
+pushed+verified). Reason known a priori: candidate = fMRIPrep 188@1.6s with middle-of-TR STC -> effective
+timestamps 0.8+1.6n; NSD GT = 226@ exactly 4/3s. Fix resamples **GT-only** (scipy CubicSpline, not-a-knot,
+no-extrapolate) to candidate timestamps; **candidate byte-identical to R4** (preproc_bold sha 3838946f..,
+fMRIPrep NOT rerun); no lag search. Spatial map = frozen ANTs rigid+affine Mattes MI (moving=coreg_boldref,
+fixed=R2 func1pt8mm), Lanczos/NN -> [81,104,83,188]. Ran in the certified fMRIPrep image on r770.
+
+- **Temporal correction VALIDATED**: geometry now PASS ([81,104,83,188] both, affine equal); synthetic cubic
+  interp PASS (max err 0.0083); **ROI-mean temporal r PASS** ventral 0.988 / lateral 0.980 / parietal 0.945;
+  tSNR ratio 1.05 PASS. The historical fatal timegrid mismatch WAS the comparator flaw.
+- **Genuine quality FAIL (3 frozen gates)**: brain-mask Dice **0.846**<0.90; mean-BOLD spatial r **0.851**<0.95;
+  median voxelwise temporal r **0.374**<0.70. Signature (high ROI-mean r, low voxel r + sub-threshold Dice/
+  spatial-r) = imperfect voxel-level spatial registration; frozen fixed reference R2 is a variance map
+  (contrast-mismatched vs mean-BOLD; no independent mean-EPI ships in func1pt8mm). Per brief an alternate
+  registration is FORBIDDEN and was NOT attempted.
+
+**`O2_3C_PREP_CORRECTED_BENCHMARK_FAILURE` -> STOP PREP.** No tuning/interp-change/alt-registration/fMRIPrep-
+change/AWS. Cohort Phases 2-4 NOT started; O2.3C-RESUME (528f23eb) NOT run. Historical
+`O2_3C_PREP_TASK_BENCHMARK_FAILURE` preserved (corrected benchmark does NOT turn it into a pass). Artifacts:
+`artifacts/mindcompiler/operator_o2_3c_prep_benchfix/` (frozen config, temporal/spatial contracts, candidate/gt
+immutability, synthetic test, transform+matched-grid cert, corrected metrics+status) + `docs/.../59E`. 25 benchfix
+tests pass. Preserves 2d1a26a5/24e6ca83/528f23eb/O2 SHARED_OPERATOR_PARTIAL/O2.3A/O2_3C_REST_PRODUCT_INCOMPATIBLE/O3_NOT_READY.
+
 ## O2.3C-PREP-RUNTIME (2026-09-08): ORCHESTRAIQ EXECUTION -- R3 CERTIFIED, R4 `O2_3C_PREP_TASK_BENCHMARK_FAILURE`
 
 Ran the frozen benchmark on orchestraiq/r770 via the official image `nipreps/fmriprep@sha256:15cbf8dc...` as a

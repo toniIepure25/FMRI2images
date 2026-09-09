@@ -1,5 +1,34 @@
 {
   "gate": "O2.3C-PREP-BENCHFIX",
-  "frozen_config_sha": "4b384f31",
-  "status": "PENDING_EVALUATION"
+  "status": "O2_3C_PREP_CORRECTED_BENCHMARK_FAILURE",
+  "stop": true,
+  "failed_gates": [
+    "brainmask_dice (0.846<0.90)",
+    "mean_bold_spatial_r (0.851<0.95)",
+    "voxelwise_temporal_r_median (0.374<0.70)"
+  ],
+  "passed_gates": [
+    "geometry (4D shape+affine)",
+    "synthetic cubic interpolation",
+    "spatial transform target shape/affine",
+    "ROI-mean temporal r ventral/lateral/parietal (0.945-0.988)",
+    "tSNR ratio (1.05)"
+  ],
+  "temporal_correction_validated": "YES -- geometry now PASS and ROI-mean temporal r 0.945-0.988; the historical timegrid mismatch WAS the (now-fixed) comparator flaw",
+  "diagnostic_root_cause": "Descriptive only (does NOT change PASS/FAIL): strong ROI-mean temporal r but low median voxelwise temporal r + sub-threshold Dice/spatial-r is the signature of imperfect voxel-level spatial registration. The frozen fixed reference R2.nii.gz is a variance-explained map (contrast-mismatched vs mean-BOLD); no independent mean-EPI ships in NSD func1pt8mm. Per the brief, an alternate registration is FORBIDDEN and was NOT attempted.",
+  "forbidden_and_not_attempted": [
+    "tune preprocessing",
+    "change interpolation",
+    "try another registration",
+    "change fMRIPrep",
+    "selectively changed flags",
+    "AWS"
+  ],
+  "historical": {
+    "preserve": "O2_3C_PREP_TASK_BENCHMARK_FAILURE",
+    "report": "HISTORICAL_BENCHMARK_INVALID_FOR_PIPELINE_QUALITY_DUE_TO_TIMEGRID_MISMATCH",
+    "corrected_does_not_turn_old_into_pass": true
+  },
+  "cohort_phases_2_4": "NOT AUTHORIZED (only on CORRECTED_BENCHMARK_PASS) -- not started",
+  "o2_3c_resume_528f23eb": "NOT RUN"
 }

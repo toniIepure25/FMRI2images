@@ -1,5 +1,21 @@
 {
   "gate": "O2.3C-PREP-BENCHFIX",
   "frozen_config_sha": "4b384f31",
-  "status": "PENDING_EVALUATION"
+  "status": "PASS",
+  "impl": "scipy.interpolate.CubicSpline not-a-knot extrapolate=False",
+  "threshold_max_abs_err": 0.01,
+  "cases": {
+    "constant": 0.0,
+    "linear": 0.0,
+    "sin_0.01Hz": 0.0,
+    "sin_0.05Hz": 0.000289,
+    "sin_0.10Hz": 0.008347
+  },
+  "max_err_overall": 0.008347,
+  "certifies": [
+    "timestamp construction",
+    "axis direction",
+    "interpolation",
+    "no off-by-one"
+  ]
 }

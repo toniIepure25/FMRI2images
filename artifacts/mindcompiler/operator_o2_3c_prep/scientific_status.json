@@ -17,7 +17,7 @@
     "O3": "O3_NOT_READY"
   },
   "preserves_historical_blocker": "O2_3C_REST_PRODUCT_INCOMPATIBLE (unchanged)",
-  "compute_state": "O2_3C_PREP_TASK_BENCHMARK_FAILURE (ORCHESTRAIQ_DIRECT_K8S runtime succeeded end-to-end; benchmark unsatisfiable due to NSD temporal-resampling product incompatibility)",
+  "compute_state": "O2_3C_PREP_CORRECTED_BENCHMARK_FAILURE (comparator now well-posed; pipeline product fails frozen spatial-fidelity + voxelwise-temporal gates; STOP)",
   "verified_runtime_blockers": {
     "lane_A": "no MATLAB runtime",
     "lane_B": "no supported container runtime on pod (apptainer blocked by securityContext mount restriction; no docker/singularity/sudo); udocker runs only via proot (unsupported/slow) and its downloader fails on the ~15GB fMRIPrep layer; skopeo transfer + any sustained compute defeated by frequent pod preemption wiping ephemeral storage; NFS PVC root_squash breaks container stores; FreeSurfer license absent"
@@ -32,6 +32,7 @@
     "finding": "FS license resolved; but R0-frozen bare-metal external-dependency pins (docs-derived) are not container-equivalent to the authoritative fMRIPrep 25.2.5 image (pixi.lock: ANTs 2.6.2, workbench 2.0.1, componentized FSL; AFNI/FreeSurfer from a base image whose pull is blocked). Cannot certify equivalence; will not silently substitute versions. Recommended resolution: official container on a Docker host (O2_3C_PREP_RUNTIME_HOST_REQUIRED).",
     "does_not_modify_scientific_methodology_or_track_O": true,
     "host_migration": "ORCHESTRAIQ_DIRECT_K8S_FMRIPREP_FEASIBLE on orchestraiq (avoids AWS); audit read-only, no cluster mutation; pending one-time apply approval",
-    "benchmark": "O2_3C_PREP_TASK_BENCHMARK_FAILURE (prepared-product temporal-grid incompatibility: candidate 188@1.6s vs GT 226@1.333s; frozen methodology forbids temporal resampling). Runtime succeeded; STOP; no cohort expansion; O2.3C-RESUME not run."
+    "benchmark": "O2_3C_PREP_TASK_BENCHMARK_FAILURE (prepared-product temporal-grid incompatibility: candidate 188@1.6s vs GT 226@1.333s; frozen methodology forbids temporal resampling). Runtime succeeded; STOP; no cohort expansion; O2.3C-RESUME not run.",
+    "benchfix": "O2_3C_PREP_CORRECTED_BENCHMARK_FAILURE (config 4b384f31): temporal-grid corrected (geometry PASS, ROI temporal r 0.945-0.988, synthetic PASS, tSNR PASS) but genuine quality FAIL on Dice 0.846<0.90, spatial-r 0.851<0.95, voxel temporal r 0.374<0.70. STOP; no Phases 2-4; O2.3C-RESUME not run. Historical O2_3C_PREP_TASK_BENCHMARK_FAILURE preserved."
   }
 }

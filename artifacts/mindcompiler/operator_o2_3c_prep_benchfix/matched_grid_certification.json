@@ -1,5 +1,28 @@
 {
   "gate": "O2.3C-PREP-BENCHFIX",
   "frozen_config_sha": "4b384f31",
-  "status": "PENDING_EVALUATION"
+  "gt_source_shape": [
+    81,
+    104,
+    83,
+    226
+  ],
+  "gt_matched_shape": [
+    81,
+    104,
+    83,
+    188
+  ],
+  "candidate_mapped_shape": [
+    81,
+    104,
+    83,
+    188
+  ],
+  "both_81_104_83_188": true,
+  "nan_from_extrapolation": 0,
+  "gt_source_sha256_16": "bf8fd6c18ba4ead7",
+  "t_nsd_sha256_16": "dc075b33f8badd30",
+  "t_cand_sha256_16": "2c93c53623fc2995",
+  "resample": "GT-only cubic (candidate untouched)"
 }

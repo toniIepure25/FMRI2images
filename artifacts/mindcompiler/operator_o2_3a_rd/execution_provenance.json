@@ -1,4 +1,10 @@
 {
   "config_sha256": "c1b2ddb0414ad541e68ab8435e51306d9490d9b287735070964045ea9fbd33f0",
-  "status": "PENDING_RD_COMPUTE"
+  "status": "PENDING_RD_COMPUTE",
+  "generator_committed": true,
+  "generator_module": "src/fmri2img/mindcompiler/operator_o2_3a_rd/geometry.py",
+  "generator_certified_data_free": true,
+  "phase": "FREEZE+GENERATOR done (steps 1-3 + generator source); DATA-ACQUISITION+FIT+FRONTIER pending (steps 4-12)",
+  "target_calibration_imagery_opened": false,
+  "nothing_fabricated": true
 }

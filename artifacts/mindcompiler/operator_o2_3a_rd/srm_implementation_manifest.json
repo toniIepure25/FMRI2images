@@ -1,4 +1,23 @@
 {
   "config_sha256": "c1b2ddb0414ad541e68ab8435e51306d9490d9b287735070964045ea9fbd33f0",
-  "status": "PENDING_RD_COMPUTE"
+  "status": "GENERATOR_COMMITTED_AND_CERTIFIED",
+  "decision": "committed O2 srm.py insufficiently specified -> NEW deterministic SRM implemented prospectively",
+  "module": "src/fmri2img/mindcompiler/operator_o2_3a_rd/geometry.py",
+  "module_sha256_16": "6d4b2e669af63f72",
+  "spec": {
+    "init": "deterministic SVD",
+    "max_iter": 200,
+    "convergence_tol": 1e-07,
+    "dtype": "float64",
+    "gauge": "descending shared-response energy order (stable tie) + per-component largest-abs-loading positive sign"
+  },
+  "data_free_certification": {
+    "srm_deterministic_rerun_equality": "PASS (bitwise)",
+    "canonical_gauge_convention_and_idempotent": "PASS",
+    "native_retention_gauge_invariant_1e-10": "PASS",
+    "null_rng_deterministic_and_seed_specific": "PASS",
+    "orthogonal_procrustes_recovers_rotation": "PASS",
+    "identity_permutation_null_changes_fit": "PASS"
+  },
+  "real_cohort_fit": "PENDING_RD_COMPUTE (needs acquired b2 core + imagery betas)"
 }

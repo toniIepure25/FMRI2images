@@ -120,8 +120,35 @@ def test_status_logic_present():
         assert k in r
 
 
-def test_results_pending_not_fabricated():
-    for n in ["meanFIRST5_certification.json", "candidate_immutability.json", "moving_reference_certification.json",
-              "spatial_transform_certification.json", "matched_grid_certification.json", "spatialfix_metrics.json",
-              "spatialfix_status.json", "author_transform_asset_inventory.json"]:
-        assert _j(S, n)["status"] == "PENDING_EVALUATION"
+def test_candidate_byte_identical_confirmed():
+    c = _j(S, "candidate_immutability.json")
+    assert c["byte_identical"] is True and c["fmriprep_rerun"] is False
+    assert c["desc-preproc_bold_sha256_16"] == "3838946fec582b54"
+
+
+def test_moving_temporal_mean_and_meanfirst5_fixed():
+    x = _j(S, "spatial_transform_certification.json")
+    assert x["moving"].startswith("candidate temporal mean") and "meanFIRST5" in x["fixed"]
+    assert x["target_shape_ok"] is True and x["affine_matches_GT"] is True
+    assert x["gt_used_for_registration"] is False and x["nonlinear"] is False
+    mf = _j(S, "meanFIRST5_certification.json")
+    assert mf["sha256_16"] == "d94d96db6ad79cdd" and mf["shape"] == [81, 104, 83]
+
+
+def test_spatialfix_failure_and_path_closed():
+    s = _j(S, "spatialfix_status.json")
+    assert s["status"] == "O2_3C_PREP_SPATIALFIX_FAILURE"
+    assert s["stop"] is True and s["close_fmriprep_prep_path"] is True
+    assert s["record"] == "FMRIPREP_DERIVED_REST_FUNC1PT8MM_NOT_CERTIFIED_FOR_FINE_SCALE_CONNECTIVITY"
+    assert s["cohort_phases_2_4"].startswith("NOT AUTHORIZED")
+    m = _j(S, "spatialfix_metrics.json")
+    assert m["thresholds_weakened"] is False
+    assert m["dice"]["pass"] is False and m["mean_bold_spatial_r"]["pass"] is False
+    assert m["voxelwise_temporal_r"]["pass"] is False
+    assert m["roi_mean_temporal_r"]["pass"] is True and m["tsnr_ratio"]["pass"] is True
+
+
+def test_author_asset_inventory_provenance_only():
+    a = _j(S, "author_transform_asset_inventory.json")
+    assert a["status"] == "PARTIALLY_AVAILABLE"
+    assert "cannot modify SpatialFix outcome" in a["note"]

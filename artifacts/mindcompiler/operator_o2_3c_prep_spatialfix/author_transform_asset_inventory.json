@@ -1,5 +1,14 @@
 {
   "gate": "O2.3C-PREP-SPATIALFIX",
   "frozen_config_sha": "5e3954d9",
-  "status": "PENDING_EVALUATION"
+  "status": "PARTIALLY_AVAILABLE",
+  "released_available": [
+    "anat<->func1pt8mm warp fields (e.g. anat0pt5-to-func1pt8.nii.gz)",
+    "MNI<->func warps"
+  ],
+  "not_publicly_available": [
+    "per-session EPI coregistration alignment.mat (preprocessVER)",
+    "gradient-unwarp / gradient-nonlinearity coefficients"
+  ],
+  "note": "provenance/future-information ONLY; NOT applied in this gate; cannot modify SpatialFix outcome"
 }

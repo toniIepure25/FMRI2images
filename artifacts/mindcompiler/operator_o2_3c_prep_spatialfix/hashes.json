@@ -2,17 +2,17 @@
   "gate": "O2.3C-PREP-SPATIALFIX",
   "frozen_config_sha": "5e3954d9",
   "artifact_sha256_16": {
-    "author_transform_asset_inventory.json": "884e02166288cd2d",
-    "candidate_immutability.json": "884e02166288cd2d",
-    "execution_provenance.json": "f7597b6464b495ee",
-    "matched_grid_certification.json": "884e02166288cd2d",
-    "meanFIRST5_certification.json": "884e02166288cd2d",
-    "moving_reference_certification.json": "884e02166288cd2d",
+    "author_transform_asset_inventory.json": "3335bc94297f4999",
+    "candidate_immutability.json": "aa398728063ac605",
+    "execution_provenance.json": "a0157b47c9d83968",
+    "matched_grid_certification.json": "7b47384a98f8403b",
+    "meanFIRST5_certification.json": "3269b817d9a3a7b6",
+    "moving_reference_certification.json": "73ca8d52d8939ba4",
     "reference_inventory.json": "ec2d344ae2922874",
-    "spatial_transform_certification.json": "884e02166288cd2d",
+    "spatial_transform_certification.json": "427b970c95713c1d",
     "spatial_transform_contract.json": "64a97e6b6f3d03ba",
     "spatialfix_frozen_config.json": "4d864eaa346e0cf6",
-    "spatialfix_metrics.json": "884e02166288cd2d",
-    "spatialfix_status.json": "884e02166288cd2d"
+    "spatialfix_metrics.json": "df41030f8c9682fb",
+    "spatialfix_status.json": "5741b69cf3664aa7"
   }
 }

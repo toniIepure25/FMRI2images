@@ -1,5 +1,20 @@
 {
   "gate": "O2.3C-PREP-SPATIALFIX",
   "frozen_config_sha": "5e3954d9",
-  "status": "PENDING_EVALUATION"
+  "status": "CERTIFIED",
+  "s3_key": "nsddata/ppdata/subj01/func1pt8mm/meanFIRST5.nii.gz",
+  "sha256_16": "d94d96db6ad79cdd",
+  "bytes": 1328438,
+  "shape": [
+    81,
+    104,
+    83
+  ],
+  "zooms": [
+    1.8,
+    1.8,
+    1.8
+  ],
+  "finite_fraction": 1.0,
+  "is_target_func1pt8mm_grid": true
 }

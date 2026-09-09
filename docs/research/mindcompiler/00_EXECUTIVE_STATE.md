@@ -10,6 +10,29 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.3C-PREP-SPATIALFIX (2026-09-09): MEAN-EPI REFERENCE CORRECTION -- `O2_3C_PREP_SPATIALFIX_FAILURE` -> fMRIPrep PREP path CLOSED
+
+Prospective correction (config `5e3954d9`, frozen BEFORE metrics, pushed+verified) of the ONE spatial flaw:
+R2 (variance map, contrast-mismatched) -> official NSD **meanFIRST5** mean-EPI (public S3, sha d94d96db..);
+moving = temporal mean of the **byte-identical** candidate (mean-EPI->mean-EPI). Transform params + interpolation +
+temporal correction reused byte-for-byte from BENCHFIX (no lag search; candidate never resampled/reprocessed).
+Ran on r770 in the certified fMRIPrep image. No-optimization rule honored (single pipeline only).
+
+- **Correction VALIDATED the R2 diagnosis**: voxelwise temporal r **0.374->0.673**, mean-BOLD spatial r
+  **0.851->0.893**, ROI-mean temporal r **0.983-0.995**, registration sanity warped-vs-fixed r 0.942, tSNR 0.964.
+- **Still FAILS fine-scale gates**: Dice **0.816**<0.90; spatial r **0.893**<0.95; voxel temporal r **0.673**<0.70.
+  Residual gap consistent with sub-voxel geometric differences (gradient-nonlinearity + NSD's own coregistration)
+  that only nonlinear/gradient-unwarp correction could close -- FORBIDDEN, NOT attempted.
+
+**`O2_3C_PREP_SPATIALFIX_FAILURE` -> CLOSE fMRIPrep-based PREP path:
+`FMRIPREP_DERIVED_REST_FUNC1PT8MM_NOT_CERTIFIED_FOR_FINE_SCALE_CONNECTIVITY`.** No mean.nii/nonlinear/
+gradient-unwarp/T1/surface/version/threshold/AWS rescue. Cohort Phases 2-4 NOT started; O2.3C-RESUME (528f23eb)
+NOT run. Return to the scientific-program decision. Author-asset inventory (provenance only): released anat/MNI<->func
+warps AVAILABLE, per-session EPI coreg .mat + gradient-unwarp coeffs NOT public -> PARTIALLY_AVAILABLE. Artifacts:
+`artifacts/mindcompiler/operator_o2_3c_prep_spatialfix/` + `docs/.../59F`. Bounded interpretation: fMRIPrep product is
+ROI-faithful (region temporal r >=0.98) but NOT certified at the frozen voxel scale. Historical failures immutable;
+preserves 2d1a26a5/24e6ca83/528f23eb/O2 SHARED_OPERATOR_PARTIAL/O2.3A/O2_3C_REST_PRODUCT_INCOMPATIBLE/O3_NOT_READY.
+
 ## O2.3C-PREP-BENCHFIX (2026-09-09): TEMPORAL-GRID-CORRECTED BENCHMARK -- `O2_3C_PREP_CORRECTED_BENCHMARK_FAILURE`
 
 Prospective correction (config `4b384f31`) of the historically-invalid comparator (frozen BEFORE any metric,

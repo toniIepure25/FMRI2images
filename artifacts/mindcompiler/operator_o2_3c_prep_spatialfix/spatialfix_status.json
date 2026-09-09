@@ -1,5 +1,37 @@
 {
   "gate": "O2.3C-PREP-SPATIALFIX",
-  "frozen_config_sha": "5e3954d9",
-  "status": "PENDING_EVALUATION"
+  "status": "O2_3C_PREP_SPATIALFIX_FAILURE",
+  "stop": true,
+  "close_fmriprep_prep_path": true,
+  "record": "FMRIPREP_DERIVED_REST_FUNC1PT8MM_NOT_CERTIFIED_FOR_FINE_SCALE_CONNECTIVITY",
+  "failed_gates": [
+    "brainmask_dice (0.816<0.90)",
+    "mean_bold_spatial_r (0.893<0.95)",
+    "voxelwise_temporal_r_median (0.673<0.70)"
+  ],
+  "passed_gates": [
+    "geometry",
+    "spatial transform target shape/affine",
+    "ROI-mean temporal r (0.983-0.995)",
+    "tSNR ratio (0.964)"
+  ],
+  "reference_correction_validated": "YES -- mean-EPI (meanFIRST5) substantially improved fine-scale fidelity vs R2 (voxel r 0.374->0.673; spatial r 0.851->0.893), confirming the R2 contrast-mismatch diagnosis",
+  "strongest_bounded_interpretation": "The fMRIPrep 25.2.5 minimal pipeline yields a func1pt8mm product whose REGION-level temporal fidelity to NSD's official product is very high (ROI temporal r >=0.98; tSNR matched), but whose VOXEL-level spatial/temporal fidelity falls just short of the frozen fine-scale thresholds under a linear rigid+affine EPI->EPI bridge. Residual gap is consistent with sub-voxel geometric differences (gradient-nonlinearity + NSD's own coregistration) that only nonlinear/gradient-unwarp correction could close -- which is forbidden. Adequate at ROI scale; NOT certified at the frozen fine (voxelwise) scale.",
+  "forbidden_and_not_attempted": [
+    "mean.nii",
+    "nonlinear registration",
+    "gradient-unwarp rescue",
+    "T1-mediated rescue",
+    "surface alignment",
+    "another fMRIPrep version",
+    "another benchmark threshold",
+    "AWS"
+  ],
+  "cohort_phases_2_4": "NOT AUTHORIZED (requires SPATIALFIX_PASS) -- not started",
+  "o2_3c_resume_528f23eb": "NOT RUN",
+  "next": "return to the scientific-program decision (user's call); no further preprocessing-method search",
+  "historical_immutable": [
+    "O2_3C_PREP_TASK_BENCHMARK_FAILURE",
+    "O2_3C_PREP_CORRECTED_BENCHMARK_FAILURE"
+  ]
 }

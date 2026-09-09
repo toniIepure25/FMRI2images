@@ -1,5 +1,20 @@
 {
   "gate": "O2.3C-PREP-SPATIALFIX",
   "frozen_config_sha": "5e3954d9",
-  "status": "PENDING_EVALUATION"
+  "moving": "candidate temporal mean EPI (120x120x84)",
+  "fixed": "NSD meanFIRST5 (81x104x83 func1pt8mm)",
+  "transform_direction": "moving(native func mean-EPI)->fixed(func1pt8mm meanFIRST5)",
+  "affine_matrix_sha256_16": "c297cdd1e0f5617c",
+  "candidate_mapped_shape": [
+    81,
+    104,
+    83,
+    188
+  ],
+  "target_shape_ok": true,
+  "affine_matches_meanFIRST5": true,
+  "affine_matches_GT": true,
+  "warped_moving_vs_fixed_r": 0.9422,
+  "nonlinear": false,
+  "gt_used_for_registration": false
 }

@@ -1,5 +1,14 @@
 {
   "gate": "O2.3C-PREP-SPATIALFIX",
   "frozen_config_sha": "5e3954d9",
-  "status": "PENDING_EVALUATION"
+  "status": "CERTIFIED",
+  "definition": "temporal mean of 188 candidate preproc_bold volumes",
+  "shape": [
+    120,
+    120,
+    84
+  ],
+  "sha256_16": "dd86f02aeba2bda6",
+  "temporal_filtering": false,
+  "gt_involvement": false
 }

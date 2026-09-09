@@ -1,5 +1,19 @@
 {
   "gate": "O2.3C-PREP-SPATIALFIX",
   "frozen_config_sha": "5e3954d9",
-  "status": "PENDING_EVALUATION"
+  "gt_matched_shape": [
+    81,
+    104,
+    83,
+    188
+  ],
+  "candidate_mapped_shape": [
+    81,
+    104,
+    83,
+    188
+  ],
+  "both_81_104_83_188": true,
+  "nan_from_extrapolation": 0,
+  "temporal_correction": "reused from BENCHFIX (GT-only cubic; candidate untouched)"
 }

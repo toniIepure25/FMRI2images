@@ -1,5 +1,61 @@
 {
   "gate": "O2.3C-PREP-SPATIALFIX",
   "frozen_config_sha": "5e3954d9",
-  "status": "PENDING_EVALUATION"
+  "geometry": {
+    "verdict": "PASS",
+    "shape": [
+      81,
+      104,
+      83,
+      188
+    ],
+    "affine_equal": true
+  },
+  "transform_shape_ok": true,
+  "registration_sanity_warped_vs_fixed_r": 0.9422,
+  "dice": {
+    "value": 0.8163,
+    "threshold": 0.9,
+    "pass": false,
+    "benchfix_R2": 0.846
+  },
+  "mean_bold_spatial_r": {
+    "value": 0.8934,
+    "threshold": 0.95,
+    "pass": false,
+    "benchfix_R2": 0.851
+  },
+  "roi_mean_temporal_r": {
+    "ventral": 0.9948,
+    "lateral": 0.9949,
+    "parietal": 0.9825,
+    "threshold": 0.9,
+    "pass": true
+  },
+  "voxelwise_temporal_r": {
+    "median": 0.6734,
+    "threshold": 0.7,
+    "pass": false,
+    "benchfix_R2": 0.374
+  },
+  "tsnr_ratio": {
+    "value": 0.9643,
+    "range": [
+      0.5,
+      2.0
+    ],
+    "pass": true
+  },
+  "gates_pass": {
+    "geometry": true,
+    "transform": true,
+    "dice": false,
+    "spatial_r": false,
+    "roi_temporal_r": true,
+    "voxel_temporal_r": false,
+    "tsnr": true
+  },
+  "all_gates_pass": false,
+  "thresholds_weakened": false,
+  "improvement_vs_benchfix": "mean-EPI reference nearly doubled voxelwise temporal r (0.374->0.673) and raised spatial r (0.851->0.893), confirming the R2 contrast-mismatch diagnosis; still below fine-scale gates"
 }

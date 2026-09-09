@@ -1,5 +1,10 @@
 {
   "gate": "O2.3C-PREP-SPATIALFIX",
   "frozen_config_sha": "5e3954d9",
-  "status": "PENDING_EVALUATION"
+  "issue": "CANDIDATE_BYTE_IDENTICAL_TO_BENCHFIX",
+  "byte_identical": true,
+  "fmriprep_rerun": false,
+  "desc-preproc_bold_sha256_16": "3838946fec582b54",
+  "desc-brain_mask_sha256_16": "c4c7657d905a49c6",
+  "desc-confounds_sha256_16": "ad098d97dc12d9d7"
 }

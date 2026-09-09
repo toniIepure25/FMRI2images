@@ -1,0 +1,36 @@
+{
+  "gate": "O2.3A-RD",
+  "phase": "H0-H2",
+  "health_gate": {
+    "status": "ORCHESTRAIQ_RD_PHASE2_HEALTH_PASS",
+    "probes": "3/3 API probes ok (no transient timeouts)",
+    "r770": "Ready; MemoryPressure/DiskPressure/PIDPressure=False; 256cpu ~503GiB ~6.4TiB ephem",
+    "recent_r770_batch_jobs": "all Completed (no eviction/OOM); no adverse events",
+    "scheduler": "can-i create jobs=yes",
+    "test_job": "rd-health scheduled on r770, RW_OK, exit 0",
+    "rd_pvc": "rd-data 500Gi local-path Bound selected-node=r770; /rd XFS ~7.2TB free"
+  },
+  "critical_id_convention_resolved": {
+    "finding": "anchor_manifest nsd_73k_id is 0-based nsdId; 73k/sharedix id = nsd_73k_id + 1",
+    "evidence": "anchor+1 in sharedix 512/512 and in all-8-common shared1000 512/512; anchor matches stim_info nsdId 512/512",
+    "driver_must_use": "73kID = anchor_nsd_73k_id + 1 for subjectim/masterordering matching (prevents fatal anchor-construction bug)"
+  },
+  "anchor_coverage": {
+    "anchor_images": 512,
+    "all_8_subjects": true,
+    "reps": "3/3/3 each",
+    "core_sessions_span": "1..30 (all subjects)"
+  },
+  "acquisition_scope": {
+    "core_betas": "betas_fithrf (b2/B0) betas_session01..30 .nii.gz x 8 subjects (~463MB each, ~111GB total)",
+    "per_subject_also": [
+      "ncsnr.nii.gz",
+      "nsdimagerybetas_fithrf/betas_nsdimagery.nii.gz",
+      "func1pt8mm/roi/*.nii.gz",
+      "nsddata/bdata/nsdimagery"
+    ],
+    "global": "nsd_expdesign.mat (local; stage to cluster)",
+    "lineage": "B0/b2 ONLY; never GLMdenoise_RR",
+    "target_imagery_frontier": "LOCKED until M0 cert"
+  }
+}

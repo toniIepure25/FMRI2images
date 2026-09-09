@@ -1,4 +1,18 @@
 {
   "config_sha256": "ad9594461bf6c3d3b3fa208a32d19b6dc30037cf0a1c6ade1a60466015127989",
-  "status": "PENDING_R4_COMPUTE"
+  "status": "FRONTIER_DRIVER_COMMITTED_AND_CERTIFIED (real frontier PENDING RD state + data)",
+  "frontier_module": "src/fmri2img/mindcompiler/operator_o2_3a_rd/frontier.py",
+  "frontier_module_sha256_16": "836e53a6b606db93",
+  "data_free_certification": {
+    "balanced_subset_counts_25_100_100_25_1": "PASS",
+    "true_beats_identity_correspondence_null": "PASS",
+    "null_permutation_deterministic": "PASS",
+    "exact_signflip_2^8": "PASS",
+    "holm": "PASS",
+    "participant_E_and_M_STAR": "PASS"
+  },
+  "M0_definition": "P_ZERO_RD (certify O2_4R_M0_EQUALS_O2_3A_RD once RD state persisted)",
+  "real_frontier": "PENDING (needs O2.3A-RD per-cell state from cohort fit -> needs ~130GB b2 core + imagery betas acquisition)",
+  "target_calibration_imagery_opened": false,
+  "nothing_fabricated": true
 }

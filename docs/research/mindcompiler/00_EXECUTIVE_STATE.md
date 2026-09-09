@@ -25,10 +25,17 @@ Procrustes only, identity-correspondence null (100), N=8 sign-flip + Holm(10), M
 now, M0==P_ZERO_RD certified, internal RD-M0->M>0 comparison (never vs unreconstructable historical). Access order
 strict; no refreeze after M0; leakage asserts.
 
-**Status: frozen (steps 1-3 done).** Next: commit generator source + data-free determinism/gauge certification, then
-the data-acquisition (public S3 -> orchestraiq persistent, ~131GB b2 core + 7/8 imagery betas) + fit + frontier
-(substantial cluster compute). Compute artifacts are honest PENDING placeholders; nothing fabricated. **O3 remains
-`O3_NOT_READY`.** Artifacts: `operator_o2_3a_rd/` + `operator_o2_4r/` + `docs/.../62`. 10 data-free freeze tests pass.
+**Status: freeze + generator + frontier driver committed & certified (steps 1-3 + mandated generator source).**
+Committed `src/fmri2img/mindcompiler/operator_o2_3a_rd/geometry.py` (NEW deterministic SRM, Procrustes, orientation,
+null RNG) + `frontier.py` (O2.4R calibration orchestration, identity-correspondence null, sign-flip+Holm+M_STAR),
+both **data-free certified** (SRM bitwise rerun-equality; canonical gauge; native retention gauge-invariant <1e-10;
+null RNG deterministic; Procrustes recovery; true>null recovery; exact 2^8 sign-flip; M_STAR). This RESOLVES the
+PROVREC reproducibility blocker in committed, tested code. **Remaining (Phase 2, genuine multi-day cluster campaign,
+not yet run):** O2.3A-RD cohort-fit driver (data loader + anchor centroids + K-selection + O2.2 residual + template +
+rank CV) + ~130GB b2 core (subj02-08 @ 463MB/session x40) + imagery betas acquisition (public S3 -> orchestraiq
+persistent) + real cohort fit -> seal RD M=0 -> certify O2.4R M0==P_ZERO_RD -> real frontier -> inference -> seal.
+Compute artifacts remain honest PENDING; **nothing fabricated; no target imagery opened; O3 remains `O3_NOT_READY`.**
+Artifacts: `operator_o2_3a_rd/` + `operator_o2_4r/` + `docs/.../62`. 21 RD/R4 data-free tests pass.
 
 ## O2.4-PROVREC (2026-09-09): FORENSIC O2.3A REPLAY -- `O2_4_PROVREC_HISTORICAL_DETAIL_MISSING`
 

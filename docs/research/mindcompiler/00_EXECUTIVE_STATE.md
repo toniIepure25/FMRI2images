@@ -10,6 +10,32 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.4 (2026-09-09): TARGET-STATE CALIBRATION FRONTIER -- `TARGET_STATE_ORIENTATION_CALIBRATION_INCONCLUSIVE` (provenance)
+
+Prospective identity-diversity sample-complexity design (config `321b42f9`) frozen+pushed BEFORE any outcome:
+budgets M={0,2,4,6,8,10}, balanced subsets 25/100/100/25/1, 6 outer folds, **orthogonal-Procrustes-only**
+estimator, identity-correspondence null (100 perms), N=8 sign-flip (2^8) + Holm over 10 primary tests, M_STAR
+rule, claim + prior-art boundaries, zero-target closeout `ZERO_TARGET_IMAGERY_ORIENTATION_NOT_IDENTIFIED_UNDER_
+TESTED_PUBLIC_ANCHORS` (bounded; NOT "impossible").
+
+- **Method certified (data-free)**: gauge-invariance to machine precision (|dR_CAL|=6.7e-16); estimator recovers
+  orientation to oracle in the identifiable case; leakage detector fires on injection. Design/estimator SOUND.
+- **Real frontier NOT run -- PROVENANCE block**: O2.4 must REUSE the exact frozen O2.3A dense-perception common
+  space (W_target/K/vision alignment) + residual-orientation template, and M=0 must reproduce O2.3A to hash-level
+  agreement. Those are NOT present in reusable form -- **no in-repo O2.3A generating code** (only the O2 small-span
+  phase code exists) and **no persisted intermediate matrices** (only summary CSVs). The gate FORBIDS rebuilding
+  (no new core preprocessing / no refit). (O2.3A itself was validly executed via public S3; block is reusability,
+  not raw data.) **No calibration outcome computed or fabricated; no target imagery opened.**
+
+**`TARGET_STATE_ORIENTATION_CALIBRATION_INCONCLUSIVE`.** ventral/lateral M_STAR = NOT_REACHED. Resolution
+(user's call, not auto-taken): persist+commit the O2.3A code+matrices to enable reuse, then re-run; or authorize a
+fresh re-derivation gate. Artifacts: `artifacts/mindcompiler/operator_o2_4/` (frozen config, closeout, prior-art,
+budget/fold/subset/template/procrustes contracts, synthetic_controls, gauge_certification, provenance, status) +
+`docs/.../60`. 13 data-free tests pass. **O3 remains `O3_NOT_READY`.** Preserves TrackR/O1/O1.1/O2/O2.1/O2.2/O2.3A/
+O2.3C/O2.3C-PREP immutable.
+
+---
+
 ## O2.3C-PREP-SPATIALFIX (2026-09-09): MEAN-EPI REFERENCE CORRECTION -- `O2_3C_PREP_SPATIALFIX_FAILURE` -> fMRIPrep PREP path CLOSED
 
 Prospective correction (config `5e3954d9`, frozen BEFORE metrics, pushed+verified) of the ONE spatial flaw:

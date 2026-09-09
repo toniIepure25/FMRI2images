@@ -1,4 +1,10 @@
 {
   "config_sha256": "321b42f91a910384aa33e8d9c37c4447940ebc83523e1096b4008c0290f970f8",
-  "status": "PENDING_METHOD_CERTIFICATION"
+  "status": "GAUGE_INVARIANT_CERTIFIED",
+  "test": "arbitrary common-space orthogonal gauge G applied consistently to W, shared coords, U_res, calibration coords",
+  "R_CAL_original": null,
+  "abs_diff": 6.661338147750939e-16,
+  "invariant": true,
+  "tolerance": 1e-06,
+  "result": "final native projector P_CAL and R_CAL invariant to machine precision"
 }

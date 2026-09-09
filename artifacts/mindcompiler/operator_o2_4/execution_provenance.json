@@ -2,5 +2,20 @@
   "gate": "O2.4",
   "config_sha256": "321b42f91a910384aa33e8d9c37c4447940ebc83523e1096b4008c0290f970f8",
   "freeze_committed_before_outcome": true,
-  "target_calibration_imagery_opened": false
+  "target_calibration_imagery_opened": false,
+  "calibration_frontier_computed": false,
+  "nothing_fabricated": true,
+  "provenance_determination": "BLOCKED",
+  "provenance_blocker": {
+    "requirement": "O2.4 must REUSE the exact frozen O2.3A dense-perception common space (W_target, K, training-subject common space, vision alignment) + residual-orientation template; M=0 must reproduce O2.3A to numerical/hash-level agreement (P_ZERO)",
+    "why_blocked": [
+      "no in-repo O2.3A generating code (repo has only the O2 small-visual-span phase code operator_o2_phases.py + operator_o2/ modules; the O2.3A dense-core-anchor + residual-orientation code was never committed)",
+      "no persisted O2.3A intermediate matrices (W_target / common space / residual coordinates / imagery centroids) -- only SUMMARY result CSVs (participant_ROI_orientation_summary.csv etc.)",
+      "therefore M=0 cannot be certified to reproduce O2.3A to hash-level agreement, and W_target/K/common-space cannot be reused as required",
+      "the gate FORBIDS rebuilding them (No new NSD-core preprocessing; Do NOT refit) -- reconstruction would be a forbidden refit and could not guarantee reproducing O2.3A's exact numbers"
+    ],
+    "data_note": "NSD-Imagery betas are absent locally for 7/8 subjects (only subj01) though obtainable via public NSD unsigned S3 as O2.3A did; but re-deriving is a forbidden refit, and the block is on the missing REUSABLE frozen O2.3A machinery, not on raw data acquisition",
+    "not_a_data_impossibility": "O2.3A was validly executed (O2_3A_CORE_ANCHOR_FEASIBILITY_PASS via public unsigned S3); the block is purely provenance/reusability of its frozen products"
+  },
+  "method_certified_data_free": "orthogonal-Procrustes estimator + orientation application + gauge invariance (6.7e-16) + leakage detector certified on synthetic data"
 }

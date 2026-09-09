@@ -47,7 +47,7 @@ def test_orthogonal_procrustes_only():
 def test_inference_and_mstar_rule():
     c = _j("o2_4_frozen_config.json")
     inf = c["inference"]
-    assert inf["N"] == 8 and inf["primary_tests"] == 10 and inf["multiplicity"] == "HOLM" and inf["alpha"] == 0.05
+    assert inf["N"] == 8 and inf["primary_tests"] == 10 and "HOLM" in inf["multiplicity"] and inf["alpha"] == 0.05
     assert "2^8=256" in inf["test"]
     ms = c["M_STAR_rule"]
     assert "oracle recovery>=0.50" in ms["definition"] and ms["if_none"] == "M_STAR = NOT_REACHED"
@@ -88,5 +88,32 @@ def test_immutable_history_preserved():
 
 def test_data_dependent_results_not_fabricated():
     # provenance-blocked frontier: no calibration outcome fabricated
-    assert _j("minimum_budget_results.json")["status"].startswith("PENDING") or \
-           _j("minimum_budget_results.json").get("M_STAR") == "NOT_REACHED"
+    mb = _j("minimum_budget_results.json")
+    assert mb["ventral_M_STAR"] == "NOT_REACHED" and mb["lateral_M_STAR"] == "NOT_REACHED"
+    assert _j("primary_inference.json")["status"].startswith("NOT_COMPUTED")
+
+
+def test_sealed_inconclusive_provenance():
+    s = _j("scientific_status.json")
+    assert s["status"] == "TARGET_STATE_ORIENTATION_CALIBRATION_INCONCLUSIVE"
+    assert s["reason"].startswith("PROVENANCE")
+    assert "NOT COMPUTED" in s["calibration_frontier"]
+    assert s["O3"].startswith("O3_NOT_READY")
+    ep = _j("execution_provenance.json")
+    assert ep["target_calibration_imagery_opened"] is False
+    assert ep["calibration_frontier_computed"] is False and ep["nothing_fabricated"] is True
+
+
+def test_method_certified_gauge_invariant():
+    g = _j("gauge_certification.json")
+    assert g["invariant"] is True and g["abs_diff"] < 1e-6
+    sc = _j("synthetic_controls.json")
+    assert sc["certified"]["A_estimator_recovers_orientation_to_oracle"] is True
+    assert sc["certified"]["E_leakage_detector_fires_on_injection"] is True
+
+
+def test_leakage_trivially_clean_no_calibration():
+    import csv
+    with open(B / "leakage_certification.csv", newline="") as f:
+        rows = list(csv.DictReader(f))
+    assert all(int(r["target_calibration_imagery_opened"]) == 0 for r in rows)

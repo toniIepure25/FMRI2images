@@ -1,4 +1,20 @@
 {
+  "gate": "O2.4",
   "config_sha256": "321b42f91a910384aa33e8d9c37c4447940ebc83523e1096b4008c0290f970f8",
-  "status": "PENDING (freeze committed; determination sealed after method-cert)"
+  "status": "TARGET_STATE_ORIENTATION_CALIBRATION_INCONCLUSIVE",
+  "reason": "PROVENANCE -- the frozen O2.3A dense-perception common-space/residual-orientation machinery O2.4 must reuse is not present in reusable form (no in-repo generating code; no persisted intermediate matrices, only summary CSVs); M=0=P_ZERO cannot be certified against O2.3A; gate forbids rebuilding (no new core preprocessing / no refit).",
+  "calibration_frontier": "NOT COMPUTED (no target-imagery calibration opened; nothing fabricated)",
+  "method_certification": "orthogonal-Procrustes estimator + orientation application + GAUGE invariance (abs_diff 6.7e-16) + leakage detector CERTIFIED on synthetic data (design sound; blocker is provenance, not method)",
+  "ventral_M_STAR": "NOT_REACHED (not computed)",
+  "lateral_M_STAR": "NOT_REACHED (not computed)",
+  "leakage": "trivially clean (no target-calibration cell computed; target_calibration_imagery_opened=0)",
+  "immutable": {
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2.3A": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+    "O2.3C": "O2_3C_REST_PRODUCT_INCOMPATIBLE",
+    "O3": "O3_NOT_READY"
+  },
+  "zero_target_closeout": "ZERO_TARGET_IMAGERY_ORIENTATION_NOT_IDENTIFIED_UNDER_TESTED_PUBLIC_ANCHORS",
+  "resolution": "user/program decision: persist+commit the O2.3A generating code + frozen intermediate matrices (so O2.4 can reuse them, enabling M=0=P_ZERO reproduction), OR authorize a fresh prospective re-derivation (outside this gate's reuse constraint). Not taken unilaterally.",
+  "O3": "O3_NOT_READY (unchanged through all O2.4 outcomes)"
 }

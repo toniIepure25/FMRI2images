@@ -1,2 +1,2 @@
-status
-PENDING_PROVENANCE_BLOCKED
+cell,target_calibration_imagery_opened,note
+NONE,0,provenance-blocked: no target-calibration cell computed; leakage trivially clean

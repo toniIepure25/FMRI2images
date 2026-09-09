@@ -1,4 +1,6 @@
 {
   "config_sha256": "321b42f91a910384aa33e8d9c37c4447940ebc83523e1096b4008c0290f970f8",
-  "status": "PENDING_PROVENANCE_BLOCKED"
+  "status": "NOT_COMPUTED (provenance-blocked)",
+  "tests": "10 primary (ventral/lateral x M in {2,4,6,8,10}) -- not run",
+  "holm": "not applied (nothing computed)"
 }

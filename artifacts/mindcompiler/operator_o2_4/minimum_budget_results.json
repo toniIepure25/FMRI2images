@@ -1,4 +1,7 @@
 {
   "config_sha256": "321b42f91a910384aa33e8d9c37c4447940ebc83523e1096b4008c0290f970f8",
-  "status": "PENDING_PROVENANCE_BLOCKED"
+  "ventral_M_STAR": "NOT_REACHED",
+  "lateral_M_STAR": "NOT_REACHED",
+  "reason": "provenance-blocked; calibration frontier not computed",
+  "interpolated": false
 }

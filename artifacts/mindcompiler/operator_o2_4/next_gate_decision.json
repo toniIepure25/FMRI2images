@@ -1,4 +1,7 @@
 {
   "config_sha256": "321b42f91a910384aa33e8d9c37c4447940ebc83523e1096b4008c0290f970f8",
-  "status": "PENDING_PROVENANCE_BLOCKED"
+  "status": "TARGET_STATE_ORIENTATION_CALIBRATION_INCONCLUSIVE",
+  "next": "scientific-program decision (user): (1) persist/commit O2.3A generating code + frozen matrices to enable reuse+M0 reproduction, then re-run O2.4; or (2) authorize a fresh prospective re-derivation gate. No auto-launch.",
+  "O3": "O3_NOT_READY (unchanged)",
+  "auto_launch": false
 }

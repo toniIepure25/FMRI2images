@@ -1,0 +1,66 @@
+{
+  "gate": "O2.4-PROVREC",
+  "class": "FORENSIC_PROVENANCE_RECONSTRUCTION_AND_EXACT_REPLAY_GATE",
+  "source_head": "2a80bbc7894a688629841d7e5ad760044849a8a6",
+  "reconstruct_from": "ORIGINAL frozen O2.3A contracts + data lineage ONLY (no improvement, no model selection)",
+  "data_lineage": {
+    "beta": "B0/b2 NSD-core betas_fithrf ONLY (no B1/b3)",
+    "cohort": "8 NSD subjects",
+    "space": "native func1pt8mm no resampling",
+    "anchor": "512 shared NSD-core images (exclude NSD-Imagery overlaps globally); mean of 3 core reps",
+    "scaler": "TRAIN_ONLY_VOXEL_ZSCORE"
+  },
+  "common_space": {
+    "method": "DETERMINISTIC_SRM (vision only)",
+    "K_candidates": [
+      2,
+      4,
+      8,
+      16,
+      32,
+      64
+    ],
+    "K_selection": "vision-only nested LOSO subject x anchor-image blocks; metric cross-subject native pattern reconstruction Pearson r; tie->smaller K",
+    "n_blocks_kselect": 5
+  },
+  "residual": "O2.2 small-visual-span perpendicular (frozen, immutable)",
+  "residual_template": {
+    "source": "shared residual covariance in anchor coords, TRAINING subjects only",
+    "rank_candidates": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "rank_selection": "historical nested-CV"
+  },
+  "orientation_prediction": "Bhat = W_core_target U_res (ZERO target imagery)",
+  "primary_metric": "||delta_y_perp P_RESID_PRED||^2 / ||delta_y_perp||^2",
+  "null": {
+    "kind": "100 random residual subspaces",
+    "seed_rule": "SHA256('O2.3A'|subject|ROI|identity_fold|null_iteration)"
+  },
+  "inference": {
+    "N": 8,
+    "signflip": "2^8 exact",
+    "holm": "ventral/lateral"
+  },
+  "replay_tolerance": {
+    "categorical_K_rank_fold_status": "EXACT",
+    "deterministic_scalar_max_abs_error": 1e-06,
+    "deterministic_scalar_pearson_min": 0.999999,
+    "null_stats": 1e-06
+  },
+  "genuinely_absent_historical_details_precluding_exact_replay": [
+    "O2.3A generator source (never committed; the authoritative implementation)",
+    "DetSRM implementation specifics: initialization method, n_iter, convergence tolerance -- fix the common-space gauge and thus all recon-r/retention scalar metrics to >1e-6 precision; contract states only 'DETERMINISTIC_SRM'",
+    "K-selection nested-CV block partition: n_blocks=5 recorded but the exact assignment of the 512 ordered anchor images to the 5 blocks (contiguous/by-session/interleaved/seeded) is not persisted -> determines selected K",
+    "null random-subspace generator: seed RULE known but the seed->subspace RNG/draw/dimensionality mapping is not in the contracts -> determines median_null to >1e-6",
+    "exact anchor voxel selection for subj02-08 (ncsnr absent locally)"
+  ],
+  "no_outcome_based_method_search": true,
+  "do_not_pick_closest_scorer": true,
+  "config_sha256": "9e3060afc174f3ebc1d4f90f5c9c9082f8cc785ec2d934c9b223545e3a83e244"
+}

@@ -16,5 +16,11 @@
   },
   "zero_target_closeout": "ZERO_TARGET_IMAGERY_ORIENTATION_NOT_IDENTIFIED_UNDER_TESTED_PUBLIC_ANCHORS",
   "resolution": "user/program decision: persist+commit the O2.3A generating code + frozen intermediate matrices (so O2.4 can reuse them, enabling M=0=P_ZERO reproduction), OR authorize a fresh prospective re-derivation (outside this gate's reuse constraint). Not taken unilaterally.",
-  "O3": "O3_NOT_READY (unchanged through all O2.4 outcomes)"
+  "O3": "O3_NOT_READY (unchanged through all O2.4 outcomes)",
+  "provrec": {
+    "status": "O2_4_PROVREC_HISTORICAL_DETAIL_MISSING",
+    "stronger_reason": "HISTORICAL_O2_3A_STATE_NOT_RECONSTRUCTABLY_REPRODUCIBLE",
+    "detail": "O2.3A generator source never committed; DetSRM init/iter + K-selection block partition + null RNG genuinely absent from contracts; 131GB b2 core anchor data absent. This is a reproducibility limitation, NOT evidence against the calibration hypothesis.",
+    "o2_4_frontier": "NOT RUN (M0 replay not certified); O3 remains O3_NOT_READY"
+  }
 }

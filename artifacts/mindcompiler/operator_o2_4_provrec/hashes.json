@@ -1,0 +1,19 @@
+{
+  "gate": "O2.4-PROVREC",
+  "config_sha256": "9e3060afc174f3ebc1d4f90f5c9c9082f8cc785ec2d934c9b223545e3a83e244",
+  "artifact_sha256_16": {
+    "anchor_identity_manifest.csv": "eb39117262451b80",
+    "execution_provenance.json": "ce257aaf0b0ba59f",
+    "historical_o2_3a_inventory.json": "75a92cc40b6a7366",
+    "historical_reference_hashes.json": "88a779fc50ce39be",
+    "input_data_manifest.json": "98eb5299af98a4b5",
+    "leakage_architecture_certification.json": "3114c50dcd1d3aab",
+    "m0_replay_certification.json": "3dc2a017360ea336",
+    "provrec_frozen_config.json": "681f1d82df967423",
+    "replay_cellwise_differences.csv": "0b23a220b9e90a28",
+    "replay_contract.json": "c98f62222c917373",
+    "replay_results_summary.json": "5750ac0408eaa214",
+    "replay_status.json": "e4a972a294db8cb3",
+    "reusable_state_manifest.json": "b40d27b93834c0a6"
+  }
+}

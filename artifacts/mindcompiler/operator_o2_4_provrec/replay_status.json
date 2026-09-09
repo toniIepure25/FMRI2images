@@ -1,0 +1,15 @@
+{
+  "gate": "O2.4-PROVREC",
+  "status": "O2_4_PROVREC_HISTORICAL_DETAIL_MISSING",
+  "primary_missing_detail": "O2.3A generator source (never committed to git history)",
+  "additional_missing_details": [
+    "DetSRM implementation specifics: initialization method, n_iter, convergence tolerance -- fix the common-space gauge and thus all recon-r/retention scalar metrics to >1e-6 precision; contract states only 'DETERMINISTIC_SRM'",
+    "K-selection nested-CV block partition: n_blocks=5 recorded but the exact assignment of the 512 ordered anchor images to the 5 blocks (contiguous/by-session/interleaved/seeded) is not persisted -> determines selected K",
+    "null random-subspace generator: seed RULE known but the seed->subspace RNG/draw/dimensionality mapping is not in the contracts -> determines median_null to >1e-6",
+    "exact anchor voxel selection for subj02-08 (ncsnr absent locally)"
+  ],
+  "compounding_input_blocker": "131GB b2 NSD-core anchor betas absent (local+pod); 7/8 NSD-Imagery betas absent",
+  "why_not_attempt_closest": "gate forbids picking the closest scorer among ambiguous contract-compatible implementations; scalar metrics from an iterative DetSRM cannot be certified to 1e-6 without the exact historical init/iter/partition/RNG",
+  "tolerance_loosened": false,
+  "closest_scorer_selected": false
+}

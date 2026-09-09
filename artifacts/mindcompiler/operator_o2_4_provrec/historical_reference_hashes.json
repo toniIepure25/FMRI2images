@@ -1,0 +1,11 @@
+{
+  "gate": "O2.4-PROVREC",
+  "o2_3a_methodology_freeze": "d2b2bc7439a2a2efa7b411dda69d9ee8a0368f34",
+  "o2_3a_frozen_config_sha256": "39d7bc9725f71a711641d445d4aeeb3bda128b0d06c45566a1c229ca9a537050",
+  "o2_3a_execution": "5f13e4a33da4691cbc8ef9b26dcf5f9b227aec6e",
+  "o2_3a_final_status": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+  "o2_4_freeze": "7faa967",
+  "o2_4_frozen_config_sha256": "321b42f91a910384aa33e8d9c37c4447940ebc83523e1096b4008c0290f970f8",
+  "o2_4_sealed_provenance_blocked": "2a80bbc7894a688629841d7e5ad760044849a8a6",
+  "all_immutable": true
+}

@@ -1,0 +1,14 @@
+{
+  "gate": "O2.4-PROVREC",
+  "b2_nsd_core_betas_for_anchor": {
+    "required": "b2/betas_fithrf NSD-core session betas, 8 subjects, func1pt8mm, for the 512 anchor images",
+    "local": "subj01 = 40 sessions PRESENT; subj02-08 = 0 (ABSENT)",
+    "the_131GB_cache_from_7a0f653": "NOT PRESENT (local nsddata_betas=43G ~subj01 only; pod nsddata_betas=3.5G)",
+    "reacquire_from_public_s3": "authorized by gate but ~131GB for 7 subjects (heavy multi-hour acquisition)"
+  },
+  "nsd_imagery_betas_for_residual": {
+    "required": "B0 NSD-Imagery betas 8 subjects (frozen O2.2 small-span residual)",
+    "local": "subj01 PRESENT; subj02-08 ABSENT (obtainable public S3)"
+  },
+  "ncsnr_for_voxel_selection": "absent for subj02-08 (roi.select_roi_voxels needs it)"
+}

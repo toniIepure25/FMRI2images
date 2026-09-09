@@ -1,0 +1,5 @@
+{
+  "config_sha256": "9e3060afc174f3ebc1d4f90f5c9c9082f8cc785ec2d934c9b223545e3a83e244",
+  "status": "NOT_RUN",
+  "reason": "generator source absent + numerically-determining implementation details genuinely missing + 131GB b2 core anchor data absent; per gate STOP (do not pick closest scorer / do not loosen tolerance)"
+}

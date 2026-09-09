@@ -1,0 +1,2 @@
+source,rows,included,leakage_clean,anchor_data_betas_present
+artifacts/mindcompiler/operator_o2_3a/anchor_manifest.csv,1000,512,True,False

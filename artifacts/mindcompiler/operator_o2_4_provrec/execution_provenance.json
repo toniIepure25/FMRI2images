@@ -1,0 +1,11 @@
+{
+  "gate": "O2.4-PROVREC",
+  "config_sha256": "9e3060afc174f3ebc1d4f90f5c9c9082f8cc785ec2d934c9b223545e3a83e244",
+  "generator_code_recovered_from_history": false,
+  "generator_reimplemented": false,
+  "b2_core_reacquired": false,
+  "replay_executed": false,
+  "target_calibration_imagery_opened": false,
+  "nothing_fabricated": true,
+  "determination": "O2_4_PROVREC_HISTORICAL_DETAIL_MISSING -> O2.4 remains INCONCLUSIVE with reason HISTORICAL_O2_3A_STATE_NOT_RECONSTRUCTABLY_REPRODUCIBLE"
+}

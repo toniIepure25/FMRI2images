@@ -10,6 +10,29 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.4-PROVREC (2026-09-09): FORENSIC O2.3A REPLAY -- `O2_4_PROVREC_HISTORICAL_DETAIL_MISSING`
+
+Forensic attempt to reconstruct + exactly replay the O2.3A machinery so O2.4 can reuse it (config `9e3060af`).
+**P0 proven: the O2.3A generator source was never committed** -- execution commit `5f13e4a` added only artifacts+
+tests; across ALL git history the only O2.3A `.py` are the two test files. All 21 historical O2.3A artifacts
+inventoried+hashed (anchor list 512 present).
+
+**Exact replay cannot be certified.** The frozen contracts specify the method FAMILY, not the numerically-
+determining implementation. Genuinely-absent details precluding the required categorical-EXACT + scalar-1e-6
+replay: (1) generator source; (2) DetSRM init/n_iter/convergence (fixes gauge -> all scalar metrics); (3)
+K-selection nested-CV block partition (n_blocks=5 but no partition rule -> selected K); (4) null random-subspace
+RNG (seed rule known, seed->subspace map absent -> median_null). Contract-compatible implementations diverge
+beyond 1e-6 -> gate STOP (no tolerance-loosening, no closest-scorer pick). Compounded: **131GB b2 core anchor
+data absent** (local subj01-only; 7a0f653 cache gone; pod 3.5G) + 7/8 NSD-Imagery betas absent.
+
+**`O2_4_PROVREC_HISTORICAL_DETAIL_MISSING`.** Replay NOT run; no reusable state; **M=0 NOT certified; no target
+imagery opened; nothing fabricated.** O2.4 stays `TARGET_STATE_ORIENTATION_CALIBRATION_INCONCLUSIVE`, stronger
+reason `HISTORICAL_O2_3A_STATE_NOT_RECONSTRUCTABLY_REPRODUCIBLE` -- a reproducibility limitation, NOT evidence
+against the calibration hypothesis. Historical O2.3A execution valid; **O3 remains `O3_NOT_READY`**. Resolution
+(user's call): recover the original generator code and commit it, OR authorize a freshly-frozen re-derivation
+gate (supersedes rather than bit-replays). Artifacts: `artifacts/mindcompiler/operator_o2_4_provrec/` + `docs/.../61`.
+7 data-free tests pass. Preserves all immutable Track-O states.
+
 ## O2.4 (2026-09-09): TARGET-STATE CALIBRATION FRONTIER -- `TARGET_STATE_ORIENTATION_CALIBRATION_INCONCLUSIVE` (provenance)
 
 Prospective identity-diversity sample-complexity design (config `321b42f9`) frozen+pushed BEFORE any outcome:

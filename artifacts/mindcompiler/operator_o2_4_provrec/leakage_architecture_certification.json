@@ -1,0 +1,5 @@
+{
+  "config_sha256": "9e3060afc174f3ebc1d4f90f5c9c9082f8cc785ec2d934c9b223545e3a83e244",
+  "status": "NOT_APPLICABLE",
+  "reason": "O2.4 real frontier not entered (M0 not certified); no calibration cells computed"
+}

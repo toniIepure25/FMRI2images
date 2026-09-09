@@ -1,0 +1,23 @@
+{
+  "config_sha256": "c1b2ddb0414ad541e68ab8435e51306d9490d9b287735070964045ea9fbd33f0",
+  "artifact_sha256_16": {
+    "anchor_block_manifest.csv": "094782f2ae9b6d6b",
+    "anchor_manifest_certification.json": "567258aec68f9f40",
+    "execution_provenance.json": "567258aec68f9f40",
+    "input_data_manifest.json": "567258aec68f9f40",
+    "k_selection_results.csv": "094782f2ae9b6d6b",
+    "null_results_summary.json": "567258aec68f9f40",
+    "o2_3a_rd_frozen_config.json": "7a7cfc3ae166f71e",
+    "orientation_results.csv": "094782f2ae9b6d6b",
+    "primary_inference.json": "567258aec68f9f40",
+    "rank_cv_manifest.csv": "094782f2ae9b6d6b",
+    "rank_selection_results.csv": "094782f2ae9b6d6b",
+    "rd_reusable_state_manifest.json": "567258aec68f9f40",
+    "residual_reconstruction_certification.json": "567258aec68f9f40",
+    "scientific_status.json": "567258aec68f9f40",
+    "srm_implementation_manifest.json": "567258aec68f9f40",
+    "srm_state_manifest.json": "567258aec68f9f40",
+    "test_report.json": "567258aec68f9f40",
+    "voxel_mapping_certification.json": "567258aec68f9f40"
+  }
+}

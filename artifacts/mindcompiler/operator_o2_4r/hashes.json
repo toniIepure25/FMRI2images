@@ -1,0 +1,21 @@
+{
+  "config_sha256": "ad9594461bf6c3d3b3fa208a32d19b6dc30037cf0a1c6ade1a60466015127989",
+  "artifact_sha256_16": {
+    "balanced_subset_manifest.csv": "438f48961c1f3ed8",
+    "calibration_null_summary.json": "67ed2edcc5090599",
+    "calibration_results.csv": "438f48961c1f3ed8",
+    "execution_provenance.json": "67ed2edcc5090599",
+    "leakage_certification.csv": "438f48961c1f3ed8",
+    "m0_certification.json": "67ed2edcc5090599",
+    "minimum_budget_results.json": "67ed2edcc5090599",
+    "next_gate_decision.json": "67ed2edcc5090599",
+    "o2_4r_frozen_config.json": "167cbe4b550d3c90",
+    "oracle_results.csv": "438f48961c1f3ed8",
+    "outer_fold_manifest.csv": "438f48961c1f3ed8",
+    "participant_roi_frontier.csv": "438f48961c1f3ed8",
+    "primary_inference.json": "67ed2edcc5090599",
+    "scientific_status.json": "67ed2edcc5090599",
+    "secondary_parietal.json": "67ed2edcc5090599",
+    "test_report.json": "67ed2edcc5090599"
+  }
+}

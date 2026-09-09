@@ -1,0 +1,239 @@
+{
+  "gate": "O2.3A-RD",
+  "class": "PROSPECTIVE_RE_DERIVATION_OF_DENSE_PERCEPTION_ORIENTATION (NEW; does not overwrite historical)",
+  "source_head": "f56ab1da70047eff72f30ecd8b0d8edb11bc0eaa",
+  "question": "Can dense target-subject PERCEPTION identify the subject-specific native orientation of the reliable imagery residual, with ZERO target imagery used for fitting?",
+  "immutable_history": {
+    "historical_O2_3A": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+    "historical_O2_4": "TARGET_STATE_ORIENTATION_CALIBRATION_INCONCLUSIVE",
+    "historical_O2_4_PROVREC": "O2_4_PROVREC_HISTORICAL_DETAIL_MISSING (HISTORICAL_O2_3A_STATE_NOT_RECONSTRUCTABLY_REPRODUCIBLE)",
+    "historical_zero_target_closeout": "ZERO_TARGET_IMAGERY_ORIENTATION_NOT_IDENTIFIED_UNDER_TESTED_PUBLIC_ANCHORS",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2.2": "CROSS_STATE_TRANSPORT_MULTIREGIME",
+    "O2.3C": "orientation INCONCLUSIVE",
+    "O2.3C_PREP": "FMRIPREP_DERIVED_REST_FUNC1PT8MM_NOT_CERTIFIED_FOR_FINE_SCALE_CONNECTIVITY",
+    "O3": "O3_NOT_READY",
+    "never_relabel_historical_o2_3a_as_reproduced": true
+  },
+  "data": {
+    "cohort": "same 8 NSD subjects",
+    "beta": "B0/b2 betas_fithrf ONLY (no B1/b3)",
+    "space": "native func1pt8mm, no spatial resampling",
+    "roi_voxels": "existing O1/O2 B0 ROI coordinates",
+    "primary_rois": [
+      "ventral",
+      "lateral"
+    ],
+    "secondary": "parietal",
+    "optional_descriptive_after_seal": [
+      "V1",
+      "V3"
+    ],
+    "excluded": [
+      "V2",
+      "hV4"
+    ]
+  },
+  "anchor": {
+    "reuse_historical_512_manifest": "artifacts/mindcompiler/operator_o2_3a/anchor_manifest.csv (canonical identity list)",
+    "require": {
+      "included": 512,
+      "all_8_subjects_complete": true,
+      "zero_nsd_imagery_overlap": true
+    },
+    "reacquire_DATA_only_not_identity_selection": true,
+    "manifest_hash_recorded": true
+  },
+  "data_acquisition": {
+    "source": "public unsigned NSD S3",
+    "needs": [
+      "b2 betas_fithrf core for missing subjects",
+      "B0 NSD-Imagery inputs for O2.2 residual",
+      "ncsnr/ROI support"
+    ],
+    "storage": "orchestraiq persistent (no ephemeral cache)",
+    "manifest": "input_data_manifest.json (S3 key/bytes/SHA256/subject/session/lineage/path)"
+  },
+  "voxel_contract": {
+    "reuse_O1_O2_B0_ROI_coords": true,
+    "no_new_voxel_selection": true,
+    "no_spatial_interpolation": true,
+    "certify": [
+      "func1pt8mm shape",
+      "affine",
+      "axis convention",
+      "voxel-coordinate hash",
+      "finite support"
+    ]
+  },
+  "anchor_responses": {
+    "definition": "mean B0 NSD-core response over valid repeated occurrences per identity",
+    "trial_to_identity_mapping": "frozen before anchor outcomes",
+    "ordering": "deterministic by committed 512 manifest"
+  },
+  "scaling": {
+    "method": "TRAIN_ONLY_VOXEL_ZSCORE",
+    "target_norm": "target VISION anchor responses only where the alignment procedure requires; NO imagery in scaling",
+    "persist_scalers": true
+  },
+  "deterministic_srm": {
+    "decision": "committed O2 srm.py (blob 673aeab0) is INSUFFICIENTLY specified (n_iter=30 fixed, no convergence tol, no canonical gauge) -> implement ONE NEW prospective deterministic SRM",
+    "initialization": "deterministic SVD-based (no random init)",
+    "optimization": "fixed alternating orthogonal-Procrustes updates",
+    "max_iter": 200,
+    "convergence_tol": 1e-07,
+    "dtype": "float64",
+    "gauge_convention": [
+      "deterministic QR/SVD orientation",
+      "column sign fixed by making the largest-absolute-loading element per component positive",
+      "component order descending singular/eigenvalue with deterministic tie rule (stable index)"
+    ],
+    "persist": "gauge-certified W/S arrays",
+    "no_outcome_dependent_earlystop": true
+  },
+  "K_candidates": [
+    2,
+    4,
+    8,
+    16,
+    32,
+    64
+  ],
+  "K_blocks": {
+    "partition": "block_id = anchor_order_index mod 5 (5 deterministic ~balanced blocks over the committed 512-anchor order)",
+    "freeze_image_to_block_manifest": true,
+    "no_alteration_after_scores": true
+  },
+  "K_selection": {
+    "vision_only": true,
+    "validation": "LOSO subject x anchor-block",
+    "metric": "cross-subject native pattern reconstruction Pearson r",
+    "aggregate": "frozen mean over blocks",
+    "select": "max validation score",
+    "tie_rule": "abs diff <= 1e-12 -> smaller K",
+    "persist_all_scores": true
+  },
+  "target_vision_alignment": {
+    "input": "dense NSD-core PERCEPTION responses (no target imagery)",
+    "method": "deterministic orthogonal Procrustes/LS into trained SRM common space",
+    "persist": "W_target per participant x ROI"
+  },
+  "o2_2_residual": {
+    "definition": "O2_2_IMAGERY_RESIDUAL relative to the historical SMALL NSD-Imagery visual span (immutable)",
+    "not_redefined_relative_to": [
+      "NSD-core",
+      "dense perception",
+      "O2.3A-RD",
+      "calibration identities"
+    ],
+    "reuse_committed_O2_O2_2_generator_where_possible": true,
+    "replay_and_certify_o2_2_if_reproducible": true,
+    "persist_residual_vectors": true
+  },
+  "outer_folds": {
+    "count": 6,
+    "hold_out": [
+      "one simple identity",
+      "one naturalistic identity"
+    ],
+    "persist_ids_and_family": true,
+    "no_fold_changes": true
+  },
+  "residual_template": {
+    "training_subjects": "other 7",
+    "training_identities": "outer-training imagery identities only",
+    "construction": "training-subject imagery residuals mapped into frozen dense-perception common space; shared residual covariance",
+    "no_target_imagery": true
+  },
+  "rank_candidates": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "rank_inner_cv": {
+    "per_outer_fold": "10 outer-training identities (5 simple + 5 naturalistic)",
+    "inner_folds": "5 balanced identity-pair folds; inner fold j holds out sorted-simple[j] + sorted-naturalistic[j], j=0..4",
+    "nested_over": [
+      "training-subject LOSO",
+      "the 5 frozen identity-pair folds"
+    ],
+    "select": "max mean validation retention",
+    "tie_rule": "abs diff <= 1e-12 -> smaller r",
+    "persist_all_scores": true
+  },
+  "orientation_prediction": {
+    "Bhat": "W_target U_res",
+    "orthogonalize": "deterministic",
+    "projector": "P_ZERO_RD",
+    "no_target_imagery": true
+  },
+  "primary_metric": {
+    "R_ZERO_RD": "|| P_ZERO_RD delta_y_perp ||^2 / || delta_y_perp ||^2",
+    "average_held_out_identities": "frozen mean per fold"
+  },
+  "target_native_oracle": {
+    "training_only": true,
+    "input": "target imagery from outer-TRAINING identities only",
+    "subspace": "native residual subspace at the same selected rank",
+    "eval": "outer-test identities",
+    "diagnostic_only": true
+  },
+  "null": {
+    "seed_text": "'O2.3A-RD|'+subject+'|'+ROI+'|'+fold+'|'+iteration",
+    "digest": "SHA256 UTF-8 -> first 16 hex -> uint64",
+    "rng": "numpy.random.Generator(numpy.random.PCG64(seed_uint64))",
+    "draw": "G ~ N(0,1)^(K x r); reduced QR -> Q_null; canonical column signs; map through target W",
+    "n_samples": 100,
+    "no_alternative_rng": true
+  },
+  "gauge_invariance_certification": {
+    "apply": "arbitrary deterministic common-space orthogonal rotations",
+    "require": "native projectors + retention metrics invariant within 1e-10",
+    "else": "TECHNICAL_FAILURE"
+  },
+  "inference": {
+    "unit": "participant",
+    "N": 8,
+    "primary": [
+      "ventral",
+      "lateral"
+    ],
+    "signflip": "2^8=256 exact one-sided",
+    "holm": "across ventral/lateral",
+    "RD_identifiable_PASS_if": [
+      "median true predicted retention > median matched null",
+      ">=6/8 participant effects positive",
+      "at least one primary ROI Holm-adjusted p < .05",
+      "median oracle recovery >= .50 in at least one primary ROI"
+    ]
+  },
+  "status_options": [
+    "CORE_ANCHOR_RD_TARGET_ORIENTATION_IDENTIFIABLE",
+    "CORE_ANCHOR_RD_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+    "CORE_ANCHOR_RD_INCONCLUSIVE"
+  ],
+  "do_not_use_historical_numbers_as_acceptance_targets": true,
+  "persist_state": [
+    "voxel index hashes",
+    "scalers",
+    "selected K",
+    "SRM W",
+    "SRM shared S",
+    "target W",
+    "gauge metadata",
+    "small-span visual basis/projector",
+    "identity-wise residual vectors",
+    "training-subject residual common-space coords",
+    "selected r",
+    "U_res",
+    "P_ZERO_RD",
+    "native-oracle state",
+    "outer-fold identities"
+  ],
+  "no_method_search_after_outcome": true,
+  "O3": "O3_NOT_READY",
+  "config_sha256": "c1b2ddb0414ad541e68ab8435e51306d9490d9b287735070964045ea9fbd33f0"
+}

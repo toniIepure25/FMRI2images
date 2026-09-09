@@ -10,6 +10,26 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.3A-RD / O2.4R (2026-09-09): PROSPECTIVE RE-DERIVATION -- BOTH CONFIGS FROZEN (RD `c1b2ddb0`, R4 `ad959446`)
+
+Exact O2.3A replay is closed (PROVREC), so a NEW prospective re-derivation is authorized: `O2.3A-RD` (dense
+perception -> subject-specific imagery-residual orientation, ZERO target imagery) then conditionally `O2.4R`
+(calibration frontier). NEW analyses -- historical O2.3A/O2.4/PROVREC remain immutable; never relabel historical
+O2.3A as reproduced. **Both configs frozen + committed + pushed BEFORE any outcome** (two-stage preregistration:
+O2.4R frozen before seeing the new M=0). Every PROVREC-missing detail is now fully specified: NEW deterministic
+SRM (SVD init, max_iter=200, tol=1e-7, float64, canonical gauge); K-blocks = anchor_order mod 5; rank inner-CV =
+sorted-family identity-pair folds; null RNG = SHA256->first16hex->uint64->PCG64; tie rules <=1e-12; K{2,4,8,16,32,64};
+r{1..6}; reuse frozen 512 anchor identity list (re-acquire DATA only) + O1/O2 B0 ROI voxels; immutable O2_2 small-span
+residual; 6 outer folds; gauge cert <=1e-10. O2.4R: M{0,2,4,6,8,10} identities, subsets 25/100/100/25/1, orthogonal
+Procrustes only, identity-correspondence null (100), N=8 sign-flip + Holm(10), M_STAR, "coherently positive" defined
+now, M0==P_ZERO_RD certified, internal RD-M0->M>0 comparison (never vs unreconstructable historical). Access order
+strict; no refreeze after M0; leakage asserts.
+
+**Status: frozen (steps 1-3 done).** Next: commit generator source + data-free determinism/gauge certification, then
+the data-acquisition (public S3 -> orchestraiq persistent, ~131GB b2 core + 7/8 imagery betas) + fit + frontier
+(substantial cluster compute). Compute artifacts are honest PENDING placeholders; nothing fabricated. **O3 remains
+`O3_NOT_READY`.** Artifacts: `operator_o2_3a_rd/` + `operator_o2_4r/` + `docs/.../62`. 10 data-free freeze tests pass.
+
 ## O2.4-PROVREC (2026-09-09): FORENSIC O2.3A REPLAY -- `O2_4_PROVREC_HISTORICAL_DETAIL_MISSING`
 
 Forensic attempt to reconstruct + exactly replay the O2.3A machinery so O2.4 can reuse it (config `9e3060af`).

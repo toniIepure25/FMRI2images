@@ -1,0 +1,162 @@
+{
+  "gate": "O2.4R",
+  "class": "PROSPECTIVE_TARGET_IMAGERY_CALIBRATION_FRONTIER_ON_RD_STATE (NEW; historical O2.4 unchanged)",
+  "source_head": "f56ab1da70047eff72f30ecd8b0d8edb11bc0eaa",
+  "frozen_before_seeing_rd_outcome": true,
+  "references_new_state": "O2.3A-RD (config below)",
+  "rd_config_sha256": "c1b2ddb0414ad541e68ab8435e51306d9490d9b287735070964045ea9fbd33f0",
+  "immutable_history": {
+    "historical_O2_3A": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+    "historical_O2_4": "TARGET_STATE_ORIENTATION_CALIBRATION_INCONCLUSIVE",
+    "historical_O2_4_PROVREC": "O2_4_PROVREC_HISTORICAL_DETAIL_MISSING (HISTORICAL_O2_3A_STATE_NOT_RECONSTRUCTABLY_REPRODUCIBLE)",
+    "historical_zero_target_closeout": "ZERO_TARGET_IMAGERY_ORIENTATION_NOT_IDENTIFIED_UNDER_TESTED_PUBLIC_ANCHORS",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2.2": "CROSS_STATE_TRANSPORT_MULTIREGIME",
+    "O2.3C": "orientation INCONCLUSIVE",
+    "O2.3C_PREP": "FMRIPREP_DERIVED_REST_FUNC1PT8MM_NOT_CERTIFIED_FOR_FINE_SCALE_CONNECTIVITY",
+    "O3": "O3_NOT_READY",
+    "never_relabel_historical_o2_3a_as_reproduced": true
+  },
+  "budgets": {
+    "M": [
+      0,
+      2,
+      4,
+      6,
+      8,
+      10
+    ],
+    "unit": "DISTINCT target-imagery identities",
+    "M_gt0_balanced": "M/2 simple + M/2 naturalistic",
+    "imagery_repeats": "all valid repeats"
+  },
+  "balanced_subsets": {
+    "M2": 25,
+    "M4": 100,
+    "M6": 100,
+    "M8": 25,
+    "M10": 1,
+    "evaluate_all": true,
+    "no_lucky_subset": true
+  },
+  "M0": {
+    "definition": "P_ZERO_RD (exact deterministic reuse of persisted O2.3A-RD projector)",
+    "certify": "O2_4R_M0_EQUALS_O2_3A_RD at hash/numerical level",
+    "do_not_compare_to_historical_o2_3a_for_certification": true
+  },
+  "estimator": {
+    "family": "ORTHOGONAL PROCRUSTES only",
+    "objective": "Q*=argmin_Q ||X_C Q - Z_C||_F^2 s.t. Q^T Q = I",
+    "solver": "deterministic SVD",
+    "forbidden": [
+      "scaling",
+      "affine",
+      "ridge",
+      "CCA",
+      "RRR",
+      "nonlinear"
+    ]
+  },
+  "orientation_application": {
+    "U_target": "Q^T U_res",
+    "B_target": "W_target U_target",
+    "Q_native": "orth(B_target)",
+    "P_CAL": "Q_native Q_native^T",
+    "gauge_invariant": true
+  },
+  "primary_test": {
+    "evaluate_on": "the two outer-test identities only",
+    "R_CAL": "||P_CAL delta||^2/||delta||^2",
+    "DELTA_ZERO": "R_CAL(M)-R_CAL(0)"
+  },
+  "null": {
+    "preserve": [
+      "M",
+      "target imagery amount",
+      "estimator capacity"
+    ],
+    "destroy": "identity correspondence",
+    "seed_text": "'O2.4R|'+subject+'|'+ROI+'|'+fold+'|'+M+'|'+subset_id+'|'+null_iteration",
+    "digest": "SHA256 -> first 16 hex -> uint64 -> numpy PCG64",
+    "n_permutations": 100,
+    "no_alternative_rng": true
+  },
+  "participant_effect": {
+    "within_participant_average_order": [
+      "two held-out identities",
+      "all balanced subsets",
+      "six outer folds"
+    ],
+    "E_M": "mean(R_CAL_true - R_CAL_null_mean)",
+    "unit": "participant"
+  },
+  "inference": {
+    "primary_rois": [
+      "ventral",
+      "lateral"
+    ],
+    "primary_budgets": [
+      2,
+      4,
+      6,
+      8,
+      10
+    ],
+    "primary_tests": 10,
+    "signflip": "2^8 exact one-sided",
+    "holm": "across the 10 tests",
+    "alpha": 0.05
+  },
+  "M_STAR": {
+    "smallest_M_satisfying_ALL": [
+      "median E_M > 0",
+      ">=6/8 participants E_M > 0",
+      "Holm-adjusted p < .05",
+      "median DELTA_ZERO > 0",
+      "median oracle recovery >= .50"
+    ],
+    "if_none": "NOT_REACHED",
+    "no_interpolation": true
+  },
+  "status_family": {
+    "TARGET_STATE_ORIENTATION_LOW_CALIBRATION_IDENTIFIABLE": "both ventral/lateral M_STAR <= 4",
+    "TARGET_STATE_ORIENTATION_MODERATE_CALIBRATION_IDENTIFIABLE": "at least one primary ROI M_STAR <= 6 AND both curves coherently positive",
+    "coherently_positive_defined_now": [
+      "median DELTA_ZERO > 0 for >=4/5 nonzero budgets in BOTH primary ROIs",
+      "terminal M=10 median DELTA_ZERO > 0 in BOTH"
+    ],
+    "TARGET_STATE_ORIENTATION_HIGH_CALIBRATION_REQUIRED": "reliable criteria first appear only at M=8 or 10",
+    "TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION": "M=10 fails preregistered criteria",
+    "TARGET_STATE_ORIENTATION_CALIBRATION_INCONCLUSIVE": "data/numerical/provenance/leakage failure only"
+  },
+  "internal_comparison": "O2.3A-RD M=0 -> O2.4R M>0 (do NOT infer calibration requirements vs the unreconstructable historical O2.3A machinery)",
+  "leakage_zero": [
+    "SRM K selection",
+    "residual rank selection",
+    "target calibration",
+    "Procrustes",
+    "template fitting",
+    "oracle fitting",
+    "null fitting",
+    "scaling"
+  ],
+  "leakage_violation_status": "O2_4R_TARGET_STATE_LEAKAGE_FAILURE",
+  "secondary_parietal": "after ventral/lateral sealed; cannot alter primary",
+  "access_order": [
+    "freeze O2.3A-RD",
+    "freeze O2.4R",
+    "commit+push+verify both",
+    "acquire/reconstruct inputs",
+    "fit dense-perception machinery",
+    "persist RD state",
+    "seal O2.3A-RD M=0",
+    "certify O2.4R M0 == P_ZERO_RD",
+    "ONLY THEN open M>0",
+    "execute full frontier",
+    "inference",
+    "seal"
+  ],
+  "do_not_refreeze_after_M0": true,
+  "O3": "O3_NOT_READY",
+  "config_sha256": "ad9594461bf6c3d3b3fa208a32d19b6dc30037cf0a1c6ade1a60466015127989"
+}

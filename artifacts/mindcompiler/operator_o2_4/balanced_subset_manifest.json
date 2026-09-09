@@ -1,0 +1,9 @@
+{
+  "config_sha256": "321b42f91a910384aa33e8d9c37c4447940ebc83523e1096b4008c0290f970f8",
+  "M2": 25,
+  "M4": 100,
+  "M6": 100,
+  "M8": 25,
+  "M10": 1,
+  "rule": "evaluate ALL balanced calibration subsets; average over all; no lucky-subset selection; no best-identity selection"
+}

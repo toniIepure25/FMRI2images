@@ -1,0 +1,23 @@
+{
+  "config_sha256": "321b42f91a910384aa33e8d9c37c4447940ebc83523e1096b4008c0290f970f8",
+  "M": [
+    0,
+    2,
+    4,
+    6,
+    8,
+    10
+  ],
+  "M_gt0_balanced": "M/2 simple + M/2 naturalistic",
+  "unit": "DISTINCT target-imagery IDENTITIES (identity-diversity sample complexity, NOT single-trial acquisition time)",
+  "imagery_repeats_used": "all 8 valid imagery repeats per identity",
+  "centroids": "frozen imagery identity centroids",
+  "balanced_subsets": {
+    "M2": 25,
+    "M4": 100,
+    "M6": 100,
+    "M8": 25,
+    "M10": 1,
+    "rule": "evaluate ALL balanced calibration subsets; average over all; no lucky-subset selection; no best-identity selection"
+  }
+}

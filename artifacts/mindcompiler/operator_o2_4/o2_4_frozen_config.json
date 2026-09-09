@@ -1,0 +1,234 @@
+{
+  "gate": "O2.4",
+  "title": "TARGET-STATE CALIBRATION FRONTIER: identity-diversity sample complexity to identify subject-specific imagery-residual orientation",
+  "analysis_class": "PROSPECTIVE_IDENTIFIABILITY_SAMPLE_COMPLEXITY_ON_EXISTING_B0_O1_O2_DATA",
+  "source_head": "773a89303b8cdcf32b28e2b0c1120e4812128449",
+  "core_question": "Minimum number of DISTINCT target-imagery identities to identify the subject-specific orientation of the otherwise-shared imagery component, such that the calibrated orientation generalizes to completely unseen stimulus identities.",
+  "claim_boundary": {
+    "must_not_claim": [
+      "zero-shot transfer",
+      "zero calibration",
+      "resting-state identification",
+      "universal imagery orientation",
+      "universal brain operator",
+      "causal neural transformation"
+    ],
+    "strongest_allowed_if_successful": "A shared imagery-related representational component appears to require a measurable amount of subject-specific target-state calibration to identify its native orientation, after which the calibrated orientation generalizes to unseen stimulus identities."
+  },
+  "immutable_history": {
+    "TrackR": "INDEPENDENT_METHOD_REPRODUCTION_PARTIAL",
+    "O1": "STIMULUS_INVARIANT_OPERATOR_PARTIAL",
+    "O1_1": "OPERATOR_HETEROGENEITY_REGION_STRUCTURE_DOMINANT",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2_1": "O2_TRANSFER_LIMIT_CROSS_STATE_SPACE_DOMINANT",
+    "O2_2": "CROSS_STATE_TRANSPORT_MULTIREGIME",
+    "O2_3A": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+    "O2_3C": "O2_3C_REST_PRODUCT_INCOMPATIBLE + orientation INCONCLUSIVE",
+    "O2_3C_PREP": "fMRIPrep fine-scale PREP path CLOSED; FMRIPREP_DERIVED_REST_FUNC1PT8MM_NOT_CERTIFIED_FOR_FINE_SCALE_CONNECTIVITY",
+    "O3": "O3_NOT_READY"
+  },
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "secondary_roi": "parietal",
+  "v1_v3": "optional descriptive only after primary seal",
+  "excluded": [
+    "V2",
+    "hV4"
+  ],
+  "data": {
+    "use_only": "already-certified B0 Dataset-1 / O1-O2 data (NSD-Imagery vision+imagery betas)",
+    "no_b1": true,
+    "no_resting_state": true,
+    "no_new_nsd_core_preprocessing": true,
+    "no_prep_reopening": true
+  },
+  "outer_generalization": {
+    "reuse_existing_outer_folds": 6,
+    "each_fold_holds_out": [
+      "one simple identity",
+      "one naturalistic identity"
+    ],
+    "held_out_never_used_for": [
+      "calibration",
+      "Procrustes fit",
+      "rank selection",
+      "hyperparameter selection",
+      "calibration-budget selection"
+    ],
+    "outer_training_identities": {
+      "total": 10,
+      "simple": 5,
+      "naturalistic": 5
+    }
+  },
+  "calibration_budgets": {
+    "M": [
+      0,
+      2,
+      4,
+      6,
+      8,
+      10
+    ],
+    "M_gt0_balanced": "M/2 simple + M/2 naturalistic",
+    "unit": "DISTINCT target-imagery IDENTITIES (identity-diversity sample complexity, NOT single-trial acquisition time)",
+    "imagery_repeats_used": "all 8 valid imagery repeats per identity",
+    "centroids": "frozen imagery identity centroids"
+  },
+  "balanced_subset_enumeration": {
+    "M2": 25,
+    "M4": 100,
+    "M6": 100,
+    "M8": 25,
+    "M10": 1,
+    "rule": "evaluate ALL balanced calibration subsets; average over all; no lucky-subset selection; no best-identity selection"
+  },
+  "frozen_perception_common_space": {
+    "reuse": "EXACT existing O2.3A dense-perception common space (vision scaling, W_target, selected K, training-subject common space, all vision-only alignment)",
+    "refit_using_imagery": false,
+    "remain_frozen": true
+  },
+  "frozen_imagery_residual": {
+    "definition": "O2_2_IMAGERY_RESIDUAL relative to the historical SMALL visual span (immutable)",
+    "not_redefined_relative_to": [
+      "NSD-core",
+      "rest",
+      "calibration identities",
+      "current common space"
+    ]
+  },
+  "shared_residual_template": {
+    "training_subjects": "other 7 participants",
+    "training_identities": "10 outer-training",
+    "constructed_from": "training subjects only via O2.3A common-space machinery; reuse frozen O2.3A residual-template rank procedure",
+    "no_target_imagery_affects": [
+      "shared-template estimation",
+      "template rank",
+      "K",
+      "vision common space"
+    ]
+  },
+  "zero_shot_baseline": {
+    "M0": "must reproduce existing O2.3A orientation prediction exactly (numerical/hash-level agreement within established tolerance)",
+    "name": "P_ZERO",
+    "historical_result": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE"
+  },
+  "calibration_estimator": {
+    "family": "ORTHOGONAL PROCRUSTES ONLY",
+    "objective": "Q* = argmin_Q ||X_C Q - Z_C||_F^2 s.t. Q^T Q = I",
+    "solver": "deterministic SVD",
+    "no_scaling": true,
+    "no_translation_beyond_frozen_centering": true,
+    "no_affine": true,
+    "no_ridge": true,
+    "no_nonlinear": true,
+    "orientation_application": "U_target = Q^T U_res; B_target = W_target U_target; Q_native = orth(B_target); P_CAL = Q_native Q_native^T",
+    "certify_conventions_with_synthetic": true
+  },
+  "primary_metric": {
+    "R_CAL": "||P_CAL delta||^2 / ||delta||^2 on held-out delta_y_perp_small_test",
+    "evaluate": "per held-out identity, then average the two outer-test identities",
+    "DELTA_ZERO": "R_CAL(M) - R_CAL(0)"
+  },
+  "oracle": {
+    "R_NATIVE_ORACLE": "training-only target-native orientation ceiling (10 target training identities; same frozen rank; evaluate on 2 held-out); NOT deployable",
+    "ORACLE_RECOVERY": "(R_CAL(M)-R_CAL(0)) / max(R_NATIVE_ORACLE - R_CAL(0), eps); report clipped+unclipped; no >1 overclaim"
+  },
+  "calibration_null": {
+    "preserves": [
+      "calibration size",
+      "target imagery amount",
+      "common space",
+      "Procrustes capacity"
+    ],
+    "destroys": "IDENTITY CORRESPONDENCE (permute shared<->target identity mapping before Procrustes)",
+    "n_permutations": 100,
+    "seed": "SHA256('O2.4'|subject|ROI|fold|M|subset_id|null_iteration)",
+    "no_outer_test_in_null": true
+  },
+  "null_effect": {
+    "E_M": "mean(R_CAL_true - R_CAL_null_mean) after averaging (2 held-out identities, balanced subsets, 6 folds) WITHIN participant",
+    "inferential_unit": "participant (N=8); folds/subsets NOT independent N"
+  },
+  "inference": {
+    "N": 8,
+    "primary_rois": [
+      "ventral",
+      "lateral"
+    ],
+    "primary_budgets": [
+      2,
+      4,
+      6,
+      8,
+      10
+    ],
+    "primary_tests": 10,
+    "test": "exact one-sided sign-flip over 2^8=256 configs per participant-level E_M",
+    "multiplicity": "HOLM across 10 primary tests",
+    "alpha": 0.05,
+    "no_post_hoc_multiplicity_change": true
+  },
+  "M_STAR_rule": {
+    "definition": "smallest preregistered M satisfying ALL: (A) median E_M>0; (B) >=6/8 participants E_M>0; (C) Holm-adjusted p<.05; (D) median DELTA_ZERO>0; (E) median oracle recovery>=0.50",
+    "if_none": "M_STAR = NOT_REACHED",
+    "no_interpolation_between_budgets": true
+  },
+  "primary_status_rules": {
+    "TARGET_STATE_ORIENTATION_LOW_CALIBRATION_IDENTIFIABLE": "BOTH ventral and lateral M_STAR <= 4",
+    "TARGET_STATE_ORIENTATION_MODERATE_CALIBRATION_IDENTIFIABLE": "at least one primary ROI M_STAR <= 6 AND both show coherent positive calibration curves",
+    "TARGET_STATE_ORIENTATION_HIGH_CALIBRATION_REQUIRED": "reliable recovery only at M=8 or M=10",
+    "TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION": "even M=10 fails preregistered orientation criteria",
+    "TARGET_STATE_ORIENTATION_CALIBRATION_INCONCLUSIVE": "numerical / data / leakage / provenance / measurement failures"
+  },
+  "mechanistic_cases": {
+    "CASE1_sharp_M2_M4": "low-dimensional subject-specific orientation estimable from little target-state info",
+    "CASE2_gradual_M6_10": "orientation partly shared but needs substantial subject-specific calibration",
+    "CASE3_M10_weak": "refutes 'missing rotation only'; not recoverable by simple orthogonal correction in vision-derived common space"
+  },
+  "no_method_search": {
+    "authorized": "ORTHOGONAL PROCRUSTES only",
+    "forbidden": [
+      "affine calibration",
+      "ridge",
+      "RRR",
+      "CCA",
+      "nonlinear MLP",
+      "hyperalignment competitor",
+      "rest anchor",
+      "anatomy anchor",
+      "another common space"
+    ],
+    "on_fail": "report failure; no rescue"
+  },
+  "leakage_certification_required_zero": [
+    "outer-test target imagery in calibration",
+    "outer-test identities in template",
+    "in rank selection",
+    "in common-space fitting",
+    "in scaling",
+    "in Q fitting"
+  ],
+  "leakage_violation_status": "O2_4_TARGET_STATE_LEAKAGE_FAILURE",
+  "secondary_parietal": "identical analysis AFTER ventral/lateral sealed; cannot alter primary; interpret vs O2.2 parietal transport regime",
+  "optional_secondary_repeat_efficiency": "NOT executed in O2.4; only if M_STAR finite may a NEXT gate vary imagery repeats/identity",
+  "prior_art_boundary": {
+    "acknowledge": [
+      "MindEye2 (Scotti et al. 2024)",
+      "MindAligner"
+    ],
+    "must_not_claim": "first few-shot cross-subject fMRI adaptation",
+    "narrow_potential_novelty": "prospectively quantified target-IMAGERY calibration frontier for recovering a subject-specific imagery-residual orientation, evaluated on completely unseen imagery identities",
+    "novelty_claim": "NOT_CLAIMED pending full prior-art audit"
+  },
+  "next_gate_logic": {
+    "LOW": "O2.5 minimal-trial calibration frontier",
+    "MODERATE": "O2.4 heterogeneity/efficiency before any O3",
+    "HIGH": "reconsider practical value of a universal operator",
+    "NOT_RECOVERED": "test whether a broader subject-specific transformation is warranted (do not auto-launch)",
+    "O3": "O3_NOT_READY through ALL O2.4 outcomes"
+  },
+  "config_sha256": "321b42f91a910384aa33e8d9c37c4447940ebc83523e1096b4008c0290f970f8"
+}

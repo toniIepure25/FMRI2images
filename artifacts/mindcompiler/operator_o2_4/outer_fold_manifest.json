@@ -1,0 +1,20 @@
+{
+  "config_sha256": "321b42f91a910384aa33e8d9c37c4447940ebc83523e1096b4008c0290f970f8",
+  "reuse_existing_outer_folds": 6,
+  "each_fold_holds_out": [
+    "one simple identity",
+    "one naturalistic identity"
+  ],
+  "held_out_never_used_for": [
+    "calibration",
+    "Procrustes fit",
+    "rank selection",
+    "hyperparameter selection",
+    "calibration-budget selection"
+  ],
+  "outer_training_identities": {
+    "total": 10,
+    "simple": 5,
+    "naturalistic": 5
+  }
+}

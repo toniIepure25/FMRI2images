@@ -1,0 +1,13 @@
+{
+  "config_sha256": "321b42f91a910384aa33e8d9c37c4447940ebc83523e1096b4008c0290f970f8",
+  "family": "ORTHOGONAL PROCRUSTES ONLY",
+  "objective": "Q* = argmin_Q ||X_C Q - Z_C||_F^2 s.t. Q^T Q = I",
+  "solver": "deterministic SVD",
+  "no_scaling": true,
+  "no_translation_beyond_frozen_centering": true,
+  "no_affine": true,
+  "no_ridge": true,
+  "no_nonlinear": true,
+  "orientation_application": "U_target = Q^T U_res; B_target = W_target U_target; Q_native = orth(B_target); P_CAL = Q_native Q_native^T",
+  "certify_conventions_with_synthetic": true
+}

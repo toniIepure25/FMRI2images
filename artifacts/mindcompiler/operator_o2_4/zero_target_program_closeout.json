@@ -1,0 +1,14 @@
+{
+  "gate": "O2.4",
+  "config_sha256": "321b42f91a910384aa33e8d9c37c4447940ebc83523e1096b4008c0290f970f8",
+  "statement": "ZERO_TARGET_IMAGERY_ORIENTATION_NOT_IDENTIFIED_UNDER_TESTED_PUBLIC_ANCHORS",
+  "means_only": [
+    "vision-derived response alignment did not identify orientation (O2.3A)",
+    "the public-data rest-connectivity route could not be validly completed at the required fine spatial scale (O2.3C/PREP)"
+  ],
+  "does_not_mean": [
+    "ZERO_TARGET_IMAGERY_ORIENTATION_IMPOSSIBLE",
+    "THEORETICALLY_NON_IDENTIFIABLE"
+  ],
+  "forbidden_claims_preserved": true
+}

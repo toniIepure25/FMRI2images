@@ -1,0 +1,21 @@
+{
+  "config_sha256": "321b42f91a910384aa33e8d9c37c4447940ebc83523e1096b4008c0290f970f8",
+  "training_subjects": "other 7 participants",
+  "training_identities": "10 outer-training",
+  "constructed_from": "training subjects only via O2.3A common-space machinery; reuse frozen O2.3A residual-template rank procedure",
+  "no_target_imagery_affects": [
+    "shared-template estimation",
+    "template rank",
+    "K",
+    "vision common space"
+  ],
+  "residual": {
+    "definition": "O2_2_IMAGERY_RESIDUAL relative to the historical SMALL visual span (immutable)",
+    "not_redefined_relative_to": [
+      "NSD-core",
+      "rest",
+      "calibration identities",
+      "current common space"
+    ]
+  }
+}

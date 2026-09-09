@@ -1,0 +1,12 @@
+{
+  "gate": "O2.4",
+  "config_sha256": "321b42f91a910384aa33e8d9c37c4447940ebc83523e1096b4008c0290f970f8",
+  "acknowledged_prior_art": {
+    "MindEye2 (Scotti et al. 2024)": "shared-subject latent + limited target-subject fMRI calibration for cross-subject VISUAL decoding",
+    "MindAligner": "cross-subject functional alignment for brain decoding"
+  },
+  "general_value_documented": "limited target-subject fMRI calibration is known to help cross-subject visual decoding",
+  "must_not_claim_novelty_as": "first few-shot cross-subject fMRI adaptation",
+  "narrow_potential_novelty": "a prospectively quantified target-IMAGERY calibration frontier for recovering a subject-specific imagery-residual orientation, evaluated on completely unseen imagery identities",
+  "novelty_status": "NOT_CLAIMED (proper prior-art audit prerequisite; not asserted here)"
+}

@@ -1,0 +1,54 @@
+{
+  "gate": "O2.3C-PREP-SPATIALFIX",
+  "frozen_config_sha": "5e3954d9",
+  "moving": {
+    "definition": "TEMPORAL_MEAN_OF_EXISTING_FMRIPREP_DESC_PREPROC_BOLD",
+    "computation": "mean over all 188 candidate volumes",
+    "temporal_filtering": false,
+    "gt_involvement": false,
+    "image_selection": false,
+    "outcome_adaptation": false
+  },
+  "fixed": "NSD_FUNC1PT8MM_MEANFIRST5",
+  "implementation": "ANTs",
+  "transforms": [
+    "rigid",
+    "affine"
+  ],
+  "metric": "Mattes MI",
+  "nonlinear": false,
+  "syn": false,
+  "bspline": false,
+  "landmark_tuning": false,
+  "params": {
+    "dimensionality": 3,
+    "float": 1,
+    "interpolation": "LanczosWindowedSinc",
+    "winsorize_image_intensities": [
+      0.005,
+      0.995
+    ],
+    "use_histogram_matching": 0,
+    "initial_moving_transform": "[FIXED,MOVING,1] (moments)",
+    "stage_rigid": {
+      "transform": "Rigid[0.1]",
+      "metric": "MI[FIXED,MOVING,1,32,Regular,0.25]",
+      "convergence": "[1000x500x250x100,1e-6,10]",
+      "shrink_factors": "8x4x2x1",
+      "smoothing_sigmas": "3x2x1x0vox"
+    },
+    "stage_affine": {
+      "transform": "Affine[0.1]",
+      "metric": "MI[FIXED,MOVING,1,32,Regular,0.25]",
+      "convergence": "[1000x500x250x100,1e-6,10]",
+      "shrink_factors": "8x4x2x1",
+      "smoothing_sigmas": "3x2x1x0vox"
+    },
+    "reused_from_BENCHFIX_byte_for_byte": true
+  },
+  "interpolation": {
+    "bold_4d": "LanczosWindowedSinc",
+    "binary_masks": "NearestNeighbor",
+    "unchanged": true
+  }
+}

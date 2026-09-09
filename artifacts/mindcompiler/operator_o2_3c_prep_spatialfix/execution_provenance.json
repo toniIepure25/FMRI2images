@@ -1,0 +1,9 @@
+{
+  "gate": "O2.3C-PREP-SPATIALFIX",
+  "source_head": "1d580a94f9264861ee5fd33b4634390c014ca5b1",
+  "frozen_config_sha": "5e3954d9",
+  "candidate_reprocessed": false,
+  "fmriprep_rerun": false,
+  "only_change": "spatial fixed reference R2 -> meanFIRST5 + moving = candidate temporal mean",
+  "temporal_correction_reopened": false
+}

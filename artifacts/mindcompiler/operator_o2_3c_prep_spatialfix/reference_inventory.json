@@ -1,0 +1,17 @@
+{
+  "gate": "O2.3C-PREP-SPATIALFIX",
+  "frozen_config_sha": "5e3954d9",
+  "meanFIRST5": {
+    "key": "nsddata/ppdata/subj01/func1pt8mm/meanFIRST5.nii.gz",
+    "http": 200,
+    "bytes": 1328438,
+    "sha256": "d94d96db6ad79cddd3f539ad2df3b7ca8b2b0be2ce6a23a0cb154b47b0684755"
+  },
+  "mean_inventory_only": {
+    "key": "nsddata/ppdata/subj01/func1pt8mm/mean.nii.gz",
+    "http": 200,
+    "bytes": 1720751,
+    "used_as_competitor": false
+  },
+  "R2_used": false
+}

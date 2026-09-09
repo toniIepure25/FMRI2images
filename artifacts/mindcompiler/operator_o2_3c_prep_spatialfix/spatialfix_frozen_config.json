@@ -1,0 +1,176 @@
+{
+  "gate": "O2.3C-PREP-SPATIALFIX",
+  "analysis_class": "PROSPECTIVE_CORRECTION_OF_CONTRAST_MISMATCHED_SPATIAL_REFERENCE",
+  "not": [
+    "threshold tuning",
+    "registration leaderboard",
+    "post-outcome preprocessing optimization",
+    "scientific Track-O analysis"
+  ],
+  "corrected_target_fixed_before_metrics": true,
+  "source_head": "1d580a94f9264861ee5fd33b4634390c014ca5b1",
+  "single_flaw_corrected": "R2 (GLM variance map, contrast-mismatched) -> official NSD mean-EPI meanFIRST5; moving = temporal mean of existing candidate (mean-EPI -> mean-EPI)",
+  "no_other_preprocessing_change": true,
+  "immutable_history": {
+    "R3": "PERSISTENT_NIPYPE_RESUME_CERTIFIED",
+    "historical_R4": "O2_3C_PREP_TASK_BENCHMARK_FAILURE",
+    "BENCHFIX": "O2_3C_PREP_CORRECTED_BENCHMARK_FAILURE",
+    "BENCHFIX_temporal_correction": "VALIDATED",
+    "candidate_derivative": "BYTE_IDENTICAL",
+    "fmriprep": "25.2.5 official immutable image",
+    "runtime": "ORCHESTRAIQ_DIRECT_K8S / r770",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2.3A": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+    "O2.3C": "O2_3C_REST_PRODUCT_INCOMPATIBLE",
+    "O3": "O3_NOT_READY",
+    "scientific_o2_3c_methodology": "528f23eb"
+  },
+  "primary_fixed_reference": {
+    "name": "NSD_FUNC1PT8MM_MEANFIRST5",
+    "s3_key": "nsddata/ppdata/subj01/func1pt8mm/meanFIRST5.nii.gz",
+    "sha256": "d94d96db6ad79cddd3f539ad2df3b7ca8b2b0be2ce6a23a0cb154b47b0684755",
+    "bytes": 1328438,
+    "provenance": "NSD Data Manual documents meanFIRST5 (mean EPI) used in co-registration procedures",
+    "not_outcome_selected": true
+  },
+  "reason_for_meanFIRST5_prospective": [
+    "EPI-derived mean image",
+    "appropriate BOLD/EPI contrast for EPI->EPI registration",
+    "exact target func1pt8mm grid",
+    "imagery-outcome independent",
+    "NSD manual notes co-registration use"
+  ],
+  "forbidden_fixed_alternatives": [
+    "R2.nii.gz",
+    "mean.nii.gz (competitor)",
+    "T1 target",
+    "cortical surface target",
+    "imagery-derived reference"
+  ],
+  "mean_nii_status": "inventoried only (mean.nii.gz present) -- NOT evaluated as a competitor",
+  "candidate_immutability": {
+    "reuse_existing_fmriprep_candidate": true,
+    "fmriprep_rerun": false,
+    "expected_desc_preproc_bold_sha256_16": "3838946fec582b54",
+    "require_match_for": [
+      "desc-preproc_bold",
+      "desc-coreg_boldref",
+      "desc-brain_mask",
+      "desc-confounds_timeseries"
+    ],
+    "issue_before_registration": "CANDIDATE_BYTE_IDENTICAL_TO_BENCHFIX"
+  },
+  "moving_reference": {
+    "definition": "TEMPORAL_MEAN_OF_EXISTING_FMRIPREP_DESC_PREPROC_BOLD",
+    "computation": "mean over all 188 candidate volumes",
+    "temporal_filtering": false,
+    "gt_involvement": false,
+    "image_selection": false,
+    "outcome_adaptation": false
+  },
+  "transform": {
+    "implementation": "ANTs",
+    "transforms": [
+      "rigid",
+      "affine"
+    ],
+    "metric": "Mattes MI",
+    "nonlinear": false,
+    "syn": false,
+    "bspline": false,
+    "landmark_tuning": false,
+    "params": {
+      "dimensionality": 3,
+      "float": 1,
+      "interpolation": "LanczosWindowedSinc",
+      "winsorize_image_intensities": [
+        0.005,
+        0.995
+      ],
+      "use_histogram_matching": 0,
+      "initial_moving_transform": "[FIXED,MOVING,1] (moments)",
+      "stage_rigid": {
+        "transform": "Rigid[0.1]",
+        "metric": "MI[FIXED,MOVING,1,32,Regular,0.25]",
+        "convergence": "[1000x500x250x100,1e-6,10]",
+        "shrink_factors": "8x4x2x1",
+        "smoothing_sigmas": "3x2x1x0vox"
+      },
+      "stage_affine": {
+        "transform": "Affine[0.1]",
+        "metric": "MI[FIXED,MOVING,1,32,Regular,0.25]",
+        "convergence": "[1000x500x250x100,1e-6,10]",
+        "shrink_factors": "8x4x2x1",
+        "smoothing_sigmas": "3x2x1x0vox"
+      },
+      "reused_from_BENCHFIX_byte_for_byte": true
+    }
+  },
+  "interpolation": {
+    "bold_4d": "LanczosWindowedSinc",
+    "binary_masks": "NearestNeighbor",
+    "unchanged": true
+  },
+  "temporal_correction_reused_from_benchfix": {
+    "closed_and_validated": true,
+    "reopen": false,
+    "t_candidate": "0.8 + 1.6*n (n=0..187)",
+    "gt_resample": "scipy.interpolate.CubicSpline (GT-only) to candidate timestamps",
+    "no_lag_search": true,
+    "no_temporal_offset_tuning": true,
+    "candidate_resampled": false,
+    "alternate_spline": false
+  },
+  "quality_metrics_frozen_UNCHANGED": {
+    "brainmask_dice_min": 0.9,
+    "mean_volume_spatial_r_min": 0.95,
+    "roi_mean_temporal_r_min": 0.9,
+    "roi_set": {
+      "ventral": 5,
+      "lateral": 6,
+      "parietal": 7,
+      "atlas": "NSD streams.nii.gz (func1pt8mm)"
+    },
+    "voxelwise_temporal_r_median_min": 0.7,
+    "tsnr_ratio_range": [
+      0.5,
+      2.0
+    ],
+    "same_roi_mask_definitions_as_benchfix": true
+  },
+  "no_optimization_rule": {
+    "only_evaluated_pipeline": "candidate temporal mean -> meanFIRST5 -> rigid+affine",
+    "forbidden_selection_among": [
+      "rigid only",
+      "affine only",
+      "mean.nii",
+      "R2",
+      "T1",
+      "another metric",
+      "another interpolation"
+    ],
+    "if_it_fails_the_gate_fails": true
+  },
+  "target_grid": {
+    "shape": [
+      81,
+      104,
+      83
+    ],
+    "temporal": 188,
+    "affine": "canonical func1pt8mm within frozen tolerance"
+  },
+  "status_rules": {
+    "O2_3C_PREP_SPATIALFIX_PASS": "ALL original numerical quality gates pass (no partial pass)",
+    "O2_3C_PREP_SPATIALFIX_FAILURE": "any quality gate fails",
+    "O2_3C_PREP_SPATIALFIX_REFERENCE_UNAVAILABLE": "meanFIRST5 genuinely unavailable (does not apply: verified present)",
+    "O2_3C_PREP_SPATIALFIX_TECHNICAL_FAILURE": "transform/interp/artifact/provenance failure"
+  },
+  "future_gate_logic": {
+    "on_pass": "O2_3C_PREP_TASK_FIDELITY_CERTIFIED_AFTER_PROSPECTIVE_REFERENCE_CORRECTION -> cohort Phases 2-4 (fMRIPrep 25.2.5, orchestraiq/r770, frozen temporal, mean-EPI->meanFIRST5 bridge, no imagery) -> O2_3C_PREP_PASS -> O2.3C-RESUME (528f23eb)",
+    "on_fail": "CLOSE fMRIPrep-based PREP path; record FMRIPREP_DERIVED_REST_FUNC1PT8MM_NOT_CERTIFIED_FOR_FINE_SCALE_CONNECTIVITY; NO mean.nii/nonlinear/gradient-unwarp/T1/surface/version/threshold/AWS rescue; return to scientific-program decision"
+  },
+  "historical_failures_remain_immutable": true,
+  "no_target_imagery": true,
+  "frozen_config_sha": "5e3954d9"
+}

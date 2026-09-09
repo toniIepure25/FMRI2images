@@ -1,0 +1,18 @@
+{
+  "gate": "O2.3C-PREP-SPATIALFIX",
+  "frozen_config_sha": "5e3954d9",
+  "artifact_sha256_16": {
+    "author_transform_asset_inventory.json": "884e02166288cd2d",
+    "candidate_immutability.json": "884e02166288cd2d",
+    "execution_provenance.json": "f7597b6464b495ee",
+    "matched_grid_certification.json": "884e02166288cd2d",
+    "meanFIRST5_certification.json": "884e02166288cd2d",
+    "moving_reference_certification.json": "884e02166288cd2d",
+    "reference_inventory.json": "ec2d344ae2922874",
+    "spatial_transform_certification.json": "884e02166288cd2d",
+    "spatial_transform_contract.json": "64a97e6b6f3d03ba",
+    "spatialfix_frozen_config.json": "4d864eaa346e0cf6",
+    "spatialfix_metrics.json": "884e02166288cd2d",
+    "spatialfix_status.json": "884e02166288cd2d"
+  }
+}

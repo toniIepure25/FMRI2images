@@ -377,6 +377,57 @@ def rd_inference(per_target, G):
     return {"per_roi": out, "status": status, "all_primary_median_positive": all_pos_med}
 
 
+# ------------------------------------------------------------------ union anchor centroids (single session sweep, cached)
+def union_anchor_centroids(data: Path, subject: str, roi_xyz_map, id73_1based, expdesign):
+    """Read each core session ONCE; return per-anchor centroids over the UNION of the ROIs' voxels, plus a
+    per-ROI column index into that union. Deterministic; cached to PVC npz keyed by subject + union hash.
+    Identical numerically to per-ROI core_anchor_centroids (same /300 PSC mean-of-reps)."""
+    import nibabel as nib
+    cols = {}
+    order_coords = []
+    for roi in sorted(roi_xyz_map):
+        xs, ys, zs = roi_xyz_map[roi]
+        for k in range(xs.shape[0]):
+            key = (int(xs[k]), int(ys[k]), int(zs[k]))
+            if key not in cols:
+                cols[key] = len(order_coords); order_coords.append(key)
+    UX = np.array([c[0] for c in order_coords]); UY = np.array([c[1] for c in order_coords]); UZ = np.array([c[2] for c in order_coords])
+    uhash = hashlib.sha256(np.stack([UX, UY, UZ]).tobytes()).hexdigest()[:16]
+    cache = data / f"cache/anchor_{subject}_{uhash}.npz"
+    if cache.exists():
+        z = np.load(cache); C_union, reps = z["C"], z["reps"]
+    else:
+        mo = expdesign["masterordering"].ravel()
+        sim = expdesign["subjectim"]
+        s_idx = int(subject[-2:]) - 1
+        id2imgidx = {int(v): i + 1 for i, v in enumerate(sim[s_idx])}
+        order = np.sort(id73_1based)
+        want_imgidx = {id2imgidx[int(a)]: int(a) for a in order.tolist() if int(a) in id2imgidx}
+        arow = {int(a): k for k, a in enumerate(order.tolist())}
+        nvox = len(order_coords)
+        acc = np.zeros((len(order), nvox), np.float64); reps = np.zeros(len(order), int)
+        for sess in ANCHOR_SESSIONS:
+            f = data / f"core_b2/{subject}/betas_session{sess:02d}.nii.gz"
+            if not f.exists():
+                continue
+            vol = np.asarray(nib.load(str(f)).dataobj)
+            base = (sess - 1) * SESS_TRIALS
+            img_idx = mo[base:base + vol.shape[3]]
+            patch = vol[UX, UY, UZ, :].astype(np.float64) / 300.0        # (nvox x 750)
+            for t in range(vol.shape[3]):
+                ii = int(img_idx[t])
+                a = want_imgidx.get(ii)
+                if a is not None:
+                    k = arow[a]; acc[k] += patch[:, t]; reps[k] += 1
+            del vol, patch
+        C_union = np.where(reps[:, None] > 0, acc / np.maximum(reps[:, None], 1), np.nan)
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(cache, C=C_union, reps=reps)
+    roi_cols = {roi: np.array([cols[(int(x), int(y), int(z))] for x, y, z in zip(*roi_xyz_map[roi])])
+                for roi in roi_xyz_map}
+    return C_union, reps, roi_cols
+
+
 # ------------------------------------------------------------------ data assembly for a ROI
 def _load_roi(data, repo, subject, roi, exp, id73):
     xyz, vh, nv = roi_xyz(data, repo, subject, roi)
@@ -395,22 +446,38 @@ def fit_cohort(data: Path, repo: Path, out: Path, rois):
     block_id = np.arange(n_anchor) % 5                                       # K-blocks = anchor_order mod 5
     summary = {"rois": {}, "config_rd": "c1b2ddb0", "config_r4": "ad959446", "n_anchor": int(n_anchor)}
     per_target = {}
+    # per-subject: ROI voxels + imagery centroids + union anchor centroids (ONE session sweep per subject)
+    print("assembling per-subject data (single core-session sweep each)...", flush=True)
+    subj = {}
+    for s in ALL:
+        rx = {}
+        for roi in rois:
+            xyz, vh, nv = roi_xyz(data, repo, s, roi)
+            rx[roi] = {"xyz": xyz, "vh": vh, "nv": nv}
+        C_union, reps, roi_cols = union_anchor_centroids(data, s, {roi: rx[roi]["xyz"] for roi in rois}, id73, exp)
+        img = {roi: imagery_centroids(data, repo, s, roi, rx[roi]["xyz"]) for roi in rois}
+        subj[s] = {"rx": rx, "C_union": C_union, "reps": reps, "roi_cols": roi_cols, "img": img}
+        nvox_str = ", ".join("%s:%d" % (r, rx[r]["nv"]) for r in rois)
+        print("  %s: anchor reps min/med/max = %d/%d/%d, nvox {%s}"
+              % (s, int(reps.min()), int(np.median(reps)), int(reps.max()), nvox_str), flush=True)
     for roi in rois:
-        loaded = {s: _load_roi(data, repo, s, roi, exp, id73) for s in ALL}
-        ids = loaded[ALL[0]]["ids"]; fam = loaded[ALL[0]]["fam"]
+        ids = subj[ALL[0]]["img"][roi][0]; fam = subj[ALL[0]]["img"][roi][3]
         # z-scored perception anchors (SRM input X_s = zscored C_s.T -> p_s x n_anchor)
         Xs_by_subj = {}
         for s in ALL:
-            mu, sd = zscore_fit(loaded[s]["C"])
-            Xs_by_subj[s] = zscore_apply(loaded[s]["C"], mu, sd).T
+            C = subj[s]["C_union"][:, subj[s]["roi_cols"][roi]]              # (512 x nvox_roi) this-ROI anchors
+            mu, sd = zscore_fit(C)
+            Xs_by_subj[s] = zscore_apply(C, mu, sd).T
         K, kscores = select_K(Xs_by_subj, block_id, G)
-        imagery = {s: {"V": loaded[s]["V"], "I": loaded[s]["I"]} for s in ALL}
+        # imagery[s]: V/I native centroids for THIS roi (imagery_centroids returns (ids,V,I,fam))
+        imagery = {s: {"V": subj[s]["img"][roi][1], "I": subj[s]["img"][roi][2]} for s in ALL}
         bysub = {}
         for target in ALL:
             bysub[target] = fit_target_roi(target, Xs_by_subj, imagery, block_id, ids, fam, K, G, statedir, roi)
         per_target[roi] = bysub
-        summary["rois"][roi] = {"K": K, "K_scores": kscores, "n_vox": {s: loaded[s]["nv"] for s in ALL},
-                                "voxel_hash": {s: loaded[s]["vh"] for s in ALL}}
+        summary["rois"][roi] = {"K": K, "K_scores": kscores,
+                                "n_vox": {s: subj[s]["rx"][roi]["nv"] for s in ALL},
+                                "voxel_hash": {s: subj[s]["rx"][roi]["vh"] for s in ALL}}
     inf = rd_inference({r: per_target[r] for r in rois if r in ROIS_PRIMARY} or per_target, G)
     summary["inference"] = inf
     summary["per_target"] = {r: {s: per_target[r][s]["folds"] for s in ALL} for r in per_target}

@@ -1,0 +1,1643 @@
+{
+  "gate": "O2.6",
+  "artifact": "native_residual_state_extension",
+  "tol": 1e-10,
+  "replay": [
+    {
+      "subject": "subj01",
+      "roi": "ventral",
+      "fold": 0,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "ventral",
+      "fold": 1,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "ventral",
+      "fold": 2,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "ventral",
+      "fold": 3,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "ventral",
+      "fold": 4,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "ventral",
+      "fold": 5,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "ventral",
+      "fold": 0,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "ventral",
+      "fold": 1,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "ventral",
+      "fold": 2,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "ventral",
+      "fold": 3,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "ventral",
+      "fold": 4,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "ventral",
+      "fold": 5,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "ventral",
+      "fold": 0,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "ventral",
+      "fold": 1,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "ventral",
+      "fold": 2,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "ventral",
+      "fold": 3,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "ventral",
+      "fold": 4,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "ventral",
+      "fold": 5,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "ventral",
+      "fold": 0,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "ventral",
+      "fold": 1,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "ventral",
+      "fold": 2,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "ventral",
+      "fold": 3,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "ventral",
+      "fold": 4,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "ventral",
+      "fold": 5,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "ventral",
+      "fold": 0,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "ventral",
+      "fold": 1,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "ventral",
+      "fold": 2,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "ventral",
+      "fold": 3,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "ventral",
+      "fold": 4,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "ventral",
+      "fold": 5,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "ventral",
+      "fold": 0,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "ventral",
+      "fold": 1,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "ventral",
+      "fold": 2,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "ventral",
+      "fold": 3,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "ventral",
+      "fold": 4,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "ventral",
+      "fold": 5,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "ventral",
+      "fold": 0,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "ventral",
+      "fold": 1,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "ventral",
+      "fold": 2,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "ventral",
+      "fold": 3,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "ventral",
+      "fold": 4,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "ventral",
+      "fold": 5,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "ventral",
+      "fold": 0,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "ventral",
+      "fold": 1,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "ventral",
+      "fold": 2,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "ventral",
+      "fold": 3,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "ventral",
+      "fold": 4,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "ventral",
+      "fold": 5,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "lateral",
+      "fold": 0,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "lateral",
+      "fold": 1,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "lateral",
+      "fold": 2,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "lateral",
+      "fold": 3,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "lateral",
+      "fold": 4,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "lateral",
+      "fold": 5,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "lateral",
+      "fold": 0,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "lateral",
+      "fold": 1,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "lateral",
+      "fold": 2,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "lateral",
+      "fold": 3,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "lateral",
+      "fold": 4,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "lateral",
+      "fold": 5,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "lateral",
+      "fold": 0,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "lateral",
+      "fold": 1,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "lateral",
+      "fold": 2,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "lateral",
+      "fold": 3,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "lateral",
+      "fold": 4,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "lateral",
+      "fold": 5,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "lateral",
+      "fold": 0,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "lateral",
+      "fold": 1,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "lateral",
+      "fold": 2,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "lateral",
+      "fold": 3,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "lateral",
+      "fold": 4,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "lateral",
+      "fold": 5,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "lateral",
+      "fold": 0,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "lateral",
+      "fold": 1,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "lateral",
+      "fold": 2,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "lateral",
+      "fold": 3,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "lateral",
+      "fold": 4,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "lateral",
+      "fold": 5,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "lateral",
+      "fold": 0,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "lateral",
+      "fold": 1,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "lateral",
+      "fold": 2,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "lateral",
+      "fold": 3,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "lateral",
+      "fold": 4,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "lateral",
+      "fold": 5,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "lateral",
+      "fold": 0,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "lateral",
+      "fold": 1,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "lateral",
+      "fold": 2,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "lateral",
+      "fold": 3,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "lateral",
+      "fold": 4,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "lateral",
+      "fold": 5,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "lateral",
+      "fold": 0,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "lateral",
+      "fold": 1,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "lateral",
+      "fold": 2,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "lateral",
+      "fold": 3,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "lateral",
+      "fold": 4,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "lateral",
+      "fold": 5,
+      "max_abs_discrepancy": 0.0,
+      "voxel_hash_match": true,
+      "ok": true
+    }
+  ],
+  "files": [
+    {
+      "name": "deltanat_subj01_ventral_fold0.npz",
+      "sha256": "a4858677fd0ea9a4e6e80d7cdb44d0c461f9d04ca9469d05f3253451ee6e6ecc",
+      "bytes": 13704,
+      "shape": [
+        10,
+        153
+      ]
+    },
+    {
+      "name": "deltanat_subj01_ventral_fold1.npz",
+      "sha256": "47ae657679c8cb2d57f5dad88cda5edc0c39a165dcfa7c3c3d132adcec56f22a",
+      "bytes": 13704,
+      "shape": [
+        10,
+        153
+      ]
+    },
+    {
+      "name": "deltanat_subj01_ventral_fold2.npz",
+      "sha256": "ea7578340b20099bd478df21223187886aa98f0f8b98282a0789a91701cb46bb",
+      "bytes": 13704,
+      "shape": [
+        10,
+        153
+      ]
+    },
+    {
+      "name": "deltanat_subj01_ventral_fold3.npz",
+      "sha256": "29a9e6358060b86b1c73255a7a1ddffe06415d20caf3daf2457bcfd5abb90477",
+      "bytes": 13704,
+      "shape": [
+        10,
+        153
+      ]
+    },
+    {
+      "name": "deltanat_subj01_ventral_fold4.npz",
+      "sha256": "1a07a6781afba4f6732ff9d4af3708d79d1bb6f6873a88fc17c412f2e8d1d4fa",
+      "bytes": 13704,
+      "shape": [
+        10,
+        153
+      ]
+    },
+    {
+      "name": "deltanat_subj01_ventral_fold5.npz",
+      "sha256": "2a4c09abbb2fcd8606a6d739d68c7506ea48a2f7e340894279376ae2688d0147",
+      "bytes": 13704,
+      "shape": [
+        10,
+        153
+      ]
+    },
+    {
+      "name": "deltanat_subj02_ventral_fold0.npz",
+      "sha256": "76d4d7977a8111f67fb036cf1b51db8b73312c53b9f64407715f4accd3faaa18",
+      "bytes": 14584,
+      "shape": [
+        10,
+        164
+      ]
+    },
+    {
+      "name": "deltanat_subj02_ventral_fold1.npz",
+      "sha256": "829b7443f55c5e8ecdf51bfbaf70ab5fadd38fdea3f54cc63da4f0db1175c70f",
+      "bytes": 14584,
+      "shape": [
+        10,
+        164
+      ]
+    },
+    {
+      "name": "deltanat_subj02_ventral_fold2.npz",
+      "sha256": "8f9477414d5c1726cd354914625ac484b918937766d65f4fc41148f3ef954518",
+      "bytes": 14584,
+      "shape": [
+        10,
+        164
+      ]
+    },
+    {
+      "name": "deltanat_subj02_ventral_fold3.npz",
+      "sha256": "791b025eca46d25c654873dde964a7ceb4b05cb4ee9f9c778e450581bf4e162a",
+      "bytes": 14584,
+      "shape": [
+        10,
+        164
+      ]
+    },
+    {
+      "name": "deltanat_subj02_ventral_fold4.npz",
+      "sha256": "894a6a0b775009c0d8c41762eccb13389155157daf0cad1ca971edac97e06285",
+      "bytes": 14584,
+      "shape": [
+        10,
+        164
+      ]
+    },
+    {
+      "name": "deltanat_subj02_ventral_fold5.npz",
+      "sha256": "07e6fde86e0099d8897aa48d75e5aefa3235cf56dd09503366524943df08a004",
+      "bytes": 14584,
+      "shape": [
+        10,
+        164
+      ]
+    },
+    {
+      "name": "deltanat_subj03_ventral_fold0.npz",
+      "sha256": "d535382840660259871360a01d81e6283ba9a656a2f8c8ae9e36db7278026a32",
+      "bytes": 14584,
+      "shape": [
+        10,
+        164
+      ]
+    },
+    {
+      "name": "deltanat_subj03_ventral_fold1.npz",
+      "sha256": "5a8dacf8a15b75ed273522504145427c344c2a64b1c8b310fc92f96ae36a9327",
+      "bytes": 14584,
+      "shape": [
+        10,
+        164
+      ]
+    },
+    {
+      "name": "deltanat_subj03_ventral_fold2.npz",
+      "sha256": "c25ea8f96f72e33daf019578a5f043e5360502dd031096dcddeb603146566fb1",
+      "bytes": 14584,
+      "shape": [
+        10,
+        164
+      ]
+    },
+    {
+      "name": "deltanat_subj03_ventral_fold3.npz",
+      "sha256": "db3f9373a1380d75afe4e34096cc6723f3ccfca33f8ec3d82eab8c0e1fb37ef1",
+      "bytes": 14584,
+      "shape": [
+        10,
+        164
+      ]
+    },
+    {
+      "name": "deltanat_subj03_ventral_fold4.npz",
+      "sha256": "4a541d905a6e214567d70ebc0a32bcccf9214e438cc53d6c644ae261bfeb5dc9",
+      "bytes": 14584,
+      "shape": [
+        10,
+        164
+      ]
+    },
+    {
+      "name": "deltanat_subj03_ventral_fold5.npz",
+      "sha256": "c44855615c58747198ec03eec54a47ba356f609bfc730a3bbf9de97defc877a7",
+      "bytes": 14584,
+      "shape": [
+        10,
+        164
+      ]
+    },
+    {
+      "name": "deltanat_subj04_ventral_fold0.npz",
+      "sha256": "75231309a6fe17af130710f025d82d5ebd108188a4faf15e46c27eeed6d6489a",
+      "bytes": 13704,
+      "shape": [
+        10,
+        153
+      ]
+    },
+    {
+      "name": "deltanat_subj04_ventral_fold1.npz",
+      "sha256": "ad2ee773a07873e787c2147d29b1f7bc388491eae0efb6ab479706cb0a9c3b3e",
+      "bytes": 13704,
+      "shape": [
+        10,
+        153
+      ]
+    },
+    {
+      "name": "deltanat_subj04_ventral_fold2.npz",
+      "sha256": "429ab6a115b4a92079e3e8c37f9a590b70c1245aa92c611ee4a1a207f05596ed",
+      "bytes": 13704,
+      "shape": [
+        10,
+        153
+      ]
+    },
+    {
+      "name": "deltanat_subj04_ventral_fold3.npz",
+      "sha256": "e3bc41291ed4b814b224fa8a32db15db22bd0764d8d9c92e1aab83f4ab0deae8",
+      "bytes": 13704,
+      "shape": [
+        10,
+        153
+      ]
+    },
+    {
+      "name": "deltanat_subj04_ventral_fold4.npz",
+      "sha256": "e1fd2fdf3e93fc5a3eafbc42a2f47411f2e6012a92870766ba61b6c03034329e",
+      "bytes": 13704,
+      "shape": [
+        10,
+        153
+      ]
+    },
+    {
+      "name": "deltanat_subj04_ventral_fold5.npz",
+      "sha256": "2d0e52890038be3819737ca28e31786a1ffbbacd254a799ad1c5086eef691773",
+      "bytes": 13704,
+      "shape": [
+        10,
+        153
+      ]
+    },
+    {
+      "name": "deltanat_subj05_ventral_fold0.npz",
+      "sha256": "9dfbedbaa7fe37af42d3955c0725c7ecc6c9a8dcc8149b4750716b22d59c7761",
+      "bytes": 12104,
+      "shape": [
+        10,
+        133
+      ]
+    },
+    {
+      "name": "deltanat_subj05_ventral_fold1.npz",
+      "sha256": "f9c21999909336f676a7420f332f645080cd6b16018e8a157933a0d6ff97d161",
+      "bytes": 12104,
+      "shape": [
+        10,
+        133
+      ]
+    },
+    {
+      "name": "deltanat_subj05_ventral_fold2.npz",
+      "sha256": "516528ba2679563b2a6a75cee34a54d4d01ba17a6aa4dd297f18c682f8846f4d",
+      "bytes": 12104,
+      "shape": [
+        10,
+        133
+      ]
+    },
+    {
+      "name": "deltanat_subj05_ventral_fold3.npz",
+      "sha256": "19765aab44ba6315838924886c7432ac1bf3843b55665d7b34b22a3c8cc9b660",
+      "bytes": 12104,
+      "shape": [
+        10,
+        133
+      ]
+    },
+    {
+      "name": "deltanat_subj05_ventral_fold4.npz",
+      "sha256": "517dcf7da7aea757b77535100aeb6d60e94864e212f302465920e7d004069a81",
+      "bytes": 12104,
+      "shape": [
+        10,
+        133
+      ]
+    },
+    {
+      "name": "deltanat_subj05_ventral_fold5.npz",
+      "sha256": "c5b7e934a59163b6a62dba57ddb48f86236e26a7dbb97f9a5b3f0c46e0bb46dc",
+      "bytes": 12104,
+      "shape": [
+        10,
+        133
+      ]
+    },
+    {
+      "name": "deltanat_subj06_ventral_fold0.npz",
+      "sha256": "52d74445a72bb476101acfba8c19e40672bc63b8b440ecdd45efe2280de2acd4",
+      "bytes": 16984,
+      "shape": [
+        10,
+        194
+      ]
+    },
+    {
+      "name": "deltanat_subj06_ventral_fold1.npz",
+      "sha256": "0bda805f7016efd55cb9fdc60dd37e532f7ce5dc1aacc665d65bfae6d3aa221d",
+      "bytes": 16984,
+      "shape": [
+        10,
+        194
+      ]
+    },
+    {
+      "name": "deltanat_subj06_ventral_fold2.npz",
+      "sha256": "ab005218ec89b821ed9b1daf68c759e858931880518e02711a893e6622ac9d29",
+      "bytes": 16984,
+      "shape": [
+        10,
+        194
+      ]
+    },
+    {
+      "name": "deltanat_subj06_ventral_fold3.npz",
+      "sha256": "8acde974dc6cb10a5d866a52afb26ef3d585f99d8e19ddea540888573ad5d7fe",
+      "bytes": 16984,
+      "shape": [
+        10,
+        194
+      ]
+    },
+    {
+      "name": "deltanat_subj06_ventral_fold4.npz",
+      "sha256": "032b9004098ec0a5596eb8f54d1f5622f78a98f0715bb2e360e86311d01f9257",
+      "bytes": 16984,
+      "shape": [
+        10,
+        194
+      ]
+    },
+    {
+      "name": "deltanat_subj06_ventral_fold5.npz",
+      "sha256": "38bbd30d028a6492e3dd877a62789d6b6a2e4aeaceeb25c57054cadaeb3765cf",
+      "bytes": 16984,
+      "shape": [
+        10,
+        194
+      ]
+    },
+    {
+      "name": "deltanat_subj07_ventral_fold0.npz",
+      "sha256": "5059203cb9a307f489c80cb70cf4459a5d79cb85ce516405919f2d682e971ac0",
+      "bytes": 11944,
+      "shape": [
+        10,
+        131
+      ]
+    },
+    {
+      "name": "deltanat_subj07_ventral_fold1.npz",
+      "sha256": "35eac55abbd8f0c9617819b5145074676498308c4504cc22edd8b60af9ea3cfb",
+      "bytes": 11944,
+      "shape": [
+        10,
+        131
+      ]
+    },
+    {
+      "name": "deltanat_subj07_ventral_fold2.npz",
+      "sha256": "225f8ed1d74db5cd2976f9acd19be655a7afa27fa8130451983ab7ae09978894",
+      "bytes": 11944,
+      "shape": [
+        10,
+        131
+      ]
+    },
+    {
+      "name": "deltanat_subj07_ventral_fold3.npz",
+      "sha256": "a532c7d440015044d09e6ec19b7d82a70031c1a49cc990f096f15e51cdbf1704",
+      "bytes": 11944,
+      "shape": [
+        10,
+        131
+      ]
+    },
+    {
+      "name": "deltanat_subj07_ventral_fold4.npz",
+      "sha256": "e2bd1eb2645e4e01ed44e711044a9c2ca47272fda4b506a1b6ca3e37100722f3",
+      "bytes": 11944,
+      "shape": [
+        10,
+        131
+      ]
+    },
+    {
+      "name": "deltanat_subj07_ventral_fold5.npz",
+      "sha256": "13ff4b9ec022f64fa05bce58c500662c799ede0ef182a66bf2ec298d14529e8a",
+      "bytes": 11944,
+      "shape": [
+        10,
+        131
+      ]
+    },
+    {
+      "name": "deltanat_subj08_ventral_fold0.npz",
+      "sha256": "08464b30301a44b7aec8c4a166841c4b85ee8a894f7804878e1db6a0740dc338",
+      "bytes": 14824,
+      "shape": [
+        10,
+        167
+      ]
+    },
+    {
+      "name": "deltanat_subj08_ventral_fold1.npz",
+      "sha256": "bcd859ab122aff37d5c0a0c495fcc421d5d82fa61c99762186d2ddcd77e2a281",
+      "bytes": 14824,
+      "shape": [
+        10,
+        167
+      ]
+    },
+    {
+      "name": "deltanat_subj08_ventral_fold2.npz",
+      "sha256": "a7988b477491525e8e1ee566dfa2097639e10915bcb160094510eb742d0a5221",
+      "bytes": 14824,
+      "shape": [
+        10,
+        167
+      ]
+    },
+    {
+      "name": "deltanat_subj08_ventral_fold3.npz",
+      "sha256": "0fe5e2cad197a67f52acd173cf68e6a0d3310739cd91131a0b640a17988868fa",
+      "bytes": 14824,
+      "shape": [
+        10,
+        167
+      ]
+    },
+    {
+      "name": "deltanat_subj08_ventral_fold4.npz",
+      "sha256": "08c669709d5e406055394ef2e22456235d7060a7605ada0f8856e65d223d8d71",
+      "bytes": 14824,
+      "shape": [
+        10,
+        167
+      ]
+    },
+    {
+      "name": "deltanat_subj08_ventral_fold5.npz",
+      "sha256": "a805ee4c550aed6ff7dcba7999f434adcbca56583d7cac8a51e973d0f7d3437b",
+      "bytes": 14824,
+      "shape": [
+        10,
+        167
+      ]
+    },
+    {
+      "name": "deltanat_subj01_lateral_fold0.npz",
+      "sha256": "555b3bce99ba68512c20d4123ace1b205b6c21430dc2a56880c42d07e763341f",
+      "bytes": 13944,
+      "shape": [
+        10,
+        156
+      ]
+    },
+    {
+      "name": "deltanat_subj01_lateral_fold1.npz",
+      "sha256": "f6781e7c49872e1fddecb9c88c88cd76f4d83f31fd192bd80738daea18934652",
+      "bytes": 13944,
+      "shape": [
+        10,
+        156
+      ]
+    },
+    {
+      "name": "deltanat_subj01_lateral_fold2.npz",
+      "sha256": "07ab8756b4a452cab6e7d0366437f93173b38fc9b57ba33e40aa74e5488dbff7",
+      "bytes": 13944,
+      "shape": [
+        10,
+        156
+      ]
+    },
+    {
+      "name": "deltanat_subj01_lateral_fold3.npz",
+      "sha256": "9ca30581d6f58f7cb1000112bc2ffc4f0936191959c7a1160dea0a26f7a124d8",
+      "bytes": 13944,
+      "shape": [
+        10,
+        156
+      ]
+    },
+    {
+      "name": "deltanat_subj01_lateral_fold4.npz",
+      "sha256": "2fa5bfa2e7cabe6ece76ffd99fcc39dcdf48c73632ea77df092050b6d06a4d82",
+      "bytes": 13944,
+      "shape": [
+        10,
+        156
+      ]
+    },
+    {
+      "name": "deltanat_subj01_lateral_fold5.npz",
+      "sha256": "e6488ccc5472ad5587b80a190bd4076d239174f3f41c55a4aa06f8bc3fc09895",
+      "bytes": 13944,
+      "shape": [
+        10,
+        156
+      ]
+    },
+    {
+      "name": "deltanat_subj02_lateral_fold0.npz",
+      "sha256": "444fbb4b70a5b988859d2e5caf026eef5872050f88874731241c9fb8f351555c",
+      "bytes": 12344,
+      "shape": [
+        10,
+        136
+      ]
+    },
+    {
+      "name": "deltanat_subj02_lateral_fold1.npz",
+      "sha256": "0f6e07eb5271d9386f8c1d2457fcb054d60936851486e3003220b46572787007",
+      "bytes": 12344,
+      "shape": [
+        10,
+        136
+      ]
+    },
+    {
+      "name": "deltanat_subj02_lateral_fold2.npz",
+      "sha256": "08fc34d3de93ce2a5ef52d18fb3913f80948a74de5e7b46dacfd407db2861090",
+      "bytes": 12344,
+      "shape": [
+        10,
+        136
+      ]
+    },
+    {
+      "name": "deltanat_subj02_lateral_fold3.npz",
+      "sha256": "a11c0d9cb8d6bea51e96e2438983f26649150a3a638b64e13734926d08a1b03d",
+      "bytes": 12344,
+      "shape": [
+        10,
+        136
+      ]
+    },
+    {
+      "name": "deltanat_subj02_lateral_fold4.npz",
+      "sha256": "13d6a3ee1e17ec30ff77688d59b6f79d1a0a457856eac16a47117735f08c4b02",
+      "bytes": 12344,
+      "shape": [
+        10,
+        136
+      ]
+    },
+    {
+      "name": "deltanat_subj02_lateral_fold5.npz",
+      "sha256": "0243e409eecc44fcef05ce1a2f3af432ce192a88eb9fc63e0169c443dffa78f5",
+      "bytes": 12344,
+      "shape": [
+        10,
+        136
+      ]
+    },
+    {
+      "name": "deltanat_subj03_lateral_fold0.npz",
+      "sha256": "30aa3153194a3a2ac0df2a7c9cf7c994ddf8df855eddbcc1956515195c5a366f",
+      "bytes": 15224,
+      "shape": [
+        10,
+        172
+      ]
+    },
+    {
+      "name": "deltanat_subj03_lateral_fold1.npz",
+      "sha256": "c089c9fe43e7f68cededd02a159fd083da9b246f7aacb85b53bcc95ca1419b81",
+      "bytes": 15224,
+      "shape": [
+        10,
+        172
+      ]
+    },
+    {
+      "name": "deltanat_subj03_lateral_fold2.npz",
+      "sha256": "7b9ae1618a0cbda5ac5d904d7d1059664cca92ed6192eb5200deae94cff536b8",
+      "bytes": 15224,
+      "shape": [
+        10,
+        172
+      ]
+    },
+    {
+      "name": "deltanat_subj03_lateral_fold3.npz",
+      "sha256": "8b595da00f7f9b3201898ce72526aaf56ef050aaa3d4914a97279d016847cabc",
+      "bytes": 15224,
+      "shape": [
+        10,
+        172
+      ]
+    },
+    {
+      "name": "deltanat_subj03_lateral_fold4.npz",
+      "sha256": "6418e90204757c1205ea4b7f548a41636a5b9213bf0fffe5c2ec41ba4e1591e2",
+      "bytes": 15224,
+      "shape": [
+        10,
+        172
+      ]
+    },
+    {
+      "name": "deltanat_subj03_lateral_fold5.npz",
+      "sha256": "66c7567b3c17ed3296635f2d2d8c3862e210a7a8463ba9c3a701cb1b618710ea",
+      "bytes": 15224,
+      "shape": [
+        10,
+        172
+      ]
+    },
+    {
+      "name": "deltanat_subj04_lateral_fold0.npz",
+      "sha256": "c8e7842b746e070bdb4209b4776ae622e8d0174474486906f18a869a68568df8",
+      "bytes": 12904,
+      "shape": [
+        10,
+        143
+      ]
+    },
+    {
+      "name": "deltanat_subj04_lateral_fold1.npz",
+      "sha256": "47287e8e0767f3e81ad9810dd7debd31046b5bafff4dc2f0ca2a758129377e4d",
+      "bytes": 12904,
+      "shape": [
+        10,
+        143
+      ]
+    },
+    {
+      "name": "deltanat_subj04_lateral_fold2.npz",
+      "sha256": "a6a11ed2e3b8ef733315358cb436f4499ca54b2733f57275539aa0aa6f4a7b19",
+      "bytes": 12904,
+      "shape": [
+        10,
+        143
+      ]
+    },
+    {
+      "name": "deltanat_subj04_lateral_fold3.npz",
+      "sha256": "0bf1508fad0360101b8eec3ae75ee4a5a8956e45df096f4ea3227f3ec052e142",
+      "bytes": 12904,
+      "shape": [
+        10,
+        143
+      ]
+    },
+    {
+      "name": "deltanat_subj04_lateral_fold4.npz",
+      "sha256": "f9f9d1a507a8e0513d3084331a2bb6490b216ae2fadc4982e5497c4fee7f44cf",
+      "bytes": 12904,
+      "shape": [
+        10,
+        143
+      ]
+    },
+    {
+      "name": "deltanat_subj04_lateral_fold5.npz",
+      "sha256": "b37dc934d65d2914e39e73829b70430baabe13614dd569160ee5e0f632e44380",
+      "bytes": 12904,
+      "shape": [
+        10,
+        143
+      ]
+    },
+    {
+      "name": "deltanat_subj05_lateral_fold0.npz",
+      "sha256": "6ca67c899d9f0e847b3eb20b6fdc1f4e35393c9f5dcf4303e8fe362951bacf6b",
+      "bytes": 12744,
+      "shape": [
+        10,
+        141
+      ]
+    },
+    {
+      "name": "deltanat_subj05_lateral_fold1.npz",
+      "sha256": "4b9efde70e5aae9a236d593e23df88edc27b675a268bafb92494f5a13dd12ac4",
+      "bytes": 12744,
+      "shape": [
+        10,
+        141
+      ]
+    },
+    {
+      "name": "deltanat_subj05_lateral_fold2.npz",
+      "sha256": "62c19c2b8ad9f002509f7d046d35420b6b2c734284bffcc236ae73f2a78e87a1",
+      "bytes": 12744,
+      "shape": [
+        10,
+        141
+      ]
+    },
+    {
+      "name": "deltanat_subj05_lateral_fold3.npz",
+      "sha256": "73deb94ed31373e680b0d2c1ff5c817111788b312aa0fbe4461510a23feba34d",
+      "bytes": 12744,
+      "shape": [
+        10,
+        141
+      ]
+    },
+    {
+      "name": "deltanat_subj05_lateral_fold4.npz",
+      "sha256": "d3ec140f158eea3beef2e7b7d61cd485e31d12f8712a552bd2553fa50aa23c86",
+      "bytes": 12744,
+      "shape": [
+        10,
+        141
+      ]
+    },
+    {
+      "name": "deltanat_subj05_lateral_fold5.npz",
+      "sha256": "3461addf3e3d3f7391c7ca3e6ed6f04cb4218b01ba586f5755021ec4660b7dca",
+      "bytes": 12744,
+      "shape": [
+        10,
+        141
+      ]
+    },
+    {
+      "name": "deltanat_subj06_lateral_fold0.npz",
+      "sha256": "e4c81d22f6eade6d34cb31ff0619ae26483755594bccbff91dc39b5eb47bbe7f",
+      "bytes": 15944,
+      "shape": [
+        10,
+        181
+      ]
+    },
+    {
+      "name": "deltanat_subj06_lateral_fold1.npz",
+      "sha256": "8742a0e538001d792d3e0b55c30e3f0089d72c4a9ec9c4f4d9d52c302116c884",
+      "bytes": 15944,
+      "shape": [
+        10,
+        181
+      ]
+    },
+    {
+      "name": "deltanat_subj06_lateral_fold2.npz",
+      "sha256": "399a10af2d33ce75a6232d028390ce83be34e4712f2afe4722a23ceb6c54afe8",
+      "bytes": 15944,
+      "shape": [
+        10,
+        181
+      ]
+    },
+    {
+      "name": "deltanat_subj06_lateral_fold3.npz",
+      "sha256": "0789218cca5a22c6f3d37e0732ddf58ec2b6a0ebad6346167d8f310c117bbb67",
+      "bytes": 15944,
+      "shape": [
+        10,
+        181
+      ]
+    },
+    {
+      "name": "deltanat_subj06_lateral_fold4.npz",
+      "sha256": "305dfcdc4bacb03a22ac9f2fbfba2d0ac952e9d585fbb571a3a0e17b34c154ab",
+      "bytes": 15944,
+      "shape": [
+        10,
+        181
+      ]
+    },
+    {
+      "name": "deltanat_subj06_lateral_fold5.npz",
+      "sha256": "5be5c1905a0fd1b2a22f806ed39e8f82666b78fd174ae0c8370382d748a7a0d8",
+      "bytes": 15944,
+      "shape": [
+        10,
+        181
+      ]
+    },
+    {
+      "name": "deltanat_subj07_lateral_fold0.npz",
+      "sha256": "d01d656f700cf9a1a1db110cac2386ea3e5c3cd62e6ded783bf90ab1b5c0e6f1",
+      "bytes": 11304,
+      "shape": [
+        10,
+        123
+      ]
+    },
+    {
+      "name": "deltanat_subj07_lateral_fold1.npz",
+      "sha256": "cf8e6dc9462b48cdc6455ddd414fff8d47819c19a9f4d68626138445e1ff1fe8",
+      "bytes": 11304,
+      "shape": [
+        10,
+        123
+      ]
+    },
+    {
+      "name": "deltanat_subj07_lateral_fold2.npz",
+      "sha256": "cbc4b14624dec34401284823ffb066c7a893af02bd6d5181046af136200d54d5",
+      "bytes": 11304,
+      "shape": [
+        10,
+        123
+      ]
+    },
+    {
+      "name": "deltanat_subj07_lateral_fold3.npz",
+      "sha256": "2055f62d0b1e5180f1273753d3ec9c49580cf48cbe500a3ba5737c51ef9d1a2b",
+      "bytes": 11304,
+      "shape": [
+        10,
+        123
+      ]
+    },
+    {
+      "name": "deltanat_subj07_lateral_fold4.npz",
+      "sha256": "48b0f8225fd3ec36e4a1ec66617fab2a1aeaa595732b3f493b976c9cd62bd16f",
+      "bytes": 11304,
+      "shape": [
+        10,
+        123
+      ]
+    },
+    {
+      "name": "deltanat_subj07_lateral_fold5.npz",
+      "sha256": "022e3a1acb620f8c20e723d3b3fb28280d191d71e89263ca359daf730c32dc17",
+      "bytes": 11304,
+      "shape": [
+        10,
+        123
+      ]
+    },
+    {
+      "name": "deltanat_subj08_lateral_fold0.npz",
+      "sha256": "f590907c1bcf91247d5d8a781e790d1aaf10509acdeac6358bcc3a582f0eed66",
+      "bytes": 15384,
+      "shape": [
+        10,
+        174
+      ]
+    },
+    {
+      "name": "deltanat_subj08_lateral_fold1.npz",
+      "sha256": "c159e2f09440c7e8c860afd1083cc13ec617420357114cb13d5f17175b187f84",
+      "bytes": 15384,
+      "shape": [
+        10,
+        174
+      ]
+    },
+    {
+      "name": "deltanat_subj08_lateral_fold2.npz",
+      "sha256": "a3ea6e52638ffa790018d2b09598ce08cf7db18d0835a37432f33b7c53d62667",
+      "bytes": 15384,
+      "shape": [
+        10,
+        174
+      ]
+    },
+    {
+      "name": "deltanat_subj08_lateral_fold3.npz",
+      "sha256": "a8226fe7d81667d6019e54d6b5c8fde770e158ea2b70cc177964cf62b4f0c865",
+      "bytes": 15384,
+      "shape": [
+        10,
+        174
+      ]
+    },
+    {
+      "name": "deltanat_subj08_lateral_fold4.npz",
+      "sha256": "d7ffd1b10c531f15395baf2dfe42373d32eebf2586854b861fba7fbb5dfaa781",
+      "bytes": 15384,
+      "shape": [
+        10,
+        174
+      ]
+    },
+    {
+      "name": "deltanat_subj08_lateral_fold5.npz",
+      "sha256": "e9c20d5fb65d0ca1f287d7bd3eec77946c5609104af9f9b1ab00e8980736db1a",
+      "bytes": 15384,
+      "shape": [
+        10,
+        174
+      ]
+    }
+  ],
+  "ok": true,
+  "max_abs_discrepancy_global": 0.0
+}

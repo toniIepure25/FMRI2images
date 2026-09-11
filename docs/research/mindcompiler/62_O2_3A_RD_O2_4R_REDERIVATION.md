@@ -44,11 +44,35 @@ inputs (public S3 → orchestraiq persistent); (5) fit; (6) persist RD state; (7
 O2.4R M0; (9) only then open M>0; (10) frontier; (11) inference; (12) seal. No refreeze after M0. Leakage:
 outer-test identities never enter SRM/K/rank/template/oracle/null/scaling/Procrustes (programmatic asserts).
 
+## Stage A result — RD sealed (`CORE_ANCHOR_RD_INCONCLUSIVE`)
+
+Executed on orchestraiq r770 under the corrected driver (code `cb6f3ca`, see
+`63_O2_3A_RD_PHASE2_IMPLEMENTATION_CORRECTIONS.md`). All 8 subjects assembled (anchor reps 3/3/3);
+target-specific K recorded (ventral `{16,16,16,16,16,32,32,16}`, lateral `{8×7, subj08:16}`).
+
+| primary ROI | median true | median null | n_pos /8 | sign-flip p | Holm reject | group oracle recovery |
+|---|---|---|---|---|---|---|
+| ventral | 0.0670 | 0.0621 | 5 | 0.219 | no | 0.095 |
+| lateral | 0.1217 | 0.1171 | 6 | **0.0156** | **yes** | 0.182 |
+
+**Seal: `CORE_ANCHOR_RD_INCONCLUSIVE`.** Lateral shows a Holm-significant true>null effect (3/4 criteria),
+but **oracle recovery** (corrected: `R_ZERO_RD/max(R_ORACLE,ε)`, median folds→participants) is far below the
+pre-registered `≥0.50` bar in both ROIs (0.10 / 0.18). The native oracle upper bound is itself strong
+(`R_ORACLE≈0.72` in lateral), so the imagery-residual orientation *is* present natively but is only weakly
+recovered from dense perception with zero target imagery — not cleanly null, not identifiable. Both primary
+median effects are positive (`all_primary_median_positive: True`). Historical numbers were **not** acceptance
+targets; the historical O2.3A verdict is untouched and not relabelled.
+
+`M=0 ≡ P_ZERO_RD` certified exactly: **`O2_4R_M0_EQUALS_O2_3A_RD`**, `max_dev = 0.0` over 96 cells. Reusable
+RD state (114 derived npz, ~3.9 MB, no raw betas) persisted on the PVC; `state_manifest.json` records the
+sha256 of each. Artifacts: `artifacts/mindcompiler/operator_o2_3a_rd/phase2/{rd_results,RD_SEAL,state_manifest,
+cache_provenance_subj01}.json`, `artifacts/mindcompiler/operator_o2_4r/M0_CERT.json`.
+
 ## Status of this document
 
-Steps 1–3 (freeze both configs) are complete and committed. The generator source + its data-free determinism
-and gauge-invariance certification follow, then the data-acquisition + fit + frontier (a substantial
-orchestraiq compute job). `O3` remains `O3_NOT_READY` through both O2.3A-RD and O2.4R — a calibration frontier
-is not yet a shared-operator generalization demonstration. Historical-vs-RD comparison is descriptive only,
-performed **after** both are sealed; agreement is **not** required, and any qualitative outcome (same
-zero-target failure / new support / materially different) is admissible.
+Stage A (RD fit) is **sealed** and M0 is certified. **Stage B** (the O2.4R M>0 calibration frontier) runs next
+— guarded so it refuses without a valid RD seal + M0 certification. `O3` remains `O3_NOT_READY` through both
+O2.3A-RD and O2.4R — a calibration frontier is not yet a shared-operator generalization demonstration.
+Historical-vs-RD comparison is descriptive only, performed **after** both are sealed; agreement is **not**
+required, and any qualitative outcome (same zero-target failure / new support / materially different) is
+admissible.

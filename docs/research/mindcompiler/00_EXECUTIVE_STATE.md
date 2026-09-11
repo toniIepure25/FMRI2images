@@ -10,6 +10,21 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.3A-RD (2026-09-11): STAGE A SEALED -- `CORE_ANCHOR_RD_INCONCLUSIVE` + M0 CERTIFIED `O2_4R_M0_EQUALS_O2_3A_RD`
+
+Real cohort fit executed on orchestraiq r770 under the **corrected** driver (code `cb6f3ca`; 7 pre-outcome
+implementation-contract fixes, see `63_O2_3A_RD_PHASE2_IMPLEMENTATION_CORRECTIONS.md` -- frozen configs
+`c1b2ddb0`/`ad959446` UNCHANGED). N=8, ventral+lateral, all anchor reps 3/3/3. **Target-specific K** recorded
+(ventral {16,16,16,16,16,32,32,16}, lateral {8x7,subj08:16}). **RD seal `CORE_ANCHOR_RD_INCONCLUSIVE`:** lateral
+median true 0.1217 > null 0.1171, n_pos 6/8, sign-flip p=0.0156 (Holm reject) -- 3/4 criteria -- but **corrected
+oracle recovery** (`R_ZERO_RD/max(R_ORACLE,eps)`, median folds->participants) only 0.18 (ventral 0.10), far below
+the pre-registered >=0.50; native oracle itself strong (R_ORACLE~0.72 lateral). So the residual orientation is
+present natively but weakly recovered from dense perception with zero target imagery: not null, not identifiable.
+`all_primary_median_positive: True`. **M0==P_ZERO_RD certified exactly** (max_dev 0.0, 96 cells). Reusable state
+(114 derived npz ~3.9MB, no raw betas) persisted on PVC + `state_manifest.json` sha256. First (pre-correction)
+run was stopped in assembly with no outcome inspected: `O2_3A_RD_PHASE2_PREOUTCOME_IMPLEMENTATION_CORRECTION_RESTART`.
+**Next: Stage B** = O2.4R M>0 frontier (guarded by RD_SEAL + valid M0_CERT). `O3` remains `O3_NOT_READY`.
+
 ## O2.3A-RD / O2.4R (2026-09-09): PROSPECTIVE RE-DERIVATION -- BOTH CONFIGS FROZEN (RD `c1b2ddb0`, R4 `ad959446`)
 
 Exact O2.3A replay is closed (PROVREC), so a NEW prospective re-derivation is authorized: `O2.3A-RD` (dense

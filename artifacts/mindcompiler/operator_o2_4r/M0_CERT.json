@@ -1,0 +1,12 @@
+{
+  "artifact": "M0_CERT",
+  "certification": "O2_4R_M0_EQUALS_O2_3A_RD",
+  "ok": true,
+  "max_abs_deviation": 0.0,
+  "n_cells": 96,
+  "tol": 1e-10,
+  "rois": [
+    "ventral",
+    "lateral"
+  ]
+}

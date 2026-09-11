@@ -171,7 +171,7 @@ def test_t8_replay_certification(tmp_path):
                     + "\n".join("%s,ventral,2,1,0.1,0.5,0,0,0,0,0,0,0" % s for s in TC.ALL) + "\n")
     per = {s: {"ventral": {"T": {8: {"R_AUG": 0.5}}}} for s in TC.ALL}
     assert TC.certify_t8_replay(per, str(csvp), ["ventral"])["ok"] is True
-    per2 = {s: {"ventral": {"T": {8: {"R_AUG": 0.5 + 1e-6}}}} for s in TC.ALL}
+    per2 = {s: {"ventral": {"T": {8: {"R_AUG": 0.5 + 1e-3}}}} for s in TC.ALL}   # > 1e-5 float floor
     assert TC.certify_t8_replay(per2, str(csvp), ["ventral"])["ok"] is False
 
 

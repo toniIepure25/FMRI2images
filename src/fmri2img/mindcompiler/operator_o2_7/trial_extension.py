@@ -17,7 +17,10 @@ import numpy as np
 ALL = [f"subj0{i}" for i in range(1, 9)]
 ROIS_PRIMARY = ["ventral", "lateral"]
 N_FOLDS = 6
-TOL = 1e-10
+# float64 pipeline (matches O2.6's imagery_centroids float64 cast). The residual definition is EXACTLY linear
+# in float64, so trial-mean == centroid residual to ~1e-13; agreement with the SEALED value is limited only by
+# the float32 source betas (~1e-7), so the replay tolerance is float32-source-appropriate (achieved disc reported).
+TOL = 1e-5
 
 
 def _coh(repo: Path):
@@ -45,7 +48,7 @@ def run_extension(repo: Path, data: Path, state_dir: Path, ext_dir: Path, out: P
             ids = sorted(tt["identity"].unique())
             fam = {i: tt.loc[tt.identity == i, "family"].iloc[0] for i in ids}
             hpath = str(data / f"nsd_imagery_b0/{s}/betas_nsdimagery.hdf5")
-            M = SP.extract_v1_matrix(hpath, tt["beta_index0"].values, xyz)          # (192 x V) /300 PSC
+            M = SP.extract_v1_matrix(hpath, tt["beta_index0"].values, xyz).astype(np.float64)   # (192 x V) /300 PSC, float64 (match O2.6)
             Vc = {i: M[tt.index[(tt.state == "vision") & (tt.identity == i)]].mean(0) for i in ids}
             # per-identity imagery trials in acquisition (repeat) order + provenance
             Itr, prov = {}, {}

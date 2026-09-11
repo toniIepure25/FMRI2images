@@ -1,0 +1,7 @@
+{
+  "input_status": "TARGET_IMAGERY_RESIDUAL_OUTSIDE_PERCEPTION_SUPPORT_DOMINANT",
+  "next_gate": "O2.6 TARGET-STATE BASIS AUGMENTATION FRONTIER",
+  "core_question": "How many target-imagery identities and how many NEW native dimensions outside col(W_target) are required to recover the target imagery residual?",
+  "rationale": "Both primary ROIs PERCEPTION_SUPPORT_CEILING_DOMINANT: F_FULL<0.50 for 8/8 participants in each; within-support estimator near-optimal (F_EST 0.96 ventral / 0.99 lateral); perception-derived W_target support does not contain most target imagery-residual structure.",
+  "O3": "O3_NOT_READY"
+}

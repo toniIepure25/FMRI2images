@@ -1,0 +1,23 @@
+{
+  "gate": "O2.5",
+  "input_head": "1f394d4",
+  "freeze_commit": "0603ed9",
+  "config_sha256": "b241a5f0eac1123539fa441bae7884d49ec6158d044644836bbe825a4e095f31",
+  "image": "nipreps/fmriprep:25.2.5",
+  "image_digest": "sha256:15cbf8dcd17440d26ff5e80e9f7313f1cb3c54f13673f1ec4aed4465e8e12d77",
+  "node": "k8s-worker-cpu-node-r770",
+  "pvc": "rd-data",
+  "state": "/rd/data/results/rd/state",
+  "rd_results": "/rd/data/results/rd/rd_results.json",
+  "manifest": "committed state_manifest.json",
+  "out": "/rd/data/results/o2_5",
+  "blas_threads": 1,
+  "numpy": "2.2.6",
+  "diagnostic_only": true,
+  "no_model_fit": true,
+  "cells_consumed": 96,
+  "rois": [
+    "ventral",
+    "lateral"
+  ]
+}

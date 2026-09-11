@@ -1,0 +1,8 @@
+{
+  "manifest": "/cm/state_manifest.json",
+  "n_manifest": 114,
+  "checked": 96,
+  "ok": true,
+  "mismatches": [],
+  "rd_results_sha256": "fb35881957ec871bdeb2bb4081015c767b2cfc92bf306272c59bfa662b76ea84"
+}

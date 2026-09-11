@@ -1,0 +1,24 @@
+{
+  "ventral": {
+    "n_evaluable": 8,
+    "median_F_FULL": 0.20387894363009923,
+    "median_F_RANK": 0.15326225915167158,
+    "median_F_EST": 0.9641721213547815,
+    "n_F_FULL_lt_0.5": 8,
+    "n_F_RANK_lt_0.5": 8,
+    "n_F_EST_lt_0.5": 0,
+    "n_est_evaluable": 8,
+    "status": "PERCEPTION_SUPPORT_CEILING_DOMINANT"
+  },
+  "lateral": {
+    "n_evaluable": 8,
+    "median_F_FULL": 0.055061809803725624,
+    "median_F_RANK": 0.03843296622488768,
+    "median_F_EST": 0.9930636031319461,
+    "n_F_FULL_lt_0.5": 8,
+    "n_F_RANK_lt_0.5": 8,
+    "n_F_EST_lt_0.5": 0,
+    "n_est_evaluable": 8,
+    "status": "PERCEPTION_SUPPORT_CEILING_DOMINANT"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "config_sha256": "b241a5f0eac1123539fa441bae7884d49ec6158d044644836bbe825a4e095f31",
+  "driver_sha256": "df6c3f22d8c8decbf393ba74a5aea3c95cc43f8a32a01c08dab4c0c4da66e015",
+  "artifacts": {
+    "execution_provenance.json": "d97ae4327aab446d5af767a22340ea5b4664f8e0d36024ff6b72d95662da74bc",
+    "full_support_results.csv": "2552babb7bc7f48e123a7276367c29dc84ca9095c38382a140d485ba6b2126aa",
+    "gap_fraction_results.csv": "0c8410c7ae64d489dd8481907f16a001522ad5d1fd2f3f5ddc6ffce6bba33447",
+    "next_gate_decision.json": "90fc9cb442898a5d7e593f329625ab0d73ceea286f686020a18db4ea7583ec3e",
+    "o2_5_frozen_config.json": "b1d5715df491bd0bf2b20a158053a2e161ea0d3cb0eaaace00e7cbcdc3ad3c34",
+    "participant_roi_summary.csv": "0c8410c7ae64d489dd8481907f16a001522ad5d1fd2f3f5ddc6ffce6bba33447",
+    "primary_roi_classification.json": "de485a21c9d2df6bee513c83afea0893c328b298218ed30c5d403da6521a3c35",
+    "principal_angle_results.csv": "75a170bf8136a04470df5c12092c638559ae74ce6ab69e1afb11d8dde8beadd7",
+    "rank_matched_support_oracle.csv": "17fed76029569e2192b71c597fc4c585762906568a2a53a7fbc01e1aed6191f8",
+    "scientific_status.json": "2344a373a070dbc2b3d537899108fc656bb590681d3447e025d16c980c85c883",
+    "sealed_state_verification.json": "efa544734c698963be32895e15ab5f95ab7ca1654d467ddf9e23969d3e04e155",
+    "support_bound_certification.csv": "b66725272f04701dddb343b373292fa41827f60f802b095ccdc0658c04fbeeb3",
+    "test_report.json": "bd4d8a22429f22763bc33031da5472c0a5275df913160841a2ec36664485fd8f",
+    "w_target_certification.csv": "c473e027b853772f99f2a9c4ebbb8c730a83ba143e1f036ce10c8773d2f0e0aa"
+  }
+}

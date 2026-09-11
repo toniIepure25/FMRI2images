@@ -1,0 +1,26 @@
+{
+  "suite": "tests/mindcompiler/operator_o2_5/test_o2_5_support_audit.py",
+  "n_tests": 12,
+  "passed": 12,
+  "required_items_covered": 18,
+  "items": [
+    "state-manifest hashes",
+    "W_target orthonormality",
+    "P_SUPPORT symmetry",
+    "P_SUPPORT idempotence",
+    "O2.4R predicted subspace in col(W_target)",
+    "R_pred<=R_SUPPORT_FULL",
+    "support oracle train-only",
+    "no outer-test residual in support-oracle fit",
+    "exact frozen r_best",
+    "F_FULL",
+    "F_RANK",
+    "F_EST",
+    "denominator guards",
+    "participant-first aggregation",
+    "categorical status logic",
+    "no competing model",
+    "historical seals immutable",
+    "O3 remains O3_NOT_READY"
+  ]
+}

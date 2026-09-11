@@ -10,6 +10,25 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.5 (2026-09-11): PERCEPTION-SUPPORT CEILING AUDIT -- SEALED `TARGET_IMAGERY_RESIDUAL_OUTSIDE_PERCEPTION_SUPPORT_DOMINANT`
+
+Diagnostic-only gate (config `b241a5f0`, freeze `0603ed9`): why did O2.4R fail -- within-support estimator (A)
+or dense-perception support itself (B)? Consumes ONLY sealed O2.3A-RD/O2.4R state (96 cells hash-verified vs
+committed `state_manifest.json`; no raw betas, no SRM/K/rank refit, no new calibration, no competing model).
+Ran on r770. Certifications: sealed W_target orthonormal (max ||W^T W-I||_F=1.2e-14), P_SUPPORT=W W^T
+symmetric/idempotent (<=1.2e-14), support bound R_pred<=R_SUPPORT_FULL 96/96 (0 violations).
+
+**Answer: (B) the support.** Both primary ROIs `PERCEPTION_SUPPORT_CEILING_DOMINANT` -> program status
+**`TARGET_IMAGERY_RESIDUAL_OUTSIDE_PERCEPTION_SUPPORT_DOMINANT`**. Participant-first group medians:
+ventral F_FULL=0.204 (8/8 <0.50), F_RANK=0.153, **F_EST=0.964**; lateral F_FULL=0.055 (8/8 <0.50), F_RANK=0.038,
+**F_EST=0.993**. The within-support Procrustes estimator is near-optimal (F_EST 0.96/0.99) -- NOT the bottleneck;
+but the full K-dim perception support captures only ~20% (ventral)/~6% (lateral) of the native-oracle gap
+(R_NATIVE 0.67/0.71 vs R_SUPPORT_FULL 0.19/0.16). So most target imagery-residual structure lies OUTSIDE
+col(W_target). Bounded interpretation only (a claim about the TESTED representational model; NOT imagery-only
+neurons/biology/causal). Principal angles span(U_res) vs span(U_SUPPORT_ORACLE): ventral mean-sq-cos 0.35,
+lateral 0.76 (descriptive). Immutable seals preserved. **Next: O2.6 TARGET-STATE BASIS AUGMENTATION FRONTIER.**
+`O3` remains `O3_NOT_READY`. Artifacts: `operator_o2_5/` (15 files).
+
 ## O2.4R (2026-09-11): STAGE B SEALED -- `TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION`
 
 Stage B (target-imagery calibration frontier, `M in {0,2,4,6,8,10}`) executed on r770 after Stage A seal +

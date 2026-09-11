@@ -1,0 +1,14 @@
+{
+  "status": "TARGET_IMAGERY_RESIDUAL_OUTSIDE_PERCEPTION_SUPPORT_DOMINANT",
+  "roi_status": {
+    "ventral": "PERCEPTION_SUPPORT_CEILING_DOMINANT",
+    "lateral": "PERCEPTION_SUPPORT_CEILING_DOMINANT"
+  },
+  "bound_ok": true,
+  "orthonormality_ok": true,
+  "immutable": {
+    "O2_3A_RD": "CORE_ANCHOR_RD_INCONCLUSIVE",
+    "O2_4R": "TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION"
+  },
+  "O3": "O3_NOT_READY"
+}

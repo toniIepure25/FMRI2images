@@ -1,0 +1,150 @@
+{
+  "gate": "O2.5",
+  "class": "PERCEPTION_SUPPORT_CEILING_AUDIT (DIAGNOSTIC ONLY; fits NO new transfer model)",
+  "input_head": "1f394d4d53a2cb23eeb4a7db81406bc3203e7de3",
+  "question": "Is O2.4R's failure primarily (A) a within-support mapping-estimator limitation or (B) a limitation of the dense-perception support itself? I.e. what fraction of the target-native imagery-residual structure is geometrically accessible inside col(W_target)?",
+  "immutable_history": {
+    "O2_3A_RD": "CORE_ANCHOR_RD_INCONCLUSIVE",
+    "O2_4R": "TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION",
+    "historical_O2_3A": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+    "historical_O2_4": "TARGET_STATE_ORIENTATION_CALIBRATION_INCONCLUSIVE",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2.2": "CROSS_STATE_TRANSPORT_MULTIREGIME",
+    "O2.3C": "orientation INCONCLUSIVE",
+    "O2.3C_PREP": "FMRIPREP_DERIVED_REST_FUNC1PT8MM_NOT_CERTIFIED_FOR_FINE_SCALE_CONNECTIVITY",
+    "O3": "O3_NOT_READY",
+    "never_relabel_historical": true
+  },
+  "data": {
+    "only_sealed_state": true,
+    "state_manifest": "artifacts/mindcompiler/operator_o2_3a_rd/phase2/state_manifest.json",
+    "persistent_state": "rd-data:/rd/data/results/rd/state",
+    "verify_every_file_sha256": true,
+    "forbidden": [
+      "raw beta processing",
+      "SRM refit",
+      "K selection",
+      "rank refit",
+      "new target-imagery calibration fit"
+    ]
+  },
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "secondary": "parietal (only after primary seal)",
+  "part1_w_target": {
+    "for": "subject x ROI",
+    "load": "sealed W_target",
+    "orthonormality_require": "||W_target.T W_target - I||_F <= 1e-8 else O2_5_W_TARGET_ORTHONORMALITY_FAILURE",
+    "no_reorthogonalization": true,
+    "P_SUPPORT": "W_target @ W_target.T",
+    "symmetry_tol": 1e-10,
+    "idempotence_tol": 1e-10
+  },
+  "part2_full_support_ceiling": {
+    "for": "subject x ROI x outer fold x held-out identity",
+    "R_SUPPORT_FULL": "||P_SUPPORT delta_test||^2 / ||delta_test||^2, averaged over the 2 held-out identities per fold",
+    "meaning": "max retention achievable by ANY subspace contained in col(W_target), regardless of estimator, provided the native prediction stays in col(W_target)"
+  },
+  "part3_support_bound": {
+    "reconstruct": [
+      "sealed M0 projector",
+      "sealed O2.4R calibrated projectors where possible"
+    ],
+    "require_pointwise": "R_pred <= R_SUPPORT_FULL + 1e-10 for every subject x ROI x fold x M",
+    "violation": "O2_5_SUPPORT_BOUND_IMPLEMENTATION_FAILURE"
+  },
+  "part4_rank_matched_support_oracle": {
+    "constrained_to": [
+      "col(W_target)",
+      "frozen rank r_best"
+    ],
+    "Z": "10 outer-training target residual coords, Z_i = W_target.T @ delta_target_i (outer-training identities only)",
+    "svd": "Z.T = U S V.T ; r = frozen r_best ; U_SUPPORT_ORACLE = U[:, :r] ; deterministic canonical column signs",
+    "native": "B_SUPPORT_ORACLE = W_target @ U_SUPPORT_ORACLE ; P_SUPPORT_ORACLE_R = B B.T",
+    "evaluate": "outer-test residuals only -> R_SUPPORT_ORACLE_R"
+  },
+  "part5_native_oracle": {
+    "reuse_sealed": "R_NATIVE_ORACLE (Stage-A R_ORACLE)",
+    "no_recompute": true,
+    "verify_provenance": true
+  },
+  "part6_aggregation": {
+    "order": "participant-first: average 6 outer folds -> R0_s, R_M10_s, R_SUPPORT_FULL_s, R_SUPPORT_ORACLE_R_s, R_NATIVE_ORACLE_s; THEN group medians",
+    "folds_never_inferential": true
+  },
+  "part7_full_support_gap": {
+    "DEN_NATIVE": "R_NATIVE_ORACLE_s - R0_s",
+    "guard": "DEN_NATIVE <= 1e-12 -> NOT_EVALUABLE_FOR_NATIVE_GAP",
+    "F_FULL_UNCLIPPED": "(R_SUPPORT_FULL_s - R0_s)/DEN_NATIVE",
+    "F_FULL": "clip(F_FULL_UNCLIPPED,0,1)"
+  },
+  "part8_rank_matched_fraction": {
+    "F_RANK_UNCLIPPED": "(R_SUPPORT_ORACLE_R_s - R0_s)/DEN_NATIVE",
+    "F_RANK": "clip(.,0,1)"
+  },
+  "part9_estimator_efficiency": {
+    "DEN_SUPPORT": "R_SUPPORT_ORACLE_R_s - R0_s",
+    "guard": "DEN_SUPPORT <= 1e-12 -> NOT_EVALUABLE_FOR_ESTIMATOR_EFFICIENCY",
+    "F_EST_UNCLIPPED": "(R_M10_s - R0_s)/DEN_SUPPORT",
+    "F_EST": "clip(.,0,1)"
+  },
+  "part10_principal_angles": {
+    "compare": "span(U_res) vs span(U_SUPPORT_ORACLE) within fold",
+    "svd": "svd(U_res.T @ U_SUPPORT_ORACLE)",
+    "report": [
+      "all principal cosines",
+      "principal angles deg",
+      "mean squared cosine",
+      "minimum cosine"
+    ],
+    "descriptive_only": true,
+    "no_outcome_threshold": true
+  },
+  "part11_classification": {
+    "require_evaluable": ">=7/8 participants for a primary mechanism classification (else INCONCLUSIVE)",
+    "use": "clipped fractions",
+    "A_PERCEPTION_SUPPORT_CEILING_DOMINANT": "median F_FULL < 0.50 AND >=6/8 F_FULL < 0.50",
+    "B_RANK_MATCHED_SUPPORT_LIMIT_DOMINANT": "median F_FULL >= 0.50 AND median F_RANK < 0.50 AND >=6/8 F_RANK < 0.50",
+    "C_WITHIN_SUPPORT_MAPPING_ESTIMATOR_DOMINANT": "median F_RANK >= 0.50 AND median F_EST < 0.50 AND >=6/8 F_EST < 0.50",
+    "D_SUPPORT_AND_MAPPING_ADEQUATE": "median F_RANK >= 0.50 AND median F_EST >= 0.50",
+    "E_SUPPORT_MAPPING_MULTIREGIME_OR_INCONCLUSIVE": "otherwise"
+  },
+  "program_status": {
+    "TARGET_IMAGERY_RESIDUAL_OUTSIDE_PERCEPTION_SUPPORT_DOMINANT": "both primary = PERCEPTION_SUPPORT_CEILING_DOMINANT",
+    "TARGET_IMAGERY_RESIDUAL_RANK_LIMIT": "both = RANK_MATCHED_SUPPORT_LIMIT_DOMINANT",
+    "TARGET_IMAGERY_RESIDUAL_WITHIN_SUPPORT_MAPPING_LIMIT": "both = WITHIN_SUPPORT_MAPPING_ESTIMATOR_DOMINANT",
+    "TARGET_IMAGERY_RESIDUAL_SUPPORT_MULTIREGIME": "ventral/lateral differ",
+    "O2_5_SUPPORT_DIAGNOSTIC_INCONCLUSIVE": "provenance/evaluability/technical failure"
+  },
+  "interpretation_guard": {
+    "allowed_if_full_support_low": "Under the prospectively re-derived dense-perception representation, a substantial portion of the target-native imagery-residual structure lies outside the native subspace accessible through the tested perception-derived W_target.",
+    "forbidden": [
+      "imagery-only neurons",
+      "biological dimensions unique to imagery",
+      "disjoint neural populations",
+      "causal mechanisms"
+    ],
+    "scope": "statement about the TESTED REPRESENTATIONAL MODEL only"
+  },
+  "no_model_competition": [
+    "affine",
+    "ridge",
+    "RRR",
+    "CCA",
+    "PLS",
+    "nonlinear networks",
+    "higher K",
+    "different rank",
+    "new common space"
+  ],
+  "next_gate": {
+    "TARGET_IMAGERY_RESIDUAL_OUTSIDE_PERCEPTION_SUPPORT_DOMINANT": "O2.6 TARGET-STATE BASIS AUGMENTATION FRONTIER",
+    "TARGET_IMAGERY_RESIDUAL_WITHIN_SUPPORT_MAPPING_LIMIT": "O2.6 LOW-RANK LINEAR TRANSFER",
+    "TARGET_IMAGERY_RESIDUAL_RANK_LIMIT": "O2.6 RESIDUAL-RANK CAPACITY FRONTIER",
+    "TARGET_IMAGERY_RESIDUAL_SUPPORT_MULTIREGIME": "ROI-specific O2.6 hypotheses"
+  },
+  "O3": "O3_NOT_READY",
+  "config_sha256": "b241a5f0eac1123539fa441bae7884d49ec6158d044644836bbe825a4e095f31"
+}

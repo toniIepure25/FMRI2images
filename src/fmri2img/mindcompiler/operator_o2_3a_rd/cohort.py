@@ -207,39 +207,53 @@ def inner_pair_folds(train_ids, fam):
     return [([x for x in train_ids if x not in (s[j], n[j])], [s[j], n[j]]) for j in range(5)]
 
 
-# ------------------------------------------------------------------ SRM K-selection (vision-only, LOSO subj x block)
-def _srm_recon_r(Xs_by_subj, K, val_subj, block_mask, G):
-    """Cross-subject native reconstruction Pearson r for held-out subject on held-out anchor block.
-    Train SRM on the 7 other subjects over TRAIN-block anchors; align val subj on train-block anchors;
-    reconstruct val subj native patterns for the held-out block; Pearson r (flattened)."""
-    subs = [s for s in Xs_by_subj if s != val_subj]
-    tr = ~block_mask
-    Xs_tr = [Xs_by_subj[s][:, tr] for s in subs]          # (p_s x n_train)
-    Ws, S = G.det_srm_rd(Xs_tr, K)                          # S: (K x n_train)
-    Wmap = dict(zip(subs, Ws))
-    # shared responses for held-out block from training subjects
-    Sb = np.mean([Wmap[s].T @ Xs_by_subj[s][:, block_mask] for s in subs], axis=0)  # (K x n_block)
-    # align val subject using train-block anchors then reconstruct held-out block
-    Wv = G.new_subject_W(Xs_by_subj[val_subj][:, tr], S)   # (p_val x K)
-    Xhat = Wv @ Sb                                          # (p_val x n_block)
-    Xtrue = Xs_by_subj[val_subj][:, block_mask]
-    a, b = Xhat.ravel(), Xtrue.ravel()
-    if a.std() < 1e-12 or b.std() < 1e-12:
-        return 0.0
-    return float(np.corrcoef(a, b)[0, 1])
+# ------------------------------------------------------------------ scaler (CV-clean TRAIN_ONLY_VOXEL_ZSCORE)
+def _scaler_train(C: np.ndarray, keep_rows: np.ndarray):
+    """Per-voxel mean/std over ONLY the kept (training) anchor rows. std floored. FIX 2: no validation-block
+    row ever contributes to a scaler used during K-block CV."""
+    sub = C[keep_rows]
+    mu = sub.mean(0); sd = sub.std(0)
+    sd = np.where(sd > 1e-8, sd, 1.0)
+    return mu, sd
 
 
-def select_K(Xs_by_subj, block_id, G):
-    """Vision-only K selection. block_id: (n_anchor,) in {0..4}. Returns (bestK, scores{K:mean_r})."""
+# ------------------------------------------------------------------ SRM K-selection (TARGET-SPECIFIC, vision-only)
+def select_K_for_target(target, C_by_subject, block_id, G):
+    """FIX 1: K selected separately for EVERY (target participant x ROI). For each candidate K and anchor
+    validation block b in {0..4}: SRM is fit on the SEVEN training subjects (!= target) using ONLY TRAIN
+    anchor rows (block_id != b); the target is aligned using ONLY its TRAIN rows; the target's held-out
+    block is reconstructed from the training subjects' shared responses and scored by cross-subject native
+    pattern reconstruction Pearson r. Mean over the 5 blocks; max K; tie<=1e-12 -> smaller K.
+    FIX 2: every participant's voxel z-score scaler is fit on block_id != b only and applied to both its
+    train and validation rows -- no validation-block statistics leak into K selection.
+    C_by_subject[s]: RAW (un-zscored) (n_anchor x nvox) perception anchors. Returns (bestK, scores)."""
+    subs = [s for s in C_by_subject if s != target]
     scores = {}
     for K in K_CANDS:
-        rs = []
-        for val_subj in Xs_by_subj:
-            for b in range(5):
-                rs.append(_srm_recon_r(Xs_by_subj, K, val_subj, block_id == b, G))
-        scores[K] = float(np.mean(rs))
+        block_r = []
+        for b in range(5):
+            tr = block_id != b; val = block_id == b
+            # CV-clean per-participant scalers (train-block stats only), applied to train + val rows
+            Ztr = {}
+            for s in subs:
+                mu, sd = _scaler_train(C_by_subject[s], tr)
+                Ztr[s] = (C_by_subject[s] - mu) / sd
+            mu_t, sd_t = _scaler_train(C_by_subject[target], tr)
+            Zt = (C_by_subject[target] - mu_t) / sd_t
+            # SRM on the 7 training subjects, TRAIN rows only  (X_s = p_s x n_train)
+            Ws, S = G.det_srm_rd([Ztr[s][tr].T for s in subs], K)
+            Wmap = dict(zip(subs, Ws))
+            # shared responses for the held-out block from the training subjects' val-block anchors
+            Sb = np.mean([Wmap[s].T @ Ztr[s][val].T for s in subs], axis=0)      # (K x n_val)
+            # align target on its TRAIN rows, reconstruct its held-out block
+            Wt = G.new_subject_W(Zt[tr].T, S)                                    # (p_t x K)
+            Xhat = Wt @ Sb                                                        # (p_t x n_val)
+            Xtrue = Zt[val].T
+            a, c = Xhat.ravel(), Xtrue.ravel()
+            block_r.append(0.0 if (a.std() < 1e-12 or c.std() < 1e-12) else float(np.corrcoef(a, c)[0, 1]))
+        scores[K] = float(np.mean(block_r))
     best, bestv = None, -np.inf
-    for K in K_CANDS:                                       # ascending -> tie prefers smaller K
+    for K in K_CANDS:                                        # ascending -> tie prefers smaller K
         if scores[K] > bestv + 1e-12:
             best, bestv = K, scores[K]
     return best, scores
@@ -336,6 +350,7 @@ def fit_target_roi(target, Xs_by_subj, imagery, block_id, ids, fam, K, G, stated
                  train_ids=np.array(train_ids, dtype=object), test_ids=np.array(test_ids, dtype=object))
         records.append({"fold": fold, "r_best": r_best, "r_scores": r_scores,
                         "R_ZERO_RD": R_zero, "R_NULL": R_null, "R_ORACLE": R_oracle,
+                        "RD_ORACLE_RECOVERY": rd_oracle_recovery_fold(R_zero, R_oracle),
                         "test_ids": test_ids, "n_train": len(train_ids)})
     # persist reusable target-ROI state (no raw betas)
     np.savez(statedir / f"srm_{target}_{roi}.npz", W_target=W_target, S=S, K=K,
@@ -344,29 +359,43 @@ def fit_target_roi(target, Xs_by_subj, imagery, block_id, ids, fam, K, G, stated
 
 
 # ------------------------------------------------------------------ inference across participants
+RD_ORACLE_EPS = 1e-12
+
+
+def rd_oracle_recovery_fold(r_zero: float, r_oracle: float) -> float:
+    """FIX 3: historical O2.3A oracle-recovery convention preserved prospectively --
+    RD_ORACLE_RECOVERY = R_ZERO_RD / max(R_ORACLE, eps). NOT raw R_ORACLE."""
+    return float(r_zero) / max(float(r_oracle), RD_ORACLE_EPS)
+
+
 def rd_inference(per_target, G):
-    """per_target: {roi: {subj: {folds:[...]}}}. Effects = mean_fold(R_ZERO_RD - R_NULL) per participant."""
+    """per_target: {roi: {subj: {folds:[...]}}}. Effects = mean_fold(R_ZERO_RD - R_NULL) per participant.
+    Oracle recovery (FIX 3) = median_participants( median_folds( R_ZERO_RD / max(R_ORACLE, eps) ) )."""
     from fmri2img.mindcompiler.operator_o2_3a_rd import frontier as F
     out = {}
     holm_p = {}
     for roi, bysub in per_target.items():
-        eff, truem, nullm, orc = [], [], [], []
+        eff, truem, nullm, part_rec = [], [], [], []
         for s in ALL:
             fr = bysub[s]["folds"]
             t = np.mean([f["R_ZERO_RD"] for f in fr]); n = np.mean([f["R_NULL"] for f in fr])
             eff.append(t - n); truem.append(t); nullm.append(n)
-            orc.append(np.median([f["R_ORACLE"] for f in fr]))
+            fold_rec = [rd_oracle_recovery_fold(f["R_ZERO_RD"], f["R_ORACLE"]) for f in fr]
+            part_rec.append(float(np.median(fold_rec)))            # participant oracle recovery = median over folds
         p = F.signflip_p_onesided(eff)
         holm_p[roi] = p
         out[roi] = {"median_true": float(np.median(truem)), "median_null": float(np.median(nullm)),
                     "n_pos": int(sum(e > 0 for e in eff)), "effects": [float(e) for e in eff],
-                    "signflip_p": float(p), "median_oracle": float(np.median(orc))}
+                    "signflip_p": float(p),
+                    "participant_oracle_recovery": part_rec,
+                    "group_oracle_recovery": float(np.median(part_rec))}   # median over 8 participants
     rej = F.holm(holm_p)
     for roi in out:
         out[roi]["holm_reject"] = bool(rej[roi])
-    # RD identifiable PASS criteria (any primary ROI satisfies Holm + oracle; global median/pos)
+    # RD identifiable PASS criteria (frozen): any primary ROI satisfies median true>null, >=6/8 positive,
+    # Holm-adjusted p<.05, AND group-median oracle RECOVERY >= .50
     pass_ = any(out[r]["median_true"] > out[r]["median_null"] and out[r]["n_pos"] >= 6
-                and out[r]["holm_reject"] and out[r]["median_oracle"] >= 0.50 for r in out)
+                and out[r]["holm_reject"] and out[r]["group_oracle_recovery"] >= 0.50 for r in out)
     all_pos_med = all(out[r]["median_true"] > out[r]["median_null"] for r in out)
     if pass_:
         status = "CORE_ANCHOR_RD_TARGET_ORIENTATION_IDENTIFIABLE"
@@ -378,10 +407,19 @@ def rd_inference(per_target, G):
 
 
 # ------------------------------------------------------------------ union anchor centroids (single session sweep, cached)
-def union_anchor_centroids(data: Path, subject: str, roi_xyz_map, id73_1based, expdesign):
+def _prov_hash(d: dict) -> str:
+    return hashlib.sha256(json.dumps(d, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def union_anchor_centroids(data: Path, subject: str, roi_xyz_map, id73_1based, expdesign, prov_base: dict):
     """Read each core session ONCE; return per-anchor centroids over the UNION of the ROIs' voxels, plus a
-    per-ROI column index into that union. Deterministic; cached to PVC npz keyed by subject + union hash.
-    Identical numerically to per-ROI core_anchor_centroids (same /300 PSC mean-of-reps)."""
+    per-ROI column index into that union. Deterministic; identical numerically to per-ROI
+    core_anchor_centroids (same /300 PSC mean-of-reps).
+
+    FIX 6: the cache identity binds the FULL scientific provenance -- canonical 512-anchor manifest SHA256,
+    ordered 512 anchor-id hash, nsd_expdesign.mat hash, B0/b2 lineage, exact session list, union
+    voxel-coordinate hash, /300 scaling convention, and code/config version. A cached npz is reused ONLY if
+    its adjacent immutable manifest matches every provenance field; otherwise it is rebuilt."""
     import nibabel as nib
     cols = {}
     order_coords = []
@@ -392,16 +430,24 @@ def union_anchor_centroids(data: Path, subject: str, roi_xyz_map, id73_1based, e
             if key not in cols:
                 cols[key] = len(order_coords); order_coords.append(key)
     UX = np.array([c[0] for c in order_coords]); UY = np.array([c[1] for c in order_coords]); UZ = np.array([c[2] for c in order_coords])
-    uhash = hashlib.sha256(np.stack([UX, UY, UZ]).tobytes()).hexdigest()[:16]
-    cache = data / f"cache/anchor_{subject}_{uhash}.npz"
-    if cache.exists():
+    order = np.sort(id73_1based)
+    prov = dict(prov_base)
+    prov.update({"subject": subject,
+                 "union_voxel_hash": hashlib.sha256(np.stack([UX, UY, UZ]).tobytes()).hexdigest(),
+                 "anchor_id_ordered_hash": hashlib.sha256(order.astype(np.int64).tobytes()).hexdigest(),
+                 "session_list": list(ANCHOR_SESSIONS), "scaling": "PSC_div300",
+                 "beta_lineage": "B0_b2_betas_fithrf_func1pt8mm_native"})
+    ph = _prov_hash(prov)[:16]
+    cache = data / f"cache/anchor_{subject}_{ph}.npz"
+    manifest = data / f"cache/anchor_{subject}_{ph}.provenance.json"
+    reuse = cache.exists() and manifest.exists() and json.loads(manifest.read_text()).get("prov_hash") == _prov_hash(prov)
+    if reuse:
         z = np.load(cache); C_union, reps = z["C"], z["reps"]
     else:
         mo = expdesign["masterordering"].ravel()
         sim = expdesign["subjectim"]
         s_idx = int(subject[-2:]) - 1
         id2imgidx = {int(v): i + 1 for i, v in enumerate(sim[s_idx])}
-        order = np.sort(id73_1based)
         want_imgidx = {id2imgidx[int(a)]: int(a) for a in order.tolist() if int(a) in id2imgidx}
         arow = {int(a): k for k, a in enumerate(order.tolist())}
         nvox = len(order_coords)
@@ -423,6 +469,7 @@ def union_anchor_centroids(data: Path, subject: str, roi_xyz_map, id73_1based, e
         C_union = np.where(reps[:, None] > 0, acc / np.maximum(reps[:, None], 1), np.nan)
         cache.parent.mkdir(parents=True, exist_ok=True)
         np.savez(cache, C=C_union, reps=reps)
+        manifest.write_text(json.dumps({"prov_hash": _prov_hash(prov), "provenance": prov}, indent=2, default=str))
     roi_cols = {roi: np.array([cols[(int(x), int(y), int(z))] for x, y, z in zip(*roi_xyz_map[roi])])
                 for roi in roi_xyz_map}
     return C_union, reps, roi_cols
@@ -436,15 +483,25 @@ def _load_roi(data, repo, subject, roi, exp, id73):
     return {"xyz": xyz, "vh": vh, "nv": nv, "ids": ids, "V": V, "I": I, "fam": fam, "C": C, "reps": reps}
 
 
-def fit_cohort(data: Path, repo: Path, out: Path, rois):
+def _file_sha(p: Path) -> str:
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def fit_cohort(data: Path, repo: Path, out: Path, rois, code_version: str = "unknown"):
     import scipy.io
     G = _geom(repo)
     statedir = out / "state"; statedir.mkdir(parents=True, exist_ok=True)
-    exp = scipy.io.loadmat(str(data / "support/nsd_expdesign.mat"))
+    exp_path = data / "support/nsd_expdesign.mat"
+    exp = scipy.io.loadmat(str(exp_path))
     nsdid0, id73 = anchor_nsdids(repo)
     n_anchor = len(id73)
     block_id = np.arange(n_anchor) % 5                                       # K-blocks = anchor_order mod 5
-    summary = {"rois": {}, "config_rd": "c1b2ddb0", "config_r4": "ad959446", "n_anchor": int(n_anchor)}
+    # FIX 6 provenance base (cache identity binds all of these)
+    prov_base = {"anchor_manifest_sha256": _file_sha(repo / "artifacts/mindcompiler/operator_o2_3a/anchor_manifest.csv"),
+                 "expdesign_sha256": _file_sha(exp_path), "config_rd": "c1b2ddb0", "config_r4": "ad959446",
+                 "code_version": code_version, "n_anchor": int(n_anchor)}
+    summary = {"rois": {}, "config_rd": "c1b2ddb0", "config_r4": "ad959446", "n_anchor": int(n_anchor),
+               "provenance_base": prov_base}
     per_target = {}
     # per-subject: ROI voxels + imagery centroids + union anchor centroids (ONE session sweep per subject)
     print("assembling per-subject data (single core-session sweep each)...", flush=True)
@@ -454,48 +511,113 @@ def fit_cohort(data: Path, repo: Path, out: Path, rois):
         for roi in rois:
             xyz, vh, nv = roi_xyz(data, repo, s, roi)
             rx[roi] = {"xyz": xyz, "vh": vh, "nv": nv}
-        C_union, reps, roi_cols = union_anchor_centroids(data, s, {roi: rx[roi]["xyz"] for roi in rois}, id73, exp)
+        C_union, reps, roi_cols = union_anchor_centroids(data, s, {roi: rx[roi]["xyz"] for roi in rois}, id73, exp, prov_base)
         img = {roi: imagery_centroids(data, repo, s, roi, rx[roi]["xyz"]) for roi in rois}
         subj[s] = {"rx": rx, "C_union": C_union, "reps": reps, "roi_cols": roi_cols, "img": img}
         nvox_str = ", ".join("%s:%d" % (r, rx[r]["nv"]) for r in rois)
         print("  %s: anchor reps min/med/max = %d/%d/%d, nvox {%s}"
               % (s, int(reps.min()), int(np.median(reps)), int(reps.max()), nvox_str), flush=True)
+    scaler_prov = {"policy": "TRAIN_ONLY_VOXEL_ZSCORE", "std_floor": 1e-8,
+                   "k_cv": "per (target,K,block b): scaler fit on block_id!=b only, applied to train+val rows",
+                   "final_fit": "full 512-anchor scaler (no remaining anchor-block validation)"}
     for roi in rois:
         ids = subj[ALL[0]]["img"][roi][0]; fam = subj[ALL[0]]["img"][roi][3]
-        # z-scored perception anchors (SRM input X_s = zscored C_s.T -> p_s x n_anchor)
-        Xs_by_subj = {}
+        # RAW per-ROI anchors (un-zscored); K selection does its own CV-clean scaling (FIX 2)
+        C_by_subject = {s: subj[s]["C_union"][:, subj[s]["roi_cols"][roi]] for s in ALL}      # (512 x nvox)
+        # FINAL full-anchor scaler (allowed: no remaining anchor-block validation in the final fit)
+        final_scaler = {}
+        Xs_final = {}
         for s in ALL:
-            C = subj[s]["C_union"][:, subj[s]["roi_cols"][roi]]              # (512 x nvox_roi) this-ROI anchors
-            mu, sd = zscore_fit(C)
-            Xs_by_subj[s] = zscore_apply(C, mu, sd).T
-        K, kscores = select_K(Xs_by_subj, block_id, G)
-        # imagery[s]: V/I native centroids for THIS roi (imagery_centroids returns (ids,V,I,fam))
+            mu, sd = zscore_fit(C_by_subject[s])                                  # full 512-anchor stats
+            final_scaler[s] = {"mu": mu, "sd": sd}
+            Xs_final[s] = zscore_apply(C_by_subject[s], mu, sd).T                  # (nvox x 512)
+        # FIX 1: target-specific K (per target x ROI), using RAW anchors + CV-clean scalers
+        K_by_target, kscores_by_target = {}, {}
+        for target in ALL:
+            Kt, kst = select_K_for_target(target, C_by_subject, block_id, G)
+            K_by_target[target] = Kt; kscores_by_target[target] = kst
+            print("  K[%s,%s]=%d" % (target, roi, Kt), flush=True)
+        # persist final scalers for this ROI (no raw betas; derived per-voxel stats only)
+        np.savez(statedir / f"scaler_{roi}.npz",
+                 **{f"{s}_mu": final_scaler[s]["mu"] for s in ALL},
+                 **{f"{s}_sd": final_scaler[s]["sd"] for s in ALL})
         imagery = {s: {"V": subj[s]["img"][roi][1], "I": subj[s]["img"][roi][2]} for s in ALL}
         bysub = {}
         for target in ALL:
-            bysub[target] = fit_target_roi(target, Xs_by_subj, imagery, block_id, ids, fam, K, G, statedir, roi)
+            bysub[target] = fit_target_roi(target, Xs_final, imagery, block_id, ids, fam,
+                                           K_by_target[target], G, statedir, roi)
         per_target[roi] = bysub
-        summary["rois"][roi] = {"K": K, "K_scores": kscores,
+        summary["rois"][roi] = {"K_by_target": K_by_target, "K_scores_by_target": kscores_by_target,
                                 "n_vox": {s: subj[s]["rx"][roi]["nv"] for s in ALL},
                                 "voxel_hash": {s: subj[s]["rx"][roi]["vh"] for s in ALL}}
+    summary["scaler_provenance"] = scaler_prov
     inf = rd_inference({r: per_target[r] for r in rois if r in ROIS_PRIMARY} or per_target, G)
     summary["inference"] = inf
     summary["per_target"] = {r: {s: per_target[r][s]["folds"] for s in ALL} for r in per_target}
     (out / "rd_results.json").write_text(json.dumps(summary, indent=2, default=str))
+    seal_rd(out, summary)                                   # Stage A seal artifact (RD_SEAL.json)
     print("RD_STATUS", inf["status"])
     return summary
 
 
-# ------------------------------------------------------------------ O2.4R calibration frontier (Stage 2)
+# ------------------------------------------------------------------ RD seal + M0 certification artifacts
+def seal_rd(out: Path, summary: dict):
+    """Stage A seal: write the single RD scientific status + criteria as an immutable artifact (RD_SEAL.json)."""
+    inf = summary["inference"]
+    seal = {"artifact": "RD_SEAL", "status": inf["status"], "config_rd": "c1b2ddb0", "config_r4": "ad959446",
+            "per_roi_criteria": inf["per_roi"], "all_primary_median_positive": inf["all_primary_median_positive"]}
+    (out / "RD_SEAL.json").write_text(json.dumps(seal, indent=2, default=str))
+    return seal
+
+
+def o2_4r_oracle_recovery(R_M: float, R_0: float, R_oracle: float):
+    """FIX 4: calibration oracle-recovery fraction. Returns (unclipped, clipped_[0,1]).
+    (R_M - R_0) / max(R_oracle - R_0, 1e-12)."""
+    unclip = (float(R_M) - float(R_0)) / max(float(R_oracle) - float(R_0), 1e-12)
+    return float(unclip), float(np.clip(unclip, 0.0, 1.0))
+
+
+def certify_m0(repo: Path, out: Path, rois):
+    """Certify O2_4R_M0_EQUALS_O2_3A_RD on the real persisted cells (M0 projector == P_ZERO_RD, numerically).
+    Requires the RD seal artifact to exist first. Writes M0_CERT.json. Does NOT open M>0."""
+    if not (out / "RD_SEAL.json").exists():
+        print("O2_4R_ACCESS_ORDER_VIOLATION: RD_SEAL.json missing -- seal RD before M0 certification")
+        return 3
+    G = _geom(repo)
+    statedir = out / "state"
+    max_dev = 0.0; n_cells = 0
+    for roi in rois:
+        for s in ALL:
+            for fold in range(N_OUTER_FOLDS):
+                cell = dict(np.load(statedir / f"cell_{s}_{roi}_fold{fold}.npz", allow_pickle=True))
+                P0 = G.native_projector(np.eye(int(cell["K"])), cell["U_res"], cell["W_target"])
+                r0 = float(np.nanmean([G.retention(P0, d) for d in list(cell["deltas_test"])]))
+                max_dev = max(max_dev, abs(r0 - float(cell["R_CAL0"]))); n_cells += 1
+    ok = max_dev <= 1e-10
+    cert = {"artifact": "M0_CERT", "certification": "O2_4R_M0_EQUALS_O2_3A_RD", "ok": bool(ok),
+            "max_abs_deviation": float(max_dev), "n_cells": n_cells, "tol": 1e-10, "rois": rois}
+    (out / "M0_CERT.json").write_text(json.dumps(cert, indent=2, default=str))
+    print("O2_4R_M0_EQUALS_O2_3A_RD" if ok else "O2_4R_M0_MISMATCH", "max_dev=%.2e n=%d" % (max_dev, n_cells))
+    return 0 if ok else 1
+
+
+# ------------------------------------------------------------------ O2.4R calibration frontier (Stage B)
 def run_o2_4r(repo: Path, out: Path, rois):
-    """Consume persisted per-cell RD state; run the O2.4R target-imagery calibration frontier. Certifies
-    M0 == P_ZERO_RD on real cells, then opens M>0. Reuses committed frontier.py (certified)."""
+    """Stage B: target-imagery calibration frontier (M>0). ACCESS-ORDER GUARD: refuses to run unless the
+    RD seal + valid M0 certification artifacts are present. Reuses committed frontier.py (certified)."""
+    seal_p, cert_p = out / "RD_SEAL.json", out / "M0_CERT.json"
+    if not seal_p.exists() or not cert_p.exists():
+        print("O2_4R_ACCESS_ORDER_VIOLATION: require RD_SEAL.json AND M0_CERT.json before M>0")
+        raise SystemExit(3)
+    cert = json.loads(cert_p.read_text())
+    if not (cert.get("artifact") == "M0_CERT" and cert.get("ok") is True):
+        print("O2_4R_ACCESS_ORDER_VIOLATION: M0_CERT invalid (M0 != P_ZERO_RD) -- cannot open M>0")
+        raise SystemExit(3)
     G = _geom(repo)
     from fmri2img.mindcompiler.operator_o2_3a_rd import frontier as F
     statedir = out / "state"
     rd = json.loads((out / "rd_results.json").read_text())
     budgets = F.BUDGETS
-    m0_all_ok = True
     per_roi = {}
     for roi in rois:
         # gather cell frontiers per subject
@@ -507,25 +629,27 @@ def run_o2_4r(repo: Path, out: Path, rois):
                 cell = {k: (float(cell[k]) if k == "R_CAL0" else cell[k]) for k in cell}
                 cell["deltas_test"] = list(cell["deltas_test"])
                 cell["simple_ids"] = cell["simple_ids"].tolist(); cell["nat_ids"] = cell["nat_ids"].tolist()
-                # M0 == P_ZERO_RD certification on the real cell
-                P0 = G.native_projector(np.eye(int(cell["K"])), cell["U_res"], cell["W_target"])
-                r0 = float(np.nanmean([G.retention(P0, d) for d in cell["deltas_test"]]))
-                if abs(r0 - cell["R_CAL0"]) > 1e-10:
-                    m0_all_ok = False
                 cf = F.cell_frontier(cell, s, roi, fold, n_null=N_NULL, budgets=budgets)
                 cf_by_sub[s].append(cf)
                 oracle_by_sub[s].append(rd["per_target"][roi][s][fold]["R_ORACLE"])
-        # participant effects per M
+        # participant effects + FIX 4 calibration oracle-recovery fraction per M
         per_M = {}
         for M in [2, 4, 6, 8, 10]:
-            E, dz = [], []
+            E, dz, rec_clip, rec_unclip = [], [], [], []
             for s in ALL:
                 e, d = F.participant_E(cf_by_sub[s], M)
                 E.append(e); dz.append(d)
+                R_M = float(np.mean([cf[M]["r_cal_true"] for cf in cf_by_sub[s]]))
+                R_0 = float(np.mean([cf[0]["r_cal_true"] for cf in cf_by_sub[s]]))
+                R_or = float(np.mean(oracle_by_sub[s]))                       # mean native-oracle retention over folds
+                unclip, clip = o2_4r_oracle_recovery(R_M, R_0, R_or)
+                rec_unclip.append(unclip); rec_clip.append(clip)
             p = F.signflip_p_onesided(E)
             per_M[M] = {"median_E": float(np.median(E)), "frac_pos": float(np.mean([e > 0 for e in E])),
                         "holm_p": float(p), "median_delta_zero": float(np.median(dz)),
-                        "median_oracle_recovery": float(np.median([np.median(oracle_by_sub[s]) for s in ALL])),
+                        "median_oracle_recovery": float(np.median(rec_clip)),          # clipped, bounded (M_STAR)
+                        "median_oracle_recovery_unclipped": float(np.median(rec_unclip)),
+                        "oracle_recovery_clipped": rec_clip, "oracle_recovery_unclipped": rec_unclip,
                         "E": [float(e) for e in E], "delta_zero": [float(x) for x in dz]}
         # Holm across the primary tests handled at aggregate below; store raw p here
         per_roi[roi] = {"per_M": per_M, "m_star": F.m_star(per_M)}
@@ -546,10 +670,9 @@ def run_o2_4r(repo: Path, out: Path, rois):
                 mstar = M; break
         per_roi[r]["m_star"] = mstar
     status = _o2_4r_status(per_roi, prim)
-    res = {"per_roi": per_roi, "m0_equals_pzero_rd_all_cells": m0_all_ok, "status": status,
-           "config_r4": "ad959446"}
+    res = {"per_roi": per_roi, "status": status, "config_r4": "ad959446",
+           "m0_cert": json.loads(cert_p.read_text())}
     (out / "o2_4r_results.json").write_text(json.dumps(res, indent=2, default=str))
-    print("O2_4R_M0_EQUALS_O2_3A_RD" if m0_all_ok else "O2_4R_M0_MISMATCH")
     print("O2_4R_STATUS", status)
     return res
 
@@ -599,7 +722,8 @@ def selftest(repo: Path):
             + 0.01 * rng.standard_normal((n_id, p))                          # imagery = vision reactivation + residual
         imagery[s] = {"V": Vc, "I": Ic}
     block_id = np.arange(n_anchor) % 5
-    K, kscores = select_K(Xs_by_subj, block_id, G)
+    C_by_subject = {s: Xs_by_subj[s].T for s in ALL}                          # (n_anchor x p) RAW for K-select
+    K, kscores = select_K_for_target("subj01", C_by_subject, block_id, G)      # FIX 1: target-specific
     with tempfile.TemporaryDirectory() as td:
         sd = Path(td)
         rec = fit_target_roi("subj01", Xs_by_subj, imagery, block_id, ids, fam, K, G, sd, "ventral")
@@ -615,7 +739,7 @@ def selftest(repo: Path):
         r_g = float(np.nanmean([G.retention(P0g, d) for d in cell["deltas_test"]]))
         gauge_ok = abs(r_g - r_m0) < 1e-9
         true_beats_null = all(f["R_ZERO_RD"] > f["R_NULL"] for f in rec["folds"])
-        oracle_ok = np.median([f["R_ORACLE"] for f in rec["folds"]]) > 0.5
+        oracle_ok = np.median([f["RD_ORACLE_RECOVERY"] for f in rec["folds"]]) > 0.5   # FIX 3: recovery, not raw
         # exercise the O2.4R frontier on the synthetic cell (single fold): calibration recovers, M0==P_ZERO_RD
         from fmri2img.mindcompiler.operator_o2_3a_rd import frontier as F
         cellf = {kk: cell[kk] for kk in ("U_res", "W_target")}
@@ -642,14 +766,16 @@ def main():
     ap.add_argument("--out")
     ap.add_argument("--validate-input-only", action="store_true")
     ap.add_argument("--selftest", action="store_true")
-    ap.add_argument("--fit", action="store_true")
-    ap.add_argument("--o2-4r", action="store_true")
+    ap.add_argument("--fit", action="store_true")          # Stage A: RD fit + seal
+    ap.add_argument("--certify-m0", action="store_true")   # Stage A: certify M0==P_ZERO_RD (needs RD_SEAL)
+    ap.add_argument("--o2-4r", action="store_true")        # Stage B: M>0 frontier (needs RD_SEAL + M0_CERT)
     ap.add_argument("--rois", default="ventral,lateral")
+    ap.add_argument("--code-version", default="unknown")
     a = ap.parse_args()
     repo = Path(a.repo)
     if a.selftest:
         return selftest(repo)
-    data, out = Path(a.data), Path(a.out); out.mkdir(parents=True, exist_ok=True)
+    data, out = Path(a.data) if a.data else None, Path(a.out); out.mkdir(parents=True, exist_ok=True)
     rois = [r.strip() for r in a.rois.split(",") if r.strip()]
     if a.validate_input_only:
         res = validate_input(data, repo)
@@ -657,13 +783,15 @@ def main():
         print("VALIDATE_OK" if res["ok"] else "VALIDATE_FAIL")
         print(json.dumps({s: res["subjects"][s].get("core_anchor", res["subjects"][s].get("ERROR")) for s in ALL}, default=str)[:1500])
         return 0 if res["ok"] else 1
-    if a.fit:
-        fit_cohort(data, repo, out, rois)
+    if a.fit:                                               # STAGE A (fit only; does NOT open M>0)
+        fit_cohort(data, repo, out, rois, code_version=a.code_version)
         return 0
-    if getattr(a, "o2_4r"):
+    if getattr(a, "certify_m0"):                            # STAGE A (M0 certification artifact)
+        return certify_m0(repo, out, rois)
+    if getattr(a, "o2_4r"):                                 # STAGE B (guarded)
         run_o2_4r(repo, out, rois)
         return 0
-    print("no mode selected (--selftest | --validate-input-only | --fit | --o2-4r)"); return 2
+    print("no mode (--selftest | --validate-input-only | --fit | --certify-m0 | --o2-4r)"); return 2
 
 
 if __name__ == "__main__":

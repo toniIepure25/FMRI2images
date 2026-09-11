@@ -1,0 +1,51 @@
+# O2.3A-RD / O2.4R Phase-2 canonical Kubernetes Job (committed per FIX 7).
+#
+# ONE stage per Job. Stage A = RD fit + seal + M0 cert (args: ["stageA"]).
+# Stage B = O2.4R M>0 frontier (args: ["stageB"]) -- launch ONLY after Stage A
+# is sealed, committed, pushed, and server-verified, and M0 is certified.
+#
+# Change metadata.name (rd-fit-stagea / rd-o2-4r-stageb) and args per stage.
+# Requires the `rd-src` ConfigMap (source files + o2_3a_rd_phase2.sh); rebuild it
+# from a repo checkout as documented in scripts/mindcompiler/o2_3a_rd_phase2.sh.
+#
+# Provenance:
+#   image digest sha256:15cbf8dcd17440d26ff5e80e9f7313f1cb3c54f13673f1ec4aed4465e8e12d77
+#   node r770 (runai cpu-worker); PVC rd-data mounted ONCE at /rd/data
+#   --data /rd/data/data ; --out /rd/data/results/rd ; BLAS threads pinned to 1
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: rd-fit-stagea            # stageB: rd-o2-4r-stageb
+  namespace: runai-romania-dev
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        runai/node-pool: cpu-worker
+    spec:
+      restartPolicy: Never
+      nodeSelector:
+        node-role.kubernetes.io/runai-cpu-worker: "true"
+        kubernetes.io/hostname: k8s-worker-cpu-node-r770
+      containers:
+        - name: fit
+          image: nipreps/fmriprep:25.2.5
+          command: ["sh", "/cm/o2_3a_rd_phase2.sh"]
+          args: ["stageA"]        # stageB for the O2.4R frontier
+          env:
+            - name: CODE_VERSION
+              value: "REPLACE_WITH_SOURCE_COMMIT"   # set to the committed source hash at launch
+            - name: ROIS
+              value: "ventral,lateral"
+          resources:
+            requests: {cpu: "8", memory: "48Gi"}
+            limits: {cpu: "16", memory: "96Gi"}
+          volumeMounts:
+            - {name: data, mountPath: /rd/data}
+            - {name: cm, mountPath: /cm}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: rd-data}
+        - name: cm
+          configMap: {name: rd-src}

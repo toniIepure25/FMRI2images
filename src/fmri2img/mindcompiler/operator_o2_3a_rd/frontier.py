@@ -32,8 +32,17 @@ def balanced_subsets(simple_ids: Sequence[int], nat_ids: Sequence[int], M: int) 
 
 
 def _null_perm(seed_text: str, m: int) -> np.ndarray:
+    """Deterministic DERANGEMENT of m calibration positions: destroys identity correspondence so no
+    calibration identity stays paired to its own target identity (frozen null: 'destroy identity
+    correspondence'). Uses the frozen seed (SHA256 -> first16hex -> uint64 -> PCG64); redraws until the
+    permutation has zero fixed points. For m<=1 no derangement exists -> returns the (empty/degenerate) perm."""
     rng = np.random.Generator(np.random.PCG64(G.seed_uint64(seed_text)))
-    return rng.permutation(m)
+    if m <= 1:
+        return rng.permutation(m)
+    p = rng.permutation(m)
+    while np.any(p == np.arange(m)):
+        p = rng.permutation(m)
+    return p
 
 
 def r_cal_for_Q(Q: np.ndarray, U_res: np.ndarray, W_target: np.ndarray, deltas: Sequence[np.ndarray]) -> float:

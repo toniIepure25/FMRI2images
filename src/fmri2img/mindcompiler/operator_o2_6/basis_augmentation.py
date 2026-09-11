@@ -24,6 +24,7 @@ ALL = [f"subj0{i}" for i in range(1, 9)]
 ROIS_PRIMARY = ["ventral", "lateral"]
 M_GRID = [2, 4, 6, 8, 10]
 D_GRID = [1, 2, 4, 6, 8, 10]
+EXPECTED_SUBSETS = {2: 25, 4: 100, 6: 100, 8: 25, 10: 1}   # frozen balanced-subset counts per M
 N_FOLDS = 6
 N_NULL = 100
 EPS = 1e-12
@@ -98,7 +99,7 @@ def balanced_subsets(simple_ids, nat_ids, M):
 # --- per (subject, ROI) frontier ---------------------------------------------
 def frontier_subject_roi(s, roi, cells, dnat, rd, G, ext_bound):
     """Returns per (M,d) fold-averaged participant metrics + terminal per-fold E_AUG list."""
-    per_md = {(M, d): {"R_AUG": [], "R_BASE": [], "R_COND": [], "R_NULL": [], "TRAIN": [], "rank_insuf": 0}
+    per_md = {(M, d): {"folds": [], "fold_insuf": 0, "subset_insuf": 0}
               for M in M_GRID for d in D_GRID if d <= M}
     term_E_by_fold = []                                        # E_AUG at (M=10,d=10) per fold
     R0_folds, Rnat_folds = [], []
@@ -127,9 +128,11 @@ def frontier_subject_roi(s, roi, cells, dnat, rd, G, ext_bound):
         oracle_B = {d: outside_basis(Dout.T, d) for d in D_GRID}
         for M in M_GRID:
             subs = balanced_subsets(simple_ids, nat_ids, M)
-            aug = {d: [] for d in D_GRID if d <= M}
-            base_all, cond = {d: [] for d in aug}, {d: [] for d in aug}
-            nullm = {d: [] for d in aug}; train = {d: [] for d in aug}
+            n_expected = EXPECTED_SUBSETS[M]
+            assert len(subs) == n_expected, "subset count %d != expected %d for M=%d" % (len(subs), n_expected, M)
+            # per-d accumulators for THIS fold (only complete-subset cells are used)
+            acc = {d: {"aug": [], "base": [], "cond": [], "null": [], "train": [], "insuf": 0}
+                   for d in D_GRID if d <= M}
             for si, C in enumerate(subs):
                 Ccols = list(C)
                 Q = G.orthogonal_procrustes(X[Ccols], Z[Ccols])
@@ -139,52 +142,56 @@ def frontier_subject_roi(s, roi, cells, dnat, rd, G, ext_bound):
                 for d in [x for x in D_GRID if x <= M]:
                     B = outside_basis(Dout_C, d)
                     if B is None:
-                        per_md[(M, d)]["rank_insuf"] += 1
+                        acc[d]["insuf"] += 1                                # RANK_INSUFFICIENT subset -> do NOT drop
                         continue
                     r_aug = R_base + float(np.mean([_proj_frac(B, dt) for dt in deltas_test]))
-                    # conditional all-training oracle (same P_IN)
-                    Bor = oracle_B[d]
+                    Bor = oracle_B[d]                                        # all-training conditional oracle (same P_IN)
                     r_cond = R_base + (float(np.mean([_proj_frac(Bor, dt) for dt in deltas_test])) if Bor is not None else 0.0)
-                    # matched random-outside null (100)
-                    nvals = []
+                    nvals = []                                              # matched random-outside null (100)
                     for it in range(N_NULL):
                         seed = "O2.6|%s|%s|%d|%d|%d|%d|%d" % (s, roi, f, M, si, d, it)
                         Bn = null_basis(seed, W, V, d, G)
                         nvals.append(R_base + float(np.mean([_proj_frac(Bn, dt) for dt in deltas_test])))
-                    # train calibration retention (in-sample, Part P): P_AUG on calibration identities
-                    tr = []
-                    for k in Ccols:
-                        dk = D_train[k]; d2 = float(dk @ dk)
-                        if d2 > 0:
-                            tr.append(float((G.retention(P_IN, dk)) + _proj_frac(B, dk)))
-                    aug[d].append(r_aug); base_all[d].append(R_base); cond[d].append(r_cond)
-                    nullm[d].append(float(np.mean(nvals))); train[d].append(float(np.mean(tr)) if tr else np.nan)
-            for d in aug:
-                if aug[d]:
-                    per_md[(M, d)]["R_AUG"].append(float(np.mean(aug[d])))
-                    per_md[(M, d)]["R_BASE"].append(float(np.mean(base_all[d])))
-                    per_md[(M, d)]["R_COND"].append(float(np.mean(cond[d])))
-                    per_md[(M, d)]["R_NULL"].append(float(np.mean(nullm[d])))
-                    per_md[(M, d)]["TRAIN"].append(float(np.nanmean(train[d])))
+                    tr = [float(G.retention(P_IN, D_train[k]) + _proj_frac(B, D_train[k]))
+                          for k in Ccols if float(D_train[k] @ D_train[k]) > 0]
+                    acc[d]["aug"].append(r_aug); acc[d]["base"].append(R_base); acc[d]["cond"].append(r_cond)
+                    acc[d]["null"].append(float(np.mean(nvals))); acc[d]["train"].append(float(np.mean(tr)) if tr else np.nan)
+            # FIX 4: a fold (M,d) is evaluable ONLY if EVERY enumerated balanced subset produced a valid basis
+            for d in acc:
+                a = acc[d]; complete = (a["insuf"] == 0 and len(a["aug"]) == n_expected)
+                per_md[(M, d)]["subset_insuf"] += a["insuf"]
+                if complete:
+                    per_md[(M, d)]["folds"].append({"R_AUG": float(np.mean(a["aug"])), "R_BASE": float(np.mean(a["base"])),
+                        "R_COND": float(np.mean(a["cond"])), "R_NULL": float(np.mean(a["null"])),
+                        "TRAIN": float(np.nanmean(a["train"]))})
                     if M == 10 and d == 10:
-                        term_E_by_fold.append(float(np.mean(aug[d]) - np.mean(nullm[d])))
+                        term_E_by_fold.append(float(np.mean(a["aug"]) - np.mean(a["null"])))
+                else:
+                    per_md[(M, d)]["fold_insuf"] += 1
     R0 = float(np.mean(R0_folds)); Rnat = float(np.mean(Rnat_folds))
-    out = {"R0": R0, "R_native": Rnat, "term_E_folds": term_E_by_fold, "md": {}}
+    out = {"R0": R0, "R_native": Rnat, "term_E_folds": term_E_by_fold, "term_evaluable": len(term_E_by_fold) == N_FOLDS, "md": {}}
     for (M, d), v in per_md.items():
-        if not v["R_AUG"]:
-            out["md"]["%d_%d" % (M, d)] = {"rank_insufficient": True, "rank_insuf_count": v["rank_insuf"]}
+        folds = v["folds"]
+        # FIX 5: participant (M,d) evaluable ONLY if ALL 6 outer folds are evaluable
+        if len(folds) != N_FOLDS:
+            out["md"]["%d_%d" % (M, d)] = {"evaluable": False, "reason": "PARTICIPANT_MD_RANK_INSUFFICIENT",
+                                           "n_folds_evaluable": len(folds), "fold_insuf": v["fold_insuf"],
+                                           "subset_insuf": v["subset_insuf"]}
             continue
-        R_AUG = float(np.mean(v["R_AUG"])); R_BASE = float(np.mean(v["R_BASE"]))
-        R_COND = float(np.mean(v["R_COND"])); R_NULL = float(np.mean(v["R_NULL"]))
-        TRAIN = float(np.nanmean(v["TRAIN"]))
+        R_AUG = float(np.mean([x["R_AUG"] for x in folds])); R_BASE = float(np.mean([x["R_BASE"] for x in folds]))
+        R_COND = float(np.mean([x["R_COND"] for x in folds])); R_NULL = float(np.mean([x["R_NULL"] for x in folds]))
+        TRAIN = float(np.nanmean([x["TRAIN"] for x in folds]))
         E_AUG = R_AUG - R_NULL
-        obr = (R_AUG - R_BASE) / max(R_COND - R_BASE, EPS)
+        den_cond = R_COND - R_BASE
+        obr = (R_AUG - R_BASE) / max(den_cond, EPS)
         tot = (R_AUG - R0) / max(Rnat - R0, EPS)
         out["md"]["%d_%d" % (M, d)] = {
-            "R_BASE": R_BASE, "R_AUG": R_AUG, "DELTA_OUT": R_AUG - R_BASE, "R_NULL_mean": R_NULL,
-            "E_AUG": E_AUG, "R_COND": R_COND, "OUT_BASIS_RECOVERY": float(np.clip(obr, 0, 1)),
-            "OUT_BASIS_RECOVERY_unclipped": obr, "TOTAL_RECOVERY": float(np.clip(tot, 0, 1)),
-            "TOTAL_RECOVERY_unclipped": tot, "TRAIN_retention": TRAIN, "rank_insuf_count": v["rank_insuf"]}
+            "evaluable": True, "R_BASE": R_BASE, "R_AUG": R_AUG, "DELTA_OUT": R_AUG - R_BASE, "R_NULL_mean": R_NULL,
+            "E_AUG": E_AUG, "R_COND": R_COND, "R_COND_MINUS_R_BASE": den_cond,
+            "OUT_BASIS_RECOVERY": float(np.clip(obr, 0, 1)), "OUT_BASIS_RECOVERY_unclipped": obr,
+            "OUT_BASIS_RECOVERY_flag": ("DENOMINATOR_DEGENERATE" if den_cond <= 1e-12 else "ok"),   # FIX 8
+            "TOTAL_RECOVERY": float(np.clip(tot, 0, 1)), "TOTAL_RECOVERY_unclipped": tot,
+            "TRAIN_retention": TRAIN, "subset_insuf": v["subset_insuf"]}
     return out
 
 
@@ -198,54 +205,63 @@ def aggregate(per_subj, G):
     rois = list(next(iter(per_subj.values())).keys())
     roi_status = {}; frontier_rows = []; term = {}
     for roi in rois:
-        # group medians per (M,d)
+        # group medians per (M,d) -- a group cell is COMPLETE only if all 8 participants are evaluable (FIX 5)
         md_group = {}
         for M in M_GRID:
             for d in D_GRID:
                 if d > M:
                     continue
                 key = "%d_%d" % (M, d)
-                tots = [per_subj[s][roi]["md"][key]["TOTAL_RECOVERY"] for s in ALL if key in per_subj[s][roi]["md"] and "TOTAL_RECOVERY" in per_subj[s][roi]["md"][key]]
-                eaug = [per_subj[s][roi]["md"][key]["E_AUG"] for s in ALL if key in per_subj[s][roi]["md"] and "E_AUG" in per_subj[s][roi]["md"][key]]
-                obr = [per_subj[s][roi]["md"][key]["OUT_BASIS_RECOVERY"] for s in ALL if key in per_subj[s][roi]["md"] and "OUT_BASIS_RECOVERY" in per_subj[s][roi]["md"][key]]
-                if not tots:
-                    continue
-                md_group[key] = {"M": M, "d": d, "median_TOTAL": _median(tots), "n_TOTAL_ge0.5": sum(t >= 0.5 for t in tots),
-                                 "median_E_AUG": _median(eaug), "n_E_pos": sum(e > 0 for e in eaug),
-                                 "median_OUT_BASIS_RECOVERY": _median(obr), "n": len(tots)}
-                r = md_group[key]
-                frontier_rows.append([roi, M, d, r["median_TOTAL"], r["n_TOTAL_ge0.5"], r["median_E_AUG"],
-                                      r["n_E_pos"], r["median_OUT_BASIS_RECOVERY"]])
-        # terminal (M=10,d=10): per-participant E_AUG (mean over folds) -> sign-flip 2^8
-        eterm = [float(np.mean(per_subj[s][roi]["term_E_folds"])) for s in ALL]
-        p_term = F.signflip_p_onesided(eterm)
-        tot_term = [per_subj[s][roi]["md"]["10_10"]["TOTAL_RECOVERY"] for s in ALL]
-        term[roi] = {"E_AUG": eterm, "median_E_AUG": _median(eterm), "n_E_pos": sum(e > 0 for e in eterm),
-                     "signflip_p": float(p_term), "median_TOTAL": _median(tot_term),
-                     "n_TOTAL_ge0.5": sum(t >= 0.5 for t in tot_term)}
+                ev = [per_subj[s][roi]["md"][key] for s in ALL if per_subj[s][roi]["md"].get(key, {}).get("evaluable")]
+                n_ev = len(ev)
+                complete = (n_ev == 8)
+                tots = [x["TOTAL_RECOVERY"] for x in ev]; eaug = [x["E_AUG"] for x in ev]; obr = [x["OUT_BASIS_RECOVERY"] for x in ev]
+                g = {"M": M, "d": d, "n_evaluable_participants": n_ev, "complete": complete,
+                     "median_TOTAL": _median(tots), "n_TOTAL_ge0.5": sum(t >= 0.5 for t in tots),
+                     "median_E_AUG": _median(eaug), "n_E_pos": sum(e > 0 for e in eaug),
+                     "median_OUT_BASIS_RECOVERY": _median(obr)}
+                md_group[key] = g
+                frontier_rows.append([roi, M, d, n_ev, g["median_TOTAL"], g["n_TOTAL_ge0.5"], g["median_E_AUG"],
+                                      g["n_E_pos"], g["median_OUT_BASIS_RECOVERY"]])
+        # terminal (M=10,d=10): valid ONLY if all 8 participants evaluable (6/6 folds each) (FIX 6)
+        term_ok = all(per_subj[s][roi].get("term_evaluable") and per_subj[s][roi]["md"].get("10_10", {}).get("evaluable")
+                      for s in ALL)
+        if term_ok:
+            eterm = [float(np.mean(per_subj[s][roi]["term_E_folds"])) for s in ALL]
+            tot_term = [per_subj[s][roi]["md"]["10_10"]["TOTAL_RECOVERY"] for s in ALL]
+            term[roi] = {"terminal_complete": True, "E_AUG": eterm, "median_E_AUG": _median(eterm),
+                         "n_E_pos": sum(e > 0 for e in eterm), "signflip_p": float(F.signflip_p_onesided(eterm)),
+                         "median_TOTAL": _median(tot_term), "n_TOTAL_ge0.5": sum(t >= 0.5 for t in tot_term)}
+        else:
+            term[roi] = {"terminal_complete": False, "signflip_p": 1.0, "median_E_AUG": float("nan"),
+                         "n_E_pos": 0, "median_TOTAL": float("nan"), "n_TOTAL_ge0.5": 0}
         roi_status[roi] = {"md_group": md_group}
     # Holm across exactly the 2 terminal tests
     holm = F.holm({roi: term[roi]["signflip_p"] for roi in rois}, alpha=0.05)
     for roi in rois:
         t = term[roi]
-        feasible = (t["median_E_AUG"] > 0 and t["n_E_pos"] >= 6 and bool(holm[roi])
+        feasible = (t["terminal_complete"] and t["median_E_AUG"] > 0 and t["n_E_pos"] >= 6 and bool(holm[roi])
                     and t["median_TOTAL"] >= 0.50 and t["n_TOTAL_ge0.5"] >= 6)
         t["holm_reject"] = bool(holm[roi]); t["terminal_feasible"] = feasible
-        # D50 at M=10
+        # D50 at M=10 -- only from COMPLETE cells (all 8 participants evaluable) (FIX 7)
+        def _cell_ok(key):
+            g = roi_status[roi]["md_group"].get(key)
+            return bool(g and g["complete"] and g["median_TOTAL"] >= 0.50 and g["n_TOTAL_ge0.5"] >= 6
+                        and g["median_E_AUG"] > 0 and g["n_E_pos"] >= 6)
         d50 = "NOT_REACHED"
         if feasible:
             for d in D_GRID:
-                key = "%d_%d" % (10, d); g = roi_status[roi]["md_group"].get(key)
-                if g and g["median_TOTAL"] >= 0.50 and g["n_TOTAL_ge0.5"] >= 6 and g["median_E_AUG"] > 0 and g["n_E_pos"] >= 6:
+                if _cell_ok("%d_%d" % (10, d)):
                     d50 = d; break
         m50 = "NOT_REACHED"
         if isinstance(d50, int):
             for M in M_GRID:
-                key = "%d_%d" % (M, d50); g = roi_status[roi]["md_group"].get(key)
-                if g and g["median_TOTAL"] >= 0.50 and g["n_TOTAL_ge0.5"] >= 6 and g["median_E_AUG"] > 0 and g["n_E_pos"] >= 6:
+                if _cell_ok("%d_%d" % (M, d50)):
                     m50 = M; break
         # ROI status
-        if not feasible:
+        if not t["terminal_complete"]:
+            st = "TARGET_BASIS_AUGMENTATION_INCONCLUSIVE"        # FIX 6: terminal rank-insufficient -> inconclusive
+        elif not feasible:
             st = "TARGET_BASIS_AUGMENTATION_NOT_RECOVERED_AT_MAX_BUDGET"
         elif d50 == "NOT_REACHED":
             st = "TARGET_BASIS_AUGMENTATION_INCONCLUSIVE"
@@ -274,9 +290,59 @@ def aggregate(per_subj, G):
     return roi_status, term, frontier_rows, prog
 
 
-def run_frontier(repo, state_dir, ext_dir, rd_results_path, manifest_path, out, rois):
+def verify_ext_file(p, mm, sealed_cell, vdim_sealed, vh_sealed):
+    """Per-file check. Returns None on success, else a failure code (FIX 1 hash / FIX 2 identity alignment)."""
+    if not p.exists() or mm is None:
+        return "O2_6_NATIVE_RESIDUAL_EXTENSION_HASH_FAILURE"
+    if _sha256_file(p) != mm["sha256"] or p.stat().st_size != mm["bytes"]:
+        return "O2_6_NATIVE_RESIDUAL_EXTENSION_HASH_FAILURE"
+    z = dict(np.load(p, allow_pickle=True))
+    D = np.asarray(z["delta_native"])
+    if list(D.shape) != list(mm["shape"]) or D.shape[0] != 10 or D.shape[1] != vdim_sealed:
+        return "O2_6_NATIVE_RESIDUAL_EXTENSION_HASH_FAILURE"
+    ext_train = [str(x) for x in z["train_ids"].tolist()]
+    sealed_train = [str(x) for x in sealed_cell["train_ids"].tolist()]
+    if ext_train != sealed_train or str(z["voxel_hash"]) != vh_sealed or len(z["fam"]) != 10:
+        return "O2_6_NATIVE_RESIDUAL_IDENTITY_ALIGNMENT_FAILURE"
+    return None
+
+
+def verify_extension(state_dir, ext_dir, ext_manifest_path, rd, rois):
+    """FIX 1: verify every deltanat file against the COMMITTED extension manifest (exists/name/sha256/bytes/
+    shape/exactly-10-residuals/voxel-dim). FIX 2: verify identity ORDER (train_ids element-for-element vs the
+    sealed RD cell), voxel_hash vs the sealed ROI hash, and family alignment. Any failure STOPS the gate."""
+    man = json.loads(Path(ext_manifest_path).read_text())
+    by = {f["name"]: f for f in man["files"]}
+    rec = {"checked": 0, "matched": 0, "mismatches": [], "ok": True, "failure": None}
+    for roi in rois:
+        for s in ALL:
+            vdim_sealed = int(rd["rois"][roi]["n_vox"][s]); vh_sealed = rd["rois"][roi]["voxel_hash"][s]
+            for f in range(N_FOLDS):
+                name = f"deltanat_{s}_{roi}_fold{f}.npz"; p = ext_dir / name
+                rec["checked"] += 1
+                cell_p = state_dir / f"cell_{s}_{roi}_fold{f}.npz"
+                cell = dict(np.load(cell_p, allow_pickle=True)) if cell_p.exists() else {"train_ids": np.array([], dtype=object)}
+                fail = verify_ext_file(p, by.get(name), cell, vdim_sealed, vh_sealed)
+                if fail:
+                    rec["ok"] = False; rec["failure"] = fail
+                    rec["mismatches"].append({"name": name, "failure": fail})
+                else:
+                    rec["matched"] += 1
+    if rec["ok"] and not (rec["checked"] == rec["matched"] == 96):
+        rec["ok"] = False; rec["failure"] = "O2_6_NATIVE_RESIDUAL_EXTENSION_HASH_FAILURE"
+    return rec
+
+
+def run_frontier(repo, state_dir, ext_dir, rd_results_path, manifest_path, ext_manifest, rd_results_sha256, out, rois):
     G = _geom(repo)
     out.mkdir(parents=True, exist_ok=True)
+    # FIX 3: rd_results provenance (verify SHA against the committed/sealed value)
+    rd_sha = _sha256_file(rd_results_path)
+    prov = {"path": str(rd_results_path), "sha256": rd_sha, "expected_sha256": rd_results_sha256,
+            "match": (rd_results_sha256 is None or rd_sha == rd_results_sha256)}
+    (out / "rd_results_provenance.json").write_text(json.dumps(prov, indent=2))
+    if not prov["match"]:
+        print("O2_6_TARGET_BASIS_INCONCLUSIVE (rd_results provenance mismatch)"); return 1
     rd = json.loads(rd_results_path.read_text())
     man = json.loads(manifest_path.read_text())
     by = {f["name"]: f for f in man["files"]}
@@ -289,6 +355,11 @@ def run_frontier(repo, state_dir, ext_dir, rd_results_path, manifest_path, out, 
     (out / "sealed_state_verification.json").write_text(json.dumps(hv, indent=2))
     if not hv["ok"]:
         print("O2_6_TARGET_BASIS_INCONCLUSIVE (sealed-state hash mismatch)"); return 1
+    # FIX 1+2: verify the certified native-residual extension (hash/size/shape) AND identity alignment
+    ev = verify_extension(state_dir, ext_dir, ext_manifest, rd, rois)
+    (out / "native_residual_extension_verification.json").write_text(json.dumps(ev, indent=2, default=str))
+    if not ev["ok"]:
+        print(ev["failure"]); return 1
     ext_bound = {"max_leak": 0.0, "rows": [], "spectrum": []}
     per_subj = {s: {} for s in ALL}
     for roi in rois:
@@ -301,13 +372,13 @@ def run_frontier(repo, state_dir, ext_dir, rd_results_path, manifest_path, out, 
     def _w(name, header, rows):
         with open(out / name, "w", newline="") as fh:
             w = csv.writer(fh); w.writerow(header); w.writerows(rows)
-    _w("total_recovery_frontier.csv", ["roi", "M", "d", "median_TOTAL", "n_TOTAL_ge0.5", "median_E_AUG", "n_E_pos", "median_OUT_BASIS_RECOVERY"], frontier_rows)
+    _w("total_recovery_frontier.csv", ["roi", "M", "d", "n_evaluable_participants", "median_TOTAL", "n_TOTAL_ge0.5", "median_E_AUG", "n_E_pos", "median_OUT_BASIS_RECOVERY"], frontier_rows)
     # augmentation results (participant x M x d)
     aug_rows = []
     for roi in rois:
         for s in ALL:
             for key, v in per_subj[s][roi]["md"].items():
-                if "R_AUG" not in v:
+                if not v.get("evaluable"):
                     continue
                 M, d = key.split("_")
                 aug_rows.append([s, roi, M, d, v["R_BASE"], v["R_AUG"], v["DELTA_OUT"], v["R_NULL_mean"], v["E_AUG"],
@@ -362,9 +433,12 @@ def main():
     ap.add_argument("--repo", required=True); ap.add_argument("--state", required=True)
     ap.add_argument("--ext", required=True); ap.add_argument("--rd-results", required=True)
     ap.add_argument("--manifest", required=True); ap.add_argument("--out", required=True)
+    ap.add_argument("--ext-manifest", required=True)          # FIX 1: committed extension manifest
+    ap.add_argument("--rd-results-sha256", default=None)      # FIX 3: expected committed rd_results sha
     ap.add_argument("--rois", default="ventral,lateral")
     a = ap.parse_args()
-    return run_frontier(Path(a.repo), Path(a.state), Path(a.ext), Path(a.rd_results), Path(a.manifest), Path(a.out),
+    return run_frontier(Path(a.repo), Path(a.state), Path(a.ext), Path(a.rd_results), Path(a.manifest),
+                        Path(a.ext_manifest), a.rd_results_sha256, Path(a.out),
                         [r.strip() for r in a.rois.split(",") if r.strip()])
 
 

@@ -1,0 +1,14 @@
+{
+  "artifact": "O2_4R_SEAL",
+  "status": "TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION",
+  "config_r4": "ad959446",
+  "config_rd": "c1b2ddb0",
+  "m_star": {
+    "ventral": "NOT_REACHED",
+    "lateral": "NOT_REACHED"
+  },
+  "m0_cert": "O2_4R_M0_EQUALS_O2_3A_RD",
+  "m0_ok": true,
+  "note": "orthogonal-Procrustes calibration with up to M=10 target-imagery identities does not recover the target-state orientation; calibration delta_zero coherently positive but oracle-recovery fraction < 0.50 at every budget (binding failure). Internal RD-M0 -> M>0 comparison only; historical O2.4 untouched.",
+  "code_version": "d1e6f1d"
+}

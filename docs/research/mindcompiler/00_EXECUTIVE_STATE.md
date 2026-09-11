@@ -10,6 +10,21 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.4R (2026-09-11): STAGE B SEALED -- `TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION`
+
+Stage B (target-imagery calibration frontier, `M in {0,2,4,6,8,10}`) executed on r770 after Stage A seal +
+M0 cert (access-order guard passed: RD_SEAL + valid M0_CERT required). Orthogonal-Procrustes only,
+balanced subsets 25/100/100/25/1, **derangement** identity-correspondence null x100 (FIX 5), N=8 sign-flip +
+Holm over 10 tests, corrected calibration oracle-recovery fraction (FIX 4). **Both primary ROIs
+M_STAR = NOT_REACHED** -> `TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION`. Calibration
+effect is real but tiny: median delta_zero coherently positive and monotone in M (ventral 0.065->0.090,
+lateral 0.016->0.022), lateral reaches Holm significance at M=8/10 -- but the oracle-recovery fraction
+`(R_M-R_0)/max(R_ORACLE-R_0,eps)` stays <=0.15 (ventral) / <=0.04 (lateral) at every budget, never near the
+pre-registered >=0.50. So up to 10 target-imagery identities do NOT recover the residual orientation via
+orthogonal calibration. M0==P_ZERO_RD re-confirmed (0.0 dev). Internal RD-M0->M>0 comparison only; historical
+O2.4 untouched. Secondary parietal is optional/descriptive (cannot alter primary) -- not run. `O3_NOT_READY`.
+Artifacts: `operator_o2_4r/{o2_4r_results,O2_4R_SEAL,M0_CERT}.json`.
+
 ## O2.3A-RD (2026-09-11): STAGE A SEALED -- `CORE_ANCHOR_RD_INCONCLUSIVE` + M0 CERTIFIED `O2_4R_M0_EQUALS_O2_3A_RD`
 
 Real cohort fit executed on orchestraiq r770 under the **corrected** driver (code `cb6f3ca`; 7 pre-outcome

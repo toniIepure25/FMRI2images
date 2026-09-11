@@ -68,11 +68,33 @@ RD state (114 derived npz, ~3.9 MB, no raw betas) persisted on the PVC; `state_m
 sha256 of each. Artifacts: `artifacts/mindcompiler/operator_o2_3a_rd/phase2/{rd_results,RD_SEAL,state_manifest,
 cache_provenance_subj01}.json`, `artifacts/mindcompiler/operator_o2_4r/M0_CERT.json`.
 
+## Stage B result — O2.4R sealed (`TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION`)
+
+Ran only after the Stage A RD seal + M0 certification (access-order guard enforced). Orthogonal-Procrustes
+only; balanced subsets 25/100/100/25/1; **derangement** identity-correspondence null ×100; N=8 sign-flip +
+Holm over the 10 primary tests; calibration oracle-recovery fraction `(R_M−R_0)/max(R_ORACLE−R_0,ε)`.
+
+| ROI | M=2 | M=4 | M=6 | M=8 | M=10 | M_STAR |
+|---|---|---|---|---|---|---|
+| ventral median ΔZERO | 0.065 | 0.080 | 0.087 | 0.089 | 0.090 | — |
+| ventral oracle recovery | 0.110 | 0.136 | 0.143 | 0.147 | 0.150 | NOT_REACHED |
+| lateral median ΔZERO | 0.016 | 0.020 | 0.021 | 0.022 | 0.022 | — |
+| lateral oracle recovery | 0.029 | 0.036 | 0.038 | 0.039 | 0.039 | NOT_REACHED |
+
+**Seal: `TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION`** (both primary M_STAR =
+NOT_REACHED; M=10 fails the pre-registered criteria). The calibration effect is real but small: ΔZERO is
+coherently positive and monotone in M, and lateral reaches Holm significance at M=8/10 — but the
+oracle-recovery fraction never approaches the pre-registered ≥0.50 (≤0.15 ventral, ≤0.04 lateral). Up to 10
+target-imagery identities do **not** recover the residual orientation via orthogonal calibration. M0 ≡
+P_ZERO_RD re-confirmed (0.0 dev). Internal RD-M0 → M>0 comparison only; historical O2.4 untouched. Secondary
+parietal (cannot alter primary) is optional/descriptive and was not run.
+
 ## Status of this document
 
-Stage A (RD fit) is **sealed** and M0 is certified. **Stage B** (the O2.4R M>0 calibration frontier) runs next
-— guarded so it refuses without a valid RD seal + M0 certification. `O3` remains `O3_NOT_READY` through both
-O2.3A-RD and O2.4R — a calibration frontier is not yet a shared-operator generalization demonstration.
-Historical-vs-RD comparison is descriptive only, performed **after** both are sealed; agreement is **not**
-required, and any qualitative outcome (same zero-target failure / new support / materially different) is
-admissible.
+Both stages are **sealed**: O2.3A-RD `CORE_ANCHOR_RD_INCONCLUSIVE`, O2.4R
+`TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION`. The corrected driver ran under the
+mandatory two-stage access order (`63_O2_3A_RD_PHASE2_IMPLEMENTATION_CORRECTIONS.md`). `O3` remains
+`O3_NOT_READY` — a calibration frontier is not a shared-operator generalization demonstration. Historical-vs-RD
+comparison is descriptive only; agreement is **not** required, and the observed outcome (weak native oracle
+signal, near-null zero-target recovery, calibration insufficient at M≤10) is admissible and does not relabel
+the immutable historical O2.3A / O2.4 verdicts.

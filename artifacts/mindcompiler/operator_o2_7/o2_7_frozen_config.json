@@ -1,0 +1,215 @@
+{
+  "gate": "O2.7",
+  "class": "MINIMAL_TRIAL_TARGET_STATE_CALIBRATION (DIAGNOSTIC; conditional on O2.6 M=2,D=1)",
+  "input_head": "1a6007c855111844195dee2324f0c284c0023de1",
+  "question": "Conditional on the O2.6 two-identity/one-new-dimension solution, how many target-imagery repeats T per identity are required to estimate the missing target-state axis well enough to generalize to unseen imagery identities?",
+  "conditional_claim_boundary": "conditioned on the O2.6 M=2,D=1 resource point under the tested representation; does NOT prove 2 identities / 1 direction / 2 trials universally sufficient, nor biological/causal",
+  "immutable_history": {
+    "O2_6": "TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY",
+    "O2_5": "TARGET_IMAGERY_RESIDUAL_OUTSIDE_PERCEPTION_SUPPORT_DOMINANT",
+    "O2_4R": "TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION",
+    "O2_3A_RD": "CORE_ANCHOR_RD_INCONCLUSIVE",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2.2": "CROSS_STATE_TRANSPORT_MULTIREGIME",
+    "O2.3C": "INCONCLUSIVE",
+    "historical_O2_3A": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+    "historical_O2_4": "TARGET_STATE_ORIENTATION_CALIBRATION_INCONCLUSIVE",
+    "O3": "O3_NOT_READY",
+    "never_rewrite_historical": true
+  },
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "secondary": "parietal (after primary seal; descriptive)",
+  "fixed_resource_point": {
+    "M": 2,
+    "identity_pairs": "all 25 balanced (1 simple + 1 nat) per outer fold",
+    "D": 1,
+    "do_not_test": [
+      "D>=2",
+      "M>=4",
+      "other basis family"
+    ]
+  },
+  "repeat_budgets": {
+    "primary_T": [
+      1,
+      2,
+      4
+    ],
+    "reference_T": 8,
+    "reference_excluded_from_multiplicity": true,
+    "acquisition_burden_total_trials": {
+      "T1": 2,
+      "T2": 4,
+      "T4": 8,
+      "T8": 16
+    },
+    "repeats_available": 8
+  },
+  "trial_state_extension": {
+    "requires": "individual imagery-trial native residuals delta_trial(i,t) for subject x ROI x fold x outer-training identity x repeat 0..7",
+    "definition": "delta_trial = delta_perp(y_trial, B_vis, mu_vis) with the frozen outer-fold vision span; same B0 lineage / voxels / mu_vis / residual def / scaling; no new preprocessing or trial normalization",
+    "repeat_index": "0..7 in original within-identity acquisition order (do not reorder by quality)",
+    "provenance_per_trial": [
+      "subject",
+      "ROI",
+      "fold",
+      "identity",
+      "family",
+      "repeat_index",
+      "run",
+      "trial_index",
+      "beta_index",
+      "source_key",
+      "source_hash",
+      "voxel_hash"
+    ]
+  },
+  "trial_replay_cert": {
+    "delta8": "mean_{t=0..7} delta_trial(i,t) must reproduce sealed O2.6 identity-level delta_native(i) <= 1e-10",
+    "test_replay": "8-mean of the 2 outer-test identities must reproduce sealed deltas_test <= 1e-10; voxel hashes identical",
+    "pass": "O2_7_TRIAL_STATE_EXTENSION_CERTIFIED",
+    "fail": "O2_7_TRIAL_STATE_EXTENSION_FAILURE",
+    "commit_before_reduced_repeat_outcomes": true
+  },
+  "t8_replay": {
+    "run_before_T_lt_8": "M2,D1,T8 with trial-level state must exactly replay sealed O2.6 M2,D1 frontier (pairs/P_IN/outside basis/R_BASE/R_AUG/TOTAL/participant) <= 1e-10",
+    "pass": "O2_7_T8_REPLAYS_O2_6_M2_D1",
+    "fail": "O2_7_FULL_REPEAT_REPLAY_FAILURE (STOP; do not run T<8)"
+  },
+  "repeat_subsets": {
+    "T1": 8,
+    "T2": 28,
+    "T4": 70,
+    "T8": 1,
+    "same_subset_both_calibration_identities": true,
+    "evaluate_all": true,
+    "no_selection": true
+  },
+  "limited_repeat": {
+    "delta_i(S)": "mean_{t in S} delta_trial(i,t) (no extra centering)",
+    "Z_i(S)": "W_target.T @ delta_i(S) (T-limited; do NOT use full-repeat Z for T<8)",
+    "X_i": "sealed shared/training coords (unchanged)",
+    "Q_T": "orthogonal_procrustes(X_C, Z_C(S))",
+    "P_IN_T": "native_projector(Q_T, U_res, W_target)",
+    "delta_out_i(S)": "delta_i(S) - W_target(W_target.T delta_i(S))",
+    "b_T": "first left singular vector of [delta_out_1(S), delta_out_2(S)] (D=1), deterministic sign; ||b_T||~1, ||W_target.T b_T||<=1e-10",
+    "P_AUG_T": "P_IN_T + b_T b_T.T"
+  },
+  "evaluation": {
+    "on": "SEALED full-8-repeat held-out target residual centroids (deltas_test); test target fixed while calibration measurement quality reduced -> isolates calibration sample complexity"
+  },
+  "null": {
+    "hold": "P_IN_T",
+    "replace": "b_T with one matched random outside-col(W_target) direction: g~N(0,I) -> g - W(W.T g) -> normalize",
+    "n": 100,
+    "seed": "O2.7|subject|ROI|fold|identity_pair|T|repeat_subset_id|null_iteration -> SHA256 -> first16hex -> uint64 -> PCG64",
+    "E_TRIAL": "R_AUG_T - mean(R_NULL_T)"
+  },
+  "axis_fidelity": {
+    "AXIS_FIDELITY(T)": "|b_T.T b_8|^2 (sign-invariant), b_8 = full-repeat T=8 direction for the same subject/ROI/fold/pair",
+    "report_T": [
+      1,
+      2,
+      4,
+      8
+    ]
+  },
+  "full_resource_fraction": {
+    "FULL_RESOURCE_FRACTION(T)": "(R_T - R0)/max(R_8 - R0, 1e-12)",
+    "report": [
+      "clipped",
+      "unclipped"
+    ],
+    "descriptive": true
+  },
+  "total_recovery": {
+    "TOTAL_RECOVERY_T": "(R_T - R0)/max(R_NATIVE_ORACLE - R0, 1e-12)",
+    "report": [
+      "clipped",
+      "unclipped"
+    ],
+    "benchmark": ">=0.50"
+  },
+  "aggregation_order": [
+    "two held-out identities within fold",
+    "all 25 balanced identity pairs",
+    "all repeat-position subsets for T",
+    "all six outer folds"
+  ],
+  "inference": {
+    "primary_tests": "T in {1,2,4} x ROI in {ventral,lateral} = 6",
+    "signflip": "2^8=256 exact one-sided",
+    "holm": "across exactly the 6 tests",
+    "alpha": 0.05,
+    "T8_excluded": true,
+    "unit": "participant",
+    "N": 8
+  },
+  "T_STAR": {
+    "per_roi_smallest_T_in_{1,2,4}_satisfying_ALL": [
+      "median E_TRIAL > 0",
+      ">=6/8 participant E_TRIAL > 0",
+      "Holm-adjusted p < 0.05",
+      "median TOTAL_RECOVERY_T >= 0.50",
+      ">=6/8 participants TOTAL_RECOVERY_T >= 0.50"
+    ],
+    "if_none": "BELOW_FULL_RESOURCE_NOT_ESTABLISHED",
+    "no_automatic_8": true
+  },
+  "roi_status": {
+    "ONE_REPEAT_TARGET_STATE_CALIBRATION_SUFFICIENT": "T_STAR=1",
+    "TWO_REPEAT_TARGET_STATE_CALIBRATION_SUFFICIENT": "T_STAR=2",
+    "FOUR_REPEAT_TARGET_STATE_CALIBRATION_SUFFICIENT": "T_STAR=4",
+    "REDUCED_REPEAT_TARGET_STATE_CALIBRATION_NOT_ESTABLISHED": "no T<=4 satisfies",
+    "TARGET_STATE_TRIAL_CALIBRATION_INCONCLUSIVE": "technical/provenance/evaluability/leakage failure"
+  },
+  "program_status": {
+    "MINIMAL_TARGET_STATE_CALIBRATION_TWO_TOTAL_TRIALS": "ventral T_STAR=1 AND lateral T_STAR=1",
+    "MINIMAL_TARGET_STATE_CALIBRATION_FOUR_TOTAL_TRIALS": "both T_STAR<=2 and >=1 ROI requires T=2",
+    "MINIMAL_TARGET_STATE_CALIBRATION_EIGHT_TOTAL_TRIALS": "both T_STAR<=4 and >=1 requires T=4",
+    "TARGET_STATE_TRIAL_CALIBRATION_MULTIREGIME": "primary ROIs differ so no common reduced-repeat budget",
+    "REDUCED_TRIAL_TARGET_STATE_CALIBRATION_NOT_ESTABLISHED": "required primary reduced-repeat success not reached",
+    "O2_7_TRIAL_CALIBRATION_INCONCLUSIVE": "technical/provenance failure"
+  },
+  "repeat_reliability": {
+    "descriptive_only": true,
+    "per_identity": "all balanced 4-vs-4 splits of the 8 trial outside residuals -> two split-half outside directions -> squared cosine; participant-first median; no threshold on T_STAR"
+  },
+  "generalization_control": {
+    "per_T": [
+      "calibration retention",
+      "held-out identity retention"
+    ],
+    "overfit": "if calibration rises but held-out poor -> LOW_REPEAT_TARGET_STATE_OVERFIT_SIGNATURE (document; do not modify model)"
+  },
+  "repeat_position_diagnostic": {
+    "descriptive_only": true,
+    "report": "performance across early/middle/late repeat positions; no best-repeat selection; no threshold"
+  },
+  "trial_time_accounting": {
+    "primary": "number of target-imagery trials = 2*T_STAR",
+    "duration": "report cue/imagery/response/ITI/total per-trial only if exactly derivable from Dataset-1 metadata; else exact trial count + descriptive original-run timing; do NOT invent minutes"
+  },
+  "no_model_search": [
+    "M changes",
+    "D changes",
+    "ridge",
+    "affine",
+    "CCA",
+    "RRR",
+    "neural network",
+    "alternate SVD",
+    "new W_target",
+    "new common space",
+    "different residual"
+  ],
+  "next_gate": {
+    "both_T_STAR_le_2": "O2.8 TARGET-STATE BASIS COMPOSITION AND CROSS-SUBJECT SHAREDNESS (is the 1-D missing axis related across participants or subject-specific?)",
+    "T_STAR_4_or_not_established": "O2.8 TARGET-STATE AXIS RELIABILITY / NOISE DECOMPOSITION (is the remaining burden measurement noise vs representational complexity?)"
+  },
+  "O3": "O3_NOT_READY",
+  "config_sha256": "d61cd6ffb5a5479828cef1b8bb9c7ef350a9ae70e9f669a6baf3382679645c72"
+}

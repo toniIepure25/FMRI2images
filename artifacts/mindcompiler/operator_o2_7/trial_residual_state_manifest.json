@@ -1,0 +1,1835 @@
+{
+  "gate": "O2.7",
+  "artifact": "trial_residual_state",
+  "tol": 1e-05,
+  "replay": [
+    {
+      "subject": "subj01",
+      "roi": "ventral",
+      "fold": 0,
+      "max_abs_discrepancy": 4.068799461798278e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "ventral",
+      "fold": 1,
+      "max_abs_discrepancy": 3.398804921950216e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "ventral",
+      "fold": 2,
+      "max_abs_discrepancy": 3.591141937153708e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "ventral",
+      "fold": 3,
+      "max_abs_discrepancy": 3.4279386484925567e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "ventral",
+      "fold": 4,
+      "max_abs_discrepancy": 3.4669629744854547e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "ventral",
+      "fold": 5,
+      "max_abs_discrepancy": 3.9338913149222776e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "ventral",
+      "fold": 0,
+      "max_abs_discrepancy": 9.165283187950735e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "ventral",
+      "fold": 1,
+      "max_abs_discrepancy": 6.758264474715503e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "ventral",
+      "fold": 2,
+      "max_abs_discrepancy": 8.232095807803042e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "ventral",
+      "fold": 3,
+      "max_abs_discrepancy": 1.0893250450560998e-06,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "ventral",
+      "fold": 4,
+      "max_abs_discrepancy": 6.835512197378435e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "ventral",
+      "fold": 5,
+      "max_abs_discrepancy": 1.0070217262292402e-06,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "ventral",
+      "fold": 0,
+      "max_abs_discrepancy": 4.1391181371253083e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "ventral",
+      "fold": 1,
+      "max_abs_discrepancy": 4.5424176020603113e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "ventral",
+      "fold": 2,
+      "max_abs_discrepancy": 3.387844455526867e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "ventral",
+      "fold": 3,
+      "max_abs_discrepancy": 4.0001746537399185e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "ventral",
+      "fold": 4,
+      "max_abs_discrepancy": 3.595991147076205e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "ventral",
+      "fold": 5,
+      "max_abs_discrepancy": 3.9532262041674926e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "ventral",
+      "fold": 0,
+      "max_abs_discrepancy": 6.222528474708611e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "ventral",
+      "fold": 1,
+      "max_abs_discrepancy": 5.793364969974846e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "ventral",
+      "fold": 2,
+      "max_abs_discrepancy": 4.238952902024806e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "ventral",
+      "fold": 3,
+      "max_abs_discrepancy": 6.341421165956262e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "ventral",
+      "fold": 4,
+      "max_abs_discrepancy": 6.034435590107634e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "ventral",
+      "fold": 5,
+      "max_abs_discrepancy": 6.063468256378712e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "ventral",
+      "fold": 0,
+      "max_abs_discrepancy": 4.816188843848046e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "ventral",
+      "fold": 1,
+      "max_abs_discrepancy": 4.929171772971586e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "ventral",
+      "fold": 2,
+      "max_abs_discrepancy": 5.331571859557016e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "ventral",
+      "fold": 3,
+      "max_abs_discrepancy": 3.7657992657536e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "ventral",
+      "fold": 4,
+      "max_abs_discrepancy": 3.9924378569811125e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "ventral",
+      "fold": 5,
+      "max_abs_discrepancy": 4.3863881615813227e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "ventral",
+      "fold": 0,
+      "max_abs_discrepancy": 4.400164500539816e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "ventral",
+      "fold": 1,
+      "max_abs_discrepancy": 3.7311995459976544e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "ventral",
+      "fold": 2,
+      "max_abs_discrepancy": 3.906845931211933e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "ventral",
+      "fold": 3,
+      "max_abs_discrepancy": 4.434714235834747e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "ventral",
+      "fold": 4,
+      "max_abs_discrepancy": 3.9001768192825637e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "ventral",
+      "fold": 5,
+      "max_abs_discrepancy": 3.8819123793221166e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "ventral",
+      "fold": 0,
+      "max_abs_discrepancy": 4.332072111590257e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "ventral",
+      "fold": 1,
+      "max_abs_discrepancy": 5.615106843936957e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "ventral",
+      "fold": 2,
+      "max_abs_discrepancy": 4.0542552737221627e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "ventral",
+      "fold": 3,
+      "max_abs_discrepancy": 3.49653036357811e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "ventral",
+      "fold": 4,
+      "max_abs_discrepancy": 4.3282825434864947e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "ventral",
+      "fold": 5,
+      "max_abs_discrepancy": 5.41356722782993e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "ventral",
+      "fold": 0,
+      "max_abs_discrepancy": 9.688398332485804e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "ventral",
+      "fold": 1,
+      "max_abs_discrepancy": 8.400077107229009e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "ventral",
+      "fold": 2,
+      "max_abs_discrepancy": 7.766583647317304e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "ventral",
+      "fold": 3,
+      "max_abs_discrepancy": 8.026722673193376e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "ventral",
+      "fold": 4,
+      "max_abs_discrepancy": 8.185624209566811e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "ventral",
+      "fold": 5,
+      "max_abs_discrepancy": 8.499009389595358e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "lateral",
+      "fold": 0,
+      "max_abs_discrepancy": 3.278410848350788e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "lateral",
+      "fold": 1,
+      "max_abs_discrepancy": 3.3279918454365287e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "lateral",
+      "fold": 2,
+      "max_abs_discrepancy": 3.452501561307386e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "lateral",
+      "fold": 3,
+      "max_abs_discrepancy": 3.354599521498969e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "lateral",
+      "fold": 4,
+      "max_abs_discrepancy": 2.4733834325108006e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj01",
+      "roi": "lateral",
+      "fold": 5,
+      "max_abs_discrepancy": 2.935512499746551e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "lateral",
+      "fold": 0,
+      "max_abs_discrepancy": 4.1559394148293904e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "lateral",
+      "fold": 1,
+      "max_abs_discrepancy": 5.525189661348406e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "lateral",
+      "fold": 2,
+      "max_abs_discrepancy": 5.490621068915402e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "lateral",
+      "fold": 3,
+      "max_abs_discrepancy": 6.160772243468671e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "lateral",
+      "fold": 4,
+      "max_abs_discrepancy": 6.106493173341221e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj02",
+      "roi": "lateral",
+      "fold": 5,
+      "max_abs_discrepancy": 6.38300366340161e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "lateral",
+      "fold": 0,
+      "max_abs_discrepancy": 3.807881761019871e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "lateral",
+      "fold": 1,
+      "max_abs_discrepancy": 4.4389559961111047e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "lateral",
+      "fold": 2,
+      "max_abs_discrepancy": 5.760564485424169e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "lateral",
+      "fold": 3,
+      "max_abs_discrepancy": 3.6362933375500006e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "lateral",
+      "fold": 4,
+      "max_abs_discrepancy": 3.820900207340827e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj03",
+      "roi": "lateral",
+      "fold": 5,
+      "max_abs_discrepancy": 3.8859844353478223e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "lateral",
+      "fold": 0,
+      "max_abs_discrepancy": 1.0323538335299531e-06,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "lateral",
+      "fold": 1,
+      "max_abs_discrepancy": 5.922348840226022e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "lateral",
+      "fold": 2,
+      "max_abs_discrepancy": 1.004120178782486e-06,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "lateral",
+      "fold": 3,
+      "max_abs_discrepancy": 5.766858959255217e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "lateral",
+      "fold": 4,
+      "max_abs_discrepancy": 9.163935894562769e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj04",
+      "roi": "lateral",
+      "fold": 5,
+      "max_abs_discrepancy": 1.019731720175443e-06,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "lateral",
+      "fold": 0,
+      "max_abs_discrepancy": 3.218711355224002e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "lateral",
+      "fold": 1,
+      "max_abs_discrepancy": 3.1605091033171107e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "lateral",
+      "fold": 2,
+      "max_abs_discrepancy": 3.150009521002417e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "lateral",
+      "fold": 3,
+      "max_abs_discrepancy": 2.594050738657927e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "lateral",
+      "fold": 4,
+      "max_abs_discrepancy": 2.726439627953603e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj05",
+      "roi": "lateral",
+      "fold": 5,
+      "max_abs_discrepancy": 2.449910120327914e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "lateral",
+      "fold": 0,
+      "max_abs_discrepancy": 3.702449604681135e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "lateral",
+      "fold": 1,
+      "max_abs_discrepancy": 5.841541654838522e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "lateral",
+      "fold": 2,
+      "max_abs_discrepancy": 4.682169005842951e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "lateral",
+      "fold": 3,
+      "max_abs_discrepancy": 4.995174345268083e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "lateral",
+      "fold": 4,
+      "max_abs_discrepancy": 5.061440655484972e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj06",
+      "roi": "lateral",
+      "fold": 5,
+      "max_abs_discrepancy": 5.507598366261135e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "lateral",
+      "fold": 0,
+      "max_abs_discrepancy": 4.5701186834889995e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "lateral",
+      "fold": 1,
+      "max_abs_discrepancy": 4.706367167095493e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "lateral",
+      "fold": 2,
+      "max_abs_discrepancy": 4.601501863987778e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "lateral",
+      "fold": 3,
+      "max_abs_discrepancy": 4.4305724511417566e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "lateral",
+      "fold": 4,
+      "max_abs_discrepancy": 3.6789261750880264e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj07",
+      "roi": "lateral",
+      "fold": 5,
+      "max_abs_discrepancy": 4.578160357482375e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "lateral",
+      "fold": 0,
+      "max_abs_discrepancy": 6.599484940750244e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "lateral",
+      "fold": 1,
+      "max_abs_discrepancy": 6.248288979548988e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "lateral",
+      "fold": 2,
+      "max_abs_discrepancy": 6.018579840061378e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "lateral",
+      "fold": 3,
+      "max_abs_discrepancy": 5.901071622460563e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "lateral",
+      "fold": 4,
+      "max_abs_discrepancy": 6.334200293167669e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    },
+    {
+      "subject": "subj08",
+      "roi": "lateral",
+      "fold": 5,
+      "max_abs_discrepancy": 5.814235612966456e-07,
+      "train_ok": true,
+      "test_ok": true,
+      "ok": true
+    }
+  ],
+  "files": [
+    {
+      "name": "trialnat_subj01_ventral_fold0.npz",
+      "sha256": "2eb198508a1f65003eae9bbdbb1c554e7cf5470e0a78e49dc4f0b14d4aac4a3b",
+      "bytes": 102150,
+      "shape": [
+        10,
+        8,
+        153
+      ]
+    },
+    {
+      "name": "trialnat_subj01_ventral_fold1.npz",
+      "sha256": "0869207f34ece438c0398f6eae977376fe0eb3e0839052d0a780176ed8cf0805",
+      "bytes": 102153,
+      "shape": [
+        10,
+        8,
+        153
+      ]
+    },
+    {
+      "name": "trialnat_subj01_ventral_fold2.npz",
+      "sha256": "849b898dce5c12e6a7f3f38ad6a297cb1a5205c7ff323b0ffb0e93ab74daf1f1",
+      "bytes": 102152,
+      "shape": [
+        10,
+        8,
+        153
+      ]
+    },
+    {
+      "name": "trialnat_subj01_ventral_fold3.npz",
+      "sha256": "6447b90f73d643117dfd89352de1cbd55591d44ebb9d97a025255b4bbd97ccaa",
+      "bytes": 102152,
+      "shape": [
+        10,
+        8,
+        153
+      ]
+    },
+    {
+      "name": "trialnat_subj01_ventral_fold4.npz",
+      "sha256": "b0fa6838c030e3c604ae4cf32ac410db9d8ed840cd4fe2eaa833a1602c4f4958",
+      "bytes": 102152,
+      "shape": [
+        10,
+        8,
+        153
+      ]
+    },
+    {
+      "name": "trialnat_subj01_ventral_fold5.npz",
+      "sha256": "a6435000ad7485b5c4adda3d0468119b0933d5462feba1f87ceda74e1569c425",
+      "bytes": 102153,
+      "shape": [
+        10,
+        8,
+        153
+      ]
+    },
+    {
+      "name": "trialnat_subj02_ventral_fold0.npz",
+      "sha256": "8770d0030c861953bb143bff5984dfcf3b1990c23300ee13818f6e7bd0bacd26",
+      "bytes": 109190,
+      "shape": [
+        10,
+        8,
+        164
+      ]
+    },
+    {
+      "name": "trialnat_subj02_ventral_fold1.npz",
+      "sha256": "e939d14701f33f355bcb61aac2a79c8d80dd1535d2f23fb42b3f66f91047a638",
+      "bytes": 109193,
+      "shape": [
+        10,
+        8,
+        164
+      ]
+    },
+    {
+      "name": "trialnat_subj02_ventral_fold2.npz",
+      "sha256": "a4dc0904ace1647a4a60706fcdb28a96d00518ce60069569052353fa5adb1be6",
+      "bytes": 109192,
+      "shape": [
+        10,
+        8,
+        164
+      ]
+    },
+    {
+      "name": "trialnat_subj02_ventral_fold3.npz",
+      "sha256": "09425744a44ea4b1a1b17a02d3c455a617587a4bbbb07b6c6560772aa14a4577",
+      "bytes": 109192,
+      "shape": [
+        10,
+        8,
+        164
+      ]
+    },
+    {
+      "name": "trialnat_subj02_ventral_fold4.npz",
+      "sha256": "47f3615f5de99e67221eec8a1228b0b8534e8770911886a71c756b0e6bf9ac98",
+      "bytes": 109192,
+      "shape": [
+        10,
+        8,
+        164
+      ]
+    },
+    {
+      "name": "trialnat_subj02_ventral_fold5.npz",
+      "sha256": "845b46a4bea158a0e1f29a7691c511817a097c4faa3bf9d7911592d0d5d6a418",
+      "bytes": 109193,
+      "shape": [
+        10,
+        8,
+        164
+      ]
+    },
+    {
+      "name": "trialnat_subj03_ventral_fold0.npz",
+      "sha256": "405904853c89a5919539fae6261210dcc12872fbdc00b0722d4e163edf8abdf6",
+      "bytes": 109190,
+      "shape": [
+        10,
+        8,
+        164
+      ]
+    },
+    {
+      "name": "trialnat_subj03_ventral_fold1.npz",
+      "sha256": "484b06505e9298400f0d38e6e52159d5cfe8ee651c8556e6f26daaab0066edf8",
+      "bytes": 109193,
+      "shape": [
+        10,
+        8,
+        164
+      ]
+    },
+    {
+      "name": "trialnat_subj03_ventral_fold2.npz",
+      "sha256": "041ac578577b362de959564c26cea0bee6412a6b2dffc729d66d685f493b3dc8",
+      "bytes": 109192,
+      "shape": [
+        10,
+        8,
+        164
+      ]
+    },
+    {
+      "name": "trialnat_subj03_ventral_fold3.npz",
+      "sha256": "4e92bfb45781e5a7036ba9c716a876d23815e17ccb0f1f2c4b49e4c8d6bf5c60",
+      "bytes": 109192,
+      "shape": [
+        10,
+        8,
+        164
+      ]
+    },
+    {
+      "name": "trialnat_subj03_ventral_fold4.npz",
+      "sha256": "169ad4a44f905898a4cea2eacd3bbfa820081780de092e87704403131256a276",
+      "bytes": 109192,
+      "shape": [
+        10,
+        8,
+        164
+      ]
+    },
+    {
+      "name": "trialnat_subj03_ventral_fold5.npz",
+      "sha256": "d66a8788cf6c6fa65005d0bd2c04e029c53590c3ecf159218d38fed439b3f2ba",
+      "bytes": 109193,
+      "shape": [
+        10,
+        8,
+        164
+      ]
+    },
+    {
+      "name": "trialnat_subj04_ventral_fold0.npz",
+      "sha256": "0c5cb4ab6f592fff705066a9cbb2286da4fe5131965b7602db6c40a882730cad",
+      "bytes": 102150,
+      "shape": [
+        10,
+        8,
+        153
+      ]
+    },
+    {
+      "name": "trialnat_subj04_ventral_fold1.npz",
+      "sha256": "b027d619b4238f562b3101435b19d083e9fb31b33e79ae3ec5a2836b0fa8ed2a",
+      "bytes": 102153,
+      "shape": [
+        10,
+        8,
+        153
+      ]
+    },
+    {
+      "name": "trialnat_subj04_ventral_fold2.npz",
+      "sha256": "bf73a3d599c8b800343a126ba4cec8c50b5e787038faaedf62bee58061f5aab0",
+      "bytes": 102152,
+      "shape": [
+        10,
+        8,
+        153
+      ]
+    },
+    {
+      "name": "trialnat_subj04_ventral_fold3.npz",
+      "sha256": "99966d116c3b74b41f3be0875468ec75c3ba4cf1b5fb259d840ed5bc7b5ac7e6",
+      "bytes": 102152,
+      "shape": [
+        10,
+        8,
+        153
+      ]
+    },
+    {
+      "name": "trialnat_subj04_ventral_fold4.npz",
+      "sha256": "d12d11622d72b9c5a1d33746acac658cb0afdf4d2cb697a639f285d21f157b66",
+      "bytes": 102152,
+      "shape": [
+        10,
+        8,
+        153
+      ]
+    },
+    {
+      "name": "trialnat_subj04_ventral_fold5.npz",
+      "sha256": "03f8200d6f88dabf9ff128f63c87a51f8cbced2a37705a99d6d25e0b0636fc63",
+      "bytes": 102153,
+      "shape": [
+        10,
+        8,
+        153
+      ]
+    },
+    {
+      "name": "trialnat_subj05_ventral_fold0.npz",
+      "sha256": "a3e9e722676d7b804ae186b14d1d53f1982f61a04d691a812461bf96b6f93f20",
+      "bytes": 89350,
+      "shape": [
+        10,
+        8,
+        133
+      ]
+    },
+    {
+      "name": "trialnat_subj05_ventral_fold1.npz",
+      "sha256": "cf87ba73943e24cf6acebadbd19c0f2bd9c6c63cea99f2df16f9d85df30323c8",
+      "bytes": 89353,
+      "shape": [
+        10,
+        8,
+        133
+      ]
+    },
+    {
+      "name": "trialnat_subj05_ventral_fold2.npz",
+      "sha256": "51c54da3384da18305a91ec72340c6b32585201733ca69c6ea9e1524c07e6376",
+      "bytes": 89352,
+      "shape": [
+        10,
+        8,
+        133
+      ]
+    },
+    {
+      "name": "trialnat_subj05_ventral_fold3.npz",
+      "sha256": "58965cdc9e04cb12c78f38d413fba5df6167de61e42bf77013d26d0d25ca8c21",
+      "bytes": 89352,
+      "shape": [
+        10,
+        8,
+        133
+      ]
+    },
+    {
+      "name": "trialnat_subj05_ventral_fold4.npz",
+      "sha256": "fb477e66b951223d36631ba1e96a2c57b4470736bec6b9d24dcbb4451b14f7a4",
+      "bytes": 89352,
+      "shape": [
+        10,
+        8,
+        133
+      ]
+    },
+    {
+      "name": "trialnat_subj05_ventral_fold5.npz",
+      "sha256": "ae4c335d6abadf11fee11b3fc667b3aff3290c5da390dfb35bb690f3f9395cb9",
+      "bytes": 89353,
+      "shape": [
+        10,
+        8,
+        133
+      ]
+    },
+    {
+      "name": "trialnat_subj06_ventral_fold0.npz",
+      "sha256": "3ff0c00074330b383e1d381520cf0a385316c68a121eef6b25b4020ddd0aa173",
+      "bytes": 128390,
+      "shape": [
+        10,
+        8,
+        194
+      ]
+    },
+    {
+      "name": "trialnat_subj06_ventral_fold1.npz",
+      "sha256": "86354242c859f1d8831e57083acc8c15e81c4bf742ae9655dd0afff41af63b24",
+      "bytes": 128393,
+      "shape": [
+        10,
+        8,
+        194
+      ]
+    },
+    {
+      "name": "trialnat_subj06_ventral_fold2.npz",
+      "sha256": "951cfa21505c7e0bcaaf06af83a68eed6e0939d644fe38a04212fc789e1257e1",
+      "bytes": 128392,
+      "shape": [
+        10,
+        8,
+        194
+      ]
+    },
+    {
+      "name": "trialnat_subj06_ventral_fold3.npz",
+      "sha256": "7b1470bf99424c2dc08f9b17816a80b4eb1669c4b9e83273e5fc5509abbc89e2",
+      "bytes": 128392,
+      "shape": [
+        10,
+        8,
+        194
+      ]
+    },
+    {
+      "name": "trialnat_subj06_ventral_fold4.npz",
+      "sha256": "2c3921e9acac09d809ee42cb1c17e8b79bcf285fabc48cf2e96c19f09919925b",
+      "bytes": 128392,
+      "shape": [
+        10,
+        8,
+        194
+      ]
+    },
+    {
+      "name": "trialnat_subj06_ventral_fold5.npz",
+      "sha256": "9cadf916866b26ecda76f672f36ed74c37e4147aeadb9b492b2ce6e13c1b3b88",
+      "bytes": 128393,
+      "shape": [
+        10,
+        8,
+        194
+      ]
+    },
+    {
+      "name": "trialnat_subj07_ventral_fold0.npz",
+      "sha256": "5b4031be95cec71a84e5a955cc8402a362dc36a35173865f530df079c5c6990a",
+      "bytes": 88070,
+      "shape": [
+        10,
+        8,
+        131
+      ]
+    },
+    {
+      "name": "trialnat_subj07_ventral_fold1.npz",
+      "sha256": "f58516b3274c5b4d836587f0ca3514d61d689fa9f976f4277307363dde8a3965",
+      "bytes": 88073,
+      "shape": [
+        10,
+        8,
+        131
+      ]
+    },
+    {
+      "name": "trialnat_subj07_ventral_fold2.npz",
+      "sha256": "ef6bf7a7d4a2dd8320e119c62d6d36e85d6e9fb67226afb040000e5d7047c5c8",
+      "bytes": 88072,
+      "shape": [
+        10,
+        8,
+        131
+      ]
+    },
+    {
+      "name": "trialnat_subj07_ventral_fold3.npz",
+      "sha256": "45e0ecc013f5d5e9fcc67f73ddec7d5c1b6a8c4b7ce2b7dc413115e25e621e78",
+      "bytes": 88072,
+      "shape": [
+        10,
+        8,
+        131
+      ]
+    },
+    {
+      "name": "trialnat_subj07_ventral_fold4.npz",
+      "sha256": "395cc04f8eb3230f2a07b7ccb3991f23ab1133863a9432d35203b0c1dd35a5b0",
+      "bytes": 88072,
+      "shape": [
+        10,
+        8,
+        131
+      ]
+    },
+    {
+      "name": "trialnat_subj07_ventral_fold5.npz",
+      "sha256": "3f13373178cd478dd67b01a0fa4bcf95f5f446d2dc63a6dac646359255e987b6",
+      "bytes": 88073,
+      "shape": [
+        10,
+        8,
+        131
+      ]
+    },
+    {
+      "name": "trialnat_subj08_ventral_fold0.npz",
+      "sha256": "c67185b8642976f76fdee2f6075d21bd6df280c3d0f30315b64df9205f2a80f9",
+      "bytes": 111110,
+      "shape": [
+        10,
+        8,
+        167
+      ]
+    },
+    {
+      "name": "trialnat_subj08_ventral_fold1.npz",
+      "sha256": "b5a572e88b1268d011cc6e6c440eb1b9fdcef50ea399638aa4ca94d2638d8928",
+      "bytes": 111113,
+      "shape": [
+        10,
+        8,
+        167
+      ]
+    },
+    {
+      "name": "trialnat_subj08_ventral_fold2.npz",
+      "sha256": "8a0ca26f60a1f698c91b8f0534fd90f2584adcf870365eb032aaf4159d6b8780",
+      "bytes": 111112,
+      "shape": [
+        10,
+        8,
+        167
+      ]
+    },
+    {
+      "name": "trialnat_subj08_ventral_fold3.npz",
+      "sha256": "59cc9a72365f2ed9442404e1f8045ed224615010facac735eb005f969884d456",
+      "bytes": 111112,
+      "shape": [
+        10,
+        8,
+        167
+      ]
+    },
+    {
+      "name": "trialnat_subj08_ventral_fold4.npz",
+      "sha256": "3f5c6a9f949ec2600cd9368d5d5d14bf356922d986c45376aa18ce9c9f0aa66b",
+      "bytes": 111112,
+      "shape": [
+        10,
+        8,
+        167
+      ]
+    },
+    {
+      "name": "trialnat_subj08_ventral_fold5.npz",
+      "sha256": "24dbc2f4eab4995dac79a0342bbdfab506f5673c3b9c14f93ae9df01945e2dea",
+      "bytes": 111113,
+      "shape": [
+        10,
+        8,
+        167
+      ]
+    },
+    {
+      "name": "trialnat_subj01_lateral_fold0.npz",
+      "sha256": "8d3c429bc5494c57c5dba79722d04122df276adaf696bf94b8d73b4655a2e002",
+      "bytes": 104070,
+      "shape": [
+        10,
+        8,
+        156
+      ]
+    },
+    {
+      "name": "trialnat_subj01_lateral_fold1.npz",
+      "sha256": "f53ae03da1319fe321d272783f6b59686f5ceb53400cde5f62c2f8df78c4046c",
+      "bytes": 104073,
+      "shape": [
+        10,
+        8,
+        156
+      ]
+    },
+    {
+      "name": "trialnat_subj01_lateral_fold2.npz",
+      "sha256": "cc585265891b3233c83dfa09cd3ae4d6b7d13c9fd47752d5ee6fbde1ba56493c",
+      "bytes": 104072,
+      "shape": [
+        10,
+        8,
+        156
+      ]
+    },
+    {
+      "name": "trialnat_subj01_lateral_fold3.npz",
+      "sha256": "5888b85c7b4dbf7efdb2715f5d2ed1b13febb20bf3b9ed28d2f82124dc0df1fa",
+      "bytes": 104072,
+      "shape": [
+        10,
+        8,
+        156
+      ]
+    },
+    {
+      "name": "trialnat_subj01_lateral_fold4.npz",
+      "sha256": "446ee2658831b47fe21b489e96bd1692af9225b4a835d35076450591a02a47d6",
+      "bytes": 104072,
+      "shape": [
+        10,
+        8,
+        156
+      ]
+    },
+    {
+      "name": "trialnat_subj01_lateral_fold5.npz",
+      "sha256": "7f7ad711281cd0f26c4b49f1ef01f794cbbb6a8899bfbc0d6ed050a65048acd6",
+      "bytes": 104073,
+      "shape": [
+        10,
+        8,
+        156
+      ]
+    },
+    {
+      "name": "trialnat_subj02_lateral_fold0.npz",
+      "sha256": "b759665f9251fea0c42c576ba95cac1a06419fdb8aac7cd98f37abc76ba27ad3",
+      "bytes": 91270,
+      "shape": [
+        10,
+        8,
+        136
+      ]
+    },
+    {
+      "name": "trialnat_subj02_lateral_fold1.npz",
+      "sha256": "8eff04e49a3b8526bf801c91fce50ae6774351cf20971146291422ed62768d2c",
+      "bytes": 91273,
+      "shape": [
+        10,
+        8,
+        136
+      ]
+    },
+    {
+      "name": "trialnat_subj02_lateral_fold2.npz",
+      "sha256": "c187cdae40bd25634527f209e4fecf796f06d733e02d7f2b72afb891f79984fc",
+      "bytes": 91272,
+      "shape": [
+        10,
+        8,
+        136
+      ]
+    },
+    {
+      "name": "trialnat_subj02_lateral_fold3.npz",
+      "sha256": "35d9c2627d8aff0a313bc88daaf833af996a4bbdfeb5c14cb70010305105d772",
+      "bytes": 91272,
+      "shape": [
+        10,
+        8,
+        136
+      ]
+    },
+    {
+      "name": "trialnat_subj02_lateral_fold4.npz",
+      "sha256": "b8ba3fd3469c004741a3cec047f406c0a275e22e06485cef6e907fda400fe6f0",
+      "bytes": 91272,
+      "shape": [
+        10,
+        8,
+        136
+      ]
+    },
+    {
+      "name": "trialnat_subj02_lateral_fold5.npz",
+      "sha256": "aae7f731d4406b2324674aa93984aac755741feeb1244d487141638e1ce8db00",
+      "bytes": 91273,
+      "shape": [
+        10,
+        8,
+        136
+      ]
+    },
+    {
+      "name": "trialnat_subj03_lateral_fold0.npz",
+      "sha256": "5f036d668e42ca5b7c2dacfe777a49fcdc99a071a131f0312083743d70057b6c",
+      "bytes": 114310,
+      "shape": [
+        10,
+        8,
+        172
+      ]
+    },
+    {
+      "name": "trialnat_subj03_lateral_fold1.npz",
+      "sha256": "df39ef2dd11058fe7f2987d392cfa5acd621a8d780fe0d05349a993155afa96b",
+      "bytes": 114313,
+      "shape": [
+        10,
+        8,
+        172
+      ]
+    },
+    {
+      "name": "trialnat_subj03_lateral_fold2.npz",
+      "sha256": "82d17f7d567b7ef66f95101498a40b5312982269a30b5d22dd1930269eb6ca95",
+      "bytes": 114312,
+      "shape": [
+        10,
+        8,
+        172
+      ]
+    },
+    {
+      "name": "trialnat_subj03_lateral_fold3.npz",
+      "sha256": "d997551439e7f2f3e03f6266eb2f4aad9c670eed4378f9da5b38ef86cd02a560",
+      "bytes": 114312,
+      "shape": [
+        10,
+        8,
+        172
+      ]
+    },
+    {
+      "name": "trialnat_subj03_lateral_fold4.npz",
+      "sha256": "c7ec4bf7410a15e085f77d9bb9da3d2f3e79d4cd2b9c89c7ce4022a79c86fefd",
+      "bytes": 114312,
+      "shape": [
+        10,
+        8,
+        172
+      ]
+    },
+    {
+      "name": "trialnat_subj03_lateral_fold5.npz",
+      "sha256": "d8d078ad7cd8e086571ba4abbca60ee11a1004fd8fb2eb3c6520691269ae1108",
+      "bytes": 114313,
+      "shape": [
+        10,
+        8,
+        172
+      ]
+    },
+    {
+      "name": "trialnat_subj04_lateral_fold0.npz",
+      "sha256": "0882fa2acfb561d2301db48abb9e9e069f138aab1adadf8643c834e753089822",
+      "bytes": 95750,
+      "shape": [
+        10,
+        8,
+        143
+      ]
+    },
+    {
+      "name": "trialnat_subj04_lateral_fold1.npz",
+      "sha256": "6bd833a7401a5b0791f076f47c797412590effcd0f0ec9f9d09af300794f41c9",
+      "bytes": 95753,
+      "shape": [
+        10,
+        8,
+        143
+      ]
+    },
+    {
+      "name": "trialnat_subj04_lateral_fold2.npz",
+      "sha256": "6a37f098018167d9a67d62f20a13d3c189202d8159161a29150978fbb740089e",
+      "bytes": 95752,
+      "shape": [
+        10,
+        8,
+        143
+      ]
+    },
+    {
+      "name": "trialnat_subj04_lateral_fold3.npz",
+      "sha256": "3c9f9f26581f6afe7d515407b548da013698bc438b96362021d0ca61b9db4577",
+      "bytes": 95752,
+      "shape": [
+        10,
+        8,
+        143
+      ]
+    },
+    {
+      "name": "trialnat_subj04_lateral_fold4.npz",
+      "sha256": "14a1d301e8fc3b9f1c89466a76533e29b0c42b743c1dca607dcc43284a37c076",
+      "bytes": 95752,
+      "shape": [
+        10,
+        8,
+        143
+      ]
+    },
+    {
+      "name": "trialnat_subj04_lateral_fold5.npz",
+      "sha256": "86e0318244a0d4e6dbcaf08239ed7be50d7bf871fcd45011be410e8cdbdb004c",
+      "bytes": 95753,
+      "shape": [
+        10,
+        8,
+        143
+      ]
+    },
+    {
+      "name": "trialnat_subj05_lateral_fold0.npz",
+      "sha256": "f3a4bded9b964b9294ec7764325109b00957f03e09b087414a32338ef3495156",
+      "bytes": 94470,
+      "shape": [
+        10,
+        8,
+        141
+      ]
+    },
+    {
+      "name": "trialnat_subj05_lateral_fold1.npz",
+      "sha256": "4c1a06e1c003ebabfbde639aea1198d8630c6d05d3e04be813ff14306f5843cd",
+      "bytes": 94473,
+      "shape": [
+        10,
+        8,
+        141
+      ]
+    },
+    {
+      "name": "trialnat_subj05_lateral_fold2.npz",
+      "sha256": "fe03e985167e31f37a51d943992cd379635e379ba7ec9536a9a4a40b4002cec6",
+      "bytes": 94472,
+      "shape": [
+        10,
+        8,
+        141
+      ]
+    },
+    {
+      "name": "trialnat_subj05_lateral_fold3.npz",
+      "sha256": "3508747b72f4acd5a98ca9257ced85f988641bbe689d99074e24fdab120c5ad9",
+      "bytes": 94472,
+      "shape": [
+        10,
+        8,
+        141
+      ]
+    },
+    {
+      "name": "trialnat_subj05_lateral_fold4.npz",
+      "sha256": "e2a723cb2fb6eb984b6fe88dbaabd7c971772024d94abd57c544b5b974821007",
+      "bytes": 94472,
+      "shape": [
+        10,
+        8,
+        141
+      ]
+    },
+    {
+      "name": "trialnat_subj05_lateral_fold5.npz",
+      "sha256": "7e02c3ec8c79aa5c600d74bb5c007e2be690d471719443ffaa1b7c39858d7470",
+      "bytes": 94473,
+      "shape": [
+        10,
+        8,
+        141
+      ]
+    },
+    {
+      "name": "trialnat_subj06_lateral_fold0.npz",
+      "sha256": "3f9f6122acbadfcad669e10b3f20af1a9816df5c26a1359467106a5334c5042a",
+      "bytes": 120070,
+      "shape": [
+        10,
+        8,
+        181
+      ]
+    },
+    {
+      "name": "trialnat_subj06_lateral_fold1.npz",
+      "sha256": "67d5f8392efa8582497ce5ea930577ef3878ecfdc14c65eb17467d70a6d13047",
+      "bytes": 120073,
+      "shape": [
+        10,
+        8,
+        181
+      ]
+    },
+    {
+      "name": "trialnat_subj06_lateral_fold2.npz",
+      "sha256": "1a1f383850775a01904544c30a6bed29b580835d985db52499517727a31f3ab9",
+      "bytes": 120072,
+      "shape": [
+        10,
+        8,
+        181
+      ]
+    },
+    {
+      "name": "trialnat_subj06_lateral_fold3.npz",
+      "sha256": "04063291c4f16d76ba829cfa399056d69ba7488d4bdbc1098e87c555242525c6",
+      "bytes": 120072,
+      "shape": [
+        10,
+        8,
+        181
+      ]
+    },
+    {
+      "name": "trialnat_subj06_lateral_fold4.npz",
+      "sha256": "db51516ad373e203de5688f7f3ce2346c3bba984505a3a3976fcfc2dcc5ed222",
+      "bytes": 120072,
+      "shape": [
+        10,
+        8,
+        181
+      ]
+    },
+    {
+      "name": "trialnat_subj06_lateral_fold5.npz",
+      "sha256": "a1458907ea2385334e8867f9f9591065c82ef943f3e24c23f857e03d59bbabf3",
+      "bytes": 120073,
+      "shape": [
+        10,
+        8,
+        181
+      ]
+    },
+    {
+      "name": "trialnat_subj07_lateral_fold0.npz",
+      "sha256": "89e24a26617908942cc8c9a4c9d7d769de14731ca2c0cd84d5ff9a90cbcd9fe8",
+      "bytes": 82950,
+      "shape": [
+        10,
+        8,
+        123
+      ]
+    },
+    {
+      "name": "trialnat_subj07_lateral_fold1.npz",
+      "sha256": "d1bc4376072460d663794707f7d8da494b8f8e3c82ae379c8b550fcec3197662",
+      "bytes": 82953,
+      "shape": [
+        10,
+        8,
+        123
+      ]
+    },
+    {
+      "name": "trialnat_subj07_lateral_fold2.npz",
+      "sha256": "c5d709cf21088c57dbe5d9af1ab7cbfcb4d6c1346420d4a61136377ff700acdc",
+      "bytes": 82952,
+      "shape": [
+        10,
+        8,
+        123
+      ]
+    },
+    {
+      "name": "trialnat_subj07_lateral_fold3.npz",
+      "sha256": "4f70b28379b991635ed8571c3d3a506d0112302a7f93f6accd8279dd1e7ef413",
+      "bytes": 82952,
+      "shape": [
+        10,
+        8,
+        123
+      ]
+    },
+    {
+      "name": "trialnat_subj07_lateral_fold4.npz",
+      "sha256": "f0b61b9916ca6a73506b811ecffee1a2cae6f7a0324629bf20eacc98d430d295",
+      "bytes": 82952,
+      "shape": [
+        10,
+        8,
+        123
+      ]
+    },
+    {
+      "name": "trialnat_subj07_lateral_fold5.npz",
+      "sha256": "293ced8396def366fcc258707adb09a31ff3c7e1e2b07360947647158c51fb18",
+      "bytes": 82953,
+      "shape": [
+        10,
+        8,
+        123
+      ]
+    },
+    {
+      "name": "trialnat_subj08_lateral_fold0.npz",
+      "sha256": "8974f03f9bea383889824f17ad9391865fab0c03377baa5c7027443701ac1ecb",
+      "bytes": 115590,
+      "shape": [
+        10,
+        8,
+        174
+      ]
+    },
+    {
+      "name": "trialnat_subj08_lateral_fold1.npz",
+      "sha256": "ec1fcb0dd3f015465b7a1485f03f7f17e12c9b513e69b929bfac931200adaa64",
+      "bytes": 115593,
+      "shape": [
+        10,
+        8,
+        174
+      ]
+    },
+    {
+      "name": "trialnat_subj08_lateral_fold2.npz",
+      "sha256": "9ba76cc17c5651dbf1fa8d41e215d45d29178d042a4299e440b9c3d3e163ee0b",
+      "bytes": 115592,
+      "shape": [
+        10,
+        8,
+        174
+      ]
+    },
+    {
+      "name": "trialnat_subj08_lateral_fold3.npz",
+      "sha256": "4e88a183ca1a87368aa537599f25bd1ddf11197e87848b61c766d32bac1f8488",
+      "bytes": 115592,
+      "shape": [
+        10,
+        8,
+        174
+      ]
+    },
+    {
+      "name": "trialnat_subj08_lateral_fold4.npz",
+      "sha256": "3f459a89130cb6ae3f42611ee183d80a7206c0437a13a9be68f037b4961b6cc2",
+      "bytes": 115592,
+      "shape": [
+        10,
+        8,
+        174
+      ]
+    },
+    {
+      "name": "trialnat_subj08_lateral_fold5.npz",
+      "sha256": "87dfbedff190cb7280e96f6d7053bfe29c9b260887aa0b5e755773fe857a8235",
+      "bytes": 115593,
+      "shape": [
+        10,
+        8,
+        174
+      ]
+    }
+  ],
+  "ok": true,
+  "max_abs_discrepancy_global": 1.0893250450560998e-06
+}

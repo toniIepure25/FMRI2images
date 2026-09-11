@@ -1,0 +1,252 @@
+{
+  "gate": "O2.6",
+  "class": "TARGET_STATE_BASIS_AUGMENTATION_FRONTIER (DIAGNOSTIC; SVD outside-support basis augmentation ONLY)",
+  "input_head": "0cd7a3d72f320efb8f075611acd8809cd4d61bb2",
+  "question": "How many target-imagery identities (M) and how many NEW native dimensions outside col(W_target) (d) are required to recover the held-out target imagery residual?",
+  "immutable_history": {
+    "O2_3A_RD": "CORE_ANCHOR_RD_INCONCLUSIVE",
+    "O2_4R": "TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION",
+    "O2_5": "TARGET_IMAGERY_RESIDUAL_OUTSIDE_PERCEPTION_SUPPORT_DOMINANT",
+    "historical_O2_3A": "CORE_ANCHOR_TARGET_ORIENTATION_NOT_IDENTIFIABLE",
+    "historical_O2_4": "TARGET_STATE_ORIENTATION_CALIBRATION_INCONCLUSIVE",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2.2": "CROSS_STATE_TRANSPORT_MULTIREGIME",
+    "O2.3C": "INCONCLUSIVE",
+    "O2.3C_PREP": "FMRIPREP_DERIVED_REST_FUNC1PT8MM_NOT_CERTIFIED_FOR_FINE_SCALE_CONNECTIVITY",
+    "O3": "O3_NOT_READY",
+    "never_relabel_historical": true
+  },
+  "claim_boundary": "new dimensions are directions outside the tested learned perception-derived W_target support ONLY; NOT imagery-only neurons / imagery-specific populations / new causal mechanisms / dimensions absent from perception in the brain",
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "secondary": "parietal (after primary seal; cannot modify primary)",
+  "sealed_state": {
+    "reuse": [
+      "W_target",
+      "U_res",
+      "r_best",
+      "K",
+      "X",
+      "Z",
+      "deltas_test",
+      "O2.4R machinery",
+      "outer folds",
+      "R0",
+      "R_NATIVE_ORACLE"
+    ],
+    "no_refit": [
+      "SRM",
+      "K",
+      "W_target",
+      "residual rank",
+      "common space"
+    ],
+    "manifest": "artifacts/mindcompiler/operator_o2_3a_rd/phase2/state_manifest.json"
+  },
+  "state_extension": {
+    "requires": "native target residual delta_native for OUTER-TRAINING identities (subject x ROI x fold x identity)",
+    "derive_from": "preserved B0 NSD-Imagery data via the exact sealed O2.3A-RD residual code (O2.2 residual: imagery centroid orthogonal to outer-training vision span, rank<=9)",
+    "replay_cert": "reproduce sealed outer-test deltas_test: max abs discrepancy <= 1e-10 AND identical voxel hashes, else O2_6_NATIVE_RESIDUAL_STATE_EXTENSION_FAILURE",
+    "no_residual_redefinition": true,
+    "commit_generator_and_manifest_before_outcomes": true
+  },
+  "outer_folds": {
+    "count": 6,
+    "train": "10 (5 simple + 5 naturalistic)",
+    "test": "2 (1 simple + 1 naturalistic)",
+    "heldout_never_in": [
+      "basis construction",
+      "dimension selection",
+      "calibration",
+      "oracle construction",
+      "null construction"
+    ]
+  },
+  "M_grid": [
+    2,
+    4,
+    6,
+    8,
+    10
+  ],
+  "balanced_subsets": {
+    "M2": 25,
+    "M4": 100,
+    "M6": 100,
+    "M8": 25,
+    "M10": 1,
+    "evaluate_all": true,
+    "no_cherry_pick": true
+  },
+  "D_grid": [
+    1,
+    2,
+    4,
+    6,
+    8,
+    10
+  ],
+  "d_le_M": true,
+  "rank_insufficient": "if numerical rank < d -> mark cell RANK_INSUFFICIENT (do not invent directions)",
+  "partA_support_complement": {
+    "P_OUT": "I - W_target W_target^T",
+    "delta_out": "delta - W_target(W_target^T delta)",
+    "require": "||W_target^T delta_out|| <= 1e-10*max(1,||delta||)"
+  },
+  "partB_outside_basis": {
+    "D_OUT_C": "[delta_out(i1..iM)] (voxels x M), no extra centering",
+    "svd": "D_OUT_C = U S V^T ; B_OUT(C,d)=U[:,:d] ; deterministic signs ; require B_OUT^T B_OUT ~ I and W_target^T B_OUT ~ 0 (<=1e-10)"
+  },
+  "partC_within_estimator": {
+    "reuse_O2_4R_procrustes": true,
+    "P_IN(C,M)": "native_projector(orthogonal_procrustes(X_C,Z_C), U_res, W_target)",
+    "d0_reproduces_O2_4R": "within 1e-10",
+    "no_replacement": true
+  },
+  "partD_augmented_projector": {
+    "P_EXTRA": "B_OUT B_OUT^T",
+    "P_AUG": "P_IN + P_EXTRA",
+    "verify": [
+      "symmetry",
+      "idempotence",
+      "P_IN P_EXTRA ~ 0",
+      "rank(P_AUG)=rank(P_IN)+d"
+    ],
+    "no_reortho_of_P_IN": true
+  },
+  "partE_heldout": {
+    "eval_on": "2 outer-test residuals only",
+    "R_AUG": "mean held-out retention under P_AUG",
+    "R_BASE": "P_IN alone",
+    "DELTA_OUT": "R_AUG - R_BASE",
+    "identity": "orthogonal ranges => R_AUG = R_BASE + ||B_OUT^T delta||^2/||delta||^2"
+  },
+  "partF_null": {
+    "match": [
+      "participant",
+      "ROI",
+      "fold",
+      "M",
+      "subset",
+      "d",
+      "P_IN",
+      "num_new_dims"
+    ],
+    "draw": "G~N(0,1)^(V x d) -> G_OUT=G - W_target(W_target^T G) -> reduced QR -> deterministic signs -> require d valid orthonormal cols",
+    "seed": "O2.6|subject|ROI|fold|M|subset_id|D|null_iteration -> SHA256 -> first16hex -> uint64 -> PCG64",
+    "n": 100,
+    "P_NULL_AUG": "P_IN + B_NULL B_NULL^T",
+    "E_AUG": "R_AUG - mean(R_NULL_AUG)"
+  },
+  "partG_conditional_oracle": {
+    "per": "target x ROI x fold x d",
+    "use": "ALL 10 outer-training residuals outside components",
+    "B_OUT_ORACLE(d)": "top-d SVD (training only, no held-out)",
+    "P_COND": "P_IN(C,M) + B_OUT_ORACLE B_OUT_ORACLE^T",
+    "eval": "outer-test -> R_CONDITIONAL_ORACLE(M,d,C)",
+    "controls_for": "exact within-support estimator of that cell"
+  },
+  "partH_out_basis_recovery": {
+    "aggregate_order": [
+      "held-out identities",
+      "balanced subsets",
+      "six outer folds"
+    ],
+    "OUT_BASIS_RECOVERY": "(R_AUG - R_BASE)/max(R_CONDITIONAL_ORACLE - R_BASE, 1e-12)",
+    "report": [
+      "unclipped",
+      "clipped[0,1]"
+    ],
+    "M10_cert": "learned outside basis == all-training oracle basis at M=10 within tolerance"
+  },
+  "partI_total_recovery": {
+    "R0": "sealed O2.3A-RD zero-target",
+    "R_NATIVE_ORACLE": "sealed training-only native rank-r oracle",
+    "TOTAL_RECOVERY": "(R_AUG - R0)/max(R_NATIVE_ORACLE - R0, 1e-12)",
+    "report": [
+      "unclipped",
+      "clipped[0,1]"
+    ],
+    "note": "resource/program benchmark (P_AUG has more dims than rank-r oracle when d>0); unclipped >1 permitted"
+  },
+  "partJ_terminal": {
+    "cell": "M=10,d=10 both primary ROIs",
+    "only_confirmatory_test": true,
+    "per_participant": "average E_AUG over 6 folds",
+    "signflip": "2^8=256 exact one-sided",
+    "holm_family": [
+      "ventral terminal",
+      "lateral terminal"
+    ],
+    "alpha": 0.05,
+    "other_cells": "prospectively descriptive sample-complexity estimates"
+  },
+  "partK_terminal_feasibility": {
+    "TARGET_BASIS_AUGMENTATION_FEASIBLE_if_ALL": [
+      "median E_AUG > 0",
+      ">=6/8 participants E_AUG > 0",
+      "Holm-adjusted augmentation-null test rejects",
+      "median TOTAL_RECOVERY >= 0.50",
+      ">=6/8 participants TOTAL_RECOVERY >= 0.50"
+    ],
+    "else": "TARGET_BASIS_AUGMENTATION_NOT_RECOVERED_AT_MAX_BUDGET"
+  },
+  "partL_D50": {
+    "only_if_terminal_feasible": true,
+    "D50_EMPIRICAL": "smallest tested d at M=10 with median TOTAL_RECOVERY>=0.50 AND >=6/8>=0.50 AND median E_AUG>0 AND >=6/8 E_AUG>0",
+    "no_pvalue_for_D50": true,
+    "type": "EMPIRICAL_RESOURCE_FRONTIER",
+    "if_none": "NOT_REACHED"
+  },
+  "partM_M50": {
+    "if_D50_exists": true,
+    "fix_d": "D50",
+    "M50_EMPIRICAL": "smallest M with median TOTAL_RECOVERY(M,D50)>=0.50 AND >=6/8>=0.50 AND median E_AUG>0 AND >=6/8 E_AUG>0",
+    "descriptive": true
+  },
+  "partP_generalization_control": {
+    "report_per_Md": [
+      "TRAIN calibration retention",
+      "HELD-OUT identity retention"
+    ],
+    "overfit_signature": "if calibration ~1 but held-out weak -> TARGET_STATE_BASIS_IDENTITY_SPECIFIC_OVERFIT_SIGNATURE (document, do not change model)"
+  },
+  "partR_roi_status": {
+    "LOW_DIMENSION_TARGET_BASIS_AUGMENTATION": "terminal feasible AND D50<=2",
+    "MODERATE_DIMENSION_TARGET_BASIS_AUGMENTATION": "terminal feasible AND D50 in {4,6}",
+    "HIGH_DIMENSION_TARGET_BASIS_AUGMENTATION": "terminal feasible AND D50 in {8,10}",
+    "TARGET_BASIS_AUGMENTATION_NOT_RECOVERED_AT_MAX_BUDGET": "terminal feasibility fails",
+    "TARGET_BASIS_AUGMENTATION_INCONCLUSIVE": "technical/provenance/evaluability/leakage failure",
+    "report_M50_separately": true
+  },
+  "program_status": {
+    "TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY": "both primary D50<=2 and finite M50",
+    "TARGET_STATE_MISSING_BASIS_RECOVERABLE": "both recover but >=1 requires D>=4",
+    "TARGET_STATE_MISSING_BASIS_MULTIREGIME": "ventral/lateral materially different augmentation statuses",
+    "TARGET_STATE_BASIS_NOT_RECOVERED_WITH_10_IDENTITIES_10_DIMS": "both fail terminal feasibility",
+    "O2_6_TARGET_BASIS_INCONCLUSIVE": "technical/provenance failure"
+  },
+  "no_model_search": [
+    "ridge",
+    "affine",
+    "CCA",
+    "RRR",
+    "neural network",
+    "nonlinear manifold",
+    "new SRM",
+    "new W_target",
+    "higher perception K",
+    "alternate residual",
+    "alternate rank selection"
+  ],
+  "next_gate": {
+    "TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY": "O2.7 MINIMAL-TRIAL TARGET-STATE CALIBRATION (fix D50, vary repeats/trials)",
+    "TARGET_STATE_MISSING_BASIS_RECOVERABLE": "O2.7 BASIS COMPOSITION / SUBJECT HETEROGENEITY (shared cross-subject geometry of added dims)",
+    "TARGET_STATE_MISSING_BASIS_MULTIREGIME": "ROI-specific O2.7 hypotheses",
+    "TARGET_STATE_BASIS_NOT_RECOVERED_WITH_10_IDENTITIES_10_DIMS": "reject fixed-basis augmentation; only then consider identity-conditioned/nonlinear/state-dependent operators"
+  },
+  "O3": "O3_NOT_READY",
+  "config_sha256": "f4e94517e0032844547d7b9ccebeb166ed55686ebd4e979b6b9a267bd668f160"
+}

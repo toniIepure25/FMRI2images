@@ -1,0 +1,25 @@
+{
+  "status": "TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY",
+  "roi_status": {
+    "ventral": "LOW_DIMENSION_TARGET_BASIS_AUGMENTATION",
+    "lateral": "LOW_DIMENSION_TARGET_BASIS_AUGMENTATION"
+  },
+  "D50": {
+    "ventral": 1,
+    "lateral": 1
+  },
+  "M50": {
+    "ventral": 2,
+    "lateral": 2
+  },
+  "outside_support_leak_max": 1.386722815122839e-15,
+  "overfit_signature": {
+    "ventral": "none",
+    "lateral": "none"
+  },
+  "immutable": {
+    "O2_5": "TARGET_IMAGERY_RESIDUAL_OUTSIDE_PERCEPTION_SUPPORT_DOMINANT",
+    "O2_4R": "TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION"
+  },
+  "O3": "O3_NOT_READY"
+}

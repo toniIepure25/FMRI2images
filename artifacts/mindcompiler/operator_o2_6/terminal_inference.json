@@ -1,0 +1,20 @@
+{
+  "ventral": {
+    "median_E_AUG": 0.4974718692785455,
+    "n_E_pos": 8,
+    "signflip_p": 0.00390625,
+    "median_TOTAL": 1.0,
+    "n_TOTAL_ge0.5": 8,
+    "holm_reject": true,
+    "terminal_feasible": true
+  },
+  "lateral": {
+    "median_E_AUG": 0.5610973477620165,
+    "n_E_pos": 8,
+    "signflip_p": 0.00390625,
+    "median_TOTAL": 1.0,
+    "n_TOTAL_ge0.5": 8,
+    "holm_reject": true,
+    "terminal_feasible": true
+  }
+}

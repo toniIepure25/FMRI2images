@@ -1,0 +1,22 @@
+{
+  "gate": "O2.6",
+  "input_head": "0cd7a3d",
+  "freeze_commit": "8d5849b",
+  "integrity_fix_commit": "702cd9d",
+  "extension_seal_commit": "45a1813",
+  "config_sha256": "f4e94517e0032844547d7b9ccebeb166ed55686ebd4e979b6b9a267bd668f160",
+  "image": "nipreps/fmriprep:25.2.5",
+  "image_digest": "sha256:15cbf8dcd17440d26ff5e80e9f7313f1cb3c54f13673f1ec4aed4465e8e12d77",
+  "node": "k8s-worker-cpu-node-r770",
+  "pvc": "rd-data",
+  "state": "/rd/data/results/rd/state",
+  "ext": "/rd/data/results/o2_6_ext",
+  "rd_results_sha256": "fb35881957ec871bdeb2bb4081015c767b2cfc92bf306272c59bfa662b76ea84",
+  "blas_threads": 1,
+  "numpy": "2.2.6",
+  "diagnostic_only": true,
+  "no_model_fit": true,
+  "N_NULL": 100,
+  "cells_consumed": 96,
+  "restart_label": "O2_6_PREOUTCOME_FRONTIER_INTEGRITY_CORRECTION_RESTART"
+}

@@ -1,0 +1,13 @@
+{
+  "suite": "tests/mindcompiler/operator_o2_6/test_o2_6_basis_augmentation.py",
+  "n_tests": 25,
+  "passed": 25,
+  "required_items_covered": 28,
+  "integrity_tests_A_to_J": true,
+  "synthetic_controls": [
+    "low-D recovers",
+    "high-D partial at small d",
+    "no-outside ~ null",
+    "identity-specific no generalization"
+  ]
+}

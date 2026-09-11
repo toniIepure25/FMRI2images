@@ -10,6 +10,28 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.6 (2026-09-11): TARGET-STATE BASIS AUGMENTATION FRONTIER -- SEALED `TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY`
+
+Diagnostic gate (config `f4e94517`, freeze `8d5849b`, integrity-fix `702cd9d`): how many target-imagery
+identities (M) + NEW native dimensions outside col(W_target) (d) recover the held-out imagery residual? SVD
+outside-support augmentation ONLY (no ridge/CCA/RRR/NN/new SRM/W_target). Consumes sealed state + a
+replay-certified native-residual extension (seal `45a1813`, exact replay max_disc 0.0). A first run was stopped
+pre-outcome for implementation-integrity fixes (`O2_6_PREOUTCOME_FRONTIER_INTEGRITY_CORRECTION_RESTART`, doc 65:
+committed extension hash + identity-order + rd_results provenance verification; strict rank-insufficient /
+6-fold / 8-participant evaluability gates); no outcome was inspected. Rerun with identical frozen seeds.
+
+Verifications: extension 96/96 (hash+identity), rd_results provenance match (`fb358819`), outside-support leak
+1.4e-15. **Result `TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY`:** both primary ROIs
+`LOW_DIMENSION_TARGET_BASIS_AUGMENTATION`, **D50=1, M50=2** (all cells 8/8 evaluable). Terminal M10,d10:
+median E_AUG 0.50 (ventral)/0.56 (lateral), 8/8 positive, sign-flip p=0.0039, Holm-reject, median TOTAL=1.0 --
+feasible both. Frontier monotone in M and d; even M10,d1 median TOTAL 0.79/0.77. Outside-residual spectrum:
+first direction ~55% energy, effective rank ~2.9. Generalization healthy (held-out R_AUG ~0.72/0.75; no overfit).
+**Bounded interpretation:** a small number (one) of target-state native directions OUTSIDE the tested
+perception-derived W_target support, estimated from ~2 target-imagery identities, recovers a substantial
+portion of held-out imagery-residual structure -- a statement about the TESTED representational model, NOT
+imagery-only neurons/biology/causal. Immutable seals preserved. **Next: O2.7 MINIMAL-TRIAL TARGET-STATE
+CALIBRATION** (hold D50=1, vary trials/identity). `O3` remains `O3_NOT_READY`. Artifacts: `operator_o2_6/` (21).
+
 ## O2.5 (2026-09-11): PERCEPTION-SUPPORT CEILING AUDIT -- SEALED `TARGET_IMAGERY_RESIDUAL_OUTSIDE_PERCEPTION_SUPPORT_DOMINANT`
 
 Diagnostic-only gate (config `b241a5f0`, freeze `0603ed9`): why did O2.4R fail -- within-support estimator (A)

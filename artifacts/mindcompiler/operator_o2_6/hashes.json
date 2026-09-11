@@ -1,0 +1,27 @@
+{
+  "config_sha256": "f4e94517e0032844547d7b9ccebeb166ed55686ebd4e979b6b9a267bd668f160",
+  "driver_sha256": "ea1a6ae3e0889cb3ce5e137e9b40bc401a15a5b4e6363f30db94f403df1b8278",
+  "state_extension_sha256": "f2b97854cf0e58766ff108e50b3455eefda1db0f0b2a937dfc562bdef285171c",
+  "artifacts": {
+    "augmentation_results.csv": "715106d6995c4c4f974fab694129897a851dbd425ffd4e1ad621d17d14dcb6de",
+    "calibration_subset_manifest.csv": "801f70cc30feafed8dad3d999de030a273869f5da20b136539af34f789a509fd",
+    "conditional_outside_oracle.csv": "f47e00bfd421e39f8ee10d26548c38c683060355cc0275e8c6c06c794d348c4b",
+    "dimension_spectrum.csv": "d3bf61fc7063839841fbbc7754b9e89674a3aec07ee036430e9b5b5085034e10",
+    "execution_provenance.json": "a136fd4f1e4475504a865e36aed6c945a8ac6dcfd88b0b79ec335156f5682eea",
+    "generalization_control.csv": "cd4ed1619474bab0fc1026b7a780a9c8d4880d9c085b416c341c166c704b0ce5",
+    "native_residual_extension_verification.json": "b86262612d164d377873e693cf2b90e40e13985fd4f2ce423fa9e139cf3840c8",
+    "native_residual_state_extension_manifest.json": "48f0f352f1b56e396cb356b58a46e68a3fb4cf4afcdef52b263c49cdb3a2b3f9",
+    "next_gate_decision.json": "95cad4d50a2c383b0744801b3a6532d6547ab3049762409183d045808c75134b",
+    "o2_6_frozen_config.json": "16be0bad9c9eb7a55a0f24ac797f3e3e39c12ca9cb4d345ea517338b78ac2d6b",
+    "outside_basis_recovery.csv": "fcca3f62fae33249edd6a673d308b312a4be635bc780a4d8193012a77dfd794f",
+    "outside_support_certification.csv": "a693ff3d08cfc39b1c5ac9c74949d6298681133a7330df766ce1d098e4d828a0",
+    "primary_roi_status.json": "cf863d7a155a37f95719392486bbf94c21769c9a223490c36f404452d4102f06",
+    "random_basis_null_summary.json": "0e395fb8277e9103a66590e5745d50df486b91bd769c567684fe1043c0f3ab78",
+    "rd_results_provenance.json": "587605e401ee6e0a7c27f2e36104ad255eac55eedb79db316bf8cc45efea76f7",
+    "resource_frontier.json": "0f1263479b94ac70d006b2cb6f5ac76c940cf3e0cb4d1a8b9b3060d71f4411a8",
+    "scientific_status.json": "c00c263565e4d11cd54a5d4974eb412d3c8b335cb34290b979bbad948e348aae",
+    "terminal_inference.json": "900042a35c9341b491ee809aeff7cf3794dac2f7ee270241d80d445162df9437",
+    "test_report.json": "cea28fe701352b0007e979771aeef8a718d36c6c0b04fc7941840e1462581c56",
+    "total_recovery_frontier.csv": "cd48c04520a46bafc9f1ce446fecc2ba6dd451e72c0303e1d776da747ff36f76"
+  }
+}

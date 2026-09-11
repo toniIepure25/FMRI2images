@@ -1,0 +1,6 @@
+{
+  "n_null_per_cell": 100,
+  "seed_scheme": "O2.6|subject|ROI|fold|M|subset_id|D|null_iteration -> SHA256 -> uint64 -> PCG64",
+  "E_AUG_mean_over_cells": 0.44780604820734576,
+  "E_AUG_median_over_cells": 0.46707226725206324
+}

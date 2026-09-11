@@ -1,0 +1,7 @@
+{
+  "input_status": "TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY",
+  "next_gate": "O2.7 MINIMAL-TRIAL TARGET-STATE CALIBRATION",
+  "core_question": "Holding D50=1 fixed, how many actual imagery trials / minutes per identity are needed?",
+  "rationale": "Both primary ROIs LOW_DIMENSION_TARGET_BASIS_AUGMENTATION with D50=1, M50=2, finite: a single new native direction outside col(W_target) estimated from 2 target-imagery identities recovers >=50% of the native-oracle gap (terminal M10,d10 median TOTAL=1.0, sign-flip p=0.0039, Holm-reject, 8/8).",
+  "O3": "O3_NOT_READY"
+}

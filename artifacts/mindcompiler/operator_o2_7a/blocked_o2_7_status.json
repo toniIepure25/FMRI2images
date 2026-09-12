@@ -1,0 +1,23 @@
+{
+  "artifact": "blocked_o2_7_status",
+  "status": "O2_7_FULL_REPEAT_REPLAY_FAILURE",
+  "reason": "M2_PROCRUSTES_NUMERICAL_CONDITIONING_PREVENTS_REQUIRED_FULL_RESOURCE_REPLAY",
+  "no_t_lt_8_outcome_computed_or_inspected": true,
+  "evidence": {
+    "trial_residual_reconstruction_max_disc": 1.0893250450560998e-06,
+    "t8_metric_max_err": {
+      "R_BASE": 0.0026189013137649375,
+      "R_AUG": 0.0026189000125745043,
+      "TOTAL_RECOVERY": 0.00449622809086736
+    },
+    "root_cause": "M=2 orthogonal Procrustes has only 2 nonzero singular values in K>=8 (underdetermined); ~1.6e-7 Z perturbation amplified ~7700x to ~1.2e-3 metric",
+    "control": "R_BASE via sealed delta_native replays O2.6 EXACTLY (0.0); only the trial-8-mean path diverges"
+  },
+  "not_evidence_against": [
+    "reduced-repeat calibration",
+    "the target-state axis",
+    "O2.6 validity"
+  ],
+  "o2_6_preserved": "TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY",
+  "O3": "O3_NOT_READY"
+}

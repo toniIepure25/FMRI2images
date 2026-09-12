@@ -1,0 +1,222 @@
+{
+  "gate": "O2.7A",
+  "class": "PROSPECTIVE_POST_O2_7_BLOCKER_OUTSIDE_AXIS_TRIAL_COMPLEXITY (DIAGNOSTIC)",
+  "input_head": "aa92e458b569da92bbbbde0b23b94fa498faf52b",
+  "question": "With the within-support component held fixed at the sealed zero-target O2.3A-RD prediction P_ZERO_RD, how many target-imagery repeats T are required to estimate the single useful native direction outside col(W_target)?",
+  "supersedes_note": "New prospective gate; does NOT overwrite or reinterpret the blocked original O2.7.",
+  "blocked_o2_7": {
+    "status": "O2_7_FULL_REPEAT_REPLAY_FAILURE",
+    "reason": "M2_PROCRUSTES_NUMERICAL_CONDITIONING_PREVENTS_REQUIRED_FULL_RESOURCE_REPLAY",
+    "no_t_lt_8_outcome": "NO_T_LT_8_OUTCOME_COMPUTED_OR_INSPECTED",
+    "interpretation": "residual-level trial reconstruction valid (1.09e-6); metric-level T8 replay uncertifiable because the 2-identity Procrustes is underdetermined/ill-conditioned; NOT evidence against reduced-repeat calibration, NOT a failure of the target-state axis, NOT permission to reinterpret O2.6"
+  },
+  "immutable_history": {
+    "O2_7": "O2_7_FULL_REPEAT_REPLAY_FAILURE (M2_PROCRUSTES_NUMERICAL_CONDITIONING_PREVENTS_REQUIRED_FULL_RESOURCE_REPLAY)",
+    "O2_6": "TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY",
+    "O2_5": "TARGET_IMAGERY_RESIDUAL_OUTSIDE_PERCEPTION_SUPPORT_DOMINANT",
+    "O2_4R": "TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION",
+    "O2_3A_RD": "CORE_ANCHOR_RD_INCONCLUSIVE",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2.2": "CROSS_STATE_TRANSPORT_MULTIREGIME",
+    "O3": "O3_NOT_READY",
+    "never_rewrite_historical": true
+  },
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "secondary": "parietal (after primary seal)",
+  "sealed_input_state": {
+    "reuse_and_hash_verify": [
+      "O2.3A-RD cell state",
+      "P_ZERO_RD / R0",
+      "W_target",
+      "held-out full-repeat deltas_test",
+      "R_NATIVE_ORACLE",
+      "O2.6 native-residual extension",
+      "O2.7 certified trial-residual extension"
+    ],
+    "trial_extension_commit": "d2729eb126955738946ff9213ef73518445839c8",
+    "trial_extension_max_disc": 1.0893250450560998e-06,
+    "no_regen_unless_provenance_fails": true
+  },
+  "fixed_identity_resource": {
+    "M": 2,
+    "pairs": "all 25 balanced (1 simple + 1 naturalistic) per outer fold",
+    "do_not_reopen_M": true
+  },
+  "fixed_dimension_resource": {
+    "D": 1,
+    "do_not_reopen_D": true
+  },
+  "trial_budgets": {
+    "primary_T": [
+      1,
+      2,
+      4
+    ],
+    "reference_T": 8,
+    "total_trials": {
+      "T1": 2,
+      "T2": 4,
+      "T4": 8,
+      "T8": 16
+    }
+  },
+  "repeat_subsets": {
+    "T1": 8,
+    "T2": 28,
+    "T4": 70,
+    "T8": 1,
+    "same_subset_both_identities": true,
+    "no_best_repeat": true
+  },
+  "limited_repeat": {
+    "delta_i(S)": "mean_{t in S} delta_trial(i,t) from the certified trial state"
+  },
+  "outside_component": {
+    "delta_out_i(S)": "delta_i(S) - W_target(W_target.T delta_i(S))",
+    "require": "||W_target.T delta_out_i|| <= 1e-10*max(1,||delta_i||)"
+  },
+  "one_d_axis": {
+    "D_OUT": "[delta_out_1(S), delta_out_2(S)]",
+    "b_T": "first left singular vector (D=1), canonical sign",
+    "require": "||b_T||~1 and W_target.T b_T ~0",
+    "no_procrustes": true,
+    "no_target_Z": true,
+    "no_P_IN_refit": true
+  },
+  "zero_base": {
+    "within_support_projector": "SEALED P_ZERO_RD = native_projector(I, U_res, W_target) (zero target imagery, deterministic)",
+    "R0": "retention(P_ZERO_RD, deltas_test) = sealed cell R_CAL0",
+    "P_AUG_ZERO(T)": "P_ZERO_RD + b_T b_T.T",
+    "certify": [
+      "symmetry",
+      "idempotence",
+      "rank = rank(P_ZERO_RD)+1"
+    ]
+  },
+  "full_resource_axis_reference": {
+    "b_8_SEALED": "outside-support axis from the SEALED O2.6 identity-level delta_native (NOT trial-8 mean)",
+    "purpose": "canonical reference for the missing outside axis; NOT a replay of O2.6 R_AUG metric"
+  },
+  "trial8_diagnostic": {
+    "b_8_TRIAL": "from mean of 8 trial residuals",
+    "AXIS_FIDELITY_T8": "|b_8_TRIAL.T b_8_SEALED|^2",
+    "diagnostic_only": true,
+    "not_an_access_gate": true,
+    "provenance_gate": "residual-level extension certification (1.09e-6)"
+  },
+  "axis_conditioning_diagnostic": {
+    "per_full_resource_pair": "singular values s1>=s2 of the two-vector outside matrix",
+    "AXIS_SINGULAR_GAP": "(s1-s2)/max(s1,1e-12)",
+    "ratio": "s2/s1",
+    "descriptive_only": true
+  },
+  "held_out_eval": {
+    "on": "SEALED full-8-repeat outer-test imagery residual centroids (deltas_test)",
+    "R_AXIS(T)": "retention under P_AUG_ZERO(T) = R0 + ||b_T.T delta||^2/||delta||^2 (orthogonal ranges)",
+    "DELTA_AXIS(T)": "R_AXIS(T) - R0"
+  },
+  "null": {
+    "hold": "P_ZERO_RD",
+    "replace": "b_T with random 1-D direction outside col(W_target): g~N(0,I) -> g-W(W.T g) -> normalize",
+    "n": 100,
+    "seed": "O2.7A|subject|ROI|fold|identity_pair|T|repeat_subset_id|null_iteration -> SHA256 -> first16hex -> uint64 -> PCG64",
+    "E_AXIS": "R_AXIS - mean(R_NULL_AXIS)"
+  },
+  "axis_fidelity": {
+    "AXIS_FIDELITY(T)": "|b_T.T b_8_SEALED|^2",
+    "report_T": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "central_diagnostic": true
+  },
+  "axis_resource_fraction": {
+    "R_AXIS_8": "retention under P_ZERO_RD + b_8_SEALED b_8_SEALED.T",
+    "AXIS_RESOURCE_FRACTION(T)": "(R_AXIS(T)-R0)/max(R_AXIS_8-R0,1e-12)",
+    "report": [
+      "clipped",
+      "unclipped"
+    ]
+  },
+  "total_recovery_zero_base": {
+    "TOTAL_RECOVERY_ZERO_BASE(T)": "(R_AXIS(T)-R0)/max(R_NATIVE_ORACLE-R0,1e-12)",
+    "report": [
+      "clipped",
+      "unclipped"
+    ],
+    "note": "uses P_ZERO_RD not M2 Procrustes; NOT an O2.6 replay"
+  },
+  "aggregation_order": [
+    "two held-out identities",
+    "all 25 balanced pairs",
+    "all repeat subsets",
+    "six outer folds"
+  ],
+  "inference": {
+    "primary_tests": "T in {1,2,4} x ROI in {ventral,lateral} = 6",
+    "signflip": "2^8 exact one-sided",
+    "holm": "across exactly 6",
+    "alpha": 0.05,
+    "T8_reference_only": true,
+    "unit": "participant",
+    "N": 8
+  },
+  "T_AXIS_STAR": {
+    "smallest_T_in_{1,2,4}_satisfying_ALL": [
+      "median E_AXIS > 0",
+      ">=6/8 E_AXIS > 0",
+      "Holm-adjusted p < 0.05",
+      "median AXIS_RESOURCE_FRACTION >= 0.50",
+      ">=6/8 AXIS_RESOURCE_FRACTION >= 0.50",
+      "median TOTAL_RECOVERY_ZERO_BASE >= 0.50",
+      ">=6/8 TOTAL_RECOVERY_ZERO_BASE >= 0.50"
+    ],
+    "if_none": "NOT_ESTABLISHED_BY_T4"
+  },
+  "roi_status": {
+    "ONE_REPEAT_OUTSIDE_AXIS_CALIBRATION_SUFFICIENT": "T_AXIS_STAR=1",
+    "TWO_REPEAT_OUTSIDE_AXIS_CALIBRATION_SUFFICIENT": "T_AXIS_STAR=2",
+    "FOUR_REPEAT_OUTSIDE_AXIS_CALIBRATION_SUFFICIENT": "T_AXIS_STAR=4",
+    "REDUCED_REPEAT_OUTSIDE_AXIS_CALIBRATION_NOT_ESTABLISHED": "no T<=4",
+    "OUTSIDE_AXIS_TRIAL_CALIBRATION_INCONCLUSIVE": "technical/provenance/evaluability failure"
+  },
+  "program_status": {
+    "TWO_TOTAL_TRIAL_ZERO_BASE_TARGET_CALIBRATION": "both primary T_AXIS_STAR=1",
+    "FOUR_TOTAL_TRIAL_ZERO_BASE_TARGET_CALIBRATION": "both <=2 and >=1 requires 2",
+    "EIGHT_TOTAL_TRIAL_ZERO_BASE_TARGET_CALIBRATION": "both <=4 and >=1 requires 4",
+    "OUTSIDE_AXIS_TRIAL_CALIBRATION_MULTIREGIME": "one ROI establishes a reduced budget, the other does not",
+    "REDUCED_TRIAL_OUTSIDE_AXIS_CALIBRATION_NOT_ESTABLISHED": "neither/required primary not reached",
+    "O2_7A_OUTSIDE_AXIS_TRIAL_CALIBRATION_INCONCLUSIVE": "technical/provenance failure"
+  },
+  "generalization_control": {
+    "per_T": [
+      "calibration-axis capture on the 2 calibration identities",
+      "held-out identity capture"
+    ],
+    "overfit": "if calibration high and held-out weak -> LOW_REPEAT_OUTSIDE_AXIS_OVERFIT_SIGNATURE (no rescue)"
+  },
+  "no_model_search": [
+    "Procrustes",
+    "M change",
+    "D change",
+    "ridge",
+    "affine",
+    "CCA",
+    "RRR",
+    "neural network",
+    "new SRM",
+    "new W_target",
+    "alternate residual"
+  ],
+  "next_gate": {
+    "both_T_AXIS_STAR_le_2": "O2.8 TARGET-STATE AXIS COMPOSITION AND CROSS-SUBJECT SHAREDNESS",
+    "T_AXIS_STAR_4_or_not_established": "O2.8 OUTSIDE-AXIS RELIABILITY / NOISE DECOMPOSITION"
+  },
+  "O3": "O3_NOT_READY",
+  "config_sha256": "d50407fa486353e1e5dec3b1125ac174202c1b19b72e58b20babd091136fea19"
+}

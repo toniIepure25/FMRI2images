@@ -10,6 +10,30 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.7 (2026-09-11): MINIMAL-TRIAL CALIBRATION -- BLOCKED `O2_7_FULL_REPEAT_REPLAY_FAILURE`
+
+Reason: `M2_PROCRUSTES_NUMERICAL_CONDITIONING_PREVENTS_REQUIRED_FULL_RESOURCE_REPLAY`. The trial-level residual
+extension is certified (`O2_7_TRIAL_STATE_EXTENSION_CERTIFIED`, max_disc 1.09e-6, commit `d2729eb`), but the
+prospectively-required metric-level T8 replay of sealed O2.6 M2,D1 cannot be certified at the frozen 1e-5
+tolerance: achieved R_BASE/R_AUG ~2.6e-3, TOTAL ~4.5e-3. Root cause (proven on r770): the M=2 orthogonal
+Procrustes has only 2 nonzero singular values in K>=8 (underdetermined) and amplifies the ~1.6e-7 Z
+perturbation (float32 source floor) ~7700x to ~1.2e-3 at the retention metric; computing R_BASE from the
+sealed `delta_native` replays O2.6 EXACTLY (0.0), confirming a conditioning confound, not a pipeline bug.
+`NO_T_LT_8_OUTCOME_COMPUTED_OR_INSPECTED`. NOT evidence against reduced-repeat calibration / the target-state
+axis / O2.6; O2.6 preserved. Integrity restart machinery (two-stage guard, provenance/semantic verification;
+commits `702cd9d`-analog `aa92e45`) is retained. Superseded prospectively by O2.7A (not overwritten).
+
+## O2.7A (2026-09-12): MINIMAL-TRIAL OUTSIDE-AXIS CALIBRATION -- FROZEN (config `d50407fa`)
+
+Replaces the underdetermined M=2 Procrustes P_IN with the sealed zero-target `P_ZERO_RD` (deterministic, zero
+target imagery), eliminating the O2.7 conditioning confound. Fixed M=2 (25 pairs), D=1. The ONLY calibration
+resource is the T-repeat data (T in {1,2,4}, +T=8 reference) used to estimate ONE outside-support axis b_T via
+SVD; `P_AUG_ZERO=P_ZERO_RD + b_T b_T^T` (orthogonal ranges). Canonical full-resource axis `b_8_SEALED` from
+sealed `delta_native` (NOT trial mean). Metrics: E_AXIS (matched random-outside null x100), AXIS_FIDELITY vs
+b_8_SEALED, AXIS_RESOURCE_FRACTION, TOTAL_RECOVERY_ZERO_BASE; T_AXIS_STAR requires BOTH fractions >=0.50 +
+Holm-significant E_AXIS over the 6-test family (T8 excluded). No Procrustes/model search. 16 data-free tests
+pass. Reuses certified trial extension `d2729eb` (no regen). `O3` remains `O3_NOT_READY`.
+
 ## O2.6 (2026-09-11): TARGET-STATE BASIS AUGMENTATION FRONTIER -- SEALED `TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY`
 
 Diagnostic gate (config `f4e94517`, freeze `8d5849b`, integrity-fix `702cd9d`): how many target-imagery

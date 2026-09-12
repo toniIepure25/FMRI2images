@@ -271,10 +271,12 @@ def run(a):
             tn = [dict(np.load(trial_dir / f"trialnat_{s}_{roi}_fold{f}.npz", allow_pickle=True)) for f in range(N_FOLDS)]
             en = [dict(np.load(ext_dir / f"deltanat_{s}_{roi}_fold{f}.npz", allow_pickle=True)) for f in range(N_FOLDS)]
             per[s][roi] = subject_roi(s, roi, cells, tn, en, rd, G, leak, cert)
+    zb_ok = bool(cert["m0_dev"] <= 1e-10 and cert["sym"] <= 1e-10 and cert["idem"] <= 1e-8 and bool(cert["rank_ok"]))
     (out / "zero_base_certification.json").write_text(json.dumps(
-        {"P_ZERO_RD": "native_projector(I, U_res, W_target)", "max_R0_vs_sealed_R_CAL0_dev": cert["m0_dev"],
-         "P_AUG_symmetry": cert["sym"], "P_AUG_idempotence": cert["idem"], "P_AUG_rank_ok": cert["rank_ok"],
-         "axis_perp_max": cert["axis_perp"], "ok": (cert["m0_dev"] <= 1e-10 and cert["sym"] <= 1e-10 and cert["idem"] <= 1e-8 and cert["rank_ok"])}, indent=2))
+        {"P_ZERO_RD": "native_projector(I, U_res, W_target)", "max_R0_vs_sealed_R_CAL0_dev": float(cert["m0_dev"]),
+         "P_AUG_symmetry": float(cert["sym"]), "P_AUG_idempotence": float(cert["idem"]),
+         "P_AUG_rank_ok": bool(cert["rank_ok"]), "axis_perp_max": float(cert["axis_perp"]), "ok": zb_ok},
+        indent=2, default=str))
     roi_status, prog = aggregate(per, G)
 
     def _w(name, header, rows):

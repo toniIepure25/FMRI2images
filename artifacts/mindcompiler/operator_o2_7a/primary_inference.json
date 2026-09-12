@@ -1,0 +1,54 @@
+{
+  "family": [
+    "ventral|T1",
+    "ventral|T2",
+    "ventral|T4",
+    "lateral|T1",
+    "lateral|T2",
+    "lateral|T4"
+  ],
+  "family_size": 6,
+  "T8_in_family": false,
+  "per_test": {
+    "ventral": {
+      "1": {
+        "signflip_p": 0.00390625,
+        "holm_reject": true,
+        "median_E_AXIS": 0.1058500314889505,
+        "n_E_pos": 8
+      },
+      "2": {
+        "signflip_p": 0.00390625,
+        "holm_reject": true,
+        "median_E_AXIS": 0.16484505831357377,
+        "n_E_pos": 8
+      },
+      "4": {
+        "signflip_p": 0.00390625,
+        "holm_reject": true,
+        "median_E_AXIS": 0.23286450254718805,
+        "n_E_pos": 8
+      }
+    },
+    "lateral": {
+      "1": {
+        "signflip_p": 0.00390625,
+        "holm_reject": true,
+        "median_E_AXIS": 0.10979937433023257,
+        "n_E_pos": 8
+      },
+      "2": {
+        "signflip_p": 0.00390625,
+        "holm_reject": true,
+        "median_E_AXIS": 0.17217665225591927,
+        "n_E_pos": 8
+      },
+      "4": {
+        "signflip_p": 0.00390625,
+        "holm_reject": true,
+        "median_E_AXIS": 0.23965316650215124,
+        "n_E_pos": 8
+      }
+    }
+  }
+}

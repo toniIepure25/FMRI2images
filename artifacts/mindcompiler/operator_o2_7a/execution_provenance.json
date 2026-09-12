@@ -1,0 +1,25 @@
+{
+  "gate": "O2.7A",
+  "input_head": "aa92e45",
+  "freeze_commit": "09b61c0",
+  "serialization_fix_commit": "9384d68",
+  "config_sha256": "d50407fa486353e1e5dec3b1125ac174202c1b19b72e58b20babd091136fea19",
+  "image": "nipreps/fmriprep:25.2.5",
+  "node": "k8s-worker-cpu-node-r770",
+  "pvc": "rd-data",
+  "trial_extension_commit": "d2729eb",
+  "state": "/rd/data/results/rd/state",
+  "trial": "/rd/data/results/o2_7_ext",
+  "ext": "/rd/data/results/o2_6_ext",
+  "blas_threads": 1,
+  "numpy": "2.2.6",
+  "diagnostic_only": true,
+  "no_procrustes": true,
+  "N_NULL": 100,
+  "T_primary": [
+    1,
+    2,
+    4
+  ],
+  "T_reference": 8
+}

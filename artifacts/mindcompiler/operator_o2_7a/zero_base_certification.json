@@ -1,0 +1,9 @@
+{
+  "P_ZERO_RD": "native_projector(I, U_res, W_target)",
+  "max_R0_vs_sealed_R_CAL0_dev": 0.0,
+  "P_AUG_symmetry": 0.0,
+  "P_AUG_idempotence": 1.8156571664427293e-15,
+  "P_AUG_rank_ok": true,
+  "axis_perp_max": 6.279698983036042e-16,
+  "ok": true
+}

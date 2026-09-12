@@ -1,0 +1,21 @@
+{
+  "status": "REDUCED_TRIAL_OUTSIDE_AXIS_CALIBRATION_NOT_ESTABLISHED",
+  "roi_status": {
+    "ventral": "REDUCED_REPEAT_OUTSIDE_AXIS_CALIBRATION_NOT_ESTABLISHED",
+    "lateral": "REDUCED_REPEAT_OUTSIDE_AXIS_CALIBRATION_NOT_ESTABLISHED"
+  },
+  "T_AXIS_STAR": {
+    "ventral": "NOT_ESTABLISHED_BY_T4",
+    "lateral": "NOT_ESTABLISHED_BY_T4"
+  },
+  "outside_leak_max": 1.4476267407026455e-15,
+  "overfit_signature": {
+    "ventral": "none",
+    "lateral": "none"
+  },
+  "immutable": {
+    "O2_7": "O2_7_FULL_REPEAT_REPLAY_FAILURE",
+    "O2_6": "TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY"
+  },
+  "O3": "O3_NOT_READY"
+}

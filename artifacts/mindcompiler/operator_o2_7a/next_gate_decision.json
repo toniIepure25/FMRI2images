@@ -1,0 +1,7 @@
+{
+  "input_status": "REDUCED_TRIAL_OUTSIDE_AXIS_CALIBRATION_NOT_ESTABLISHED",
+  "next_gate": "O2.8 OUTSIDE-AXIS RELIABILITY / NOISE DECOMPOSITION",
+  "core_question": "Is the remaining shortfall in native-gap closure a matter of measurement noise (trial reliability), or a representational ceiling of a single outside axis on the zero-target base (e.g., a second dimension or a within-support component is needed)?",
+  "rationale": "Outside axis estimable from few repeats (E_AXIS Holm-significant at every T; ARF>=0.50 by T=2; fidelity 0.33->1.0; trial-8 axis == sealed axis exactly). But TOTAL_RECOVERY_ZERO_BASE reaches only ~0.41-0.44 at T=4 and ~0.50/0.58 at full resource -> the D=1 + zero-target-base ceiling sits near the 0.50 bar; T_AXIS_STAR NOT_ESTABLISHED_BY_T4 in both primary ROIs.",
+  "O3": "O3_NOT_READY"
+}

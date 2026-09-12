@@ -1,0 +1,26 @@
+{
+  "config_sha256": "d50407fa486353e1e5dec3b1125ac174202c1b19b72e58b20babd091136fea19",
+  "driver_sha256": "0a2cb0163614f99f97d7a9b1c8b2e1735550f89fc71dd3a8804821a108e3d1ba",
+  "artifacts": {
+    "axis_conditioning_diagnostic.csv": "3dd6d24187aea171c1edf48bedfb4807a8aa4f411ad82a7d79823c47833c356f",
+    "axis_fidelity.csv": "7f793248ffdab36c99db36d04e23f867c2528e8f0ec3accc6a75a3dad3fad192",
+    "axis_resource_fraction.csv": "52495b5d335c686a78d4daceb1e9b12d0591bd08967590adb236ad6ed590df60",
+    "blocked_o2_7_status.json": "677cb89a5489a6b3c1bcf03c8d363b1771b9b85047fd2003957d87a021bf189b",
+    "execution_provenance.json": "0c179f224cc458483d6d455980e34773343f4b59f72035a5093d5b04bb56c381",
+    "full_resource_axis_reference.csv": "27c364fa92b3f9fe500416aff02362281bf06c8de313b99a07294517fa89ab3c",
+    "generalization_control.csv": "5eb8a16a64f9d19f094ca704ddf0f953e3315391b7f47a8aeca8f45a0e9ce3f9",
+    "matched_axis_null_summary.json": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "minimum_axis_trial_budget.json": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "next_gate_decision.json": "9e7c4ccae99ef48eb10d9161d77740ba48b7080ed9368c58aa255144998a1459",
+    "o2_7a_frozen_config.json": "46263b2c0878a4827d45c67a48f1baadde0c60e789689ec2fe9c068180fa87a4",
+    "participant_roi_frontier.csv": "4be7b3a560949c46a8033f17872d587a7867bb1815d21f810354c159e83148d3",
+    "primary_inference.json": "ee47f7af887cf48202b481681db0b1e61b5d8716b33d02eda74acc3326b04301",
+    "primary_roi_status.json": "4e8c9b8cc09078044cff8c2c08961701a0f7f3a853d6d1d7257764c5129bd23e",
+    "repeat_reliability.csv": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "scientific_status.json": "5a6ec2d4c63da575d828c5b76c2cb9b0eabe259bec044f21f781f1b8c6b66b2e",
+    "test_report.json": "488f71a1796034d0420ee85f857d430ab7cc7b31bfa72dcde4ba01882f3e7127",
+    "total_recovery_zero_base.csv": "4cbfd5ea8233f882dca5c8faf475cbe9b78152cab0eb02873d038d24c1cfc854",
+    "trial_axis_frontier.csv": "ef41a6d713150de17fac17b99ba651377e5479650271cdc7e7aaa91ec17d2547",
+    "zero_base_certification.json": "d913bdc5668f1067973a1086ed342199e63d7e6798a30ae63c48e15bbdebd3bf"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "suite": "tests/mindcompiler/operator_o2_7a/test_o2_7a_axis_calibration.py",
+  "n_tests": 16,
+  "passed": 16,
+  "items": [
+    "outside axis + null outside W",
+    "zero-base cert (P_ZERO_RD==R_CAL0, P_AUG sym/idem/rank)",
+    "high-SNR T1 fidelity",
+    "noisy T improvement",
+    "pure-noise null",
+    "identity-specific weak total",
+    "exact cell counts",
+    "b8 from sealed delta_native not trial mean",
+    "T_AXIS_STAR both-T1",
+    "multiregime",
+    "both-not-established",
+    "requires both fractions",
+    "T8 not in Holm",
+    "immutable seals + O3",
+    "no model search"
+  ]
+}

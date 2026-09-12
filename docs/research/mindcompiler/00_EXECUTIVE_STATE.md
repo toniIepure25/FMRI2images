@@ -23,16 +23,26 @@ sealed `delta_native` replays O2.6 EXACTLY (0.0), confirming a conditioning conf
 axis / O2.6; O2.6 preserved. Integrity restart machinery (two-stage guard, provenance/semantic verification;
 commits `702cd9d`-analog `aa92e45`) is retained. Superseded prospectively by O2.7A (not overwritten).
 
-## O2.7A (2026-09-12): MINIMAL-TRIAL OUTSIDE-AXIS CALIBRATION -- FROZEN (config `d50407fa`)
+## O2.7A (2026-09-12): MINIMAL-TRIAL OUTSIDE-AXIS CALIBRATION -- SEALED `REDUCED_TRIAL_OUTSIDE_AXIS_CALIBRATION_NOT_ESTABLISHED`
 
-Replaces the underdetermined M=2 Procrustes P_IN with the sealed zero-target `P_ZERO_RD` (deterministic, zero
-target imagery), eliminating the O2.7 conditioning confound. Fixed M=2 (25 pairs), D=1. The ONLY calibration
-resource is the T-repeat data (T in {1,2,4}, +T=8 reference) used to estimate ONE outside-support axis b_T via
-SVD; `P_AUG_ZERO=P_ZERO_RD + b_T b_T^T` (orthogonal ranges). Canonical full-resource axis `b_8_SEALED` from
-sealed `delta_native` (NOT trial mean). Metrics: E_AXIS (matched random-outside null x100), AXIS_FIDELITY vs
-b_8_SEALED, AXIS_RESOURCE_FRACTION, TOTAL_RECOVERY_ZERO_BASE; T_AXIS_STAR requires BOTH fractions >=0.50 +
-Holm-significant E_AXIS over the 6-test family (T8 excluded). No Procrustes/model search. 16 data-free tests
-pass. Reuses certified trial extension `d2729eb` (no regen). `O3` remains `O3_NOT_READY`.
+Config `d50407fa`, freeze `09b61c0` (+serialization fix `9384d68`). Replaces the underdetermined M=2 Procrustes
+with the sealed zero-target `P_ZERO_RD` (removes the O2.7 conditioning confound); the only calibration resource
+is the T-repeat data used to estimate ONE outside-support axis b_T. Reused the certified trial extension
+`d2729eb` (no regen). Zero-base cert exact (R0 dev 0.0; P_AUG sym/idem 1.8e-15; axis_perp 6.3e-16). Both primary
+ROIs **`T_AXIS_STAR=NOT_ESTABLISHED_BY_T4`** -> program `REDUCED_TRIAL_OUTSIDE_AXIS_CALIBRATION_NOT_ESTABLISHED`.
+
+**Nuance (the binding constraint is the ceiling, not trial count):** the axis IS estimable from few repeats --
+E_AXIS Holm-significant vs random-outside null at every T (p=0.0039, 8/8 positive), AXIS_RESOURCE_FRACTION
+>=0.50 by T=2 (medians 0.39->0.60->0.82 ventral / 0.40->0.59->0.80 lateral), axis fidelity 0.33->0.55->0.80->1.0,
+and the trial-8 axis equals the sealed reference axis exactly (|b8_trial . b8_sealed|^2=1.0000, confirming O2.7's
+failure was purely the Procrustes). BUT `TOTAL_RECOVERY_ZERO_BASE` (native-oracle-gap closure) reaches only
+~0.41/0.44 at T=4 and **~0.50 (ventral)/0.58 (lateral) even at full-resource T=8** -- a single outside axis on the
+zero-target base sits at the 0.50 bar, so the prespecified dual-fraction criterion is not met at T<=4. No overfit
+(calibration capture ~= held-out); axis well-conditioned (s2/s1~0.63); subj08 low outlier both ROIs. Bounded
+claim: reduced-repeat outside-axis ESTIMATION succeeds (few trials), but the operational native-gap recovery bar
+is not met with <=4 repeats, largely a D=1 + zero-base representational ceiling. **Next: O2.8 OUTSIDE-AXIS
+RELIABILITY / NOISE DECOMPOSITION.** Immutable seals preserved; `O3` remains `O3_NOT_READY`. Artifacts:
+`operator_o2_7a/` (21).
 
 ## O2.6 (2026-09-11): TARGET-STATE BASIS AUGMENTATION FRONTIER -- SEALED `TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY`
 

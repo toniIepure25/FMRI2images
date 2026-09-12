@@ -1,0 +1,12 @@
+{
+  "O2_7A_status": "REDUCED_TRIAL_OUTSIDE_AXIS_CALIBRATION_NOT_ESTABLISHED",
+  "ventral_T_AXIS_STAR": "NOT_ESTABLISHED_BY_T4",
+  "lateral_T_AXIS_STAR": "NOT_ESTABLISHED_BY_T4",
+  "overfit_field_note": "NON_AUTHORITATIVE_POST_HOC_DIAGNOSTIC (no prospectively frozen threshold)",
+  "generalization_statement": "Calibration and held-out behavior showed no obvious qualitative divergence under the descriptive control.",
+  "reliability_note": "POST_SEAL_DESCRIPTIVE_ADDENDUM; no pass threshold; does not alter T_AXIS_STAR/p-values/status",
+  "repeat_reliability_roi_median_COS2": {
+    "ventral": 0.30535691255013786,
+    "lateral": 0.2903451013737608
+  }
+}

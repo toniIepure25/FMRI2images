@@ -1,0 +1,15 @@
+{
+  "suite": "tests/mindcompiler/operator_o2_7a_postaudit/test_postaudit.py",
+  "n_tests": 5,
+  "passed": 5,
+  "audits": {
+    "A": "PASS 96/96",
+    "B": "PASS 96/96",
+    "C": "PASS 96/96 dev0.0",
+    "D": "PASS 2400/2400",
+    "E": "PASS 6tests/48cells",
+    "F": "descriptive reliability (no threshold)",
+    "G": "descriptive convergence",
+    "H": "continuous generalization + NON_AUTHORITATIVE overfit note"
+  }
+}

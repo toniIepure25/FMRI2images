@@ -1,0 +1,14 @@
+{
+  "status": "O2_7A_POSTSEAL_INTEGRITY_AUDIT_PASS",
+  "A_o2_6_ext": true,
+  "B_trial_ext": true,
+  "C_zero_base_96": true,
+  "D_b8_provenance": true,
+  "E_family_cells": true,
+  "held_out_leakage": false,
+  "reliability": "descriptive_no_threshold",
+  "o2_7a_status_preserved": "REDUCED_TRIAL_OUTSIDE_AXIS_CALIBRATION_NOT_ESTABLISHED",
+  "appended": "POSTSEAL_INTEGRITY_VERIFIED",
+  "authorize_next": "O2.8 RESIDUAL-CAPACITY DECOMPOSITION",
+  "O3": "O3_NOT_READY"
+}

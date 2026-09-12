@@ -1,0 +1,16 @@
+{
+  "six_test_family_ok": true,
+  "family": [
+    "lateral|T1",
+    "lateral|T2",
+    "lateral|T4",
+    "ventral|T1",
+    "ventral|T2",
+    "ventral|T4"
+  ],
+  "T8_excluded": true,
+  "n_participant_primary_cells": 48,
+  "expected": 48,
+  "cells_ok": true,
+  "ok": true
+}

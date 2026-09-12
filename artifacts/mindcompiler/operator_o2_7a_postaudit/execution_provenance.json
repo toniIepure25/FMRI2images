@@ -1,0 +1,19 @@
+{
+  "gate": "O2.7A-POSTAUDIT",
+  "input_seal": "54a336f",
+  "freeze_commit": "a871ef7",
+  "config_sha256": "04e15c2b8d2aab7998fc7b891cc6a3410a98432f7773b00864ca5ad1d9e56bae",
+  "image": "nipreps/fmriprep:25.2.5",
+  "node": "k8s-worker-cpu-node-r770",
+  "pvc": "rd-data",
+  "numpy": "2.2.6",
+  "non_scientific": true,
+  "no_inference_recompute": true,
+  "verified": {
+    "A_o2_6_ext": "96/96",
+    "B_trial_ext": "96/96",
+    "C_zero_base": "96/96 max_dev 0.0",
+    "D_b8": "2400/2400 pairs max_leak 9.8e-16",
+    "E": "6-test family + 48/48 participant cells"
+  }
+}

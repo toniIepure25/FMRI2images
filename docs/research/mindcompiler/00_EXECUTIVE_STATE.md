@@ -44,6 +44,16 @@ is not met with <=4 repeats, largely a D=1 + zero-base representational ceiling.
 RELIABILITY / NOISE DECOMPOSITION.** Immutable seals preserved; `O3` remains `O3_NOT_READY`. Artifacts:
 `operator_o2_7a/` (21).
 
+**POSTSEAL_INTEGRITY_VERIFIED (2026-09-12, audit config `04e15c2b`, commit `a871ef7`):** post-seal
+non-scientific audit `O2_7A_POSTSEAL_INTEGRITY_AUDIT_PASS` -- O2.6 native-extension provenance 96/96; O2.7
+trial-extension provenance 96/96; zero-base exhaustive 96/96 (max dev 0.0, idem 2.1e-15, range in col(W),
+rank==r_best); canonical b8 provenance 2400/2400 pairs (max leak 9.8e-16, NO held-out leakage); six-test family
++ 48/48 participant primary cells complete. No O2.7A metric/status changed. Descriptive addenda: split-half
+outside-residual reliability median COS2 ~0.31 (ventral)/0.29 (lateral); trial-count convergence separates
+axis-estimation (fidelity 0.33->1.0) from the ~0.50 native-gap ceiling; the earlier binary overfit field is
+marked `NON_AUTHORITATIVE_POST_HOC_DIAGNOSTIC` (no prospectively frozen threshold). **Authorizes O2.8
+RESIDUAL-CAPACITY DECOMPOSITION.** Artifacts: `operator_o2_7a_postaudit/` (15).
+
 ## O2.6 (2026-09-11): TARGET-STATE BASIS AUGMENTATION FRONTIER -- SEALED `TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY`
 
 Diagnostic gate (config `f4e94517`, freeze `8d5849b`, integrity-fix `702cd9d`): how many target-imagery

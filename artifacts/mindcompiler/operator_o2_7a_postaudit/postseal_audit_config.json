@@ -1,0 +1,30 @@
+{
+  "gate": "O2.7A-POSTAUDIT",
+  "class": "POST_SEAL_NON_SCIENTIFIC_INTEGRITY_AUDIT",
+  "input_seal": "54a336f373e570affdb4e30c671e1b9f83c8e3db",
+  "purpose": "validate provenance/completeness of the sealed O2.7A run and add descriptive reliability; MUST NOT rerun inference or change any O2.7A metric/T_AXIS_STAR/status/threshold/null/multiplicity/grid",
+  "immutable_o2_7a": {
+    "status": "REDUCED_TRIAL_OUTSIDE_AXIS_CALIBRATION_NOT_ESTABLISHED",
+    "ventral_T_AXIS_STAR": "NOT_ESTABLISHED_BY_T4",
+    "lateral_T_AXIS_STAR": "NOT_ESTABLISHED_BY_T4"
+  },
+  "audits": {
+    "A": "O2.6 native-residual extension provenance (96/96 + manifest fields)",
+    "B": "O2.7 trial extension provenance (96/96 + semantic)",
+    "C": "zero-base exhaustive over all 96 cells (P0 retention==R_CAL0<=1e-10, sym<=1e-10, idem<=1e-8, range in col(W), rank==r_best)",
+    "D": "canonical b8 provenance over all subject x ROI x fold x 25 pairs (no held-out, 25/fold, ||b8||=1, perp<=1e-10, s1>0, source deltanat sha)",
+    "E": "primary six-test family completeness (6 tests, no T8, 48 participant primary cells)",
+    "F": "POST_SEAL_DESCRIPTIVE repeat reliability (35 balanced 4-vs-4 split-half cos2 per identity/fold; participant-first) -- NO pass threshold",
+    "G": "descriptive T1->T8 convergence from sealed outputs only (no fit/extrapolation)",
+    "H": "generalization continuous diagnostic; any binary overfit field marked NON_AUTHORITATIVE_POST_HOC_DIAGNOSTIC"
+  },
+  "provenance_refs": {
+    "o2_6_ext_commit": "45a1813e6ff143e3f44d816eaa977c9920b3c761",
+    "o2_6_ext_blob_sha": "2d33c91b3d5da09b0696a0465b3a28b1dca4a4bb",
+    "trial_ext_commit": "d2729eb126955738946ff9213ef73518445839c8"
+  },
+  "pass_criteria": "O2_7A_POSTSEAL_INTEGRITY_AUDIT_PASS iff A 96/96 AND B 96/96 AND C 96/96 AND D provenance/completeness AND E family+cells complete AND no held-out leakage; reliability has NO pass threshold; else O2_7A_POSTSEAL_INTEGRITY_AUDIT_FAIL and STOP before O2.8",
+  "on_pass": "preserve O2.7A status + append POSTSEAL_INTEGRITY_VERIFIED; authorize O2.8 RESIDUAL-CAPACITY DECOMPOSITION",
+  "O3": "O3_NOT_READY",
+  "config_sha256": "04e15c2b8d2aab7998fc7b891cc6a3410a98432f7773b00864ca5ad1d9e56bae"
+}

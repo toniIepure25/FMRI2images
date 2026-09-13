@@ -1,0 +1,191 @@
+{
+  "gate": "O2.9",
+  "class": "PROSPECTIVE_POST_O2_8_MINIMAL_COMPOSITE_RESOURCE_FRONTIER (OPERATIONAL; not a mechanism search / model competition / re-confirmation)",
+  "input_head": "f554a8f111ae2e8aa612915638e0e0ccad81cab2",
+  "question": "Smallest target-imagery acquisition that operationally estimates the complete O2.8-supported composite geometry and closes >=half the native-oracle gap on unseen imagery identities, in BOTH primary ROIs?",
+  "immutable_history": {
+    "O2_8": "RESIDUAL_CAPACITY_MULTICOMPONENT",
+    "O2_7A_POSTAUDIT": "O2_7A_POSTSEAL_INTEGRITY_AUDIT_PASS",
+    "O2_7A": "REDUCED_TRIAL_OUTSIDE_AXIS_CALIBRATION_NOT_ESTABLISHED",
+    "O2_7": "O2_7_FULL_REPEAT_REPLAY_FAILURE (M2_PROCRUSTES_NUMERICAL_CONDITIONING_PREVENTS_REQUIRED_FULL_RESOURCE_REPLAY)",
+    "O2_6": "TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY",
+    "O2_5": "TARGET_IMAGERY_RESIDUAL_OUTSIDE_PERCEPTION_SUPPORT_DOMINANT",
+    "O2_4R": "TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION",
+    "O2_3A_RD": "CORE_ANCHOR_RD_INCONCLUSIVE",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2.2": "CROSS_STATE_TRANSPORT_MULTIREGIME",
+    "O3": "O3_NOT_READY",
+    "never_relabel_historical": true
+  },
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "secondary": "parietal (after primary seal)",
+  "frozen_geometry": {
+    "D_outside": 2,
+    "do_not_reopen_D": true,
+    "no_procrustes": true,
+    "within_support_estimator": "DIRECT target residual subspace inside col(W_target): U_IN = top-q left singular vectors of Z_C.T; B_IN=W_target U_IN; P_IN=B_IN B_IN.T",
+    "q": "min(r_best, M) (sample-limited operational rank; frozen; WITHIN_RANK_FRACTION=q/r_best descriptive)",
+    "outside_estimator": "B_OUT = top-2 left singular vectors of D_OUT_C (V x M); P_OUT=B_OUT B_OUT.T",
+    "P_COMP": "P_IN + P_OUT (orthogonal ranges; certify sym<=1e-10, idem<=1e-8, cross<=1e-10, rank=q+2)"
+  },
+  "data": {
+    "only_sealed_state": true,
+    "reuse": [
+      "RD cell state",
+      "W_target",
+      "U_res/r_best",
+      "R_CAL0",
+      "R_NATIVE_ORACLE",
+      "deltas_test",
+      "O2.6 delta_native extension",
+      "O2.7 certified trial extension",
+      "O2.8 R111 reference"
+    ],
+    "forbidden": [
+      "raw beta",
+      "SRM refit",
+      "K refit",
+      "rank selection",
+      "new preprocessing"
+    ]
+  },
+  "outer_folds": {
+    "count": 6,
+    "train": "10 (5 simple + 5 nat)",
+    "test": "2 held-out (1 simple + 1 nat)",
+    "heldout_never_in_calibration": true
+  },
+  "M_grid": [
+    2,
+    4,
+    6,
+    8,
+    10
+  ],
+  "M_subsets": {
+    "M2": 25,
+    "M4": 100,
+    "M6": 100,
+    "M8": 25,
+    "M10": 1
+  },
+  "T_grid": [
+    1,
+    2,
+    4,
+    8
+  ],
+  "T_subsets": {
+    "T1": 8,
+    "T2": 28,
+    "T4": 70,
+    "T8": 1
+  },
+  "same_repeat_subset_both_identities": true,
+  "operational_cost": {
+    "N_TRIALS": "M x T (D fixed at 2 does not enter the count)"
+  },
+  "residual": {
+    "delta_i(S)": "mean_{t in S} delta_trial(i,t) (certified O2.7 trial state, no extra normalization)",
+    "z_i(S)": "W_target.T delta_i(S)",
+    "delta_out_i(S)": "delta_i(S) - W_target(W_target.T delta_i(S))",
+    "leak_require": "||W_target.T delta_out_i|| <= 1e-10*max(1,||delta_i||)"
+  },
+  "numerical_rank_rule": "tol = eps_float64 * max(shape) * s_max ; rank = count(s > tol) ; frozen, no outcome-specific tolerance",
+  "rank_guards": {
+    "within": "rank(Z_C) >= q else WITHIN_SUPPORT_RANK_INSUFFICIENT",
+    "outside": "rank(D_OUT_C) >= 2 else OUTSIDE_D2_RANK_INSUFFICIENT",
+    "no_subset_dropping": "any required subset rank-insufficient -> RESOURCE_CELL_NON_EVALUABLE for that participant x ROI x M x T; do NOT average survivors; group cell needs 8/8 evaluable"
+  },
+  "eval": {
+    "on": "2 sealed outer-test imagery residual centroids only",
+    "aggregation_order": [
+      "two held-out identities",
+      "all balanced identity subsets",
+      "all repeat subsets",
+      "six outer folds"
+    ],
+    "unit": "participant",
+    "N": 8
+  },
+  "references": {
+    "R0": "sealed R_CAL0 (zero target imagery)",
+    "R_NATIVE_ORACLE": "sealed (no recompute)",
+    "R111": "sealed O2.8 participant-level (M10,D2,within rank-r oracle) capacity reference"
+  },
+  "replay_gate": {
+    "O2_9_FULL_COMPOSITE_REPLAYS_O2_8_R111": "sealed-centroid delta_native M10,D2,q=r_best (direct within + outside SVD) reproduces O2.8 R111 <=1e-10 (participant); NOT trial means; else STOP"
+  },
+  "operational_full_resource_cell": "M10,T8 uses mean of all 8 certified trial residuals (like every T cell), NOT sealed delta_native; agreement with R111 reported descriptively; if M10,T8 fails the criterion there is NO established operational solution",
+  "metrics": {
+    "TOTAL_RECOVERY_COMP(M,T)": "(R_COMP - R0)/max(R_NATIVE_ORACLE - R0, 1e-12) (clipped [0,1] + unclipped) -- primary resource criterion",
+    "FULL_CAPACITY_FRACTION(M,T)": "(R_COMP - R0)/max(R111 - R0, 1e-12) (clipped + unclipped)"
+  },
+  "resource_cell_success": {
+    "OPERATIONALLY_SUFFICIENT_if_ALL": [
+      "8/8 participants evaluable",
+      "median clipped TOTAL_RECOVERY_COMP >= 0.50",
+      ">=6/8 TOTAL_RECOVERY_COMP >= 0.50",
+      "median clipped FULL_CAPACITY_FRACTION >= 0.50",
+      ">=6/8 FULL_CAPACITY_FRACTION >= 0.50"
+    ],
+    "no_pvalue": "O2.8 already established held-out signal via participant-level exact inference; O2.9 is a resource frontier, not a discovery test"
+  },
+  "common_frontier": {
+    "COMMON_SUCCESS(M,T)": "same M,T OPERATIONALLY_SUFFICIENT in BOTH ventral and lateral (no ROI mixing)",
+    "N_TRIALS_STAR": "min over COMMON_SUCCESS of M*T",
+    "MINIMAL_RESOURCE_SET": "ALL common-success cells with M*T==N_TRIALS_STAR (report all ties)",
+    "pareto": "common nondominated cells: (M,T) dominates (M',T') if M<=M' and T<=T' with one strict; persist all nondominated"
+  },
+  "diagnostics_descriptive": [
+    "monotonicity (M at fixed T, T at fixed M; report non-monotonicity honestly, no isotonic smoothing)",
+    "within-support singular spectra + q + boundary ratio s_{q+1}/s_q",
+    "outside s1,s2,s3 + s3/s2",
+    "WITHIN_RANK_FRACTION=q/r_best"
+  ],
+  "gram_optimization": {
+    "allowed": "mathematically equivalent small Gram matrices (outside G=D.T D, h=D.T delta -> energy sum (v.h)^2/lambda; within via Z_C Gram)",
+    "require_data_free_equivalence": "Gram vs direct SVD/projector <=1e-10; do NOT change scientific formulas"
+  },
+  "expected_counts": "per participant x ROI x M x T: 6 folds x N_id_subsets(M) x N_rep_subsets(T); exact; no selective averaging",
+  "roi_status": {
+    "COMPOSITE_OPERATIONAL_CALIBRATION_ESTABLISHED": ">=1 resource cell OPERATIONALLY_SUFFICIENT",
+    "COMPOSITE_OPERATIONAL_RECOVERY_NOT_ESTABLISHED_AT_FULL_RESOURCE": "M10,T8 evaluable but fails the frozen criterion",
+    "COMPOSITE_RESOURCE_FRONTIER_INCONCLUSIVE": "provenance/rank/evaluability/technical failure"
+  },
+  "program_status": {
+    "MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED": ">=1 COMMON_SUCCESS cell",
+    "COMPOSITE_TARGET_STATE_CALIBRATION_MULTIREGIME": "each ROI has sufficient cells but NO single (M,T) sufficient in both",
+    "COMPOSITE_OPERATIONAL_RECOVERY_NOT_ESTABLISHED": "full resource M10,T8 insufficient in >=1 otherwise-valid ROI",
+    "O2_9_COMPOSITE_CALIBRATION_INCONCLUSIVE": "technical/provenance/evaluability failure"
+  },
+  "M_interpretation": "OPERATIONAL resource axis (identity diversity of outside basis + within-support sample rank + acquisition diversity); NOT a new causal attribution to O2.8 factor A alone",
+  "resource_claim_boundary": "allowed: smallest tested common calibration burden that closed >=half the native-oracle gap in both ROIs, with successful combinations as the frozen empirical frontier; NOT 'N trials universally calibrate imagery / biological minimum / brain needs M identities / D=2 is imagery dimensionality'",
+  "no_model_search": [
+    "Procrustes",
+    "ridge",
+    "affine",
+    "CCA",
+    "RRR",
+    "PLS",
+    "NN",
+    "nonlinear",
+    "alt D",
+    "alt r_best",
+    "new K",
+    "new SRM",
+    "alt residual",
+    "adaptive identity selection",
+    "adaptive repeat selection"
+  ],
+  "next_gate": {
+    "MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED": "O2.10 COMPOSITE TARGET-STATE GEOMETRY SHAREDNESS (cross-participant predictability/transfer of the D=2 outside basis + within-support subspace); O3 not auto-unlocked",
+    "COMPOSITE_TARGET_STATE_CALIBRATION_MULTIREGIME": "O2.10 ROI-SPECIFIC COMPOSITE RESOURCE MECHANISMS",
+    "COMPOSITE_OPERATIONAL_RECOVERY_NOT_ESTABLISHED": "O2.10 COMPOSITE ESTIMATOR CAPACITY GAP"
+  },
+  "O3": "O3_NOT_READY",
+  "config_sha256": "037686de38a4730680f2c898f5a2cf2024722a2ad4abdcaabc8782e564eae898"
+}

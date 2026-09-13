@@ -1,0 +1,206 @@
+{
+  "gate": "O2.8",
+  "class": "PROSPECTIVE_POST_O2_7A_FACTORIAL_CAPACITY_DECOMPOSITION (DIAGNOSTIC)",
+  "input_head": "358d1150682b50c78a16f3d21a651ae33dee64d2",
+  "question": "What representational resource accounts for the remaining full-resource target-state gap: outside-basis identity diversity (A), a second outside dimension (B), or within-support target orientation (C)?",
+  "immutable_history": {
+    "O2_7A_POSTAUDIT": "O2_7A_POSTSEAL_INTEGRITY_AUDIT_PASS",
+    "O2_7A": "REDUCED_TRIAL_OUTSIDE_AXIS_CALIBRATION_NOT_ESTABLISHED",
+    "O2_7": "O2_7_FULL_REPEAT_REPLAY_FAILURE (M2_PROCRUSTES_NUMERICAL_CONDITIONING_PREVENTS_REQUIRED_FULL_RESOURCE_REPLAY)",
+    "O2_6": "TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY",
+    "O2_5": "TARGET_IMAGERY_RESIDUAL_OUTSIDE_PERCEPTION_SUPPORT_DOMINANT",
+    "O2_4R": "TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION",
+    "O2_3A_RD": "CORE_ANCHOR_RD_INCONCLUSIVE",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2.2": "CROSS_STATE_TRANSPORT_MULTIREGIME",
+    "O3": "O3_NOT_READY",
+    "never_rewrite_historical": true
+  },
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "secondary": "parietal (after primary seal)",
+  "data": {
+    "only_sealed_full_resource_centroid_geometry": true,
+    "reuse": [
+      "O2.3A-RD cell state",
+      "O2.6 delta_native + committed manifest",
+      "R_CAL0/P_ZERO_RD ingredients",
+      "R_NATIVE_ORACLE",
+      "O2.5 rank-matched support-oracle definition/results",
+      "O2.7A R_AXIS_8 reference"
+    ],
+    "forbidden": [
+      "raw beta",
+      "trial-level residuals",
+      "T subsampling",
+      "new SRM",
+      "K selection",
+      "rank selection",
+      "preprocessing"
+    ]
+  },
+  "outer_folds": {
+    "count": 6,
+    "train": "10 (5 simple + 5 nat)",
+    "test": "2 (1 simple + 1 nat)",
+    "heldout_never_in_any_fit": true
+  },
+  "factors": {
+    "A_outside_identity_diversity": {
+      "A0": "M=2 (all 25 balanced 1s+1n pairs, averaged)",
+      "A1": "M=10 (all 10 outer-training identities, one basis)"
+    },
+    "B_outside_dimension": {
+      "B0": "D=1 (U[:, :1])",
+      "B1": "D=2 (U[:, :2])",
+      "require": "numerical rank>=D, B_OUT orthonormal, W_target.T B_OUT ~0; else cell non-evaluable -> technical inconclusive; do NOT substitute D"
+    },
+    "C_within_support_orientation": {
+      "C0": "P_ZERO_RD = native_projector(I,U_res,W_target)",
+      "C1": "P_SUPPORT_ORACLE_R = W_target U[:, :r_best](Z.T) (Z.T)^T ... training-only target-informed rank-matched WITHIN-support oracle (O2.5); CAPACITY diagnostic, NOT an operational/zero-shot estimator"
+    }
+  },
+  "factor_A_meaning": "identity diversity for ESTIMATING the outside-support basis ONLY; Factor C independently uses all 10 outer-training identities for the within-support oracle; this is a REPRESENTATIONAL CAPACITY decomposition, not an acquisition-cost decomposition",
+  "combined_projector": {
+    "P_OUT": "B_OUT_D B_OUT_D.T",
+    "P_ABC": "P_IN_C + P_OUT",
+    "orthogonal_ranges": "range(P_IN_C) in col(W_target), range(P_OUT) perp col(W_target)",
+    "certify": [
+      "P_IN_C P_OUT ~0",
+      "symmetry",
+      "idempotence",
+      "rank = rank(P_IN_C)+D"
+    ]
+  },
+  "cells": {
+    "R000": "M2 D1 P_ZERO (baseline)",
+    "R100": "M10 D1 P_ZERO",
+    "R010": "M2 D2 P_ZERO",
+    "R001": "M2 D1 ORACLE",
+    "R110": "M10 D2 P_ZERO",
+    "R101": "M10 D1 ORACLE",
+    "R011": "M2 D2 ORACLE",
+    "R111": "M10 D2 ORACLE"
+  },
+  "eval": {
+    "on": "2 held-out target-native imagery residuals; M2 avg over 25 pairs within fold; M10 one basis/fold; fold->participant BEFORE group",
+    "R_ABC": "participant retention"
+  },
+  "replay_gates": {
+    "O2_8_BASELINE_REPLAYS_O2_7A_T8": "R000 reproduces sealed O2.7A R_AXIS_8 participant values <=1e-10 (same 25 pairs / 6 folds / b8 / P_ZERO / held-out); else STOP",
+    "O2_8_SUPPORT_ORACLE_REPLAYS_O2_5": "P_SUPPORT_ORACLE_R (no outside) reproduces sealed O2.5 R_SUPPORT_ORACLE_R <=1e-10; else STOP"
+  },
+  "native_oracle_ref": "reuse exact sealed R_NATIVE_ORACLE (benchmark only)",
+  "remaining_gap": {
+    "G_REMAIN": "R_NATIVE_ORACLE - R000",
+    "guard": "<=1e-12 -> participant NO_REMAINING_GAP (excluded from normalized fractions)",
+    "require_evaluable": ">=7/8 per ROI for normalized group interpretation"
+  },
+  "full_closure": {
+    "FULL_CLOSURE_UNCLIPPED": "(R111-R000)/max(G_REMAIN,1e-12)",
+    "clipped": "[0,1]",
+    "UNEXPLAINED_FRACTION": "(R_NATIVE_ORACLE-R111)/max(G_REMAIN,1e-12) UNCLIPPED (values may be negative if R111 exceeds oracle)"
+  },
+  "shapley": {
+    "set_function": "v(S) = R_S - R000",
+    "factors": [
+      "A",
+      "B",
+      "C"
+    ],
+    "weights": {
+      "|S|=0": "1/3",
+      "|S|=1": "1/6",
+      "|S|=2": "1/3"
+    },
+    "efficiency": "phi_A + phi_B + phi_C == R111 - R000 within 1e-12 (else STOP implementation failure)",
+    "inference_uses_raw_phi": true
+  },
+  "normalized_fractions": {
+    "F_i": "phi_i / G_REMAIN (unclipped for inference-adjacent reporting; clipped for viz only)",
+    "F_UNEXPLAINED": "1 - (F_A + F_B + F_C)"
+  },
+  "inference": {
+    "per_roi_tests": [
+      "H_A: phi_A>0",
+      "H_B: phi_B>0",
+      "H_C: phi_C>0"
+    ],
+    "signflip": "2^8 exact one-sided",
+    "primary_family": "3 factors x 2 ROIs = 6 tests",
+    "holm": "across exactly 6",
+    "alpha": 0.05,
+    "unit": "participant",
+    "N": 8
+  },
+  "component_supported": "SUPPORTED within ROI iff median phi_i>0 AND >=6/8 phi_i>0 AND Holm reject; else NOT_SUPPORTED (not exactly zero)",
+  "descriptive_contrasts": {
+    "DELTA_A_SIMPLE": "R100-R000",
+    "DELTA_B_SIMPLE": "R010-R000",
+    "DELTA_C_SIMPLE": "R001-R000",
+    "role": "sanity only; Shapley is primary"
+  },
+  "interaction_diagnostics": {
+    "report": [
+      "AxB",
+      "AxC",
+      "BxC",
+      "AxBxC"
+    ],
+    "no_tests": true,
+    "no_threshold": true
+  },
+  "full_closure_adequacy": {
+    "CAPACITY_SET_SUFFICIENT_FOR_MAJORITY_REMAINING_GAP": "median clipped FULL_CLOSURE>=0.50 AND >=6/8>=0.50",
+    "else": "TESTED_CAPACITY_SET_DOES_NOT_CLOSE_MAJORITY_REMAINING_GAP"
+  },
+  "roi_mechanism_status": {
+    "RESIDUAL_CAPACITY_BEYOND_TESTED_FACTORS": "tested set does not close majority remaining gap",
+    "OUTSIDE_IDENTITY_DIVERSITY_LIMIT": "only A supported",
+    "SECOND_OUTSIDE_DIMENSION_LIMIT": "only B supported",
+    "WITHIN_SUPPORT_ORIENTATION_LIMIT": "only C supported",
+    "MULTICOMPONENT_RESIDUAL_CAPACITY_LIMIT": "two or three supported",
+    "CAPACITY_INTERACTION_DOMINANT": "none individually supported but full closure>=0.50",
+    "RESIDUAL_CAPACITY_DECOMPOSITION_INCONCLUSIVE": "technical/provenance failure"
+  },
+  "program_status": {
+    "RESIDUAL_CAPACITY_OUTSIDE_IDENTITY_DOMINANT": "both ROIs OUTSIDE_IDENTITY_DIVERSITY_LIMIT",
+    "RESIDUAL_CAPACITY_SECOND_OUTSIDE_DIMENSION_DOMINANT": "both SECOND_OUTSIDE_DIMENSION_LIMIT",
+    "RESIDUAL_CAPACITY_WITHIN_SUPPORT_ORIENTATION_DOMINANT": "both WITHIN_SUPPORT_ORIENTATION_LIMIT",
+    "RESIDUAL_CAPACITY_MULTICOMPONENT": "both resolved but require >=2 components, or resolved mechanisms differ",
+    "RESIDUAL_CAPACITY_BEYOND_TESTED_FACTORS": "either ROI fails majority-gap closure (tested set insufficient)",
+    "O2_8_RESIDUAL_CAPACITY_INCONCLUSIVE": "technical/provenance/evaluability failure"
+  },
+  "claim_boundaries": {
+    "A": "greater identity diversity improves ESTIMATION of the tested outside-support subspace; NOT 'brain needs 10 identities'",
+    "B": "a second native direction outside the tested support accounts for additional held-out structure; NOT 'imagery has two special neural dimensions'",
+    "C": "target-informed orientation within the tested support accounts for additional held-out structure; NOT 'perception/imagery share a causal latent operator'",
+    "C1_is_oracle": "uses target-state training data; CAPACITY DIAGNOSIS only; if C supported the NEXT gate designs a stable within-support estimator (O2.8 authorizes none)"
+  },
+  "no_model_search": [
+    "Procrustes alternatives",
+    "ridge",
+    "affine",
+    "RRR",
+    "CCA",
+    "NN",
+    "nonlinear",
+    "D>2",
+    "alt M",
+    "new W_target",
+    "new SRM",
+    "alt residual",
+    "alt rank"
+  ],
+  "next_gate": {
+    "RESIDUAL_CAPACITY_SECOND_OUTSIDE_DIMENSION_DOMINANT": "O2.9 TWO-DIMENSION OUTSIDE-BASIS MINIMAL CALIBRATION",
+    "RESIDUAL_CAPACITY_OUTSIDE_IDENTITY_DOMINANT": "O2.9 OUTSIDE-BASIS IDENTITY-DIVERSITY FRONTIER",
+    "RESIDUAL_CAPACITY_WITHIN_SUPPORT_ORIENTATION_DOMINANT": "O2.9 STABLE WITHIN-SUPPORT TARGET-ORIENTATION ESTIMATOR (no underdetermined M2 Procrustes)",
+    "RESIDUAL_CAPACITY_MULTICOMPONENT": "O2.9 MINIMAL COMPOSITE TARGET-STATE CALIBRATION (only supported components)",
+    "RESIDUAL_CAPACITY_BEYOND_TESTED_FACTORS": "O2.9 RESIDUAL STRUCTURE EXPANSION DIAGNOSTIC (D>2 / identity-conditioned / rank mismatch / remaining native structure, before nonlinear)"
+  },
+  "O3": "O3_NOT_READY",
+  "config_sha256": "f2af62068e137522865dc987452b0b7b85a5ba1f578b1fd042585f32e5537f66"
+}

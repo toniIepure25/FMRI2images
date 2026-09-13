@@ -1,0 +1,22 @@
+{
+  "config_sha256": "f2af62068e137522865dc987452b0b7b85a5ba1f578b1fd042585f32e5537f66",
+  "driver_sha256": "44b600d83c4d548645a860e2fe6527f03e7b939d159b58335a2d8f079cfad378",
+  "artifacts": {
+    "component_inference.json": "c2a47c160879c0851a40b3fbbf05f4f34a2692f67649193b8b74c711b77e9165",
+    "execution_provenance.json": "8816057cda99ec79f9269aae3d3bd95e8faf789cbcf938e548675f261e15c315",
+    "factorial_cell_results.csv": "58925256413b0c55e4f683f43174a87ead284c6d4dfdb88a9bf794104ba7cb91",
+    "full_closure_results.csv": "8039138ccf4a150b98eed6e8f635f8d0923c66b5784ca1a770ea1a3fd318f855",
+    "interaction_diagnostics.csv": "64dd7c3a933dd204351e34c98310a7855e5ff9e81f6f859145d61efd658f9f61",
+    "next_gate_decision.json": "b0392e1f553c399878c0a73654f4d50cf51fc04888789d51fc9eb48fae24363a",
+    "normalized_capacity_fractions.csv": "fed7c4f6c7ef2b705c35c31fd95503f0ef2559ffef6bcafe4def6d4c4b03ea3f",
+    "o2_5_support_oracle_replay.json": "ea5b6cd9f6f818388453e84ff073d4378d2b344f8522370f6c0847de3fc65d50",
+    "o2_7a_baseline_replay.json": "2b6ebd556f5099359526f7e348ae4e42daa354df0e74f821af107d0ad3bc6d6f",
+    "o2_8_frozen_config.json": "d57d14efec6ae2736c52b408352f782d1929c78b2ab32dca44ca3fa490cd316e",
+    "participant_factorial_cells.csv": "876415266f02d07f2e8615f45c63cac1a25ac5c23c53580218d44bcf2ac7110d",
+    "roi_mechanism_status.json": "5148377d5262f07281858d6ec13cff3b1b8ad5ada50d04f3beac1ec93b7db278",
+    "scientific_status.json": "3a51381c3bf26d21eb62b532e6dff583de5ae9d4928e4a9f13b080efcf011bca",
+    "sealed_state_verification.json": "fced787e8f7ba10193d9307babf7f6d3f849fefb2aef95a4b25e414dddb8e7f7",
+    "shapley_contributions.csv": "a9fda1d1ee683b8d2631887436c9763fb666a2954a9b6d3378fcbe269330c9ff",
+    "test_report.json": "4fed3ee59c6c56dcdfc959cf0f35292642087c303f819cad98a852afdedbaab4"
+  }
+}

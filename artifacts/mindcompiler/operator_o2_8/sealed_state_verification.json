@@ -1,0 +1,8 @@
+{
+  "rd_results_sha256": "fb35881957ec871bdeb2bb4081015c767b2cfc92bf306272c59bfa662b76ea84",
+  "expected": "fb35881957ec871bdeb2bb4081015c767b2cfc92bf306272c59bfa662b76ea84",
+  "rd_match": true,
+  "state_hashes_ok": true,
+  "ext_manifest_ok": true,
+  "ext_hashes_ok": true
+}

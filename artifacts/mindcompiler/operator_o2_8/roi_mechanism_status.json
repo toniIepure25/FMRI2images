@@ -1,0 +1,24 @@
+{
+  "ventral": {
+    "status": "MULTICOMPONENT_RESIDUAL_CAPACITY_LIMIT",
+    "supported": {
+      "A": true,
+      "B": true,
+      "C": true
+    },
+    "full_closure_sufficient": true,
+    "median_FULL_CLOSURE": 0.9485909589174271,
+    "n_evaluable": 8
+  },
+  "lateral": {
+    "status": "MULTICOMPONENT_RESIDUAL_CAPACITY_LIMIT",
+    "supported": {
+      "A": true,
+      "B": true,
+      "C": true
+    },
+    "full_closure_sufficient": true,
+    "median_FULL_CLOSURE": 0.8987108274933877,
+    "n_evaluable": 8
+  }
+}

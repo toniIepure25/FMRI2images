@@ -1,0 +1,15 @@
+{
+  "gate": "O2.8",
+  "input_head": "358d115",
+  "freeze_commit": "4efee69",
+  "config_sha256": "f2af62068e137522865dc987452b0b7b85a5ba1f578b1fd042585f32e5537f66",
+  "image": "nipreps/fmriprep:25.2.5",
+  "node": "k8s-worker-cpu-node-r770",
+  "pvc": "rd-data",
+  "numpy": "2.2.6",
+  "diagnostic_only": true,
+  "no_nulls": true,
+  "baseline_replay": "1.1e-16",
+  "support_oracle_replay": "0.0",
+  "shapley_efficiency_max_err": "5.6e-17"
+}

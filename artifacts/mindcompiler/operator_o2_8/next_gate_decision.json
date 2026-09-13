@@ -1,0 +1,7 @@
+{
+  "input_status": "RESIDUAL_CAPACITY_MULTICOMPONENT",
+  "next_gate": "O2.9 MINIMAL COMPOSITE TARGET-STATE CALIBRATION",
+  "core_question": "Freeze only the O2.8-supported components (all three: outside-identity diversity A, second outside dimension B, within-support orientation C) and find the minimum OPERATIONAL resource frontier that closes the majority of the native-oracle gap -- with a numerically identifiable within-support estimator (NOT the underdetermined M2 Procrustes).",
+  "rationale": "Both primary ROIs MULTICOMPONENT_RESIDUAL_CAPACITY_LIMIT: A,B,C all Holm-supported (8/8, p=0.0039); tested capacity set closes ~95% (ventral)/~90% (lateral) of the remaining gap; contributions roughly additive (small AxB), balanced in ventral, A/B-leaning in lateral (phi_C small but supported).",
+  "O3": "O3_NOT_READY"
+}

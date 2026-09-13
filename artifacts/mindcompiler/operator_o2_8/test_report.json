@@ -1,0 +1,19 @@
+{
+  "suite": "tests/mindcompiler/operator_o2_8/test_o2_8_capacity.py",
+  "n_tests": 12,
+  "passed": 12,
+  "items": [
+    "shapley efficiency+additivity",
+    "shapley with interactions",
+    "support-oracle/outside-basis props",
+    "subject-roi pipeline efficiency+P_AUG cert",
+    "A-only",
+    "B-only",
+    "C-only",
+    "multicomponent",
+    "interaction-dominant",
+    "beyond-tested",
+    "inconclusive-low-evaluable",
+    "config+no-model-search"
+  ]
+}

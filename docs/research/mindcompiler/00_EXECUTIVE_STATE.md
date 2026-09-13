@@ -10,6 +10,27 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.8 (2026-09-13): RESIDUAL-CAPACITY DECOMPOSITION -- SEALED `RESIDUAL_CAPACITY_MULTICOMPONENT`
+
+Frozen 2x2x2 factorial (config `f2af6206`, freeze `4efee69`): A outside-identity-diversity (M2 all 25 pairs /
+M10) x B outside-dimension (D1/D2) x C within-support orientation (P_ZERO_RD / O2.5 P_SUPPORT_ORACLE_R), exact
+3-factor Shapley of the remaining native-oracle gap. Full-resource identity-centroid geometry on sealed state
+only (no raw betas/trials/model search; C1 is an ORACLE capacity diagnostic). Verifications exact: baseline
+R000 replays O2.7A R_AXIS_8 (1.1e-16); P_SUPPORT_ORACLE_R replays O2.5 (0.0); Shapley efficiency 5.6e-17;
+P_AUG sym 0 / idem 4.9e-15; leak 1.8e-14; provenance 96/96.
+
+**Result `RESIDUAL_CAPACITY_MULTICOMPONENT`** -- both primary ROIs `MULTICOMPONENT_RESIDUAL_CAPACITY_LIMIT`.
+ALL THREE factors A,B,C Holm-supported in both ROIs (8/8 positive, sign-flip p=0.0039). phi medians: ventral
+A=0.089/B=0.087/C=0.091 (balanced); lateral A=0.097/B=0.101/C=0.022 (A/B-leaning, C small but supported). Full
+closure: ventral 0.949 (8/8>=0.5), lateral 0.899 (7/8) -- the tested capacity set closes ~90-95% of the
+remaining gap (unexplained 0.05/0.10); interactions ~additive (small AxB ~0.024-0.034). Bounded reading: the
+remaining full-resource target-state gap is NOT single-factor -- greater outside-basis identity diversity, a
+second outside native dimension, and target-informed within-support orientation each contribute significantly
+and roughly additively (statements about the tested representational model; C1 an oracle, no operational
+estimator authorized). **Next: O2.9 MINIMAL COMPOSITE TARGET-STATE CALIBRATION** (freeze supported components;
+find minimum operational frontier with an identifiable within-support estimator -- not the underdetermined M2
+Procrustes). Immutable seals preserved; `O3` remains `O3_NOT_READY`. Artifacts: `operator_o2_8/` (17).
+
 ## O2.7 (2026-09-11): MINIMAL-TRIAL CALIBRATION -- BLOCKED `O2_7_FULL_REPEAT_REPLAY_FAILURE`
 
 Reason: `M2_PROCRUSTES_NUMERICAL_CONDITIONING_PREVENTS_REQUIRED_FULL_RESOURCE_REPLAY`. The trial-level residual

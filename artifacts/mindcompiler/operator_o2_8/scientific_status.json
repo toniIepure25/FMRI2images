@@ -1,0 +1,23 @@
+{
+  "status": "RESIDUAL_CAPACITY_MULTICOMPONENT",
+  "roi_status": {
+    "ventral": "MULTICOMPONENT_RESIDUAL_CAPACITY_LIMIT",
+    "lateral": "MULTICOMPONENT_RESIDUAL_CAPACITY_LIMIT"
+  },
+  "shapley_efficiency_max_err": 5.551115123125783e-17,
+  "P_AUG_cert": {
+    "m0_dev": 0.0,
+    "sym": 0.0,
+    "idem": 4.920486642627236e-15,
+    "cross": 1.5535895348767955e-15,
+    "rank_ok": "True"
+  },
+  "outside_leak_max": 1.8164289516953147e-14,
+  "baseline_replay": true,
+  "support_oracle_replay": true,
+  "immutable": {
+    "O2_7A": "REDUCED_TRIAL_OUTSIDE_AXIS_CALIBRATION_NOT_ESTABLISHED",
+    "O2_6": "TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY"
+  },
+  "O3": "O3_NOT_READY"
+}

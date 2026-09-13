@@ -1,0 +1,67 @@
+{
+  "family": [
+    "ventral|A",
+    "ventral|B",
+    "ventral|C",
+    "lateral|A",
+    "lateral|B",
+    "lateral|C"
+  ],
+  "family_size": 6,
+  "per_roi": {
+    "ventral": {
+      "signflip_p": {
+        "A": 0.00390625,
+        "B": 0.00390625,
+        "C": 0.00390625
+      },
+      "holm_reject": {
+        "A": true,
+        "B": true,
+        "C": true
+      },
+      "supported": {
+        "A": true,
+        "B": true,
+        "C": true
+      },
+      "phi_median": {
+        "A": 0.08875517673260325,
+        "B": 0.0866018055899799,
+        "C": 0.09098980664726133
+      },
+      "n_phi_pos": {
+        "A": 8,
+        "B": 8,
+        "C": 8
+      }
+    },
+    "lateral": {
+      "signflip_p": {
+        "A": 0.00390625,
+        "B": 0.00390625,
+        "C": 0.00390625
+      },
+      "holm_reject": {
+        "A": true,
+        "B": true,
+        "C": true
+      },
+      "supported": {
+        "A": true,
+        "B": true,
+        "C": true
+      },
+      "phi_median": {
+        "A": 0.0970092307741773,
+        "B": 0.10122048561276911,
+        "C": 0.021686213542886495
+      },
+      "n_phi_pos": {
+        "A": 8,
+        "B": 8,
+        "C": 8
+      }
+    }
+  }
+}

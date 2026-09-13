@@ -1,0 +1,211 @@
+{
+  "gate": "O2.10",
+  "class": "PROSPECTIVE_LOSO_COMPOSITE_GEOMETRY_TRANSFER_DIAGNOSTIC",
+  "input_head": "380c9be79c124d56fa70de4060c7d62ddffc922a",
+  "question": "Is the calibrated composite target-state geometry shared enough across participants that a held-out target participant can receive it from the other seven with ZERO target imagery (dense target PERCEPTION calibration allowed)?",
+  "calibration_language": {
+    "allowed_target_input": [
+      "sealed W_target",
+      "dense NSD-core perception anchors",
+      "target native ROI responses to those anchors"
+    ],
+    "zero_target_imagery_for_prediction": true,
+    "strongest_positive": "ZERO_TARGET_IMAGERY_TRANSFER_WITH_DENSE_PERCEPTION_CALIBRATION (NOT zero-calibration / calibration-free / subject-independent)"
+  },
+  "immutable_history": {
+    "O2_9": "MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED",
+    "O2_8": "RESIDUAL_CAPACITY_MULTICOMPONENT",
+    "O2_7A_POSTAUDIT": "O2_7A_POSTSEAL_INTEGRITY_AUDIT_PASS",
+    "O2_7A": "REDUCED_TRIAL_OUTSIDE_AXIS_CALIBRATION_NOT_ESTABLISHED",
+    "O2_7": "O2_7_FULL_REPEAT_REPLAY_FAILURE",
+    "O2_6": "TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY",
+    "O2_5": "TARGET_IMAGERY_RESIDUAL_OUTSIDE_PERCEPTION_SUPPORT_DOMINANT",
+    "O2_4R": "TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION",
+    "O2_3A_RD": "CORE_ANCHOR_RD_INCONCLUSIVE",
+    "O2": "SHARED_OPERATOR_PARTIAL",
+    "O2.2": "CROSS_STATE_TRANSPORT_MULTIREGIME",
+    "O3": "O3_NOT_READY",
+    "never_relabel_historical": true
+  },
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "secondary": "parietal (after primary seal)",
+  "loso": {
+    "target": "each of 8",
+    "donors": "other 7",
+    "target_contributes": [
+      "perception anchors",
+      "W_s",
+      "NO imagery"
+    ],
+    "unit": "participant",
+    "N": 8
+  },
+  "global_identity_holdout": "reuse 6 sealed outer folds; the 2 held-out imagery identities per fold excluded from imagery calibration for target AND all 7 donors (donors use only the same 10 outer-training identities); prevents test-identity leakage via transfer",
+  "donor_geometry": {
+    "full_resource_identity_level": true,
+    "no_trial_noise": true,
+    "within": "Z_d=W_d.T delta_native_d (10 train ids); SVD; top r_s (=target r_best) directions; require rank>=r_s; B_IN_d=W_d U_d[:, :r_s]",
+    "outside": "delta_out_d = delta_d - W_d(W_d.T delta_d); stack 10; SVD; D=2; B_OUT_d; no M/T/D search",
+    "rank_matched_to_target": "use TARGET comparison rank r_s for every donor"
+  },
+  "vision_transport_state": {
+    "anchors": "canonical 512 O2.3A-RD perception images (globally exclude NSD-Imagery ids); B0 lineage; same ROI voxels; same scaling",
+    "A_s": "512 x V_s native anchor response matrix, SAME anchor-image row order across participants (from sealed cached union centroids sliced to ROI voxels)",
+    "extension_cert": [
+      "exact 512 anchor ids",
+      "no imagery id",
+      "voxel hash identical to sealed",
+      "scaling provenance exact",
+      "W_s identical to sealed within 1e-10",
+      "no target imagery read"
+    ],
+    "failure": "O2_10_VISION_TRANSPORT_STATE_REPLAY_FAILURE"
+  },
+  "anchor_operators": {
+    "C_s": "A_s W_s (512 x K) perception-support fingerprint operator",
+    "E_s": "A_s - (A_s W_s) W_s.T (512 x V) dense-perception residual anchor; require E_s W_s ~0 (<=1e-10 rel)"
+  },
+  "fingerprints": {
+    "within": "F_IN_d = A_d B_IN_d (512 x r_s) -> orthonormalize span -> Q_IN_d (subspace only, sign-invariant)",
+    "outside": "F_OUT_d = E_d B_OUT_d (512 x 2) -> orthonormalize -> Q_OUT_d (require rank 2)"
+  },
+  "donor_consensus": {
+    "within": "P_FP_IN = (1/7) sum_d Q_IN_d Q_IN_d.T ; Q_SHARED_IN = top r_s eigvecs",
+    "outside": "P_FP_OUT = (1/7) sum_d Q_OUT_d Q_OUT_d.T ; Q_SHARED_OUT = top 2 eigvecs",
+    "notes": [
+      "deterministic eigenvector/sign convention",
+      "no target imagery involved"
+    ]
+  },
+  "target_lift": {
+    "within": "U_RAW = pinv(C_s) Q_SHARED_IN (Moore-Penrose, frozen num-rank tol=eps*max(shape)*sigma_max, no ridge); orthonormalize rank r_s; B_IN_XSUB=W_s U_HAT; P_IN_XSUB=B B.T; range in col(W_s)",
+    "outside": "B_RAW = pinv(E_s) Q_SHARED_OUT; remove support leakage B_RAW - W_s(W_s.T B_RAW) (<=1e-10 rel cleanup else STOP); orthonormalize rank 2; P_OUT_XSUB; require W_s.T B_OUT_XSUB ~0"
+  },
+  "self_lift_ceiling": {
+    "purpose": "transfer interpretable ONLY if perception-anchor fingerprint recovers the TARGET's OWN full-resource calibrated geometry; ORACLE DIAGNOSTIC, not used to fit transfer",
+    "within": "Q_SELF_IN=orth(A_s B_IN_ORACLE_s) lifted via C_s -> B_IN_SELF_LIFT",
+    "outside": "Q_SELF_OUT=orth(E_s B_OUT_ORACLE_s) lifted via E_s -> B_OUT_SELF_LIFT",
+    "metrics": [
+      "principal angles vs oracle",
+      "R_IN_ORACLE/R_IN_SELF",
+      "R_OUT_ORACLE (P_ZERO+D2 oracle)/R_OUT_SELF"
+    ],
+    "SELF_IN_RECOVERY": "(R_IN_SELF-R0)/max(R_IN_ORACLE-R0,1e-12)",
+    "SELF_OUT_RECOVERY": "(R_OUT_SELF-R0)/max(R_OUT_ORACLE-R0,1e-12)"
+  },
+  "transport_adequacy": {
+    "ADEQUATE_if": "median clipped SELF_RECOVERY>=0.50 AND >=6/8>=0.50 (per ROI/component)",
+    "if_inadequate": "VISION_ANCHOR_TRANSPORT_CEILING_INSUFFICIENT for that component; do NOT call it subject-specific"
+  },
+  "cross_subject_transfer": {
+    "within": "R_IN_XSUB=retention(P_IN_XSUB, deltas_test); WITHIN_TRANSFER_RECOVERY=(R_IN_XSUB-R0)/max(R_IN_ORACLE-R0,1e-12)",
+    "outside": "R_OUT_XSUB=retention(P_ZERO+P_OUT_XSUB); OUTSIDE_TRANSFER_RECOVERY=(R_OUT_XSUB-R0)/max(R_OUT_ORACLE-R0,1e-12)",
+    "only_if_transport_adequate": true
+  },
+  "matched_null": {
+    "type": "deterministic ANCHOR-ROW permutation per donor (destroys cross-subject anchor-image correspondence; preserves donor subspace geometry + target transport operator)",
+    "n": 100,
+    "seed": "O2.10|target|ROI|fold|component|donor|null_iteration -> SHA256 -> first16hex -> uint64 -> PCG64",
+    "E_IN": "R_IN_XSUB - mean(R_IN_PERM_NULL)",
+    "E_OUT": "R_OUT_XSUB - mean(R_OUT_PERM_NULL)"
+  },
+  "inference": {
+    "primary_family": "2 components x 2 ROIs = EXACTLY 4 tests (do NOT shrink if a component fails self-lift; mark O2_10_COMPONENT_TRANSFER_INFERENCE_INCOMPLETE and classify via transport ceiling)",
+    "signflip": "2^8 exact one-sided",
+    "holm": "across exactly 4",
+    "alpha": 0.05,
+    "unit": "participant",
+    "N": 8,
+    "only_for_transport_adequate_components": true
+  },
+  "component_sharedness": "SUPPORTED iff ALL: self-lift adequate; median E_component>0; >=6/8 E>0; Holm reject; median TRANSFER_RECOVERY>=0.50; >=6/8 TRANSFER_RECOVERY>=0.50",
+  "composite": {
+    "P_COMP_XSUB": "P_IN_XSUB + P_OUT_XSUB (both transport-valid; certify sym/idem/cross<=1e-10/rank=r_s+2)",
+    "R_COMP_XSUB": "retention on held-out",
+    "TOTAL_RECOVERY_XSUB": "(R_COMP_XSUB-R0)/max(R_NATIVE_ORACLE-R0,1e-12)",
+    "COMPOSITE_TRANSFER_FRACTION": "(R_COMP_XSUB-R0)/max(R111-R0,1e-12)"
+  },
+  "zero_target_imagery_success": "per ROI ZERO_TARGET_IMAGERY_COMPOSITE_TRANSFER_SUFFICIENT iff ALL: within SUPPORTED; outside SUPPORTED; median TOTAL_RECOVERY_XSUB>=0.50; >=6/8>=0.50; median COMPOSITE_TRANSFER_FRACTION>=0.50; >=6/8>=0.50 (no extra composite p-value)",
+  "references": {
+    "O2_9_M10T8": "reference only",
+    "O2_9_M4T2_minimal": "reference only",
+    "no_fit_with_target_M4T2_or_M10T8": true
+  },
+  "access_guard": {
+    "forbid_in_prediction": [
+      "target delta_native training",
+      "target trial_native training"
+    ],
+    "target_imagery_only_in": [
+      "self_lift_oracle_diagnostic",
+      "final_heldout_evaluation",
+      "oracle_reference_metrics"
+    ],
+    "predictions_frozen_before_any_target_imagery_oracle": true
+  },
+  "two_stage_seal": {
+    "STAGE_A": "build/freeze vision extension -> provenance -> donor consensus -> freeze cross-subject predictions -> commit prediction hashes WITHOUT target imagery outcomes",
+    "STAGE_B": "after Stage-A seal: open target oracle self-lift -> transport ceiling -> held-out eval -> matched null -> component inference -> composite classification"
+  },
+  "fingerprint_space_diagnostic": {
+    "SIM(Pi,Pj)": "trace(Pi Pj)/rank (donor-pair projector similarity, within + outside); descriptive; distinguishes inconsistent donor fingerprints from a shared fingerprint not realizable in target native space"
+  },
+  "roi_status": {
+    "COMPOSITE_GEOMETRY_ZERO_IMAGERY_TRANSFER_ESTABLISHED": "both components shared + composite zero-imagery criterion passes",
+    "SHARED_COMPONENTS_INSUFFICIENT_FOR_COMPOSITE_TRANSFER": "both shared but composite fails",
+    "WITHIN_SHARED_OUTSIDE_NOT_SHARED": "within passes, outside not",
+    "OUTSIDE_SHARED_WITHIN_NOT_SHARED": "outside passes, within not",
+    "COMPOSITE_GEOMETRY_NOT_SHARED": "both transport-adequate but neither passes",
+    "VISION_ANCHOR_TRANSPORT_CEILING_INSUFFICIENT": "a required native component cannot be adequately self-lifted",
+    "COMPOSITE_GEOMETRY_SHAREDNESS_INCONCLUSIVE": "provenance/evaluability/technical"
+  },
+  "program_status": {
+    "ZERO_TARGET_IMAGERY_COMPOSITE_TRANSFER_ESTABLISHED_WITH_VISION_ONLY_CALIBRATION": "both ROIs ...TRANSFER_ESTABLISHED",
+    "COMPOSITE_GEOMETRY_SHAREDNESS_MULTIREGIME": "primary ROI mechanisms differ",
+    "SHARED_COMPOSITE_GEOMETRY_INSUFFICIENT_FOR_ZERO_IMAGERY_TRANSFER": "both have shared components but operational composite fails",
+    "COMPOSITE_TARGET_STATE_GEOMETRY_SUBJECT_SPECIFIC_DOMINANT": "transport adequate in both but donor sharedness not supported in both",
+    "VISION_ANCHOR_TRANSPORT_INSUFFICIENT_FOR_SHAREDNESS_TEST": "transport ceiling blocks either primary ROI",
+    "O2_10_COMPOSITE_SHAREDNESS_INCONCLUSIVE": "technical/provenance failure"
+  },
+  "claim_boundaries": {
+    "positive_allowed": [
+      "using only other participants' target-imagery geometry + dense perception calibration in the held-out target, the composite target-state geometry transferred to unseen target imagery identities",
+      "no target imagery used to construct the transferred geometry"
+    ],
+    "forbidden": [
+      "imagery geometry universal",
+      "calibration-free",
+      "target-independent brain code",
+      "shared causal operator",
+      "same neurons/dimensions across brains"
+    ],
+    "transport_ceiling_allowed": "the tested dense-perception anchor representation could not faithfully realize the target's own calibrated native target-state geometry, so failure of cross-subject native transfer cannot be attributed to lack of sharedness"
+  },
+  "no_model_search": [
+    "ridge",
+    "tuned regularization",
+    "CCA",
+    "PLS",
+    "RRR",
+    "NN",
+    "alternative anatomical alignment",
+    "new SRM",
+    "D search",
+    "donor weighting search",
+    "target imagery calibration",
+    "post-outcome transport-rank selection"
+  ],
+  "next_gate": {
+    "ZERO_TARGET_IMAGERY_COMPOSITE_TRANSFER_ESTABLISHED_WITH_VISION_ONLY_CALIBRATION": "O2.11 MINIMAL PERCEPTION-CALIBRATION FRONTIER",
+    "SHARED_COMPOSITE_GEOMETRY_INSUFFICIENT_FOR_ZERO_IMAGERY_TRANSFER": "O2.11 SHAREDNESS-TO-OPERATIONAL GAP",
+    "COMPOSITE_GEOMETRY_SHAREDNESS_MULTIREGIME": "O2.11 ROI-SPECIFIC SHAREDNESS MECHANISM",
+    "COMPOSITE_TARGET_STATE_GEOMETRY_SUBJECT_SPECIFIC_DOMINANT": "O2.11 SUBJECT-SPECIFIC GEOMETRY PREDICTABILITY",
+    "VISION_ANCHOR_TRANSPORT_INSUFFICIENT_FOR_SHAREDNESS_TEST": "O2.11 TARGET-STATE TRANSPORT REPRESENTATION DIAGNOSTIC (do NOT conclude non-sharedness)"
+  },
+  "o3_policy": "even a positive O2.10 does NOT auto-authorize O3; must first establish reduced perception burden + stability",
+  "O3": "O3_NOT_READY",
+  "config_sha256": "efbae22167d3938a55f7d896cc8d7517450a96513f28a8074b1fe99444856e8c"
+}

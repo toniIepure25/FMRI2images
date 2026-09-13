@@ -1,0 +1,32 @@
+{
+  "ventral": {
+    "T_fixed_M_increasing": {
+      "1": true,
+      "2": true,
+      "4": true,
+      "8": true
+    },
+    "M_fixed_T_increasing": {
+      "2": true,
+      "4": true,
+      "6": true,
+      "8": true,
+      "10": true
+    }
+  },
+  "lateral": {
+    "T_fixed_M_increasing": {
+      "1": true,
+      "2": true,
+      "4": true,
+      "8": true
+    },
+    "M_fixed_T_increasing": {
+      "2": true,
+      "4": true,
+      "6": true,
+      "8": true,
+      "10": true
+    }
+  }
+}

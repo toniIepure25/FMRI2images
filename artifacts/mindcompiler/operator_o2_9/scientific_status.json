@@ -1,0 +1,79 @@
+{
+  "status": "MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED",
+  "roi_status": {
+    "ventral": "COMPOSITE_OPERATIONAL_CALIBRATION_ESTABLISHED",
+    "lateral": "COMPOSITE_OPERATIONAL_CALIBRATION_ESTABLISHED"
+  },
+  "common_success": [
+    {
+      "M": 2,
+      "T": 8
+    },
+    {
+      "M": 4,
+      "T": 2
+    },
+    {
+      "M": 4,
+      "T": 4
+    },
+    {
+      "M": 4,
+      "T": 8
+    },
+    {
+      "M": 6,
+      "T": 2
+    },
+    {
+      "M": 6,
+      "T": 4
+    },
+    {
+      "M": 6,
+      "T": 8
+    },
+    {
+      "M": 8,
+      "T": 2
+    },
+    {
+      "M": 8,
+      "T": 4
+    },
+    {
+      "M": 8,
+      "T": 8
+    },
+    {
+      "M": 10,
+      "T": 1
+    },
+    {
+      "M": 10,
+      "T": 2
+    },
+    {
+      "M": 10,
+      "T": 4
+    },
+    {
+      "M": 10,
+      "T": 8
+    }
+  ],
+  "N_TRIALS_STAR": 8,
+  "minimal_resource_set": [
+    {
+      "M": 4,
+      "T": 2
+    }
+  ],
+  "r111_replay": true,
+  "r111_replay_err": 4.440892098500626e-16,
+  "outside_leak_max": 5.626055177287981e-14,
+  "immutable": {
+    "O2_8": "RESIDUAL_CAPACITY_MULTICOMPONENT"
+  },
+  "O3": "O3_NOT_READY"
+}

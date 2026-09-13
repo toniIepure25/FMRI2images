@@ -1,0 +1,15 @@
+{
+  "suite": "tests/mindcompiler/operator_o2_9/test_o2_9_composite.py",
+  "n_tests": 8,
+  "passed": 8,
+  "items": [
+    "Gram==direct within+outside",
+    "rank guard None",
+    "numerical rank rule",
+    "subject_roi q=min + replay",
+    "common/minimal/Pareto",
+    "not-established-at-full",
+    "multiregime",
+    "config+no-Procrustes"
+  ]
+}

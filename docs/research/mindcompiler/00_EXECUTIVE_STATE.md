@@ -10,6 +10,27 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.9 (2026-09-13): MINIMAL COMPOSITE TARGET-STATE CALIBRATION -- SEALED `MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED`
+
+Operational M x T resource frontier (config `037686de`, freeze `2818cab`) for the O2.8 composite geometry:
+DIRECT-SVD within-support target subspace (q=min(r_best,M), NO Procrustes) + fixed D=2 outside basis,
+P_COMP=P_IN+P_OUT. Sealed state + certified O2.7 trials only; Gram-optimized (== direct SVD); no nulls.
+Replay exact: sealed-centroid M10,D2,q=r_best reproduces O2.8 R111 (max err 4.4e-16). Provenance clean;
+leak 5.6e-14.
+
+**Result `MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED`, N_TRIALS_STAR = 8.** Both primary ROIs
+`COMPOSITE_OPERATIONAL_CALIBRATION_ESTABLISHED` (ventral 16 / lateral 14 sufficient cells; M10T8 median TOTAL
+0.974/0.957, FCF 1.0). Frontier monotone in M and T (ventral TOTAL 0.26->0.97, lateral 0.22->0.96). **Minimal
+common cell (M=4, T=2) = 8 target-imagery trials** (ventral TOTAL 0.569 7/8, lateral 0.530 6/8, FCF ~0.59 8/8,
+q=4). **Common Pareto tradeoffs: (2,8)=16, (4,2)=8, (10,1)=10 trials** -- an identity-diversity <-> repeat-
+averaging frontier. Bounded operational claim: under the tested representation + direct target-state subspace
+estimator, the smallest common calibration burden closing >=half the native-oracle gap in both primary ROIs
+was **8 target-imagery observations** (frozen empirical frontier); NOT a biological minimum / imagery
+dimensionality claim. Unresolved native gap at the minimal cell ~0.43-0.47 (closed fully only near M10T8).
+**Next: O2.10 COMPOSITE TARGET-STATE GEOMETRY SHAREDNESS** (cross-participant transfer of the D=2 outside
+basis + within-support subspace; O3 NOT auto-unlocked). Immutable seals preserved; `O3` remains `O3_NOT_READY`.
+Artifacts: `operator_o2_9/` (21).
+
 ## O2.8 (2026-09-13): RESIDUAL-CAPACITY DECOMPOSITION -- SEALED `RESIDUAL_CAPACITY_MULTICOMPONENT`
 
 Frozen 2x2x2 factorial (config `f2af6206`, freeze `4efee69`): A outside-identity-diversity (M2 all 25 pairs /

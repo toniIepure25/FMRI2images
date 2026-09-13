@@ -1,0 +1,36 @@
+{
+  "gate": "O2.9",
+  "input_head": "f554a8f",
+  "freeze_commit": "2818cab",
+  "config_sha256": "037686de38a4730680f2c898f5a2cf2024722a2ad4abdcaabc8782e564eae898",
+  "image": "nipreps/fmriprep:25.2.5",
+  "node": "k8s-worker-cpu-node-r770",
+  "pvc": "rd-data",
+  "numpy": "2.2.6",
+  "diagnostic_operational": true,
+  "no_procrustes": true,
+  "no_nulls": true,
+  "D_outside": 2,
+  "r111_replay_err": "4.4e-16",
+  "N_TRIALS_STAR": 8,
+  "minimal_set": [
+    [
+      4,
+      2
+    ]
+  ],
+  "pareto": [
+    [
+      2,
+      8
+    ],
+    [
+      4,
+      2
+    ],
+    [
+      10,
+      1
+    ]
+  ]
+}

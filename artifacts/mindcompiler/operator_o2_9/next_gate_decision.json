@@ -1,0 +1,7 @@
+{
+  "input_status": "MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED",
+  "next_gate": "O2.10 COMPOSITE TARGET-STATE GEOMETRY SHAREDNESS",
+  "core_question": "Can the subject-specific calibrated D=2 outside-support basis and within-support target subspace be predicted or transferred across participants -- the direct bridge toward reducing/eliminating target-imagery calibration (O3 NOT auto-unlocked)?",
+  "rationale": "Both primary ROIs COMPOSITE_OPERATIONAL_CALIBRATION_ESTABLISHED; minimal common calibration 8 trials (M4,T2); Pareto {(2,8),(4,2),(10,1)}; full-resource M10T8 recovers ~96-97% of native-oracle gap (FCF=1.0); R111 replay exact.",
+  "O3": "O3_NOT_READY"
+}

@@ -1,0 +1,10 @@
+{
+  "N_TRIALS_STAR": 8,
+  "minimal_resource_set": [
+    {
+      "M": 4,
+      "T": 2,
+      "N_TRIALS": 8
+    }
+  ]
+}

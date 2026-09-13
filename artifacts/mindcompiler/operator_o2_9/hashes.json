@@ -1,0 +1,26 @@
+{
+  "config_sha256": "037686de38a4730680f2c898f5a2cf2024722a2ad4abdcaabc8782e564eae898",
+  "driver_sha256": "9074c16384a308d3cd22e3c155e3566da1c4b3f5ca22a4c553199d806dc4fbc0",
+  "artifacts": {
+    "calibration_schedule_manifest.csv": "549ece128f2d4622c8dd4ed74187846b4dc0bf7474b7b0b3c47802d752716530",
+    "common_resource_frontier.csv": "d37bc51b9252b98fdc759ac77a751f7ee94bb8a73e17aeba76d03554c2359595",
+    "execution_provenance.json": "681e15f40381da906308dc9390d83dbd62275e77a5a7fc9d8ae6ba944d8bc7b5",
+    "full_capacity_fraction.csv": "7bf23c5bb74a68adf4a228dcf3300ed87f3864620a540ad3e74a7add62f00830",
+    "minimal_resource_set.json": "87ef0c718cc0d78ed78f5febb54aa3e6b0cc47f7eedbd53de516ab48378f5115",
+    "monotonicity_diagnostic.json": "1e9c0c47ef15083d3eb4d14502bba2210d20dbba3e7b1ba930e4ee0160560563",
+    "next_gate_decision.json": "6fb6fbd92f454d189027fc2444697c5851c6ee1ea66b92c090b5c1990dc85635",
+    "o2_8_r111_replay.json": "1ee751b77354c2986712076cbe800bb10654bbef2aeebc042736d49469eedcc0",
+    "o2_9_frozen_config.json": "d7561c789782b8c955ffc733b77a819b9789176e399a153f4a16515774f54c1f",
+    "outside_d2_rank_diagnostic.csv": "b4577710160393a2a17098832c957cfdfca76a2ac468a7341be8626683aa06ae",
+    "pareto_frontier.json": "e6a533b5d44990318c89e219dbca9d618c3591a28cd3a5f13f4c8ecc3c01a3d1",
+    "participant_resource_frontier.csv": "469f89637e1af3baac243b153e425dfee7404170f688472b18dbe0df61705b38",
+    "resource_cell_results.csv": "188ea853927903efac963d015d0d6cf5859b0affd7186a0b2d27e8a10fe2371b",
+    "roi_resource_frontier.csv": "3e3e2051939745312870590c4aab01501b728d0df8fc1288a266fd595bf7ba91",
+    "roi_status.json": "adac7329624166839f46ce7a47249c639f9fa3c63dd992c0c77ca2c046fc6243",
+    "scientific_status.json": "e2f55a689e58d6b3a9cb09b875f74423d7df84d795f167473e74bd7527271975",
+    "sealed_state_verification.json": "23a443a64733181d5867daeaa97f78ef988a6d340e9d60d54cee36b3e7d0d0b2",
+    "test_report.json": "4094e241512b94e4379297c92e40c39f97435f8d4ce49c575e16655e83ecbf27",
+    "total_recovery_comp.csv": "b183547d33bd0b2b92e567f9d90c4b361d233e7b5e1f0eba721ab60e9372f002",
+    "within_support_rank_diagnostic.csv": "c44c13f85db7dbc047761bd772690c7015aeb935c63bef8dc4383387b88baa31"
+  }
+}

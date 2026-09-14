@@ -1,0 +1,360 @@
+{
+  "gate": "O2.12",
+  "class": "PROSPECTIVE_MATCHED_PRIOR_CORRECTION_RESOURCE_FRONTIER",
+  "input_head": "5f1a1fd121a0d6a56f26da5087d32c9336e7bb7b",
+  "question": "Can the failed O2.11 perception-only geometry prediction still REDUCE the established O2.9 8-trial target-imagery calibration burden when used ONLY as a fixed low-weight (one-pseudo-observation) prior?",
+  "not": [
+    "second attempt to prove O2.11",
+    "new perception predictor",
+    "model search",
+    "prior-weight search"
+  ],
+  "prior_is_frozen": true,
+  "correction_rule_is_frozen": true,
+  "comparator_is_exact_o2_9_no_prior_estimator": true,
+  "immutable_history": {
+    "O2_11": "SUBJECT_SPECIFIC_GEOMETRY_NOT_PREDICTABLE_FROM_TESTED_PERCEPTION_PHENOTYPE",
+    "O2_10": "COMPOSITE_TARGET_STATE_GEOMETRY_SUBJECT_SPECIFIC_DOMINANT",
+    "O2_9": "MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED",
+    "O2_9_N_TRIALS_STAR": 8,
+    "O2_9_MINIMAL_RESOURCE_SET": [
+      {
+        "M": 4,
+        "T": 2
+      }
+    ],
+    "O2_8": "RESIDUAL_CAPACITY_MULTICOMPONENT",
+    "O2_7A_POSTAUDIT": "PASS",
+    "O2_7": "O2_7_FULL_REPEAT_REPLAY_FAILURE",
+    "O2_6": "TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY",
+    "O2_5": "TARGET_IMAGERY_RESIDUAL_OUTSIDE_PERCEPTION_SUPPORT_DOMINANT",
+    "O2_4R": "TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION",
+    "O3": "O3_NOT_READY",
+    "never_relabel_historical": true
+  },
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "secondary": "parietal after primary seal",
+  "frozen_prior": {
+    "source": "EXACT O2.11 Stage-A target prediction per target/ROI/outer fold (manifest 207b0bf, hash-verified)",
+    "U_PRIOR_IN": "within col(W_target), rank r_best; recovered as W_target.T @ B_IN_PRED (orthonormal in K-space)",
+    "B_PRIOR_OUT": "outside col(W_target), rank 2; = B_OUT_PRED (orthonormal, outside)",
+    "no_perception_recompute": true,
+    "no_donor_refit": true,
+    "no_target_imagery_in_prior": true,
+    "interpretation": "WEAK INITIAL GEOMETRIC REGULARIZATION -- not an oracle, not a successful predictor, not established target geometry"
+  },
+  "resource_grid": {
+    "primary_sub_eight": [
+      {
+        "M": 2,
+        "T": 1,
+        "N": 2
+      },
+      {
+        "M": 2,
+        "T": 2,
+        "N": 4
+      },
+      {
+        "M": 4,
+        "T": 1,
+        "N": 4
+      },
+      {
+        "M": 6,
+        "T": 1,
+        "N": 6
+      }
+    ],
+    "note": "ALL O2.9 grid cells with M*T<8",
+    "reference_descriptive": [
+      {
+        "M": 4,
+        "T": 2,
+        "N": 8,
+        "role": "O2.9 sealed minimum"
+      },
+      {
+        "M": 10,
+        "T": 8,
+        "N": 80,
+        "role": "full-resource"
+      }
+    ],
+    "references_not_in_primary_family": true
+  },
+  "identity_subsets": {
+    "M2": "1 simple + 1 nat, 25 subsets",
+    "M4": "2+2, 100",
+    "M6": "3+3, 100",
+    "M10": "5+5, 1",
+    "reuse_exact_o2_9": true,
+    "no_adaptive_identity": true
+  },
+  "repeat_subsets": {
+    "T1": "8 subsets",
+    "T2": "28",
+    "T8": "1",
+    "same_position_subset_all_identities": true,
+    "no_best_repeat": true
+  },
+  "limited_residual": {
+    "delta_i(S)": "mean_{t in S} delta_trial(i,t) from O2.7 certified trial_native",
+    "z_i": "W_target.T @ delta_i (within coord)",
+    "o_i": "delta_i - W_target z_i (outside residual)",
+    "outside_leak_tol": 1e-10
+  },
+  "control_estimator": {
+    "identical_to_O2_9": true,
+    "within": "stack Z=[z_i]; q=min(r_best,M); deterministic top-q via Gram topk_energy_gram",
+    "outside": "stack O=[o_i]; fixed D=2; deterministic top-2 Gram",
+    "composite": "P_CONTROL = P_IN + P_OUT; no changes"
+  },
+  "control_replay_requirement": {
+    "cells": [
+      "M2T1",
+      "M2T2",
+      "M4T1",
+      "M6T1",
+      "M4T2",
+      "M10T8"
+    ],
+    "tol": 1e-10,
+    "reference": "sealed O2.9 participant_resource_frontier.csv R_COMP (seal 380c9be)",
+    "pass_token": "O2_12_CONTROL_REPLAYS_O2_9",
+    "on_fail": "STOP"
+  },
+  "hybrid_prior_principle": {
+    "no_tunable_lambda": true,
+    "one_pseudo_observation_equivalent_per_component": true,
+    "fixed_interpretable_strength": "actual imagery observations dominate automatically as M grows",
+    "no_weight_search": true
+  },
+  "within_hybrid": {
+    "e_IN": "mean_{i in Ci} ||z_i||^2 (require > numerical zero floor)",
+    "C_PRIOR_IN": "(e_IN/r_best) * U_PRIOR U_PRIOR.T (trace == e_IN == one avg within-obs energy)",
+    "C_HYB_IN": "C_DATA_IN + C_PRIOR_IN",
+    "fit": "deterministic top r_best eigenvectors (prior supplies full-rank orientation even when M<r_best)",
+    "gram_optimized": "eig of Lambda^{1/2} Zin^T Zin Lambda^{1/2}, Zin=[Z|U_PRIOR], Lambda=diag(I_M,(e_IN/r_best)I_r); energy = sum top-r_best (w^T Lambda^{1/2} (Zin^T g))^2/nu"
+  },
+  "outside_hybrid": {
+    "e_OUT": "mean_{i in Ci} ||o_i||^2",
+    "C_PRIOR_OUT": "(e_OUT/2) * B_PRIOR_OUT B_PRIOR_OUT.T (trace == e_OUT)",
+    "C_HYB_OUT": "C_DATA_OUT + C_PRIOR_OUT",
+    "fit": "deterministic top 2 eigenvectors",
+    "require": "W_target.T B_HYB_OUT ~ 0",
+    "gram_optimized": "eig of Lambda^{1/2} Zout^T Zout Lambda^{1/2}, Zout=[O|B_PRIOR_OUT], Lambda=diag(I_M,(e_OUT/2)I_2)"
+  },
+  "composite_hybrid": {
+    "P_HYBRID": "P_HYB_IN + P_HYB_OUT",
+    "sym_tol": 1e-10,
+    "idem_tol": 1e-08,
+    "cross_tol": 1e-10,
+    "rank": "r_best + 2",
+    "no_procrustes": true
+  },
+  "one_pseudo_observation_rationale": "complete perception prior contributes the same total covariance trace as ONE typical real target-imagery observation; NOT performance-chosen; do NOT evaluate half/two obs, alternate lambdas, or component-specific weights; if it fails, seal failure",
+  "held_out_eval": {
+    "same_two_held_out_ids_per_fold_as_O2_9": true,
+    "no_held_out_in": [
+      "control",
+      "hybrid",
+      "prior",
+      "energy scaling"
+    ],
+    "eval": [
+      "R_CONTROL",
+      "R_HYBRID"
+    ]
+  },
+  "aggregation": {
+    "order": [
+      "2 held-out identities",
+      "all balanced identity subsets",
+      "all repeat subsets",
+      "all 6 folds"
+    ],
+    "unit": "participant",
+    "N": 8,
+    "no_schedule_or_fold_as_N": true
+  },
+  "primary_prior_gain": {
+    "DELTA_PRIOR(M,T)": "R_HYBRID(M,T) - R_CONTROL(M,T) (participant-level)"
+  },
+  "primary_inference": {
+    "family": "4 sub-eight cells x 2 ROIs = EXACTLY 8 tests",
+    "signflip": "exact one-sided 2^8 over participant DELTA_PRIOR",
+    "holm": "across exactly 8",
+    "alpha": 0.05,
+    "N": 8,
+    "references_excluded_from_family": true
+  },
+  "prior_utility_supported": "PERCEPTION_PRIOR_GAIN_SUPPORTED iff ALL: median DELTA_PRIOR>0; >=6/8 DELTA_PRIOR>0; Holm reject (no recovery threshold in this definition)",
+  "hybrid_total_recovery": {
+    "TOTAL_RECOVERY_HYB": "(R_HYBRID-R0)/max(R_NATIVE_ORACLE-R0,1e-12)",
+    "report": "clipped+unclipped"
+  },
+  "hybrid_full_capacity_fraction": {
+    "FULL_CAPACITY_FRACTION_HYB": "(R_HYBRID-R0)/max(R111-R0,1e-12) (O2.8 R111)",
+    "report": "clipped+unclipped"
+  },
+  "hybrid_sufficiency": "HYBRID_OPERATIONALLY_SUFFICIENT iff: 8/8 evaluable; median TOTAL_RECOVERY_HYB>=0.50; >=6/8 TOTAL>=0.50; median FCF_HYB>=0.50; >=6/8 FCF>=0.50 (same as O2.9)",
+  "prior_enabled_cell": "PRIOR_ENABLED_SUFFICIENT (ROI x sub-eight cell) iff BOTH HYBRID_OPERATIONALLY_SUFFICIENT AND PERCEPTION_PRIOR_GAIN_SUPPORTED",
+  "common_prior_enabled_success": "COMMON_PRIOR_ENABLED_SUCCESS iff the SAME (M,T) is PRIOR_ENABLED_SUFFICIENT in BOTH ventral and lateral",
+  "new_minimum": {
+    "N_TRIALS_PRIOR_STAR": "min(M*T) over common prior-enabled sub-eight cells",
+    "MINIMAL_PRIOR_RESOURCE_SET": "all tied common prior-enabled cells at that trial count",
+    "TRIAL_REDUCTION": "8 - N_TRIALS_PRIOR_STAR",
+    "RELATIVE_REDUCTION": "TRIAL_REDUCTION/8",
+    "no_extrapolation_below_grid": true
+  },
+  "geometry_correction_diagnostic": {
+    "uses_target_full_resource_oracle_after_fit": true,
+    "dt_free": "oracle uses 10 training-identity residuals, not held-out",
+    "within": "SIM prior->hybrid->oracle via trace(P1 P2)/rank (schedule-mean)",
+    "outside": "same",
+    "descriptive_no_threshold": true
+  },
+  "innovation_fraction": {
+    "PRIOR_ALIGNMENT": "trace(P_HYB P_PRIOR)/rank",
+    "DATA_CORRECTION": "1 - PRIOR_ALIGNMENT",
+    "descriptive_only": true,
+    "not_causal": true
+  },
+  "prior_harm_diagnostic": {
+    "per_cell": [
+      "n participants DELTA_PRIOR<0",
+      "median negative loss among harmed"
+    ],
+    "report_honestly": true,
+    "no_clip_of_gains": true
+  },
+  "reference_m4t2": "compare hybrid vs sealed O2.9 control at M4T2 (improve/unchanged/harm); descriptive only",
+  "reference_m10t8": {
+    "expect": "target imagery dominates the one-pseudo-observation prior; hybrid approaches exact O2.9 full-resource",
+    "report": [
+      "R_HYBRID-R_CONTROL",
+      "subspace difference"
+    ],
+    "no_exact_equality_required": true,
+    "large_degradation_is_diagnostic": true
+  },
+  "single_trial_secondary": {
+    "only_after_primary_seal": true,
+    "N": 1,
+    "cannot_alter_program_status": true,
+    "enumerate": "all 10 training identities x 8 repeat positions",
+    "same_frozen_hybrid_update": true,
+    "label": "SECONDARY_SINGLE_TRIAL_PRIOR_CORRECTION_DIAGNOSTIC",
+    "no_confirmatory_p": true
+  },
+  "evaluability": "all frozen schedules in a participant x ROI x cell must evaluate; no selective schedule dropping; any schedule numerical/provenance fail -> whole participant cell non-evaluable; missing primary participant cell -> do NOT shrink 8-test Holm family -> technical inconclusive",
+  "numerical": {
+    "float64": true,
+    "rank_tol": "eps_float64 * max(shape) * sigma_max",
+    "no_post_outcome_tol_change": true,
+    "deterministic_eigvec_sign": true
+  },
+  "pre_outcome_control_replays": {
+    "A": "O2.11 prior hashes reproduce Stage-A manifest 207b0bf",
+    "B": "O2.9 no-prior control reproduces all tested reference cells",
+    "C": "O2.9 M4T2 participant metrics replay <=1e-10",
+    "D": "O2.9 M10T8 replay <=1e-10",
+    "E": "prior-only N=0 reconstructs sealed O2.11 predicted native geometry",
+    "on_any_fail": "STOP before hybrid outcomes"
+  },
+  "synthetic_controls": [
+    "1 PERFECT PRIOR: hybrid needs fewer obs than control",
+    "2 USELESS ORTHOGONAL PRIOR: hybrid->control as M grows, no false gain",
+    "3 ANTI-INFORMATIVE PRIOR: may harm low-resource; gain test detects no benefit",
+    "4 PARTIAL WITHIN ONLY",
+    "5 PARTIAL OUTSIDE ONLY",
+    "6 ONE-PSEUDO-OBS TRACE: trace(C_PRIOR)==mean obs energy exactly",
+    "7 ZERO DATA ENERGY: technical failure not prior-only fit",
+    "8 CONTROL REPLAY == O2.9",
+    "9 NO SELECTIVE DROPPING",
+    "10 HOLM FAMILY exactly 8",
+    "11 PRIOR-ENABLED RULE (sufficiency w/o gain != prior-enabled)",
+    "12 LEAKAGE: held-out use fails",
+    "13 NO MODEL SEARCH"
+  ],
+  "two_stage": {
+    "STAGE_A": "verify prior manifest + O2.9/O2.7 state + freeze schedules + compute control(replay of sealed O2.9)+dt-free hybrid geometry diagnostics from training only; persist/hash; commit; push; server-verify; NO held-out HYBRID retention",
+    "STAGE_B": "after Stage-A seal: verify hashes; open held-out imagery; evaluate R_CONTROL/R_HYBRID; participant aggregation; DELTA_PRIOR; exact 8-test signflip/Holm; operational sufficiency; common prior-enabled frontier; seal"
+  },
+  "no_model_search": [
+    "prior-weight tuning",
+    "lambda search",
+    "donor refit",
+    "perception-kernel search",
+    "ridge",
+    "Procrustes",
+    "CCA",
+    "PLS",
+    "RRR",
+    "NN",
+    "alternate D",
+    "alternate rank",
+    "adaptive identities",
+    "adaptive repeats"
+  ],
+  "roi_status": {
+    "PERCEPTION_PRIOR_REDUCES_IMAGERY_CALIBRATION": ">=1 sub-eight PRIOR_ENABLED_SUFFICIENT cell",
+    "PERCEPTION_PRIOR_IMPROVES_BUT_NOT_TO_OPERATIONAL_THRESHOLD": ">=1 sub-eight cell supported DELTA_PRIOR but none operationally sufficient",
+    "PERCEPTION_PRIOR_OPERATIONALLY_SUFFICIENT_WITHOUT_GAIN_EVIDENCE": "hybrid reaches sub-eight sufficiency but prior gain not Holm-supported",
+    "PERCEPTION_PRIOR_NO_SUPPORTED_BENEFIT": "no sub-eight cell supported gain and none qualifies",
+    "PERCEPTION_PRIOR_CALIBRATION_INCONCLUSIVE": "technical/provenance/evaluability failure"
+  },
+  "program_status": {
+    "PERCEPTION_PRIOR_REDUCES_COMPOSITE_CALIBRATION_BELOW_EIGHT_TRIALS": "a COMMON_PRIOR_ENABLED_SUCCESS sub-eight cell exists",
+    "PERCEPTION_PRIOR_BENEFICIAL_BUT_EIGHT_TRIAL_MINIMUM_NOT_REDUCED": "gains supported but no common sub-eight operational solution",
+    "SUBEIGHT_HYBRID_RECOVERY_WITHOUT_PRIOR_UTILITY_ESTABLISHED": "common sub-eight hybrid operational solution but prior-gain inference does not establish prior caused it",
+    "PERCEPTION_PRIOR_DOES_NOT_REDUCE_TARGET_IMAGERY_BURDEN": "no common sub-eight hybrid operational solution and no supported common prior-enabled reduction",
+    "O2_12_PRIOR_CORRECTION_INCONCLUSIVE": "technical failure"
+  },
+  "claim_boundaries": {
+    "positive_allowed": [
+      "although the perception-only predictor was insufficient by itself, using that frozen prediction as a weak one-pseudo-observation prior reduced the prospectively tested target-imagery calibration burden from eight observations to N",
+      "the perception phenotype contained operationally useful prior information even though it was not sufficient for direct geometry prediction"
+    ],
+    "positive_forbidden": [
+      "O2.11 was actually positive",
+      "perception predicts imagery geometry",
+      "N trials universally calibrate imagery",
+      "perception causes target-state geometry"
+    ],
+    "negative_allowed": [
+      "the failed perception-only prediction did not provide enough useful prior information to reduce the established eight-observation target imagery calibration burden under the frozen hybrid update"
+    ],
+    "negative_forbidden": [
+      "perception information is universally useless",
+      "no non-imagery prior could ever help"
+    ]
+  },
+  "provenance_gates": {
+    "1": "O2.11 seal 5f1a1fd",
+    "2": "O2.11 Stage-A prediction seal 207b0bf",
+    "3": "O2.10 carrier state",
+    "4": "O2.9 seal 380c9be",
+    "5": "O2.7 trial extension 96/96",
+    "6": "RD state 96/96",
+    "7": "global outer-fold identity split",
+    "8": "exact balanced calibration schedules",
+    "9": "target held-out leakage absent",
+    "10": "prior is target-imagery-free",
+    "11": "O3 locked"
+  },
+  "next_gate": {
+    "REDUCES_BELOW_EIGHT_and_min2": "O2.13 SINGLE-TRIAL TARGET-STATE CORRECTION FRONTIER",
+    "REDUCES_BELOW_EIGHT_and_min4or6": "O2.13 PRIOR-CORRECTED RESOURCE REFINEMENT (no new model search)",
+    "BENEFICIAL_NOT_REDUCED": "O2.13 SUBJECT-SPECIFIC GEOMETRY COVARIATE DIAGNOSTIC (low-dim non-imagery covariates improve fixed prior)",
+    "DOES_NOT_REDUCE": "O2.13 SUBJECT-SPECIFIC GEOMETRY COVARIATE DIAGNOSTIC (do NOT tune failed prior; prospectively limited anatomical/behavioral covariates, N=8 low-capacity only)",
+    "SUBEIGHT_WITHOUT_PRIOR_UTILITY": "O2.13 LOW-RESOURCE ESTIMATOR ATTRIBUTION"
+  },
+  "O3_policy": "even if O2.12 reduces calibration to 2-6 imagery observations, O3 remains locked; lower operational burden != shared/causal operator; O3 reconsidered only after subject-specific calibration mechanism characterized and independently validated",
+  "O3": "O3_NOT_READY",
+  "config_sha256": "f63c6adcf67006d0c6393cb9191ece6c3f09a854ff6a1ead7b1fe677057c1fbe"
+}

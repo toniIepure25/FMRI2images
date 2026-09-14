@@ -10,6 +10,36 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.12 (2026-09-14): MINIMAL IMAGERY CALIBRATION WITH PERCEPTION-ONLY PRIOR CONTROL -- SEALED `PERCEPTION_PRIOR_BENEFICIAL_BUT_EIGHT_TRIAL_MINIMUM_NOT_REDUCED`
+
+Can the FAILED O2.11 perception-only prediction still REDUCE the sealed O2.9 8-trial calibration burden as a
+fixed ONE-PSEUDO-OBSERVATION prior? (config `f63c6adc`, freeze `8cc313b`). CONTROL = exact O2.9 estimator
+(reuses `topk_energy_gram`); HYBRID = same limited target residuals + frozen O2.11 prior via covariance prior
+`C_HYB_IN=C_DATA_IN+(e_IN/r_best)U_PRIOR U_PRIOR^T` (top r_best), `C_HYB_OUT=C_DATA_OUT+(e_OUT/2)B_PRIOR B_PRIOR^T`
+(top 2); Gram-optimized (dense-equivalence unit-tested); NO tunable lambda / weight / model search. Strict
+two-job seal: Stage A (`c77ac0d`) verified O2.11 prior 96/96 + CONTROL replays O2.9 EXACTLY (max_abs_error=0.0,
+all 6 cells) + froze dt-free geometry diagnostics BEFORE held-out; Stage B opened held-out imagery.
+
+**Result `PERCEPTION_PRIOR_BENEFICIAL_BUT_EIGHT_TRIAL_MINIMUM_NOT_REDUCED`** -- both ROIs
+`PERCEPTION_PRIOR_IMPROVES_BUT_NOT_TO_OPERATIONAL_THRESHOLD`. The weak prior produces a REAL, Holm-supported
+gain (DELTA_PRIOR=R_HYBRID-R_CONTROL) at the three lowest-resource cells in BOTH ROIs: M2T1 (ventral +0.0249 /
+lateral +0.0370), M2T2 (+0.0215/+0.0305), M4T1 (+0.0100/+0.0147) -- all 8/8 participants positive, sign-flip
+p=0.0039, Holm-reject across the 8-test primary family; ZERO participants harmed at these cells. BUT the gains
+are too small to lift any sub-eight cell over the 0.50 operational recovery bar (sub-eight hybrid median TOTAL
+~0.29-0.45, 0-2/8 >=0.5) -> NO PRIOR_ENABLED cell, N_TRIALS_PRIOR_STAR=None, 8-trial O2.9 minimum stands. At
+M6T1 the prior is redundant/slightly harmful (data already fills rank r_best=6; ventral median -0.0025 7/8
+harmed, lateral -0.0009 6/8; not Holm-supported). References (descriptive): hybrid slightly IMPROVES the sealed
+M4T2 8-trial protocol (+0.008/+0.013) and is dominated at full M10T8 (-0.0007/-0.0008; SIM_hybrid_oracle
+0.90/0.95), exactly as the one-pseudo-observation design predicts. dt-free geometry: prior->oracle within
+overlap lateral 0.75 / ventral 0.34 but prior->oracle OUTSIDE ~0.005-0.009 (uninformative); imagery rotates
+hybrid toward oracle as M,T grow. **Bounded reading:** the failed perception-only prediction DID contain
+operationally useful (Holm-supported) prior information at minimal calibration, but not enough to reduce the
+established eight-observation burden under the frozen hybrid update; NOT a claim that O2.11 was positive, that
+perception predicts/causes imagery geometry, or that perception is universally useless. Leak 5.6e-14; control
+replay 0.0; 13/13 tests. **Next (per brief): O2.13 SUBJECT-SPECIFIC GEOMETRY COVARIATE DIAGNOSTIC** (do NOT
+tune the failed perception prior; test prospectively-limited low-dim non-imagery covariates, N=8 low-capacity
+only). `O3` remains `O3_NOT_READY` (lower burden != shared/causal operator). Artifacts: `operator_o2_12/`.
+
 ## O2.11 (2026-09-14): SUBJECT-SPECIFIC TARGET-STATE GEOMETRY PREDICTABILITY -- SEALED `SUBJECT_SPECIFIC_GEOMETRY_NOT_PREDICTABLE_FROM_TESTED_PERCEPTION_PHENOTYPE`
 
 Prospective LOSO test (config `df2f8c59`, freeze `7d18c33`; import fix `ba4948f`): can a target's OWN dense-

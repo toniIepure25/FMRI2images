@@ -1,0 +1,25 @@
+{
+  "gate": "O2.12",
+  "stage": "predict",
+  "prior_verification": {
+    "checked": 96,
+    "ok": true,
+    "manifest": "o2_11_prior_manifest.json"
+  },
+  "control_replay_err": 0.0,
+  "outside_leak_max": 5.626055177287981e-14,
+  "files": [
+    {
+      "name": "o2_11_prior_verification.json",
+      "sha256": "802ce6369522eb5d20eb8836a39f3ab7faedbc1ed1b17f54d34c699ebf68579a"
+    },
+    {
+      "name": "o2_9_control_replay.json",
+      "sha256": "c6365af71e1ffa5c4a052d28c138f2b3277d17eff3c1e18407de8709bf4309ea"
+    },
+    {
+      "name": "prior_geometry_correction.csv",
+      "sha256": "106db55b49829b48b55bf084db5944b26281e513014830c183dc3b0d65fbfeb4"
+    }
+  ]
+}

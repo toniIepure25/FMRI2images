@@ -22,6 +22,8 @@ from pathlib import Path
 
 import numpy as np
 
+# ensure the package root (.../src) is importable when run as a bare script on the cluster
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 from fmri2img.mindcompiler.operator_o2_10 import sharedness as SH
 
 ALL = SH.ALL

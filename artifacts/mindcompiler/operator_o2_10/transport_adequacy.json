@@ -1,0 +1,14 @@
+{
+  "ventral": {
+    "SELF_IN_median": 0.9999999999999996,
+    "SELF_OUT_median": 0.9999999999999996,
+    "IN_adequate": true,
+    "OUT_adequate": true
+  },
+  "lateral": {
+    "SELF_IN_median": 0.9166666666666639,
+    "SELF_OUT_median": 0.9999999999999996,
+    "IN_adequate": true,
+    "OUT_adequate": true
+  }
+}

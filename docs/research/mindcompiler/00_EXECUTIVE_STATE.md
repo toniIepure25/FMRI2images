@@ -10,6 +10,27 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.10 (2026-09-14): COMPOSITE TARGET-STATE GEOMETRY SHAREDNESS -- SEALED `COMPOSITE_TARGET_STATE_GEOMETRY_SUBJECT_SPECIFIC_DOMINANT`
+
+LOSO cross-subject transfer via dense-perception anchor fingerprints (config `efbae221`, freeze `5cf1467`),
+ZERO target imagery for prediction (dense target PERCEPTION calibration allowed). Strict two-job seal:
+Stage A (`1c914ea`) built + committed 96 frozen predictions (vision-transport replay PASS; donor consensus +
+Moore-Penrose target lift) BEFORE opening target imagery; Stage B evaluated. Both ROIs
+`COMPOSITE_GEOMETRY_NOT_SHARED` -> program `COMPOSITE_TARGET_STATE_GEOMETRY_SUBJECT_SPECIFIC_DOMINANT`.
+
+**Critical distinction (the self-lift ceiling did its job):** transport is ADEQUATE -- the anchor fingerprint
+recovers the target's OWN full-resource geometry almost perfectly (ventral SELF_IN/SELF_OUT 1.00/1.00; lateral
+0.92/1.00). So the carrier is NOT the limitation. BUT cross-subject transfer FAILS: donor-derived within/outside
+geometry does not beat the matched anchor-permutation null (E_IN/E_OUT ~0, none Holm-significant; ventral IN
+p=0.18 5/8, others p>=0.83), recovers only ~3-8% of the target's own components, and closes ~1% of the
+native-oracle gap (TOTAL_XSUB ~0.006-0.009). Donor fingerprint similarity was already low (within ~0.35,
+outside ~0.16). **Bounded reading:** under dense perception calibration the target's own composite target-state
+geometry is faithfully realizable from perception anchors, but the calibrated geometry from the other seven
+participants does NOT transfer to a held-out target -- it is subject-specific under this representation; NOT a
+transport-ceiling artifact, NOT a universal/causal claim. **Next: O2.11 SUBJECT-SPECIFIC GEOMETRY
+PREDICTABILITY** (predict the geometry from the target's own perception features vs transfer from donors).
+`O3` remains `O3_NOT_READY` (this negative transfer result does not unlock O3). Artifacts: `operator_o2_10/` (22).
+
 ## O2.9 (2026-09-13): MINIMAL COMPOSITE TARGET-STATE CALIBRATION -- SEALED `MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED`
 
 Operational M x T resource frontier (config `037686de`, freeze `2818cab`) for the O2.8 composite geometry:

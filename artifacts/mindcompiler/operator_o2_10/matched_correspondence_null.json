@@ -1,0 +1,13 @@
+{
+  "n_null_per_cell": 100,
+  "type": "deterministic anchor-row permutation per donor (destroys cross-subject anchor-image correspondence)",
+  "seed": "O2.10|target|ROI|fold|component|donor|null_iteration -> SHA256 -> uint64 -> PCG64",
+  "median_E_IN": {
+    "ventral": 0.0021479794187875888,
+    "lateral": -0.007996419102908329
+  },
+  "median_E_OUT": {
+    "ventral": -0.001923435887346821,
+    "lateral": -0.0007946649652058919
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "rd_match": true,
+  "note": "provenance verified in Stage A (vision cert) + Stage B (prediction hash-match vs committed manifest)"
+}

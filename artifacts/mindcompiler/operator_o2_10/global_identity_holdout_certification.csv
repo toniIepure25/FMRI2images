@@ -1,0 +1,3 @@
+basis,rule,certified
+donor_imagery,only 10 outer-training identities per fold (delta_native); target 2 test identities excluded for target AND all donors,True
+target_imagery_in_prediction,forbidden (Stage A uses ZERO target imagery; enforced by construction),True

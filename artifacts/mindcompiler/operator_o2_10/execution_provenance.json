@@ -1,0 +1,14 @@
+{
+  "gate": "O2.10",
+  "input_head": "380c9be",
+  "freeze_commit": "5cf1467",
+  "stage_a_commit": "1c914ea",
+  "config_sha256": "efbae22167d3938a55f7d896cc8d7517450a96513f28a8074b1fe99444856e8c",
+  "image": "nipreps/fmriprep:25.2.5",
+  "node": "k8s-worker-cpu-node-r770",
+  "numpy": "2.2.6",
+  "two_stage_seal": true,
+  "N_NULL": 100,
+  "self_lift_adequate": true,
+  "transfer_supported": false
+}

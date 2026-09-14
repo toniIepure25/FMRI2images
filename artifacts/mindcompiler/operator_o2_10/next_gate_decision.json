@@ -1,0 +1,7 @@
+{
+  "input_status": "COMPOSITE_TARGET_STATE_GEOMETRY_SUBJECT_SPECIFIC_DOMINANT",
+  "next_gate": "O2.11 SUBJECT-SPECIFIC GEOMETRY PREDICTABILITY",
+  "core_question": "Can the subject-specific composite target-state geometry be PREDICTED from the target participant's own perception features (rather than transferred directly from donors)?",
+  "rationale": "Self-lift transport ADEQUATE (ventral SELF_IN/OUT 1.0/1.0; lateral 0.92/1.0) -> perception anchors CAN carry the target's own geometry; but donor->target transfer fails (E_IN/E_OUT ~0, none Holm-significant, transfer recovery <=0.08, composite ~1% of native gap). NOT a transport-ceiling artifact; the composite geometry is subject-specific.",
+  "O3": "O3_NOT_READY"
+}

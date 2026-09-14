@@ -1,0 +1,27 @@
+{
+  "config_sha256": "efbae22167d3938a55f7d896cc8d7517450a96513f28a8074b1fe99444856e8c",
+  "driver_sha256": "de44e954a11220ee57319e2b79cac7478a6e6d1df61af43371d5fa5826c00c35",
+  "artifacts": {
+    "component_inference.json": "8dbe5884ba2b8ffb8ead49ce4f0118ebb530bd883d01a6be2962e8e0f287dfd6",
+    "composite_transfer_results.csv": "388ea7ace02d11acc9390203115a41d413064bc437b003b61484f77f045c2eb5",
+    "execution_provenance.json": "a0184c48403ee6ed80ceace350486d308b15d81c67c9fe307bcc4cc9cb9648f5",
+    "global_identity_holdout_certification.csv": "ff709ba9231fe56cba600a1838779ec8893a18f454c18ffe316f7159c11f614e",
+    "matched_correspondence_null.json": "4a759dbb369744ded00ba60c9a557a524076e82c9f30f5fc472eddf1a388acc2",
+    "next_gate_decision.json": "0fa4effef06a343af9c4ed442f0c14164dffd956ca25d082cf24d02f54e64177",
+    "o2_10_frozen_config.json": "55e4d3a611aff515900e521f5c7e42662e5157273163e8f47ec65691128b5c15",
+    "outside_donor_fingerprint_similarity.csv": "dd2e2b28eba1c48d6b817a0564a3a09e510d81fcf56a366424ce2b09af748557",
+    "outside_transfer_results.csv": "abd3f95386f96f04ba34ce6eead1bd251cdd77a2d4a223d329180a27152cce12",
+    "participant_roi_sharedness.csv": "10e75d10ebf4f38bf81d97c1f6488ae8709504574b0e79e0c32a6814f06400a7",
+    "roi_status.json": "2efeea5c2bd17efaab489ab5b5823ae4fd0d0241f43953fd68bd238e23e0227b",
+    "scientific_status.json": "46414901ec5bbded64af3ec5cb05ddd77710db4c1bd9cecbc360a5adf8ce1238",
+    "sealed_state_verification.json": "cbe94ac471f228cb09c33d8506add09874aa15a92540c3db8d9f2f32ccfa8e94",
+    "self_lift_geometry.csv": "428eaea896f6159ac0ae9fddd39938bc2e5fe9568fc94411c01d4fbcb19e971b",
+    "self_lift_recovery.csv": "b03a03c65042abbe8d2684ea79f0063a97c9737fcc9dfe8109295f746e90ea74",
+    "stage_a_prediction_manifest.json": "d5c02b78f8f3797f07f7e16f564ecd9ef9d0c9ed05172b72c12cf0c14abbd859",
+    "test_report.json": "87838b173f21f848691b3fc9f27d767c573a5a4a03c421ef9a1523790c18682f",
+    "transport_adequacy.json": "d4107a91ca5bcff161c21701339de0e133cfba66eef776e899b06e90f718ec8b",
+    "vision_transport_replay_certification.json": "86185a725b4424c0aa287fa9f60e03afb5bc93e0ac04a8b3848ad4a90f00a4b0",
+    "within_donor_fingerprint_similarity.csv": "29710c060a2c4bcf523ea2d2d5cf1d68c741e5e2b8e348b6c9dc03944aad4fc5",
+    "within_transfer_results.csv": "5c8586b5f6bb35cad7c1c7433dfbbf99bf1dc53b66f79ce451b7515bc2fa4502"
+  }
+}

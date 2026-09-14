@@ -1,0 +1,47 @@
+{
+  "family": [
+    "ventral|IN",
+    "ventral|OUT",
+    "lateral|IN",
+    "lateral|OUT"
+  ],
+  "family_size": 4,
+  "per_test": {
+    "ventral|IN": {
+      "adequate": true,
+      "median_E": 0.0021479794187875888,
+      "n_E_pos": 5,
+      "signflip_p": 0.17578125,
+      "holm_reject": false,
+      "median_transfer": 0.033840965051701095,
+      "supported": false
+    },
+    "ventral|OUT": {
+      "adequate": true,
+      "median_E": -0.001923435887346821,
+      "n_E_pos": 1,
+      "signflip_p": 0.98046875,
+      "holm_reject": false,
+      "median_transfer": 0.009560630514952446,
+      "supported": false
+    },
+    "lateral|IN": {
+      "adequate": true,
+      "median_E": -0.007996419102908329,
+      "n_E_pos": 1,
+      "signflip_p": 0.93359375,
+      "holm_reject": false,
+      "median_transfer": 0.08230529369270208,
+      "supported": false
+    },
+    "lateral|OUT": {
+      "adequate": true,
+      "median_E": -0.0007946649652058919,
+      "n_E_pos": 3,
+      "signflip_p": 0.83984375,
+      "holm_reject": false,
+      "median_transfer": 0.011653308862506043,
+      "supported": false
+    }
+  }
+}

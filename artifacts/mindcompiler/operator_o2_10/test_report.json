@@ -1,0 +1,17 @@
+{
+  "suite": "tests/mindcompiler/operator_o2_10/test_o2_10_sharedness.py",
+  "n_tests": 10,
+  "passed": 10,
+  "items": [
+    "helpers/consensus",
+    "within/outside rank guard",
+    "synthetic perfect-shared recovery",
+    "null destroys correspondence",
+    "transport-ceiling-insufficient",
+    "established",
+    "within-shared-outside-not",
+    "subject-specific-dominant",
+    "shared-insufficient-composite",
+    "config+no-model-search"
+  ]
+}

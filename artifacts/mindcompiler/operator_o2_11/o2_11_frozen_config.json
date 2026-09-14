@@ -1,0 +1,186 @@
+{
+  "gate": "O2.11",
+  "class": "PROSPECTIVE_LOSO_PERCEPTION_CONDITIONED_GEOMETRY_PREDICTION",
+  "input_head": "7078b718bfa58cd4751fa8066443836bf5a013e2",
+  "question": "Are individual differences in target-state geometry systematically coupled to individual differences in perception geometry, so a target participant's OWN perception phenotype predicts their subject-specific target-state geometry WITHOUT target imagery?",
+  "distinction": "O2.10 tested SHARED geometry (donor geometry transfers directly). O2.11 tests PREDICTABLE subject-specific geometry (differences coupled to perception-only differences). Positive => subject-specific != idiosyncratic under the tested representation.",
+  "immutable_history": {
+    "O2_10": "COMPOSITE_TARGET_STATE_GEOMETRY_SUBJECT_SPECIFIC_DOMINANT",
+    "O2_9": "MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED",
+    "O2_8": "RESIDUAL_CAPACITY_MULTICOMPONENT",
+    "O2_7A_POSTAUDIT": "O2_7A_POSTSEAL_INTEGRITY_AUDIT_PASS",
+    "O2_7A": "REDUCED_TRIAL_OUTSIDE_AXIS_CALIBRATION_NOT_ESTABLISHED",
+    "O2_7": "O2_7_FULL_REPEAT_REPLAY_FAILURE",
+    "O2_6": "TARGET_STATE_MISSING_BASIS_LOW_COMPLEXITY",
+    "O2_5": "TARGET_IMAGERY_RESIDUAL_OUTSIDE_PERCEPTION_SUPPORT_DOMINANT",
+    "O2_4R": "TARGET_STATE_ORIENTATION_NOT_RECOVERED_BY_ORTHOGONAL_CALIBRATION",
+    "O3": "O3_NOT_READY",
+    "never_relabel_historical": true
+  },
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "secondary": "parietal (after primary seal)",
+  "loso": {
+    "target": "each of 8",
+    "donors": "other 7",
+    "prediction_may_use_target": [
+      "perception anchors",
+      "W_target",
+      "C_s/E_s",
+      "perception-only phenotype kernels"
+    ],
+    "prediction_may_NOT_use_target": [
+      "delta_native",
+      "trial_native",
+      "imagery residuals",
+      "target-state geometry",
+      "held-out imagery outcomes"
+    ],
+    "unit": "participant",
+    "N": 8
+  },
+  "global_identity_holdout": "reuse 6 outer folds; 2 held-out imagery identities excluded from imagery geometry for target AND all donors; donors use only the 10 outer-training identities",
+  "vision_state": "REUSE exact O2.10 certified perception-anchor state: A_s (512 x V), W_s, C_s=A_s W_s, E_s=A_s-(A_s W_s)W_s.T; do not rebuild",
+  "perception_phenotype": {
+    "form": "perception-only, basis-invariant, common across native voxel spaces, deterministic, parameter-free",
+    "H": "I_512 - (1/512) 11.T",
+    "K(X)": "H X X.T H",
+    "K_N(X)": "K(X)/||K(X)||_F (require nonzero denom)",
+    "K_IN": "K_N(C_s)",
+    "K_OUT": "K_N(E_s)",
+    "no_rank_reduction": true,
+    "no_kernel_tuning": true
+  },
+  "phenotype_similarity_diagnostic": "CKA(s,d)=<K_s,K_d>_F (unit-norm kernels); descriptive perception-only target-to-donor similarity for K_IN and K_OUT",
+  "donor_geometry": {
+    "full_resource_10_ids": true,
+    "within": "rank-matched to target r_s (O2.10 construction); Q_IN_d; G_IN_d=Q_IN_d Q_IN_d.T",
+    "outside": "D=2; Q_OUT_d; G_OUT_d=Q_OUT_d Q_OUT_d.T",
+    "no_donor_resource_search": true
+  },
+  "barycentric_predictor": {
+    "objective": "w* = argmin_w ||K_s - sum_d w_d K_d||_F^2 s.t. w_d>=0, sum w_d=1 (convex barycentric)",
+    "no_target_imagery": true,
+    "no_regularization": true,
+    "no_hyperparameter": true,
+    "solver": "deterministic: enumerate all 127 non-empty donor active sets; per set equality-constrained LS (KKT, float64 Moore-Penrose) with 1.T w=1; accept if w>=-1e-12; clip [-1e-12,0]->0 + renormalize; min reconstruction error; ties<=1e-12 -> fewest active donors then lexicographically smallest index set (minimal-support barycentric solution)"
+  },
+  "phenotype_coverage": {
+    "ERR_BARY": "||K_s - sum w_d K_d||_F",
+    "ERR_UNIFORM": "||K_s - mean_d K_d||_F",
+    "PHENOTYPE_FIT_GAIN": "ERR_UNIFORM - ERR_BARY",
+    "descriptive_only": true,
+    "no_status_gate_on_fit": "poor fit => target phenotype outside donor convex hull (cohort-coverage limitation)"
+  },
+  "predicted_geometry": {
+    "within": "G_PRED_RAW_IN = sum_d w_IN_d G_IN_d ; top r_s eigvecs -> Q_PRED_IN",
+    "outside": "G_PRED_RAW_OUT = sum_d w_OUT_d G_OUT_d ; top 2 eigvecs -> Q_PRED_OUT",
+    "no_target_imagery": true
+  },
+  "target_lift": "REUSE certified O2.10 lift: within via pinv(C_s), outside via pinv(E_s) + remove W_s leakage; produce B_IN_PRED/P_IN_PRED, B_OUT_PRED/P_OUT_PRED; no new transport estimator",
+  "transport_ceiling": "REUSE sealed O2.10 adequacy (all 4 primary carriers adequate); do NOT rerun/redefine; O2.11 failure => predictor failure not carrier failure",
+  "target_oracle_stageB": "target own full-resource 10-id geometry -> G_TARGET_IN, G_TARGET_OUT (EVALUATION REFERENCES ONLY; cannot change Stage-A predictions)",
+  "geometry_similarity": "SIM_GEOM = trace(P T)/r for equal-rank projectors (0..1); SIM_IN, SIM_OUT separately",
+  "matched_null": {
+    "type": "perception->geometry correspondence null: keep Stage-A weights FIXED, permute donor GEOMETRY labels; G_PRED_NULL = sum_d w_d G_{pi(d)}; preserves phenotype/kernels/weights/geometry-distribution/ranks, destroys perception->geometry correspondence",
+    "n": 100,
+    "seed": "O2.11|target|ROI|fold|component|null_iteration -> SHA256 -> first16hex -> uint64 -> PCG64",
+    "reject_identity_use_derangement": true
+  },
+  "effects": {
+    "E_GEOM": "SIM_GEOM - mean(SIM_GEOM_NULL)",
+    "GEOM_RECOVERY": "(SIM_GEOM - mean(SIM_NULL))/max(1 - mean(SIM_NULL),1e-12) (clip [0,1] + unclip)",
+    "native": "lift each geometry-permutation null through the SAME target carrier -> R_c_NULL; E_NATIVE_c = R_c_PRED - mean(R_c_NULL) (PRIMARY inferential effect)"
+  },
+  "component_transfer_recovery": {
+    "within": "(R_IN_PRED - R0)/max(R_IN_ORACLE - R0,1e-12)",
+    "outside": "(R_OUT_PRED - R0)/max(R_OUT_ORACLE - R0,1e-12)",
+    "clip+unclip": true
+  },
+  "inference": {
+    "primary_family": "2 components x 2 ROIs = EXACTLY 4 tests",
+    "signflip": "2^8 exact one-sided over participant E_NATIVE",
+    "holm": "across exactly 4",
+    "alpha": 0.05,
+    "unit": "participant",
+    "N": 8
+  },
+  "component_predictable": "PERCEPTION_PREDICTABLE iff ALL: median E_NATIVE>0; >=6/8 E_NATIVE>0; Holm reject; median clipped GEOM_RECOVERY>=0.50; >=6/8 GEOM_RECOVERY>=0.50; median clipped TRANSFER_RECOVERY>=0.50; >=6/8 TRANSFER_RECOVERY>=0.50 (BOTH geometry-level AND native-consequence required)",
+  "composite": {
+    "P_COMP_PRED": "P_IN_PRED+P_OUT_PRED (certify sym/idem/cross<=1e-10/rank=r_s+2)",
+    "R_COMP_PRED": "held-out retention",
+    "TOTAL_RECOVERY_PRED": "(R_COMP_PRED-R0)/max(R_NATIVE_ORACLE-R0,1e-12)",
+    "COMPOSITE_CAPACITY_FRACTION": "(R_COMP_PRED-R0)/max(R111-R0,1e-12)"
+  },
+  "composite_success": "PERCEPTION_PREDICTED_COMPOSITE_GEOMETRY_SUFFICIENT iff both components PERCEPTION_PREDICTABLE AND median+>=6/8 TOTAL_RECOVERY_PRED>=0.50 AND median+>=6/8 COMPOSITE_CAPACITY_FRACTION>=0.50 (no extra p-value)",
+  "o2_10_comparator": "GAIN_OVER_O2_10 = R_COMP_PRED - R_COMP_XSUB_O2_10 (participant-first; descriptive; success should materially outperform O2.10 consensus)",
+  "pairwise_association": "descriptive: Spearman rho of SIM_PERCEPTION(=<K_s,K_d>_F) vs SIM_GEOMETRY over 28 subject pairs, per component/ROI; NOT independent N; no pair-level p-value; LOSO operational test is primary",
+  "aggregation": "participant-first: 2 held-out ids -> 6 folds -> participant metrics; N=8",
+  "roi_status": {
+    "TARGET_PERCEPTION_PREDICTS_COMPOSITE_GEOMETRY": "both components predictable + composite operational passes",
+    "PERCEPTION_PREDICTS_COMPONENTS_BUT_COMPOSITE_INSUFFICIENT": "both predictable but composite fails",
+    "WITHIN_PERCEPTION_PREDICTABLE_OUTSIDE_NOT": "only within",
+    "OUTSIDE_PERCEPTION_PREDICTABLE_WITHIN_NOT": "only outside",
+    "TARGET_PERCEPTION_GEOMETRY_NOT_PREDICTIVE": "neither component",
+    "PERCEPTION_GEOMETRY_PREDICTABILITY_INCONCLUSIVE": "provenance/evaluability/technical"
+  },
+  "program_status": {
+    "ZERO_TARGET_IMAGERY_COMPOSITE_GEOMETRY_PREDICTED_FROM_TARGET_PERCEPTION": "both ROIs ...PREDICTS_COMPOSITE_GEOMETRY",
+    "PERCEPTION_CONDITIONED_GEOMETRY_PREDICTION_MULTIREGIME": "primary ROIs differ",
+    "PERCEPTION_PREDICTS_GEOMETRY_BUT_OPERATIONALLY_INSUFFICIENT": "both ROIs both components predictable but composite fails",
+    "SUBJECT_SPECIFIC_GEOMETRY_NOT_PREDICTABLE_FROM_TESTED_PERCEPTION_PHENOTYPE": "neither primary ROI establishes useful component predictability",
+    "O2_11_GEOMETRY_PREDICTABILITY_INCONCLUSIVE": "technical/provenance failure"
+  },
+  "claim_boundaries": {
+    "positive": [
+      "individual differences in target-state geometry predictable from individual differences in the target's dense-perception phenotype, without target imagery calibration",
+      "target-state geometry subject-specific but not idiosyncratic under the tested representation"
+    ],
+    "positive_forbidden": [
+      "perception causes imagery geometry",
+      "identity determines imagery",
+      "universal imagery code",
+      "zero calibration",
+      "biological geometry predicted exactly"
+    ],
+    "negative": [
+      "under the tested dense-perception phenotype + deterministic perception-conditioned predictor, subject-specific target-state geometry was not recoverably predictable from target perception alone"
+    ],
+    "negative_forbidden": [
+      "fundamentally unpredictable",
+      "random across humans",
+      "genetically determined",
+      "impossible to predict"
+    ],
+    "note": "substantial target PERCEPTION calibration still used"
+  },
+  "cohort_limitation": "n=7 donors per LOSO prediction is extremely small for individual-difference mappings; parameter-free convex interpolation used intentionally; failure may reflect uncoupled geometries OR inadequate phenotype OR insufficient donor coverage (not distinguishable without evidence)",
+  "two_stage_seal": {
+    "STAGE_A": "target perception + donor perception + donor imagery geometry -> freeze kernels/weights/predicted IN+OUT fingerprints/target-native lifted bases; commit hashes; NO target imagery",
+    "STAGE_B": "after Stage-A server verify: open target oracle -> GEOM_RECOVERY -> held-out imagery -> geometry-permutation null -> native effects -> 4-test Holm -> composite classification"
+  },
+  "no_model_search": [
+    "ridge",
+    "kernel search",
+    "NN",
+    "PLS",
+    "CCA",
+    "RRR",
+    "donor weighting alternatives",
+    "top-k donor search",
+    "nearest-neighbor competition",
+    "temperature tuning",
+    "anatomical features",
+    "behavioral features",
+    "target imagery calibration"
+  ],
+  "next_gate": {
+    "ZERO_TARGET_IMAGERY_COMPOSITE_GEOMETRY_PREDICTED_FROM_TARGET_PERCEPTION": "O2.12 MINIMAL TARGET-PERCEPTION CALIBRATION FRONTIER (reduce 512-image perception burden)",
+    "PERCEPTION_PREDICTS_GEOMETRY_BUT_OPERATIONALLY_INSUFFICIENT": "O2.12 PREDICTION + MINIMAL IMAGERY CORRECTION (perception prior + 1-2 imagery obs correct residual)",
+    "SUBJECT_SPECIFIC_GEOMETRY_NOT_PREDICTABLE_FROM_TESTED_PERCEPTION_PHENOTYPE": "O2.12 MINIMAL IMAGERY CALIBRATION WITH PERCEPTION-ONLY PRIOR CONTROL (can O2.9 8-trial be reduced via fixed hybrid prior) OR O2.12 SUBJECT-SPECIFIC GEOMETRY COVARIATE DIAGNOSTIC (additional non-imagery features); no high-capacity predictor from N=8"
+  },
+  "O3": "O3_NOT_READY",
+  "config_sha256": "df2f8c595c74bce2bc104810d8f6bce5f4f7af138d4f3ada3d8294461d8fc4e9"
+}

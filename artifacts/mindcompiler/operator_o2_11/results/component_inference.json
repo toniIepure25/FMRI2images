@@ -1,0 +1,10 @@
+{
+  "family": ["ventral|IN", "ventral|OUT", "lateral|IN", "lateral|OUT"],
+  "family_size": 4,
+  "per_test": {
+    "ventral|IN":  {"median_E": -0.002101106964014786, "n_E_pos": 1, "signflip_p": 0.98828125, "holm_reject": false, "median_geom_recovery": 0.011550799536932655, "n_GR_ge": 0, "median_transfer_recovery": 0.047680037315508655, "n_TR_ge": 0, "predictable": false},
+    "ventral|OUT": {"median_E": -0.00027490952019808507, "n_E_pos": 2, "signflip_p": 0.828125, "holm_reject": false, "median_geom_recovery": 0.010580717108735732, "n_GR_ge": 0, "median_transfer_recovery": 0.011416124190529738, "n_TR_ge": 0, "predictable": false},
+    "lateral|IN":  {"median_E": -0.0023056107383205896, "n_E_pos": 3, "signflip_p": 0.765625, "holm_reject": false, "median_geom_recovery": 0.01864074583923, "n_GR_ge": 0, "median_transfer_recovery": 0.06021674660733471, "n_TR_ge": 0, "predictable": false},
+    "lateral|OUT": {"median_E": 0.0006706257057251582, "n_E_pos": 5, "signflip_p": 0.08984375, "holm_reject": false, "median_geom_recovery": 0.007025981498760246, "n_GR_ge": 0, "median_transfer_recovery": 0.014151394549800557, "n_TR_ge": 0, "predictable": false}
+  }
+}

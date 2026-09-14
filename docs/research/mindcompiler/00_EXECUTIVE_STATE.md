@@ -10,6 +10,38 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.11 (2026-09-14): SUBJECT-SPECIFIC TARGET-STATE GEOMETRY PREDICTABILITY -- SEALED `SUBJECT_SPECIFIC_GEOMETRY_NOT_PREDICTABLE_FROM_TESTED_PERCEPTION_PHENOTYPE`
+
+Prospective LOSO test (config `df2f8c59`, freeze `7d18c33`; import fix `ba4948f`): can a target's OWN dense-
+perception phenotype predict their subject-specific target-state geometry WITHOUT target imagery? Donor target-
+state geometry combined by CONVEX BARYCENTRIC weights fit on perception-only kernels `K_N(C_s)`,`K_N(E_s)`
+(512x512, space-invariant, parameter-free; exact 127 active-set simplex solver, minimal-support tie-break), then
+lifted through the target's OWN certified O2.10 vision-anchor carrier (reused; no new estimator). Strict two-job
+seal: Stage A (`207b0bf`) froze 96 predictions (vision-transport replay 16/16 PASS) BEFORE opening target
+imagery; Stage B evaluated with a geometry-permutation null (x100, derangement: weights FIXED, donor geometry
+labels permuted). Both ROIs `TARGET_PERCEPTION_GEOMETRY_NOT_PREDICTIVE` -> program
+`SUBJECT_SPECIFIC_GEOMETRY_NOT_PREDICTABLE_FROM_TESTED_PERCEPTION_PHENOTYPE`.
+
+**Decisive negative across all 4 tests (2 components x 2 ROIs, Holm):** none reject (signflip p: ventral IN
+0.988 / OUT 0.828, lateral IN 0.766 / OUT 0.090; nearest is lateral OUT). Median native effect E ~ -0.002..+0.0007
+(0-5/8 positive). Geometry recovery beyond the perception-blind null is ~1-2% (median GR 0.007-0.019, 0/8 reach
+0.50) and native transfer recovery ~1-6% (median TR 0.011-0.060, 0/8 reach 0.50). **Mechanism (Stage-A
+descriptive):** barycentric fit barely beats uniform averaging (median FIT_GAIN 0.004-0.008) and EVERY cell uses
+the full 7-donor hull -- target perception phenotypes sit near the cohort centroid in kernel space, so the
+perception-conditioned weights carry almost no subject-specific signal and the predicted geometry collapses
+toward generic donor-average geometry, indistinguishable from the label-permuted null. **Bounded reading:**
+under the tested dense-perception phenotype + deterministic perception-conditioned barycentric predictor, the
+subject-specific target-state geometry was NOT recoverably predictable from target perception alone; N=8 with
+n=7 donors per LOSO is extremely small for individual-difference mapping, so this does not prove the geometries
+are uncoupled -- the tested phenotype/predictor/cohort simply did not recover a coupling. Coheres with O2.10
+(geometry subject-specific dominant): O2.11 adds that the subject-specificity is not captured by perception-
+phenotype differences under this representation. NOT a "fundamentally unpredictable / random / genetic" claim.
+Substantial target PERCEPTION calibration was still used. **Next (per brief):** O2.12 MINIMAL IMAGERY
+CALIBRATION WITH PERCEPTION-ONLY PRIOR CONTROL (can O2.9's 8-trial burden be reduced via a fixed hybrid prior)
+OR O2.12 SUBJECT-SPECIFIC GEOMETRY COVARIATE DIAGNOSTIC (non-imagery features) -- no high-capacity predictor
+from N=8. Immutable seals preserved; `O3` remains `O3_NOT_READY` (a negative predictability result does not
+unlock O3). Artifacts: `operator_o2_11/` (frozen config + Stage-A manifest + results).
+
 ## O2.10 (2026-09-14): COMPOSITE TARGET-STATE GEOMETRY SHAREDNESS -- SEALED `COMPOSITE_TARGET_STATE_GEOMETRY_SUBJECT_SPECIFIC_DOMINANT`
 
 LOSO cross-subject transfer via dense-perception anchor fingerprints (config `efbae221`, freeze `5cf1467`),

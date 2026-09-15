@@ -1,0 +1,77 @@
+{
+  "family_size": 8,
+  "per_test": {
+    "ventral|anatomy|IN": {
+      "median_E": 0.0023657256744850745,
+      "n_E_pos": 6,
+      "signflip_p": 0.08203125,
+      "holm_reject": false,
+      "median_DOP": -0.004378308930729245,
+      "n_DOP_pos": 2,
+      "supported": false
+    },
+    "ventral|anatomy|OUT": {
+      "median_E": -0.0016254367616867762,
+      "n_E_pos": 2,
+      "signflip_p": 0.515625,
+      "holm_reject": false,
+      "median_DOP": 0.00709093501512222,
+      "n_DOP_pos": 8,
+      "supported": false
+    },
+    "ventral|behavior|IN": {
+      "median_E": -0.0031569502356461098,
+      "n_E_pos": 1,
+      "signflip_p": 0.93359375,
+      "holm_reject": false,
+      "median_DOP": -0.012610872503308428,
+      "n_DOP_pos": 1,
+      "supported": false
+    },
+    "ventral|behavior|OUT": {
+      "median_E": -0.0005287765990430909,
+      "n_E_pos": 2,
+      "signflip_p": 0.46875,
+      "holm_reject": false,
+      "median_DOP": 0.0022024469868867063,
+      "n_DOP_pos": 8,
+      "supported": false
+    },
+    "lateral|anatomy|IN": {
+      "median_E": 0.000886426653814452,
+      "n_E_pos": 5,
+      "signflip_p": 0.16015625,
+      "holm_reject": false,
+      "median_DOP": 0.006256095236114268,
+      "n_DOP_pos": 5,
+      "supported": false
+    },
+    "lateral|anatomy|OUT": {
+      "median_E": -0.0004165026384380413,
+      "n_E_pos": 2,
+      "signflip_p": 0.6484375,
+      "holm_reject": false,
+      "median_DOP": 0.0004299674029001928,
+      "n_DOP_pos": 4,
+      "supported": false
+    },
+    "lateral|behavior|IN": {
+      "median_E": -0.003301885712061988,
+      "n_E_pos": 4,
+      "signflip_p": 0.94140625,
+      "holm_reject": false,
+      "median_DOP": -0.0005086803650600885,
+      "n_DOP_pos": 4,
+      "supported": false
+    },
+    "lateral|behavior|OUT": {
+      "median_E": -0.0003259375708303989,
+      "n_E_pos": 3,
+      "signflip_p": 0.64453125,
+      "holm_reject": false,
+      "median_DOP": -0.0003724925960734933,
+      "n_DOP_pos": 4,
+      "supported": false
+    }
+  }
+}

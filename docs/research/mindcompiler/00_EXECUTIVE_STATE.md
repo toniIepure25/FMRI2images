@@ -10,6 +10,37 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.13 (2026-09-15): SUBJECT-SPECIFIC GEOMETRY COVARIATE DIAGNOSTIC -- SEALED `NO_REPRODUCIBLE_TESTED_COVARIATE_STRUCTURE`
+
+Do low-dimensional NON-IMAGERY subject covariates explain the subject-specific target-state geometry RESIDUAL
+left by the frozen O2.11 perception prior? (config `e27beb30`, freeze `19d86b3`). **New data (authorized
+one-time NSD S3 fetch, no-AWS lifted for this read-only download):** both covariate sources were ABSENT from
+the PVC. Family A anatomy = FreeSurfer streams-parcel (ventral=5, lateral=6, identical to functional s2_roi.py)
+surface area + mean thickness; Family B behavior = main-NSD continuous-recognition d' + criterion c (loglinear;
+NOT nsdimagery). Covariates frozen with per-file SHA256 (commit `264cf29`) BEFORE geometry. Method: donor
+residual DELTA_G_d = G_ORACLE_d - G_PRIOR_d (512-anchor); covariate LOSO convex-barycentric weights (min-SSE
+then min-||w||^2) predict the target residual correction; corrected geometry lifted through the target's OWN
+O2.10 carrier; matched null permutes donor residual-geometry labels (x100, weights fixed). Strict two-job seal:
+Stage A (`a3341ec`) froze 16 corrections (prior 96/96 verified) BEFORE target imagery; Stage B evaluated.
+
+**Result `NO_REPRODUCIBLE_TESTED_COVARIATE_STRUCTURE`** -- both ROIs `NO_SUPPORTED_NONIMAGERY_COVARIATE_COUPLING`.
+All 8 primary tests (2 families x 2 components x 2 ROIs) FAIL: none Holm-reject, none even nominally significant.
+Nearest is ventral|anatomy|IN (median E +0.0024, 6/8 positive, sign-flip p=0.082) -- but its delta-over-prior is
+NEGATIVE (2/8), so it fails the coupling rule anyway. Several OUT components show 8/8 positive delta-over-prior
+(anatomy adds a little over the bare prior) yet NEGATIVE E_NATIVE vs the matched null -- i.e. the improvement is
+not specific to any covariate->geometry correspondence (exactly what the label-permutation null controls for).
+Composite covariate-corrected recovery ~0 (median TOTAL_RECOVERY -0.03..+0.007). Covariate coverage was weak by
+construction: 2D covariates, 7 donors, targets often outside the donor hull (in_hull 2-3/8, n_eff 1.5-1.9).
+**Bounded reading:** under the two prospectively-frozen non-imagery covariate families and the frozen residual-
+correction diagnostic, the subject-specific target-state geometry residual left by the perception prior was NOT
+reproducibly explained by ROI anatomy or perception-recognition behavior. N=8, 7 donors per LOSO -- a negative
+does NOT establish that NO non-imagery predictor exists, nor that anatomy/behavior are irrelevant; behavior here
+is perception-task recognition, not imagery ability. Coheres with O2.10/O2.11 (geometry subject-specific and
+not captured by the tested representations). **Next (per brief): O2.14 TARGET-IMAGERY CALIBRATION NECESSITY /
+ROBUSTNESS** (no high-capacity N=8 predictor; consolidate whether direct target imagery remains necessary and
+how robust the O2.9 8-observation minimum is). Immutable seals preserved; `O3` remains `O3_NOT_READY`.
+Artifacts: `operator_o2_13/` (covariate freeze + provenance + stage_a + results).
+
 ## O2.12 (2026-09-14): MINIMAL IMAGERY CALIBRATION WITH PERCEPTION-ONLY PRIOR CONTROL -- SEALED `PERCEPTION_PRIOR_BENEFICIAL_BUT_EIGHT_TRIAL_MINIMUM_NOT_REDUCED`
 
 Can the FAILED O2.11 perception-only prediction still REDUCE the sealed O2.9 8-trial calibration burden as a

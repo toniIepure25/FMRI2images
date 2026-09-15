@@ -1,0 +1,324 @@
+{
+  "gate": "O2.13",
+  "class": "PROSPECTIVE_LOSO_LOW_DIMENSIONAL_COVARIATE_RESIDUAL_GEOMETRY_DIAGNOSTIC",
+  "input_head": "1af00873bf3090bfe3a2904496b7c0889fad3eec",
+  "question": "Do low-dimensional non-imagery subject covariates (ROI anatomy; perception-task recognition behavior) explain the subject-specific target-state geometry RESIDUAL left by the frozen O2.11 perception-only prior?",
+  "core_principle": "predict COVARIATE -> ERROR OF THE FROZEN PERCEPTION PRIOR (not full geometry from scratch): freeze O2.11 prediction; donor residual DELTA_G_d = G_ORACLE_d - G_PRIOR_d; covariate barycentric weights predict target residual correction; test vs matched covariate<->residual-geometry permutation null",
+  "immutable_history": {
+    "O2_12": "PERCEPTION_PRIOR_BENEFICIAL_BUT_EIGHT_TRIAL_MINIMUM_NOT_REDUCED",
+    "O2_11": "SUBJECT_SPECIFIC_GEOMETRY_NOT_PREDICTABLE_FROM_TESTED_PERCEPTION_PHENOTYPE",
+    "O2_10": "COMPOSITE_TARGET_STATE_GEOMETRY_SUBJECT_SPECIFIC_DOMINANT",
+    "O2_9": "MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED",
+    "O2_9_N_TRIALS_STAR": 8,
+    "O2_9_MINIMAL_RESOURCE_SET": [
+      {
+        "M": 4,
+        "T": 2
+      }
+    ],
+    "O2_8": "RESIDUAL_CAPACITY_MULTICOMPONENT",
+    "O3": "O3_NOT_READY",
+    "never_relabel_historical": true
+  },
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "secondary": "parietal descriptive after primary seal",
+  "N": 8,
+  "covariate_family_A_anatomy": {
+    "features": [
+      "ROI cortical surface area (mm^2)",
+      "ROI mean cortical thickness (mm)"
+    ],
+    "source": "NSD FreeSurfer streams parcel; ventral=label5, lateral=label6 (identical to functional s2_roi.py)",
+    "no_substitution": [
+      "cortical volume",
+      "voxel count",
+      "curvature",
+      "sulcal depth",
+      "other anatomy"
+    ],
+    "on_invalid_mapping": "ANATOMY_COVARIATE_FAMILY_TECHNICALLY_INCONCLUSIVE"
+  },
+  "covariate_family_B_behavior": {
+    "features": [
+      "d_prime",
+      "criterion_c"
+    ],
+    "task": "NSD main continuous-recognition ONLY (no imagery-task behavior)",
+    "defs": {
+      "H": "(hits+0.5)/(n_old+1)",
+      "F": "(fa+0.5)/(n_new+1)",
+      "d_prime": "Phi^-1(H)-Phi^-1(F)",
+      "criterion_c": "-0.5(Phi^-1(H)+Phi^-1(F))",
+      "response_old": "ISOLD if ISCORRECT else 1-ISOLD",
+      "exclude": "MISSINGDATA!=0 / invalid; no session cherry-pick"
+    }
+  },
+  "no_other_primary_covariates": [
+    "age",
+    "sex",
+    "handedness",
+    "demographics",
+    "voxel count",
+    "ncsnr",
+    "motion",
+    "connectivity",
+    "other structural",
+    "other behavioral",
+    "imagery vividness",
+    "imagery performance",
+    "questionnaires",
+    "genetics",
+    "PCA",
+    "feature selection"
+  ],
+  "qc_only_variables": [
+    "ROI voxel count",
+    "median ROI ncsnr",
+    "valid perception trial count",
+    "completed NSD session count"
+  ],
+  "covariate_freeze": "covariate_manifest.csv + covariates.json + anatomy/behavior_provenance.json committed with per-file SHA256 BEFORE geometry (commit 264cf29); no post-outcome correction",
+  "missing_data_rule": "primary family requires all 8; if any covariate not provenance-valid -> COVARIATE_FAMILY_TECHNICALLY_INCONCLUSIVE; NO impute/substitute/cohort-mean/silent-N-reduction",
+  "loso_standardization": {
+    "per_feature_donor_only": "mu_D, sd_D over 7 donors; z=(x-mu_D)/sd_D for donors+target; if donor sd~0 -> family non-evaluable for that LOSO target",
+    "no_full_cohort_norm": true
+  },
+  "frozen_prior": {
+    "reuse": "EXACT O2.11 Stage-A predictions (207b0bf); anchor-space G_PRIOR_s_IN=Q_pred_in Q_pred_in^T, G_PRIOR_s_OUT=Q_pred_out Q_pred_out^T; hash-verified",
+    "no_retrain": true
+  },
+  "geometry": {
+    "within_rank": "r_s=r_best",
+    "outside_D": 2,
+    "training_ids": "10 outer-training imagery identities only; 2 outer-test globally excluded",
+    "G_ORACLE_d": "donor own full-resource anchor subspace (dt-free): within T_in=orth(A_d @ (W_d @ within_basis(delta_native@W_d, r))); outside T_out=orth(E_d @ outside_basis)",
+    "DELTA_G_d_IN": "G_ORACLE_d_IN - G_PRIOR_d_IN",
+    "DELTA_G_d_OUT": "G_ORACLE_d_OUT - G_PRIOR_d_OUT",
+    "space": "common 512-anchor fingerprint"
+  },
+  "barycentric": {
+    "objective": "min_w ||x_s - sum_d w_d x_d||^2 s.t. w>=0, sum w=1",
+    "secondary": "among primary-optimal (SSE tie tol 1e-12*max(1,minSSE)) minimize ||w||^2; final tie lexicographically smallest active set",
+    "solver": "enumerate all 127 non-empty donor active sets; deterministic float64 KKT equality-constrained LS; no hyperparameter"
+  },
+  "coverage_descriptive": [
+    "reconstruction error",
+    "weights",
+    "active donor count",
+    "max weight",
+    "N_eff=1/sum w^2",
+    "within-hull flag"
+  ],
+  "predict_residual": {
+    "DELTA_G_PRED_IN": "sum_d w_d DELTA_G_d_IN",
+    "DELTA_G_PRED_OUT": "sum_d w_d DELTA_G_d_OUT",
+    "G_RAW_IN": "G_PRIOR_s_IN + DELTA_G_PRED_IN",
+    "G_RAW_OUT": "G_PRIOR_s_OUT + DELTA_G_PRED_OUT"
+  },
+  "project_valid": {
+    "symmetrize": true,
+    "within": "top r_s eigenvectors -> G_CORR_IN",
+    "outside": "top 2 eigenvectors -> G_CORR_OUT",
+    "deterministic_eig_sign": true,
+    "no_rank_search": true
+  },
+  "stage_a_access": {
+    "target_allowed": [
+      "anatomy",
+      "perception behavior",
+      "frozen O2.11 prior",
+      "perception carrier"
+    ],
+    "target_forbidden": [
+      "target imagery training geometry",
+      "target delta_native",
+      "target trial residual",
+      "target held-out imagery"
+    ],
+    "donor_full_resource_allowed": true,
+    "freeze_before_target_imagery": true
+  },
+  "target_lift": {
+    "reuse": "EXACT O2.10 certified target carrier (no new transport)",
+    "P_CORR_IN": "within col(W_target)",
+    "P_CORR_OUT": "orthogonal to col(W_target)",
+    "P_CORR_COMP": "P_CORR_IN + P_CORR_OUT",
+    "certify": {
+      "sym": 1e-10,
+      "idem": 1e-08,
+      "cross": 1e-10,
+      "rank": "r_s+2"
+    }
+  },
+  "matched_null": {
+    "fix": [
+      "target covariates",
+      "donor covariates",
+      "donor weights",
+      "target perception prior"
+    ],
+    "permute": "ONLY donor residual-geometry labels DELTA_G_d -> DELTA_G_pi(d)",
+    "destroys": "COVARIATE<->RESIDUAL GEOMETRY correspondence",
+    "n": 100,
+    "non_identity_derangement": true,
+    "seed": "O2.13|target|ROI|fold|family|component|null_iteration -> SHA256 -> first16hex -> uint64 -> PCG64"
+  },
+  "geometry_metrics": {
+    "SIM_CORR": "trace(G_CORR G_ORACLE)/r",
+    "SIM_PRIOR": "trace(G_PRIOR G_ORACLE)/r",
+    "SIM_NULL": "matched null",
+    "E_GEOM": "SIM_CORR - mean(SIM_NULL)",
+    "DELTA_OVER_PRIOR_GEOM": "SIM_CORR - SIM_PRIOR",
+    "RESIDUAL_GEOM_RECOVERY": "(SIM_CORR - SIM_PRIOR)/max(1 - SIM_PRIOR, 1e-12) (clip+unclip)",
+    "descriptive_only": true
+  },
+  "native_eval": {
+    "same_two_held_out_ids_per_fold": true,
+    "R_CORR": "lifted corrected retention",
+    "R_PRIOR": "frozen O2.11 prior native retention (from B_IN_PRED/B_OUT_PRED)",
+    "R_NULL": "matched permutation null",
+    "E_NATIVE": "R_CORR - mean(R_NULL) [PRIMARY]",
+    "DELTA_OVER_PRIOR_NATIVE": "R_CORR - R_PRIOR",
+    "NATIVE_RESIDUAL_RECOVERY": "(R_CORR - R_PRIOR)/max(R_ORACLE_COMPONENT - R_PRIOR, 1e-12) (clip+unclip; descriptive)"
+  },
+  "aggregation": {
+    "order": [
+      "2 test identities",
+      "6 outer folds"
+    ],
+    "unit": "participant",
+    "N": 8,
+    "no_fold_or_pair_as_N": true
+  },
+  "primary_inference": {
+    "family": "2 families x 2 components x 2 ROIs = EXACTLY 8 tests",
+    "tests": [
+      "ventral|anatomy|IN",
+      "ventral|anatomy|OUT",
+      "ventral|behavior|IN",
+      "ventral|behavior|OUT",
+      "lateral|anatomy|IN",
+      "lateral|anatomy|OUT",
+      "lateral|behavior|IN",
+      "lateral|behavior|OUT"
+    ],
+    "signflip": "exact one-sided 2^8 over participant E_NATIVE",
+    "holm": "across exactly 8",
+    "alpha": 0.05,
+    "no_family_shrinkage": true
+  },
+  "support_rule": "COVARIATE_RESIDUAL_COUPLING_SUPPORTED iff ALL: median E_NATIVE>0; >=6/8 E_NATIVE>0; Holm reject; median DELTA_OVER_PRIOR_NATIVE>0; >=6/8 DELTA_OVER_PRIOR_NATIVE>0 (no 0.50 recovery threshold)",
+  "composite_family": {
+    "P_COMP_F": "P_CORR_F_IN + P_CORR_F_OUT",
+    "R_COMP_F": "held-out",
+    "TOTAL_RECOVERY_F": "(R_COMP_F-R0)/max(R_NATIVE_ORACLE-R0,1e-12)",
+    "GAIN_OVER_O2_11": "R_COMP_F - R_COMP_O2_11",
+    "descriptive_only": true,
+    "no_composite_pvalue": true
+  },
+  "roi_status": {
+    "ANATOMY_COVARIATE_COUPLING_SUPPORTED": "anatomy supports >=1 component",
+    "BEHAVIOR_COVARIATE_COUPLING_SUPPORTED": "behavior supports >=1 component",
+    "MULTIFAMILY_COVARIATE_COUPLING": "both families support >=1 component",
+    "NO_SUPPORTED_NONIMAGERY_COVARIATE_COUPLING": "neither family supports a component",
+    "COVARIATE_DIAGNOSTIC_INCONCLUSIVE": "technical"
+  },
+  "program_status": {
+    "SUBJECT_SPECIFIC_GEOMETRY_HAS_REPRODUCIBLE_NONIMAGERY_COVARIATE_STRUCTURE": ">=1 frozen family supported in BOTH primary ROIs",
+    "SUBJECT_SPECIFIC_GEOMETRY_COVARIATE_MULTIREGIME": "relationships differ between primary ROIs",
+    "NO_REPRODUCIBLE_TESTED_COVARIATE_STRUCTURE": "no primary family/component supported in either ROI",
+    "O2_13_COVARIATE_DIAGNOSTIC_INCONCLUSIVE": "technical/provenance"
+  },
+  "pairwise_diagnostic": {
+    "descriptive_only": true,
+    "anatomy_dist": "Euclidean std anatomy",
+    "behavior_dist": "Euclidean std behavior",
+    "geometry_dist": "projector distance of residual target-state geometry",
+    "report": "Spearman",
+    "no_28pair_N": true,
+    "no_pvalues": true
+  },
+  "donor_sensitivity": {
+    "descriptive_only": true,
+    "leave-one-donor-out": "recompute correction; report change in geometry sim + native retention",
+    "no_rerun_primary": true
+  },
+  "qc_negative_control": {
+    "vars": [
+      "ROI voxel count",
+      "median ncsnr"
+    ],
+    "descriptive": true,
+    "not_in_predictor": true,
+    "no_holm": true,
+    "no_status_change": true
+  },
+  "synthetic_controls": [
+    "1 anatomy-coupled recovers",
+    "2 behavior-coupled recovers",
+    "3 uncoupled fails",
+    "4 perfect prior -> ~zero correction",
+    "5 within-only",
+    "6 outside-only",
+    "7 target outside covariate hull handled",
+    "8 non-unique bary -> min-norm rule",
+    "9 label-perm null destroys planted coupling",
+    "10 target-imagery Stage-A guard",
+    "11 projector basis/sign invariance",
+    "12 exact 8-test Holm",
+    "13 missing covariate -> technical not imputed"
+  ],
+  "no_model_search": [
+    "additional covariates",
+    "feature selection",
+    "PCA",
+    "ridge",
+    "CCA",
+    "PLS",
+    "RRR",
+    "NN",
+    "nearest-neighbor",
+    "donor top-k",
+    "hyperparameter tuning",
+    "imagery-based covariates"
+  ],
+  "claim_boundaries": {
+    "anatomy_positive": "pre-specified ROI anatomical covariates predicted a reproducible portion of the subject-specific geometry residual left by the frozen perception-only prior",
+    "anatomy_forbidden": "anatomy causes imagery geometry",
+    "behavior_positive": "individual differences in perception-task continuous-recognition behavior carried predictive information about a portion of the subject-specific geometry residual",
+    "behavior_forbidden": [
+      "memory ability causes imagery geometry",
+      "behavior is imagery ability (it is perception-task recognition)"
+    ]
+  },
+  "cohort_limitation": "N=8; each LOSO uses 7 donors; any positive is small-cohort evidence requiring external replication; a negative does NOT establish absence of all possible non-imagery predictors",
+  "provenance_gates": {
+    "1": "O2.12 seal 1af0087",
+    "2": "O2.11 Stage-A prior 207b0bf",
+    "3": "O2.10 carrier state",
+    "4": "O2.9/O2.8 oracle refs",
+    "5": "O2.6 donor geometry provenance",
+    "6": "exact outer-fold/global identity holdout",
+    "7": "anatomy source hashes",
+    "8": "behavioral source hashes",
+    "9": "no imagery-derived covariate",
+    "10": "target-imagery access guard",
+    "11": "exact 8-test family",
+    "12": "O3 locked"
+  },
+  "two_stage": {
+    "STAGE_A": "freeze covariate manifest + verify provenance + donor-only standardization + anatomy & behavior weights + donor residual geometry + corrected target geometry + target lift + hash + commit + push + server-verify; NO target imagery",
+    "STAGE_B": "after Stage-A seal: verify hashes; open target oracle geometry; geometry metrics; open held-out target imagery; matched label-permutation null; E_NATIVE; exact 8-test signflip/Holm; classification; seal"
+  },
+  "next_gate": {
+    "REPRODUCIBLE_NONIMAGERY_COVARIATE_STRUCTURE": "O2.14 COVARIATE-AUGMENTED PRIOR CALIBRATION FRONTIER (freeze supported relationships; O2.11 prior + covariate correction as new fixed non-imagery prior; repeat O2.12 sub-eight cells M2T1/M2T2/M4T1/M6T1; does calibration drop below 8)",
+    "MULTIREGIME": "O2.14 ROI/COMPONENT-SPECIFIC COVARIATE PRIOR FRONTIER",
+    "NO_REPRODUCIBLE_STRUCTURE": "O2.14 TARGET-IMAGERY CALIBRATION NECESSITY / ROBUSTNESS (no high-capacity N=8 predictor; consolidate whether direct target imagery remains necessary and how robust the 8-obs minimum is)"
+  },
+  "O3_policy": "O3 remains locked regardless of O2.13 outcome",
+  "O3": "O3_NOT_READY",
+  "config_sha256": "e27beb30b17d4039fd5ed798b1f9d219c47343ee9e9411d2e526c8116a658a6b"
+}

@@ -1,0 +1,220 @@
+{
+  "gate": "O2.13",
+  "family": "A_ANATOMY",
+  "source": "NSD FreeSurfer (natural-scenes-dataset S3, one-time authorized fetch)",
+  "roi_to_surface_mapping": "streams atlas; ventral=label5, lateral=label6 (identical to functional s2_roi.py ROI_DEFS)",
+  "surface_area_def": "sum of per-vertex .area over streams-parcel vertices, both hemispheres (mm^2)",
+  "mean_thickness_def": "mean of per-vertex .thickness over streams-parcel vertices, both hemispheres (mm)",
+  "certification": "ROI-to-surface mapping provenance-valid: same NSD streams atlas + same integer labels as the functional volumetric ROI (streams.nii.gz {5:ventral,6:lateral}); surface realization via ?h.streams.mgz",
+  "no_substitution": "cortical volume/voxel count/curvature/sulcal depth NOT used",
+  "per_subject": {
+    "subj01": {
+      "sources": {
+        "nsddata/freesurfer/subj01/surf/lh.area": "40e610ab68a2cc3e2369d770d5d405a852df0e224bae4028aefd6ac2d9ddde91",
+        "nsddata/freesurfer/subj01/surf/lh.thickness": "b62de9d051387f04d57b2777f45e94d9f84fc2bd93fcab2d3a317dd3095f5a88",
+        "nsddata/freesurfer/subj01/label/lh.streams.mgz": "fc643081ffe18a50e9f7672d2046d56a487ad91934a2b3576514d0fdd5d7c3c1",
+        "nsddata/freesurfer/subj01/surf/rh.area": "4f1cf3f18138b6ecd32f0969ea7fc1e7e8697022361c5bad6048b491e29cf71f",
+        "nsddata/freesurfer/subj01/surf/rh.thickness": "51d48e58ddf571b8d70a2ee3b2c8794d52408eb50fa503c9e5de119ce07379ff",
+        "nsddata/freesurfer/subj01/label/rh.streams.mgz": "244b473a2f110d22f910d1643cedff8e4332f6eeb14d764fd41dbecce4d7be18"
+      },
+      "n_vertices": {
+        "lh": 227021,
+        "rh": 226601
+      },
+      "ventral": {
+        "streams_label": 5,
+        "n_vertices_roi": 30658,
+        "surface_area_mm2": 12789.790644751862,
+        "mean_thickness_mm": 2.778900501206668
+      },
+      "lateral": {
+        "streams_label": 6,
+        "n_vertices_roi": 32031,
+        "surface_area_mm2": 13687.337999185547,
+        "mean_thickness_mm": 2.635552990474143
+      }
+    },
+    "subj02": {
+      "sources": {
+        "nsddata/freesurfer/subj02/surf/lh.area": "358db08ff9cafa021a020ca2d57216d97a706314d0c2423432f6c9dcb6bb602d",
+        "nsddata/freesurfer/subj02/surf/lh.thickness": "ea18ba81632b27f15c8bfaf8f008fd6365f7cd27ae2d917e430de6c010dc3cfe",
+        "nsddata/freesurfer/subj02/label/lh.streams.mgz": "6439d0fba89d2765ae13c0c732469c1a2da0c94d5a13a3292e82e2150c0c7f58",
+        "nsddata/freesurfer/subj02/surf/rh.area": "aaa583ba13613e264a3369d6294939a04639d58a8d24eaa191464269c6d4e5d2",
+        "nsddata/freesurfer/subj02/surf/rh.thickness": "ff359316b04c20332a5f993a601de0b665ab679e130e392ea9489d96ff8680cf",
+        "nsddata/freesurfer/subj02/label/rh.streams.mgz": "d1dc16305e3dab949cedbe5a392d5403c5319726e29c40215e36812af3689915"
+      },
+      "n_vertices": {
+        "lh": 239633,
+        "rh": 239309
+      },
+      "ventral": {
+        "streams_label": 5,
+        "n_vertices_roi": 35525,
+        "surface_area_mm2": 14656.38923462294,
+        "mean_thickness_mm": 2.6421417083117764
+      },
+      "lateral": {
+        "streams_label": 6,
+        "n_vertices_roi": 29548,
+        "surface_area_mm2": 12534.550416091457,
+        "mean_thickness_mm": 2.616908293761564
+      }
+    },
+    "subj03": {
+      "sources": {
+        "nsddata/freesurfer/subj03/surf/lh.area": "a7c1eb2ef1a83b5622deedd6115b5b92936cf88822ae3fb71632e25f29a1c631",
+        "nsddata/freesurfer/subj03/surf/lh.thickness": "54df61bed5643f5cd645b9450a244c7f43e6c58ca0912dc0bf90a6e08668f1fd",
+        "nsddata/freesurfer/subj03/label/lh.streams.mgz": "9f2161283818ed5baec16b4ed869b3398e587cb084118b933b70f7815c31562a",
+        "nsddata/freesurfer/subj03/surf/rh.area": "ea713c3056a1145f29e63e7473b4f78249a367eb50a1b8ca6fdd335e6a39784f",
+        "nsddata/freesurfer/subj03/surf/rh.thickness": "9eb046b44e8014943db72a7699332fdfcd1224cee8699a00b88fd625188e7aef",
+        "nsddata/freesurfer/subj03/label/rh.streams.mgz": "bb69fe551452e123807840869ede6f9315962743714bcb13ee0004a26f035464"
+      },
+      "n_vertices": {
+        "lh": 240830,
+        "rh": 243023
+      },
+      "ventral": {
+        "streams_label": 5,
+        "n_vertices_roi": 33205,
+        "surface_area_mm2": 13998.788170620799,
+        "mean_thickness_mm": 2.6798808424125644
+      },
+      "lateral": {
+        "streams_label": 6,
+        "n_vertices_roi": 36320,
+        "surface_area_mm2": 15389.431964196265,
+        "mean_thickness_mm": 2.588417386434283
+      }
+    },
+    "subj04": {
+      "sources": {
+        "nsddata/freesurfer/subj04/surf/lh.area": "b5c0f1391b3c8afde0661529e2d4b0755c54d2f75a2f5db07f4fb0caf2dbc389",
+        "nsddata/freesurfer/subj04/surf/lh.thickness": "dd2674e49aa022630d00804af81e83af4059cceacbe3e78e82c6dc10e9b2ff58",
+        "nsddata/freesurfer/subj04/label/lh.streams.mgz": "e9464d629ebc82c2eee78577961d3a84bf9f0787ce39a4ba1f2352b1827631d9",
+        "nsddata/freesurfer/subj04/surf/rh.area": "5bfd4e9785aebc11b6bd47f74c6ce30122d93511926940e89fa20bb8e6e803ea",
+        "nsddata/freesurfer/subj04/surf/rh.thickness": "42df043407b24d39c545a70d297b207c3859fbd0e2ad2729de0dcf176fb9aa55",
+        "nsddata/freesurfer/subj04/label/rh.streams.mgz": "2c243d4f1c3848e14e2c73f197bedbc74a48e015a71934328b374846992f0ddc"
+      },
+      "n_vertices": {
+        "lh": 228495,
+        "rh": 227262
+      },
+      "ventral": {
+        "streams_label": 5,
+        "n_vertices_roi": 33152,
+        "surface_area_mm2": 13793.706447800621,
+        "mean_thickness_mm": 2.5146245646729173
+      },
+      "lateral": {
+        "streams_label": 6,
+        "n_vertices_roi": 32862,
+        "surface_area_mm2": 13730.724101381376,
+        "mean_thickness_mm": 2.3409597586909996
+      }
+    },
+    "subj05": {
+      "sources": {
+        "nsddata/freesurfer/subj05/surf/lh.area": "c7827d3434be3c1dff2ba0433b8f64ab02bc49b70d44ce3c460175404fb0d09b",
+        "nsddata/freesurfer/subj05/surf/lh.thickness": "50eaf1645d0107935e8248eed3162b90bde5004f3474bfd39002836641431379",
+        "nsddata/freesurfer/subj05/label/lh.streams.mgz": "ded257eed757ed6256ad29a4f239e94ffb673784b41774c3c321301b6aa5ac19",
+        "nsddata/freesurfer/subj05/surf/rh.area": "8ea5f485c19d69ba208423e30a81849f8e6329defeae95e47fe296f8789283b4",
+        "nsddata/freesurfer/subj05/surf/rh.thickness": "1bb342c89b80358562a36d9bd5b4093d8f0b42f2ed6e38dd7cb19fbf9431d2d6",
+        "nsddata/freesurfer/subj05/label/rh.streams.mgz": "d1f8b3ccdcfa9a2ca0082abebc000dc04a4e42ba7f3e7ec84e3c5678de892589"
+      },
+      "n_vertices": {
+        "lh": 197594,
+        "rh": 198908
+      },
+      "ventral": {
+        "streams_label": 5,
+        "n_vertices_roi": 26182,
+        "surface_area_mm2": 11093.615444471128,
+        "mean_thickness_mm": 2.7394761398369756
+      },
+      "lateral": {
+        "streams_label": 6,
+        "n_vertices_roi": 29669,
+        "surface_area_mm2": 12617.293257262558,
+        "mean_thickness_mm": 2.579890787611516
+      }
+    },
+    "subj06": {
+      "sources": {
+        "nsddata/freesurfer/subj06/surf/lh.area": "d4dddce6250d8dd203b0961bf2432fab828aa0251930cf9dd66693e1f79488bf",
+        "nsddata/freesurfer/subj06/surf/lh.thickness": "b76a2dc61fb8275c3c63f77ba7a5a95e8ceeb33d62c78d5f5e41a7d8f77da3a8",
+        "nsddata/freesurfer/subj06/label/lh.streams.mgz": "832f591c5e55966e9a24ef194096af3fb7152e62b754ea47a3db5e3c7728776c",
+        "nsddata/freesurfer/subj06/surf/rh.area": "91b20c8c61f0306d5e68a2c14facb0ae1dc1febd5570b44869f9f6432f565ef5",
+        "nsddata/freesurfer/subj06/surf/rh.thickness": "edc86e84819b57c78fd0da0863b4415ae174fcefeff2cf8e340b77f032609214",
+        "nsddata/freesurfer/subj06/label/rh.streams.mgz": "b516e144766a4442f49f63515a723f928d4f27bcd4e08e3f0814b71114eb5b3e"
+      },
+      "n_vertices": {
+        "lh": 253634,
+        "rh": 259406
+      },
+      "ventral": {
+        "streams_label": 5,
+        "n_vertices_roi": 41176,
+        "surface_area_mm2": 16701.02450950537,
+        "mean_thickness_mm": 2.7496964532215373
+      },
+      "lateral": {
+        "streams_label": 6,
+        "n_vertices_roi": 37422,
+        "surface_area_mm2": 15523.167166205123,
+        "mean_thickness_mm": 2.7202693963317155
+      }
+    },
+    "subj07": {
+      "sources": {
+        "nsddata/freesurfer/subj07/surf/lh.area": "98598475763b932792ed01f21adb365be911361d783f9559a0f47423a31e0e35",
+        "nsddata/freesurfer/subj07/surf/lh.thickness": "b5ac7fd85cc7ae28b13ac0fc53c9721b8b9a9963947a2f5faf800d8226c6ba43",
+        "nsddata/freesurfer/subj07/label/lh.streams.mgz": "184354ff2b2cca66ee70c8305658cde62e0917214a530d94948d0f6f66e72adf",
+        "nsddata/freesurfer/subj07/surf/rh.area": "a442965a34104b7cf2710fbc982bb046bbdc0675ec6155e92e307813170800d2",
+        "nsddata/freesurfer/subj07/surf/rh.thickness": "665d01d3d132d17d0fb1635294b4f62d9035c70e009ed353b2fbd49aa463d1f6",
+        "nsddata/freesurfer/subj07/label/rh.streams.mgz": "4261e624ef6de67e089bfb40a726222c716ed4ce837e97f54396679f2fcf4cd6"
+      },
+      "n_vertices": {
+        "lh": 198770,
+        "rh": 200392
+      },
+      "ventral": {
+        "streams_label": 5,
+        "n_vertices_roi": 27478,
+        "surface_area_mm2": 11463.91858369112,
+        "mean_thickness_mm": 2.5727383715633185
+      },
+      "lateral": {
+        "streams_label": 6,
+        "n_vertices_roi": 28277,
+        "surface_area_mm2": 11728.837883381173,
+        "mean_thickness_mm": 2.44532238363347
+      }
+    },
+    "subj08": {
+      "sources": {
+        "nsddata/freesurfer/subj08/surf/lh.area": "b9a2b28d6bbde8fde1d2cfa45f3b28191d3ecd42c9c37aca08800da9a7b05b74",
+        "nsddata/freesurfer/subj08/surf/lh.thickness": "83c56bd815ac274a8985f554443aed2c8734f6fa4640c44e1b31a1a701afaea0",
+        "nsddata/freesurfer/subj08/label/lh.streams.mgz": "1a6b5e07a1ffd833abd5d6cf4ba9ee6a6cbd8e607cee81324ad45a811a36bfdd",
+        "nsddata/freesurfer/subj08/surf/rh.area": "3aaa8ea094bb967dbc21c2537d4398a47acf51991b6e50a55c5a21e34e464ccf",
+        "nsddata/freesurfer/subj08/surf/rh.thickness": "4639f5c48a797bd20743aa97cf8bb34c43da7de62dd30ec1e227507bfa9fb6b9",
+        "nsddata/freesurfer/subj08/label/rh.streams.mgz": "9837053a43fee94d0b8f873fa21bfa0f01d5a96d5947fe5269c4c8db1e671725"
+      },
+      "n_vertices": {
+        "lh": 224364,
+        "rh": 224398
+      },
+      "ventral": {
+        "streams_label": 5,
+        "n_vertices_roi": 34431,
+        "surface_area_mm2": 14219.59720462095,
+        "mean_thickness_mm": 2.668065883099145
+      },
+      "lateral": {
+        "streams_label": 6,
+        "n_vertices_roi": 35671,
+        "surface_area_mm2": 14935.286824362352,
+        "mean_thickness_mm": 2.7450201621699524
+      }
+    }
+  }
+}

@@ -10,6 +10,40 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.14 (2026-09-16): TARGET-IMAGERY CALIBRATION NECESSITY / ROBUSTNESS -- SEALED `EIGHT_TRIAL_MINIMUM_AVERAGE_ONLY_NOT_SCHEDULE_ROBUST`
+
+Is the sealed O2.9 8-observation minimum ROBUST to acquisition-schedule variability (WHICH identities / WHICH
+repeats)? (config `942fb9e`, freeze `ccfa2d0`, from O2.13 descriptive addendum `936cb2a`). For EVERY
+prospectively enumerated schedule (one balanced identity subset x one repeat-position subset) the EXACT O2.9
+no-prior estimator was fit from that schedule alone and evaluated on the fold's two held-out ids; SUFFICIENT iff
+TOTAL>=0.5 AND FCF>=0.5. **CONTROL replay: `O2_14_REPLAYS_O2_9_RESOURCE_FRONTIER`, max_abs_error 1.1e-16** (all 7
+primary cells + M10T8). Robustness bar (frozen before outcomes): median participant schedule-coverage>=0.75 AND
+>=6/8 participants>=0.75.
+
+**Result `EIGHT_TRIAL_MINIMUM_AVERAGE_ONLY_NOT_SCHEDULE_ROBUST`** -- both ROIs. The 8-trial minimum holds ON
+AVERAGE and is LOFO-STABLE (all 6 leave-one-outer-fold-out analyses keep M4T2 operationally sufficient in both
+ROIs, 12/12), but it is NOT schedule-robust: the best 8-obs allocation M4T2 reaches only median schedule
+coverage **0.656 ventral / 0.579 lateral** (n>=0.75: 3/8 and 2/8) -- far below the 0.75 bar; NO cell (sub-eight
+or eight) is SCHEDULE_ROBUST_SUFFICIENT, so N_TRIALS_ROBUST_STAR=None. M4T2 robustness margin Q10 is NEGATIVE
+(-0.128 ventral / -0.144 lateral) and Q25 ~0 -> roughly the bottom quarter of prospectively-valid M4T2
+acquisitions FAIL; median margin barely positive (+0.062/+0.025). Sub-eight cells far worse (coverage
+0.05-0.53). **Fragility source (variance decomposition):** at M4T2 it is repeat-position (F_REPEAT 0.42) +
+identity x repeat interaction (0.45) driven, identity choice minor (F_ID 0.11); at M8T1 repeat-position
+dominates (0.80); at M2T4 identity+interaction (0.39/0.47). Allocation comparison: balanced M4T2 marginally best,
+then M8T1, then M2T4 -- all sub-0.75. **direct_imagery_necessity checklist:** 6/7 pass (N=0 methods all failed;
+no common sub-8; O2.12 no prior-enabled sub-8; O2.13 no covariate structure; M4T2 replays sufficient; LOFO
+stable) but prerequisite #6 (M4T2 common-schedule-robust) FAILS -> **necessity NOT concluded**. **Bounded
+reading:** within the tested representation + fixed direct estimator, the 8-observation M4T2 calibration is
+sufficient on average and fold-stable, but a given 4-identity x 2-repeat acquisition succeeds only ~58-66% of
+the time for the median participant and the bottom quarter fails -- the "8-trial minimum" is an average-frontier
+result, NOT a per-acquisition guarantee; NOT a biological minimum / universal-optimum claim; historical
+`N_TRIALS_STAR=8` unchanged (O2.14 reports a separate `N_TRIALS_ROBUST_STAR=None`). **Next (per brief): O2.15
+ACQUISITION-SCHEDULE FAILURE-MODE DIAGNOSTIC** (use the frozen variance decomposition -- fragility is repeat/
+interaction dominated; do NOT optimize the schedule on the same data). Immutable seals preserved; `O3` remains
+`O3_NOT_READY` (robustness would not unlock O3; independent prospective replication required). Includes O2.13
+post-seal descriptive addendum (`936cb2a`, `operator_o2_13_postaudit/`, O2_13_STATUS_UNCHANGED). Artifacts:
+`operator_o2_14/`.
+
 ## O2.13 (2026-09-15): SUBJECT-SPECIFIC GEOMETRY COVARIATE DIAGNOSTIC -- SEALED `NO_REPRODUCIBLE_TESTED_COVARIATE_STRUCTURE`
 
 Do low-dimensional NON-IMAGERY subject covariates explain the subject-specific target-state geometry RESIDUAL

@@ -1,0 +1,7 @@
+{
+  "note": "sealed state/trial provenance validated by exact O2.9 control replay (max_abs_error 1.1e-16); see o2_9_replay.json",
+  "state": "/rd/data/results/rd/state",
+  "trial": "/rd/data/results/o2_7_ext",
+  "o2_9_ref": "380c9be participant_resource_frontier.csv",
+  "o2_8_ref": "full_closure_results.csv"
+}

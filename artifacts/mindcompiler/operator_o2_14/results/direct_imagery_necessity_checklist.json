@@ -1,0 +1,12 @@
+{
+  "checklist": {
+    "1_no_N0_sufficient": true,
+    "2_no_common_subeight_o2_9": true,
+    "3_no_o2_12_prior_enabled_subeight": true,
+    "4_o2_13_no_reproducible_covariate": true,
+    "5_m4t2_common_replay_sufficient": true,
+    "6_m4t2_common_schedule_robust": false,
+    "7_m4t2_lofo_stable": true
+  },
+  "necessity_supported": false
+}

@@ -1,0 +1,17 @@
+{
+  "primary_status": "EIGHT_TRIAL_MINIMUM_AVERAGE_ONLY_NOT_SCHEDULE_ROBUST",
+  "program_status": "EIGHT_TRIAL_MINIMUM_AVERAGE_ONLY_NOT_SCHEDULE_ROBUST",
+  "roi_status": {
+    "ventral": "EIGHT_TRIAL_MINIMUM_AVERAGE_ONLY_NOT_SCHEDULE_ROBUST",
+    "lateral": "EIGHT_TRIAL_MINIMUM_AVERAGE_ONLY_NOT_SCHEDULE_ROBUST"
+  },
+  "N_TRIALS_ROBUST_STAR": null,
+  "M4T2_LOFO_STABLE": true,
+  "necessity_supported": false,
+  "control_replay_err": 1.1102230246251565e-16,
+  "immutable": {
+    "O2_13": "NO_REPRODUCIBLE_TESTED_COVARIATE_STRUCTURE",
+    "O2_9_N_TRIALS_STAR": 8
+  },
+  "O3": "O3_NOT_READY"
+}

@@ -1,0 +1,10 @@
+{
+  "gate": "O2.14",
+  "from_addendum": "936cb2a",
+  "freeze": "ccfa2d0",
+  "node": "k8s-worker-cpu-node-r770",
+  "image": "nipreps/fmriprep:25.2.5",
+  "job": "o2-14",
+  "control_replay": "O2_14_REPLAYS_O2_9_RESOURCE_FRONTIER (1.1e-16)",
+  "local_HEAD_at_write": "ccfa2d095916e5d91ba6078465e573a3d3c06cff"
+}

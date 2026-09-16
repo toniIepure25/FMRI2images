@@ -1,0 +1,15 @@
+roi,M,T,N,o2_9_avg_sufficient,median_coverage,n_cov_ge075,coverage_ok,complete,SCHEDULE_ROBUST_SUFFICIENT
+ventral,2,1,2,False,0.05416666666666667,0,False,1,False
+ventral,2,2,4,False,0.2229761904761905,0,False,1,False
+ventral,4,1,4,False,0.26385416666666667,0,False,1,False
+ventral,6,1,6,False,0.5338541666666667,1,False,1,False
+ventral,2,4,8,True,0.618,3,False,1,False
+ventral,4,2,8,True,0.6563392857142857,3,False,1,False
+ventral,8,1,8,True,0.6504166666666666,3,False,1,False
+lateral,2,1,2,False,0.05291666666666667,0,False,1,False
+lateral,2,2,4,False,0.1794047619047619,0,False,1,False
+lateral,4,1,4,False,0.23083333333333333,0,False,1,False
+lateral,6,1,6,False,0.42093749999999996,1,False,1,False
+lateral,2,4,8,False,0.5227142857142858,2,False,1,False
+lateral,4,2,8,True,0.579375,2,False,1,False
+lateral,8,1,8,False,0.56125,2,False,1,False

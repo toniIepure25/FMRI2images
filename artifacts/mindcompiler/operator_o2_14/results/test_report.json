@@ -1,0 +1,5 @@
+{
+  "suite": "tests/mindcompiler/operator_o2_14/",
+  "result": "9 passed in 0.10s",
+  "synthetic_control_replay_vs_o2_9": "R_COMP diff 1.4e-17"
+}

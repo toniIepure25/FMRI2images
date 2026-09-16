@@ -1,0 +1,5 @@
+{
+  "suite": "tests/mindcompiler/operator_o2_13/",
+  "result": "...............                                                          [100%]\n15 passed in 0.37s",
+  "note": "O2.13 primary certification unchanged; addendum adds status-neutral descriptives only"
+}

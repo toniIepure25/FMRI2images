@@ -1,0 +1,9 @@
+{
+  "O2_13_STATUS": "NO_REPRODUCIBLE_TESTED_COVARIATE_STRUCTURE",
+  "O2_13_STATUS_UNCHANGED": true,
+  "POSTSEAL_DESCRIPTIVE_COMPLETENESS_ADDED": true,
+  "primary_inference_recomputed": false,
+  "holm_altered": false,
+  "status_altered": false,
+  "note": "Status-neutral descriptive addendum only; the sealed 8-test inference and Holm are untouched."
+}

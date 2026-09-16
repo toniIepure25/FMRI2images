@@ -1,0 +1,16 @@
+{
+  "gate": "O2.13_postaudit",
+  "o2_13_seal": "291061f",
+  "node": "k8s-worker-cpu-node-r770",
+  "image": "nipreps/fmriprep:25.2.5",
+  "addendum_job": "o2-13-add",
+  "artifacts": [
+    "pairwise_covariate_geometry_diagnostic.csv",
+    "pairwise_spearman_summary.csv",
+    "donor_sensitivity.csv",
+    "qc_negative_control.csv",
+    "matched_label_permutation_null.json"
+  ],
+  "covariates_source": "authorized one-time NSD S3 fetch (frozen 264cf29)",
+  "local_HEAD_at_write": "291061f225bbd81b5a3319f2679c167d807655d7"
+}

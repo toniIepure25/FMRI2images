@@ -1,0 +1,13 @@
+{
+  "description": "Summary of the exact matched null already embedded in the committed O2.13 Stage-B outputs (SIM_NULL_mean / R_NULL_mean columns). No different null generated.",
+  "n_permutations": 100,
+  "type": "donor residual-geometry LABEL permutation (weights fixed, covariates fixed, prior fixed)",
+  "non_identity": "derangement",
+  "seed_formula": "O2.13|target|ROI|fold|family|component|null_iteration -> SHA256 -> first16hex -> uint64 -> PCG64",
+  "embedded_in": [
+    "results/geometry_correction_results.csv (SIM_NULL_mean)",
+    "results/native_correction_results.csv (R_NULL_mean)"
+  ],
+  "E_NATIVE": "R_CORR - mean(R_NULL) (primary, in results)",
+  "status_effect": "none (descriptive summary only)"
+}

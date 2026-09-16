@@ -1,0 +1,321 @@
+{
+  "gate": "O2.14",
+  "class": "PROSPECTIVE_POST_O2_9_ACQUISITION_SCHEDULE_ROBUSTNESS_AUDIT",
+  "input_head": "291061f225bbd81b5a3319f2679c167d807655d7",
+  "addendum_required_before_start": "O2.13 post-seal descriptive addendum committed + O2_13_STATUS_UNCHANGED",
+  "question": "Is the established 8-observation target-imagery calibration requirement ROBUST to acquisition-schedule variability (WHICH identities / WHICH repeats)?",
+  "not": [
+    "change the historical O2.9 minimum",
+    "search a better model",
+    "new estimator",
+    "adaptive selection",
+    "schedule-level significance test"
+  ],
+  "immutable_history": {
+    "O2_13": "NO_REPRODUCIBLE_TESTED_COVARIATE_STRUCTURE",
+    "O2_12": "PERCEPTION_PRIOR_BENEFICIAL_BUT_EIGHT_TRIAL_MINIMUM_NOT_REDUCED",
+    "O2_11": "SUBJECT_SPECIFIC_GEOMETRY_NOT_PREDICTABLE_FROM_TESTED_PERCEPTION_PHENOTYPE",
+    "O2_10": "COMPOSITE_TARGET_STATE_GEOMETRY_SUBJECT_SPECIFIC_DOMINANT",
+    "O2_9": "MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED",
+    "O2_9_N_TRIALS_STAR": 8,
+    "O2_9_MINIMAL_RESOURCE_SET": [
+      {
+        "M": 4,
+        "T": 2
+      }
+    ],
+    "O2_8": "RESIDUAL_CAPACITY_MULTICOMPONENT",
+    "O3": "O3_NOT_READY",
+    "never_relabel_historical": true
+  },
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "N": 8,
+  "primary_model": {
+    "estimator": "EXACT O2.9 no-prior operational estimator (direct target-state SVD; D=2 outside; q=min(M,r_best) within; sealed W_target; O2.7 trial residual state)",
+    "no_perception_prior_in_primary": true,
+    "o2_12_hybrid_secondary_only": true
+  },
+  "primary_cells": [
+    {
+      "M": 2,
+      "T": 1,
+      "N": 2
+    },
+    {
+      "M": 2,
+      "T": 2,
+      "N": 4
+    },
+    {
+      "M": 4,
+      "T": 1,
+      "N": 4
+    },
+    {
+      "M": 6,
+      "T": 1,
+      "N": 6
+    },
+    {
+      "M": 2,
+      "T": 4,
+      "N": 8
+    },
+    {
+      "M": 4,
+      "T": 2,
+      "N": 8
+    },
+    {
+      "M": 8,
+      "T": 1,
+      "N": 8
+    }
+  ],
+  "reference_cells": [
+    {
+      "M": 10,
+      "T": 8,
+      "N": 80
+    }
+  ],
+  "control_replay": {
+    "cells": [
+      "all 7 primary + M10T8"
+    ],
+    "tol": 1e-10,
+    "reference": "sealed O2.9 participant_resource_frontier.csv R_COMP (380c9be)",
+    "pass_token": "O2_14_REPLAYS_O2_9_RESOURCE_FRONTIER",
+    "on_fail": "STOP technical"
+  },
+  "acquisition_schedule": {
+    "definition": "one frozen balanced identity subset x one frozen repeat-position subset, within subject x ROI x fold x M x T",
+    "use_all_schedules": true,
+    "no_random_sample": true,
+    "counts_per_fold": {
+      "M2T1": "25x8=200",
+      "M2T2": "25x28=700",
+      "M4T1": "100x8=800",
+      "M6T1": "100x8=800",
+      "M2T4": "25x70=1750",
+      "M4T2": "100x28=2800",
+      "M8T1": "25x8=200"
+    }
+  },
+  "schedule_eval": {
+    "fit": "exact O2.9 estimator from ONLY that calibration schedule; evaluate on the same TWO held-out identities for the fold",
+    "TOTAL_SCHEDULE": "(R_SCHEDULE-R0)/max(R_NATIVE_ORACLE-R0,1e-12)",
+    "FCF_SCHEDULE": "(R_SCHEDULE-R0)/max(R111-R0,1e-12)",
+    "sealed_fold_refs": [
+      "R0=R_CAL0 per fold",
+      "R_NATIVE_ORACLE=rd R_ORACLE per fold",
+      "R111 per subject x ROI"
+    ],
+    "report_clipped_and_unclipped": true
+  },
+  "schedule_success": "SCHEDULE_SUFFICIENT iff TOTAL_SCHEDULE>=0.50 AND FCF_SCHEDULE>=0.50 (no p-value)",
+  "fold_coverage": "SCHEDULE_COVERAGE_FOLD = #sufficient schedules / #all frozen schedules (no dropping)",
+  "participant_coverage": {
+    "SCHEDULE_COVERAGE": "mean over 6 folds of SCHEDULE_COVERAGE_FOLD (equal fold weight)",
+    "also_report": [
+      "min fold coverage",
+      "max fold coverage",
+      "fold SD"
+    ]
+  },
+  "robustness_margin": {
+    "per_schedule": "min(TOTAL_SCHEDULE-0.50, FCF_SCHEDULE-0.50)",
+    "report_quantiles": [
+      "Q10",
+      "Q25",
+      "median",
+      "Q75",
+      "Q90"
+    ],
+    "descriptive": true
+  },
+  "robust_cell": {
+    "SCHEDULE_ROBUST_SUFFICIENT": "ALL: (1) historical O2.9 participant-average operational criterion satisfied in that ROI; (2) median participant SCHEDULE_COVERAGE>=0.75; (3) >=6/8 participants SCHEDULE_COVERAGE>=0.75",
+    "threshold_075_frozen_before_outcomes": true,
+    "rationale": "conservative operational robustness benchmark (NOT biological); no alternative percentages tested"
+  },
+  "common_robust": "COMMON_SCHEDULE_ROBUST_SUCCESS iff SCHEDULE_ROBUST_SUFFICIENT in BOTH ventral and lateral",
+  "robust_minimum": {
+    "N_TRIALS_ROBUST_STAR": "min(M*T) over common robust cells (separate from historical N_TRIALS_STAR=8)",
+    "ROBUST_MINIMAL_RESOURCE_SET": "all tied common robust cells",
+    "do_not_alter_historical_N_TRIALS_STAR": true
+  },
+  "eight_trial_allocation": {
+    "cells": [
+      {
+        "M": 2,
+        "T": 4,
+        "role": "repeat-heavy"
+      },
+      {
+        "M": 4,
+        "T": 2,
+        "role": "balanced"
+      },
+      {
+        "M": 8,
+        "T": 1,
+        "role": "identity-heavy"
+      }
+    ],
+    "report": [
+      "participant-average recovery",
+      "schedule coverage",
+      "robustness-margin quantiles",
+      "fold stability"
+    ],
+    "no_new_pvalue": true,
+    "no_model_select": true
+  },
+  "variance_decomposition": {
+    "Y": "TOTAL_SCHEDULE on crossed identity(i) x repeat(r) grid per subject/ROI/fold/cell",
+    "SS_ID": "n_repeat * sum_i (mu_i-mu)^2",
+    "SS_REPEAT": "n_identity * sum_r (mu_r-mu)^2",
+    "SS_INTERACTION": "sum_ir (Y_ir-mu_i-mu_r+mu)^2",
+    "SS_TOTAL": "sum_ir (Y_ir-mu)^2",
+    "report": [
+      "F_ID",
+      "F_REPEAT",
+      "F_INTERACTION"
+    ],
+    "when": "SS_TOTAL>numerical floor",
+    "descriptive": true
+  },
+  "repeat_position_diagnostic": {
+    "cell": "M4T2",
+    "pairs": 28,
+    "per_pair": "average over 100 identity subsets, then participant-first over folds; report recovery/coverage",
+    "no_best_pair_promotion": true
+  },
+  "identity_subset_diagnostic": {
+    "cell": "M4T2",
+    "subsets": "100 balanced (2 simple + 2 nat)",
+    "per_subset": "average over 28 repeat pairs; report recovery/success",
+    "no_posthoc_best_four": true
+  },
+  "outer_fold_lofo": {
+    "cell": "M4T2",
+    "six_leave_one_outer_fold_out": true,
+    "criterion": "M4T2_LOFO_STABLE iff M4T2 remains operationally sufficient in BOTH ROIs under ALL six LOFO (original O2.9 rule)",
+    "frozen_requirement_for_strongest_status": true,
+    "no_pvalues": true
+  },
+  "participant_jackknife": {
+    "cell": "M4T2",
+    "descriptive_only": true,
+    "per_omitted_participant": "group medians + schedule coverage among remaining 7",
+    "do_not_redefine_6of8_as_7subject": true,
+    "cannot_alter_status": true
+  },
+  "nonimagery_evidence_ladder": {
+    "N0": [
+      "O2.10 donor transfer",
+      "O2.11 perception-only",
+      "O2.13 covariate-corrected"
+    ],
+    "N2_4_6": [
+      "O2.9 imagery-only",
+      "O2.12 fixed perception-prior hybrid"
+    ],
+    "N8": [
+      "O2.9 M4T2"
+    ],
+    "N80": [
+      "O2.9 M10T8"
+    ],
+    "only_sealed_metrics": true,
+    "no_new_inference": true
+  },
+  "direct_necessity_checklist": {
+    "DIRECT_TARGET_IMAGERY_NECESSITY_SUPPORTED_WITHIN_TESTED_MODEL_FAMILY iff ALL": [
+      "1 no sealed N=0 method reached operational sufficiency",
+      "2 no sealed sub-eight O2.9 cell reached common operational sufficiency",
+      "3 O2.12 did not establish prior-enabled sub-eight sufficiency",
+      "4 O2.13 established no reproducible tested covariate structure",
+      "5 M4T2 remains common operationally sufficient on exact replay",
+      "6 M4T2 is COMMON_SCHEDULE_ROBUST_SUCCESS",
+      "7 M4T2_LOFO_STABLE==true"
+    ],
+    "bounded": "program-level; does NOT mean target imagery is theoretically necessary"
+  },
+  "primary_status": {
+    "EIGHT_TRIAL_TARGET_IMAGERY_CALIBRATION_ROBUST": "M4T2 common schedule-robust AND LOFO stable AND no common robust cell <8",
+    "SUBEIGHT_SCHEDULE_ROBUST_CALIBRATION_EMERGES": "a <8 cell meets the frozen robustness criterion (records new robustness result; does not rewrite O2.9)",
+    "EIGHT_TRIAL_MINIMUM_AVERAGE_ONLY_NOT_SCHEDULE_ROBUST": "M4T2 keeps historical average sufficiency but fails schedule robustness or LOFO stability",
+    "TARGET_IMAGERY_CALIBRATION_ROBUSTNESS_MULTIREGIME": "primary ROIs materially differ",
+    "O2_14_CALIBRATION_ROBUSTNESS_INCONCLUSIVE": "provenance/completeness/technical"
+  },
+  "program_status": {
+    "DIRECT_TARGET_IMAGERY_NECESSITY_ROBUST_AT_EIGHT_TRIALS_WITHIN_TESTED_REPRESENTATIONS": "EIGHT_TRIAL_TARGET_IMAGERY_CALIBRATION_ROBUST AND all 7 necessity prerequisites pass",
+    "EIGHT_TRIAL_CALIBRATION_ROBUST_WITHOUT_NECESSITY_CONCLUSION": "eight-trial schedule robustness passes but a necessity prerequisite does not",
+    "else": "corresponding average-only / multiregime / subeight / inconclusive result",
+    "forbidden_phrase": "target imagery is universally necessary"
+  },
+  "no_new_model": [
+    "prior tuning",
+    "covariate tuning",
+    "anatomy/behavior model",
+    "adaptive identity",
+    "adaptive repeat",
+    "regression",
+    "Procrustes",
+    "D search",
+    "rank search",
+    "SRM",
+    "new alignment",
+    "new null"
+  ],
+  "no_primary_pvalue": "robustness/resource-validation gate; participant remains the unit; schedules are NOT independent subjects",
+  "completeness_counts": {
+    "M2T1": 200,
+    "M2T2": 700,
+    "M4T1": 800,
+    "M6T1": 800,
+    "M2T4": 1750,
+    "M4T2": 2800,
+    "M8T1": 200,
+    "per": "subject x ROI x fold; any missing -> that participant/cell technical failure; no classification from incomplete sets"
+  },
+  "provenance_gates": [
+    "O2.13 addendum committed",
+    "O2.13 status unchanged",
+    "O2.12 seal 1af0087",
+    "O2.9 seal 380c9be",
+    "O2.9 control replay exact",
+    "O2.7 trial 96/96",
+    "O2.6 state provenance",
+    "exact identity subset enumeration",
+    "exact repeat subset enumeration",
+    "same 6 outer folds",
+    "held-out leakage absent",
+    "all schedules complete",
+    "O3 locked"
+  ],
+  "claim_boundaries": {
+    "positive_robust": "within the tested representation and fixed direct target-state estimator, the 8-observation M4T2 calibration remained operationally sufficient across >=75% of prospectively valid acquisition schedules for the required participant majority and was stable to outer-fold omission",
+    "positive_necessity": "across the tested donor-transfer, perception-only, low-dim covariate, prior-assisted, and direct-imagery methods, direct target imagery remained necessary for operational recovery, with 8 observations the smallest robustly sufficient tested burden",
+    "forbidden": [
+      "imagery is fundamentally necessary",
+      "8 trials is a biological minimum",
+      "4 identities/2 repeats universally optimal",
+      "no future non-imagery method can work"
+    ]
+  },
+  "next_gate": {
+    "NECESSITY_ROBUST_AT_EIGHT": "O2.15 INDEPENDENT PROSPECTIVE REPLICATION OF THE EIGHT-TRIAL PROTOCOL (M4,T2,D2, direct within-support estimator, same thresholds; independent cohort/dataset/new participants; do NOT subdivide same N=8)",
+    "AVERAGE_ONLY_NOT_ROBUST": "O2.15 ACQUISITION-SCHEDULE FAILURE-MODE DIAGNOSTIC (use frozen variance decomposition; do not optimize schedule on same data)",
+    "SUBEIGHT_ROBUST_EMERGES": "O2.15 PROSPECTIVE REPLICATION OF THE SUBEIGHT ROBUST CELL",
+    "MULTIREGIME": "O2.15 ROI-specific replication/diagnostic"
+  },
+  "O3_policy": "even a robust O2.14 does NOT unlock O3; independent prospective replication required before any stronger operator claim",
+  "O3": "O3_NOT_READY",
+  "config_sha256": "942fb9e1a5bdafd172045406460c1f7ad599a65f5dd22770ce9f0373b7abdee1"
+}

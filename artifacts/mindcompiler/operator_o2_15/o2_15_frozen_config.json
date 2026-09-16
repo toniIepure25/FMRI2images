@@ -1,0 +1,305 @@
+{
+  "gate": "O2.15",
+  "class": "PROSPECTIVE_POST_O2_14_ACQUISITION_FAILURE_MODE_DIAGNOSTIC",
+  "input_head": "5cad80870cdc3c5923fa9a227bfba2aab8358b11",
+  "question": "Why do prospectively-valid M4T2 acquisitions sometimes succeed and sometimes fail? Is training-side repeat-estimation geometry instability a reproducible failure mode?",
+  "core_principle": "separate TRAINING-SIDE geometry instability from HELD-OUT performance: per M4T2 schedule compute a training-ONLY pair-vs-complement geometry-agreement Q from calibration residuals; correlate to the ALREADY-SEALED O2.14 held-out robustness margin. No held-out result defines/tunes Q.",
+  "not": [
+    "schedule optimization",
+    "repeat selection",
+    "new estimator",
+    "revised resource frontier",
+    "good-repeat protocol"
+  ],
+  "immutable_history": {
+    "O2_14": "EIGHT_TRIAL_MINIMUM_AVERAGE_ONLY_NOT_SCHEDULE_ROBUST",
+    "O2_13": "NO_REPRODUCIBLE_TESTED_COVARIATE_STRUCTURE",
+    "O2_12": "PERCEPTION_PRIOR_BENEFICIAL_BUT_EIGHT_TRIAL_MINIMUM_NOT_REDUCED",
+    "O2_11": "SUBJECT_SPECIFIC_GEOMETRY_NOT_PREDICTABLE_FROM_TESTED_PERCEPTION_PHENOTYPE",
+    "O2_10": "COMPOSITE_TARGET_STATE_GEOMETRY_SUBJECT_SPECIFIC_DOMINANT",
+    "O2_9": "MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED",
+    "O2_9_N_TRIALS_STAR": 8,
+    "O2_9_MINIMAL_RESOURCE_SET": [
+      {
+        "M": 4,
+        "T": 2
+      }
+    ],
+    "O2_8": "RESIDUAL_CAPACITY_MULTICOMPONENT",
+    "O3": "O3_NOT_READY",
+    "never_relabel_historical": true
+  },
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "N": 8,
+  "primary_cell": {
+    "M": 4,
+    "T": 2,
+    "per_fold": "100 identity subsets x 28 two-repeat subsets = 2800 schedules; all schedules; no filtering"
+  },
+  "secondary_cells": [
+    {
+      "M": 2,
+      "T": 4,
+      "role": "repeat-heavy"
+    },
+    {
+      "M": 8,
+      "T": 1,
+      "role": "identity-heavy"
+    }
+  ],
+  "reuse_o2_14": {
+    "held_out_source": "regenerate M4T2 per-schedule R_SCHEDULE/TOTAL/FCF/ROBUSTNESS_MARGIN from source with the EXACT O2.9 estimator (O2.14 persisted only aggregates); bind to O2.14 seal by reproducing coverage/margin-quantiles/SS-decomposition to <=1e-10",
+    "no_new_outcome_definition": true,
+    "hash_bind_to_seal": "5cad808"
+  },
+  "repeat_pairs": {
+    "positions": "0..7",
+    "pairs": "C(8,2)=28 lexicographic (0,1),(0,2),...,(6,7)",
+    "manifest": "repeat_pair_manifest.csv"
+  },
+  "pair_complement": {
+    "PAIR": "the 2 selected repeats {a,b} (fits the actual M4T2 schedule)",
+    "COMPLEMENT": "the other 6 repeats (training-side reliability reference ONLY, never fits the schedule)",
+    "disjoint": "PAIR and COMPLEMENT disjoint in trial observations (certified)",
+    "no_outer_test_imagery": true
+  },
+  "residuals": {
+    "delta_PAIR_i": "mean(delta_trial(i,a), delta_trial(i,b))",
+    "delta_COMP_i": "mean_{t in complement} delta_trial(i,t)",
+    "identities": "the 4 calibration identities of subset C"
+  },
+  "geometry": {
+    "within": {
+      "z": "W_target.T delta",
+      "q": "min(r_best,4)",
+      "P_IN_PAIR/COMP": "top-q deterministic SVD in target-native space"
+    },
+    "outside": {
+      "o": "delta - W(W.T delta)",
+      "D": 2,
+      "P_OUT_PAIR/COMP": "top-2 deterministic SVD"
+    },
+    "no_rank_search": true
+  },
+  "primary_fidelity": {
+    "Q_IN": "trace(P_IN_PAIR P_IN_COMP)/q in [0,1]",
+    "Q_OUT": "trace(P_OUT_PAIR P_OUT_COMP)/2 in [0,1]",
+    "Q_COMP": "(q*Q_IN + 2*Q_OUT)/(q+2) (descriptive, rank-weighted)",
+    "no_threshold": true
+  },
+  "residual_reliability": {
+    "COS2_NATIVE_i": "cos2(delta_PAIR_i, delta_COMP_i)",
+    "COS2_WITHIN_i": "cos2(W.T dPAIR, W.T dCOMP)",
+    "COS2_OUT_i": "cos2(o_PAIR, o_COMP)",
+    "aggregate": "mean over 4 identities -> Q_RES_NATIVE/IN/OUT",
+    "descriptive_only": true,
+    "purpose": "separate raw repeat unreliability from SVD/subspace instability"
+  },
+  "energy_diagnostic": {
+    "per": "PAIR and COMPLEMENT, calibration-only",
+    "metrics": [
+      "mean ||delta||^2",
+      "mean ||W.T delta||^2",
+      "mean ||delta_out||^2"
+    ],
+    "ratios": "pair/complement",
+    "no_threshold": true,
+    "no_inference": true
+  },
+  "held_out_failure_variable": {
+    "ROBUSTNESS_MARGIN": "min(TOTAL_SCHEDULE-0.50, FCF_SCHEDULE-0.50) (exact O2.14; positive=success, negative=fail)",
+    "no_other_definition": true
+  },
+  "within_fold_association": {
+    "per": "subject x ROI x fold (2800 schedules)",
+    "rho_IN_fold": "Spearman(Q_IN, ROBUSTNESS_MARGIN)",
+    "rho_OUT_fold": "Spearman(Q_OUT, ROBUSTNESS_MARGIN)",
+    "ties": "deterministic average ranks",
+    "schedules_not_inferential_N": true
+  },
+  "participant_association": {
+    "fisher": "z_f=atanh(clip(rho_f,[-1+1e-12,1-1e-12]))",
+    "Z_component": "mean over 6 folds z_f",
+    "rho_participant": "tanh(Z_component)",
+    "N": 8
+  },
+  "primary_inference": {
+    "family": "2 components x 2 ROIs = EXACTLY 4 tests",
+    "tests": [
+      "ventral|Q_IN",
+      "ventral|Q_OUT",
+      "lateral|Q_IN",
+      "lateral|Q_OUT"
+    ],
+    "signflip": "exact one-sided 2^8 over participant Z_component",
+    "holm": "across exactly 4",
+    "alpha": 0.05
+  },
+  "support_rule": "REPEAT_GEOMETRY_STABILITY_ASSOCIATION_SUPPORTED iff ALL: median participant rho>0; >=6/8 rho>0; Holm reject (no rho-magnitude threshold; directionality not causality)",
+  "success_failure_contrast": {
+    "descriptive_only": true,
+    "split": "sealed O2.14 sufficient vs insufficient schedules within subject x ROI x fold",
+    "report_median": [
+      "Q_IN",
+      "Q_OUT",
+      "Q_COMP",
+      "Q_RES_NATIVE",
+      "Q_RES_IN",
+      "Q_RES_OUT"
+    ],
+    "participant_first_difference": true,
+    "no_second_pvalue": true
+  },
+  "failure_attribution": {
+    "classes": [
+      "TOTAL_ONLY (TOTAL<0.5,FCF>=0.5)",
+      "FCF_ONLY (FCF<0.5,TOTAL>=0.5)",
+      "BOTH (both<0.5)"
+    ],
+    "participant_first_fractions": true,
+    "descriptive_only": true
+  },
+  "single_repeat_quality": {
+    "per_position_t": "leave-one-repeat-out: delta_t vs delta_LOO_t (mean of other 7); native/within/outside cos2 + relative squared error; identity->fold->participant",
+    "training_only": true
+  },
+  "repeat_additive_model": {
+    "per": "subject x ROI x fold x component; average Q over 100 identity subsets -> Q_pair(a,b) for 28 pairs",
+    "model": "Q_pair(a,b)=beta0+alpha_a+alpha_b+error, sum_t alpha_t=0, OLS no regularization",
+    "report": [
+      "R2_REPEAT_ADDITIVE",
+      "8 alpha_t"
+    ]
+  },
+  "pair_interaction": {
+    "Q_PAIR_INTERACTION": "Q_pair - predicted_additive",
+    "variance_fraction": "1 - R2_REPEAT_ADDITIVE",
+    "not_biological_interaction": true
+  },
+  "repeat_position_loso_consistency": {
+    "per_roi_component": "8-position quality vector per participant; pairwise Spearman among 8; LOSO donor-consensus vs target rho; report median LOSO rho",
+    "descriptive_only": true,
+    "no_pair_pvalue": true
+  },
+  "cross_roi_consistency": {
+    "per_participant": "Spearman(ventral 8-position quality, lateral 8-position quality)",
+    "descriptive_only": true,
+    "no_physiological_inference": true
+  },
+  "identity_repeat_interaction_alignment": {
+    "per": "subject x ROI x fold",
+    "Y": "O2.14 ROBUSTNESS_MARGIN 100x28",
+    "Q": "Q_IN or Q_OUT 100x28",
+    "residualize": "remove grand mean + identity main + repeat main -> Y_INT, Q_INT",
+    "rho_INT": "Spearman(vec(Q_INT), vec(Y_INT))",
+    "descriptive_only": true,
+    "not_in_primary_family": true
+  },
+  "failure_mode_hierarchy": {
+    "MULTICOMPONENT_REPEAT_GEOMETRY_INSTABILITY_SUPPORTED": "both IN and OUT supported",
+    "WITHIN_SUPPORT_REPEAT_INSTABILITY_SUPPORTED": "only IN",
+    "OUTSIDE_SUPPORT_REPEAT_INSTABILITY_SUPPORTED": "only OUT",
+    "SCHEDULE_FAILURE_NOT_EXPLAINED_BY_TRAINING_GEOMETRY_STABILITY": "neither",
+    "ACQUISITION_FAILURE_MODE_INCONCLUSIVE": "technical"
+  },
+  "program_status": {
+    "REPEAT_GEOMETRY_INSTABILITY_SUPPORTED_AS_PRIMARY_FAILURE_MODE": ">=1 component supported in BOTH primary ROIs",
+    "ACQUISITION_FAILURE_MODE_MULTIREGIME": "supported components differ materially by ROI",
+    "SCHEDULE_FRAGILITY_NOT_EXPLAINED_BY_REPEAT_GEOMETRY_STABILITY": "neither ROI establishes a supported component",
+    "O2_15_FAILURE_MODE_INCONCLUSIVE": "provenance/completeness/technical",
+    "forbidden_phrase": "caused by noise (without intervention)"
+  },
+  "mechanistic_strength": {
+    "descriptive_only": true,
+    "quadrants": [
+      "LOW Q/FAIL",
+      "LOW Q/PASS",
+      "HIGH Q/FAIL",
+      "HIGH Q/PASS"
+    ],
+    "low_high_by": "participant/fold median Q",
+    "visualization_only": true,
+    "cannot_alter_status": true
+  },
+  "secondary_allocations": {
+    "M2T4": "4-repeat vs complementary-4-repeat geometry agreement",
+    "M8T1": "single-repeat vs complementary-7-repeat",
+    "same_philosophy": true,
+    "descriptive_only": true,
+    "no_extra_primary_pvalue": true
+  },
+  "prior_comparator": {
+    "optional_status_neutral": true,
+    "o2_12_hybrid": "schedule-level variability for M2T1/M2T2/M4T1/M4T2 with the frozen one-pseudo-observation prior",
+    "cannot_change": [
+      "O2.12 status",
+      "O2.14 status"
+    ],
+    "no_new_frontier": true
+  },
+  "no_post_hoc_good_repeat": "even if some positions/pairs look better, do NOT promote them: no rerun O2.9 on good repeats, no redefine T, no best pair, no new minimum, no validated rule. O2.15 is DIAGNOSTIC; any rule needs independent prospective validation.",
+  "no_causal_labels": "use REPEAT-POSITION / REPEAT-ESTIMATION INSTABILITY; do NOT say fatigue/scanner drift/adaptation/physiological unless independently measured",
+  "provenance_gates": [
+    "O2.14 seal 5cad808",
+    "exact O2.14 schedule aggregate replay <=1e-10",
+    "O2.9 estimator provenance",
+    "O2.7 trial 96/96",
+    "O2.6 residual provenance",
+    "exact 100 identity subsets",
+    "exact 28 M4T2 repeat pairs",
+    "exact pair-complement disjointness",
+    "same 6 outer folds",
+    "same held-out test ids",
+    "no schedule dropped",
+    "participant inferential N",
+    "O3 locked"
+  ],
+  "control_replays": {
+    "A": "regenerate M4T2 per-schedule metrics from source; reproduce O2.14 aggregates <=1e-10",
+    "B": "average regenerated M4T2 schedules -> O2.9 participant M4T2 metrics <=1e-10",
+    "C": "reproduce O2.14 coverage + margin quantiles + ID/repeat/interaction SS decomposition <=1e-10",
+    "on_fail": "STOP technical"
+  },
+  "synthetic_controls": [
+    "1 planted repeat-noise: Q predicts margin",
+    "2 unrelated-repeat: null",
+    "3 within-only instability classification",
+    "4 outside-only classification",
+    "5 both-component multicomponent",
+    "6 pair/complement disjointness",
+    "7 Q_IN rotation/sign invariance",
+    "8 Q_OUT rotation/sign invariance",
+    "9 additive model recovers planted single-repeat effects",
+    "10 pair-interaction low additive R2",
+    "11 interaction-residual recovers planted QxY interaction",
+    "12 exact 4-test Holm",
+    "13 schedules never inferential N",
+    "14 O2.14 rows replay exactly",
+    "15 no good-repeat selection path in scientific code"
+  ],
+  "claim_boundaries": {
+    "positive": "within the tested M4T2 protocol, schedules whose training-only two-repeat target-state geometry agreed more strongly with the complementary six-repeat estimate were more likely to generalize to held-out imagery identities, supporting repeat-estimation instability as a reproducible source of acquisition fragility",
+    "positive_forbidden": [
+      "repeat noise causes calibration failure"
+    ],
+    "additive_positive": "some instability was systematically associated with repeat position across participants",
+    "additive_forbidden": [
+      "fatigue",
+      "adaptation",
+      "scanner drift",
+      "another physical mechanism"
+    ]
+  },
+  "next_gate": {
+    "INSTABILITY_SUPPORTED": "O2.16 INDEPENDENT PROSPECTIVE REPLICATION WITH CALIBRATION-QUALITY MONITORING (define a prospective training-only Q monitoring rule for NEW data; freeze before external outcomes; retain M4T2)",
+    "MULTIREGIME": "O2.16 ROI-SPECIFIC FAILURE-MODE REPLICATION",
+    "NOT_EXPLAINED": "O2.16 ACQUISITION FAILURE SOURCE EXPANSION (prospectively test limited acquisition-side variables: motion, run/session position, data-quality covariates; no estimator optimization; external replication still required)"
+  },
+  "O3_policy": "O3 remains O3_NOT_READY regardless of O2.15; diagnoses calibration reliability only",
+  "O3": "O3_NOT_READY",
+  "config_sha256": "831ad419f75a026e0c103892af6a5b8060351a888f398c7e989f9def4a53feb2"
+}

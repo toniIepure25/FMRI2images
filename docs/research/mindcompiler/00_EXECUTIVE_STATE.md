@@ -10,6 +10,32 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.16 (2026-09-17): INDEPENDENT PROSPECTIVE REPLICATION -- SEALED `O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE`
+
+First EXTERNAL replication gate (config `2da2cc79`, freeze + audit `dbb5527`). Asks whether the M4T2 calibration
+result AND its training-only quality signal replicate in COMPLETELY INDEPENDENT participants. **Protocol +
+implementation frozen ready:** exact O2.9 M4T2 direct estimator; operational replication criterion (75% rule
+generalizing historical 6/8); a NEW 1-vs-1 quality monitor computable from the 8 M4T2 observations THEMSELVES
+(REPEAT-A vs REPEAT-B geometry agreement Q_MON_IN=trace(P_IN_A P_IN_B)/q, Q_MON_OUT=trace(P_OUT_A P_OUT_B)/2 --
+unlike O2.15's 2-vs-6 which needs extra repeats); symmetric in A<->B, no held-out data, no threshold search;
+4-test Holm on independent participants only; two-stage external access seal. 13/13 technical tests pass.
+
+**Stage-0 data availability audit (metadata only, no outcome inspection):** NO accessible N>=8 INDEPENDENT
+direct-replication cohort exists. PVC = NSD subj01-08 only (= the historical development cohort); NSD-Imagery
+uses the SAME 8 participants; nearest public imagery-fMRI datasets Horikawa&Kamitani 2017 (N=5) / Shen 2019
+(N=3) are below the N>=8 confirmatory floor AND structurally incompatible (different identity/repeat structure,
+no NSD streams ventral=5/lateral=6 ROI, different perception-support -> CONCEPTUAL not DIRECT replication, which
+requires a separately frozen gate). The one-time O2.13 NSD-S3 authorization does NOT extend to O2.16; no
+external acquisition performed. **User decision:** seal DATA_UNAVAILABLE + produce the new-participant
+acquisition protocol; NO substitution with more N=8 analysis. **Sealed `O2_16_INDEPENDENT_REPLICATION_DATA_
+UNAVAILABLE`** -- explicitly NOT a scientific failure and NOT evidence against O2.9/O2.15; all historical seals
+preserved unchanged. Produced `new_replication_acquisition_protocol.json` (frozen M4T2 + Q-monitor spec for
+genuinely new N>=8 participants: perception for W_target, >=6 imagery identities [4 balanced calibration + >=2
+held-out] x >=2 repeats, native/capacity reference, streams ventral+lateral ROI, zero overlap with the 8,
+its own acquisition authorization). **Next: O2.16-DATA NEW REPLICATION ACQUISITION PROTOCOL** (collect new data;
+do not replace external replication with more N=8 analysis). `O3` remains `O3_NOT_READY` (replication would
+strengthen but not unlock O3; a future O3 gate needs its own prerequisites). Artifacts: `operator_o2_16/`.
+
 ## O2.15 (2026-09-17): ACQUISITION-SCHEDULE FAILURE-MODE DIAGNOSTIC -- SEALED `REPEAT_GEOMETRY_INSTABILITY_SUPPORTED_AS_PRIMARY_FAILURE_MODE`
 
 Why do prospectively-valid M4T2 acquisitions sometimes succeed/fail? (config `831ad419`, freeze `a0a08bc`).

@@ -1,0 +1,18 @@
+{
+  "status": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+  "reason": "no accessible N>=8 INDEPENDENT direct-replication cohort (NSD-Imagery = same 8 development subjects; nearest imagery datasets N=5/N=3 and structurally incompatible)",
+  "user_decision": "Seal DATA_UNAVAILABLE + produce new-acquisition protocol; no N=8 re-analysis",
+  "not_a_scientific_failure": true,
+  "not_evidence_against": [
+    "O2_9 MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED",
+    "O2_15 REPEAT_GEOMETRY_INSTABILITY_SUPPORTED_AS_PRIMARY_FAILURE_MODE"
+  ],
+  "protocol_frozen_and_ready": "config 2da2cc79; 1-vs-1 Q_MON monitor + M4T2 criterion implemented + 13/13 technical tests (awaiting eligible data)",
+  "immutable": {
+    "O2_15": "REPEAT_GEOMETRY_INSTABILITY_SUPPORTED_AS_PRIMARY_FAILURE_MODE",
+    "O2_14": "EIGHT_TRIAL_MINIMUM_AVERAGE_ONLY_NOT_SCHEDULE_ROBUST",
+    "O2_9": "MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED",
+    "O2_9_N_TRIALS_STAR": 8
+  },
+  "O3": "O3_NOT_READY"
+}

@@ -1,0 +1,5 @@
+{
+  "suite": "tests/mindcompiler/operator_o2_16/",
+  "result": "13 passed in 0.34s",
+  "note": "technical/pre-outcome tests only (frozen protocol); no inference run (data unavailable)"
+}

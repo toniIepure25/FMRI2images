@@ -1,0 +1,9 @@
+{
+  "gate": "O2.16",
+  "freeze": "dbb5527",
+  "determination": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+  "user_decision": "seal + acquisition protocol",
+  "no_cluster_outcome_run": true,
+  "no_external_acquisition": true,
+  "local_HEAD_at_write": "dbb552795c8d9b4d8357fefa74dcbae586cd2b7f"
+}

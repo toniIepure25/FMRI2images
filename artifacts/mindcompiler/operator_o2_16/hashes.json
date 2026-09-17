@@ -1,0 +1,10 @@
+{
+  "execution_provenance.json": "b4d4355eaf1d2399b7dd0ad37ea37f205723f14cd441c453449a01946e91a5bf",
+  "independence_certification.json": "617c8251240f85af4dc4a7b994634096a549868610a0b5156b9fcf7a0cf16208",
+  "new_replication_acquisition_protocol.json": "9d4af25b9a9c34b9dc97a7af4e7ee2528e8c17da541ac4c7e8c0591c87acb7cf",
+  "next_gate_decision.json": "593eb6739a8daad77440b95613d1124eabc0478d90549791770cbfb4cde28c52",
+  "o2_16_frozen_config.json": "29fe961604696b1fda31685a5f045f6eedcd65a117d1e6ab658a5206d7f58abe",
+  "replication_data_availability_audit.json": "4b39d2ecad518e2f6bef7b7c6441db24e0a5ab6085b0d239c57d7e4db279a402",
+  "scientific_status.json": "ca0f0595ce608f19291b2c5ea6accbb28e6b0d4664c6cf3db1bfb8330141605c",
+  "test_report.json": "4f724094ed52fb296914e374dcb30f56f22cb1e20b4f19b4a5815bf6f1d0ed38"
+}

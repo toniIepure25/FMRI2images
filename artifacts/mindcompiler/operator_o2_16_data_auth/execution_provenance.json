@@ -1,0 +1,12 @@
+{
+  "gate": "O2.16-DATA-AUTH",
+  "not_a_scientific_gate": true,
+  "no_scanning": true,
+  "no_recruitment": true,
+  "no_submission": true,
+  "no_fabricated_approvals_or_params": true,
+  "sealed_metadata_inspected": [
+    "nsdimagery design tsv (imgA_2/imgB_2/visA)"
+  ],
+  "local_HEAD_at_write": "b965191c2d5a627906f7061d22281f632d09e168"
+}

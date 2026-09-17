@@ -1,0 +1,73 @@
+{
+  "fields": {
+    "trial_duration_s": {
+      "value": 4.0,
+      "status": "CERTIFIED",
+      "source": "imgA_2/imgB_2 TRIALEND-TRIALONSET median = 4.0 (sha 219025c6/f90c53cc)",
+      "observed": "DIRECTLY_OBSERVED"
+    },
+    "within_run_ITI_s": {
+      "value": 0.0,
+      "status": "CERTIFIED",
+      "source": "consecutive TRIALONSET spacing = 4.0 == trial duration (contiguous trials)",
+      "observed": "DIRECTLY_OBSERVED"
+    },
+    "trials_per_imagery_run": {
+      "value": 48,
+      "status": "CERTIFIED",
+      "source": "imgA_2/imgB_2 = 48 rows/run",
+      "observed": "DIRECTLY_OBSERVED"
+    },
+    "identities_per_run": {
+      "value": 6,
+      "status": "CERTIFIED",
+      "source": "imgA CONDITION {L,V,R,P,H,E}; imgB {B,W,C,T,K,D}",
+      "observed": "DIRECTLY_OBSERVED"
+    },
+    "repeats_per_identity_per_run": {
+      "value": 8,
+      "status": "CERTIFIED",
+      "source": "each CONDITION appears 8x/run",
+      "observed": "DIRECTLY_OBSERVED"
+    },
+    "total_distinct_imagery_identities": {
+      "value": 12,
+      "status": "CERTIFIED",
+      "source": "imgA 6 + imgB 6 distinct letter cues",
+      "observed": "DIRECTLY_OBSERVED"
+    },
+    "cue": {
+      "value": "single-letter cue with cue-frame image blankXXXXX_cueX.png",
+      "status": "CERTIFIED",
+      "source": "FRAMEFILE column",
+      "observed": "DIRECTLY_OBSERVED"
+    },
+    "decision_interval": {
+      "value": "2AFC via BUTTON; FINALDECISIONTIME ~1.3 s into 4 s trial",
+      "status": "CERTIFIED",
+      "source": "BUTTON/FINALDECISIONTIME columns",
+      "observed": "DIRECTLY_OBSERVED"
+    },
+    "simple_vs_naturalistic_family_split": {
+      "value": "imgA_2/imgB_2 cues correspond to bar/shape (SIMPLE) stimuli per visA frames; naturalistic-scene imagery identities NOT present in the sealed subset",
+      "status": "PARTIAL",
+      "source": "visA FRAMEFILE = bar_*deg_* (simple)",
+      "observed": "INFERRED_FROM_VIS_FRAMES"
+    },
+    "full_run_session_layout": {
+      "value": null,
+      "status": "UNRESOLVED",
+      "source": "only single imgA/imgB/visA runs (session 1) present on PVC; full 12-run/multi-session NSD-Imagery layout requires official event files",
+      "observed": "NOT_OBSERVED"
+    },
+    "inter_run_rest_and_dummy_volumes": {
+      "value": null,
+      "status": "UNRESOLVED",
+      "source": "not derivable from event tsv; needs bold run metadata",
+      "observed": "NOT_OBSERVED"
+    }
+  },
+  "certification": "NOT EXACT_IMAGERY_TASK_REPLAY_CERTIFIED (PARTIAL/UNRESOLVED fields remain)",
+  "retain_blocker": "O2_16_DATA_IMAGERY_TASK_PROVENANCE_BLOCKER (for run/session layout + naturalistic family + inter-run timing)",
+  "no_invented_timings": true
+}

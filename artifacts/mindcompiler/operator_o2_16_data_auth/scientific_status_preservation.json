@@ -1,0 +1,9 @@
+{
+  "O2_16_DATA_status": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+  "unchanged": true,
+  "O2_16_status": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+  "O2_9_N_TRIALS_STAR": 8,
+  "readiness_state": "O2_16_DATA_AUTH_PACKAGE_PREPARED",
+  "no_science_changed": true,
+  "O3": "O3_NOT_READY"
+}

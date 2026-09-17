@@ -1,0 +1,14 @@
+{
+  "bids_validator_available": false,
+  "bids_validator_path": "UNAVAILABLE (structural checks only)",
+  "structural_checks": {
+    "n_trials": 48,
+    "distinct_identities": 6,
+    "repeats_per_identity_ok": true,
+    "families_ok": true,
+    "repeat_index_contiguous": true,
+    "volume_index_monotone": true
+  },
+  "engineering_dry_run": "ENGINEERING_DRY_RUN_PASS",
+  "requirement_15_upgrade": "ENGINEERING_DRY_RUN_PASS (design/synthetic); ACTUAL-SITE logging still requires pilot"
+}

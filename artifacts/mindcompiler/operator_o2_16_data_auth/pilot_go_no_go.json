@@ -1,0 +1,16 @@
+{
+  "engineering_GO_requires": [
+    "all expected files produced",
+    "scanner trigger alignment correct",
+    "event onset mapping verified",
+    "no missing stimulus IDs",
+    "repeat indexing exact",
+    "perception anchor response derivation runs",
+    "ROI mapping runs",
+    "Stage-A code executes",
+    "Q_MON finite",
+    "held-out guard blocks outcome access"
+  ],
+  "no_scientific_metric": true,
+  "status": "NOT_RUN (no scanner / no authorization)"
+}

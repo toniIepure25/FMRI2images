@@ -1,0 +1,26 @@
+{
+  "status": "O2_16_DATA_PREACQUISITION_READINESS_CLARIFIED",
+  "supersedes_wording": "do NOT describe state as '14/15 complete; ethics only remaining'",
+  "remaining_classes": {
+    "A_HUMAN_AUTHORIZATION": [
+      "ethics/IRB",
+      "informed consent",
+      "MRI safety",
+      "site permission",
+      "data protection",
+      "stimulus-use permission"
+    ],
+    "B_EXACT_TASK_REPLAY": [
+      "exact imagery ITIs across full run/session layout",
+      "full run/session structure + inter-run rest",
+      "naturalistic-family identity provenance",
+      "dummy-volume/run-padding"
+    ],
+    "C_REAL_SITE_ENGINEERING": [
+      "scanner-specific implementation",
+      "actual-site BIDS/event logging",
+      "acquisition software dry run on real hardware"
+    ]
+  },
+  "scientific_status_unchanged": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION"
+}

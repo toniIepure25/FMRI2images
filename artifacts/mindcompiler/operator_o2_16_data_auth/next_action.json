@@ -1,0 +1,5 @@
+{
+  "readiness_state": "O2_16_DATA_AUTH_PACKAGE_PREPARED",
+  "human_next_actions": "see HUMAN_ACTION_CHECKLIST.md (18 dependency-ordered steps)",
+  "resume_science_condition": "after ethics+site approval, >=2 pilot engineering GO, and >=8 valid independent participants acquired -> resume O2.16 config 2da2cc79 unchanged"
+}

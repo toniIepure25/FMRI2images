@@ -1,0 +1,11 @@
+{
+  "root": "synthetic_bids_fixture/",
+  "participant": "sub-SYN01 (synthetic)",
+  "files": [
+    "ses-01/func/..._task-imagery_run-01_events.tsv",
+    "ses-01/func/..._task-imagery_run-01_bold.json",
+    "ses-01/anat/..._T1w.json"
+  ],
+  "no_historical_neural_data": true,
+  "purpose": "engineering schema validation only"
+}

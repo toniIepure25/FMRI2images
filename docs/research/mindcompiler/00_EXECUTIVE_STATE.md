@@ -10,6 +10,23 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.16-DATA-AUTH (2026-09-17): PRE-SCANNING READINESS PACKAGE -- `O2_16_DATA_AUTH_PACKAGE_PREPARED` (scientific status UNCHANGED)
+
+Human-acquisition enablement package (NOT a scientific gate; changes no result). Scientific status stays
+`O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION`; `O3_NOT_READY`. Prepared everything legitimately doable
+before real acquisition: field-level imagery-task replay spec (CERTIFIED from sealed NSD-Imagery provenance:
+4.0s trials, contiguous ITI, 48 trials/run, 8 repeats/identity, 12 letter-cued identities; PARTIAL: simple/nat
+family split; UNRESOLVED: full run/session layout + naturalistic identities -> retains
+`O2_16_DATA_IMAGERY_TASK_PROVENANCE_BLOCKER`, so NOT EXACT_IMAGERY_TASK_REPLAY_CERTIFIED); deterministic
+perception manifests; imagery stimulus binding (placeholders flagged) + stimulus-rights action items; scanner
+site-requirements table (all site values TBD_BY_MRI_FACILITY); session-plan lower bounds (total TBD); SYNTHETIC
+BIDS dry-run ENGINEERING_DRY_RUN_PASS (bids-validator unavailable -> structural checks only); DRAFT ethics/
+consent/recruitment/screening/pilot documents (no fabricated PI/ethics-ID/signatures/approvals); data-flow &
+access matrix; 18-step HUMAN_ACTION_CHECKLIST. No scanning/recruitment/submission; no fabricated approvals or
+scanner params; no participant records; no historical-subject reuse; O2.16 config still `2da2cc79`. Readiness
+state `O2_16_DATA_AUTH_PACKAGE_PREPARED` (human authorization + exact-task-provenance completion + real-site
+engineering remain). 11/11 integrity tests. Artifacts: `operator_o2_16_data_auth/` (29).
+
 ## O2.16-DATA (2026-09-17): NEW INDEPENDENT REPLICATION ACQUISITION PROTOCOL -- SEALED `O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION`
 
 Prospectively-frozen data-acquisition protocol (config `804d5b21`) to collect a genuinely NEW independent human

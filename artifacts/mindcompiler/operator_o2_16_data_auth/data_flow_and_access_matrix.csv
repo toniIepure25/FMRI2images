@@ -1,0 +1,8 @@
+stage,contains_identifiers,access_role_placeholder,storage_placeholder
+recruitment log,YES,recruitment admin (TBD),secured identifiable store (TBD)
+pseudonymous participant ID,NO (mapping held separately),PI/coordinator (TBD),keyed mapping (TBD)
+scanner raw DICOM/NIfTI,possible facial anatomy,imaging team (TBD),institutional secure store (TBD)
+BIDS,defaced/pseudonymous,analysis team (TBD),research store (TBD)
+preprocessing derivatives,NO,analysis team (TBD),research store (TBD)
+compact analysis derivatives,NO,analysis team (TBD),repo (manifests/hashes only)
+publication outputs,NO,public,repository/journal

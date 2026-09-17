@@ -1,0 +1,20 @@
+{
+  "sources": [
+    {
+      "file": "support/nsdimagery/nsdimagery_subj01_imgA_2.tsv",
+      "sha256_16": "219025c67d44ca74",
+      "role": "imagery run A (6 identities x 8 repeats)"
+    },
+    {
+      "file": "support/nsdimagery/nsdimagery_subj01_imgB_2.tsv",
+      "sha256_16": "f90c53cc3b8b690d",
+      "role": "imagery run B (6 identities x 8 repeats)"
+    },
+    {
+      "file": "support/nsdimagery/nsdimagery_subj01_visA.tsv",
+      "sha256_16": "dbcbb906fff09334",
+      "role": "perception (visual) version; frames show bar/shape stimuli"
+    }
+  ],
+  "note": "sealed NSD-Imagery design tsv inspected as METADATA only (no neural outcomes)"
+}

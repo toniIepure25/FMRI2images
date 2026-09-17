@@ -1,0 +1,6 @@
+component,trials,trial_s,acquisition_min_lower_bound,note
+perception (512x3),1536,4,102.4,lower bound = trials*trial_s; excludes fixation/setup/structural/breaks
+imagery (12x8),96,4,6.4,lower bound only; full run/session structure UNRESOLVED
+structural,-,-,TBD,T1w(+T2w) ~10-15 min typical (site-specific)
+setup/instruction/breaks/repositioning/contingency,-,-,TBD,not fabricated; site-specific
+TOTAL,-,-,TBD_UNTIL_RUN_STRUCTURE_CERTIFIED,do NOT publish a total while run structure UNRESOLVED

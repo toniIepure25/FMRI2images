@@ -1,0 +1,4 @@
+stimulus_family,source,redistribution_status,research_use_status,institutional_permission_required,action
+perception 512 anchors,NSD natural scenes (COCO-derived),UNVERIFIED,UNVERIFIED,LIKELY,confirm COCO/NSD license + institutional sign-off
+imagery simple (bars/letters),NSD-Imagery simple set,UNVERIFIED,UNVERIFIED,MAYBE,confirm NSD-Imagery stimulus reuse terms
+imagery naturalistic scenes,NSD-Imagery complex set,UNVERIFIED,UNVERIFIED,LIKELY,obtain scene-stimulus files + license

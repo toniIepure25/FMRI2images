@@ -1,0 +1,18 @@
+{
+  "frozen_before_acquisition": true,
+  "allowed_objective_exclusions": [
+    "incomplete required sessions",
+    "corrupted raw MRI",
+    "irrecoverable registration failure",
+    "unusable ROI mapping",
+    "predeclared excessive motion threshold",
+    "missing required perception/imagery trials"
+  ],
+  "forbidden_exclusions": [
+    "low TOTAL_RECOVERY",
+    "low Q_MON",
+    "contradicts hypothesis",
+    "weak imagery performance"
+  ],
+  "motion_threshold": "frozen before first outcome; NOT derived from this cohort; if no validated historical threshold, prefer retaining participant + report QC"
+}

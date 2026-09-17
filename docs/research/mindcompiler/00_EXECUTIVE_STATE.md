@@ -10,6 +10,30 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.16-DATA (2026-09-17): NEW INDEPENDENT REPLICATION ACQUISITION PROTOCOL -- SEALED `O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION`
+
+Prospectively-frozen data-acquisition protocol (config `804d5b21`) to collect a genuinely NEW independent human
+fMRI cohort that runs the already-frozen O2.16 direct replication (config `2da2cc79`) UNCHANGED. NOT a new
+scientific analysis. **Frozen design (5/5 pre-acquisition design-validation tests):** N_PLANNED=12 (confirmatory
+N_MIN=8; no sequential-significance stopping); zero overlap with NSD subj01-08; exact canonical 512 O2.3A-RD
+perception anchors x3 (1536 perception trials); 12 imagery identities (6 simple + 6 naturalistic) x8 repeats (96
+imagery trials); 6 outer folds each holding out 1 simple + 1 nat -> 5+5 training -> C(5,2)^2=100 identity subsets
+x C(8,2)=28 repeat pairs = 2800 M4T2 schedules/fold; each schedule = exactly 8 target-imagery observations;
+frozen 1-vs-1 Q_MON (repeat-A vs repeat-B from the schedule's 8 obs only); streams ventral=5/lateral=6 ROI;
+7T ~1.8mm TR~1.6s; two-stage access guard (held-out never in Stage A). Imagery-task timing recovered from sealed
+NSD-Imagery provenance (letter-cued ~4s trials, 2AFC decision, imgA/imgB repeat sets).
+
+**Sealed `O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION`:** human 7T scanning of a new cohort requires
+ethics/IRB approval, a scanner, and real acquisition records -- NONE exist in this environment. Per the brief,
+produced the complete frozen acquisition PACKAGE (27 artifacts: config, ethics/independence/direct-replication
+certifications, stimulus + imagery-identity + perception-anchor manifests, imagery-task replay cert, scanner/
+acquisition/randomization protocols, outer-fold manifest, QC/data-management/BIDS/pilot specs, empty recruitment/
+cohort/completeness manifests, preprocessing freeze, analysis-compatibility cert) and STOPPED -- the agent did
+NOT represent any data as acquired. NO scientific claim (may not claim M4T2 replicates / Q_MON predicts quality /
+imagery necessary / O3 supported). **On authorization + acquisition: resume O2.16 (config 2da2cc79) UNCHANGED**
+(Stage A calibration+Q, no held-out -> server-verify -> Stage B evaluate + seal); do NOT invent O2.17 or
+re-analyze the N=8. Immutable seals preserved; `O3` remains `O3_NOT_READY`. Artifacts: `operator_o2_16_data/`.
+
 ## O2.16 (2026-09-17): INDEPENDENT PROSPECTIVE REPLICATION -- SEALED `O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE`
 
 First EXTERNAL replication gate (config `2da2cc79`, freeze + audit `dbb5527`). Asks whether the M4T2 calibration

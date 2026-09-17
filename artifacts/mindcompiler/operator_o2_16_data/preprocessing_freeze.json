@@ -1,0 +1,16 @@
+{
+  "frozen_before_outcomes": true,
+  "pipeline": "same lineage as historical O2 program (native-space, ncsnr voxel selection, beta estimation, scaling)",
+  "document_at_acquisition": [
+    "software versions",
+    "distortion correction",
+    "motion correction",
+    "slice timing",
+    "registration",
+    "resampling",
+    "beta estimation",
+    "scaling",
+    "confounds"
+  ],
+  "no_outcome_dependent_branch": true
+}

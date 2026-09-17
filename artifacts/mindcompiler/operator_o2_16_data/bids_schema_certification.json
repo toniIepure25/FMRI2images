@@ -1,0 +1,15 @@
+{
+  "layout": "sub-<id>/ses-<n>/anat/sub-<id>_ses-<n>_T1w.nii.gz; sub-<id>/ses-<n>/func/sub-<id>_ses-<n>_task-{perception,imagery}_run-<r>_bold.nii.gz + _events.tsv",
+  "events_columns": [
+    "onset",
+    "duration",
+    "trial_type",
+    "stimulus_identity",
+    "family",
+    "repeat_index",
+    "response",
+    "volume_index"
+  ],
+  "reconstructs_all_identities_and_repeats": true,
+  "status": "schema frozen; verified at design level; to be validated on real files at acquisition"
+}

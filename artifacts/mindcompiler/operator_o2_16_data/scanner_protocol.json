@@ -1,0 +1,15 @@
+{
+  "field_strength": "7T (preferred)",
+  "functional": {
+    "voxel_mm": 1.8,
+    "TR_s": 1.6,
+    "coverage": "whole-brain sufficient for ventral/lateral streams",
+    "native_space_preserved": true,
+    "presmoothing": "none unless historical requires"
+  },
+  "structural": {
+    "T1w_mm": "<=1.0",
+    "T2w": "recommended"
+  },
+  "if_incompatible_requiring_representation_change": "CONCEPTUAL_REPLICATION_REQUIRED (separate future gate)"
+}

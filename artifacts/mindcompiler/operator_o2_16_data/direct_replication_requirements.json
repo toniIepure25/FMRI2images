@@ -1,0 +1,22 @@
+{
+  "token": "O2_16_DATA_DIRECT_REPLICATION_PROTOCOL_CERTIFIED (NOT yet issued)",
+  "requirements": {
+    "1_ethics_active": false,
+    "2_N12_plan_frozen": true,
+    "3_historical_overlap_impossible": true,
+    "4_scanner_protocol_frozen": true,
+    "5_512_anchors_frozen": true,
+    "6_12_imagery_identities_frozen": true,
+    "7_8_imagery_repeats_frozen": true,
+    "8_exact_imagery_timing_replay_certified": "PARTIAL (structure recovered from sealed nsdimagery provenance; exact ITIs/run-structure to be bound at acquisition)",
+    "9_roi_mapping_frozen": true,
+    "10_preprocessing_frozen": true,
+    "11_six_outer_folds_frozen": true,
+    "12_m4t2_estimator_unchanged": true,
+    "13_qmon_formula_unchanged": true,
+    "14_stageA_access_guard_tested": true,
+    "15_bids_logging_tested": "design-level (no scanner)"
+  },
+  "certified": false,
+  "blocking_requirement": "1_ethics_active (no human acquisition authorization)"
+}

@@ -1,0 +1,400 @@
+{
+  "gate": "O2.16-DATA",
+  "class": "PROSPECTIVELY_FROZEN_DATA_ACQUISITION_FOR_INDEPENDENT_REPLICATION",
+  "input_head": "0aa6f2d84ad98750b6c689c646b1ffd21054afe2",
+  "purpose": "acquire a genuinely NEW independent human fMRI cohort that runs the already-frozen O2.16 direct replication (config 2da2cc79) UNCHANGED; NOT a new scientific analysis",
+  "resume_o2_16_unchanged_after_data": "2da2cc79",
+  "immutable_history": {
+    "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+    "O2_15": "REPEAT_GEOMETRY_INSTABILITY_SUPPORTED_AS_PRIMARY_FAILURE_MODE",
+    "O2_14": "EIGHT_TRIAL_MINIMUM_AVERAGE_ONLY_NOT_SCHEDULE_ROBUST",
+    "O2_9": "MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED",
+    "O2_9_N_TRIALS_STAR": 8,
+    "O3": "O3_NOT_READY",
+    "never_relabel_historical": true
+  },
+  "absolute_independence": {
+    "no_overlap_with": "NSD subj01-08",
+    "prefer": [
+      "different recruitment pool",
+      "different scan dates",
+      "ideally different scanner/site"
+    ],
+    "historical_never_enter": [
+      "replication inference",
+      "threshold setting",
+      "participant pooling",
+      "missing-data replacement"
+    ]
+  },
+  "recruitment": {
+    "N_PLANNED": 12,
+    "N_MIN_confirmatory": 8,
+    "rationale": "12 planned tolerates prospectively-defined technical attrition while preserving independent N>=8",
+    "no_sequential_significance_stopping": true,
+    "analyze_all_valid": true,
+    "no_stop_because_first_8_positive": true
+  },
+  "eligibility": {
+    "criteria": [
+      "adult",
+      "MRI safe",
+      "normal/corrected vision",
+      "can perform tasks",
+      "informed consent",
+      "no overlap with development cohort"
+    ],
+    "forbidden_exclusions": [
+      "weak imagery result",
+      "poor O2.16 recovery",
+      "Q_MON value",
+      "any scientific outcome"
+    ]
+  },
+  "ethics": {
+    "required_before_scanning": [
+      "IRB/ethics approval",
+      "informed-consent materials",
+      "MRI safety procedures",
+      "site permissions",
+      "data-protection procedures",
+      "stimulus-use permissions"
+    ],
+    "agent_must_not_represent_data_as_acquired_without_records": true,
+    "if_absent_stop_at": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION"
+  },
+  "scanner": {
+    "preferred": "7T whole-brain fMRI",
+    "voxel": "~1.8mm iso EPI",
+    "TR": "~1.6s",
+    "coverage": "whole-brain sufficient for ventral/lateral streams",
+    "native_space_preserved": true,
+    "no_presmoothing_unless_historical_requires": true,
+    "if_incompatible_requiring_representation_change": "CONCEPTUAL_REPLICATION_REQUIRED (separate future gate; no silent adaptation)"
+  },
+  "anatomy": {
+    "T1w": "<=1mm iso",
+    "T2w": "recommended",
+    "before_roi_certification": true
+  },
+  "perception": {
+    "anchors": "EXACT canonical 512 O2.3A-RD perception anchors (sealed; preserve historical IDs/order; exclude all imagery identities)",
+    "no_new_anchor_selection": true,
+    "repeats": 3,
+    "total_perception_trials": 1536,
+    "no_outcome_dependent_repeat_rejection": true,
+    "task": "outcome-independent visual task; prefer NSD continuous-recognition; timing+response mapping frozen before scanning",
+    "timing_direct": {
+      "image_duration_s": 3,
+      "inter_image_gap_s": 1,
+      "fixation": "central",
+      "response": "continuous-recognition"
+    }
+  },
+  "imagery": {
+    "identities": 12,
+    "simple": 6,
+    "naturalistic": 6,
+    "match_historical_family_definition": true,
+    "prefer_exact_historical_stimuli": true,
+    "if_exact_unavailable": "homologous set prospectively defined from stimulus properties BEFORE neural acquisition; no outcome-based substitution",
+    "repeats": 8,
+    "total_imagery_trials": 96,
+    "rationale_12_identities": "6 outer folds each hold out 1 simple + 1 nat -> 5+5 training (matches historical O2 program)",
+    "rationale_8_repeats": "permits all C(8,2)=28 M4T2 repeat pairs + pairwise schedule enumeration + independent high-repeat references",
+    "task": "DO NOT invent a new imagery paradigm; recover exact historical NSD-Imagery cue/durations/fixation/response/ITI/run-structure; if unrecoverable STOP with O2_16_DATA_IMAGERY_TASK_PROVENANCE_BLOCKER",
+    "historical_provenance_observed": {
+      "source": "sealed nsdimagery design tsv (imgA_2/imgB_2)",
+      "trial": "letter-cued imagery, ~4s trial (TRIALONSET->TRIALEND), 2AFC decision (BUTTON, FINALDECISIONTIME ~1.3s), cue frame blankXXXXX_cueL.png",
+      "historical_repeat_sets": "imgA / imgB"
+    }
+  },
+  "randomization": {
+    "frozen_before_first_scan": true,
+    "requirements": [
+      "identity balance across runs",
+      "repeat positions distributed",
+      "simple/nat balance",
+      "no outcome-adaptive scheduling",
+      "no subject-specific easy identities"
+    ],
+    "deterministic_seed_in_protocol": true,
+    "participant_orders_via_deterministic_subject_seed": true,
+    "algorithm_frozen": true
+  },
+  "run_structure": {
+    "split_into_tolerable_runs": true,
+    "no_content_change_on_interim_performance": true,
+    "record_per_trial": [
+      "participant",
+      "session",
+      "run",
+      "trial_index",
+      "stimulus_identity",
+      "family",
+      "repeat_index",
+      "onset",
+      "duration",
+      "behavioral_response",
+      "scanner_volume_index"
+    ],
+    "bids_events_recommended": true
+  },
+  "motion_physiology": {
+    "record_motion": true,
+    "optional": [
+      "pulse",
+      "respiration",
+      "eye_tracking"
+    ],
+    "qc_or_future_diagnostic_only": true,
+    "never_enter_o2_16_inference": true
+  },
+  "roi": {
+    "primary": [
+      "ventral streams",
+      "lateral streams"
+    ],
+    "streams_labels": {
+      "ventral": 5,
+      "lateral": 6
+    },
+    "same_frozen_mapping_pipeline": true,
+    "site_coord_conversion_deterministic_and_frozen": true,
+    "no_outcome_driven_expansion": true
+  },
+  "voxel_selection": {
+    "reuse_frozen": [
+      "native-space policy",
+      "ncsnr policy",
+      "voxel-selection procedure"
+    ],
+    "no_new_count_or_threshold_from_replication": true
+  },
+  "preprocessing": {
+    "frozen_before_outcomes": true,
+    "document": [
+      "software versions",
+      "distortion correction",
+      "motion correction",
+      "slice timing",
+      "registration",
+      "resampling",
+      "beta estimation",
+      "scaling",
+      "confounds"
+    ],
+    "no_outcome_dependent_branch": true
+  },
+  "w_target": {
+    "perception_side_only": true,
+    "no_imagery_in": [
+      "W_target",
+      "K selection",
+      "perception alignment",
+      "scaling",
+      "voxel selection"
+    ],
+    "substantial_perception_calibration_disclosed": true
+  },
+  "outer_folds": {
+    "count": 6,
+    "each_holds_out": "1 simple + 1 naturalistic",
+    "frozen_before_outcome": true,
+    "manifest": "outer_fold_manifest.csv"
+  },
+  "schedules": {
+    "per_fold_identity_subsets": "C(5,2)^2 = 100",
+    "repeat_pairs": "C(8,2)=28",
+    "schedules_per_fold": 2800,
+    "retain_all": true,
+    "no_best_schedule": true
+  },
+  "calibration_obs_count": {
+    "per_schedule": "4 identities x 2 repeats = 8",
+    "no_extra_imagery_in_fit": true
+  },
+  "quality_monitor": {
+    "frozen_o2_16": "1-vs-1 REPEAT-A vs REPEAT-B from the schedule 8 observations only",
+    "Q_MON_IN": "trace(P_IN_A P_IN_B)/q",
+    "Q_MON_OUT": "trace(P_OUT_A P_OUT_B)/2",
+    "high_repeat_rule": "even with 8 acquired repeats the PRIMARY monitor uses ONLY the schedule 2 repeats; the other 6 must NOT enter the monitor"
+  },
+  "holdout_access": {
+    "held_out_two_identities_are_outcome_data": true,
+    "stageA_forbids_heldout_in": [
+      "calibration fitting",
+      "Q_MON",
+      "rank",
+      "ROI choice",
+      "preprocessing decisions",
+      "participant inclusion"
+    ]
+  },
+  "participant_qc": {
+    "frozen_before_acquisition": true,
+    "allowed_objective": [
+      "incomplete required sessions",
+      "corrupted raw MRI",
+      "irrecoverable registration failure",
+      "unusable ROI mapping",
+      "predeclared excessive motion threshold",
+      "missing required trials"
+    ],
+    "forbidden": [
+      "low TOTAL_RECOVERY",
+      "low Q_MON",
+      "contradicts hypothesis"
+    ]
+  },
+  "attrition": {
+    "recruit": 12,
+    "analyze_all_passing_predeclared_qc": true,
+    "confirmatory_requires_valid_N>=8": true,
+    "if_valid_lt_8": "INDEPENDENT_REPLICATION_PILOT_ONLY",
+    "no_recruit_after_outcomes_to_rescue_significance": true
+  },
+  "blinding": {
+    "access_guard": "replication_outcome_access_guard",
+    "stageA_may_inspect": [
+      "acquisition completeness",
+      "preprocessing QC",
+      "calibration identities",
+      "perception data",
+      "calibration imagery data",
+      "Q_MON"
+    ],
+    "stageA_may_not_inspect": [
+      "held-out identity performance",
+      "participant TOTAL_RECOVERY",
+      "participant FCF",
+      "Q->held-out association"
+    ]
+  },
+  "data_management": {
+    "prefer_BIDS": true,
+    "persist_immutable": [
+      "raw DICOM/NIfTI hashes",
+      "BIDS events",
+      "stimulus manifest",
+      "acquisition parameters",
+      "structural MRI",
+      "preprocessing version",
+      "derivative manifest"
+    ],
+    "raw_never_in_git": true,
+    "repo_stores": [
+      "manifests",
+      "hashes",
+      "small derived certification artifacts",
+      "code"
+    ]
+  },
+  "session_planning": {
+    "multi_session_allowed_for_quality": true,
+    "session_order_and_number_frozen": true,
+    "balance_perception_and_imagery_across_sessions": true,
+    "avoid_all_imagery_at_end": true
+  },
+  "pilot": {
+    "allowed_before_confirmatory": true,
+    "N_pilot_max": 2,
+    "not_part_of_confirmatory_N": true,
+    "never_pooled": true,
+    "may_test": [
+      "scanner timing",
+      "task comprehension",
+      "stimulus presentation",
+      "BIDS logging",
+      "registration",
+      "preprocessing execution"
+    ],
+    "neural_outcomes_may_not_tune_estimator_or_qmon": true,
+    "success_criteria_engineering_only": [
+      "all runs complete",
+      "events align to volumes",
+      "perception responses recoverable",
+      "imagery IDs/repeats correct",
+      "ventral/lateral ROI map",
+      "Stage-A software runs",
+      "Q_MON finite",
+      "no leakage"
+    ]
+  },
+  "direct_replication_certification": {
+    "token": "O2_16_DATA_DIRECT_REPLICATION_PROTOCOL_CERTIFIED",
+    "require_all": [
+      "ethics active",
+      "N=12 plan frozen",
+      "historical overlap impossible",
+      "scanner protocol frozen",
+      "512 anchors frozen",
+      "12 imagery identities frozen",
+      "8 imagery repeats frozen",
+      "exact imagery timing replay certified",
+      "ROI mapping frozen",
+      "preprocessing frozen",
+      "6 outer folds frozen",
+      "M4T2 estimator unchanged",
+      "Q_MON formula unchanged",
+      "Stage-A access guard tested",
+      "BIDS logging tested"
+    ]
+  },
+  "after_data": {
+    "do_not_invent_o2_17": true,
+    "resume": "O2.16 INDEPENDENT PROSPECTIVE REPLICATION config 2da2cc79 unchanged",
+    "stageA": [
+      "verify cohort manifest",
+      "frozen preprocessing",
+      "construct W_target",
+      "6 folds",
+      "all M4T2 fits",
+      "Q_MON_IN/OUT",
+      "freeze projectors",
+      "hash",
+      "commit/push/server-verify (NO held-out eval)"
+    ],
+    "stageB": [
+      "verify hashes",
+      "open held-out",
+      "TOTAL_RECOVERY",
+      "FCF",
+      "M4T2 operational replication",
+      "schedule margins",
+      "participant Q associations",
+      "exact 4-test Holm",
+      "seal O2.16"
+    ]
+  },
+  "no_threshold_derivation": {
+    "no_Q_ACCEPT_in_o2_16": true,
+    "quality_gated_rule_belongs_to": "O2.17 (after successful O2.16)"
+  },
+  "statuses": {
+    "success": "INDEPENDENT_REPLICATION_COHORT_ACQUIRED_AND_CERTIFIED (DATA status, not scientific outcome)",
+    "blockers": [
+      "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+      "O2_16_DATA_SCANNER_PROTOCOL_INCOMPATIBLE",
+      "O2_16_DATA_IMAGERY_TASK_PROVENANCE_BLOCKER",
+      "O2_16_DATA_RECRUITMENT_INCOMPLETE",
+      "O2_16_DATA_VALID_N_BELOW_CONFIRMATORY_FLOOR",
+      "O2_16_DATA_TECHNICAL_QC_FAILURE"
+    ],
+    "only_final_permits_confirmatory_o2_16": true
+  },
+  "no_scientific_claim": {
+    "may_claim": [
+      "a direct-compatible cohort has been acquired",
+      "acquisition/provenance requirements met"
+    ],
+    "may_not_claim": [
+      "M4T2 replicates",
+      "Q_MON predicts quality",
+      "imagery is necessary",
+      "O3 supported"
+    ]
+  },
+  "O3": "O3_NOT_READY",
+  "config_sha256": "804d5b21fc0c8656f9e0ef62ac4b7f412b114b7e0d3de2e328e972d75dec6444"
+}

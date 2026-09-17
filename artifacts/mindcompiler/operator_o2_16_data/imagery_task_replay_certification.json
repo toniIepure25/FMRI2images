@@ -1,0 +1,27 @@
+{
+  "source": "sealed NSD-Imagery design tsv (support/nsdimagery/nsdimagery_subjXX_imgA_2.tsv, imgB_2, visA, visB) inspected as metadata (no neural outcomes)",
+  "recovered_structure": {
+    "cue": "single-letter cue (e.g. L, V) with cue-frame image blankXXXXX_cueL.png",
+    "trial_duration_s": "~4.0 (TRIALONSET->TRIALEND)",
+    "decision": "2AFC via BUTTON; FINALDECISIONTIME ~1.3 s into trial",
+    "columns": [
+      "SUBJECT",
+      "SESSION",
+      "RUN",
+      "TRIAL",
+      "CONDITION",
+      "CUE",
+      "FRAMEFILE",
+      "GROUNDTRUTH",
+      "ISCORRECT",
+      "BUTTON",
+      "TRIALONSET",
+      "TRIALEND",
+      "FINALDECISIONTIME",
+      "RT"
+    ],
+    "historical_repeat_sets": "imgA / imgB"
+  },
+  "status": "structure recovered; exact ITI/run-count/session-structure to be bound from official NSD-Imagery event files at acquisition",
+  "if_unrecoverable_at_acquisition": "STOP with O2_16_DATA_IMAGERY_TASK_PROVENANCE_BLOCKER"
+}

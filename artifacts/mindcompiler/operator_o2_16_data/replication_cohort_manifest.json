@@ -1,0 +1,10 @@
+{
+  "recruited_ids": [],
+  "valid_ids": [],
+  "technical_exclusions": [],
+  "acquisition_completeness": {},
+  "independence_certification": "no cohort acquired",
+  "historical_overlap": 0,
+  "scanner_session_provenance": "none",
+  "status": "no cohort acquired -- awaiting authorization + acquisition"
+}

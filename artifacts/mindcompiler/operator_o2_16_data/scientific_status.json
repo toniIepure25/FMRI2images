@@ -1,0 +1,18 @@
+{
+  "status": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+  "reason": "human 7T fMRI acquisition of a new independent cohort requires ethics/IRB approval, a scanner, and real acquisition records -- none exist in this environment; the agent must not represent data as acquired",
+  "deliverable": "complete frozen acquisition PACKAGE + design-validation suite (5/5) ready; awaiting human acquisition authorization to proceed",
+  "not_a_scientific_outcome": true,
+  "may_not_claim": [
+    "M4T2 replicates",
+    "Q_MON predicts quality",
+    "imagery necessary",
+    "O3 supported"
+  ],
+  "immutable": {
+    "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+    "O2_15": "REPEAT_GEOMETRY_INSTABILITY_SUPPORTED_AS_PRIMARY_FAILURE_MODE",
+    "O2_9_N_TRIALS_STAR": 8
+  },
+  "O3": "O3_NOT_READY"
+}

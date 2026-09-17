@@ -1,0 +1,12 @@
+{
+  "gate": "O2.16-DATA",
+  "config": "804d5b21",
+  "no_scanning": true,
+  "no_human_acquisition": true,
+  "no_external_acquisition": true,
+  "sealed_provenance_inspected": [
+    "nsdimagery design tsv (metadata)",
+    "512-anchor cache provenance (C 512 x nvox)"
+  ],
+  "local_HEAD_at_write": "0aa6f2d84ad98750b6c689c646b1ffd21054afe2"
+}

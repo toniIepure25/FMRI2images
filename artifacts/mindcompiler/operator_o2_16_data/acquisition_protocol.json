@@ -1,0 +1,25 @@
+{
+  "perception": {
+    "anchors": 512,
+    "repeats": 3,
+    "total_trials": 1536,
+    "timing": {
+      "image_s": 3,
+      "gap_s": 1,
+      "fixation": "central",
+      "task": "continuous-recognition"
+    }
+  },
+  "imagery": {
+    "identities": 12,
+    "repeats": 8,
+    "total_trials": 96,
+    "trial_s": "~4 (frozen from NSD-Imagery provenance)"
+  },
+  "structural": "T1w<=1mm (+T2w)",
+  "response_device": "MRI-compatible button box",
+  "randomization": "frozen deterministic (see randomization_protocol.json)",
+  "participant_target_N": 12,
+  "qc_policy": "participant_qc_policy.json",
+  "bids_layout": "sub-<id>/ses-<n>/{anat,func}; events.tsv per run"
+}

@@ -1,0 +1,31 @@
+{
+  "perception_anchors": {
+    "count": 512,
+    "source": "sealed canonical O2.3A-RD perception anchor set (PVC cache anchor_subjXX_*.npz, C=512 x nvox + provenance.json)",
+    "bind_at_acquisition": "preserve exact historical anchor IDs/order manifest + SHA256",
+    "exclude_all_imagery_identities": true
+  },
+  "imagery_identities": {
+    "count": 12,
+    "simple": [
+      "s0",
+      "s1",
+      "s2",
+      "s3",
+      "s4",
+      "s5"
+    ],
+    "naturalistic": [
+      "n0",
+      "n1",
+      "n2",
+      "n3",
+      "n4",
+      "n5"
+    ],
+    "prefer_exact_historical_stimuli": true,
+    "if_unavailable": "homologous set prospectively defined from stimulus properties before neural acquisition"
+  },
+  "perception_imagery_separation_certified": true,
+  "stimulus_sha256": "TO_BE_BOUND_AT_ACQUISITION (real stimulus files)"
+}

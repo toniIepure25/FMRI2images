@@ -1,0 +1,9 @@
+{
+  "resume_config": "2da2cc79 (O2.16, unchanged)",
+  "estimator": "exact O2.9 M4T2 direct target-state (unchanged)",
+  "quality_monitor": "frozen 1-vs-1 Q_MON_IN/OUT (unchanged)",
+  "roi": "streams ventral=5 lateral=6 (unchanged)",
+  "design_validation": "5/5 pre-acquisition tests pass",
+  "compatible": true,
+  "note": "the acquired cohort feeds the frozen O2.16 module UNCHANGED; no new estimator/threshold/rank/D"
+}

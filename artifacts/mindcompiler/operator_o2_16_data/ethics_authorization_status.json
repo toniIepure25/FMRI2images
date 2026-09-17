@@ -1,0 +1,11 @@
+{
+  "irb_ethics_approval": "ABSENT",
+  "informed_consent_materials": "ABSENT",
+  "mri_safety_procedures": "ABSENT",
+  "site_permissions": "ABSENT",
+  "data_protection_procedures": "ABSENT",
+  "stimulus_use_permissions": "ABSENT",
+  "conclusion": "no human-subject acquisition authorization or records exist; NO scanning may occur",
+  "binding_blocker": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+  "agent_did_not_represent_data_as_acquired": true
+}

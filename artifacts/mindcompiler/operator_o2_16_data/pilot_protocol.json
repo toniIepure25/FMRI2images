@@ -1,0 +1,28 @@
+{
+  "allowed_before_confirmatory": true,
+  "N_pilot_max": 2,
+  "not_part_of_confirmatory_N": true,
+  "never_pooled": true,
+  "tests": [
+    "scanner timing",
+    "task comprehension",
+    "stimulus presentation",
+    "BIDS logging",
+    "registration",
+    "preprocessing execution"
+  ],
+  "neural_outcomes_may_not_tune": [
+    "estimator",
+    "Q_MON"
+  ],
+  "success_criteria": [
+    "all runs complete",
+    "events align to volumes",
+    "perception responses recoverable",
+    "imagery IDs/repeats correct",
+    "ventral/lateral ROI map",
+    "Stage-A software runs",
+    "Q_MON finite",
+    "no leakage"
+  ]
+}

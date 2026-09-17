@@ -1,0 +1,13 @@
+{
+  "frozen_before_first_scan": true,
+  "algorithm": "deterministic balanced schedule: per run balance identity family (simple/nat) and repeat position; global seed fixed in protocol; per-participant order via SHA256(participant_id)->uint64->PCG64",
+  "requirements": [
+    "identity balance across runs",
+    "repeat positions distributed across runs",
+    "simple/nat balance",
+    "no outcome-adaptive scheduling",
+    "no subject-specific easy identities"
+  ],
+  "global_seed": "O2.16-DATA|frozen|randomization|v1",
+  "algorithm_frozen": true
+}

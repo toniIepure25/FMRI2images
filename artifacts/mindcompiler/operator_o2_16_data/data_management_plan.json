@@ -1,0 +1,20 @@
+{
+  "format": "BIDS (preferred)",
+  "persist_immutable": [
+    "raw DICOM/NIfTI SHA256",
+    "BIDS events.tsv",
+    "stimulus manifest",
+    "acquisition parameters",
+    "structural MRI",
+    "preprocessing version",
+    "derivative manifest"
+  ],
+  "raw_never_in_git": true,
+  "repo_stores": [
+    "manifests",
+    "hashes",
+    "small derived certification artifacts",
+    "code"
+  ],
+  "storage": "institutional secured storage (not this repo)"
+}

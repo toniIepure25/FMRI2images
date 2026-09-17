@@ -1,0 +1,33 @@
+{
+  "family_size": 4,
+  "per_test": {
+    "ventral|IN": {
+      "median_rho": 0.1308582641575054,
+      "n_rho_pos": 8,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "supported": true
+    },
+    "ventral|OUT": {
+      "median_rho": 0.42277844751500565,
+      "n_rho_pos": 8,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "supported": true
+    },
+    "lateral|IN": {
+      "median_rho": 0.11893613177296317,
+      "n_rho_pos": 8,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "supported": true
+    },
+    "lateral|OUT": {
+      "median_rho": 0.4765004659249362,
+      "n_rho_pos": 8,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "supported": true
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "gate": "O2.15",
+  "freeze": "a0a08bc",
+  "node": "k8s-worker-cpu-node-r770",
+  "image": "nipreps/fmriprep:25.2.5",
+  "job": "o2-15",
+  "o2_14_replay": "O2_15_REPLAYS_O2_14 (5.6e-17)",
+  "local_HEAD_at_write": "a0a08bc5b70cec2ce830dd0cf8f5b05c318d3276"
+}

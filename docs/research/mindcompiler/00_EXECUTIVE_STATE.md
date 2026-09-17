@@ -10,6 +10,37 @@ Corrected 2026-07-17.)
 
 ---
 
+## O2.15 (2026-09-17): ACQUISITION-SCHEDULE FAILURE-MODE DIAGNOSTIC -- SEALED `REPEAT_GEOMETRY_INSTABILITY_SUPPORTED_AS_PRIMARY_FAILURE_MODE`
+
+Why do prospectively-valid M4T2 acquisitions sometimes succeed/fail? (config `831ad419`, freeze `a0a08bc`).
+For each M4T2 schedule (identity subset x 2-repeat pair) a TRAINING-ONLY geometry-agreement Q was computed
+between the 2-repeat PAIR estimate and the complementary 6-repeat COMPLEMENT estimate (within Q_IN=trace(P_IN_PAIR
+P_IN_COMP)/q; outside Q_OUT=trace(P_OUT_PAIR P_OUT_COMP)/2; exact O2.9 SVD), then Spearman-correlated across the
+2800 schedules/fold against the SEALED O2.14 held-out robustness margin; Fisher-averaged over folds ->
+participant rho; 4-test (2 comp x 2 ROI) sign-flip + Holm. Held-out margins were REGENERATED from source and
+bound to the O2.14 seal by aggregate replay (**`O2_15_REPLAYS_O2_14`, max_abs_error 5.6e-17; pair/complement
+disjoint**).
+
+**Result `REPEAT_GEOMETRY_INSTABILITY_SUPPORTED_AS_PRIMARY_FAILURE_MODE`** -- both ROIs
+`MULTICOMPONENT_REPEAT_GEOMETRY_INSTABILITY_SUPPORTED`. ALL 4 tests supported (8/8 participants rho>0, sign-flip
+p=0.0039, Holm-reject): ventral IN median rho 0.131 / OUT 0.423; lateral IN 0.119 / OUT 0.477. **The outside
+(D=2) component carries the stronger signal** (rho ~0.42-0.48 vs within ~0.12-0.13) -- consistent with O2.14's
+repeat-dominated fragility. Success-vs-fail Q contrast: successful schedules have higher training-only agreement,
+outside gap +0.089/+0.096 (within +0.022/+0.013). Additive repeat-position model R2 0.375/0.356 -> ~37% of
+repeat-quality variation is systematic per-position (LOSO cross-participant consistency median rho 0.46/0.54;
+cross-ROI within-participant 0.57-0.95 except subj01) with ~63% pair-specific non-additivity. Identity x repeat
+interaction alignment rho 0.17/0.10 (training instability partly captures O2.14's interaction). Failures are
+mostly BOTH-metric (0.73/0.76 TOTAL&FCF; FCF_ONLY ~0). **Bounded reading:** within the tested M4T2 protocol,
+schedules whose training-only two-repeat target-state geometry agreed more strongly with the complementary
+six-repeat estimate were more likely to generalize to held-out imagery, supporting REPEAT-ESTIMATION INSTABILITY
+as a reproducible source of acquisition fragility (directionality, NOT causality; NOT "repeat noise causes
+failure"; no fatigue/drift/adaptation attribution). NO schedule optimization / good-repeat protocol was derived
+-- any monitoring rule needs independent prospective validation. **Next (per brief): O2.16 INDEPENDENT
+PROSPECTIVE REPLICATION WITH CALIBRATION-QUALITY MONITORING** (define a prospective training-only Q rule for NEW
+data, frozen before external outcomes; retain M4T2; do NOT validate on the same N=8). Immutable seals preserved;
+`O3` remains `O3_NOT_READY`. 12/12 tests. One optional status-neutral artifact (O2.12-hybrid schedule comparator)
+deferred with note. Artifacts: `operator_o2_15/`.
+
 ## O2.14 (2026-09-16): TARGET-IMAGERY CALIBRATION NECESSITY / ROBUSTNESS -- SEALED `EIGHT_TRIAL_MINIMUM_AVERAGE_ONLY_NOT_SCHEDULE_ROBUST`
 
 Is the sealed O2.9 8-observation minimum ROBUST to acquisition-schedule variability (WHICH identities / WHICH

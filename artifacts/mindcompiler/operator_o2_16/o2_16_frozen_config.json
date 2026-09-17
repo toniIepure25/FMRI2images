@@ -1,0 +1,285 @@
+{
+  "gate": "O2.16",
+  "class": "INDEPENDENT_PROSPECTIVE_REPLICATION",
+  "input_head": "ba763a6510442d6623d69b32b2d0f794763a4189",
+  "question": "Can the M4T2 target-imagery calibration result AND its training-only quality signal replicate in COMPLETELY INDEPENDENT participants/data?",
+  "two_axes": {
+    "A_CALIBRATION": "does exact M4T2 direct target-state estimator again meet the historical operational sufficiency criterion in independent participants?",
+    "B_QUALITY_MONITOR": "can instability be detected using ONLY the 8 observations of an M4T2 acquisition itself, before held-out outcomes?"
+  },
+  "development_cohort": "historical O2.0-O2.15 eight participants (NSD subj01-08)",
+  "replication_cohort": "completely independent participants; NO overlap",
+  "immutable_history": {
+    "O2_15": "REPEAT_GEOMETRY_INSTABILITY_SUPPORTED_AS_PRIMARY_FAILURE_MODE",
+    "O2_14": "EIGHT_TRIAL_MINIMUM_AVERAGE_ONLY_NOT_SCHEDULE_ROBUST",
+    "O2_13": "NO_REPRODUCIBLE_TESTED_COVARIATE_STRUCTURE",
+    "O2_12": "PERCEPTION_PRIOR_BENEFICIAL_BUT_EIGHT_TRIAL_MINIMUM_NOT_REDUCED",
+    "O2_11": "SUBJECT_SPECIFIC_GEOMETRY_NOT_PREDICTABLE_FROM_TESTED_PERCEPTION_PHENOTYPE",
+    "O2_10": "COMPOSITE_TARGET_STATE_GEOMETRY_SUBJECT_SPECIFIC_DOMINANT",
+    "O2_9": "MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED",
+    "O2_9_N_TRIALS_STAR": 8,
+    "O2_9_MINIMAL_RESOURCE_SET": [
+      {
+        "M": 4,
+        "T": 2
+      }
+    ],
+    "O2_8": "RESIDUAL_CAPACITY_MULTICOMPONENT",
+    "O2_15_historical_rho": {
+      "ventral_IN": 0.131,
+      "ventral_OUT": 0.423,
+      "lateral_IN": 0.119,
+      "lateral_OUT": 0.477
+    },
+    "O2_14_historical_coverage": {
+      "ventral": 0.656,
+      "lateral": 0.579
+    },
+    "O3": "O3_NOT_READY",
+    "never_relabel_historical": true
+  },
+  "absolute_independence": {
+    "original_8_allowed_for": [
+      "historical references",
+      "frozen formulas",
+      "frozen thresholds",
+      "comparison plots"
+    ],
+    "original_8_forbidden_for": [
+      "estimate O2.16 effects",
+      "choose thresholds",
+      "tune monitor",
+      "select identities/repeats",
+      "alter ranks/preprocessing/ROI/estimator"
+    ],
+    "no_cross_validation_mixing": true,
+    "replication_N_is_new_participants_only": true
+  },
+  "stage0_audit": {
+    "search": [
+      "public datasets",
+      "already-authorized local/PVC data",
+      "genuinely newly acquired participants"
+    ],
+    "inspect": "metadata / task structure / file manifests ONLY",
+    "no_outcome_inspection_during_selection": true
+  },
+  "eligibility": {
+    "per_participant_requires": [
+      "perception data for W_target equivalent",
+      "target imagery from enough distinct identities",
+      ">=4 calibration identities with >=2 imagery repeats each",
+      ">=2 held-out imagery identities not in calibration",
+      "enough imagery to build participant native reference + capacity reference (TOTAL_RECOVERY, FULL_CAPACITY_FRACTION)",
+      "native or certified ROI for BOTH ventral and lateral",
+      "no subject overlap with historical 8",
+      "task provenance for identity+repeat without outcome inspection"
+    ]
+  },
+  "direct_vs_conceptual": {
+    "prefer": "DIRECT_REPLICATION (task/data supports historical estimator without method change)",
+    "if_requires_substantive_change": "issue NO_ELIGIBLE_DIRECT_REPLICATION_DATASET + document candidates/reasons; a conceptual replication is a SEPARATELY frozen gate; no silent adaptation"
+  },
+  "min_cohort": {
+    "N_REPLICATION_confirmatory": ">=8",
+    "if_fewer_but_eligible": "INDEPENDENT_REPLICATION_PILOT_ONLY (descriptive only, NO confirmatory status)",
+    "no_pooling_with_original": true
+  },
+  "if_no_data": {
+    "status": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+    "not_a_scientific_failure": true,
+    "not_evidence_against_O2_9_O2_15": true,
+    "preserve_O3_NOT_READY": true,
+    "do_not_substitute_N8_analysis": true
+  },
+  "no_auto_external_download": "the one-time O2.13 S3 authorization does NOT extend to O2.16; use accessible/public data when permitted; if new credentials/paid storage/paid compute/special authorization needed -> document blocker, do not infer permission",
+  "protocol_seal": {
+    "before_outcomes_freeze": [
+      "dataset/version",
+      "participant IDs",
+      "inclusion/exclusion",
+      "ROI mapping",
+      "identity families",
+      "calibration identities",
+      "held-out logic",
+      "repeat definitions",
+      "M4T2 estimator",
+      "quality-monitor formula",
+      "thresholds",
+      "inference family",
+      "replication statuses"
+    ],
+    "token": "O2_16_REPLICATION_PROTOCOL_SEALED"
+  },
+  "model": {
+    "estimator": "EXACT O2.9 direct target-state; M=4, T=2, 8 observations; within q=min(r_best,4) direct SVD; outside D=2; no Procrustes/perception-prior/anatomy-behavior-prior/new-estimator",
+    "identity_families": "if exact structure available use 2 simple + 2 nat calibration + family-balanced held-out; if exact labels absent -> prospectively defensible homologous grouping from task metadata frozen before outcomes, else NOT a direct dataset; NO outcome-derived category mapping"
+  },
+  "operational_metrics": {
+    "TOTAL_RECOVERY": "(R_M4T2-R0)/max(R_NATIVE_ORACLE-R0,1e-12)",
+    "FULL_CAPACITY_FRACTION": "(R_M4T2-R0)/max(R_FULL_CAPACITY-R0,1e-12)",
+    "report": "clipped[0,1] + unclipped"
+  },
+  "m4t2_replication_criterion": "M4T2_OPERATIONAL_REPLICATION_PASS (per ROI) iff ALL: every required participant evaluable; median clipped TOTAL_RECOVERY>=0.50; >=ceil(0.75*N) participants TOTAL>=0.50; median clipped FULL_CAPACITY_FRACTION>=0.50; >=ceil(0.75*N) FCF>=0.50 (no new p-value for resource criterion)",
+  "quality_monitor": {
+    "CRITICAL_CHANGE": "O2.15 used 2-vs-6 (not available in a real 8-observation M4T2 acquisition); O2.16 MUST use REPEAT-A vs REPEAT-B geometry from the same 4 identities (computable from the M4T2 acquisition itself, no extra imagery)",
+    "P_IN_A/B": "z_{A/B}_i = W_target.T delta_trial(i, repeat_{A/B}); stack 4 identities; q=min(r_best,4); deterministic SVD",
+    "Q_MON_IN": "trace(P_IN_A P_IN_B)/q in [0,1]",
+    "P_OUT_A/B": "o=delta-W(W.T delta); stack 4; D=2; deterministic SVD",
+    "Q_MON_OUT": "trace(P_OUT_A P_OUT_B)/2 in [0,1]",
+    "symmetry": "Q_MON invariant to A<->B (unit-tested)",
+    "Q_MON_COMP": "(q*Q_MON_IN + 2*Q_MON_OUT)/(q+2) DESCRIPTIVE only; primary = IN and OUT separately; do NOT drop IN because OUT stronger historically"
+  },
+  "no_quality_threshold_yet": "O2.15 established a CONTINUOUS relation, not a validated cutoff; O2.16 does NOT retrospectively choose a good-Q threshold from historical cohort; external replication first tests the continuous relationship; a later gate may freeze an adaptive threshold on a THIRD cohort",
+  "schedule_set": {
+    "if_multiple_M4T2_schedules": "evaluate ALL prospectively valid M4T2 schedules per participant; no sampling; no best schedule",
+    "if_single_schedule": "M4T2 operational replication still testable but within-participant schedule-correlation monitor -> QUALITY_MONITOR_INCONCLUSIVE_FROM_DATA_STRUCTURE; do NOT invent pseudo-schedules"
+  },
+  "robustness_margin": "min(TOTAL_RECOVERY-0.50, FULL_CAPACITY_FRACTION-0.50) exactly as O2.14/O2.15",
+  "quality_association": {
+    "per_participant_roi": "Spearman(Q_MON_{IN/OUT}, ROBUSTNESS_MARGIN) across valid schedules; Fisher-z average over predefined folds when folds exist; no schedule is inferential N"
+  },
+  "quality_inference": {
+    "family": "2 components x 2 ROIs = EXACTLY 4 tests (independent participants only)",
+    "signflip": "exact one-sided 2^N if practical; else frozen deterministic Monte-Carlo sign-flip >=1,000,000 patterns with frozen seed",
+    "holm": "across exactly 4",
+    "alpha": 0.05
+  },
+  "quality_monitor_pass": "QUALITY_MONITOR_REPLICATED (component x ROI) iff ALL: median participant rho>0; >=75% participants rho>0; Holm reject (no rho-magnitude threshold)",
+  "historical_comparison": {
+    "descriptive_only": true,
+    "report": [
+      "replication median rho",
+      "historical median rho",
+      "difference",
+      "sign consistency"
+    ],
+    "no_numerical_equality_required": true,
+    "no_posthoc_equivalence_bounds": true
+  },
+  "fragility_replication": {
+    "if_multiple_schedules": "report independent SCHEDULE_COVERAGE (exact O2.14 sufficiency); compare descriptively to historical ventral 0.656 / lateral 0.579; failure need NOT reproduce for M4T2 average calibration to replicate"
+  },
+  "quality_stratification": {
+    "visualization_only": true,
+    "median_split_on": [
+      "Q_MON_OUT",
+      "Q_MON_IN"
+    ],
+    "report": "held-out margins LOW-Q vs HIGH-Q",
+    "no_exported_threshold": true,
+    "no_pvalue": true
+  },
+  "roi_status": {
+    "M4T2_AND_QUALITY_MONITOR_REPLICATED": "M4T2 pass AND Q_MON_IN AND Q_MON_OUT replicate",
+    "M4T2_REPLICATED_QUALITY_MONITOR_PARTIAL": "M4T2 pass, only one component replicates",
+    "M4T2_REPLICATED_QUALITY_MONITOR_NOT_REPLICATED": "M4T2 pass, neither component",
+    "QUALITY_MONITOR_REPLICATED_M4T2_NOT_OPERATIONALLY_SUFFICIENT": "monitor replicates, M4T2 operational fails",
+    "M4T2_AND_MONITOR_NOT_REPLICATED": "neither",
+    "O2_16_ROI_REPLICATION_INCONCLUSIVE": "technical/data-structure/evaluability"
+  },
+  "program_status": {
+    "INDEPENDENT_M4T2_AND_CALIBRATION_QUALITY_REPLICATION_PASS": "both ROIs M4T2_AND_QUALITY_MONITOR_REPLICATED",
+    "INDEPENDENT_REPLICATION_PARTIAL": "calibration and/or monitor replicate only partially across components/ROIs",
+    "INDEPENDENT_M4T2_REPLICATION_PASS_MONITOR_FAIL": "M4T2 passes both ROIs but quality monitoring does not",
+    "INDEPENDENT_FAILURE_MODE_REPLICATION_PASS_M4T2_FAIL": "monitor passes both ROIs but M4T2 operational does not",
+    "INDEPENDENT_REPLICATION_NOT_CONFIRMED": "adequate confirmatory data but neither main finding replicates",
+    "O2_16_INDEPENDENT_REPLICATION_INCONCLUSIVE": "technical/evaluability",
+    "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE": "no eligible N>=8 independent dataset/cohort"
+  },
+  "claim_boundaries": {
+    "positive": "in an independent cohort, the prospectively frozen M4T2 direct target-state calibration again closed >=half of the prespecified native-oracle and full-capacity gaps in both primary ROIs, and repeat-to-repeat geometry agreement computed solely from the 8 calibration observations prospectively predicted held-out calibration success",
+    "positive_also": "the acquisition-quality signal generalized beyond the original development cohort",
+    "positive_forbidden": [
+      "8 trials universally sufficient",
+      "Q causes calibration success",
+      "repeat instability is a biological mechanism",
+      "the target-state operator is universal"
+    ],
+    "negative_m4t2": "the historical 8-observation result did not satisfy the prospectively frozen operational replication criterion in the independent cohort",
+    "negative_monitor": "the repeat-to-repeat geometry monitor derived from the O2.15 failure mode did not prospectively generalize",
+    "do_not_erase_historical": true
+  },
+  "no_model_or_threshold_search": [
+    "perception prior",
+    "covariate correction",
+    "new D",
+    "new rank",
+    "Procrustes",
+    "regularization",
+    "quality threshold optimization",
+    "ROC cutoff search",
+    "adaptive repeat selection",
+    "best-identity selection",
+    "model ensemble",
+    "external-dataset-specific tuning"
+  ],
+  "outcome_access_seal": {
+    "STAGE_A": "certify cohort + freeze participants + task/ROI mappings + construct calibration states + M4T2 fits + Q_MON + hash fitted projectors + commit/push/verify; NO held-out imagery outcome; token O2_16_EXTERNAL_STAGE_A_SEALED",
+    "STAGE_B": "after Stage-A verify: verify hashes; open held-out external imagery; operational recovery; robustness margins; participant quality associations; exact 4-test Holm; replication classification; seal"
+  },
+  "adaptation_guard": {
+    "allowed_outcome_independent": [
+      "BIDS naming translation",
+      "coordinate-system conversion",
+      "deterministic ROI resampling",
+      "deterministic unit conversion"
+    ],
+    "forbidden_after_outcome": [
+      "ROI expansion",
+      "rank modification",
+      "identity-family redefinition",
+      "exclusion based on poor result",
+      "changing repeat definitions",
+      "changing recovery thresholds"
+    ]
+  },
+  "pre_outcome_technical_tests": [
+    "Q_MON repeat-label symmetry",
+    "identical A/B -> Q=1",
+    "orthogonal subspaces -> low Q",
+    "basis rotation/sign invariance",
+    "IN projector validity",
+    "OUT projector validity",
+    "Q computed without held-out data",
+    "exact M4T2 observation count=8",
+    "no target test identity in calibration",
+    "independent-subject manifest overlap with historical=0",
+    "exact four-test family",
+    "75% participant rule",
+    "Stage-A held-out access guard",
+    "no quality-threshold search code",
+    "no reuse of historical subjects in inference"
+  ],
+  "historical_software_replay": {
+    "purpose": "run frozen O2.16 implementation on historical O2.15 state as SOFTWARE REPLAY only",
+    "require": [
+      "historical O2.9 M4T2 aggregate reproduced",
+      "historical projectors reproduced",
+      "Q_MON deterministic"
+    ],
+    "do_not_use_to_choose_thresholds": true,
+    "label": "SOFTWARE_COMPATIBILITY_REPLAY_ONLY",
+    "not_scientific_evidence": true
+  },
+  "optional_historical_qmon": {
+    "label": "POST_FREEZE_DEVELOPMENT_COHORT_DESCRIPTION",
+    "allowed": "compute 1-vs-1 Q_MON on historical participants AFTER formula frozen to verify non-degeneracy",
+    "forbidden": [
+      "alter formula",
+      "create threshold",
+      "enter O2.16 inference",
+      "call it independent validation"
+    ]
+  },
+  "next_gate": {
+    "FULL_PASS": "O2.17 PROSPECTIVE QUALITY-GATED ACQUISITION PROTOCOL (derive/freeze Q threshold or reacquisition rule from dev+replication; validate on a THIRD cohort)",
+    "M4T2_PASS_MONITOR_FAIL": "O2.17 REPLICATION-STABLE CALIBRATION WITHOUT QUALITY GATING",
+    "MONITOR_PASS_M4T2_FAIL": "O2.17 RESOURCE ESCALATION WITH FROZEN QUALITY MONITOR (extra repeats/identities restore sufficiency?)",
+    "NOT_CONFIRMED": "O2.17 CROSS-DATASET FAILURE ANALYSIS (diagnose task/acquisition/cohort/reference differences; no immediate retune)",
+    "DATA_UNAVAILABLE": "O2.16-DATA NEW REPLICATION ACQUISITION PROTOCOL (data-collection protocol for genuinely new participants; do NOT replace external replication with more N=8 analysis)"
+  },
+  "O3_policy": "O3 remains O3_NOT_READY even after successful O2.16; replication strengthens the representational program but does not establish causal computation / universal operator / thought manipulation / cross-subject native-state identity; a future O3 gate needs its OWN frozen prerequisites",
+  "O3": "O3_NOT_READY",
+  "config_sha256": "2da2cc791054406b42eb1896b9b5f123b5b6bacb8386e6fb0f1e19649cf18907"
+}

@@ -1,0 +1,51 @@
+{
+  "gate": "O2.16",
+  "stage": "0_data_availability_audit",
+  "inspected": "metadata / task structure / file manifests only (no outcome inspection)",
+  "sources_searched": {
+    "PVC_/rd/data/data": {
+      "cohort": "NSD subj01-08 only (core_b2, nsd_imagery_b0, support each = 8 subjects; 24 subj dirs = 8x3)",
+      "independent_participants": 0,
+      "note": "these 8 ARE the historical development cohort"
+    },
+    "local_repo": {
+      "cohort": "NSD only (data/nsd, subj01 partial)",
+      "independent_participants": 0
+    },
+    "NSD-Imagery(public)": {
+      "N": 8,
+      "independence": "SAME 8 participants as NSD (development cohort)",
+      "eligible": false,
+      "reason": "zero-overlap requirement violated"
+    },
+    "Horikawa&Kamitani 2017 GenericObjectDecoding/DeepImageReconstruction imagery(public)": {
+      "N": 5,
+      "eligible": false,
+      "reasons": [
+        "N<8 confirmatory floor",
+        "imagery-of-object-categories/specific-images: different identity/repeat structure",
+        "no NSD streams ventral=5/lateral=6 ROI convention",
+        "different perception-support/W_target construction -> CONCEPTUAL not DIRECT replication (separate frozen gate required)"
+      ]
+    },
+    "Shen et al. 2019 DeepImageReconstruction(public)": {
+      "N": 3,
+      "eligible": false,
+      "reasons": [
+        "N<8",
+        "structurally incompatible with M4T2 direct estimator"
+      ]
+    },
+    "Other fMRI-to-image (BOLD5000, THINGS, GOD perception)": {
+      "eligible": false,
+      "reason": "perception-only or no mental-imagery-of-identities-with-repeats structure"
+    }
+  },
+  "eligibility_conclusion": "NO already-accessible public or provisioned N>=8 INDEPENDENT cohort supports a DIRECT M4T2 replication (matching perception-support, streams ventral/lateral ROI, >=4 calibration identities x >=2 repeats + held-out identities). NSD-Imagery = the same 8. Nearest imagery datasets are N<8 AND require substantive method changes (conceptual replication, which must be a separately frozen gate).",
+  "external_download_note": "the one-time O2.13 NSD-S3 authorization does NOT extend to O2.16; no external acquisition performed; any new cohort needs its own authorization/acquisition",
+  "candidate_direct_status": "NO_ELIGIBLE_DIRECT_REPLICATION_DATASET (among accessible data)",
+  "pilot_only_available": false,
+  "confirmatory_feasible_now": false,
+  "awaiting_user_decision": true,
+  "decision": "whether the user can provide/authorize an independent N>=8 compatible cohort, else seal O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE + produce a new-acquisition protocol"
+}

@@ -1,0 +1,10 @@
+{
+  "absolute_independence_rule": "original 8 usable only for references/formulas/thresholds/plots; never for O2.16 effects/thresholds/tuning/selection",
+  "candidate_cohorts_overlap_with_historical_8": {
+    "NSD-Imagery": "100% overlap (same subjects)",
+    "Horikawa&Kamitani": "0 overlap but N=5<8 and structurally incompatible",
+    "Shen2019": "0 overlap but N=3<8"
+  },
+  "zero_overlap_AND_N>=8_AND_direct_compatible": "NONE FOUND among accessible data",
+  "certification": "cannot certify an eligible independent confirmatory cohort from currently accessible resources"
+}

@@ -10,6 +10,29 @@ Corrected 2026-07-17.)
 
 ---
 
+## PROGRAM CURRENT STATE (2026-09-19) — BLOCKED PENDING INDEPENDENT DATA
+
+**Blocking / readiness state:** `O2_16_DATA_AUTH_PACKAGE_PREPARED`
+**Scientific status (unchanged):** `O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION`
+(upstream: `O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE`; `O3_NOT_READY`).
+
+**NO further computational or scientific gate is authorized on the historical N=8 cohort.** The O2 program on
+the original eight NSD subjects is complete through O2.16; the replication protocol, its 1-vs-1 quality monitor,
+the acquisition protocol, and the pre-scanning readiness package are all frozen and validated. No new gate
+(including O2.17) is to be created, and no additional analysis of the N=8 cohort is to be performed.
+
+**The next scientific execution is the already-frozen O2.16 (config `2da2cc79`), and it may resume ONLY after a
+genuinely independent N>=8 cohort has been acquired and certified** (`INDEPENDENT_REPLICATION_COHORT_ACQUIRED_AND_CERTIFIED`).
+On that condition, resume O2.16 UNCHANGED: Stage A (W_target + 6 outer folds + all M4T2 fits + Q_MON, hashed,
+NO held-out) -> commit/push/server-verify -> Stage B (open held-out -> TOTAL_RECOVERY/FCF -> M4T2 operational
+replication -> schedule margins -> participant Q associations -> exact 4-test Holm -> seal). Everything the human
+side must do first is enumerated in `artifacts/mindcompiler/operator_o2_16_data_auth/HUMAN_ACTION_CHECKLIST.md`.
+
+Do NOT: create O2.17; run further historical-cohort analyses; fabricate ethics, scanner, recruitment, pilot, or
+acquisition-completion records.
+
+---
+
 ## O2.16-DATA-AUTH (2026-09-17): PRE-SCANNING READINESS PACKAGE -- `O2_16_DATA_AUTH_PACKAGE_PREPARED` (scientific status UNCHANGED)
 
 Human-acquisition enablement package (NOT a scientific gate; changes no result). Scientific status stays

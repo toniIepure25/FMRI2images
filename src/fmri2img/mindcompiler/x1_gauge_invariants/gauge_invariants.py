@@ -273,16 +273,16 @@ def _write(out, part, infer, roi_status, prog, triviality, synth, sig, rois, G, 
             vn = (v - v.mean()) / (v.std() + 1e-12); ln = (l - l.mean()) / (l.std() + 1e-12)
             xroi.append([s, float(np.mean(vn * ln))])
     _w(out / "cross_roi_consistency.csv", ["subject", "signature_correlation_ventral_lateral"], xroi)
-    # subject identifiability (descriptive: LOFO orientation self-match via within-support subspace)
+    # subject identifiability (descriptive): cross-subject NATIVE orientation comparison is UNDEFINED (subjects
+    # have different ROI voxel spaces) -- itself evidence orientations are private/subject-specific. Report the
+    # within-subject fold self-consistency of the native within-support orientation (same voxel space).
     ident = []
     for roi in rois:
-        correct = 0
         for s in ALL:
-            tgt = _within_sub(s, roi, 0, cells, extn)
-            best = max(ALL, key=lambda d: _subspace_sim(tgt, _within_sub(d, roi, 1, cells, extn)))
-            correct += (best == s)
-        ident.append([roi, correct, len(ALL)])
-    _w(out / "subject_identifiability.csv", ["roi", "correct_self_match", "n"], ident)
+            t0 = _within_sub(s, roi, 0, cells, extn)
+            sims = [_subspace_sim(t0, _within_sub(s, roi, f, cells, extn)) for f in range(1, N_FOLDS)]
+            ident.append([s, roi, round(float(np.mean(sims)), 6), "cross_subject_native_comparison_undefined_different_voxel_spaces"])
+    _w(out / "subject_identifiability.csv", ["subject", "roi", "within_subject_fold_self_consistency", "cross_subject_note"], ident)
     (out / "roi_status.json").write_text(json.dumps(roi_status, indent=2))
     (out / "scientific_status.json").write_text(json.dumps(
         {"status": prog, "roi_status": roi_status, "basis_invariance_max_change": binv, "discovery_cohort": True,

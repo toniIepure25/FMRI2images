@@ -1,0 +1,5 @@
+{
+  "type": "per-repeat angular rotation around identity centroid preserving norm",
+  "n": 1000,
+  "seed": "X2|subject|roi|fold|heldid|null|iter"
+}

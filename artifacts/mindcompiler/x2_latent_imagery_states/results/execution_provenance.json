@@ -1,0 +1,10 @@
+{
+  "gate": "MINDIR-X2",
+  "branch": "research/mindir-x-latent-imagery-states",
+  "config": "03ca5999",
+  "freeze": "6519d97",
+  "node": "k8s-worker-cpu-node-r770",
+  "job": "x2-latent",
+  "cv": "leave-one-training-identity-out",
+  "local_HEAD_at_write": "6519d97b44ab973820db03a63334126b5bf4e33e"
+}

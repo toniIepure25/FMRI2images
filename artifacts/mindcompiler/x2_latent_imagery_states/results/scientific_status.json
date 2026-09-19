@@ -1,0 +1,15 @@
+{
+  "status": "NO_REPRODUCIBLE_LATENT_STATE_STRUCTURE",
+  "roi_status": {
+    "ventral": "NO_REPRODUCIBLE_LATENT_STATE",
+    "lateral": "NO_REPRODUCIBLE_LATENT_STATE"
+  },
+  "discovery_cohort": true,
+  "cv_adaptation": "leave-one-training-identity-out",
+  "immutable": {
+    "X1": "INVARIANT_STRUCTURE_MULTIREGIME",
+    "O2_15": "REPEAT_GEOMETRY_INSTABILITY_SUPPORTED_AS_PRIMARY_FAILURE_MODE",
+    "O2_9_N_TRIALS_STAR": 8
+  },
+  "O3": "O3_NOT_READY"
+}

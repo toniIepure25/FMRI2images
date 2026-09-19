@@ -1,0 +1,6 @@
+{
+  "cv": "leave-one-training-identity-out (10 identities x 8 repeats in sealed O2.7 trial_native; the 2 outer-held-out identities have only means -> adapted from the frozen '2 held-out ids' design, intent preserved)",
+  "fit_center": "each fit identity's repeats minus that identity's training centroid",
+  "heldout_center": "leave-one-repeat-out within held-out identity (CV-clean; own value excluded)",
+  "state_space": "D=2 outside basis from fit identities only"
+}

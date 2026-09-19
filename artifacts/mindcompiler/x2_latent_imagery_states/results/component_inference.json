@@ -1,0 +1,33 @@
+{
+  "family_size": 2,
+  "per_test": {
+    "ventral": {
+      "median_E_STATE": 0.5149453769101913,
+      "n_E_pos": 8,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "median_DELTA_LL": -0.11299920824996207,
+      "n_DLL_pos": 0,
+      "primary_K2_beats_K1": false,
+      "median_k2_minus_t_gain": -0.09070173856945085,
+      "n_k2_gt_t": 1,
+      "median_degenerate_folds": 22.5,
+      "median_cross_id_distinct": 9.0,
+      "discrete_state_supported": false
+    },
+    "lateral": {
+      "median_E_STATE": 0.6475028619069811,
+      "n_E_pos": 8,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "median_DELTA_LL": -0.10019061467909954,
+      "n_DLL_pos": 0,
+      "primary_K2_beats_K1": false,
+      "median_k2_minus_t_gain": -0.0648800755996779,
+      "n_k2_gt_t": 0,
+      "median_degenerate_folds": 43.0,
+      "median_cross_id_distinct": 6.5,
+      "discrete_state_supported": false
+    }
+  }
+}

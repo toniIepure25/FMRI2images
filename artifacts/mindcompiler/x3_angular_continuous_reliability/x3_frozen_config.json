@@ -1,0 +1,208 @@
+{
+  "gate": "MINDIR-X3",
+  "class": [
+    "EXPLORATORY_DISCOVERY_COHORT_N8",
+    "ANGULAR_SCAFFOLD_CONTINUOUS_RELIABILITY_DECOMPOSITION"
+  ],
+  "branch": "research/mindir-x-angular-reliability",
+  "input_head": "bc0f5a27e7edd276417530af8911091f13841e17 (X2 seal)",
+  "question": "Does visual imagery preserve a stable perception<->imagery angular geometry while repeat-to-repeat calibration variability is dominated by continuous scale/reliability fluctuations rather than changes in that angular geometry?",
+  "conceptual_model": "geometry = stable angular relation + continuous reliability variation (NOT discrete latent-state switching); x_{s,i,r}=mu_{s,i}+sqrt(lambda_{s,i,r}) Sigma_s^1/2 eps is a TESTED MODEL CLASS only; lambda is NOT a biological quantity",
+  "N": 8,
+  "unit": "participant",
+  "not_inferential_N": [
+    "schedules",
+    "identities",
+    "repeats",
+    "folds",
+    "dimensions"
+  ],
+  "immutable": {
+    "X2": "NO_REPRODUCIBLE_LATENT_STATE_STRUCTURE",
+    "X1": "INVARIANT_STRUCTURE_MULTIREGIME (B_angles shared/nontrivial both ROIs)",
+    "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+    "O2_15": "REPEAT_GEOMETRY_INSTABILITY_SUPPORTED_AS_PRIMARY_FAILURE_MODE",
+    "O2_14": "EIGHT_TRIAL_MINIMUM_AVERAGE_ONLY_NOT_SCHEDULE_ROBUST",
+    "O2_10": "COMPOSITE_TARGET_STATE_GEOMETRY_SUBJECT_SPECIFIC_DOMINANT",
+    "O2_9": "MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED",
+    "O3": "O3_NOT_READY",
+    "never_relabel": true
+  },
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "secondary": "parietal after primary seal",
+  "hypotheses": {
+    "H1_angular_scaffold": "is the perception<->imagery principal-angle signature reproducibly stable across imagery repeats beyond matched pipeline constraints?",
+    "H2_continuous_reliability": "does a prospectively-defined Student-t scale/reliability score from training-side repeat geometry predict held-out M4T2 calibration performance?",
+    "both_required_for_full_pass": true
+  },
+  "immutable_inputs": [
+    "X1 B_angles definition",
+    "X1 pipeline-triviality machinery",
+    "X2 Student-t implementation",
+    "O2.15 trial residual state",
+    "O2.14 schedule outcomes",
+    "W_target",
+    "D=2 outside representation",
+    "6 outer folds",
+    "ROI definitions",
+    "O2.9 M4T2 estimator"
+  ],
+  "no_new_feature_search": [
+    "spectral entropy",
+    "new eigenvalue ratios",
+    "new Q variants",
+    "new clustering",
+    "PCA searches",
+    "neural nets",
+    "nonlinear embeddings",
+    "arbitrary quality features",
+    "motion",
+    "physiology",
+    "behavior",
+    "anatomy"
+  ],
+  "part1_repeat_angle": {
+    "M4T1_REPEAT_GEOMETRY": "per subject/ROI/fold/balanced-M4-subset/repeat r: geometry from the 4 single-repeat imagery observations at position r (exact frozen machinery, no tuning)",
+    "A_r": "X1 B_angles cos^2(theta) between frozen perception support col(W) and the repeat-specific imagery support (rank = min(K,4) from 4 single-repeat residuals)",
+    "A_-r": "leave-one-repeat-out reference: same 4 identities, repeats {0..7}\\{r}, frozen full-resource estimator; target repeat r excluded",
+    "D_ANGLE": "||A_r - A_-r||_2 after deterministic component normalization (lower = more stable)"
+  },
+  "angular_matched_null": {
+    "preserve": [
+      "rank",
+      "total energy",
+      "perception-support dim",
+      "repeat-specific marginal spectrum"
+    ],
+    "randomize": "orientation in permissible space",
+    "E_ANGLE": "median(D_ANGLE_NULL)/median(D_ANGLE_REAL) (positive => real more stable)",
+    "aggregate": [
+      "identity subset",
+      "fold",
+      "participant"
+    ]
+  },
+  "pipeline_triviality_guard": {
+    "required": true,
+    "X1_style_matched_constrained_operator": true,
+    "if_real_not_better_than_constrained": "REPEAT_ANGLE_STABILITY_PIPELINE_CONSTRAINED -> H1 FAILS"
+  },
+  "part2_student_t_reliability": {
+    "reuse_exact_X2_single_t": true,
+    "no_refit_K2": true,
+    "no_latent_state_search": true,
+    "objective": "test whether the continuous per-trial scale predicts O2.14 schedule quality (NOT rediscover Student-t wins)",
+    "fit": "frozen multivariate Student-t on identity-residualized D=2 OUTSIDE repeat geometry, TRAINING imagery only; held-out identities inaccessible",
+    "leave_identity_out_scoring": "fit reference on OTHER training identities, score identity i's repeats (no own-identity leakage)",
+    "robust_weight": "w=(nu+D)/(nu+d^2), D=2 (operationally 'continuous reliability weight' ONLY; not attention/noise/arousal/precision/physiology)",
+    "REL_SCALE": "mean(log w) over the 8 schedule observations (log frozen before outcomes; do NOT test min/max/median/harmonic/clipping)"
+  },
+  "held_out_outcome": {
+    "reuse_exact_O2_14_ROBUSTNESS_MARGIN": true,
+    "no_new_definition": true,
+    "regenerated_from_source_and_bound_to_O2_14_by_aggregate_replay": true
+  },
+  "scale_association": {
+    "per_subject_roi_fold": "Spearman(REL_SCALE, ROBUSTNESS_MARGIN) over all valid M4T2 schedules (schedules estimate, not inferential N)",
+    "participant": "Fisher z_f=atanh(rho_f); Z_SCALE=mean_f z_f; rho_participant=tanh(Z_SCALE)"
+  },
+  "scale_matched_null": {
+    "within_subject_roi_fold_identity": "permute repeat-position reliability weights preserving identity/values/repeat count/schedule/outcome",
+    "min_perms": 1000,
+    "seed": "X3|scale|subject|roi|fold|null_iteration -> SHA256 -> uint64 -> PCG64",
+    "E_SCALE": "Z_SCALE_real/mean(Z_SCALE_null) (positive => reliability predicts beyond repeat-label exchangeability)"
+  },
+  "primary_inference": {
+    "family": "EXACTLY 4 tests: ventral E_ANGLE, lateral E_ANGLE, ventral E_SCALE, lateral E_SCALE",
+    "signflip": "exact one-sided 2^8=256 per test",
+    "holm": "across all four",
+    "alpha": 0.05,
+    "no_other_confirmatory_p": true
+  },
+  "H1_support": "per ROI iff ALL: median E_ANGLE>0; >=6/8 E_ANGLE>0; Holm-reject in final 4-test family; pipeline-triviality guard passes",
+  "H2_support": "per ROI (CONTINUOUS_SCALE_RELIABILITY_SUPPORTED) iff ALL: median E_SCALE>0; >=6/8 E_SCALE>0; median raw rho_SCALE>0; >=6/8 raw rho_SCALE>0; Holm reject",
+  "descriptive_diagnostics": {
+    "angular_pair_disagreement": "||A_repeatA - A_repeatB|| per M4T2 pair vs margin (expect negative; no p)",
+    "scale_vs_angle_dominance": "DELTA_DOM=|rho_SCALE|-|rho_ANGLE| (descriptive; scale need NOT beat angle for PASS)",
+    "high_low_reliability_angle": "split repeats by median t-weight; ANGLE_HIGH/LOW vs leave-out reference (does X1 angle survive in low-reliability?)",
+    "x1_loso_reliability_stratified": "X1 donor-mean LOSO for B_angles on HIGH and LOW reliability separately; report sign of X1 shared-angle effect (no new p)",
+    "repeat_position_residualized": "subtract repeat-position mean log-weight; recompute scale association (persists=schedule-specific info beyond position; vanishes=position-explained)",
+    "identity_residualized": "subtract identity mean log-weight; recompute (descriptive)",
+    "qout_scale": "Spearman(REL_SCALE, sealed O2.15 Q_OUT) + rho(REL_SCALE,margin) vs rho(Q_OUT,margin) (complementary; no winner)",
+    "cross_roi_reliability": "ventral vs lateral nu / weights / REL_SCALE participant correlation (no inference; global-process consistent but source unidentified)",
+    "continuous_tail": "fitted nu, Mahalanobis distribution, weights, tail fraction below fixed descriptive quantiles (no new threshold, no bad-trial class)",
+    "gaussian_vs_t_replay": "certify Student-t>=Gaussian/K2 (frozen X2 models; no re-inference)"
+  },
+  "program_status": {
+    "CONSERVED_ANGULAR_SCAFFOLD_WITH_CONTINUOUS_RELIABILITY_VARIATION_SUPPORTED": "H1 both ROIs AND H2 both ROIs AND X1 B_angles nontrivial/shared AND X2 discrete negative AND Student-t premise valid",
+    "ANGULAR_SCAFFOLD_SUPPORTED_RELIABILITY_LINK_PARTIAL": "H1 both ROIs but H2 partial/negative",
+    "CONTINUOUS_RELIABILITY_LINK_SUPPORTED_ANGULAR_STABILITY_PARTIAL": "H2 both ROIs but H1 partial/negative",
+    "ANGULAR_RELIABILITY_MULTIREGIME": "ventral/lateral materially differ",
+    "NO_JOINT_ANGULAR_RELIABILITY_STRUCTURE": "neither main hypothesis supported",
+    "X3_INCONCLUSIVE": "technical/provenance"
+  },
+  "claim_boundaries": {
+    "positive": "within the discovery cohort, the perception-to-imagery principal-angle relationship remained more stable across repeated imagery measurements than matched constrained geometries, while a continuous Student-t reliability score derived entirely from training-side repeat geometry predicted held-out calibration success in both primary ROIs; together with failed direct orientation transfer and failed discrete-state modeling this is consistent with a stable angular scaffold expressed in subject-specific coordinates and perturbed by continuous repeat-level reliability variation",
+    "forbidden": [
+      "universal computational law",
+      "conserved physical law",
+      "neural gauge symmetry",
+      "stochastic differential process",
+      "attention fluctuations",
+      "fatigue",
+      "scanner drift",
+      "physiological noise",
+      "neural gain",
+      "causal reliability variable",
+      "Student-t is the biological generative process"
+    ]
+  },
+  "pipeline_triviality_requirement": "any angular-stability positive MUST beat matched constrained synthetic operators else H1 pipeline-trivial and cannot contribute to PASS",
+  "no_model_search": [
+    "alternative heavy-tail families",
+    "Laplace",
+    "generalized Gaussian",
+    "mixture Student-t",
+    "heteroscedastic NN",
+    "alternate scale scores",
+    "alternate angle distances",
+    "alternate ranks",
+    "alternate D",
+    "alternate W",
+    "new Q variants"
+  ],
+  "synthetic_controls": [
+    "1 fixed scaffold + t scale -> H1,H2 recover",
+    "2 random orientation + t scale -> H1 fails H2 may pass",
+    "3 stable angles + Gaussian homoscedastic -> H1 pass H2 null",
+    "4 discrete two-state -> scale not falsely unique",
+    "5 rank-constrained angles -> pipeline-triviality flag",
+    "6 robust weight monotonic in Mahalanobis",
+    "7 identity leave-out no leakage",
+    "8 held-out absent from reliability estimation",
+    "9 exact 4-test Holm",
+    "10 repeats/schedules/folds not inferential N",
+    "11 repeat-position residualization correct",
+    "12 angle basis/sign invariance",
+    "13 O2/X1/X2 seals immutable",
+    "14 no model/feature search"
+  ],
+  "provenance": {
+    "O2_checkpoint": "bd7470ce18c5faf9e847d0d56e1a200f9f06af4c",
+    "X1": "6726b98360fbd0cc4c286fddf506f90704ebdebf",
+    "X2": "bc0f5a27e7edd276417530af8911091f13841e17",
+    "reuse_only_sealed": true
+  },
+  "x2_adaptation_record": "X2 used leave-one-training-identity-out because trial-level repeats for the 2 outer-held-out identities are not in sealed trial_native; X3 records this and uses ONLY genuinely existing repeat-level identity data (10 training identities x 8 repeats); any result bounded to that set",
+  "next_gate": {
+    "FULL_SUPPORTED": "X3-REPLICATION: add angular/reliability as SECONDARY preregistered endpoints to the future O2.16 independent cohort (do NOT alter O2.16 primary endpoints; do NOT optimize the same N=8)",
+    "partial": "freeze the supported component for future replication; no replacements",
+    "negative": "seal negative; no alternative distributions/features on this cohort"
+  },
+  "o2_policy": "O2.16 unchanged and blocked on independent acquisition; X3 cannot modify M4T2 criterion / Q_MON / O2.16 config / O2 acquisition design",
+  "O3": "O3_NOT_READY",
+  "config_sha256": "3a6eb253ccb0cdeaac2c35d3a28603a958115a7f1c5357f8c00de11e132d8d0d"
+}

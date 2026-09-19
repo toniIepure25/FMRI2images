@@ -1,0 +1,8 @@
+{
+  "loso_permutation_null": {
+    "type": "per_component_permutation",
+    "n": 1000,
+    "seed": "X1|subject|roi|block|iter"
+  },
+  "constrained_random_operator_negative_control": "see pipeline_triviality_controls.csv (random gaussian ops preserving V/10/K/rank)"
+}

@@ -1,0 +1,69 @@
+{
+  "family_size": 8,
+  "per_test": {
+    "ventral|A_spectral": {
+      "median_E": 26.454729645547417,
+      "n_E_pos": 8,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "pipeline_constrained": true,
+      "supported": false
+    },
+    "ventral|B_angles": {
+      "median_E": 23.69723808629665,
+      "n_E_pos": 8,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "pipeline_constrained": false,
+      "supported": true
+    },
+    "ventral|C_support": {
+      "median_E": 11.227846197987134,
+      "n_E_pos": 8,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "pipeline_constrained": true,
+      "supported": false
+    },
+    "ventral|D_compression": {
+      "median_E": 64.57558771546903,
+      "n_E_pos": 8,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "pipeline_constrained": true,
+      "supported": false
+    },
+    "lateral|A_spectral": {
+      "median_E": 5.378602147167506,
+      "n_E_pos": 8,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "pipeline_constrained": true,
+      "supported": false
+    },
+    "lateral|B_angles": {
+      "median_E": 14.409191751734276,
+      "n_E_pos": 8,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "pipeline_constrained": false,
+      "supported": true
+    },
+    "lateral|C_support": {
+      "median_E": 28.133237576597438,
+      "n_E_pos": 8,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "pipeline_constrained": true,
+      "supported": false
+    },
+    "lateral|D_compression": {
+      "median_E": 55.436510154419665,
+      "n_E_pos": 8,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "pipeline_constrained": true,
+      "supported": false
+    }
+  }
+}

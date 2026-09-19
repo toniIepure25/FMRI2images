@@ -1,0 +1,13 @@
+{
+  "gate": "MINDIR-X1",
+  "branch": "research/mindir-x-gauge-invariants",
+  "config": "85c0f628",
+  "freeze": "21c7baa",
+  "fix": "638c6c0",
+  "node": "k8s-worker-cpu-node-r770",
+  "image": "nipreps/fmriprep:25.2.5",
+  "job": "x1-gauge",
+  "sealed_state": "96/96 cells + 96/96 ext",
+  "basis_invariance_max_change": 1.42e-14,
+  "local_HEAD_at_write": "638c6c00650769a039dd1508503183a74473be6e"
+}

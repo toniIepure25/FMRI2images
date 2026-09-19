@@ -1,0 +1,23 @@
+{
+  "basis_invariance_tests.json": "74566a0a8b3d2d61854108a49fbaf9a03c7473f3695ddd96550df3ba3e3795fe",
+  "component_inference.json": "b4b8d6c10232f2cf77b39311eecb178cd3e68897ddfc3087e8e965cd7006367b",
+  "compression_signature.csv": "bc2f4cce25369325fa64201464130046d04d73f1cbf90dc1dd4543a770034e78",
+  "cross_roi_consistency.csv": "3400d9e5d749e714343587fae8f81264bcfc8a4acdfd56cd94109080c3f2202a",
+  "execution_provenance.json": "8baafcbe5ee864f4597f93a13efea689724501c97e55b8f1edd8a4cf60564791",
+  "fold_robustness.csv": "71bbba3fe175beceb6cddcaed8749078c0fb6f45059a53f506dd293f029e64c8",
+  "loso_invariant_prediction.csv": "bde2ad2821b25a79ada951feae4faa76d95061da1ddd2ebbdfd664c977ab7e19",
+  "matched_null_results.json": "3df226995d3cbbd61fe3481596e418c2636e3445231f72dedcf2d633c4d2bd2c",
+  "next_gate_decision.json": "041845653f3813593a7c3d7926fe82e61f7195f5de6c728a2800f387bab43f7c",
+  "operator_equivalence_definition.json": "5b327acbb41cb5ed4d4cb00a38c348333e2c247b017400d7d1c8889cd3d4bf22",
+  "orientation_vs_invariant_synthesis.csv": "28621c0777c1dccb1c73467560bb03c2dc5f5654f0f7107de695b8f297ed0f90",
+  "pipeline_triviality_controls.csv": "dcc16df659d939de5c3ba7bf50d30a818e44659d7c75a5c0f7acbca4499ae83b",
+  "principal_angle_spectrum.csv": "685536cde3e96aca113dd30ed2823595e7d3bd700537778f2fc495bee4f239df",
+  "roi_status.json": "90b2efad399a17d6409c5ab6958fbc55e119b2a602dcd7dcd701ca867e66c7cc",
+  "scientific_status.json": "5c2c4539138d13dc34fce8a61eeeb3852e6bf0ded9d9b83c651d3be5b58b4613",
+  "sealed_state_verification.json": "78225a328eed2c62981dc581f09548d7c503125821ea969eaf45f57deb04af74",
+  "spectral_shape.csv": "60ce0f58f579201bc8d15e1e289ea3faa314cbb59b4db7844fec2dd76cd94d0c",
+  "subject_identifiability.csv": "9a34e6f9e94c04e1ad52667863d0ee15946cac6a0f1aa748fe3b4340a47511f3",
+  "subject_invariant_signature.csv": "3f6c145cb872f231df5ccc629c0c94a42f7600ed0a18dde8563cfda5a1704921",
+  "support_partition.csv": "79cb3f492382af4401b98380c08b197c2dd264ebf6aaf51dead117a55bdb62ee",
+  "test_report.json": "8a237376396a2c3b32f01bc1bd721b29f6a65dc37f36d000298d53a9583cd130"
+}

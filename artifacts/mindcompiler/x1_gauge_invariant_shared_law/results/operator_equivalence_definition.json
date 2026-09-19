@@ -1,0 +1,4 @@
+{
+  "equivalence_class": "invariants unchanged under W_target->W_target R (R orthogonal KxK), singular/eigenvector sign flips, identity ordering; principal angles invariant to V-space orthogonal transforms",
+  "gauge_invariant_means": "tested basis-invariant scalars only; NOT physical gauge symmetry"
+}

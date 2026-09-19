@@ -1,0 +1,4 @@
+{
+  "suite": "tests/mindcompiler/x1_gauge_invariants/",
+  "result": "8 passed in 7.33s"
+}

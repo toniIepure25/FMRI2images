@@ -1,0 +1,11 @@
+{
+  "status": "INVARIANT_STRUCTURE_MULTIREGIME",
+  "roi_status": {
+    "ventral": "INVARIANTS_SUPPORTED(1)",
+    "lateral": "INVARIANTS_SUPPORTED(1)"
+  },
+  "basis_invariance_max_change": 1.4210854715202004e-14,
+  "discovery_cohort": true,
+  "immutable_o2": "unchanged",
+  "O3": "O3_NOT_READY"
+}

@@ -1,0 +1,262 @@
+{
+  "gate": "MINDIR-X2",
+  "class": [
+    "EXPLORATORY_DISCOVERY_COHORT_N8",
+    "TRIAL_LEVEL_LATENT_STATE_DIAGNOSTIC"
+  ],
+  "branch": "research/mindir-x-latent-imagery-states",
+  "input_head": "6726b98360fbd0cc4c286fddf506f90704ebdebf (X1 seal)",
+  "question": "Does the repeat-level variability (O2.14/O2.15) reflect reproducible latent imagery STATES (a small number of modes generalizing across identities within a participant) rather than only continuous measurement variability?",
+  "no_prior_assumption_states_exist": true,
+  "N": 8,
+  "unit": "participant",
+  "not_inferential_N": [
+    "schedules",
+    "repeats",
+    "folds"
+  ],
+  "immutable": {
+    "X1": "INVARIANT_STRUCTURE_MULTIREGIME",
+    "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+    "O2_15": "REPEAT_GEOMETRY_INSTABILITY_SUPPORTED_AS_PRIMARY_FAILURE_MODE",
+    "O2_14": "EIGHT_TRIAL_MINIMUM_AVERAGE_ONLY_NOT_SCHEDULE_ROBUST",
+    "O2_9": "MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED",
+    "O3": "O3_NOT_READY",
+    "never_relabel": true
+  },
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "secondary": "parietal after primary seal",
+  "representation": {
+    "primary": "OUTSIDE-perception-support trial residual o_{s,i,r} = delta_trial - W(W.T delta_trial); exact historical W_target; no new voxel/W/residual",
+    "why_outside_primary": "O2.15 showed substantially stronger training-stability associations for OUT than IN",
+    "within_is_secondary_control": true,
+    "no_outcome_switching": true
+  },
+  "identity_effect_removal": {
+    "e_{i,r}": "o_{i,r} - centroid_i_training",
+    "cv_clean": "a held-out repeat's own value must NOT enter the centroid used to residualize it (leave-one-repeat-out within held-out identity)",
+    "no_full_data_centering_for_cv": true
+  },
+  "no_global_subject_pooling": "latent states modeled WITHIN subject; no cross-subject concatenation; cross-subject only via coordinate-invariant state descriptors",
+  "models": {
+    "M0": "ONE_CONTINUOUS_STATE (single full-cov Gaussian in frozen D=2)",
+    "M1": "TWO_LATENT_STATES (2-comp full-cov GMM)",
+    "M2": "THREE_LATENT_STATES (secondary/model-sensitivity only)",
+    "primary_comparison": "K=1 vs K=2 (K=3 descriptive only)"
+  },
+  "dimensionality": {
+    "primary_D": 2,
+    "source": "frozen O2 outside-support D=2; NO PCA dimension search",
+    "secondary_sensitivity": [
+      "D=1",
+      "O2.6 outside effective-rank"
+    ],
+    "secondary_cannot_alter_primary": true
+  },
+  "state_space": {
+    "per_subject_roi_fold": "build D=2 outside basis from TRAINING identities/repeats only; project identity-residualized repeat residuals into it; no held-out identity in basis"
+  },
+  "generalization": {
+    "design": "6 outer folds; TRAIN=10 outer-training identities, TEST=2 held-out; fit K1/K2 on TRAINING-identity repeat residuals; evaluate predictive likelihood on HELD-OUT identities' repeats (prevents state==identity)"
+  },
+  "model_spec": {
+    "gmm": "deterministic full-covariance Gaussian mixture in D=2",
+    "ridge": "epsilon = 1e-6 * trace(Cov)/D (fixed; no hyperparameter search)",
+    "init": "deterministic fixed/exhaustive multi-start (data-quantile seeds); multiple starts ONLY to solve optimization, select MAX TRAINING likelihood; record all starts",
+    "no_hyperparameter_search": true
+  },
+  "label_switching": {
+    "canonicalize": "state centroid projection on first outside axis: lower->STATE0, higher->STATE1 (reproducibility only)",
+    "comparisons_label_symmetry_aware": true
+  },
+  "primary_effect": {
+    "per_subject_roi_fold": [
+      "LL_K1",
+      "LL_K2 on held-out-identity repeats (per-repeat normalized)"
+    ],
+    "DELTA_LL": "mean heldout loglik K2 - mean heldout loglik K1",
+    "participant": "mean across 6 folds"
+  },
+  "complexity_penalty_control": {
+    "report": [
+      "heldout log predictive density",
+      "training BIC",
+      "training AIC"
+    ],
+    "primary_decision": "HELD-OUT predictive likelihood ONLY; no criterion cherry-picking"
+  },
+  "matched_null": {
+    "preserve": [
+      "identity",
+      "subject",
+      "ROI",
+      "marginal residual distribution",
+      "repeat count"
+    ],
+    "destroy": "repeat-level latent-state coherence",
+    "construction": "within each identity, deterministic random angular rotation of repeat residual vectors around the identity centroid preserving each repeat norm",
+    "frozen_before_outcome": true,
+    "min_iter": 1000,
+    "seed": "X2|subject|roi|fold|null_iteration -> SHA256 -> uint64 -> PCG64"
+  },
+  "E_STATE": "DELTA_LL_real_s / mean(DELTA_LL_null_s) (participant-level)",
+  "primary_inference": {
+    "family": "2 ROIs = EXACTLY 2 tests (primary OUTSIDE only)",
+    "signflip": "exact one-sided 2^8=256",
+    "holm": "across exactly 2",
+    "alpha": 0.05
+  },
+  "support_rule": "TWO_STATE_STRUCTURE_SUPPORTED (ROI) iff ALL: median E_STATE>0; >=6/8 E_STATE>0; Holm reject; median raw heldout DELTA_LL>0; >=6/8 raw DELTA_LL>0",
+  "identity_split_reproducibility": {
+    "deterministic_split": "5 training identities vs 5 training identities balanced simple/nat",
+    "compare": "label-invariant |cos(theta_state)| + normalized state separation magnitude",
+    "null": "permuted repeat geometry",
+    "descriptive_unless_prospectively_promoted": true
+  },
+  "state_separation": {
+    "v_state": "(mu1-mu0)/||mu1-mu0||",
+    "d_state": "Mahalanobis(mu0,mu1)",
+    "persist": [
+      "direction",
+      "magnitude",
+      "mixture occupancy"
+    ]
+  },
+  "no_tiny_cluster": {
+    "invalid_if": "either state <20% of training repeats (hard posterior)",
+    "flag": "DEGENERATE_MIXTURE",
+    "fold_cannot_support_state": true,
+    "no_refit_with_other_threshold": true
+  },
+  "posterior_certainty": {
+    "report": [
+      "median max posterior",
+      "posterior entropy",
+      "ambiguous fraction max<0.7"
+    ],
+    "descriptive_only": true
+  },
+  "repeat_position": {
+    "after_assignments_frozen": "P(state=1|repeat_position) over 8 positions; LOSO predict 8th from 7",
+    "descriptive_only": true,
+    "no_causal_claim": true
+  },
+  "state_vs_o2_15": {
+    "per_M4T2_pair": "same dominant state vs different (states fit WITHOUT held-out schedule ids)",
+    "compare_descriptive": [
+      "Q_OUT",
+      "Q_IN",
+      "robustness margin",
+      "schedule success"
+    ],
+    "no_new_primary_p": true
+  },
+  "cross_identity_generalization": {
+    "predict_posterior_for_2_heldout_identities": true,
+    "state_validity": "each state receives posterior-dominant repeats from >=3 distinct training identities; a one-identity state is NOT a cross-identity latent state"
+  },
+  "cross_roi_state_agreement": {
+    "maximize_label_agreement_over_2_perms": true,
+    "report": [
+      "adjusted Rand index",
+      "mutual information",
+      "posterior correlation"
+    ],
+    "descriptive_only": true
+  },
+  "within_support_secondary": {
+    "after_outside_sealed": "repeat exact K1 vs K2 in frozen within-support coords; status-neutral; asks imagery-specific/outside-dominant vs globally present; no Holm expansion"
+  },
+  "temporal_limit": {
+    "forbidden_claims": [
+      "rapid neural switching",
+      "Markov dynamics",
+      "dwell times",
+      "attractor transition rates"
+    ],
+    "allowed": [
+      "repeat-level latent modes",
+      "latent imagery-state structure"
+    ],
+    "state_switching_is_shorthand_for_across_repeat_mode_changes": true
+  },
+  "continuous_alternative_control": {
+    "student_t": "prospectively frozen single-state multivariate Student-t (D=2) with df estimated on training via deterministic ML",
+    "compare_heldout": [
+      "K1 Gaussian",
+      "single Student-t",
+      "K2 GMM"
+    ],
+    "critical": true,
+    "rule": "if Student-t performs >= K2, do NOT interpret K2>K1 as evidence for discrete states"
+  },
+  "discrete_state_rule": {
+    "upgrade_MULTIMODAL_REPEAT_GEOMETRY_to_LATENT_TWO_STATE_STRUCTURE iff ALL": [
+      "1 K2 beats Gaussian K1 (primary null-controlled)",
+      "2 K2 heldout LL > Student-t (participant median)",
+      "3 >=6/8 K2>Student-t",
+      "4 non-degenerate mixtures",
+      "5 state separation generalizes across identity subsets"
+    ]
+  },
+  "program_status": {
+    "LATENT_IMAGERY_TWO_STATE_STRUCTURE_SUPPORTED": "both primary ROIs satisfy full discrete-state rule",
+    "REPEAT_GEOMETRY_MULTIMODAL_BUT_DISCRETENESS_UNRESOLVED": "K2>Gaussian K1 but Student-t/stability controls prevent discrete interpretation",
+    "LATENT_STATE_STRUCTURE_MULTIREGIME": "ROI conclusions differ",
+    "NO_REPRODUCIBLE_LATENT_STATE_STRUCTURE": "neither ROI passes primary K2-vs-null",
+    "X2_INCONCLUSIVE": "technical/provenance"
+  },
+  "claim_boundaries": {
+    "positive": "repeat-level imagery residuals outside perception-derived support were better predicted by a two-mode latent model than by prospectively specified single-state alternatives, and the latent separation generalized across held-out stimulus identities, consistent with reproducible repeat-level imagery-state structure",
+    "forbidden": [
+      "brain attractors discovered",
+      "discrete cognitive states proven",
+      "state switching causes calibration failure",
+      "fatigue causes state changes",
+      "scanner drift causes states"
+    ],
+    "o2_15_link_allowed": "the latent-mode description accounts for part of the repeat-geometry instability previously associated with calibration failure",
+    "o2_15_link_forbidden": "latent states cause failure"
+  },
+  "exploratory_status": {
+    "DISCOVERY_COHORT_N8": true,
+    "independent_replication_required": true,
+    "o2_16_unchanged": true
+  },
+  "synthetic_controls": [
+    "1 single Gaussian -> K1",
+    "2 heavy-tailed t -> Student-t not false discrete",
+    "3 planted 2-state -> K2",
+    "4 planted 3-state -> K2 partial/K3 secondary",
+    "5 identity-specific clusters fail cross-identity generalization",
+    "6 label swap -> same metrics",
+    "7 low-occupancy spurious -> degenerate",
+    "8 train/test identity separation leakage guard",
+    "9 basis sign/rotation invariance",
+    "10 matched null removes latent coherence",
+    "11 exact 2-test Holm",
+    "12 schedules/repeats/folds not inferential N",
+    "13 O2 seals immutable",
+    "14 no K/hyperparameter search"
+  ],
+  "provenance": [
+    "O2.15 trial residual state",
+    "O2.14 schedule outcomes",
+    "W_target",
+    "D=2 outside representation",
+    "6 outer folds",
+    "held-out identities",
+    "ROI definitions",
+    "no revised historical model"
+  ],
+  "next_gate": {
+    "SUPPORTED": "X2.1 STATE-CONDITIONAL IMAGERY TRANSFORMATION INVARIANTS (does the X1 transformation law change between the two modes; T_{s,state}=U_{s,state} Lambda_state V_s^T; no causal transitions)",
+    "MULTIMODAL_UNRESOLVED": "X2.1 CONTINUOUS LATENT RELIABILITY MANIFOLD (do NOT force clustering)",
+    "negative": "seal negative; do NOT search K=4,5,6 or alternate clustering on the same cohort"
+  },
+  "O3": "O3_NOT_READY",
+  "config_sha256": "03ca5999159463b4a2a8fdbc68d936682235e06079eab6795a62b81be972f8f7"
+}

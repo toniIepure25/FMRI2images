@@ -1,0 +1,10 @@
+{
+  "gate": "MINDIR-X3",
+  "branch": "research/mindir-x-angular-reliability",
+  "config": "3a6eb253",
+  "freeze": "fe8d410",
+  "fix": "7223325",
+  "job": "x3-angrel",
+  "o2_14_replay": "5.6e-17",
+  "local_HEAD_at_write": "7940f1c552d80fb561ebc9b7fbc65f2a5a6ff51c"
+}

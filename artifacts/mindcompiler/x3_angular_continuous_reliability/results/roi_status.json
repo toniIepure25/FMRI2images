@@ -1,0 +1,10 @@
+{
+  "ventral": {
+    "H1_supported": false,
+    "H2_supported": false
+  },
+  "lateral": {
+    "H1_supported": false,
+    "H2_supported": false
+  }
+}

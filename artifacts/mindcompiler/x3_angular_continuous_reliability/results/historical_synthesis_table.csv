@@ -1,0 +1,7 @@
+item,status
+X1 principal-angle invariant,SHARED / NONTRIVIAL (both ROIs)
+O2.10 native orientation,NOT SHARED
+X2 K2 discrete states,NOT SUPPORTED
+X2 Student-t continuous,PREFERRED
+X3 H1 repeat angular stability,FAIL/PARTIAL
+X3 H2 continuous scale->performance,FAIL/PARTIAL

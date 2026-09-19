@@ -1,0 +1,39 @@
+{
+  "family_size": 4,
+  "per_test": {
+    "ventral|ANGLE": {
+      "median_E_ANGLE": 0.688915459690068,
+      "n_pos": 8,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "pipeline_constrained_majority": true,
+      "H1_supported": false
+    },
+    "ventral|SCALE": {
+      "median_E_SCALE": 3.533870755290498,
+      "n_pos": 6,
+      "median_rho_SCALE": 0.004211395828331424,
+      "n_rho_pos": 4,
+      "signflip_p": 0.55078125,
+      "holm_reject": false,
+      "H2_supported": false
+    },
+    "lateral|ANGLE": {
+      "median_E_ANGLE": 0.45491881158578396,
+      "n_pos": 8,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "pipeline_constrained_majority": true,
+      "H1_supported": false
+    },
+    "lateral|SCALE": {
+      "median_E_SCALE": 2.0740483322844314,
+      "n_pos": 6,
+      "median_rho_SCALE": 0.06413225179000333,
+      "n_rho_pos": 7,
+      "signflip_p": 0.09375,
+      "holm_reject": false,
+      "H2_supported": false
+    }
+  }
+}

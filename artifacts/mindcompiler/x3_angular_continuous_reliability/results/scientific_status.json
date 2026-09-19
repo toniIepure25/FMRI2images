@@ -1,0 +1,22 @@
+{
+  "status": "NO_JOINT_ANGULAR_RELIABILITY_STRUCTURE",
+  "roi_status": {
+    "ventral": {
+      "H1": false,
+      "H2": false
+    },
+    "lateral": {
+      "H1": false,
+      "H2": false
+    }
+  },
+  "discovery_cohort": true,
+  "x2_adaptation": "leave-one-training-identity-out (repeats exist only for 10 training identities)",
+  "immutable": {
+    "X2": "NO_REPRODUCIBLE_LATENT_STATE_STRUCTURE",
+    "X1": "INVARIANT_STRUCTURE_MULTIREGIME",
+    "O2_15": "REPEAT_GEOMETRY_INSTABILITY_SUPPORTED_AS_PRIMARY_FAILURE_MODE",
+    "O2_9_N_TRIALS_STAR": 8
+  },
+  "O3": "O3_NOT_READY"
+}

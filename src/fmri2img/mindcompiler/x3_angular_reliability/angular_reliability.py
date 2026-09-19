@@ -76,15 +76,15 @@ def subject_roi(s, roi, cells, trialnat, rd, R111, G):
         simple = list(cells[f]["simple_ids"]); nat = list(cells[f]["nat_ids"])
         ka = min(K, 4)
         id_subs = O9._pairs_balanced(simple, nat, 4)
-        # outside residuals per (i,r)
-        O = np.stack([[Dtr[i, r] - W @ (W.T @ Dtr[i, r]) for r in range(8)] for i in range(10)])  # (10 x 8 x V)
+        # H1 uses the EXACT X1 B_angles definition on the RAW imagery residuals (NOT the outside split, which is
+        # orthogonal to col(W) by construction and would give trivial 90-degree angles)
         for C in id_subs:
             Ci = list(C)
             for r in range(8):
-                Rr = O[Ci, r]                                                  # (4 x V) single-repeat
+                Rr = Dtr[Ci, r]                                               # (4 x V) raw single-repeat imagery
                 A_r = _angle_cos2(W, Rr, ka)
                 others = [u for u in range(8) if u != r]
-                Rmo = O[Ci][:, others].mean(1)                                # (4 x V) mean of other 7 repeats
+                Rmo = Dtr[Ci][:, others].mean(1)                             # (4 x V) raw mean of other 7 repeats
                 A_mo = _angle_cos2(W, Rmo, ka)
                 d_real.append(float(np.linalg.norm(A_r - A_mo)))
                 # matched constrained-operator null (X1-style): random residuals matched per-repeat energy

@@ -1,0 +1,207 @@
+{
+  "gate": "MINDIR-X1",
+  "class": [
+    "EXPLORATORY_DISCOVERY_COHORT_N8",
+    "COORDINATE_INVARIANT_TRANSFORMATION_STRUCTURE_ANALYSIS"
+  ],
+  "branch": "research/mindir-x-gauge-invariants",
+  "input_head": "bd7470ce18c5faf9e847d0d56e1a200f9f06af4c",
+  "question": "Do different subjects share the same intrinsic perception->imagery transformation STRUCTURE even when their neural coordinate systems/orientations are subject-specific? (SHARED LAW / PRIVATE COORDINATES -- conceptual, not physical gauge symmetry)",
+  "critical_distinction": "not T_s~=T_d in native coords (O2.10 addressed that); instead I(T_s)~=I(T_d) where I is a frozen vector of basis-invariant quantities",
+  "immutable_o2": "ALL O2.8-O2.16 + O2.16-DATA/-AUTH seals + historical executive scientific statuses UNCHANGED; O2.16 remains blocked awaiting independent cohort; X1 cannot unlock O3; O3_NOT_READY",
+  "N": 8,
+  "unit": "participant",
+  "not_inferential_N": [
+    "outer folds",
+    "identity pairs",
+    "eigenvalues",
+    "spectral dimensions"
+  ],
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "secondary": "parietal after primary seal",
+  "representation": "reuse ONLY certified O2 representations per subject/ROI/fold: frozen W_target, target-native imagery residual delta_native (10 outer-training identities), within/outside components, full-resource geometry; NO new ROI/voxel-selection/rank/D/alignment/Procrustes/hyperparameter",
+  "coordinate_invariance": "all invariants computed in native voxel space and invariant to (a) orthogonal rotation of W_target columns, (b) singular/eigenvector sign flips, (c) identity ordering; verified <=1e-10",
+  "invariant_family": {
+    "A_SPECTRAL_SHAPE": {
+      "on": "within-support coordinate matrix Z = delta_native @ W_target (10 x K); top r_best spectrum",
+      "features": [
+        "normalized singular values sigma/sum(sigma)",
+        "cumulative normalized energy",
+        "spectral entropy -sum p log p (p=sigma^2/sum)",
+        "effective rank (participation ratio (sum s^2)^2/sum s^4)",
+        "condition ratio s1/s_r over top-r"
+      ]
+    },
+    "B_PRINCIPAL_ANGLES": {
+      "between": "perception support col(W_target) (K) and raw imagery support = top-(r_best+2) left-singular subspace of delta_native (NOT the within/outside split, to avoid pipeline-trivial 0/90 angles)",
+      "features": [
+        "cos^2(theta_i)",
+        "mean cos^2",
+        "median cos^2",
+        "smallest principal angle (max cos^2)",
+        "largest principal angle (min cos^2)",
+        "angle-spectrum entropy"
+      ],
+      "common_rank": "r_common = min frozen eligible rank across 8 subjects for that ROI"
+    },
+    "C_SUPPORT_PARTITION": {
+      "features": [
+        "frac target-state energy within perception support",
+        "frac outside",
+        "ratio OUT/IN",
+        "outside effective rank (participation ratio)",
+        "normalized outside eigen-spectrum (top-2)"
+      ]
+    },
+    "D_COMPRESSION": {
+      "on": "full imagery operator delta_native (10 x V) spectrum",
+      "features": [
+        "normalized Frobenius energy per component",
+        "effective dimensionality (participation ratio)",
+        "singular-value decay",
+        "top-k cumulative energy k in {1,2,3,4}"
+      ]
+    }
+  },
+  "no_feature_shopping": "primary invariant vector = ONLY the frozen features above; NO post-outcome skewness/kurtosis/arbitrary ratios/graph/nonlinear/learned/handcrafted stats; exploratory extras only in a quarantined appendix AFTER primary seal",
+  "dimension_matching": "for rank-indexed spectral comparisons use r_common = min frozen eligible rank across 8 subjects (per ROI); report rank separately; no zero-padding beyond native support",
+  "subject_signature": {
+    "build": "per subject x ROI: compute each invariant per outer fold -> average fold-wise -> concatenate ONLY frozen components; standardize with DONOR-ONLY stats in LOSO",
+    "persist": "subject_invariant_signature.csv"
+  },
+  "hypothesis_A_dispersion": {
+    "per_block": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "D_obs": "median pairwise Euclidean distance after component-wise normalization defined WITHOUT outcome tuning",
+    "matched_null_B_label": {
+      "type": "subject-spectrum label null: preserve empirical subject spectra, independently permute subject labels across the 4 blocks",
+      "perms": "8! = 40320 (exact) if feasible",
+      "purpose": "test that blocks form a reproducible SUBJECT-level signature, not cohort-average summaries"
+    },
+    "descriptive": true
+  },
+  "hypothesis_B_loso": {
+    "predictor": "donor-mean only: I_pred_s = mean_{d!=s} I_d (NO regression/NN/weights/hyperparameters)",
+    "E_SHARED_s": "mean_null ||I_null_target - I_pred|| - ||I_target - I_pred|| (positive => donor-consensus predicts the real target better than matched-null targets)",
+    "null_for_loso": {
+      "type": "permute invariant dimensions within prospectively-defined exchangeable blocks preserving marginal values + block size + target norm",
+      "min_perms": 1000,
+      "seed": "X1|subject|roi|block|null_iteration -> SHA256 -> uint64 -> PCG64",
+      "no_target_specific_null_selection": true
+    }
+  },
+  "matched_null_A_svrand": {
+    "type": "singular-vector randomization: preserve per-subject singular values/rank/energy/perception-support dim, destroy shared correspondence via deterministic random orthogonal rotations",
+    "use_ONLY_for": "non-spectral geometric invariants (principal angles)",
+    "note": "a null preserving singular values cannot test shared spectra -> not used for spectral blocks"
+  },
+  "primary_inference": {
+    "family": "4 invariant blocks x 2 primary ROIs = EXACTLY 8 tests",
+    "statistic": "participant-level E_SHARED_s",
+    "signflip": "exact one-sided 2^8 = 256",
+    "holm": "across exactly 8",
+    "alpha": 0.05
+  },
+  "support_rule": "SHARED_INVARIANT_STRUCTURE_SUPPORTED (block x ROI) iff ALL: median E_SHARED>0; >=6/8 E_SHARED>0; Holm reject; donor-mean prediction beats matched null for the participant median (no arbitrary effect-size threshold)",
+  "secondary_orientation_synthesis": {
+    "reuse_o2_10_immutable": "historical direct-orientation-transfer FAIL; DO NOT rerun O2.10 with modified estimators",
+    "table": "per ROI: DIRECT_ORIENTATION_TRANSFER (O2.10 status) vs INVARIANT_STRUCTURE (X1 status)",
+    "target_pattern": "orientation FAIL + invariants PASS => SHARED_INTRINSIC_STRUCTURE_PRIVATE_ORIENTATION"
+  },
+  "subject_identifiability": {
+    "descriptive_only": true,
+    "method": "leave-one-fold-out: match target-fold orientation against each subject's remaining-fold orientation signature",
+    "purpose": "show shared invariants != shared orientations",
+    "not_primary_inference": true
+  },
+  "basis_rotation_invariance": {
+    "mandatory": true,
+    "apply": "arbitrary deterministic orthogonal basis rotations preserving the operator/subspace equivalence class",
+    "require": "invariant difference <=1e-10 where mathematically expected"
+  },
+  "sign_permutation_invariance": {
+    "require_invariance_to": [
+      "singular-vector sign flips",
+      "eigenvector sign flips",
+      "basis-column permutation where the statistic is unordered"
+    ]
+  },
+  "negative_control_random_ops": {
+    "generate": "matched random operators preserving subject rank + total energy + support sizes",
+    "expect": "invariant profiles do NOT show the complete X1 pattern unless the statistic is trivially determined by the preserved quantity",
+    "must_distinguish": "shared-because-mathematically-constrained vs shared-because-empirically-specific"
+  },
+  "pipeline_triviality": {
+    "per_positive_invariant": "quantify between-subject variance; if the synthetic constrained null shows essentially identical between-subject dispersion -> mark PIPELINE_CONSTRAINED_INVARIANT",
+    "constrained_cannot_contribute_to_PASS": true
+  },
+  "cross_roi_consistency": {
+    "descriptive_only": true,
+    "ventral_vs_lateral_signature_correlation_participant_level": true,
+    "no_extra_pvalue": true
+  },
+  "fold_robustness": {
+    "per_supported_invariant": "leave-one-outer-fold-out re-estimation; LOFO_STABLE iff participant-level E_SHARED sign remains positive for >=6/8 subjects under every fold omission",
+    "robustness_descriptor_not_significance": true
+  },
+  "program_status": {
+    "SHARED_INTRINSIC_TRANSFORMATION_STRUCTURE_SUPPORTED": ">=2 distinct invariant blocks supported in BOTH primary ROIs",
+    "SHARED_INTRINSIC_STRUCTURE_PRIVATE_ORIENTATION": "above passes AND historical O2.10 direct orientation transfer remains negative (PREFERRED when conditions met)",
+    "INVARIANT_STRUCTURE_MULTIREGIME": "supported blocks differ materially between primary ROIs",
+    "NO_REPRODUCIBLE_SHARED_INTRINSIC_STRUCTURE": "no invariant block supported in either ROI",
+    "X1_INCONCLUSIVE": "technical/provenance/evaluability"
+  },
+  "claim_boundaries": {
+    "positive_allowed": "despite failure of direct cross-subject target-state orientation transfer, multiple coordinate-invariant properties of the perception-to-imagery transformation were reproducible across subjects, consistent with shared intrinsic transformation structure expressed in subject-specific neural coordinates",
+    "forbidden": [
+      "universal neural law",
+      "same neural computation proven",
+      "gauge symmetry of the brain",
+      "causal operator",
+      "conserved physical law"
+    ],
+    "gauge_invariant_means": "mathematical shorthand for tested basis-invariant quantities only"
+  },
+  "exploratory_status": {
+    "even_strong_positive_is": "DISCOVERY_COHORT_EVIDENCE (same N=8 development cohort)",
+    "requires_independent_replication": true,
+    "do_not_modify_o2_16": true
+  },
+  "provenance": [
+    "historical O2.10",
+    "O2.6/O2.8 full-resource geometries",
+    "exact W_target",
+    "exact 6 outer folds",
+    "exact ROI definitions",
+    "exact target-state ranks",
+    "no recomputed alternative historical state"
+  ],
+  "synthetic_controls": [
+    "1 identical spectrum/random orientation -> invariant PASS, orientation transfer FAIL",
+    "2 different spectra/matched orientation -> spectral invariant FAIL",
+    "3 shared rank-only constraint -> pipeline-triviality flagged",
+    "4 orthogonal basis rotations leave invariants unchanged",
+    "5 sign flips unchanged",
+    "6 permutation invariance",
+    "7 completely random operators fail",
+    "8 LOSO donor-mean without target leakage",
+    "9 exact 8-test Holm",
+    "10 folds/dims never inferential N",
+    "11 O2 seals immutable",
+    "12 no hyperparameter/model search"
+  ],
+  "next_gate": {
+    "SHARED_INTRINSIC_STRUCTURE_PRIVATE_ORIENTATION": "X1.1 MINIMAL CANONICAL FORM OF THE SHARED TRANSFORMATION (which invariants are necessary to characterize the common equivalence class; no new predictive model yet)",
+    "INVARIANT_STRUCTURE_MULTIREGIME": "X1.1 ROI-SPECIFIC INTRINSIC TRANSFORMATION CLASSES",
+    "negative": "seal negative; do NOT search additional invariants on the same cohort and call them confirmatory"
+  },
+  "O3": "O3_NOT_READY",
+  "config_sha256": "85c0f628216ac15c536bc959e87ebe924aa9bdb7771c6234cbf58817232f9c0d"
+}

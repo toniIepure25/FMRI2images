@@ -1,0 +1,22 @@
+{
+  "algo": "sha256",
+  "scope": "paper/mindir/review P2 files",
+  "files": {
+    "alternative_interpretations.md": "ee3f6a4dddf6480e3388080e3f31a53e02209d94e11090d11b3b03d178280123",
+    "claim_adversarial_audit.csv": "1bc8f890e8242b65e6c7f5cba127282346759b127d871d39ef2c8f9d704f0b52",
+    "COVER_LETTER_DRAFT.md": "9fd563e88b53daf3b95ebbd12500c976b517747c09a45fd27cfa543a7a6727db",
+    "editorial_synthesis.md": "e2badd7f9d9f7e2924ba90ce0da577f6f8187a482cc545041fe14e75d21a7ddb",
+    "figure_adversarial_audit.md": "b69c3c754587b14f859e1b4841182ed1f60ea3d341afe4d94ee77c7b9f000487",
+    "journal_profiles.md": "6739530f0480bb96e35d4450d5814052b10acc20c04c10cc7c467f816b3c840c",
+    "literature_positioning_matrix.csv": "1c4203312f7269c24ceb239cdd83ededc260b318470067b10d9855876275dfba",
+    "novelty_statement.md": "d3f98d4816a6d9dbb3869ae846e4cf62d928d30bb519facee67864ff367d55ab",
+    "p2_status.json": "4c3c09767cd96297860e7e74ca19307e99f41648ccafb0d8794f80235ab7a623",
+    "reviewer_A_systems_neuroscience.md": "dbf97130cbe197a45173b16e30d2d05580fb6eed14a5334120887f19f5cf989a",
+    "reviewer_B_statistics.md": "4065ca36b8762a7e339fe03ea121da5a278f1b7064e9a703bbdeb4ca793ccf3f",
+    "reviewer_C_fmri_reproducibility.md": "c4ae808518bec43b649330afbbb1ae12f5c3740c2deffdde825cbb0d16bf54f6",
+    "revision_log.md": "58c573fe31f3a4fafd393589b174115437c16b7a9bfa62c08cde3b042e638b5e",
+    "statistical_forensics.md": "644739884e7ca519717413178a3ecb8e9ffb17dad4fea7ff3e04f394da1e424a",
+    "SUPERVISOR_BRIEF.md": "ca0fa91dfbf01f7332b9cca605264aacd5392a5d742dd680bc5f0d522cb70565"
+  },
+  "n_files": 15
+}

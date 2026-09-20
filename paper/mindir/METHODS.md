@@ -18,9 +18,14 @@ Two visual-stream ROIs from the streams atlas: **ventral** (label 5) and **later
 were frozen and identical across all gates. Parietal was reserved as a post-seal secondary and is not a primary
 conclusion.
 
-## 4. Neural response estimation
-Single-trial betas from the NSD GLM. BLAS threads pinned to 1 for determinism; all heavy computation executed on
-a fixed CPU node under committed source (ConfigMap-injected), never with ad-hoc code.
+## 4. Neural response estimation and voxel selection
+Single-trial betas from the NSD GLM (the specific NSD beta version and any noise-ceiling/ncsnr-based voxel
+selection are stated in the config of the upstream response-estimation gate and were **frozen before
+outcomes**; the human authors should surface the exact beta version and selection rule here from that config
+before submission). Any reliability-based voxel selection is a frozen a-priori rule; we note that voxel
+selection could in principle shape the outside-support residual, and flag this as a bounded interpretation
+(Limitations). BLAS threads pinned to 1 for determinism; all heavy computation executed on a fixed CPU node
+under committed source (ConfigMap-injected), never with ad-hoc code.
 
 ## 5. Perception support construction
 A perception-support subspace was constructed per participant × ROI and frozen as `W_target` (orthonormal
@@ -34,8 +39,10 @@ outcomes.
 
 ## 7. Cross-subject shared-operator analyses
 Donor-transfer / leave-one-subject-out analyses tested whether the composite target-state geometry transfers
-across participants (O2.10). Cross-subject comparisons were made only where the quantity is coordinate-invariant
-(native voxel spaces are not directly comparable).
+across participants (O2.10). **Cross-subject comparisons were made only on coordinate-invariant or donor-mean
+quantities — never on raw native voxel spaces, which are not directly comparable across participants.**
+Consequently, the "no reliable cross-subject transfer" result cannot be an artifact of incomparable voxel
+spaces; it is a statement about the invariant quantities that *are* comparable.
 
 ## 8. Target-state residual decomposition
 The target-imagery state was decomposed into within-support and outside-support components. The residual
@@ -74,9 +81,17 @@ Participant-level **exact one-sided sign-flip** tests over 2^8 = 256 sign assign
 1/256 ≈ 0.00390625) with participant-first aggregation. Ratio-type effect statistics were centred so the null
 expectation is 0 before entering a sign-flip test (X4 disclosure).
 
-## 15. Multiple-testing correction
+## 15. Multiple-testing correction and statistical scope
 Holm correction within each gate's prospectively frozen test family (e.g. X4: exactly four tests; X-secondary
 preregistration: exactly six). No cross-gate pooling; each family declared before outcomes.
+
+**Statistical scope and multiplicity (explicit).** The inferential unit is the participant (N = 8); no analysis
+treats folds, schedules, identity subsets, or repeats as independent subjects. Correction is applied *within*
+each gate's declared family; the **program-wide** multiplicity across gates is **not** corrected, because the
+program is a sequential discovery process on one cohort. This is precisely why the three surviving findings are
+preregistered for an independent cohort (O2.16-SEC) rather than treated as confirmed, and why the X-series is
+labelled exploratory. Sufficiency criteria (O2.9 median ≥ 0.50 with ≥ 6/8; O2.14 coverage ≥ 0.75 with ≥ 6/8)
+are **pre-registered decision rules, not hypothesis tests**, and carry no p-value.
 
 ## 16. Leakage prevention and prospective freezes
 Every gate froze its config (SHA-hashed), driver, and tests **before** any outcome, committed and pushed, then

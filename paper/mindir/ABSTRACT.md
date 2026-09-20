@@ -18,10 +18,12 @@ structure of the repeat variation. Inference used participant-level exact sign-f
 one-sided p = 1/256 ≈ 0.0039) with Holm correction.
 
 **Results.** Perception carried significant but incomplete information about target-state geometry; the missing
-component was low-dimensional yet **subject-specific** — it did not transfer across participants and was not
-predictable from the tested perception phenotype, anatomy, or behaviour. A direct calibration of **8
-observations (4 identities × 2 repeats)** closed at least half of the native-oracle gap on average in both
-streams (ventral median total recovery 0.569, lateral 0.530), but this frontier was **not schedule-robust**.
+component was low-dimensional (under the frozen representation) yet **subject-specific under the tested
+representation and transfer procedure** — it did not transfer across participants and was not predictable from
+the tested perception phenotype, anatomy, or behaviour. The **smallest prospectively tested common calibration
+burden under the frozen estimator** that closed at least half of the native-oracle gap in both streams was **8
+observations (4 identities × 2 repeats)** (ventral median total recovery 0.569, lateral 0.530) — not a universal
+minimum, and this frontier was **not schedule-robust**.
 Repeat-to-repeat outside-support geometric agreement strongly predicted calibration robustness (median
 Spearman ρ 0.42 ventral, 0.48 lateral; 8/8 participants both streams). Mechanistically, the repeat variation
 was structured but **distributed**: it was not a discrete two-state process, not a scalar reliability variable,

@@ -3,6 +3,14 @@
 **Rule:** every panel uses only already-computed, sealed results. No figure requires new inference, new models,
 or new statistics. Panels cite the artifact CSV/JSON they render.
 
+**Rendering mandate (from the adversarial figure audit, `review/figure_adversarial_audit.md`):** show all 8
+participant-level points wherever scientifically useful, with the group median overlaid; **never** render
+hundreds of schedules/folds so they visually imply a large sample (aggregate to one point per participant
+first, or mark schedules explicitly as within-participant repeated measures); define *oracle* (native oracle)
+and *ceiling* (R111 full-resource) in every caption using TOTAL/FCF; mark *development cohort* on every data
+figure; and add a one-line "how to read N = 8" note to the legends of Figures 4 and 5 (the highest
+misleading-N risk). Figure 6 (X1–X4) must be headed **Exploratory**.
+
 ## Figure 1 — Conceptual framework
 Schematic (no data inference): perception-support subspace → target-imagery geometry, showing (a) shared
 within-support component, (b) outside-support residual (D = 2), (c) subject-specific orientation of the

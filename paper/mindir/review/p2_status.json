@@ -1,0 +1,40 @@
+{
+  "gate": "MINDIR-P2",
+  "task_class": "ADVERSARIAL_REVIEW_AND_MANUSCRIPT_HARDENING (zero new inference)",
+  "input_head": "b2bd0e1e8f57a791c7a09f24eba5f8f03777fc69",
+  "branch": "paper/mindir-adversarial-review",
+  "status": "MANUSCRIPT_HARDENED_READY_FOR_HUMAN_SCIENTIFIC_REVIEW",
+  "conditions": {
+    "no_critical_statistical_flaw": true,
+    "no_unsupported_central_claim": true,
+    "all_numerical_claims_trace_to_sealed_evidence": true,
+    "N8_and_discovery_status_transparent": true,
+    "primary_exploratory_firewall_intact": true,
+    "replication_status_accurate": true
+  },
+  "reviewer_verdicts_initial": {
+    "A_systems": "MAJOR_REVISION",
+    "B_statistics": "MINOR_REVISION",
+    "C_fmri_repro": "MAJOR_REVISION"
+  },
+  "reviewer_verdicts_post_revision": {
+    "A_systems": "MINOR_REVISION",
+    "B_statistics": "ACCEPTABLE_FOR_SUBMISSION_MINOR",
+    "C_fmri_repro": "MINOR_REVISION"
+  },
+  "editor_synthesis": "MINOR_REVISION (no critical flaw); two human-only items remain",
+  "human_only_items": [
+    "fill exact NSD beta version + voxel-selection rule in Methods section 4 from the sealed upstream config",
+    "verify literature citations in literature_positioning_matrix.csv and confirm novelty sentence"
+  ],
+  "immutable_unchanged": {
+    "O2_gates": "statuses+numbers unchanged",
+    "X1_X4": "statuses+numbers unchanged",
+    "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+    "O2_16_DATA": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+    "O2_16_SEC": "O2_16_SECONDARY_ENDPOINTS_PREREGISTERED_AWAITING_INDEPENDENT_COHORT",
+    "O3": "O3_NOT_READY",
+    "discovery_stop": "X4 final N=8 mechanistic gate; no X5"
+  },
+  "next_human_action": "human scientific review of paper/mindir/ (+ review/); fill the two Methods placeholders and verify citations; choose target journal; authorize independent O2.16 acquisition when ready"
+}

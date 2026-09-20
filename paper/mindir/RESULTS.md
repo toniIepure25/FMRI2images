@@ -13,7 +13,10 @@ streams.
 ---
 
 ## Result 1 — Perception predicts imagery structure but does not fully determine target-state geometry
-*Gates O1, O2, O2.1, O2.2, O2.5*
+*Gates O1, O2, O2.1, O2.2, O2.5 — prospectively frozen (primary)*
+
+**Question.** After accounting for perception, does a real target-imagery component remain? **Status.**
+Prospectively frozen primary analyses. **Result & bounded interpretation below.**
 
 The perception→imagery operator carried significant, reproducible predictive structure: a substantial fraction
 of the target-imagery state lies within the perception-support subspace and is recovered by the perception-
@@ -26,28 +29,37 @@ accounted for.
 
 ---
 
-## Result 2 — The missing imagery geometry is low-complexity but subject-specific
-*Gates O2.6, O2.10, O2.11, O2.13*
+## Result 2 — The missing imagery geometry is low-complexity but subject-specific (under the tested representation)
+*Gates O2.6, O2.10, O2.11, O2.13 — prospectively frozen (primary)*
 
-The outside-support residual is **low-dimensional** (a compact missing basis; O2.6). Its **orientation does not
-transfer between participants**: cross-participant donor transfer of the composite target-state geometry was
-subject-specific dominant (O2.10, `COMPOSITE_TARGET_STATE_GEOMETRY_SUBJECT_SPECIFIC_DOMINANT`). It was **not
-predictable from the tested perception phenotype** (O2.11,
-`SUBJECT_SPECIFIC_GEOMETRY_NOT_PREDICTABLE_FROM_TESTED_PERCEPTION_PHENOTYPE`), nor from anatomy/behaviour
-covariates (O2.13, `NO_REPRODUCIBLE_TESTED_COVARIATE_STRUCTURE`).
+**Question.** Is the outside-support residual shared across people or individual, and is it recoverable from
+perception/covariates? **Status.** Prospectively frozen primary analyses.
 
-**Bounded message:** the missing basis is low-complexity in dimension but participant-specific in orientation,
-and is not recoverable from perception, anatomy, or the tested behaviour.
+The outside-support residual is **low-dimensional under the frozen D = 2 outside representation** (a compact
+missing basis; O2.6). Its **orientation did not transfer between participants**: cross-participant donor
+transfer of the composite target-state geometry was subject-specific dominant (O2.10,
+`COMPOSITE_TARGET_STATE_GEOMETRY_SUBJECT_SPECIFIC_DOMINANT`). It was **not predictable from the tested
+perception phenotype** (O2.11, `SUBJECT_SPECIFIC_GEOMETRY_NOT_PREDICTABLE_FROM_TESTED_PERCEPTION_PHENOTYPE`),
+nor from the tested anatomy/behaviour covariates (O2.13, `NO_REPRODUCIBLE_TESTED_COVARIATE_STRUCTURE`).
+
+**Bounded message:** the missing basis is low-complexity in dimension (under the frozen representation) but
+**subject-specific under the tested representation and transfer procedure** — it was not recovered from the
+tested perception phenotype, anatomy, or behaviour. This is a failure of cross-subject transfer and of the
+tested predictors, not a demonstration that the geometry is biologically unique to each person.
 
 ---
 
 ## Result 3 — Minimal direct target-state calibration recovers substantial geometry
-*Gates O2.9, O2.12*
+*Gates O2.9, O2.12 — prospectively frozen (primary)*
+
+**Question.** How little direct imagery data recovers the missing geometry, under a fixed estimator? **Status.**
+Prospectively frozen; the sufficiency criterion (median ≥ 0.50 with ≥ 6/8 participants ≥ 0.50 on both metrics)
+is a **pre-registered decision rule**, not a permutation test.
 
 Under the fixed direct-SVD within-support estimator plus a two-dimensional outside-support basis (no
 Procrustes; frozen), we swept an M-identities × T-repeats calibration grid. The **smallest prospectively tested
-common burden** closing ≥ 50% of the native-oracle gap in **both** streams was **8 observations at M = 4
-identities × T = 2 repeats (M4T2)**:
+common calibration burden, under the frozen estimator, closing ≥ 50% of the native-oracle gap in both primary
+streams on this development cohort** was **8 observations at M = 4 identities × T = 2 repeats (M4T2)**:
 
 | Stream | median TOTAL recovery | participants ≥ 0.5 | median FCF | participants ≥ 0.5 |
 |---|---|---|---|---|
@@ -63,7 +75,12 @@ perception-only prior (O2.12) **improved** recovery but did **not** reduce the e
 ---
 
 ## Result 4 — The eight-observation frontier is an average result, not a robust acquisition guarantee
-*Gates O2.14, O2.15*
+*Gates O2.14, O2.15 — prospectively frozen (primary)*
+
+**Question.** Is the eight-observation frontier robust to acquisition schedule, and what predicts success?
+**Status.** Prospectively frozen; O2.14 schedule-robustness uses the pre-registered coverage rule (median ≥
+0.75, ≥ 6/8), O2.15 uses participant-level Spearman with Fisher-z aggregation (participant is the inferential
+unit; schedules are within-participant repeated measures, not independent N).
 
 Holding the M4T2 burden fixed, **schedule composition strongly affected success**. Median schedule coverage
 (fraction of schedules meeting the joint criterion) was **0.656 (ventral)** and **0.579 (lateral)** — i.e. a

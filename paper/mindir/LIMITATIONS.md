@@ -30,3 +30,11 @@ Mandatory, prominent, and non-negotiable. None of these is mitigated by the expl
 11. **Imagery-task provenance partly unresolved.** Full run/session layout and naturalistic-identity details
     for the imagery task retain `O2_16_DATA_IMAGERY_TASK_PROVENANCE_BLOCKER`; the replication task spec is
     certified only at the field level established from sealed provenance.
+12. **Acquisition-schedule fragility.** The eight-observation frontier is an average result; a substantial
+    minority of schedules failed the operational criterion (coverage 0.656 ventral / 0.579 lateral), so the
+    result is a group-average frontier, not a per-schedule guarantee.
+13. **Task specificity.** All effects are within the NSD imagery task and its identity set; we cannot claim
+    they generalise to other imagery tasks, stimulus classes, or instructions.
+14. **No physical cause assigned to repeat geometry.** We characterise which geometric quantity predicts
+    calibration failure (Q_OUT) but assign it no physiological, attentional, or temporal cause; "drift",
+    "mode", and "state" are mathematical-model quantities only.

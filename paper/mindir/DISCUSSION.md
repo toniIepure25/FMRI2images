@@ -35,3 +35,22 @@ from N = 8. A genuinely independent replication (O2.16) with three preregistered
 (O2.16-SEC: S1 B_angles, S2 Q_OUT→margin, S3 anisotropy) is frozen but **not yet executed**. The scientific
 value of the present findings is that they define sharp, prospectively frozen hypotheses for that replication;
 they do not, on their own, establish generality.
+
+## Alternative interpretations we cannot exclude
+Two limitations bound every conclusion. First, the results are **conditional on the frozen estimator and
+representation**: the outside-support residual, its "low dimension", and the eight-observation figure could all
+differ under a different within-support estimator or a different outside dimensionality; we did not search
+estimators. Second, the program tests the **same eight participants repeatedly**, so program-wide multiplicity
+is uncontrolled even though each gate is individually frozen. Further, apparent subject-specificity at N = 8
+could partly reflect sampling, and the effects may be specific to the NSD imagery task and identity set. We
+*can* exclude, by sealed controls, that the failure-predictive geometry is merely a scalar reliability variable
+(X3), that the anisotropy is a projector-geometry artifact (X4 matched null), and that "no cross-subject
+transfer" is a native-space comparability artifact (invariant-quantity design). We do **not** claim to have
+excluded the estimator-dependence or limited-N concerns; the independent cohort is the test.
+
+## What independent O2.16 will test prospectively
+If the O2.16 **primary** replicates, it supports external generalization of the minimal-calibration result and
+its operational quality monitor beyond the development cohort. If it fails, the development-cohort calibration
+result does not generalize under the frozen replication protocol — a clean, preregistered outcome either way.
+The three **secondary** geometric endpoints (S1/S2/S3) remain secondary regardless of the primary outcome; no
+secondary result can rescue a failed primary or erase a successful one, and none may be reinterpreted post hoc.

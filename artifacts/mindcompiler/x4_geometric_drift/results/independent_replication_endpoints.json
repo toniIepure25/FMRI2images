@@ -1,0 +1,5 @@
+{
+  "ANISO": "TOP_FRACTION_REAL-median(isotropic null), participant sign-flip",
+  "MODE": "Z_MODE=mean_f atanh(-Spearman(MODE_GAP,ROBUSTNESS_MARGIN)), participant sign-flip",
+  "note": "SECONDARY only; O2.16 primary endpoints unchanged"
+}

@@ -1,0 +1,31 @@
+{
+  "status": "GEOMETRIC_DRIFT_EXISTS_BUT_FAILURE_LINK_PARTIAL",
+  "roi_status": {
+    "ventral": {
+      "H1": true,
+      "H2": false
+    },
+    "lateral": {
+      "H1": true,
+      "H2": false
+    }
+  },
+  "discovery_cohort_N8": true,
+  "inference_resolution": "E_ANISO/E_MODE are ratios (~1 under H0) per frozen config; the frozen support criteria ('median E>0','>=6/8 E>0',sign-flip@0) are coherent ONLY on the CENTRED statistic, so inference runs on ANISO_CENTRED = TOP_FRACTION_REAL-median(NULL) and Z_MODE = mean_f atanh(rho_FAILURE); ratios reported descriptively. Strictly more conservative; cannot manufacture a positive; no threshold loosened.",
+  "tractability_freeze": {
+    "m4_subsample": "20/100 deterministic",
+    "iso_null": 1000,
+    "modegap_null": 1000,
+    "disclosed": true
+  },
+  "o2_14_m4t2_replay_max_abs_err": 5.551115123125783e-17,
+  "immutable": {
+    "X3": "NO_JOINT_ANGULAR_RELIABILITY_STRUCTURE",
+    "X2": "NO_REPRODUCIBLE_LATENT_STATE_STRUCTURE",
+    "X1": "INVARIANT_STRUCTURE_MULTIREGIME",
+    "O2_15": "REPEAT_GEOMETRY_INSTABILITY_SUPPORTED_AS_PRIMARY_FAILURE_MODE",
+    "O2_14": "EIGHT_TRIAL_MINIMUM_AVERAGE_ONLY_NOT_SCHEDULE_ROBUST",
+    "O2_9_N_TRIALS_STAR": 8
+  },
+  "O3": "O3_NOT_READY"
+}

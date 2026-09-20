@@ -1,0 +1,6 @@
+{
+  "status": "GEOMETRIC_DRIFT_EXISTS_BUT_FAILURE_LINK_PARTIAL",
+  "discovery_stop": "X4 is the FINAL N=8 mechanistic discovery gate; do not create X5 on the same subjects",
+  "if_positive": "preregister the supported X4 endpoint(s) as SECONDARY endpoints for the O2.16 independent cohort; do not modify O2.16 primary endpoints",
+  "if_negative": "seal negative and STOP mechanistic discovery on N8"
+}

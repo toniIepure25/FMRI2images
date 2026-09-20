@@ -1,0 +1,51 @@
+{
+  "family_size": 4,
+  "holm_alpha": 0.05,
+  "inference_on": "CENTRED statistics (disclosed frozen-config resolution)",
+  "per_test": {
+    "ventral|ANISO": {
+      "signflip_effect": "CENTRED TOP_FRACTION_REAL-null",
+      "median_centred": 0.09339441312825406,
+      "n_centred_pos": 8,
+      "median_E_ANISO_ratio": 4.405151741632631,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "n_repro_pass": 8,
+      "median_eff_rank": 23.605767610197592,
+      "H1_supported": true
+    },
+    "ventral|MODE": {
+      "signflip_effect": "Z_MODE (atanh rho_FAILURE, centred at 0 under H0)",
+      "median_Z_MODE": -0.1321161989898338,
+      "n_Z_pos": 1,
+      "median_E_MODE_ratio": 4.29398260599089,
+      "median_rho_FAILURE": -0.12770642490204734,
+      "n_rho_pos": 1,
+      "signflip_p": 0.9921875,
+      "holm_reject": false,
+      "H2_supported": false
+    },
+    "lateral|ANISO": {
+      "signflip_effect": "CENTRED TOP_FRACTION_REAL-null",
+      "median_centred": 0.1014586178298252,
+      "n_centred_pos": 8,
+      "median_E_ANISO_ratio": 4.637495746987883,
+      "signflip_p": 0.00390625,
+      "holm_reject": true,
+      "n_repro_pass": 8,
+      "median_eff_rank": 21.434858208438072,
+      "H1_supported": true
+    },
+    "lateral|MODE": {
+      "signflip_effect": "Z_MODE (atanh rho_FAILURE, centred at 0 under H0)",
+      "median_Z_MODE": -0.09175478808834855,
+      "n_Z_pos": 2,
+      "median_E_MODE_ratio": 4.941801769492255,
+      "median_rho_FAILURE": -0.09900335642469706,
+      "n_rho_pos": 2,
+      "signflip_p": 0.96484375,
+      "holm_reject": false,
+      "H2_supported": false
+    }
+  }
+}

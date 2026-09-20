@@ -1,0 +1,7 @@
+{
+  "o2_14_m4t2_replay_max_abs_err": 5.551115123125783e-17,
+  "bound": true,
+  "subsample": "20/100 deterministic (disclosed)",
+  "iso_null": 1000,
+  "modegap_null": 1000
+}

@@ -1,0 +1,261 @@
+{
+  "gate": "MINDIR-X4",
+  "class": [
+    "EXPLORATORY_DISCOVERY_COHORT_N8",
+    "CONTINUOUS_SUBSPACE_DRIFT_DIAGNOSTIC"
+  ],
+  "branch": "research/mindir-x-geometric-drift",
+  "input_head": "f54d381c0656d4304f077b902629183ef25ab240 (X3 seal)",
+  "question": "Does the continuous repeat-level instability that predicts calibration failure occur along a reproducible LOW-DIMENSIONAL geometric direction (anisotropic drift) rather than isotropic subspace noise?",
+  "core_hypothesis": "repeat-specific OUTSIDE-support subspaces move primarily along a low-dim direction: P_r ~= Exp_{P_ref}(a_r V + eps_r); V,a_r are mathematical model quantities only (not biological)",
+  "final_mechanistic_gate_on_N8": true,
+  "N": 8,
+  "unit": "participant",
+  "not_inferential_N": [
+    "schedules",
+    "identities",
+    "repeats",
+    "folds",
+    "dimensions"
+  ],
+  "immutable": {
+    "X3": "NO_JOINT_ANGULAR_RELIABILITY_STRUCTURE",
+    "X2": "NO_REPRODUCIBLE_LATENT_STATE_STRUCTURE",
+    "X1": "INVARIANT_STRUCTURE_MULTIREGIME",
+    "O2_15": "REPEAT_GEOMETRY_INSTABILITY_SUPPORTED_AS_PRIMARY_FAILURE_MODE",
+    "O2_14": "EIGHT_TRIAL_MINIMUM_AVERAGE_ONLY_NOT_SCHEDULE_ROBUST",
+    "O2_10": "COMPOSITE_TARGET_STATE_GEOMETRY_SUBJECT_SPECIFIC_DOMINANT",
+    "O2_9": "MINIMAL_COMPOSITE_TARGET_STATE_CALIBRATION_ESTABLISHED",
+    "O3": "O3_NOT_READY",
+    "never_relabel": true
+  },
+  "primary_rois": [
+    "ventral",
+    "lateral"
+  ],
+  "secondary": "parietal after seal",
+  "representation": "PRIMARY: O2.15 OUTSIDE-perception-support geometry; exact W_target, frozen outside residual, D=2, native space, 6 outer folds, M4 balanced identity subsets, 8 repeat positions; alter NONE of D/W/ROI/rank/identity-balance/schedule",
+  "why_outside_only": "O2.15 OUT geometric agreement carries substantially stronger failure-predictive information than IN; within-support replay only as status-neutral control after seal",
+  "repeat_specific_subspace": {
+    "P_{I,r}": "D=2 outside projector from 4 identities x 1 repeat (M4T1 OUT geometry)",
+    "P_REF_{I,-r}": "same 4 identities, other 7 repeats (leave-one-repeat-out; r excluded from its own reference)"
+  },
+  "displacement": {
+    "dP_{I,r}": "P_{I,r} - P_REF_{I,-r} (native projector space; inner products via trace(A^T B), norms ||A||_F; low-rank factor identities, no V x V materialization)"
+  },
+  "subset_centering": {
+    "dP_BAR_I": "mean_r dP_{I,r}",
+    "X_{I,r}": "dP_{I,r} - dP_BAR_I",
+    "purpose": "isolate repeat variation from which-4-identities-selected"
+  },
+  "gram": {
+    "K_ab": "trace(X_a X_b) (invariant to orthogonal voxel-basis change; computed from low-rank projector factors)"
+  },
+  "computational_tractability_DISCLOSED_frozen": {
+    "m4_subset_subsample": "deterministic 20 of the 100 balanced M4 subsets per fold (SHA256(subset_id) rank order; frozen before outcomes) to bound the projector-perturbation Gram size (N=20x8=160/fold)",
+    "isotropic_null_iterations": 1000,
+    "modegap_null_iterations": 1000,
+    "note": "the brief specified >=5000 isotropic null iterations and all 100 subsets; reduced here to 1000 nulls + 20 subsets purely for compute tractability on this final heavy gate. The isotropic top-fraction null is low-variance so its median is stable at 1000; the 20-subset subsample is deterministic/pre-outcome. This is a DISCLOSED deviation, not silent; any positive would in any case require independent replication."
+  },
+  "H1_anisotropy": {
+    "eig": "lambda1>=lambda2>=... of centered perturbation Gram",
+    "TOP_FRACTION": "lambda1/sum lambda (PRIMARY H1 statistic)",
+    "EFFECTIVE_DRIFT_RANK": "(sum lambda)^2/sum lambda^2 (descriptive)"
+  },
+  "isotropic_null": {
+    "preserve": [
+      "Frobenius norm per perturbation",
+      "count",
+      "empirical numerical span dim",
+      "identity-subset/repeat counts"
+    ],
+    "randomize": "direction within matched span (synthetic Gram directly)",
+    "iters": 1000,
+    "seed": "X4|anisotropy|subject|roi|fold|null_iteration -> SHA256 -> uint64 -> PCG64"
+  },
+  "E_ANISO": "TOP_FRACTION_REAL / median(TOP_FRACTION_NULL) (positive => more dominant-direction structure than isotropic)",
+  "reproducibility_guard": {
+    "partition": "deterministic 50/50 of the (subsampled) M4 subsets per fold via SHA256(subset_id); HALF_A / HALF_B",
+    "estimate": "dominant direction independently in each half",
+    "MODE_ALIGNMENT": "|<V_A,V_B>|/(||V_A|| ||V_B||) via cross-Gram in [0,1]",
+    "pass_participant_iff": "MODE_ALIGNMENT_REAL > median(MODE_ALIGNMENT_NULL) in >=5 of 6 folds",
+    "H1_additional": ">=6/8 participants pass"
+  },
+  "H1_inference": {
+    "tests": [
+      "ventral E_ANISO",
+      "lateral E_ANISO"
+    ],
+    "signflip": "exact 2^8=256",
+    "in_final_4test_holm": true
+  },
+  "H1_support": "LOW_DIMENSIONAL_GEOMETRIC_DRIFT_SUPPORTED (ROI) iff ALL: median E_ANISO>0; >=6/8 E_ANISO>0; Holm reject; >=6/8 pass cross-half mode reproducibility; dominant-mode beats matched isotropic null",
+  "H2_crossfit": {
+    "crossfit": "learn V_A from HALF_A only -> score HALF_B schedules; learn V_B from HALF_B -> score HALF_A; no subset scored by a mode learned from itself; no held-out M4T2 performance in mode learning",
+    "a_{I,r}": "<X_{I,r}, V_train>/||V_train|| (sign arbitrary; use sign-invariant differences)",
+    "MODE_GAP": "|a_{I,r1}-a_{I,r2}| per sealed M4T2 pair"
+  },
+  "held_out_outcome": "exact O2.14 ROBUSTNESS_MARGIN (no new definition; regenerated from source, bound to O2.14 by replay)",
+  "modegap_association": {
+    "rho_MODE_fold": "Spearman(MODE_GAP, ROBUSTNESS_MARGIN) (expected NEGATIVE)",
+    "rho_FAILURE": "-rho_MODE (positive => larger drift separation predicts worse calibration)",
+    "participant": "Z_MODE=mean_f atanh(rho_FAILURE_fold)"
+  },
+  "modegap_null": {
+    "within_subject_roi_fold_subset": "permute repeat labels assigned to mode coordinates preserving 8 coords/M4T2 set/pair frequency/margins",
+    "iters": 1000,
+    "seed": "X4|modegap|subject|roi|fold|null_iteration",
+    "E_MODE": "Z_MODE_REAL/mean(Z_MODE_NULL)"
+  },
+  "H2_inference": {
+    "tests": [
+      "ventral E_MODE",
+      "lateral E_MODE"
+    ],
+    "signflip": "exact one-sided"
+  },
+  "primary_family": {
+    "exactly_four": [
+      "ventral E_ANISO",
+      "lateral E_ANISO",
+      "ventral E_MODE",
+      "lateral E_MODE"
+    ],
+    "holm": "across 4",
+    "alpha": 0.05
+  },
+  "H2_support": "DRIFT_MODE_PREDICTS_CALIBRATION_FAILURE (ROI) iff ALL: median E_MODE>0; >=6/8 E_MODE>0; median raw rho_FAILURE>0; >=6/8 raw rho_FAILURE>0; Holm reject",
+  "qout_relation": {
+    "descriptive": true,
+    "report": [
+      "rho(Q_OUT,margin) sealed O2.15",
+      "rho(MODE_GAP,margin)"
+    ],
+    "MODE_EXPLAINED_FRACTION": "rank-transform Q_OUT/MODE_GAP/margin; OLS rank(Q_OUT)~rank(MODE_GAP) within subject/fold; residual Q_OUT vs margin; if Q_OUT association drops after MODE_GAP removal, the mode explains part of the O2.15 signal",
+    "no_threshold": true
+  },
+  "distance_reconstruction": {
+    "D_FULL": "||X_r1 - X_r2||_F per pair",
+    "D_MODE": "|a_r1-a_r2|",
+    "report": [
+      "Spearman(D_MODE,D_FULL)",
+      "variance explained by rank-1"
+    ],
+    "participant_first": true
+  },
+  "rank2_secondary": {
+    "after_seal_only": true,
+    "report": "whether 2nd eigenmode improves distance reconstruction",
+    "no_outcome_association": true,
+    "no_convert_rank1_fail_to_rank2_success": true
+  },
+  "repeat_position": {
+    "profile": "mean mode coord per position 0..7; LOSO consensus; ventral<->lateral profile corr; descriptive",
+    "allowed": "the geometric drift coordinate contains systematic repeat-position structure",
+    "forbidden": [
+      "fatigue",
+      "scanner drift",
+      "adaptation",
+      "attention"
+    ]
+  },
+  "monotonic_control": {
+    "stat": "participant Spearman(repeat_index, mean mode coord); if strong report systematic ordered drift",
+    "wording": "repeat-position-associated geometric drift (NOT temporal neural drift unless chronology justifies)"
+  },
+  "identity_interaction": {
+    "method": "per subset repeat-mode profile; repeat main-effect fraction + identity x repeat residual fraction (O2.14 decomposition logic); descriptive"
+  },
+  "cross_roi": {
+    "method": "compare ONLY invariant repeat-coordinate profiles (native modes not comparable across voxel spaces); ventral vs lateral repeat-position coord vector Spearman"
+  },
+  "student_t_relation": {
+    "descriptive": "|a_r| or mode gap vs Student-t Mahalanobis/robust weight; low corr => mode captures directional geometry absent from scalar reliability; high => distinction weaker",
+    "no_p": true
+  },
+  "angle_relation": {
+    "descriptive": "dominant mode coord vs repeat-level angular deviation (X3); is X4 drift distinct from the failed X3 angular model",
+    "no_p": true
+  },
+  "pipeline_triviality_guard": {
+    "mandatory": true,
+    "test": "synthetic projectors matched for rank D=2/ambient dim/perturbation norms/#repeats/#subsets must NOT routinely produce observed top-eig concentration AND cross-half alignment; else H1 PIPELINE_CONSTRAINED and cannot pass"
+  },
+  "negative_controls": {
+    "A_residual_magnitude": "norm-matched null",
+    "B_identity_subset": "subset centering + cross-fitting",
+    "C_fixed_repeat_indexing": "position residualization",
+    "D_basis_orientation": "projector Frobenius basis-invariant",
+    "E_Qout_algebra": "mode learned without held-out margin and without Q_OUT optimization"
+  },
+  "basis_invariance": "deterministic orthogonal native-space rotation leaves Gram/eigfractions/mode-gap unchanged <=1e-10",
+  "program_status": {
+    "LOW_DIMENSIONAL_CONTINUOUS_GEOMETRIC_DRIFT_SUPPORTED": "H1 both ROIs AND H2 both ROIs",
+    "GEOMETRIC_DRIFT_EXISTS_BUT_FAILURE_LINK_PARTIAL": "H1 both ROIs but H2 not full",
+    "FAILURE_PREDICTIVE_MODE_WITHOUT_REPRODUCIBLE_GLOBAL_ANISOTROPY": "H2 both ROIs but H1 not",
+    "GEOMETRIC_DRIFT_MULTIREGIME": "primary ROIs materially differ",
+    "NO_REPRODUCIBLE_LOW_DIMENSIONAL_GEOMETRIC_DRIFT": "neither supported",
+    "X4_INCONCLUSIVE": "technical/provenance"
+  },
+  "claim_boundaries": {
+    "positive": "within the historical discovery cohort, repeat-level outside-support imagery subspaces varied anisotropically around their participant-specific reference geometry with a dominant perturbation direction reproducing across disjoint identity subsets; separation of two repeats along that training-only geometric direction predicted held-out M4T2 calibration failure in both primary ROIs; consistent with continuous low-dimensional geometric drift rather than isotropic subspace noise or discrete latent-state switching",
+    "forbidden": [
+      "neural manifold drift proven",
+      "attractor",
+      "cognitive state transition",
+      "fatigue",
+      "scanner drift",
+      "adaptation",
+      "attention drift",
+      "biological latent variable",
+      "causal mechanism"
+    ],
+    "forbidden_models": [
+      "K>1 latent states",
+      "new heavy-tail distributions",
+      "neural nets",
+      "nonlinear manifold learners",
+      "diffusion",
+      "t-SNE/UMAP",
+      "alternate tangent dims",
+      "new ranks",
+      "new D"
+    ]
+  },
+  "synthetic_controls": [
+    "1 isotropic -> H1 null",
+    "2 planted rank-1 drift -> H1 recovery",
+    "3 planted rank-1 drift linked to failure -> H1+H2",
+    "4 anisotropic unrelated to outcome -> H1 pass H2 fail",
+    "5 radial heavy-tail no direction -> H1 fail",
+    "6 two discrete states -> not falsely relabeled continuous rank-1 without mismatch",
+    "7 identity-specific removed by subset centering",
+    "8 cross-half reproducibility fails unrelated modes",
+    "9 basis rotation invariance",
+    "10 norm-matched triviality null",
+    "11 exact 4-test Holm",
+    "12 participant inferential N",
+    "13 no outcome in mode learning",
+    "14 no Q_OUT optimization",
+    "15 O2/X1/X2/X3 seals immutable"
+  ],
+  "provenance": {
+    "O2": "bd7470ce18c5faf9e847d0d56e1a200f9f06af4c",
+    "X1": "6726b98360fbd0cc4c286fddf506f90704ebdebf",
+    "X2": "bc0f5a27e7edd276417530af8911091f13841e17",
+    "X3": "f54d381c0656d4304f077b902629183ef25ab240",
+    "sealed_o2_14_margins": true,
+    "no_status_recompute": true
+  },
+  "discovery_stop_rule": {
+    "X4_is_FINAL_mechanistic_discovery_gate_on_N8": true,
+    "do_not_create_X5_on_same_subjects": true,
+    "if_positive": "preregister X4 endpoints for the independent O2.16 cohort",
+    "if_partial": "preregister only supported component",
+    "if_negative": "seal negative and STOP mechanistic discovery on N8 (no replacement features/manifold model/distributions/estimator search)"
+  },
+  "independent_replication": "any positive is DISCOVERY_COHORT_EVIDENCE; validate in the O2.16 independent cohort as SECONDARY preregistered endpoints; may NOT modify O2.16 primary endpoints",
+  "o2_policy": "O2.16 / O2.16-DATA / -AUTH unchanged",
+  "O3": "O3_NOT_READY",
+  "config_sha256": "885e67e2e47b87cc876c816496943ae1516635df02aa7dfc087e3fa9c730c59d"
+}

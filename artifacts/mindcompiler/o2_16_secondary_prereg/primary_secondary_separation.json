@@ -1,0 +1,28 @@
+{
+  "primary_untouched": [
+    "M4T2 estimator",
+    "N requirement",
+    "75% operational criterion",
+    "Q_MON_IN",
+    "Q_MON_OUT",
+    "primary four-test family",
+    "Stage-A/Stage-B separation",
+    "ROI definitions",
+    "folds",
+    "held-out logic",
+    "preprocessing",
+    "acquisition design"
+  ],
+  "stage_b_order": [
+    "open O2.16 held-out outcomes",
+    "finish PRIMARY O2.16 inference FIRST",
+    "freeze primary scientific status",
+    "then evaluate the six preregistered secondary tests"
+  ],
+  "invariants": [
+    "secondary results NEVER modify primary O2.16 status",
+    "no secondary positive rescues a failed primary replication",
+    "no secondary negative erases a successful primary replication",
+    "report states the primary replication result BEFORE any secondary result"
+  ]
+}

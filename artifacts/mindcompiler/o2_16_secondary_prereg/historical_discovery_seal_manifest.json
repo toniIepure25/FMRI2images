@@ -1,0 +1,40 @@
+{
+  "purpose": "Immutable references to the closed historical N=8 discovery program. Definitions/formulas/descriptive effect references ONLY -- never replication inference.",
+  "o2_checkpoint_commit": "bd7470ce18c5faf9e847d0d56e1a200f9f06af4c",
+  "x1_seal_commit": "6726b98360fbd0cc4c286fddf506f90704ebdebf",
+  "x2_seal_commit": "bc0f5a27e7edd276417530af8911091f13841e17",
+  "x3_seal_commit": "f54d381c0656d4304f077b902629183ef25ab240",
+  "x4_seal_commit": "27d4918235e22cf1caac96298ec0872b2f1dbc10",
+  "o2_16_primary_config_sha256": "2da2cc791054406b42eb1896b9b5f123b5b6bacb8386e6fb0f1e19649cf18907",
+  "o2_16_data_config_sha256": "804d5b21fc0c8656f9e0ef62ac4b7f412b114b7e0d3de2e328e972d75dec6444",
+  "surviving_findings": {
+    "S1": {
+      "source": "X1",
+      "quantity": "B_angles",
+      "why": "significant, non-pipeline-trivial, both primary ROIs, LOFO-stable"
+    },
+    "S2": {
+      "source": "O2.15",
+      "quantity": "Q_OUT -> ROBUSTNESS_MARGIN",
+      "why": "strongest reproducible failure-mode signal",
+      "historical_descriptive_rho": {
+        "ventral": 0.423,
+        "lateral": 0.477,
+        "n_pos": "8/8 both ROIs",
+        "note": "DESCRIPTIVE REFERENCE ONLY; not a replication threshold; not recomputed here"
+      }
+    },
+    "S3": {
+      "source": "X4",
+      "quantity": "ANISO_CENTRED",
+      "why": "8/8 participants both ROIs with cross-half reproducibility"
+    }
+  },
+  "immutable_negatives": [
+    "X1 spectral/support/compression (pipeline-trivial)",
+    "X2 K2-K1 (0/8; Student-t >= K2)",
+    "X3 repeat-stable angular scaffold (failed)",
+    "X3 Student-t scale->margin (failed)",
+    "X4-H2 MODE_GAP->margin (failed; opposite sign)"
+  ]
+}

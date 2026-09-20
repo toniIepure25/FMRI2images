@@ -1,0 +1,8 @@
+{
+  "family": "exactly six (3 endpoints x 2 ROIs)",
+  "correction": "Holm",
+  "alpha": 0.05,
+  "no_separate_per_discovery_family_correction": true,
+  "participant_test": "one-sided sign-flip; exact 2^N when feasible else the deterministic Monte-Carlo rule already frozen by O2.16",
+  "no_pseudoreplication": "no schedule-, fold-, identity- or repeat-level pseudoreplication; participant is the inferential unit"
+}

@@ -1,0 +1,34 @@
+{
+  "permanently_excluded_from_positive_family": [
+    {
+      "id": "X1_spectral_block",
+      "reason": "pipeline-trivial"
+    },
+    {
+      "id": "X1_support_block",
+      "reason": "pipeline-trivial"
+    },
+    {
+      "id": "X1_compression_block",
+      "reason": "pipeline-trivial"
+    },
+    {
+      "id": "X2_K2_minus_K1",
+      "reason": "0/8 positive K2-K1; Student-t performed at least as well"
+    },
+    {
+      "id": "X3_repeat_stable_angular_scaffold",
+      "reason": "failed"
+    },
+    {
+      "id": "X3_student_t_scale_to_margin",
+      "reason": "failed"
+    },
+    {
+      "id": "X4_H2_mode_gap_to_margin",
+      "reason": "failed and trended opposite the hypothesis"
+    }
+  ],
+  "status": "immutable negative findings",
+  "may_appear_only_in": "FAILED_HISTORICAL_HYPOTHESIS_REFERENCE table (status-neutral)"
+}

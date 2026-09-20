@@ -1,0 +1,23 @@
+{
+  "endpoint": "S2_QOUT",
+  "definition_source": "exact O2.15 OUTSIDE-support agreement quantity + pair/complement construction",
+  "acquisition": "O2.16-DATA high-repeat design (8 repeats/imagery identity; config 804d5b21fc0c8656f9e0ef62ac4b7f412b114b7e0d3de2e328e972d75dec6444)",
+  "construction": "for every independent M4T2 schedule with selected repeats A,B, build the exact O2.15-style OUTSIDE-support agreement metric from the high-repeat reference",
+  "must_not": "do NOT substitute the operational 1-vs-1 O2.16 Q_MON; S2 replicates the historical O2.15 MECHANISTIC quantity",
+  "held_out_outcome": "exact O2.16/O2.14 ROBUSTNESS_MARGIN (no new success metric)",
+  "participant_effect": "schedule-level Spearman(Q_OUT, ROBUSTNESS_MARGIN) via the historical O2.15 fold/Fisher-z procedure; participant is inferential N; schedules are not",
+  "support_rule": {
+    "name": "Q_OUT_FAILURE_MODE_REPLICATED (per ROI)",
+    "all_of": [
+      "median participant rho > 0",
+      ">=75% participants rho > 0",
+      "corresponding six-family Holm test rejects"
+    ],
+    "no_min_effect_size": true,
+    "historical_rho_descriptive_only": {
+      "ventral": 0.423,
+      "lateral": 0.477
+    }
+  },
+  "inferential_unit": "participant"
+}

@@ -1,0 +1,22 @@
+{
+  "endpoint": "S1_Bangles",
+  "definition_source": "exact frozen X1 B_angles (commit 6726b98360fbd0cc4c286fddf506f90704ebdebf)",
+  "construction": "full-resource perception<->imagery principal-angle spectrum using X1 exact rank-matching + normalization; no alternative angle statistics",
+  "donor_mean_LOSO": "within the independent cohort, predict each target participant's B_angles signature from the mean signature of all OTHER replication participants; NO historical participant enters the donor mean",
+  "statistic": "E_SHARED_angle (X1 matched null + standardization)",
+  "support_rule": {
+    "name": "PRINCIPAL_ANGLE_INVARIANT_REPLICATED (per ROI)",
+    "all_of": [
+      "median E_SHARED_angle > 0",
+      ">=75% independent participants E_SHARED_angle > 0",
+      "corresponding six-family Holm test rejects",
+      "independent-cohort pipeline-triviality control passes"
+    ]
+  },
+  "pipeline_triviality_control": {
+    "baseline": "exact X1 constrained-random-operator baseline reproduced in the independent cohort",
+    "fail_status": "ANGLE_REPLICATION_PIPELINE_CONSTRAINED",
+    "rule": "significant donor-mean insufficient if matched constrained operators show the same concentration"
+  },
+  "inferential_unit": "participant"
+}

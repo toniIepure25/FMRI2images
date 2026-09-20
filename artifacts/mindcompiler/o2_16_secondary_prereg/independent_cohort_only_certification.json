@@ -1,0 +1,31 @@
+{
+  "replication_inference_cohort": "ONLY genuinely independent O2.16 participants",
+  "historical_n8_role": [
+    "definitions",
+    "frozen formulas",
+    "historical effect references"
+  ],
+  "historical_n8_never": "replication inference",
+  "historical_ids_excluded": [
+    "subj01",
+    "subj02",
+    "subj03",
+    "subj04",
+    "subj05",
+    "subj06",
+    "subj07",
+    "subj08"
+  ],
+  "no_development_on_replication_cohort": [
+    "new invariant blocks",
+    "new Q metrics",
+    "alternate anisotropy measures",
+    "alternate nulls",
+    "new subspace ranks",
+    "new distributions",
+    "new ROI",
+    "new threshold",
+    "endpoint replacement"
+  ],
+  "unexpected_findings": "go to a FUTURE cohort/gate only"
+}

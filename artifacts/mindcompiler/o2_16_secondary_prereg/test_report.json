@@ -1,0 +1,27 @@
+{
+  "suite": "tests/mindcompiler/o2_16_secondary_prereg/test_secondary_prereg.py",
+  "result": "PASS",
+  "n_tests": 16,
+  "required_pre_outcome_controls": [
+    "1 S1 shared-angle synthetic positive",
+    "2 S1 pipeline-constrained false-positive blocked",
+    "3 S2 planted Q_OUT->margin positive",
+    "4 S2 null association negative",
+    "5 S3 isotropic perturbation null",
+    "6 S3 planted anisotropy positive",
+    "7 S3 cross-half reproducibility guard",
+    "8 exact six-test Holm",
+    "9 75% participant rule",
+    "10 historical participants excluded from replication inference",
+    "11 secondary cannot alter primary status",
+    "12 failed X2/X3/X4-H2 excluded from positive family",
+    "13 centred X4 statistic used never ratio",
+    "14 O2.16 config hash unchanged"
+  ],
+  "all_14_controls_covered": true,
+  "extra": [
+    "program-status branch coverage (all 5)",
+    "config immutability"
+  ],
+  "pytest_tail": "16 passed in 0.15s"
+}

@@ -1,0 +1,15 @@
+{
+  "rule": "secondary predictor-side quantities may be derived during Stage A ONLY where they need no protected held-out outcome",
+  "stage_a_allowed": [
+    "frozen O2.16 calibration + primary Q_MON + hash primary Stage-A state",
+    "S1 full-resource independent components not requiring held-out evaluation",
+    "S2 training-side Q_OUT",
+    "S3 training-side projector/anisotropy structures + S3 tractability selection",
+    "hash all secondary predictor-side quantities; commit; push; server-verify"
+  ],
+  "stage_a_forbidden": [
+    "opening any O2.16 held-out outcome",
+    "any secondary inference"
+  ],
+  "s3_tractability_frozen_here": true
+}

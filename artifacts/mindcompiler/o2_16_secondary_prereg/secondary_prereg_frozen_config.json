@@ -1,0 +1,181 @@
+{
+  "gate": "MINDIR-O2.16-SEC",
+  "task_class": "FREEZE_ONLY_ZERO_INFERENCE",
+  "secondary_class": "PROSPECTIVELY_PREREGISTERED_SECONDARY_REPLICATION_ENDPOINTS",
+  "branch": "research/o2-16-secondary-prereg",
+  "input_program_state": {
+    "o2_checkpoint": "bd7470ce18c5faf9e847d0d56e1a200f9f06af4c",
+    "x1": "6726b98360fbd0cc4c286fddf506f90704ebdebf",
+    "x2": "bc0f5a27e7edd276417530af8911091f13841e17",
+    "x3": "f54d381c0656d4304f077b902629183ef25ab240",
+    "x4": "27d4918235e22cf1caac96298ec0872b2f1dbc10",
+    "o2_16_primary_config_sha256": "2da2cc791054406b42eb1896b9b5f123b5b6bacb8386e6fb0f1e19649cf18907",
+    "o2_16_data_config_sha256": "804d5b21fc0c8656f9e0ef62ac4b7f412b114b7e0d3de2e328e972d75dec6444"
+  },
+  "primary_o2_16": {
+    "config_unchanged": true,
+    "config_sha256": "2da2cc791054406b42eb1896b9b5f123b5b6bacb8386e6fb0f1e19649cf18907",
+    "untouched": [
+      "M4T2 estimator",
+      "N requirement",
+      "75% operational criterion",
+      "Q_MON_IN",
+      "Q_MON_OUT",
+      "primary four-test family",
+      "Stage-A/Stage-B separation",
+      "ROI definitions",
+      "folds",
+      "held-out logic",
+      "preprocessing",
+      "acquisition design"
+    ]
+  },
+  "family_size": 6,
+  "alpha": 0.05,
+  "holm_across": "exactly the six preregistered tests",
+  "no_per_discovery_family_correction": true,
+  "participant_inferential_unit": true,
+  "endpoint_family": [
+    {
+      "idx": 1,
+      "roi": "ventral",
+      "endpoint": "S1_Bangles",
+      "finding": "X1 principal-angle invariant B_angles"
+    },
+    {
+      "idx": 2,
+      "roi": "lateral",
+      "endpoint": "S1_Bangles",
+      "finding": "X1 principal-angle invariant B_angles"
+    },
+    {
+      "idx": 3,
+      "roi": "ventral",
+      "endpoint": "S2_QOUT",
+      "finding": "O2.15 OUTSIDE-support Q_OUT -> calibration margin"
+    },
+    {
+      "idx": 4,
+      "roi": "lateral",
+      "endpoint": "S2_QOUT",
+      "finding": "O2.15 OUTSIDE-support Q_OUT -> calibration margin"
+    },
+    {
+      "idx": 5,
+      "roi": "ventral",
+      "endpoint": "S3_ANISO",
+      "finding": "X4 geometric anisotropy ANISO_CENTRED"
+    },
+    {
+      "idx": 6,
+      "roi": "lateral",
+      "endpoint": "S3_ANISO",
+      "finding": "X4 geometric anisotropy ANISO_CENTRED"
+    }
+  ],
+  "S1_Bangles": {
+    "source": "X1",
+    "statistic": "E_SHARED_angle (donor-mean LOSO)",
+    "support_all_of": [
+      "median>0",
+      ">=75% participants>0",
+      "Holm-reject in six-family",
+      "pipeline-triviality control passes"
+    ]
+  },
+  "S2_QOUT": {
+    "source": "O2.15",
+    "statistic": "participant Spearman(Q_OUT, ROBUSTNESS_MARGIN) Fisher-z",
+    "support_all_of": [
+      "median rho>0",
+      ">=75% participants rho>0",
+      "Holm-reject in six-family"
+    ],
+    "no_min_effect_size": true,
+    "must_not_substitute_q_mon": true
+  },
+  "S3_anisotropy": {
+    "source": "X4-H1",
+    "primary_statistic": "ANISO_CENTRED",
+    "ratio_used_for_inference": false,
+    "support_all_of": [
+      "median ANISO_CENTRED>0",
+      ">=75% participants>0",
+      "Holm-reject in six-family",
+      ">=75% participants pass cross-half reproducibility",
+      "isotropic norm/rank-matched triviality control passes"
+    ],
+    "excludes_x4_h2": true,
+    "tractability_preferred": {
+      "m4_subsets": "ALL 100",
+      "isotropic_nulls": ">=5000"
+    },
+    "tractability_fallback": {
+      "m4_subsets": "deterministic 20-of-100 SHA-ranked",
+      "isotropic_nulls": 1000
+    },
+    "tractability_frozen_before_stage_b": true
+  },
+  "excluded_failed_hypotheses": [
+    "X1_spectral_block",
+    "X1_support_block",
+    "X1_compression_block",
+    "X2_K2_minus_K1",
+    "X3_repeat_stable_angular_scaffold",
+    "X3_student_t_scale_to_margin",
+    "X4_H2_mode_gap_to_margin"
+  ],
+  "program_status_values": [
+    "THREE_GEOMETRIC_DISCOVERY_FINDINGS_INDEPENDENTLY_REPLICATED",
+    "GEOMETRIC_DISCOVERY_REPLICATION_PARTIAL",
+    "GEOMETRIC_DISCOVERY_REPLICATION_MULTIREGIME",
+    "GEOMETRIC_DISCOVERY_FINDINGS_NOT_REPLICATED",
+    "SECONDARY_REPLICATION_INCONCLUSIVE"
+  ],
+  "stage_b_order": [
+    "open held-out",
+    "finish PRIMARY first",
+    "freeze primary status",
+    "evaluate six secondary tests"
+  ],
+  "primary_first_reporting": true,
+  "historical_n8": {
+    "role": [
+      "definitions",
+      "frozen formulas",
+      "descriptive references"
+    ],
+    "never": "replication inference",
+    "excluded_ids": [
+      "subj01",
+      "subj02",
+      "subj03",
+      "subj04",
+      "subj05",
+      "subj06",
+      "subj07",
+      "subj08"
+    ]
+  },
+  "discovery_stop": {
+    "x4_final_n8_mechanistic_gate": true,
+    "no_x5": true
+  },
+  "negative_hypothesis_audit": {
+    "optional": true,
+    "status_neutral": true,
+    "no_p_values": true,
+    "may_reproduce": [
+      "X2 K2-K1",
+      "X3 scale->margin",
+      "X4 MODE_GAP->margin"
+    ],
+    "does_not_expand_family": true
+  },
+  "current_status": "O2_16_SECONDARY_ENDPOINTS_PREREGISTERED_AWAITING_INDEPENDENT_COHORT",
+  "not_evidence": true,
+  "o2_16_primary_status": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+  "o2_16_data_status": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+  "O3": "O3_NOT_READY",
+  "config_sha256": "3770816869ac0c8cd1cddcc5d4e4263578fcb08b327bee1031ac6d0a8aa16bfc"
+}

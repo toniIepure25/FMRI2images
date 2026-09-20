@@ -1,0 +1,53 @@
+{
+  "family_size": 6,
+  "endpoints": [
+    {
+      "idx": 1,
+      "roi": "ventral",
+      "endpoint": "S1_Bangles",
+      "finding": "X1 principal-angle invariant B_angles"
+    },
+    {
+      "idx": 2,
+      "roi": "lateral",
+      "endpoint": "S1_Bangles",
+      "finding": "X1 principal-angle invariant B_angles"
+    },
+    {
+      "idx": 3,
+      "roi": "ventral",
+      "endpoint": "S2_QOUT",
+      "finding": "O2.15 OUTSIDE-support Q_OUT -> calibration margin"
+    },
+    {
+      "idx": 4,
+      "roi": "lateral",
+      "endpoint": "S2_QOUT",
+      "finding": "O2.15 OUTSIDE-support Q_OUT -> calibration margin"
+    },
+    {
+      "idx": 5,
+      "roi": "ventral",
+      "endpoint": "S3_ANISO",
+      "finding": "X4 geometric anisotropy ANISO_CENTRED"
+    },
+    {
+      "idx": 6,
+      "roi": "lateral",
+      "endpoint": "S3_ANISO",
+      "finding": "X4 geometric anisotropy ANISO_CENTRED"
+    }
+  ],
+  "positive_endpoint_ids": [
+    "S1_Bangles",
+    "S2_QOUT",
+    "S3_ANISO"
+  ],
+  "rois": [
+    "ventral",
+    "lateral"
+  ],
+  "holm_across": "exactly these six",
+  "alpha": 0.05,
+  "no_per_discovery_family_correction": true
+}

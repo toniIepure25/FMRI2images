@@ -1,0 +1,41 @@
+{
+  "endpoint": "S3_ANISO",
+  "definition_source": "exact X4 H1 construction (commit 27d4918235e22cf1caac96298ec0872b2f1dbc10)",
+  "representation": "OUTSIDE-support D=2; repeat-specific projector vs leave-one-repeat reference; subset-center exactly as X4",
+  "primary_statistic": "ANISO_CENTRED",
+  "ratio_used_for_inference": false,
+  "centred_definition": "ANISO_CENTRED = TOP_FRACTION_REAL - median(TOP_FRACTION_ISOTROPIC_NULL); null expectation = 0",
+  "ratio_note": "the unstable ratio TOP_FRACTION_REAL/median(null) is NEVER an inference input (descriptive only); corrects the X4 frozen-config inconsistency in the conservative direction",
+  "tractability_policy": {
+    "frozen_before_stage_b_outcomes": true,
+    "chosen_by": "outcome-independent Stage-A compute-feasibility check, hash-committed before any held-out outcome; NEVER chosen from a replication result",
+    "PREFERRED": {
+      "m4_subsets": "ALL 100",
+      "isotropic_nulls": ">=5000"
+    },
+    "FALLBACK_if_budget_requires": {
+      "m4_subsets": "deterministic 20-of-100 SHA-ranked (exact historical rule)",
+      "isotropic_nulls": 1000
+    },
+    "selection_record": "stage_a_secondary_access_guard.json + hashes.json at Stage-A freeze"
+  },
+  "cross_half_reproducibility": {
+    "method": "exact X4 identity-half cross-fitting",
+    "participant_pass": "dominant drift-mode alignment beats matched random-alignment null in >=5 of 6 folds"
+  },
+  "support_rule": {
+    "name": "GEOMETRIC_ANISOTROPY_REPLICATED (per ROI)",
+    "all_of": [
+      "median ANISO_CENTRED > 0",
+      ">=75% participants > 0",
+      "corresponding six-family Holm test rejects",
+      ">=75% participants pass cross-half reproducibility",
+      "norm/rank-matched isotropic pipeline-triviality control passes"
+    ]
+  },
+  "excludes_h2": {
+    "do_not_test": "MODE_GAP -> margin as a replication-positive hypothesis (historical H2 FAILED, opposite sign)",
+    "allowed": "reproduce its value ONLY in a labeled FAILED_HISTORICAL_HYPOTHESIS_REFERENCE table; never in the six-test family / secondary status / positive claims"
+  },
+  "inferential_unit": "participant"
+}

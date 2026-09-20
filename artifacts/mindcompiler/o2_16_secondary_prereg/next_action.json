@@ -1,0 +1,9 @@
+{
+  "current_status": "O2_16_SECONDARY_ENDPOINTS_PREREGISTERED_AWAITING_INDEPENDENT_COHORT",
+  "not_evidence": true,
+  "no_secondary_outcome_may_be_computed_now": true,
+  "o2_16_primary_status": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+  "o2_16_data_status": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+  "O3": "O3_NOT_READY",
+  "exact_condition_for_execution": "a genuinely independent N>=8 cohort acquired and certified (INDEPENDENT_REPLICATION_COHORT_ACQUIRED_AND_CERTIFIED); then run O2.16 primary Stage-A/Stage-B UNCHANGED, freeze primary status, then evaluate exactly these six secondary tests"
+}

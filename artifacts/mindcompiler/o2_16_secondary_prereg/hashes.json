@@ -1,0 +1,23 @@
+{
+  "algo": "sha256",
+  "files": {
+    "artifacts/mindcompiler/o2_16_secondary_prereg/claim_boundaries.json": "2a88e36ca286442079d4d0d53473c57737bf2c5325bba5ad95ee1369f526b9d0",
+    "artifacts/mindcompiler/o2_16_secondary_prereg/endpoint_family.json": "890d0c07f01adb471e7d9717833a9fa7484570047fec8c3a22b8bcb34237416e",
+    "artifacts/mindcompiler/o2_16_secondary_prereg/failed_hypotheses_exclusion.json": "d5c799906cb4752e1a86814b0947993b879f759def9093b809ef491dce9a1c6a",
+    "artifacts/mindcompiler/o2_16_secondary_prereg/historical_discovery_seal_manifest.json": "994a0312a2ac6160a1f6a9935251add2a25ff398dac8ccccef84f9eb48c3e129",
+    "artifacts/mindcompiler/o2_16_secondary_prereg/historical_n8_discovery_stop.json": "7f5a6a0181629c0885580dd12e4401f2cc082c8aa33ef558027cd6887614fcdf",
+    "artifacts/mindcompiler/o2_16_secondary_prereg/independent_cohort_only_certification.json": "b247e819032293705428b42e052715a0709e3e64ce33f185ef33333d1ce8498f",
+    "artifacts/mindcompiler/o2_16_secondary_prereg/multiple_testing_plan.json": "7ff0b3a75104c3058ca6d0ad96b75596f9d0001c217abeb849ae939c780b29a9",
+    "artifacts/mindcompiler/o2_16_secondary_prereg/next_action.json": "3207f0f6cf01a6eb69973aa55739978d5b195e950aa9ab5b92fed23f8ebfa788",
+    "artifacts/mindcompiler/o2_16_secondary_prereg/primary_secondary_separation.json": "880f5a16ddd67caaa1b1f899863351aec0bd538f823bf206842f7fa149a6d201",
+    "artifacts/mindcompiler/o2_16_secondary_prereg/s1_angle_replication_spec.json": "a7b9e59f984592e21d08d60846563e539c42decbd3d782b5102c604493e7476d",
+    "artifacts/mindcompiler/o2_16_secondary_prereg/s2_qout_replication_spec.json": "2be75066257cdebb78b4a8683be97b9e3c355107da0f862aecec10d6e6aa5967",
+    "artifacts/mindcompiler/o2_16_secondary_prereg/s3_anisotropy_replication_spec.json": "d1d5025aecc206f5f8bdc728a0022fb2f8df1e3bd9a92486f7ebcf0287f1173a",
+    "artifacts/mindcompiler/o2_16_secondary_prereg/secondary_prereg_frozen_config.json": "98d4366c1635295112dd7cf09423e39437d4ea3d79da4d19b0e498f440b8b256",
+    "artifacts/mindcompiler/o2_16_secondary_prereg/stage_a_secondary_access_guard.json": "b13aa45804a212c345f318da031ebfe08d7ed5eac698f2f8d387149af1bf37e2",
+    "artifacts/mindcompiler/o2_16_secondary_prereg/test_report.json": "4ba8031a0b6dedf2f3e7f7b193ee66f1c8fbc8abe00759a3c3ba1d5bf3036a2b",
+    "src/fmri2img/mindcompiler/o2_16_secondary_prereg/secondary_prereg.py": "db85351004042b1d818c19477360eeef4cd5106be495d0d601e7be1b285d6ff9",
+    "tests/mindcompiler/o2_16_secondary_prereg/test_secondary_prereg.py": "d0ea0b3f8c2265e7929325fccfbe79c33b349b8b74e60985b54b276df09004c5"
+  },
+  "config_sha256_self_consistent": "3770816869ac0c8cd1cddcc5d4e4263578fcb08b327bee1031ac6d0a8aa16bfc"
+}

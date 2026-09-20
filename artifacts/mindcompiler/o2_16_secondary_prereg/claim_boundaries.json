@@ -1,0 +1,13 @@
+{
+  "if_S1": "A perception-to-imagery principal-angle relationship generalized across independent participants beyond the matched pipeline constraint.",
+  "if_S2": "Repeat-level outside-support geometry agreement prospectively predicted calibration generalization in an independent cohort.",
+  "if_S3": "Repeat-specific imagery subspace perturbations showed reproducible anisotropy beyond an isotropic norm/rank-matched baseline in an independent cohort.",
+  "forbidden_even_if_all_replicate": [
+    "universal neural law",
+    "causal drift",
+    "neural manifold mechanism",
+    "anisotropy causes calibration failure",
+    "brain gauge symmetry"
+  ],
+  "cross_finding_synthesis": "DESCRIPTIVE only; do NOT infer S3 causes S2 (historical X4 specifically failed that link)"
+}

@@ -36,6 +36,23 @@ from N = 8. A genuinely independent replication (O2.16) with three preregistered
 value of the present findings is that they define sharp, prospectively frozen hypotheses for that replication;
 they do not, on their own, establish generality.
 
+## Relation to prior work
+Our framing builds directly on transformation-based analyses of perception and imagery and does not claim these
+ideas as new. A vision→imagery transformation that predicts imagery activity — halving and reorienting active
+dimensions in early visual cortex — is established by Saha Roy et al. (2025), which this project independently
+reproduces and extends (we make no bitwise-replication claim). General, stimulus-independent neural
+transformations that generalize to held-out objects were shown by Ward, Isik & Chun (2018) in a perceptual
+affine-change setting. Cross-subject shared representational spaces are established by hyperalignment (Haxby et
+al., 2011, 2020) and the shared response model (Chen et al., 2015), which we use only as conceptual tools.
+Vision-trained decoding of mental imagery is likewise established and directly examined by MIRAGE (Kneeland et
+al., 2026) on the same NSD-Imagery benchmark, but that work targets brain→image reconstruction, whereas we
+study a brain-state→brain-state representational transformation and its calibration geometry. What this study
+adds is a **combination**: building on transformation-based analyses of perception and imagery, we jointly
+characterize identity-held-out perception-to-imagery mapping, test its transfer across participants, decompose
+target imagery geometry into perception-supported and target-specific components, and prospectively quantify the
+amount and acquisition robustness of the direct participant-specific imagery calibration required to recover the
+missing geometry. We make no priority ("first") claim.
+
 ## Alternative interpretations we cannot exclude
 Two limitations bound every conclusion. First, the results are **conditional on the frozen estimator and
 representation**: the outside-support residual, its "low dimension", and the eight-observation figure could all

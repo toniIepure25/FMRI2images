@@ -14,18 +14,34 @@ level provenance used for the future replication is documented from sealed NSD-I
 are stated as such.
 
 ## 3. ROI definitions
-Two visual-stream ROIs from the streams atlas: **ventral** (label 5) and **lateral** (label 6). ROI definitions
-were frozen and identical across all gates. Parietal was reserved as a post-seal secondary and is not a primary
-conclusion.
+ROIs were frozen before outcomes (`roi_selection_manifest.json`, `PHASE_1_FROZEN_BEFORE_OUTCOME`). Early visual
+ROIs came from the `prf-visualrois` atlas (V1 = labels 1,2; V2 = 3,4; V3 = 5,6; hV4 = 7); the ventral, lateral,
+and parietal ROIs came from the `streams` atlas (ventral = label 5, lateral = label 6, parietal = label 7). The
+atlas is always named because label "5" denotes V3 under `prf-visualrois` but ventral under `streams`. The two
+**primary** ROIs are the **ventral** and **lateral** streams; **parietal** was reserved as a post-seal
+secondary and is not a primary conclusion, and V1 served only as a reference/discovery ROI.
 
 ## 4. Neural response estimation and voxel selection
-Single-trial betas from the NSD GLM (the specific NSD beta version and any noise-ceiling/ncsnr-based voxel
-selection are stated in the config of the upstream response-estimation gate and were **frozen before
-outcomes**; the human authors should surface the exact beta version and selection rule here from that config
-before submission). Any reliability-based voxel selection is a frozen a-priori rule; we note that voxel
-selection could in principle shape the outside-support residual, and flag this as a bounded interpretation
-(Limitations). BLAS threads pinned to 1 for determinism; all heavy computation executed on a fixed CPU node
-under committed source (ConfigMap-injected), never with ad-hoc code.
+Single-trial betas were the NSD-Imagery **B0** preparation, `nsdimagerybetas_fithrf`, corresponding to the
+public NSD **`betas_fithrf`** (b2-compatible) preparation; the public description is "similar to b2," so we do
+**not** claim the released public file is bitwise identical to the file used in the original Roy et al.
+analysis. A GLMdenoise/RR (b3-compatible) preparation (`…_GLMdenoise_RR`, branch B1) was examined only as a
+measurement-preparation **sensitivity** branch and is **not** the primary preparation. All analyses were in the
+native **`func1pt8mm`** 1.8-mm functional grid (NIfTI shape 81×104×83, single shared affine); there was **no
+spatial resampling** for the O1/O2 representation, and the HDF5 imagery layout uses reversed storage axes
+(Z,Y,X) relative to NIfTI — a data-layout convention, not spatial interpolation.
+
+**Voxel selection (frozen before outcomes).** For each ROI, eligible voxels were the intersection of the ROI
+mask, valid NSD-Imagery voxels, and voxels with finite NSD-core noise-ceiling SNR (ncsnr, from each subject's
+`…/func1pt8mm/betas_fithrf/ncsnr.nii.gz`). Within each ROI we retained voxels with ncsnr **strictly greater
+than the ROI-specific 98th percentile** of that eligible distribution (percentile computed separately per ROI;
+strict `>` comparator; the same selected voxels used for the B0/B1 comparison; no threshold adaptation after
+outcomes). This is a per-ROI strict-98th-percentile rule on an explicitly defined eligible set, not a generic
+"top 2% of voxels." Thresholds and counts are per subject (for example, in subj01: ventral 7604 eligible →
+threshold ≈ 0.624 → 153 selected; lateral 7799 → ≈ 0.808 → 156; these are implementation examples, not
+cohort-wide counts). We note voxel selection could in principle shape the outside-support residual, and flag
+this as a bounded interpretation (Limitations). BLAS threads pinned to 1 for determinism; all heavy computation
+executed on a fixed CPU node under committed source (ConfigMap-injected), never with ad-hoc code.
 
 ## 5. Perception support construction
 A perception-support subspace was constructed per participant × ROI and frozen as `W_target` (orthonormal

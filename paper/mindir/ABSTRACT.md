@@ -1,10 +1,11 @@
 # Abstract (structured, ~300 words)
 
-**Background.** Mental imagery and perception engage overlapping visual cortex, but how completely the
-perceptual representation determines the imagined ("target") neural state, and how few direct imagery
-measurements are needed to calibrate a decoder to it, remain open. We studied this in a **discovery/development
-cohort** of **N = 8** participants from the Natural Scenes Dataset, treating the participant as the sole
-inferential unit and using prospective, pre-outcome freezes throughout.
+**Background.** Mental imagery and perception engage overlapping visual cortex, and recent work frames imagery
+as a transformation of perceptual activity (Saha Roy et al., 2025). Rather than asking only whether perception
+predicts imagery, we ask which components of imagery geometry perception fails to specify, how those components
+vary across participants, and how much direct imagery data are required to recover them. We studied this in a
+**discovery/development cohort** of **N = 8** participants from the Natural Scenes Dataset, treating the
+participant as the sole inferential unit and using prospective, pre-outcome freezes throughout.
 
 **Methods.** Within ventral and lateral visual streams we constructed a perception-support subspace and a
 perception→imagery operator, decomposed the target-imagery state into within-support and outside-support

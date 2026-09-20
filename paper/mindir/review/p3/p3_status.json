@@ -1,0 +1,53 @@
+{
+  "gate": "MINDIR-P3",
+  "task_class": "METHODS_CLOSURE + LITERATURE_VERIFICATION (zero new inference)",
+  "input_head": "0c133998efab0d202c38838a80292d48b0c29d19",
+  "branch": "paper/mindir-submission-candidate",
+  "status": "MANUSCRIPT_FACTCHECKED_READY_FOR_SUPERVISOR_REVIEW",
+  "conditions": {
+    "beta_preparation_placeholder_resolved": true,
+    "voxel_selection_placeholder_resolved": true,
+    "central_literature_primary_source_verified": true,
+    "conservative_novelty_statement_supported": true,
+    "no_unsupported_priority_claim": true,
+    "all_scientific_results_unchanged": true
+  },
+  "methods_closure": {
+    "beta": "B0=nsdimagerybetas_fithrf (b2-compatible); GLMdenoise_RR=B1 sensitivity only",
+    "spatial": "native func1pt8mm 1.8mm; no resampling; HDF5 reversed-axis layout convention",
+    "voxel": "ROI mask ∩ valid NSD-Imagery ∩ finite NSD-core ncsnr; strict > ROI-specific 98th pct; per-ROI; identical B0/B1; no threshold adaptation",
+    "roi": "prf-visualrois V1=1,2 V2=3,4 V3=5,6 hV4=7; streams ventral=5 lateral=6 parietal=7; primary=ventral+lateral",
+    "verified_against": [
+      "roy_s2_5r/beta_version_evidence.json@3be9303",
+      "roy_s2_2b/roi_selection_manifest.json@b123072",
+      "roy_s1/subj01_spatial_alignment.json@b7ec53e",
+      "roy_s2_7r/final_method_concordance.csv@03b8fa3"
+    ]
+  },
+  "literature_verified": {
+    "Saha_Roy_2025": "VERIFIED (bioRxiv 2025.09.02.672180; PMID 40950062; preprint)",
+    "Ward_Isik_Chun_2018": "VERIFIED (J Neurosci 38:8526; DOI 10.1523/JNEUROSCI.2800-17.2018)",
+    "Haxby_2011": "VERIFIED (Neuron 72:404-416)",
+    "Haxby_2020": "VERIFIED (eLife 9:e56601)",
+    "Chen_2015_SRM": "VERIFIED (NeurIPS 2015:460-468)",
+    "MIRAGE_Kneeland_2026": "VERIFIED (PLOS Comput Biol; DOI 10.1371/journal.pcbi.1014263; PMID 42172302; published 2026)",
+    "Allen_2022_NSD": "VERIFIED (Nat Neurosci; DOI high-confidence)"
+  },
+  "novelty": "combination-of-contributions; NO priority claim (certified)",
+  "immutable_unchanged": {
+    "O2_gates": "unchanged",
+    "X1_X4": "unchanged",
+    "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+    "O2_16_DATA": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+    "O2_16_SEC": "O2_16_SECONDARY_ENDPOINTS_PREREGISTERED_AWAITING_INDEPENDENT_COHORT",
+    "O3": "O3_NOT_READY",
+    "discovery_stop": "X4 final N=8 mechanistic gate; no X5"
+  },
+  "remaining_human_items": [
+    "confirm 2 high-confidence DOIs (Haxby 2011; Allen 2022) at submission",
+    "finalize reference-list formatting / citation style",
+    "choose target journal",
+    "authorize independent O2.16 acquisition when ready"
+  ],
+  "next_human_action": "real supervisor/co-author scientific review of paper/mindir/ (Methods now closed, citations verified); confirm 2 DOIs; select journal; separately authorize the independent O2.16 cohort"
+}

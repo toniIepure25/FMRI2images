@@ -18,14 +18,24 @@ See `ABSTRACT.md` (structured, ~300 words; Background / Methods / Results / Inte
 discovery cohort, operational findings, exploratory mechanistic findings, and pending independent replication.
 
 ## Introduction (outline)
-1. Imagery and perception share visual cortex, but the completeness of the perception→imagery mapping and the
-   data cost of calibrating to the imagined state are open questions.
-2. Prior work (Roy et al.) motivated an **independent method reproduction and extension**; original code/seeds
-   for a bitwise replication are unavailable.
-3. We study, in an N = 8 discovery cohort with prospective freezes: (i) how much target geometry lies outside
-   perception support; (ii) whether it is shared or subject-specific; (iii) the minimal direct calibration;
-   (iv) its schedule robustness; (v) the geometric predictor of calibration success; and (vi) the structure of
-   the repeat variation (exploratory).
+1. Imagery and perception engage overlapping visual cortex, but **similarity does not imply identical
+   geometry**; recent work frames imagery as a transformation of perceptual activity (Saha Roy et al., 2025;
+   cf. general neural transformations, Ward, Isik & Chun, 2018).
+2. Open questions this leaves: cross-subject sharedness of the transformation (cf. hyperalignment, Haxby et al.,
+   2011/2020; SRM, Chen et al., 2015); which target-state components lie outside perception support; the minimal
+   subject-specific calibration to recover them; and the robustness of that calibration. Vision-trained
+   *decoding* of imagery is established (MIRAGE, Kneeland et al., 2026) but concerns brain→image reconstruction
+   rather than the brain-state→brain-state transformation studied here.
+3. This project began as an **independent method reproduction and extension** of Saha Roy et al.; original
+   code/seeds for a bitwise replication are unavailable.
+4. Framing (no priority claim): *rather than asking only whether perception predicts imagery, we ask which
+   components of imagery geometry perception fails to specify, how those components vary across participants, and
+   how much direct imagery data are required to recover them.* We study, in an N = 8 discovery cohort with
+   prospective freezes: (i) how much target geometry lies outside perception support; (ii) whether it is shared
+   or subject-specific; (iii) the minimal direct calibration; (iv) its schedule robustness; (v) the geometric
+   predictor of calibration success; and (vi) the structure of the repeat variation (exploratory).
+
+*References for the positioning above are verified in `review/p3/literature_primary_source_audit.csv`.*
 
 ## Results
 See `RESULTS.md`. Five sections:

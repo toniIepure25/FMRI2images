@@ -1,0 +1,19 @@
+{
+  "algo": "sha256",
+  "scope": "paper/mindir/review/p3",
+  "files": {
+    "beta_preparation_certification.md": "966a58d79582b0eab50e36e87fdcabb7bd5745c76ec7d244ba8a8c77b668583a",
+    "citation_audit.csv": "d1a667133b27330f4af5785d22818ce27803e3ab2e90d1429a0493b22440f76c",
+    "figure_caption_inferential_unit_audit.csv": "76eba6c8a0d6a2b0c09110e04863c727eabbe27d6d0503e914b5b7461dd01ada",
+    "literature_primary_source_audit.csv": "b8ea1090ccb1cc0bd791bcff8b307767092602844e635a9c13bbd6c9a4e1eb55",
+    "method_exactness_audit.md": "d4aa08859493833d2d6dd8dda7e69010daf4508b1a98f1e0d277238c6c5fd199",
+    "methods_source_map.csv": "1fa3c4cd48ca10ab9ff9b1fdc829e47131afc523bcbc4e60b3a56fa3244260eb",
+    "novelty_claim_certification.md": "5bd1726c5fba9046013d9992a769adf39b003281feb4509d0ca6eb669768e093",
+    "overclaim_audit.md": "0cf8ddab50cf681992832092bff326d06075e665620bfab6e05778776c623212",
+    "p3_status.json": "73459188f030e43bfb916107de382c671d1aec387908f64691bcb2d8c73f95de",
+    "revision_log.md": "cef39ffa9cd01d66870553fb912f77736847c04ec109589e4ff049111f96e8fb",
+    "updated_literature_positioning_matrix.csv": "02603187133dab55ab5234a93b5d7adab327c6e848c2266d47e2b67827909e30",
+    "voxel_selection_certification.md": "b24054cca292f2078be5c7d7a0fcec010f87388abfd2c395f3b14ad3a26d912d"
+  },
+  "n_files": 12
+}

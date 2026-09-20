@@ -1,9 +1,11 @@
 # Phase 5 — Conservative novelty statement
 
-> **Important:** the bibliographic details in `literature_positioning_matrix.csv` are drawn from domain
-> knowledge and **must be verified against primary sources by the human authors before submission.** The
-> novelty claim below is deliberately scoped so that it does not depend on any single citation being the
-> literal "first."
+> **P3 UPDATE (verified):** the positioning below is now verified against primary sources (`review/p3/literature_primary_source_audit.csv`; Saha Roy et al. 2025 bioRxiv 2025.09.02.672180; Ward, Isik & Chun 2018 J Neurosci; Haxby et al. 2011 Neuron / 2020 eLife; Chen et al. 2015 NeurIPS; MIRAGE / Kneeland et al. 2026 PLOS Comput Biol). The certified combination-of-contributions and short-form sentences are in `review/p3/novelty_claim_certification.md` and are now used in the Abstract/Introduction/Discussion. No priority ("first") claim is made.
+
+> **Important (P3 resolved):** the central positioning citations have been verified against primary sources in
+> P3 (`review/p3/citation_audit.csv`, all `VERIFIED_PRIMARY_SOURCE`). A small number of DOIs are marked
+> high-confidence and should still be confirmed by the human authors at submission. The novelty claim below is
+> deliberately scoped so that it does not depend on any single citation being the literal "first."
 
 ## One-sentence novelty (survives all three reviewers)
 

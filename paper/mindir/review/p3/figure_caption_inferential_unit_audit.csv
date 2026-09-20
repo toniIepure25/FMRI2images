@@ -1,0 +1,7 @@
+figure,shows_data,required_caption_states_N8,required_states_schedules_not_N,oracle_ceiling_defined_required,development_vs_heldout_required,status
+F1 conceptual framework,no (schematic),n/a (label 'schematic, not data'),n/a,n/a,n/a,OK (no data)
+F2 perception ceiling vs native oracle (O2.5/O2.6),yes,YES (8 participant points per ROI),n/a (no schedules),YES (define ceiling + native oracle),mark development cohort,MANDATED in FIGURE_PLAN
+F3 subject-specificity (O2.10/O2.11/O2.13),yes,YES (per-participant transfer/prediction),n/a,n/a,mark development cohort; caption 'under tested representation/transfer',MANDATED in FIGURE_PLAN
+F4 M x T calibration grid (O2.9/O2.12),yes,YES (+ 'how to read N=8' legend note; show M4T2 participant spread),n/a,YES (native oracle),development cohort; bounded 8-obs wording,MANDATED in FIGURE_PLAN (highest overclaim risk)
+F5 schedule fragility + Q_OUT (O2.14/O2.15),yes,YES (8 participant points; + 'how to read N=8' note),YES (coverage = one value per participant; Q_OUT participant-median; 'schedules are within-participant repeated measures'),YES (define margin/ceiling),development cohort,MANDATED in FIGURE_PLAN (highest misleading-N risk)
+F6 mechanistic constraints X1-X4,yes,YES (8 participant points per panel),n/a,n/a,heading 'Exploratory'; show both X4 positive + negative,MANDATED in FIGURE_PLAN

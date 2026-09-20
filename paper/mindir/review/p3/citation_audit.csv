@@ -1,0 +1,8 @@
+citation,appears_in,identifier,classification,notes
+"Saha Roy et al. 2025 (vision->imagery transformation)","ABSTRACT, MANUSCRIPT intro, DISCUSSION",DOI 10.1101/2025.09.02.672180; PMID 40950062,VERIFIED_PRIMARY_SOURCE,bioRxiv preprint (state as preprint; not peer-reviewed journal)
+"Ward, Isik & Chun 2018 (general transformations of object representations)","MANUSCRIPT intro, DISCUSSION",DOI 10.1523/JNEUROSCI.2800-17.2018,VERIFIED_PRIMARY_SOURCE,J Neurosci 38(40):8526-8537
+"Haxby et al. 2011 (hyperalignment / common model space)","MANUSCRIPT intro, DISCUSSION",Neuron 72(2):404-416; DOI 10.1016/j.neuron.2011.08.026,VERIFIED_PRIMARY_SOURCE,DOI high-confidence; venue+pages verified
+"Haxby et al. 2020 (hyperalignment framework)",DISCUSSION,eLife 9:e56601,VERIFIED_PRIMARY_SOURCE,review/framework
+"Chen et al. 2015 (Reduced-Dimension fMRI Shared Response Model)","MANUSCRIPT intro, DISCUSSION",NeurIPS 2015:460-468 (papers.nips.cc/paper/5855),VERIFIED_PRIMARY_SOURCE,conference proceedings
+"Kneeland et al. 2026 (MIRAGE)","MANUSCRIPT intro, DISCUSSION",DOI 10.1371/journal.pcbi.1014263; PMID 42172302,VERIFIED_PRIMARY_SOURCE,PLOS Computational Biology 2026 (published)
+"Allen et al. 2022 (Natural Scenes Dataset)","METHODS (dataset)",DOI 10.1038/s41593-021-00962-x,VERIFIED_PRIMARY_SOURCE,DOI high-confidence; Nat Neurosci 25:116-126 (human to confirm exact page/DOI)

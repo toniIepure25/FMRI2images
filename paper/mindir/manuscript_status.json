@@ -1,0 +1,35 @@
+{
+  "status": "DISCOVERY_MANUSCRIPT_READY_FOR_COAUTHOR_REVIEW",
+  "conditions_met": {
+    "all_numbers_trace_to_sealed_artifacts": true,
+    "every_major_claim_in_claims_matrix": true,
+    "no_new_scientific_inference": true,
+    "figures_use_only_sealed_results": true,
+    "o2_16_described_as_future_independent_replication": true
+  },
+  "cohort": {
+    "historical_N8": "DISCOVERY_DEVELOPMENT_COHORT",
+    "independent_o2_16": "PREREGISTERED_FROZEN_NOT_YET_EXECUTED"
+  },
+  "o2_16_primary_status": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+  "o2_16_data_status": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+  "o2_16_sec_status": "O2_16_SECONDARY_ENDPOINTS_PREREGISTERED_AWAITING_INDEPENDENT_COHORT",
+  "O3": "O3_NOT_READY",
+  "next_human_action": "co-author/supervisor review of paper/mindir/, then (separately) authorize independent O2.16 cohort acquisition; execute O2.16 primary UNCHANGED then the six preregistered secondary tests",
+  "files": [
+    "ABSTRACT.md",
+    "DISCUSSION.md",
+    "FIGURE_PLAN.md",
+    "LIMITATIONS.md",
+    "MANUSCRIPT.md",
+    "METHODS.md",
+    "RESULTS.md",
+    "SUPPLEMENT.md",
+    "TITLE_OPTIONS.md",
+    "claims_matrix.csv",
+    "evidence_table.csv",
+    "provenance_manifest.json",
+    "replication_box.md",
+    "reviewer_risk_register.md"
+  ]
+}

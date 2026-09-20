@@ -1,0 +1,39 @@
+{
+  "input_head": "1302ea5afc21f43a0f313f1e784dc89c9592620c",
+  "repository": "toniIepure25/FMRI2images",
+  "manuscript_branch": "paper/mindir-discovery-manuscript",
+  "cohort_classification": {
+    "historical_N8": "DISCOVERY_DEVELOPMENT_COHORT",
+    "independent_o2_16": "PREREGISTERED_FROZEN_NOT_YET_EXECUTED"
+  },
+  "seal_commits": {
+    "o2_checkpoint": "bd7470ce18c5faf9e847d0d56e1a200f9f06af4c",
+    "O2_9": "380c9be",
+    "O2_10": "7078b71",
+    "O2_11": "5f1a1fd",
+    "O2_12": "1af0087",
+    "O2_13": "291061f",
+    "O2_14": "5cad808",
+    "O2_15": "ba763a6",
+    "O2_16": "0aa6f2d",
+    "X1": "6726b98360fbd0cc4c286fddf506f90704ebdebf",
+    "X2": "bc0f5a27e7edd276417530af8911091f13841e17",
+    "X3_seal": "7940f1c",
+    "X3_archive": "f54d381c0656d4304f077b902629183ef25ab240",
+    "X4": "27d4918235e22cf1caac96298ec0872b2f1dbc10",
+    "O2_16_SEC": "1302ea5afc21f43a0f313f1e784dc89c9592620c"
+  },
+  "frozen_configs": {
+    "o2_16_primary": "2da2cc791054406b42eb1896b9b5f123b5b6bacb8386e6fb0f1e19649cf18907",
+    "o2_16_data": "804d5b21fc0c8656f9e0ef62ac4b7f412b114b7e0d3de2e328e972d75dec6444",
+    "o2_16_sec": "37708168 (see secondary_prereg_frozen_config.json)"
+  },
+  "inference_performed": "NONE (synthesis/writing/audit only; every number traced to a sealed artifact)",
+  "roy_relation": {
+    "ORIGINAL_CODE_REPRODUCTION_UNAVAILABLE": true,
+    "BITWISE_REPLICATION_UNAVAILABLE_WITHOUT_ORIGINAL_CODE_AND_SEEDS": true,
+    "wording": "independent method reproduction and extension"
+  },
+  "O3": "O3_NOT_READY",
+  "discovery_stop": "X4 final N=8 mechanistic gate; no X5"
+}

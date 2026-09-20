@@ -1,0 +1,21 @@
+{
+  "algo": "sha256",
+  "files": {
+    "ABSTRACT.md": "618aab31dff3ff0a893d55e496914279bacaa3fb2a2d5618aa0f4a0f423dc154",
+    "claims_matrix.csv": "14f5d0d8bd60b9626666fc8e8804314ac1bd55b84c03672a0a0a62ac102b2ef6",
+    "DISCUSSION.md": "3adfa1cb98a969fd626c75b680d763387fb128f6e9ff013c654f7dfb92385c9c",
+    "evidence_table.csv": "f7ee2e4d1938a185a21cda4f24e9ef9e0c2a0c070921e0f61e7abd0cd1928073",
+    "FIGURE_PLAN.md": "c02e95ae3349256b0f15c450260b0e6fb8a45af9eaf2a190043b2c5ac32f0610",
+    "LIMITATIONS.md": "994d2ea87268f708d3571fca60855a345c27c808b77bef7b00d43255bd8091c3",
+    "MANUSCRIPT.md": "aae31df338335eb72a0c67abe8fd4d22a6d2ac01f3b5a6e4b0ba73d0413081b3",
+    "manuscript_status.json": "c27311ddefb1aa740dbae5762b4b3f7b514af24d799ab0a6426c72d1936868cd",
+    "METHODS.md": "1ccb4741cad184d4e68e6c3e023ef8f614d332b7fdfc2cc3832939799ff50e30",
+    "provenance_manifest.json": "6f04f2c3042c20fd56b557a0eb3452978534b4a0db41a098ba5c4b5bc127e3b3",
+    "replication_box.md": "f4353587c6d456c30cafd33bba80ad2b3367faa99a83606e6f099f320a0c6a11",
+    "RESULTS.md": "ce48731a506375148ae5a0e0eea5e88775aa76afcf9b1e8fba6f68759a067625",
+    "reviewer_risk_register.md": "15ffcdb1c37b88592b215e5c1a5d903259e5ffdafcf932898782d7d4d6e200df",
+    "SUPPLEMENT.md": "70ad055405c03c6f8cc8450ca6daf63574f67f904ab8a0627dd1c9a345254a83",
+    "TITLE_OPTIONS.md": "bba6184e00e1949b7dcb275ec7d5c429e526bcdfe2109aa9ad58b9fb090dd468"
+  },
+  "n_files": 15
+}

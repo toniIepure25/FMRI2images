@@ -1,0 +1,28 @@
+{
+  "gate": "MINDIR-H1",
+  "task_class": "SUPERVISOR_HANDOFF_PACKAGE (packaging/communication; zero new inference)",
+  "input_commit": "d334881f6da10b9914eb05cd381afb7a52c017f0",
+  "branch": "paper/mindir-supervisor-handoff",
+  "status": "SUPERVISOR_HANDOFF_PACKAGE_READY",
+  "conditions": {
+    "manuscript_readable_standalone": true,
+    "research_brief_<=2pp": true,
+    "replication_plan_future_work_clear": true,
+    "no_scientific_result_changed": true,
+    "no_internal_operational_noise": true,
+    "collaboration_request_explicit": true,
+    "N8_discovery_status_prominent": true
+  },
+  "title": "Subject-specific geometry and calibration limits in human visual imagery",
+  "cohort": "DISCOVERY_DEVELOPMENT_COHORT N=8",
+  "independent_replication": "PROSPECTIVELY_FROZEN_NOT_YET_EXECUTED",
+  "immutable_unchanged": {
+    "O2_gates": "unchanged",
+    "X1_X4": "unchanged",
+    "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+    "O2_16_DATA": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+    "O2_16_SEC": "O2_16_SECONDARY_ENDPOINTS_PREREGISTERED_AWAITING_INDEPENDENT_COHORT",
+    "O3": "O3_NOT_READY"
+  },
+  "next_human_action": "SEND THE PACKAGE TO A REAL SUPERVISOR / PI AND OBTAIN SCIENTIFIC FEEDBACK (before any further autonomous manuscript gate)"
+}

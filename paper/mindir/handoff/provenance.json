@@ -1,0 +1,27 @@
+{
+  "derived_from_commit": "d334881f6da10b9914eb05cd381afb7a52c017f0 (P3 submission candidate)",
+  "source_manuscript": "paper/mindir/ (P3) -> single standalone paper/mindir/handoff/MINDIR_MANUSCRIPT.md",
+  "numbers_source": "paper/mindir/evidence_table.csv (sealed; verified in P3)",
+  "key_values_verified": {
+    "M4T2_TOTAL_ventral": 0.569,
+    "M4T2_TOTAL_lateral": 0.53,
+    "FCF_ventral": 0.596,
+    "FCF_lateral": 0.591,
+    "schedule_coverage_ventral": 0.656,
+    "schedule_coverage_lateral": 0.579,
+    "QOUT_rho_ventral": 0.4228,
+    "QOUT_rho_lateral": 0.4765,
+    "anisotropy_centred_ventral": 0.093,
+    "anisotropy_centred_lateral": 0.101
+  },
+  "citations_verified": "paper/mindir/review/p3/citation_audit.csv (all VERIFIED_PRIMARY_SOURCE)",
+  "gate_name_translation": "internal analysis-gate labels translated to plain manuscript prose; provenance IDs retained only in technical supplements",
+  "excluded_from_reader_package": [
+    "session/agent links",
+    "compute-node/cluster names",
+    "orchestration logs",
+    "token/time reports",
+    "commit-management chatter"
+  ],
+  "no_new_inference": true
+}

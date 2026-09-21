@@ -1,0 +1,19 @@
+{
+  "algo": "sha256",
+  "scope": "paper/mindir/handoff",
+  "files": {
+    "COLLABORATION_REQUEST.md": "8d07a9d0b9f01c183fa66e2dfde13c9cb7dee35726bba90cfc243511bbf66d2a",
+    "EMAIL_TO_SUPERVISOR.md": "3640be9ede26c48130781f3d9259628f2128a04d0eebb66172323e002bacd2df",
+    "FAQ.md": "65a2c587fde10292ba67ae2bb9786ef4b1b393b3c44da0d86636ec97ce542878",
+    "FIVE_MINUTE_PITCH.md": "dc75071d97ea8b303a92e06ec7754b00d70d649edec562451d91adf8005ee2e7",
+    "handoff_status.json": "24c90eaa42364a5aba4c88f2e98806b2aac67d6b5d0b6e3024134a6fdda25440",
+    "MINDIR_MANUSCRIPT.md": "4dd7176e68c6f4f267adddfc12cb843fb651bba8a968772d3e91e20316a2aba3",
+    "PRE_SEND_CHECKLIST.md": "28a699788c211aeea7c8a221356717f9283b423359bcf0bc31ed581a3a004ad6",
+    "provenance.json": "af3fe791e59a4e496eec5d3d6efbef041867dabac033bfedaa3f644ad67704c3",
+    "REFERENCES.md": "6f0875fef5c58b26c96557faa192575e11d59f05fb0581f9f6493fb7418a18d2",
+    "REPLICATION_PLAN_1PAGE.md": "1ce13cccce34605c7f9dee2c2534d6c1f202181027a7c9ab9f4e37e050ae399f",
+    "RESEARCH_BRIEF_2PAGE.md": "9adb49fae8ca80072851a1cc5006ef87d9fa0692cd8d1e190ae936528c3dde83",
+    "TEN_MINUTE_TALK.md": "e94da637a874319389596615cdf1146e727672937b47fd78df949ceba10c3eec"
+  },
+  "n_files": 12
+}

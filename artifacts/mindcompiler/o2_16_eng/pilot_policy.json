@@ -1,0 +1,29 @@
+{
+  "max_participants": 2,
+  "watermark": "NON_CONFIRMATORY_ENGINEERING_PILOT",
+  "output_marker": "PILOT_ONLY_DO_NOT_POOL_WITH_CONFIRMATORY",
+  "pilot_may_validate": [
+    "timing",
+    "scanner triggers",
+    "display",
+    "BIDS",
+    "reconstruction",
+    "operational feasibility"
+  ],
+  "pilot_may_not": [
+    "modify scientific thresholds",
+    "modify estimator",
+    "modify primary hypotheses from outcomes",
+    "estimate replication effect size for confirmatory tuning"
+  ],
+  "go_nogo_criteria": [
+    "scanner sync success",
+    "event reconstruction 100%",
+    "acceptable missing-trigger rate",
+    "no critical BIDS error",
+    "stimuli displayed correctly",
+    "participant understands task",
+    "button box works"
+  ],
+  "go_nogo_forbidden": "neural effect size must NOT be a go/no-go criterion"
+}

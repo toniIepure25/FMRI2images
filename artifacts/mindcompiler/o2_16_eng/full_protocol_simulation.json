@@ -1,0 +1,85 @@
+{
+  "n_participants": 12,
+  "engineering_not_scientific_N": true,
+  "perception_counts_ok": true,
+  "imagery_counts_ok": true,
+  "replay_exact": true,
+  "balancing_ok": true,
+  "no_historical_ids": true,
+  "no_stage_b_leakage": true,
+  "all_pass": true,
+  "per_participant": [
+    {
+      "id": "sub-SYN001",
+      "perc": 1536,
+      "img": 96,
+      "replay": true
+    },
+    {
+      "id": "sub-SYN002",
+      "perc": 1536,
+      "img": 96,
+      "replay": true
+    },
+    {
+      "id": "sub-SYN003",
+      "perc": 1536,
+      "img": 96,
+      "replay": true
+    },
+    {
+      "id": "sub-SYN004",
+      "perc": 1536,
+      "img": 96,
+      "replay": true
+    },
+    {
+      "id": "sub-SYN005",
+      "perc": 1536,
+      "img": 96,
+      "replay": true
+    },
+    {
+      "id": "sub-SYN006",
+      "perc": 1536,
+      "img": 96,
+      "replay": true
+    },
+    {
+      "id": "sub-SYN007",
+      "perc": 1536,
+      "img": 96,
+      "replay": true
+    },
+    {
+      "id": "sub-SYN008",
+      "perc": 1536,
+      "img": 96,
+      "replay": true
+    },
+    {
+      "id": "sub-SYN009",
+      "perc": 1536,
+      "img": 96,
+      "replay": true
+    },
+    {
+      "id": "sub-SYN010",
+      "perc": 1536,
+      "img": 96,
+      "replay": true
+    },
+    {
+      "id": "sub-SYN011",
+      "perc": 1536,
+      "img": 96,
+      "replay": true
+    },
+    {
+      "id": "sub-SYN012",
+      "perc": 1536,
+      "img": 96,
+      "replay": true
+    }
+  ]
+}

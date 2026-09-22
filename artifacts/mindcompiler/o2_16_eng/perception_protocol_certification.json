@@ -1,0 +1,15 @@
+{
+  "pass": true,
+  "detail": {
+    "total_trials_correct": true,
+    "n_distinct_anchors": true,
+    "each_anchor_exactly_3": true,
+    "no_missing_anchor": true,
+    "no_fourth_presentation": true,
+    "no_duplicate_anchor_presentation": true
+  },
+  "total_trials": 1536,
+  "balance_across_runs": "computed(512 anchors x6 runs)",
+  "each_anchor_3x": true,
+  "no_fourth_presentation": true
+}

@@ -1,0 +1,32 @@
+{
+  "fail_closed": true,
+  "no_override_flag": true,
+  "required_true": [
+    "ethics_active",
+    "participant_consent_complete",
+    "mri_safety_complete",
+    "site_authorization_complete",
+    "stimulus_authorization_complete",
+    "participant_independent"
+  ],
+  "required_ethics_values": [
+    "ethics_protocol_id",
+    "approval_institution",
+    "approval_valid_from",
+    "approval_valid_to",
+    "consent_version",
+    "data_processing_basis"
+  ],
+  "aborts_if": [
+    "any authorization false",
+    "ethics value missing/TBD",
+    "site_id TBD",
+    "trigger uncertified/keyboard",
+    "bids_root TBD",
+    "timing incomplete",
+    "participant overlaps historical",
+    "stimulus manifest not ok",
+    "placeholder survives"
+  ],
+  "verified_by_test": "test_11_confirmatory_fail_closed + test_int_session_aborts_on_historical_confirmatory"
+}

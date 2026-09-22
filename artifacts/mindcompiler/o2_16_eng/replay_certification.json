@@ -1,0 +1,7 @@
+{
+  "exact_sequence_required": "100%",
+  "perception_exact": true,
+  "imagery_exact": true,
+  "round_trip_via_bids": "verified in test_18_bids_roundtrip",
+  "timing_tolerance": "reported separately; not part of exact-sequence check"
+}

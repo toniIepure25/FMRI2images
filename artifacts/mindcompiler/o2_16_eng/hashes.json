@@ -1,0 +1,28 @@
+{
+  "algo": "sha256",
+  "files": {
+    "bids_event_schema.json": "190570fe1f947716fc50727ac99ec171826ef980df8020adbb4c20195b09b46b",
+    "confirmatory_guard_certification.json": "24f5ac262f21bab1008b83220a5cdaee49d11ea847188a77b230b91fbc145a6a",
+    "dry_run_report.json": "d748d8d7ad4c1ac2a0b562748fcaf0e66b243797b8a13d35f6dd7eb94afb4e7a",
+    "engineering_config.json": "6cef4247ba2ae6062aeb7139b84f97c03393858cad2da66c2b1edfe5c13dadaf",
+    "engineering_status.json": "217e66f6dd79f871e7ef94bb9783d0aae4e5c810f27907f3e34df2f70db4ee55",
+    "execution_provenance.json": "2b2b5bc41c0f354d7075fe41478bd33000ce7b7e0d7c553620e48db13367590f",
+    "full_protocol_simulation.json": "f560a6d71d79242323a880f65aa6428f8e3f53e35ee10164a8551bd6286f78c8",
+    "imagery_protocol_certification.json": "6bad11ba753fdbd017227b1baf89b1d5e3d7a69e8affdc715d9f6cca9fbce6cb",
+    "next_action.json": "e8973e9e5380628fa2c3335b6ff8434efc6b769c9f71be0e66b19c95c6861157",
+    "perception_anchor_binding.json": "bba742db4d08ca64af8d688230651249a57a21ec55fe5ad5c6bded6937b1f50d",
+    "perception_protocol_certification.json": "4fc087eb08664a7ce457738664bb3b10c9970b8e975157b1e370a42fcd442035",
+    "pilot_policy.json": "791a0584744812b974bd07afb4a088a1d8d80db9e06619a0678a228868b0e6a5",
+    "protocol_version.json": "40a7b679556c131f3c1690ea2c1609b91a7a60dcc74347cb927010516f9d5bef",
+    "randomization_certification.json": "4f0916aeb80642bad9522ee9b5321f830e9eba4081343441ccd53b8e58578347",
+    "replay_certification.json": "5990e2884f218e4e845f2cf331af64035a7e47eb1262e736a5d4262f3bd73871",
+    "scanner_sync_spec.json": "ccf4c751af4c7cd9090bd4422eca8998031f53120383e0402da11cba1be4bbf0",
+    "scientific_immutability_check.json": "136c398b5f59223f2624aa2371a38b9c0a77f2929d528c77703f5e378eb42c44",
+    "simulation_report.json": "e88f3a85bfcc8dbcb4ad80c07c34400376bde79c8e4f9acf25492aa362107000",
+    "site_config_validation.json": "39b749ff9ab2efcddbd115c994de3418e9264768965bec118acefd27b15c8f24",
+    "stage_a_firewall_certification.json": "70b78266fc70550d6fc0b7c44a09a056ab66a463248b71a4af6da6cd6248fddc",
+    "stimulus_manifest_schema.json": "5602b02b4b75e68ef18f7d256cea38dea2dd1e432fa5c9a7597e9a92b61e7625",
+    "test_report.json": "313c2a1016b786d2db83c66d2ee89cf262494b79d9c29c4ee159e15a44cab7a2"
+  },
+  "n_files": 22
+}

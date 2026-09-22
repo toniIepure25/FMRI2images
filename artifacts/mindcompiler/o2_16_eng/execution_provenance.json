@@ -1,0 +1,8 @@
+{
+  "input_head": "c4f01c02796ae184c2f96cdc9f5fa824f2e28376",
+  "branch": "engineering/o2-16-scanner-stack",
+  "python": "3.13.5",
+  "no_real_human_data": true,
+  "synthetic_fixtures_only": true,
+  "presentation_framework": "SimulationPresenter (CI); PsychoPy adapter is a real-site stub (not tested here)"
+}

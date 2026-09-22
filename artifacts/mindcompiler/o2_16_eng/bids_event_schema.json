@@ -1,0 +1,31 @@
+{
+  "required_columns": [
+    "onset",
+    "duration",
+    "trial_type",
+    "identity_id",
+    "family",
+    "repeat_index",
+    "stimulus_id",
+    "response",
+    "response_time"
+  ],
+  "extra_columns": [
+    "run",
+    "trial_index",
+    "presentation",
+    "stimulus_sha",
+    "scanner_volume_index",
+    "planned_onset",
+    "frame_deviation_s",
+    "frame_exceeds_tol",
+    "trigger_anomaly",
+    "response_missing",
+    "response_multiple",
+    "response_correct"
+  ],
+  "sidecar": "events.json with descriptions/units",
+  "layout": "sub-<id>/ses-<id>/func/ task-perception|task-imagery",
+  "simulation_marker": "SIMULATED_NO_BOLD",
+  "validation": "internal always; official bids-validator if installed (never equated)"
+}

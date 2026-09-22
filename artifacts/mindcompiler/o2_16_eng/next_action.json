@@ -1,0 +1,5 @@
+{
+  "engineering_status": "O2_16_ENGINEERING_STACK_READY_FOR_SITE_INTEGRATION",
+  "exact_next_human_action": "SELECT MRI SITE + PI, FILL SITE CONFIGURATION, OBTAIN ETHICS/INSTITUTIONAL AUTHORIZATION, THEN PERFORM AN ACTUAL-SITE ENGINEERING DRY RUN",
+  "do_not": "acquire confirmatory participants as part of this task"
+}

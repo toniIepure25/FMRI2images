@@ -1,0 +1,29 @@
+{
+  "fields": [
+    "logical_id",
+    "family",
+    "source",
+    "file_path",
+    "sha256",
+    "width",
+    "height",
+    "media_type",
+    "permission_status",
+    "acquisition_included",
+    "placeholder"
+  ],
+  "startup_sha_verification": true,
+  "confirmatory_aborts_on_mismatch": true,
+  "confirmatory_requires_placeholder_false": true,
+  "imagery_identity_manifest_fields": [
+    "identity_id",
+    "family",
+    "display_name",
+    "cue_text",
+    "stimulus_reference",
+    "sha256",
+    "permission_status",
+    "placeholder"
+  ],
+  "perception_anchor_binding": "perception_anchor_binding.json (512 canonical; no outcome-based substitution)"
+}

@@ -1,0 +1,15 @@
+{
+  "abstraction": "ScannerSync base + SimulatedTrigger; real adapter site-configured",
+  "functions": [
+    "wait_for_scanner",
+    "register_trigger",
+    "record_trigger_timestamp(monotonic+UTC)",
+    "count_volume",
+    "detect_missing_trigger",
+    "detect_duplicate_trigger",
+    "compare_tr"
+  ],
+  "no_assumed_trigger_key_5_in_confirmatory": true,
+  "clock_policy": "monotonic for timing; wall-clock metadata only",
+  "scansync_log": "*_scansync.tsv (trigger_count, monotonic_s, wall_utc, est_volume_index, iti, anomaly)"
+}

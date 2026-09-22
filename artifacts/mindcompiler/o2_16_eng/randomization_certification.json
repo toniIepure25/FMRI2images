@@ -1,0 +1,21 @@
+{
+  "scheme": "SHA256(global_seed|participant|session|task|protocol_version)->uint64->PCG64",
+  "global_seed_prefix": "O2.16-DATA|frozen|randomization|v1",
+  "frozen_o2_16_data_scheme_preserved": true,
+  "deterministic": true,
+  "participant_specific": true,
+  "session_specific": true,
+  "example": {
+    "seed_input": "O2.16-DATA|frozen|randomization|v1|sub-SYN001|01|perception|O2.16-EXP-0.1.0",
+    "digest": "d4ef754a1ee00e68813bbd588c3a4d592ef7305ed3d13c7082f0b0ae284c6d8a",
+    "seed": 15343611416680599144
+  },
+  "persisted_fields": [
+    "seed_input",
+    "digest",
+    "seed",
+    "randomized_sequence",
+    "code_version"
+  ],
+  "no_outcome_adaptive": true
+}

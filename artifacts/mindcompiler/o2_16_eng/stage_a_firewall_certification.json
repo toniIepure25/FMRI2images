@@ -1,0 +1,20 @@
+{
+  "stage_a_dir": "analysis/stage_a",
+  "stage_b_dir": "analysis/stage_b_protected",
+  "stage_a_cannot_read_stage_b": true,
+  "release_token": "STAGE_B_RELEASE.json",
+  "release_required_fields": [
+    "cohort_certification",
+    "stage_a_commit_sha",
+    "stage_a_hash_manifest",
+    "server_verification_status",
+    "human_approver",
+    "timestamp"
+  ],
+  "no_outcome_peeking": true,
+  "verified_by_test": [
+    "test_23_stage_a_firewall",
+    "test_24_stage_b_release_required"
+  ],
+  "no_predictions_on_historical_N8": true
+}

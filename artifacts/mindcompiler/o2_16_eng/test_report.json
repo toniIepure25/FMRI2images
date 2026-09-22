@@ -1,0 +1,9 @@
+{
+  "suite": "tests/mindcompiler/o2_16_experiment",
+  "result": "PASS",
+  "n_passed": 33,
+  "tail": "33 passed in 0.69s",
+  "unit_tests": 27,
+  "integration_tests": 6,
+  "note": "data-free/synthetic; no historical N=8; no scientific result files touched"
+}

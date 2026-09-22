@@ -1,0 +1,33 @@
+{
+  "o2_16_primary": {
+    "calc": "2da2cc791054406b42eb1896b9b5f123b5b6bacb8386e6fb0f1e19649cf18907",
+    "stored": "2da2cc791054406b42eb1896b9b5f123b5b6bacb8386e6fb0f1e19649cf18907",
+    "match": true
+  },
+  "o2_16_sec": {
+    "calc": "3770816869ac0c8cd1cddcc5d4e4263578fcb08b327bee1031ac6d0a8aa16bfc",
+    "stored": "3770816869ac0c8cd1cddcc5d4e4263578fcb08b327bee1031ac6d0a8aa16bfc",
+    "match": true
+  },
+  "o2_16_data_config_sha256": "804d5b21fc0c8656f9e0ef62ac4b7f412b114b7e0d3de2e328e972d75dec6444",
+  "unchanged": [
+    "O2.16 primary hypotheses/endpoints",
+    "M4T2 estimator",
+    "Q_MON_IN",
+    "Q_MON_OUT",
+    "75% criterion",
+    "6 outer folds",
+    "S1/S2/S3 preregistration",
+    "N target=12",
+    "N_MIN=8",
+    "perception anchors",
+    "imagery family structure",
+    "8 repeats",
+    "ROI definitions",
+    "historical N=8 results"
+  ],
+  "O3": "O3_NOT_READY",
+  "no_x5": true,
+  "no_new_science": true,
+  "all_match": true
+}

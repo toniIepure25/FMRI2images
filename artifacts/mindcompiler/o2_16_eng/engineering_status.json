@@ -1,0 +1,38 @@
+{
+  "status": "O2_16_ENGINEERING_STACK_READY_FOR_SITE_INTEGRATION",
+  "conditions": {
+    "experiment_software_complete": true,
+    "simulation_complete": true,
+    "deterministic_replay_100": true,
+    "confirmatory_guard_works": true,
+    "bids_dry_run_works": true,
+    "stage_a_firewall_works": true,
+    "all_tests_pass": true,
+    "only_site_and_human_items_remain": true
+  },
+  "unresolved_site_specific": [
+    "MRI facility/scanner/model/field strength",
+    "final TR",
+    "trigger key/code",
+    "display/button box/audio",
+    "run/session structure",
+    "dummy volumes",
+    "inter-run rest",
+    "real-site BIDS paths",
+    "final naturalistic stimuli"
+  ],
+  "unresolved_human_authorization": [
+    "ethics approval",
+    "participant consent",
+    "MRI safety",
+    "site authorization",
+    "stimulus permissions"
+  ],
+  "scientific_status_unchanged": {
+    "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+    "O2_16_DATA": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+    "O2_16_SEC": "O2_16_SECONDARY_ENDPOINTS_PREREGISTERED_AWAITING_INDEPENDENT_COHORT",
+    "O3": "O3_NOT_READY"
+  },
+  "no_fabrication": "no ethics/scanner/recruitment/pilot/BIDS-validator/consent/permissions fabricated"
+}

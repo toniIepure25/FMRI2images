@@ -1,0 +1,34 @@
+{
+  "status": "SITE_TBD_INCOMPLETE",
+  "tbd_fields": [
+    "institution",
+    "site_id",
+    "scanner_vendor",
+    "model",
+    "field_strength",
+    "head_coil",
+    "TR",
+    "TE",
+    "flip_angle",
+    "voxel_size",
+    "multiband",
+    "phase_encoding",
+    "distortion_correction",
+    "display",
+    "response_device",
+    "trigger_device",
+    "trigger_event",
+    "dummy_volumes",
+    "operator_contact",
+    "bids_root"
+  ],
+  "reviews": [],
+  "recommended": {
+    "field_strength_T": 7.0,
+    "voxel_mm": 1.8,
+    "TR_s": 1.6,
+    "T1_mm_max": 1.0,
+    "T2_recommended": true
+  },
+  "decision": "a real PI / MRI physicist decides acceptability; software does not auto-approve"
+}

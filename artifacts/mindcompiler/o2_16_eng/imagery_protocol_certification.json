@@ -1,0 +1,41 @@
+{
+  "pass": true,
+  "detail": {
+    "total_trials_correct": true,
+    "n_distinct_identities": true,
+    "each_identity_exactly_8": true,
+    "no_missing_identity": true,
+    "simple_count_6": true,
+    "nat_count_6": true,
+    "no_duplicate_identity_repeat": true
+  },
+  "total_trials": 96,
+  "simple_6_nat_6": true,
+  "each_identity_8x": true,
+  "family_balance_across_runs": {
+    "1": {
+      "naturalistic": 8,
+      "simple": 8
+    },
+    "2": {
+      "simple": 9,
+      "naturalistic": 7
+    },
+    "3": {
+      "simple": 9,
+      "naturalistic": 7
+    },
+    "4": {
+      "simple": 9,
+      "naturalistic": 7
+    },
+    "5": {
+      "simple": 6,
+      "naturalistic": 10
+    },
+    "6": {
+      "simple": 7,
+      "naturalistic": 9
+    }
+  }
+}

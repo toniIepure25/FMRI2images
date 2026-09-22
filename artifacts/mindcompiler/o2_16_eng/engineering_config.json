@@ -1,0 +1,51 @@
+{
+  "mode_default": "SIMULATION",
+  "protocol_version": "O2.16-EXP-0.1.0",
+  "protocol_sha": "49ecf48e783dc1c77ef5aa8bfaafefba61ee640281d4906ff060e557e67a81fe",
+  "config": {
+    "mode": "SIMULATION",
+    "protocol_version": "O2.16-EXP-0.1.0",
+    "timing": {
+      "TR_s": null,
+      "perception_image_s": 3.0,
+      "perception_gap_s": 1.0,
+      "imagery_trial_s": 4.0,
+      "cue_duration_s": 1.0,
+      "imagery_duration_s": 1.7,
+      "response_window_s": 1.3,
+      "iti_s": 1.0,
+      "dummy_volumes": null,
+      "initial_fixation_s": null,
+      "end_fixation_s": null,
+      "inter_run_rest_s": null
+    },
+    "site_id": "TBD_BY_MRI_FACILITY",
+    "trigger_event": "KEYBOARD_TRIGGER",
+    "bids_root": "TBD_BY_MRI_FACILITY",
+    "frame_tolerance_s": 0.005,
+    "tr_tolerance_s": 0.05
+  },
+  "frozen_counts": {
+    "perception_anchors": 512,
+    "perception_presentations": 3,
+    "perception_trials": 1536,
+    "imagery_identities": 12,
+    "simple": 6,
+    "naturalistic": 6,
+    "imagery_repeats": 8,
+    "imagery_trials": 96,
+    "outer_folds": 6,
+    "m4t2": [
+      4,
+      2
+    ],
+    "N_planned": 12,
+    "N_confirmatory_min": 8
+  },
+  "immutable_hashes": {
+    "o2_16_primary_config_sha256": "2da2cc791054406b42eb1896b9b5f123b5b6bacb8386e6fb0f1e19649cf18907",
+    "o2_16_data_config_sha256": "804d5b21fc0c8656f9e0ef62ac4b7f412b114b7e0d3de2e328e972d75dec6444",
+    "o2_16_sec_config_sha256": "3770816869ac0c8cd1cddcc5d4e4263578fcb08b327bee1031ac6d0a8aa16bfc"
+  },
+  "bound_from": "sealed O2.16-DATA acquisition_protocol.json"
+}

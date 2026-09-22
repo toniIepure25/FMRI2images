@@ -1,0 +1,37 @@
+{
+  "engine": "accelerated synthetic; fault injection supported",
+  "capabilities": [
+    "synthetic triggers",
+    "synthetic responses",
+    "fast frame clock",
+    "missed/duplicate triggers",
+    "corrupted stimulus hash",
+    "simulated crash"
+  ],
+  "single_participant": {
+    "participant": "sub-SYN001",
+    "perception_trials": 1536,
+    "imagery_trials": 96,
+    "runs": {},
+    "qc": {
+      "perception_run1": "PASS",
+      "perception_run2": "PASS",
+      "perception_run3": "PASS",
+      "perception_run4": "PASS",
+      "perception_run5": "PASS",
+      "perception_run6": "PASS",
+      "imagery_run1": "PASS",
+      "imagery_run2": "PASS",
+      "imagery_run3": "PASS",
+      "imagery_run4": "PASS",
+      "imagery_run5": "PASS",
+      "imagery_run6": "PASS"
+    },
+    "replay_perception_exact": true,
+    "replay_imagery_exact": true,
+    "balance_all_pass": true,
+    "n_perc_records": 1536,
+    "n_img_records": 96
+  },
+  "labeled": "SIMULATION_NO_BOLD"
+}

@@ -1,0 +1,6 @@
+{
+  "protocol_version": "O2.16-EXP-0.1.0",
+  "protocol_sha": "49ecf48e783dc1c77ef5aa8bfaafefba61ee640281d4906ff060e557e67a81fe",
+  "semantic": "any change to timing/order-logic/instructions/response-mapping/n-trials changes this hash",
+  "randomization_code_version": "randomization.py@O2.16-EXP-0.1.0"
+}

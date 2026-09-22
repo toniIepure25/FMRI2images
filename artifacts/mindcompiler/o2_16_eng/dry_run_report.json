@@ -1,0 +1,17 @@
+{
+  "test_count": 33,
+  "tests_pass": true,
+  "simulated_participants": 12,
+  "generated_perception_trials": 1536,
+  "generated_imagery_trials": 96,
+  "bids_reconstruction_rate": "100% (round-trip test_18)",
+  "trigger_anomaly_detection": "missing+duplicate detected (test_15/16)",
+  "leakage_guard_result": "Stage-A cannot read Stage-B; Stage-B locked without release token (test_23/24)",
+  "config_hashes": {
+    "o2_16_primary_config_sha256": "2da2cc791054406b42eb1896b9b5f123b5b6bacb8386e6fb0f1e19649cf18907",
+    "o2_16_data_config_sha256": "804d5b21fc0c8656f9e0ef62ac4b7f412b114b7e0d3de2e328e972d75dec6444",
+    "o2_16_sec_config_sha256": "3770816869ac0c8cd1cddcc5d4e4263578fcb08b327bee1031ac6d0a8aa16bfc"
+  },
+  "commit_sha": "c4f01c02796ae184c2f96cdc9f5fa824f2e28376",
+  "engineering_dry_run": "ENGINEERING_DRY_RUN_PASS (synthetic; no real BOLD, no real BIDS-validator)"
+}

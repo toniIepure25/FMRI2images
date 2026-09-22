@@ -1,0 +1,4103 @@
+{
+  "n_anchors": 512,
+  "must_not_substitute_subset": true,
+  "no_outcome_based_substitution": true,
+  "anchors": [
+    {
+      "canonical_identity": "anchor-0000",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 0,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0001",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 1,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0002",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 2,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0003",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 3,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0004",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 4,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0005",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 5,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0006",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 6,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0007",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 7,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0008",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 8,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0009",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 9,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0010",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 10,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0011",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 11,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0012",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 12,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0013",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 13,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0014",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 14,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0015",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 15,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0016",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 16,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0017",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 17,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0018",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 18,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0019",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 19,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0020",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 20,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0021",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 21,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0022",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 22,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0023",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 23,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0024",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 24,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0025",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 25,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0026",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 26,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0027",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 27,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0028",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 28,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0029",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 29,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0030",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 30,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0031",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 31,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0032",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 32,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0033",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 33,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0034",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 34,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0035",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 35,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0036",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 36,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0037",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 37,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0038",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 38,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0039",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 39,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0040",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 40,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0041",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 41,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0042",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 42,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0043",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 43,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0044",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 44,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0045",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 45,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0046",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 46,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0047",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 47,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0048",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 48,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0049",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 49,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0050",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 50,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0051",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 51,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0052",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 52,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0053",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 53,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0054",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 54,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0055",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 55,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0056",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 56,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0057",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 57,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0058",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 58,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0059",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 59,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0060",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 60,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0061",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 61,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0062",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 62,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0063",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 63,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0064",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 64,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0065",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 65,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0066",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 66,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0067",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 67,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0068",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 68,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0069",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 69,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0070",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 70,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0071",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 71,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0072",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 72,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0073",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 73,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0074",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 74,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0075",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 75,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0076",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 76,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0077",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 77,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0078",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 78,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0079",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 79,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0080",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 80,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0081",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 81,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0082",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 82,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0083",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 83,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0084",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 84,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0085",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 85,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0086",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 86,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0087",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 87,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0088",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 88,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0089",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 89,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0090",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 90,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0091",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 91,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0092",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 92,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0093",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 93,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0094",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 94,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0095",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 95,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0096",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 96,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0097",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 97,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0098",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 98,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0099",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 99,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0100",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 100,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0101",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 101,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0102",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 102,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0103",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 103,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0104",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 104,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0105",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 105,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0106",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 106,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0107",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 107,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0108",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 108,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0109",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 109,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0110",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 110,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0111",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 111,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0112",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 112,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0113",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 113,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0114",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 114,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0115",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 115,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0116",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 116,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0117",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 117,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0118",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 118,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0119",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 119,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0120",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 120,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0121",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 121,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0122",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 122,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0123",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 123,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0124",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 124,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0125",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 125,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0126",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 126,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0127",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 127,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0128",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 128,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0129",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 129,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0130",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 130,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0131",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 131,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0132",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 132,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0133",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 133,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0134",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 134,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0135",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 135,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0136",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 136,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0137",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 137,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0138",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 138,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0139",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 139,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0140",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 140,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0141",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 141,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0142",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 142,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0143",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 143,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0144",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 144,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0145",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 145,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0146",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 146,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0147",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 147,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0148",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 148,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0149",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 149,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0150",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 150,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0151",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 151,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0152",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 152,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0153",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 153,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0154",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 154,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0155",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 155,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0156",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 156,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0157",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 157,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0158",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 158,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0159",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 159,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0160",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 160,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0161",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 161,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0162",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 162,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0163",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 163,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0164",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 164,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0165",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 165,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0166",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 166,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0167",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 167,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0168",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 168,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0169",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 169,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0170",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 170,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0171",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 171,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0172",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 172,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0173",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 173,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0174",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 174,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0175",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 175,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0176",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 176,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0177",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 177,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0178",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 178,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0179",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 179,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0180",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 180,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0181",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 181,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0182",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 182,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0183",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 183,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0184",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 184,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0185",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 185,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0186",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 186,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0187",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 187,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0188",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 188,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0189",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 189,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0190",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 190,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0191",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 191,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0192",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 192,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0193",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 193,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0194",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 194,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0195",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 195,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0196",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 196,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0197",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 197,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0198",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 198,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0199",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 199,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0200",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 200,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0201",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 201,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0202",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 202,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0203",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 203,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0204",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 204,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0205",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 205,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0206",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 206,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0207",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 207,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0208",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 208,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0209",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 209,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0210",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 210,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0211",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 211,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0212",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 212,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0213",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 213,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0214",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 214,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0215",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 215,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0216",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 216,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0217",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 217,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0218",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 218,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0219",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 219,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0220",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 220,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0221",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 221,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0222",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 222,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0223",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 223,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0224",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 224,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0225",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 225,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0226",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 226,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0227",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 227,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0228",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 228,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0229",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 229,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0230",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 230,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0231",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 231,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0232",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 232,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0233",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 233,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0234",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 234,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0235",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 235,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0236",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 236,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0237",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 237,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0238",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 238,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0239",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 239,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0240",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 240,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0241",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 241,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0242",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 242,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0243",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 243,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0244",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 244,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0245",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 245,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0246",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 246,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0247",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 247,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0248",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 248,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0249",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 249,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0250",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 250,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0251",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 251,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0252",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 252,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0253",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 253,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0254",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 254,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0255",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 255,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0256",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 256,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0257",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 257,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0258",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 258,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0259",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 259,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0260",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 260,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0261",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 261,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0262",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 262,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0263",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 263,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0264",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 264,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0265",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 265,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0266",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 266,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0267",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 267,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0268",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 268,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0269",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 269,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0270",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 270,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0271",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 271,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0272",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 272,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0273",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 273,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0274",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 274,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0275",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 275,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0276",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 276,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0277",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 277,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0278",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 278,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0279",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 279,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0280",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 280,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0281",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 281,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0282",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 282,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0283",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 283,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0284",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 284,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0285",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 285,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0286",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 286,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0287",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 287,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0288",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 288,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0289",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 289,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0290",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 290,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0291",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 291,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0292",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 292,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0293",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 293,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0294",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 294,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0295",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 295,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0296",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 296,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0297",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 297,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0298",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 298,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0299",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 299,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0300",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 300,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0301",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 301,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0302",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 302,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0303",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 303,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0304",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 304,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0305",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 305,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0306",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 306,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0307",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 307,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0308",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 308,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0309",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 309,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0310",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 310,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0311",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 311,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0312",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 312,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0313",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 313,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0314",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 314,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0315",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 315,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0316",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 316,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0317",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 317,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0318",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 318,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0319",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 319,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0320",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 320,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0321",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 321,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0322",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 322,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0323",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 323,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0324",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 324,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0325",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 325,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0326",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 326,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0327",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 327,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0328",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 328,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0329",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 329,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0330",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 330,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0331",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 331,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0332",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 332,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0333",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 333,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0334",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 334,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0335",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 335,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0336",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 336,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0337",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 337,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0338",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 338,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0339",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 339,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0340",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 340,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0341",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 341,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0342",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 342,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0343",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 343,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0344",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 344,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0345",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 345,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0346",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 346,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0347",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 347,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0348",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 348,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0349",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 349,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0350",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 350,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0351",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 351,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0352",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 352,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0353",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 353,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0354",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 354,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0355",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 355,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0356",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 356,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0357",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 357,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0358",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 358,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0359",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 359,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0360",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 360,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0361",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 361,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0362",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 362,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0363",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 363,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0364",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 364,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0365",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 365,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0366",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 366,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0367",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 367,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0368",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 368,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0369",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 369,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0370",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 370,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0371",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 371,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0372",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 372,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0373",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 373,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0374",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 374,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0375",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 375,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0376",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 376,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0377",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 377,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0378",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 378,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0379",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 379,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0380",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 380,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0381",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 381,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0382",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 382,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0383",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 383,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0384",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 384,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0385",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 385,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0386",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 386,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0387",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 387,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0388",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 388,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0389",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 389,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0390",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 390,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0391",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 391,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0392",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 392,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0393",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 393,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0394",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 394,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0395",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 395,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0396",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 396,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0397",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 397,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0398",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 398,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0399",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 399,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0400",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 400,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0401",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 401,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0402",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 402,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0403",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 403,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0404",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 404,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0405",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 405,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0406",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 406,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0407",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 407,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0408",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 408,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0409",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 409,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0410",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 410,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0411",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 411,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0412",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 412,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0413",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 413,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0414",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 414,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0415",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 415,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0416",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 416,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0417",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 417,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0418",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 418,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0419",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 419,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0420",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 420,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0421",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 421,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0422",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 422,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0423",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 423,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0424",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 424,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0425",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 425,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0426",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 426,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0427",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 427,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0428",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 428,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0429",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 429,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0430",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 430,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0431",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 431,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0432",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 432,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0433",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 433,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0434",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 434,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0435",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 435,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0436",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 436,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0437",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 437,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0438",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 438,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0439",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 439,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0440",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 440,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0441",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 441,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0442",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 442,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0443",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 443,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0444",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 444,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0445",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 445,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0446",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 446,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0447",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 447,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0448",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 448,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0449",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 449,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0450",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 450,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0451",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 451,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0452",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 452,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0453",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 453,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0454",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 454,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0455",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 455,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0456",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 456,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0457",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 457,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0458",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 458,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0459",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 459,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0460",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 460,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0461",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 461,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0462",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 462,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0463",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 463,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0464",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 464,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0465",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 465,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0466",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 466,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0467",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 467,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0468",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 468,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0469",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 469,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0470",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 470,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0471",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 471,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0472",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 472,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0473",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 473,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0474",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 474,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0475",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 475,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0476",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 476,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0477",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 477,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0478",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 478,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0479",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 479,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0480",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 480,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0481",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 481,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0482",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 482,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0483",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 483,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0484",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 484,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0485",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 485,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0486",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 486,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0487",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 487,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0488",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 488,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0489",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 489,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0490",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 490,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0491",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 491,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0492",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 492,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0493",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 493,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0494",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 494,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0495",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 495,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0496",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 496,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0497",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 497,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0498",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 498,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0499",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 499,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0500",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 500,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0501",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 501,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0502",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 502,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0503",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 503,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0504",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 504,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0505",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 505,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0506",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 506,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0507",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 507,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0508",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 508,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0509",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 509,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0510",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 510,
+      "placeholder": true
+    },
+    {
+      "canonical_identity": "anchor-0511",
+      "source": "O2.3A-RD_canonical_512(placeholder)",
+      "file_sha": null,
+      "family": "perception_anchor",
+      "manifest_order": 511,
+      "placeholder": true
+    }
+  ]
+}

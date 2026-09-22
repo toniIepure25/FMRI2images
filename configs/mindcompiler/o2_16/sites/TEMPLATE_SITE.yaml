@@ -1,0 +1,24 @@
+# O2.16 site configuration TEMPLATE. Copy per real MRI facility. Fill every TBD before CONFIRMATORY use.
+# This is a TEMPLATE, not a real site. No fictional values.
+institution: TBD
+site_id: TBD
+scanner_vendor: TBD            # e.g. Siemens / GE / Philips
+model: TBD
+field_strength: TBD            # target 7T where feasible
+head_coil: TBD
+TR: TBD                        # target ~1.6 s
+TE: TBD
+flip_angle: TBD
+voxel_size: TBD                # target ~1.8 mm isotropic
+multiband: TBD
+phase_encoding: TBD
+distortion_correction: TBD
+display: TBD                   # projector/model; resolution; refresh rate
+response_device: TBD           # button box model
+trigger_device: TBD
+trigger_event: TBD             # scanner trigger key/code -- do NOT assume "5"
+dummy_volumes: TBD
+operator_contact: TBD
+bids_root: TBD
+# structural target: T1w <= 1 mm (+ T2w recommended)
+# ethics / consent / stimulus permissions are tracked in the authorization manifest, not here.

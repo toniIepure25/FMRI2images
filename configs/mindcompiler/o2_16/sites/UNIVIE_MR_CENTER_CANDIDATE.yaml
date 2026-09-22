@@ -1,0 +1,28 @@
+# University of Vienna MR Center (SCAN-Unit, Faculty of Psychology) -- CANDIDATE profile.
+# Verified from the official facility page psychologie.univie.ac.at/en/research/labs/mr-center/ (retrieved 2026-09-22).
+# NOT a validated site. No access, PI agreement, or hardware validation is claimed.
+status: CANDIDATE_NOT_VALIDATED
+institution: "University of Vienna MR Center (SCAN-Unit, Faculty of Psychology)"   # VERIFIED
+site_id: TBD_SITE_OPERATOR
+scanner_vendor: "Siemens"                                                          # VERIFIED
+model: "MAGNETOM Skyra (bore 163cm x 70cm)"                                        # VERIFIED
+field_strength: "3T"                                                               # VERIFIED
+head_coil: "32-channel head coil (24-channel also available)"                      # VERIFIED
+TR: TBD_SITE_OPERATOR
+TE: TBD_SITE_OPERATOR
+flip_angle: TBD_SITE_OPERATOR
+voxel_size: TBD_SITE_OPERATOR
+multiband: TBD_SITE_OPERATOR
+phase_encoding: TBD_SITE_OPERATOR
+distortion_correction: TBD_SITE_OPERATOR
+display: "BOLDscreen 32 LCD for fMRI (Cambridge Research Systems), 32-inch MRI-compatible"   # VERIFIED
+display_refresh_hz: TBD_SITE_OPERATOR         # not stated on official page
+response_device: "4-Button Fiber Optic Response Pad (Current Designs)"             # VERIFIED
+eye_tracker: "EyeLink 1000 Plus (SR Research)"                                     # VERIFIED
+physiological_recording: "BrainAmp ExG MR 16 (Brain Products)"                     # VERIFIED
+audio: "In-ear headphone system S14 (Sensimetrics)"                                # VERIFIED
+trigger_device: TBD_SITE_OPERATOR
+trigger_event: TBD_SITE_OPERATOR              # not stated; do NOT assume "5"
+dummy_volumes: TBD_SITE_OPERATOR
+operator_contact: "Priv.-Doz. Dr. Ronald Sladky (Senior Scientist / MR Center manager), ronald.sladky@univie.ac.at; Director Univ.-Prof. Claus Lamm -- PUBLIC listing; NOT contacted, NOT agreed"  # VERIFIED public
+bids_root: TBD_SITE_OPERATOR

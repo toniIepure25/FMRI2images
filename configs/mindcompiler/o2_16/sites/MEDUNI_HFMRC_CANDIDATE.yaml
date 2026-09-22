@@ -1,0 +1,26 @@
+# MedUni Vienna High Field MR Center (HFMRC) -- CANDIDATE profile.
+# Verified from official MedUni Vienna sources (retrieved 2026-09-22); unverified -> TBD_SITE_OPERATOR.
+# NOT a validated site. No access, PI agreement, or hardware validation is claimed.
+status: CANDIDATE_NOT_VALIDATED
+institution: "Medical University of Vienna -- High Field MR Center (HFMRC)"   # VERIFIED (hfmr.meduniwien.ac.at)
+site_id: TBD_SITE_OPERATOR
+scanner_vendor: "Siemens Healthineers"                                        # VERIFIED
+model: "MAGNETOM 7T (Magnetom Dot Plus); also 3T PrismaFit; 3T Prisma (shared clinical)"  # VERIFIED (candidate scanner TBD)
+field_strength: "7T (Magnetom Dot Plus) [3T PrismaFit alternative]"           # VERIFIED; final choice TBD
+head_coil: "7T: 32 receive channels (multi-nuclei; microgradient 9cm 750mT/m)"  # VERIFIED for 7T
+TR: TBD_SITE_OPERATOR
+TE: TBD_SITE_OPERATOR
+flip_angle: TBD_SITE_OPERATOR
+voxel_size: TBD_SITE_OPERATOR
+multiband: TBD_SITE_OPERATOR
+phase_encoding: TBD_SITE_OPERATOR
+distortion_correction: TBD_SITE_OPERATOR
+display: TBD_SITE_OPERATOR              # not stated on official page
+display_refresh_hz: TBD_SITE_OPERATOR
+response_device: TBD_SITE_OPERATOR
+trigger_device: TBD_SITE_OPERATOR
+trigger_event: TBD_SITE_OPERATOR       # do NOT assume "5"
+dummy_volumes: TBD_SITE_OPERATOR
+operator_contact: "Christian Windischberger (Deputy Head MR Physics; leads fMRI methods group) -- PUBLIC listing; NOT contacted, NOT agreed"  # VERIFIED public
+bids_root: TBD_SITE_OPERATOR
+# 7T-specific: stricter B0/B1/safety + sequence optimization -> REVIEW_REQUIRED with the MRI physicist.

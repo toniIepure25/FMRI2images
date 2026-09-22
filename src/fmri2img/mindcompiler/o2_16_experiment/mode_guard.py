@@ -77,6 +77,13 @@ def participant_independence_ok(participant_id: str) -> bool:
     return participant_id not in C.HISTORICAL_N8
 
 
+def stimulus_permissions_ok(rows):
+    """rows: list of dicts with 'confirmatory_use_status'. Confirmatory requires EVERY row AUTHORIZED; any
+    LEGAL_OR_INSTITUTIONAL_REVIEW_REQUIRED / TBD / unclear blocks confirmatory (fail closed)."""
+    blockers = [r for r in rows if str(r.get("confirmatory_use_status", "")).upper() != "AUTHORIZED"]
+    return len(blockers) == 0, blockers
+
+
 def watermark(mode: C.Mode):
     if mode == C.Mode.ENGINEERING_PILOT:
         return "NON_CONFIRMATORY_ENGINEERING_PILOT"

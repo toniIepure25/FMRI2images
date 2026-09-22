@@ -1,0 +1,21 @@
+{
+  "fields": [
+    "scanner/model/field-strength final",
+    "TR/TE/flip/voxel/matrix/FOV/slices",
+    "multiband/partial-Fourier/phase-encoding/bandwidth/echo-spacing",
+    "distortion correction",
+    "dummy/reference scans",
+    "shim method",
+    "display + refresh rate",
+    "trigger interface + code",
+    "button box mapping",
+    "audio",
+    "run/session structure",
+    "DICOM export path",
+    "BIDS root",
+    "network access",
+    "cost/booking",
+    "operator support"
+  ],
+  "all_TBD_SITE_OPERATOR": true
+}

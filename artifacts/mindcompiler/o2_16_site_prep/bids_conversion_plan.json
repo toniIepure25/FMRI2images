@@ -1,0 +1,14 @@
+{
+  "tool": "dcm2niix (pin exact version at site)",
+  "mapping": {
+    "task-perception": "func/",
+    "task-imagery": "func/",
+    "T1w": "anat/",
+    "T2w": "anat/",
+    "fieldmap/opposite-PE": "fmap/",
+    "physio": "*_physio.tsv.gz"
+  },
+  "run_on_fake_scanner_data": false,
+  "synthetic_testing_allowed": true,
+  "official_validator": "bids-validator at site"
+}

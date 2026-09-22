@@ -1,0 +1,32 @@
+{
+  "site_id": "UNIVIE_MR_CENTER",
+  "institution": "University of Vienna MR Center (SCAN-Unit, Faculty of Psychology)",
+  "verified": {
+    "scanner": "Siemens MAGNETOM Skyra 3T (bore 163x70cm)",
+    "head_coils": [
+      "32-channel",
+      "24-channel"
+    ],
+    "display": "BOLDscreen 32 LCD for fMRI (Cambridge Research Systems), 32-inch MRI-compatible",
+    "response_device": "4-Button Fiber Optic Response Pad (Current Designs)",
+    "eye_tracker": "EyeLink 1000 Plus (SR Research)",
+    "physiological": "BrainAmp ExG MR 16 (Brain Products)",
+    "audio": "Sensimetrics S14 in-ear",
+    "director": "Univ.-Prof. Claus Lamm",
+    "manager_contact_public": "Priv.-Doz. Dr. Ronald Sladky (ronald.sladky@univie.ac.at)"
+  },
+  "tbd_site_operator": [
+    "display refresh rate (not stated)",
+    "trigger interface/code (not stated)",
+    "TR/TE/voxel/multiband/distortion",
+    "dummy volumes",
+    "BIDS root",
+    "booking/cost",
+    "ethics pathway"
+  ],
+  "no_access_or_agreement_claimed": true,
+  "sources": [
+    "https://psychologie.univie.ac.at/en/research/labs/mr-center/"
+  ],
+  "retrieved": "2026-09-22"
+}

@@ -1,0 +1,9 @@
+task,runs,trials_per_run,balanced_integer,total_preserved,operational_concern
+perception,4,384,True,True,longer runs = fewer breaks; shorter runs = more restarts
+perception,6,256,True,True,longer runs = fewer breaks; shorter runs = more restarts
+perception,8,192,True,True,longer runs = fewer breaks; shorter runs = more restarts
+perception,12,128,True,True,longer runs = fewer breaks; shorter runs = more restarts
+imagery,4,24,True,True,keep 6 folds valid; family balance across runs
+imagery,6,16,True,True,keep 6 folds valid; family balance across runs
+imagery,8,12,True,True,keep 6 folds valid; family balance across runs
+imagery,12,8,True,True,keep 6 folds valid; family balance across runs

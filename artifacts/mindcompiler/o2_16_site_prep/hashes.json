@@ -1,0 +1,28 @@
+{
+  "algo": "sha256",
+  "files": {
+    "bids_conversion_plan.json": "eca635e6e33dac2a61e6dfe8dc52d0187d6788d5fd6321214bdcccbbd3a04ebe",
+    "execution_provenance.json": "a718668a5fad2ef1192d0e26db2ef44ca369024993ac65967a879e7be6a25efd",
+    "local_display_characterization.json": "908411db96d515ca3803bdd25e60a5fec9ce205d3ed0ab40c0106ac931493481",
+    "meduni_hfmrc_profile.json": "610159300210802072d692a42b18bc0bb7129a4053d17dc913556f8d450f8d1e",
+    "next_action.json": "dcfa878625c6472df545ef451b855e6c8a6e481244ff3fda172c006c2ca55334",
+    "official_source_registry.json": "ee2b596ccc901e82f6bf1ad2e6a2ba342a2831eeabaa9a017ab0fb5a4012cf3f",
+    "psychopy_presenter_certification.json": "7f4cdd368bbbd7cdc59ed9e01160e0ffe7e57eddfe23190a79ffd7b53c6c9845",
+    "real_site_validation_requirements.json": "f059e0ea0f2fe45b9ecf3ca93e58c07862d561e61d4bf765543ff8bb3241c318",
+    "response_adapter_certification.json": "eb5136de8898a82ac22d1d3fc430f5ff665b5ce04d98c77b22a55a1710d50c04",
+    "run_partition_options.csv": "ea049d8342b46fb90541bd8c2d868da7419fc3b2966409ace026a86d6f00d17d",
+    "scanner_trigger_adapter_certification.json": "8bdb7eb993e50ec6742d60cf2c98b2317ca82e0ea274ee37ce80261add765b06",
+    "scientific_immutability_check.json": "4898892c36a4e2c4e44e6e712c695734c41e54a2bcb30261dba2e8939e63ca3d",
+    "session_partition_options.csv": "e5a0fc301e3fec82cbea8a5368ec881964c5b5e5e5af532a974d080698cbf93e",
+    "site_config_candidate_certification.json": "bd167970b6cf8d068a09a0d5065c959fd4c751c745f74400325aea409a3c55e7",
+    "site_prep_config.json": "2f8fc9466d43ef286bf2d04513eb240ac1eff157d030b33ba3163201dea2ed7c",
+    "site_prep_status.json": "520e9a329b97f1b31672a5ac3bc2c20f9bd38c4afb82ce2dc37a8a7ff7ddb30b",
+    "stimulus_permissions_matrix.csv": "93d8c62a8e5a8972ccbdbba2a264266aead6e423ceaae3e47c0f23c466edc975",
+    "test_report.json": "c934e1fab633b3cec3863a546a76d927cd2f59e514c13f64ea2c563b94aa930d",
+    "univie_mr_center_profile.json": "08f68d0d8bfda276e0dcddf4c227dbf435e859d6c4e266c3cc6435fb8e6a283e",
+    "unresolved_authorization_fields.json": "35832bd2b09f4467b2c38715447e01026592ac56266b953f8a09c9d68aa04653",
+    "unresolved_site_fields.json": "ac11438514350f8f8f4427228ac3d790645b5b4cea16e43398494bf47dfb03e3",
+    "vienna_site_compatibility_matrix.csv": "b32980f02240d5753eb4436c9aca16d6b5de1901c882e1d1fa45f74c71c40da6"
+  },
+  "n_files": 22
+}

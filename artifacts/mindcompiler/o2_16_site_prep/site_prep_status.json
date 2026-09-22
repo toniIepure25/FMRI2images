@@ -1,0 +1,20 @@
+{
+  "status": "O2_16_VIENNA_SITE_PREP_READY_FOR_HUMAN_SITE_REVIEW",
+  "conditions": {
+    "official_site_profiles_complete": true,
+    "compatibility_matrix_complete": true,
+    "candidate_configs_complete": true,
+    "psychopy_software_implementation_complete": true,
+    "local_synthetic_validation_passes": true,
+    "actual_site_procedures_defined": true,
+    "every_unknown_explicit": true,
+    "next_blockers_require_humans_or_hardware_only": true
+  },
+  "does_not_mean_access_approved": true,
+  "scientific_status_unchanged": {
+    "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+    "O2_16_DATA": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+    "O2_16_SEC": "O2_16_SECONDARY_ENDPOINTS_PREREGISTERED_AWAITING_INDEPENDENT_COHORT",
+    "O3": "O3_NOT_READY"
+  }
+}

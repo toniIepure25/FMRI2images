@@ -1,0 +1,10 @@
+{
+  "o2_16_primary_match": true,
+  "o2_16_sec_match": true,
+  "frozen_design_unchanged": true,
+  "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+  "O2_16_DATA": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+  "O2_16_SEC": "O2_16_SECONDARY_ENDPOINTS_PREREGISTERED_AWAITING_INDEPENDENT_COHORT",
+  "O3": "O3_NOT_READY",
+  "all_match": true
+}

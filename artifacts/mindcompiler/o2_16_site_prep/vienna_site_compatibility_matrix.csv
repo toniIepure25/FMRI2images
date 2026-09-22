@@ -1,0 +1,28 @@
+REQUIREMENT,O2_16_TARGET,MEDUNI_HFMRC,UNIVIE_MR_CENTER,SOURCE,VERIFIED_OR_TBD,REVIEW_REQUIRED,NOTES
+field strength,7T preferred (not mandatory),7T (Magnetom Dot Plus),3T (MAGNETOM Skyra),official,VERIFIED,yes,field choice is engineering decision
+vendor,Siemens,Siemens Healthineers,Siemens,official,VERIFIED,no,
+scanner model,research whole-body,Magnetom Dot Plus (+3T PrismaFit),MAGNETOM Skyra,official,VERIFIED,no,
+research-only availability,research-dedicated,research-dedicated,research-dedicated,official,VERIFIED,no,
+head coil,multi-channel,7T 32 receive ch,32-ch (+24-ch),official,VERIFIED,no,
+functional imaging capability,whole-brain fMRI,yes (fMRI methods center),yes (fMRI facility),official,VERIFIED,no,
+target 1.8mm compatibility,~1.8mm,likely (7T),TBD_SITE_OPERATOR,—,TBD_SITE_OPERATOR,yes,physicist confirms
+target TR~1.6s feasibility,~1.6s,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,—,TBD_SITE_OPERATOR,yes,physicist confirms
+multiband availability,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,—,TBD_SITE_OPERATOR,yes,
+visual presentation,MRI display,TBD_SITE_OPERATOR,BOLDscreen 32 LCD,official,VERIFIED(UNIVIE),yes,HFMRC not stated
+display refresh rate,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,not stated,TBD_SITE_OPERATOR,yes,confirm on real display
+trigger interface,site code,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,not stated,TBD_SITE_OPERATOR,yes,do not assume '5'
+response box,MRI response,TBD_SITE_OPERATOR,Current Designs 4-Button,official,VERIFIED(UNIVIE),yes,
+eye tracking,optional,TBD_SITE_OPERATOR,EyeLink 1000 Plus,official,VERIFIED(UNIVIE),no,not required
+audio,optional,TBD_SITE_OPERATOR,Sensimetrics S14,official,VERIFIED(UNIVIE),no,
+scanner-computer interface,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,—,TBD_SITE_OPERATOR,yes,
+PsychoPy feasibility,required,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,—,TBD_SITE_OPERATOR,yes,install pinned PsychoPy
+network access,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,—,TBD_SITE_OPERATOR,no,
+BIDS export path,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,—,TBD_SITE_OPERATOR,yes,dcm2niix
+DICOM export,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,—,TBD_SITE_OPERATOR,yes,
+physiological recording,optional,TBD_SITE_OPERATOR,BrainAmp ExG MR 16,official,VERIFIED(UNIVIE),no,
+operator support,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,—,TBD_SITE_OPERATOR,no,
+pilot feasibility,required,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,—,TBD_SITE_OPERATOR,yes,ask site
+7T safety requirements,if 7T,stricter (7T),n/a (3T),official,PARTIAL,yes,physicist
+ethics pathway,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,—,TBD_SITE_OPERATOR,yes,
+data-protection pathway,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,—,TBD_SITE_OPERATOR,yes,
+estimated run-duration constraints,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,TBD_SITE_OPERATOR,—,TBD_SITE_OPERATOR,yes,see run_partition_options

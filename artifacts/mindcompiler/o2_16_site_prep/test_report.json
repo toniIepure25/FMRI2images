@@ -1,0 +1,7 @@
+{
+  "suite": "tests/mindcompiler/o2_16_experiment (incl. test_site_prep 20)",
+  "result": "PASS",
+  "tail": "53 passed in 0.77s",
+  "n_passed": 53,
+  "site_prep_tests": 20
+}

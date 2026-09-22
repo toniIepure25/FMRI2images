@@ -1,0 +1,6 @@
+{
+  "status": "PSYCHOPY_UNAVAILABLE",
+  "psychopy_version": null,
+  "note": "Install PsychoPy==2024.2.4 to characterize display locally. This never certifies MRI hardware.",
+  "certifies_mri_hardware": false
+}

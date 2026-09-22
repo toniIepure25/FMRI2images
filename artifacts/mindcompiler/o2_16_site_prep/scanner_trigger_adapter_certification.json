@@ -1,0 +1,20 @@
+{
+  "configurable": true,
+  "no_assumed_key_5": true,
+  "config_fields": [
+    "trigger_type",
+    "trigger_value",
+    "debounce_ms",
+    "expected_TR_s",
+    "initial_dummy_count"
+  ],
+  "example_unset": {
+    "trigger_type": "TBD_SITE_OPERATOR",
+    "trigger_value": "TBD_SITE_OPERATOR",
+    "debounce_ms": null,
+    "expected_TR_s": null,
+    "initial_dummy_count": null
+  },
+  "preserves_SimulatedTrigger": true,
+  "no_vendor_specific_protocol": true
+}

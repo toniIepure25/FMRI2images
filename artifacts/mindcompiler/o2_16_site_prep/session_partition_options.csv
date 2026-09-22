@@ -1,0 +1,4 @@
+option,perception_trials,imagery_trials,preserves_counts,fold_validity,burden
+1-session,1536,96,True,True,high single-visit burden; long scan block
+2-session,1536,96,True,True,moderate; e.g. perception + imagery split or halves
+multi-session,1536,96,True,True,lowest per-visit; more scheduling/registration overhead

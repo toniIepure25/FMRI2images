@@ -1,0 +1,53 @@
+{
+  "candidates": {
+    "MEDUNI_HFMRC": {
+      "status_field": "CANDIDATE_NOT_VALIDATED",
+      "validation": "SITE_TBD_INCOMPLETE",
+      "tbd_fields": [
+        "site_id",
+        "TR",
+        "TE",
+        "flip_angle",
+        "voxel_size",
+        "multiband",
+        "phase_encoding",
+        "distortion_correction",
+        "display",
+        "response_device",
+        "trigger_device",
+        "trigger_event",
+        "dummy_volumes",
+        "bids_root"
+      ],
+      "fails_confirmatory": true,
+      "classification": "POTENTIALLY_COMPATIBLE_PENDING_DETAILS"
+    },
+    "UNIVIE_MR_CENTER": {
+      "status_field": "CANDIDATE_NOT_VALIDATED",
+      "validation": "SITE_TBD_INCOMPLETE",
+      "tbd_fields": [
+        "site_id",
+        "TR",
+        "TE",
+        "flip_angle",
+        "voxel_size",
+        "multiband",
+        "phase_encoding",
+        "distortion_correction",
+        "trigger_device",
+        "trigger_event",
+        "dummy_volumes",
+        "bids_root"
+      ],
+      "fails_confirmatory": true,
+      "classification": "HIGH_COMPATIBILITY_PENDING_VALIDATION"
+    }
+  },
+  "note": "engineering feasibility only; no winner/best-site ranking; both CANDIDATE_NOT_VALIDATED and fail confirmatory",
+  "scorecard_classes": [
+    "HIGH_COMPATIBILITY_PENDING_VALIDATION",
+    "POTENTIALLY_COMPATIBLE_PENDING_DETAILS",
+    "MATERIAL_COMPATIBILITY_QUESTIONS",
+    "CURRENTLY_INCOMPATIBLE"
+  ]
+}

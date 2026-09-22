@@ -1,0 +1,54 @@
+{
+  "status": "REAL_SITE_BIDS_NOT_YET_VALIDATED",
+  "harness": {
+    "harness": "site hardware validation (definition only; not executed here)",
+    "acceptance_threshold": "SITE_DEFINED_ACCEPTANCE_THRESHOLD (MRI physicist approval required)",
+    "tests": [
+      {
+        "test": "scanner_trigger->task_clock",
+        "expected": "each scanner pulse registered once; ITI ~ TR within site-defined tolerance",
+        "observed": "TBD_SITE_HARDWARE",
+        "latency_ms": null,
+        "jitter_ms": null,
+        "missed_events": null,
+        "duplicates": null,
+        "status": "NOT_YET_RUN"
+      },
+      {
+        "test": "task_flip->visual_presentation",
+        "expected": "requested onset matches measured flip within site-defined frame tolerance",
+        "observed": "TBD_SITE_HARDWARE",
+        "latency_ms": null,
+        "jitter_ms": null,
+        "missed_events": null,
+        "duplicates": null,
+        "status": "NOT_YET_RUN"
+      },
+      {
+        "test": "response_button->recorded_event",
+        "expected": "each button press recorded once with correct mapping and plausible RT",
+        "observed": "TBD_SITE_HARDWARE",
+        "latency_ms": null,
+        "jitter_ms": null,
+        "missed_events": null,
+        "duplicates": null,
+        "status": "NOT_YET_RUN"
+      }
+    ],
+    "requires_real_hardware": true,
+    "no_participant_needed": true
+  },
+  "procedure": [
+    "acquire dry-run DICOM",
+    "convert dcm2niix",
+    "generate events",
+    "run official bids-validator",
+    "inspect volume count",
+    "compare trigger count",
+    "compare events to BOLD volumes",
+    "verify first-volume timing",
+    "verify dummy-volume handling",
+    "certify"
+  ],
+  "cannot_pass_without_real_certification_artifact": true
+}

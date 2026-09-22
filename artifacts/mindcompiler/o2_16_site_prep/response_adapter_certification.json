@@ -1,0 +1,16 @@
+{
+  "configurable": true,
+  "mapping_fields": [
+    "button_1",
+    "button_2",
+    "button_3",
+    "button_4"
+  ],
+  "example_unset": {
+    "1": "TBD_SITE_OPERATOR",
+    "2": "TBD_SITE_OPERATOR",
+    "3": "TBD_SITE_OPERATOR",
+    "4": "TBD_SITE_OPERATOR"
+  },
+  "site_values_tbd": true
+}

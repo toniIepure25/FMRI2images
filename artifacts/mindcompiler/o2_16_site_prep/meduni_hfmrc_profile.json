@@ -1,0 +1,32 @@
+{
+  "site_id": "MEDUNI_HFMRC",
+  "institution": "Medical University of Vienna \u2014 High Field MR Center (HFMRC)",
+  "verified": {
+    "scanners": [
+      "7T Siemens Magnetom Dot Plus (32 receive channels; multi-nuclei; microgradient 9cm 750mT/m)",
+      "3T PrismaFit (Siemens Healthineers)",
+      "3T Prisma (shared clinical routine)"
+    ],
+    "research_dedicated": true,
+    "founded": "June 2003 (Center of Medical Physics and Biomedical Engineering + Dept of Biomedical Imaging and Image-guided Therapy)",
+    "siemens_7t_international_reference_centre": true,
+    "technical_contact_public": "Christian Windischberger (Deputy Head MR Physics; fMRI methods)"
+  },
+  "tbd_site_operator": [
+    "display/refresh",
+    "response device",
+    "trigger interface/code",
+    "TR/TE/voxel/multiband/distortion",
+    "dummy volumes",
+    "BIDS root",
+    "booking/cost",
+    "ethics pathway"
+  ],
+  "no_access_or_agreement_claimed": true,
+  "sources": [
+    "https://hfmr.meduniwien.ac.at/en/3-and-7-tesla/",
+    "https://mpbmt.meduniwien.ac.at/en/research/magnetic-resonance/",
+    "https://mpbmt.meduniwien.ac.at/en/about-us/research-groups/windischberger-group/"
+  ],
+  "retrieved": "2026-09-22"
+}

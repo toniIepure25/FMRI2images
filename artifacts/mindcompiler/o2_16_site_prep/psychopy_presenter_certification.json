@@ -1,0 +1,21 @@
+{
+  "implemented": true,
+  "pinned_version": "2024.2.4",
+  "interface": [
+    "initialize_display",
+    "load_stimulus",
+    "draw_fixation",
+    "draw_visual_stimulus",
+    "draw_text_cue",
+    "flip",
+    "wait",
+    "capture_response",
+    "shutdown",
+    "show"
+  ],
+  "psychopy_available_here": false,
+  "lazy_import": true,
+  "local_timing_label": "PSYCHOPY_SOFTWARE_TIMING_VALIDATED (only when run where PsychoPy is installed)",
+  "NOT": "MRI_DISPLAY_TIMING_VALIDATED (requires real MRI display at site)",
+  "simulation_still_works_without_psychopy": true
+}

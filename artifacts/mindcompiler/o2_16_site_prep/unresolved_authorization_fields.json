@@ -1,0 +1,12 @@
+{
+  "fields": [
+    "ethics protocol ID + institution + dates",
+    "participant consent version + basis",
+    "MRI safety screening",
+    "site/institutional authorization",
+    "stimulus permissions (all NOT_AUTHORIZED)",
+    "final imagery stimulus set (IMAGERY_STIMULUS_SET_NOT_FINALIZED)",
+    "PI agreement (none \u2014 no contact made)"
+  ],
+  "none_fabricated": true
+}

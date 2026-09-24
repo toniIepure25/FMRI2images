@@ -1,0 +1,17 @@
+{
+  "order": [
+    "O2_16_INDEPENDENT_COHORT_ACQUIRED",
+    "O2_16_PRIMARY_EXECUTED_AND_SEALED",
+    "O2_16_SEC_SECONDARY_EXECUTED_AND_SEALED",
+    "COHORT_B_OUTCOMES_UNLOCKED_FOR_MOONSHOTS"
+  ],
+  "cohort_b_locked_by_default": true,
+  "sequence": [
+    "acquire O2.16 independent cohort",
+    "execute+seal O2.16 primary",
+    "execute+seal O2.16-SEC secondary",
+    "THEN unlock Cohort-B outcomes for M1/M2/M3"
+  ],
+  "any_cohort_b_discovery_requires": "independent Cohort C (participant-disjoint from A and B)",
+  "verified_by_test": "test_cohort_b_locked_until_unlock"
+}

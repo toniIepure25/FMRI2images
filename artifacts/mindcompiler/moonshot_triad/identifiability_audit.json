@@ -1,0 +1,10 @@
+{
+  "n_participants": 12,
+  "descriptor_dim": 8,
+  "effective_params": 6,
+  "pseudo_observations": 24,
+  "ridge_lambda": 10.0,
+  "max_rank": 3,
+  "identifiable_budget_ok": true,
+  "note": "low-capacity bounded model required at N~12; audit fails closed if over-parameterized"
+}

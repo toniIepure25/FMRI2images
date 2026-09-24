@@ -1,0 +1,41 @@
+{
+  "templates": [
+    {
+      "moonshot": "M1",
+      "candidate": "<candidate>",
+      "trigger": "any Cohort-B moonshot candidate that meets its prospective support rule",
+      "cohort": "C_CONFIRMATION",
+      "independence": "Cohort C must be participant-disjoint from Cohort A (historical) AND Cohort B",
+      "frozen_before_cohort_c_outcomes": true,
+      "statistic": "shadow-stop calibration recovery",
+      "support_rule": "median>=fixed & beats random-stop (>=75%, Holm)",
+      "primary_first": "confirmation is prospective; no post-hoc re-fitting; no threshold tuning on Cohort C",
+      "status": "COHORT_C_CONFIRMATION_TEMPLATE_READY (awaiting a Cohort-B candidate + new cohort)"
+    },
+    {
+      "moonshot": "M2",
+      "candidate": "<candidate>",
+      "trigger": "any Cohort-B moonshot candidate that meets its prospective support rule",
+      "cohort": "C_CONFIRMATION",
+      "independence": "Cohort C must be participant-disjoint from Cohort A (historical) AND Cohort B",
+      "frozen_before_cohort_c_outcomes": true,
+      "statistic": "zero/near-zero-shot alignment",
+      "support_rule": "median>null (>=75%, permutation p, both protocols)",
+      "primary_first": "confirmation is prospective; no post-hoc re-fitting; no threshold tuning on Cohort C",
+      "status": "COHORT_C_CONFIRMATION_TEMPLATE_READY (awaiting a Cohort-B candidate + new cohort)"
+    },
+    {
+      "moonshot": "M3",
+      "candidate": "<candidate>",
+      "trigger": "any Cohort-B moonshot candidate that meets its prospective support rule",
+      "cohort": "C_CONFIRMATION",
+      "independence": "Cohort C must be participant-disjoint from Cohort A (historical) AND Cohort B",
+      "frozen_before_cohort_c_outcomes": true,
+      "statistic": "cross-state shared-scaffold overlap",
+      "support_rule": "median>null (>=75%) & private-correction subject-specific",
+      "primary_first": "confirmation is prospective; no post-hoc re-fitting; no threshold tuning on Cohort C",
+      "status": "COHORT_C_CONFIRMATION_TEMPLATE_READY (awaiting a Cohort-B candidate + new cohort)"
+    }
+  ],
+  "rule": "every Cohort-B moonshot candidate auto-generates a frozen Cohort-C confirmation template before any claim"
+}

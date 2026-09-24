@@ -1,0 +1,21 @@
+{
+  "task": "delayed visual recall / memory reinstatement (cued recall of previously seen anchors after delay)",
+  "relationship_to_o2_16": "SEPARATE post-replication block/session; DOES NOT modify O2.16 acquisition, endpoints, estimator, folds, or any frozen parameter",
+  "cross_state_pairs": "imagery-state geometry (from O2.16) vs recall-state geometry (new block)",
+  "primary_question": "does the shared-scaffold + private-correction decomposition recur across states?",
+  "requires": [
+    "PI review",
+    "ethics amendment/approval for the added block",
+    "site/session scheduling",
+    "stimulus permissions for recall cues",
+    "participant burden review"
+  ],
+  "status": "M3_CROSS_STATE_PROTOCOL_READY_FOR_HUMAN_REVIEW",
+  "not_a_scientific_result": true,
+  "moonshot": "M3",
+  "name": "Cross-State Shared-Scaffold / Private-Correction Generalization",
+  "statistic": "shared-scaffold overlap + private-correction fraction across imagery vs recall states",
+  "null": "no-shared permutation",
+  "support_rule": "M3 (only if the recall block is approved and run; post-unlock): median participant cross-state shared-scaffold overlap exceeds a no-shared permutation null with >=75% participants above null, AND private-correction remains subject-specific (does not transfer across participants). Any pass is a Cohort-B candidate requiring Cohort-C confirmation.",
+  "evaluated_only_post_unlock_and_after_human_approval": true
+}

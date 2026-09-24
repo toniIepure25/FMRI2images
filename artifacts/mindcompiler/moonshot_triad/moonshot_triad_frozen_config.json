@@ -1,0 +1,56 @@
+{
+  "gate": "MINDIR-M0",
+  "program": "THREE-MOONSHOT PROSPECTIVE PREREGISTRATION",
+  "class": "PROSPECTIVE_PREREG_ZERO_NEW_INFERENCE",
+  "input_head": "6863bdeb351e750669e3a1d5234c1f52e889c675",
+  "branch": "research/mindir-moonshot-triad-prereg",
+  "arms": {
+    "M1": "Geometry-Aware Adaptive Calibration (SHADOW)",
+    "M2": "Zero/Near-Zero Shot Subject-Specific Geometry Prediction",
+    "M3": "Cross-State Shared-Scaffold / Private-Correction Generalization"
+  },
+  "unlock_order": [
+    "O2_16_INDEPENDENT_COHORT_ACQUIRED",
+    "O2_16_PRIMARY_EXECUTED_AND_SEALED",
+    "O2_16_SEC_SECONDARY_EXECUTED_AND_SEALED",
+    "COHORT_B_OUTCOMES_UNLOCKED_FOR_MOONSHOTS"
+  ],
+  "cohorts": {
+    "A": "historical N=8 PERMANENTLY CLOSED (no loader)",
+    "B": "O2.16 independent replication cohort",
+    "C": "independent confirmation cohort for any Cohort-B discovery"
+  },
+  "guards": [
+    "no historical N=8 loader",
+    "no O2.16 mutation",
+    "no outcome access before unlock",
+    "predictor-side/protected-outcome firewall",
+    "bounded low-capacity models",
+    "prospective nulls + negative controls",
+    "multiple-testing families (Holm within each moonshot, no cross-pooling)",
+    "identifiability audit",
+    "N~12 sample-size reality",
+    "Cohort-C replication template per candidate"
+  ],
+  "immutable_hashes": {
+    "o2_16_primary_config_sha256": "2da2cc791054406b42eb1896b9b5f123b5b6bacb8386e6fb0f1e19649cf18907",
+    "o2_16_sec_config_sha256": "3770816869ac0c8cd1cddcc5d4e4263578fcb08b327bee1031ac6d0a8aa16bfc",
+    "o2_16_data_config_sha256": "804d5b21fc0c8656f9e0ef62ac4b7f412b114b7e0d3de2e328e972d75dec6444"
+  },
+  "participant_inferential_unit": true,
+  "target_status": "MINDIR_MOONSHOT_TRIAD_PREREGISTERED_AWAITING_NEW_DATA",
+  "arm_status": {
+    "M1": "M1_SHADOW_ADAPTIVE_PROTOCOL_READY",
+    "M2": "M2_ZERO_SHOT_PROTOCOL_READY",
+    "M3": "M3_CROSS_STATE_PROTOCOL_READY_FOR_HUMAN_REVIEW"
+  },
+  "scientific_status": {
+    "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+    "O2_16_DATA": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+    "O2_16_SEC": "O2_16_SECONDARY_ENDPOINTS_PREREGISTERED_AWAITING_INDEPENDENT_COHORT",
+    "O3": "O3_NOT_READY"
+  },
+  "no_synthetic_claim": "synthetic-simulation results are engineering only; never discovered/supported/validated",
+  "next_scientific_action": "ACQUIRE AND COMPLETE THE FROZEN O2.16 INDEPENDENT REPLICATION FIRST",
+  "config_sha256": "88b058c5019ac1b5657d264773a68cd1dc7e9f19beebaa03347642f567ae7609"
+}

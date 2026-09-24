@@ -1,0 +1,18 @@
+{
+  "moonshot": "M1",
+  "name": "Geometry-Aware Adaptive Calibration (SHADOW)",
+  "question": "Can we know ONLINE when we have enough imagery calibration data?",
+  "policy": "shadow observer alongside the FROZEN acquisition; STOP/CONTINUE using ONLY info up to observation t; never sees future/held-out outcomes; never changes what is acquired",
+  "statistic": "incremental subspace-overlap GAIN of the accumulated outside-support subspace (D=2); STOP when GAIN<0.02 for 2 consecutive steps",
+  "bounds": {
+    "min_obs": 3,
+    "max_obs": 8
+  },
+  "nulls": [
+    "random-stop baseline",
+    "shuffled-observation-order"
+  ],
+  "support_rule": "M1 (Cohort B, post-unlock): the shadow stop achieves >= the fixed-schedule calibration recovery in >=75% participants using <= the fixed observations, AND beats the random-stop null (participant sign-flip, Holm within the M1 family). Any pass is a Cohort-B candidate requiring Cohort-C confirmation.",
+  "status": "M1_SHADOW_ADAPTIVE_PROTOCOL_READY",
+  "evaluated_only_post_unlock": true
+}

@@ -1,0 +1,6 @@
+{
+  "predictor_side_dir": "analysis/moonshot/predictor_side",
+  "protected_outcome_dir": "analysis/moonshot/protected_outcomes",
+  "predictor_cannot_read_protected": true,
+  "verified_by_test": "test_predictor_side_cannot_read_protected"
+}

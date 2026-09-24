@@ -1,0 +1,8 @@
+{
+  "n_planned": 12,
+  "n_min": 8,
+  "min_one_sided_signflip_p": 0.000244140625,
+  "min_one_sided_signflip_p_at_min": 0.00390625,
+  "note": "Participant is the inferential unit. At N=12 the smallest attainable one-sided sign-flip p is 1/2^12 ~ 0.00024. Power for anything but large, consistent effects is very limited; moonshots are DISCOVERY on Cohort B and REQUIRE an independent Cohort C to confirm.",
+  "low_capacity_model_budget_required": true
+}

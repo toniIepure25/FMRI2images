@@ -1,0 +1,15 @@
+{
+  "M1": [
+    "random-stop baseline",
+    "shuffled-observation-order"
+  ],
+  "M2": [
+    "permuted-participant null",
+    "zero-signal negative control (must NOT beat null)"
+  ],
+  "M3": [
+    "no-shared permutation null"
+  ],
+  "prospective": true,
+  "engineering_check": "negative controls verified on synthetic fixtures (test_m2_negative_control_and_signal)"
+}

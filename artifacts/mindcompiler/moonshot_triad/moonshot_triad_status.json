@@ -1,0 +1,18 @@
+{
+  "status": "MINDIR_MOONSHOT_TRIAD_PREREGISTERED_AWAITING_NEW_DATA",
+  "arm_status": {
+    "M1": "M1_SHADOW_ADAPTIVE_PROTOCOL_READY",
+    "M2": "M2_ZERO_SHOT_PROTOCOL_READY",
+    "M3": "M3_CROSS_STATE_PROTOCOL_READY_FOR_HUMAN_REVIEW"
+  },
+  "tests_pass": true,
+  "immutable_all_match": true,
+  "scientific_status": {
+    "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+    "O2_16_DATA": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+    "O2_16_SEC": "O2_16_SECONDARY_ENDPOINTS_PREREGISTERED_AWAITING_INDEPENDENT_COHORT",
+    "O3": "O3_NOT_READY"
+  },
+  "synthetic_only": true,
+  "no_discovery_claimed": true
+}

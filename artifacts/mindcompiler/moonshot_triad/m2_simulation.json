@@ -1,0 +1,30 @@
+{
+  "moonshot": "M2",
+  "engineering_simulation_only": true,
+  "n": 12,
+  "protocols": {
+    "ZERO_TARGET": {
+      "negative_control_perm_p": 0.3872255489021956,
+      "planted_signal_perm_p": 0.001996007984031936,
+      "neg_control_not_significant": true,
+      "planted_signal_detected": true
+    },
+    "NEAR_ZERO_TARGET": {
+      "negative_control_perm_p": 0.3652694610778443,
+      "planted_signal_perm_p": 0.001996007984031936,
+      "neg_control_not_significant": true,
+      "planted_signal_detected": true
+    }
+  },
+  "identifiability_audit": {
+    "n_participants": 12,
+    "descriptor_dim": 8,
+    "effective_params": 6,
+    "pseudo_observations": 24,
+    "ridge_lambda": 10.0,
+    "max_rank": 3,
+    "identifiable_budget_ok": true,
+    "note": "low-capacity bounded model required at N~12; audit fails closed if over-parameterized"
+  },
+  "caption": "synthetic engineering check; NOT discovered/supported/validated; N~12 power is very limited"
+}

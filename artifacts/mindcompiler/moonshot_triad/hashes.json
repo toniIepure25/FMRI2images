@@ -1,0 +1,26 @@
+{
+  "algo": "sha256",
+  "files": {
+    "cohort_c_replication_templates.json": "0fb2933d2995cd1b2f0a0b554f8f69ab76f1c69ce3bd275097b687b21539058a",
+    "execution_provenance.json": "2c8f83204fcf4e083cd685b4c2768c553e6f60723a6ae24895370ea319d62b5f",
+    "firewall_certification.json": "55f17bad96a104c88203a39277ffffee0333f523ec25d497018d4f13fae5d2da",
+    "identifiability_audit.json": "3458e99e63b5e4a0c203da354e3ee17b347d8e2cf13ce6b17d2944d18c7dc0e0",
+    "m1_shadow_adaptive_spec.json": "873f4cda8bf30a2a0a16a6bcd5f73ce0ed63bcfeebe29bd798d2d0299ea16095",
+    "m1_simulation.json": "3dc600101b85d2a8e67f545f63cfe1379b92e915812bf3bff9346ccf22605dc1",
+    "m2_simulation.json": "3e33123037f5682db1a56b3dfee8ccbaea5270136fb817482793df1aca840611",
+    "m2_zeroshot_spec.json": "10f02b65ebabb99c523817bf32243c921c516f3b6eac5281300f91d66511775c",
+    "m3_crossstate_spec.json": "20f7a54fcb6b682569f4a840d8737ebdbe09d1799b0631e7f1f2fc2c93f15a81",
+    "m3_simulation.json": "fc2186de3b131949095bde40103155a36d2c3fe896a1ce5ff5e7fc92e0ca37de",
+    "moonshot_triad_frozen_config.json": "f53e1c63c0c63f296d7ab5c841c564a663d74033c1e39a5f9fca6892d41bc0c9",
+    "moonshot_triad_status.json": "ca264b5179504f1f241b5625dd47c31aa38350d72df8780e4a86c78cd7f8cde7",
+    "multiple_testing_families.json": "e9b091427f0bce5fc4f16d66071058a6ec120d34890614c79072d35889b966e3",
+    "negative_controls_and_nulls.json": "2b5adf809bf7e63db488cb49f6a53d6cf6ad82c65e09e8b395116e79ce28fdb5",
+    "next_action.json": "6ef7496447415037f6ed7039e299de4a5baac874e23f3dcf05fe5527f3fc7b1b",
+    "no_historical_loader_certification.json": "dc6714e4d71fac66b1f621ff87f389d0d917ff5a1de192434e68aae746107174",
+    "sample_size_reality_check.json": "afcee1e09524d41eb64749847bcb435d9b3d560e586e7cb356eebc064f46a993",
+    "scientific_immutability_check.json": "ef8ea7d365f823cc2b05242dd78a69dfcbdf4c013c4a002aa95e11c527cd35c4",
+    "test_report.json": "44f5e6f3e741d95b1d991100fc0ff98809af2e43034a42c740c0d980de4df389",
+    "unlock_ordering_certification.json": "6897aa33461879c9d673a67203f4e4c5ff29c9ba899cd54a5ae92cdba34bc6d7"
+  },
+  "n_files": 20
+}

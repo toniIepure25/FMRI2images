@@ -1,0 +1,7 @@
+{
+  "suite": "tests/mindcompiler/moonshot_triad",
+  "result": "PASS",
+  "tail": "17 passed in 2.16s",
+  "n_passed": 17,
+  "note": "data-free/synthetic; no historical N=8; no scientific result files touched; synthetic sims never called validated"
+}

@@ -1,0 +1,16 @@
+{
+  "M1": {
+    "family": "shadow-vs-fixed + shadow-vs-random-stop",
+    "correction": "Holm within M1"
+  },
+  "M2": {
+    "family": "ZERO_TARGET x {alignment}, NEAR_ZERO_TARGET x {alignment} reported separately",
+    "correction": "Holm within M2"
+  },
+  "M3": {
+    "family": "shared-scaffold overlap per state-pair + private-correction transfer",
+    "correction": "Holm within M3"
+  },
+  "no_cross_moonshot_pooling": true,
+  "participant_is_inferential_unit": true
+}

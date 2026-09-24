@@ -1,0 +1,83 @@
+{
+  "moonshot": "M3",
+  "engineering_simulation_only": true,
+  "n": 12,
+  "n_real_exceeds_null": 12,
+  "frac": 1.0,
+  "protocol_status": "PROSPECTIVE_PROTOCOL_ONLY; separate post-replication block; O2.16 unmodified",
+  "rows": [
+    {
+      "participant": "synB001",
+      "shared_real": 0.8507722440705903,
+      "shared_null": 0.12480090051739685,
+      "real_exceeds_null": true
+    },
+    {
+      "participant": "synB002",
+      "shared_real": 0.8690478804356003,
+      "shared_null": 0.1339925111680413,
+      "real_exceeds_null": true
+    },
+    {
+      "participant": "synB003",
+      "shared_real": 0.7745825867529423,
+      "shared_null": 0.01288350517007286,
+      "real_exceeds_null": true
+    },
+    {
+      "participant": "synB004",
+      "shared_real": 0.3853907985888903,
+      "shared_null": 0.10523296795935999,
+      "real_exceeds_null": true
+    },
+    {
+      "participant": "synB005",
+      "shared_real": 0.8325511529173502,
+      "shared_null": 0.05419155185261169,
+      "real_exceeds_null": true
+    },
+    {
+      "participant": "synB006",
+      "shared_real": 0.6571620360058033,
+      "shared_null": 0.028749724650210744,
+      "real_exceeds_null": true
+    },
+    {
+      "participant": "synB007",
+      "shared_real": 0.34771372581105764,
+      "shared_null": 0.058653464411523575,
+      "real_exceeds_null": true
+    },
+    {
+      "participant": "synB008",
+      "shared_real": 0.812789444706387,
+      "shared_null": 0.22554531489224736,
+      "real_exceeds_null": true
+    },
+    {
+      "participant": "synB009",
+      "shared_real": 0.8268197809691942,
+      "shared_null": 0.03695845548168829,
+      "real_exceeds_null": true
+    },
+    {
+      "participant": "synB010",
+      "shared_real": 0.651397271555662,
+      "shared_null": 0.015034413515191757,
+      "real_exceeds_null": true
+    },
+    {
+      "participant": "synB011",
+      "shared_real": 0.8681056844116863,
+      "shared_null": 0.04397304643447196,
+      "real_exceeds_null": true
+    },
+    {
+      "participant": "synB012",
+      "shared_real": 0.5925862819423132,
+      "shared_null": 0.06857517199265362,
+      "real_exceeds_null": true
+    }
+  ],
+  "caption": "synthetic engineering check; NOT discovered/supported/validated"
+}

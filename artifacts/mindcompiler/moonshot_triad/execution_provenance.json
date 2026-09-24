@@ -1,0 +1,9 @@
+{
+  "input_head": "6863bdeb351e750669e3a1d5234c1f52e889c675",
+  "branch": "research/mindir-moonshot-triad-prereg",
+  "python": "3.13.5",
+  "no_new_scientific_inference": true,
+  "no_historical_n8_loader": true,
+  "synthetic_fixtures_only": true,
+  "no_outcome_access_before_unlock": true
+}

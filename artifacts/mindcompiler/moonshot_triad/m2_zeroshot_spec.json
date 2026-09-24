@@ -1,0 +1,25 @@
+{
+  "moonshot": "M2",
+  "name": "Zero / Near-Zero Shot Subject-Specific Geometry Prediction",
+  "question": "Can we predict the subject-specific MISSING imagery geometry BEFORE direct imagery calibration?",
+  "protocols": [
+    "ZERO_TARGET",
+    "NEAR_ZERO_TARGET"
+  ],
+  "model": "bounded low-capacity ridge + low-rank (lambda=10.0, rank<=3, summary_dim=2)",
+  "participant_disjoint": "leave-one-subject-out",
+  "null": "permuted-participant labels (prospective permutation p)",
+  "identifiability_audit": {
+    "n_participants": 12,
+    "descriptor_dim": 8,
+    "effective_params": 6,
+    "pseudo_observations": 24,
+    "ridge_lambda": 10.0,
+    "max_rank": 3,
+    "identifiable_budget_ok": true,
+    "note": "low-capacity bounded model required at N~12; audit fails closed if over-parameterized"
+  },
+  "support_rule": "M2 (Cohort B, post-unlock): median participant zero/near-zero-shot alignment exceeds the permuted-participant null (prospective permutation p, participant unit) with >=75% participants above the null median, under the identifiability-audited low-capacity model, in BOTH protocols reported separately. Any pass is a Cohort-B candidate requiring Cohort-C confirmation.",
+  "status": "M2_ZERO_SHOT_PROTOCOL_READY",
+  "evaluated_only_post_unlock": true
+}

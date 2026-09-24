@@ -1,0 +1,6 @@
+{
+  "program_status": "MINDIR_MOONSHOT_TRIAD_PREREGISTERED_AWAITING_NEW_DATA",
+  "exact_next_scientific_action": "ACQUIRE AND COMPLETE THE FROZEN O2.16 INDEPENDENT REPLICATION FIRST",
+  "then": "execute+seal O2.16 primary -> execute+seal O2.16-SEC -> unlock Cohort-B -> develop M1/M2/M3 -> any candidate requires Cohort C",
+  "do_not": "claim any moonshot discovered/supported/validated from synthetic simulations"
+}

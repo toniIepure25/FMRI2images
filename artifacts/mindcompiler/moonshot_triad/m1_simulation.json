@@ -1,0 +1,123 @@
+{
+  "moonshot": "M1",
+  "engineering_simulation_only": true,
+  "n": 12,
+  "n_shadow_close_to_true(+/-2)": 6,
+  "frac_close": 0.5,
+  "n_early_stop(<max)": 6,
+  "frac_early_stop": 0.5,
+  "all_bounded": true,
+  "no_future_or_outcome_access": true,
+  "shadow_never_changes_acquisition": true,
+  "rows": [
+    {
+      "participant": "synB001",
+      "m_true": 4,
+      "shadow_stop": 8,
+      "reason": "reached_max_obs",
+      "random_stop": 7,
+      "shadow_close_to_true": false,
+      "shadow_not_after_max": true
+    },
+    {
+      "participant": "synB002",
+      "m_true": 5,
+      "shadow_stop": 7,
+      "reason": "improvement_plateau",
+      "random_stop": 8,
+      "shadow_close_to_true": true,
+      "shadow_not_after_max": true
+    },
+    {
+      "participant": "synB003",
+      "m_true": 6,
+      "shadow_stop": 7,
+      "reason": "improvement_plateau",
+      "random_stop": 6,
+      "shadow_close_to_true": true,
+      "shadow_not_after_max": true
+    },
+    {
+      "participant": "synB004",
+      "m_true": 3,
+      "shadow_stop": 8,
+      "reason": "reached_max_obs",
+      "random_stop": 8,
+      "shadow_close_to_true": false,
+      "shadow_not_after_max": true
+    },
+    {
+      "participant": "synB005",
+      "m_true": 4,
+      "shadow_stop": 6,
+      "reason": "improvement_plateau",
+      "random_stop": 6,
+      "shadow_close_to_true": true,
+      "shadow_not_after_max": true
+    },
+    {
+      "participant": "synB006",
+      "m_true": 5,
+      "shadow_stop": 8,
+      "reason": "reached_max_obs",
+      "random_stop": 7,
+      "shadow_close_to_true": false,
+      "shadow_not_after_max": true
+    },
+    {
+      "participant": "synB007",
+      "m_true": 6,
+      "shadow_stop": 8,
+      "reason": "reached_max_obs",
+      "random_stop": 4,
+      "shadow_close_to_true": true,
+      "shadow_not_after_max": true
+    },
+    {
+      "participant": "synB008",
+      "m_true": 3,
+      "shadow_stop": 8,
+      "reason": "improvement_plateau",
+      "random_stop": 5,
+      "shadow_close_to_true": false,
+      "shadow_not_after_max": true
+    },
+    {
+      "participant": "synB009",
+      "m_true": 4,
+      "shadow_stop": 7,
+      "reason": "improvement_plateau",
+      "random_stop": 3,
+      "shadow_close_to_true": false,
+      "shadow_not_after_max": true
+    },
+    {
+      "participant": "synB010",
+      "m_true": 5,
+      "shadow_stop": 7,
+      "reason": "improvement_plateau",
+      "random_stop": 8,
+      "shadow_close_to_true": true,
+      "shadow_not_after_max": true
+    },
+    {
+      "participant": "synB011",
+      "m_true": 6,
+      "shadow_stop": 7,
+      "reason": "improvement_plateau",
+      "random_stop": 5,
+      "shadow_close_to_true": true,
+      "shadow_not_after_max": true
+    },
+    {
+      "participant": "synB012",
+      "m_true": 3,
+      "shadow_stop": 8,
+      "reason": "reached_max_obs",
+      "random_stop": 8,
+      "shadow_close_to_true": false,
+      "shadow_not_after_max": true
+    }
+  ],
+  "caption": "synthetic engineering check; demonstrates the online shadow rule runs, stays bounded, and can stop early; NOT discovered/supported/validated; real evaluation only post-unlock on Cohort B"
+}

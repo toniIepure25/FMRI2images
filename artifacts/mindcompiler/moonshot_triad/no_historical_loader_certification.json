@@ -1,0 +1,7 @@
+{
+  "historical_cohort": "A (N=8) PERMANENTLY CLOSED",
+  "no_loader_anywhere": true,
+  "guard": "assert_no_historical_loader scans moonshot source for historical-access tokens",
+  "verified_by_test": "test_no_historical_loader_guard",
+  "no_x5": true
+}

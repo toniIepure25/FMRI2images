@@ -1,0 +1,16 @@
+{
+  "battery": {
+    "F1_IDENTITY_SHUFFLE": "shuffle identity labels within participant",
+    "F2_PARTICIPANT_SHUFFLE": "permute participant labels (breaks subject-specific pairing)",
+    "F3_STATE_LABEL_SHUFFLE": "shuffle state labels (imagery/recall)",
+    "F4_TARGET_SUPPORT_RANDOMIZATION": "replace perception support with a random rank-matched subspace",
+    "F5_RANDOM_ORTHOGONAL_ROTATION": "apply a shared random rotation (geometry-invariant metrics must NOT change)",
+    "F6_RANK_MATCHED_RANDOM_SUBSPACE": "replace signal subspace with rank-matched random",
+    "F7_NUISANCE_ONLY_PREDICTOR": "predict from nuisance-only descriptors",
+    "F8_TEMPORAL_REPEAT_SHUFFLE": "shuffle repeat order",
+    "F9_SCHEDULE_RANDOMIZATION": "randomize acquisition schedule",
+    "F10_MEASUREMENT_NOISE_CONTROL": "inject matched measurement noise, no signal"
+  },
+  "rule": "every future claim must name which falsifiers could kill it; a claim that does not collapse under its label-destroying falsifier is not evidence",
+  "participant_unit": true
+}

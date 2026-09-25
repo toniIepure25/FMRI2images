@@ -1,0 +1,9 @@
+CLAIM,EVIDENCE_REQUIRED,FALSIFICATION_TEST,FAILURE_THRESHOLD,NEGATIVE_CONTROL,INDEPENDENCE_REQUIRED,COHORT_REQUIRED
+Perception incompletely determines target geometry,outside-support residual > 0 beyond null,F4 target-support randomization,residual not above randomized-support null,random support,within-subject,B
+Missing geometry is subject-specific,within>between subspace overlap; LOSO prediction>null,F2 participant shuffle,within<=between OR prediction collapses,permuted participants,participant-disjoint,B(+C)
+8-obs calibration recovers >=half gap,"median TOTAL & FCF >=0.5, >=75%",F9 schedule randomization,median<0.5 or not schedule-consistent,random schedule,independent cohort,B
+Repeat-geometry predicts calibration success,"participant rho(Q_OUT,margin)>0, >=75%",F8 repeat shuffle,rho collapses to 0,shuffled repeats,participant,B(+C)
+Private geometry is a stable cross-session fingerprint (E1),within-session-cross-day > between-subject,F2 participant shuffle,within<=between,permuted participants,2 sessions; disjoint subjects,B->C
+Zero-shot geometry prediction (M2/E3),LOSO alignment > permuted-participant null,F2/F7,perm p>0.05 or nuisance-only predicts,permuted labels; nuisance-only,participant-disjoint,B->C
+Cross-state shared scaffold (M3/E4),cross-state overlap > no-shared null,F3 state-label shuffle,overlap collapses,shuffled state labels,recall block approved,B->C
+Anisotropy is real not projector artifact,centred top-fraction > matched isotropic null,F6 rank-matched random,not above matched null,norm/rank-matched random,participant,B

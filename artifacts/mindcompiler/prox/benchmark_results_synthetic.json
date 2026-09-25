@@ -1,0 +1,45 @@
+{
+  "config": {
+    "n_subjects": 12,
+    "dim": 40,
+    "shared_rank": 3,
+    "private_rank": 2,
+    "support_overlap": 0.5,
+    "snr": 3.0,
+    "n_identities": 12,
+    "n_repeats": 8,
+    "anisotropy": 0.0,
+    "session_drift": 0.0,
+    "site_drift": 0.0,
+    "heavy_tails": false,
+    "behavior_coupling": 0.0,
+    "seed_tag": "world"
+  },
+  "tasks": {
+    "B2": {
+      "task": "B2_private_rank_estimation",
+      "truth": 2,
+      "median_abs_rank_error": 10.0,
+      "baseline": "participation_ratio_of_residual"
+    },
+    "B3": {
+      "task": "B3_subject_transfer",
+      "within_median": 0.45940788500964624,
+      "between_median": 0.3377292744202105,
+      "within_exceeds_between": true
+    },
+    "B4": {
+      "task": "B4_few_shot_calibration",
+      "n_obs": 8,
+      "median_recovery_overlap": 0.48043837401893597
+    },
+    "B8": {
+      "task": "B8_cross_state_transfer",
+      "real_median": 0.64359771638384,
+      "null_median": 0.46144723369175844,
+      "real_exceeds_null": true
+    }
+  },
+  "ground_truth_scored": true,
+  "leaderboard_scope": "LOCAL_SYNTHETIC_ONLY (no external SOTA claim)"
+}

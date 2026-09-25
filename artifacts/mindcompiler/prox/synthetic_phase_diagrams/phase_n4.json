@@ -1,0 +1,136 @@
+{
+  "n_obs": 4,
+  "recover_threshold": 0.8,
+  "partial_threshold": 0.5,
+  "grid": [
+    {
+      "private_rank": 1,
+      "snr": 0.5,
+      "n_obs": 4,
+      "anisotropy": 0.0,
+      "overlap": 0.029245206882949643,
+      "regime": "UNRECOVERABLE"
+    },
+    {
+      "private_rank": 1,
+      "snr": 1.0,
+      "n_obs": 4,
+      "anisotropy": 0.0,
+      "overlap": 0.02836288314643797,
+      "regime": "UNRECOVERABLE"
+    },
+    {
+      "private_rank": 1,
+      "snr": 2.0,
+      "n_obs": 4,
+      "anisotropy": 0.0,
+      "overlap": 0.05611312012471879,
+      "regime": "UNRECOVERABLE"
+    },
+    {
+      "private_rank": 1,
+      "snr": 4.0,
+      "n_obs": 4,
+      "anisotropy": 0.0,
+      "overlap": 0.12660995110085707,
+      "regime": "UNRECOVERABLE"
+    },
+    {
+      "private_rank": 2,
+      "snr": 0.5,
+      "n_obs": 4,
+      "anisotropy": 0.0,
+      "overlap": 0.0634766131235537,
+      "regime": "UNRECOVERABLE"
+    },
+    {
+      "private_rank": 2,
+      "snr": 1.0,
+      "n_obs": 4,
+      "anisotropy": 0.0,
+      "overlap": 0.10455193268218647,
+      "regime": "UNRECOVERABLE"
+    },
+    {
+      "private_rank": 2,
+      "snr": 2.0,
+      "n_obs": 4,
+      "anisotropy": 0.0,
+      "overlap": 0.2893911112793833,
+      "regime": "UNRECOVERABLE"
+    },
+    {
+      "private_rank": 2,
+      "snr": 4.0,
+      "n_obs": 4,
+      "anisotropy": 0.0,
+      "overlap": 0.4764879578775003,
+      "regime": "UNRECOVERABLE"
+    },
+    {
+      "private_rank": 3,
+      "snr": 0.5,
+      "n_obs": 4,
+      "anisotropy": 0.0,
+      "overlap": 0.1918288476371828,
+      "regime": "UNRECOVERABLE"
+    },
+    {
+      "private_rank": 3,
+      "snr": 1.0,
+      "n_obs": 4,
+      "anisotropy": 0.0,
+      "overlap": 0.13234134872394884,
+      "regime": "UNRECOVERABLE"
+    },
+    {
+      "private_rank": 3,
+      "snr": 2.0,
+      "n_obs": 4,
+      "anisotropy": 0.0,
+      "overlap": 0.13802429080918832,
+      "regime": "UNRECOVERABLE"
+    },
+    {
+      "private_rank": 3,
+      "snr": 4.0,
+      "n_obs": 4,
+      "anisotropy": 0.0,
+      "overlap": 0.3129393559915844,
+      "regime": "UNRECOVERABLE"
+    },
+    {
+      "private_rank": 4,
+      "snr": 0.5,
+      "n_obs": 4,
+      "anisotropy": 0.0,
+      "overlap": 0.08202198859051622,
+      "regime": "UNRECOVERABLE"
+    },
+    {
+      "private_rank": 4,
+      "snr": 1.0,
+      "n_obs": 4,
+      "anisotropy": 0.0,
+      "overlap": 0.17903580022239446,
+      "regime": "UNRECOVERABLE"
+    },
+    {
+      "private_rank": 4,
+      "snr": 2.0,
+      "n_obs": 4,
+      "anisotropy": 0.0,
+      "overlap": 0.3267688915883919,
+      "regime": "UNRECOVERABLE"
+    },
+    {
+      "private_rank": 4,
+      "snr": 4.0,
+      "n_obs": 4,
+      "anisotropy": 0.0,
+      "overlap": 0.4290998842033008,
+      "regime": "UNRECOVERABLE"
+    }
+  ],
+  "note": "synthetic method-feasibility phase diagram; NOT a biological law"
+}

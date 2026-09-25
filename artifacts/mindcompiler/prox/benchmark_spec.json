@@ -1,0 +1,24 @@
+{
+  "tasks": {
+    "B1_support_recovery": "estimate perception-support fraction",
+    "B2_private_rank_estimation": "estimate private-correction rank",
+    "B3_subject_transfer": "does target geometry transfer across subjects?",
+    "B4_few_shot_calibration": "recover geometry from few target observations",
+    "B5_adaptive_stopping": "stop when subspace stabilizes",
+    "B6_zero_shot_subject_prediction": "predict target geometry from descriptors, participant-disjoint",
+    "B7_cross_session_transfer": "predict session-2 geometry from session-1",
+    "B8_cross_state_transfer": "shared scaffold recurs across imagery vs recall"
+  },
+  "baselines": [
+    "population_mean",
+    "identity",
+    "ridge",
+    "pca",
+    "procrustes",
+    "nearest_neighbor",
+    "random_subspace",
+    "oracle"
+  ],
+  "scoring": "ground-truth (synthetic world)",
+  "leaderboard": "LOCAL_SYNTHETIC_ONLY"
+}

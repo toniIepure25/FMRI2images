@@ -1,0 +1,16 @@
+{
+  "suite": "tests/mindcompiler/prox",
+  "result": "PASS",
+  "tail": "23 passed in 0.60s",
+  "n_passed": 23,
+  "kinds": [
+    "property",
+    "metamorphic",
+    "falsification",
+    "benchmark",
+    "numerical-stability",
+    "governance",
+    "immutability",
+    "object-model"
+  ]
+}

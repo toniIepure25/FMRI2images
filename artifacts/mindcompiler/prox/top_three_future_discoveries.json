@@ -1,0 +1,26 @@
+{
+  "D1_stable_cross_session_fingerprint": {
+    "experiment": "E1 (+E12)",
+    "falsifier": "F2 participant shuffle: within<=between kills it",
+    "cohort": "B (2 sessions) -> C",
+    "min_evidence": "within-subject cross-day overlap > between-subject, >=75%, Holm; Cohort-C confirm",
+    "alternatives": "per-subject SNR/reliability; session nuisance",
+    "replication": "independent Cohort C required"
+  },
+  "D2_zero_or_near_zero_shot_prediction": {
+    "experiment": "M2 / E3",
+    "falsifier": "F2/F7: permuted-participant or nuisance-only predicts equally",
+    "cohort": "B -> C",
+    "min_evidence": "LOSO alignment > permuted null, both protocols, >=75%",
+    "alternatives": "descriptor leakage; overfitting at N~12",
+    "replication": "Cohort C"
+  },
+  "D3_cross_state_generalization": {
+    "experiment": "M3 / E4",
+    "falsifier": "F3 state-label shuffle collapses overlap",
+    "cohort": "B (recall block, human-approved) -> C",
+    "min_evidence": "cross-state shared overlap > no-shared null, >=75%; private-correction stays subject-specific",
+    "alternatives": "generic reliability; shared task structure",
+    "replication": "Cohort C"
+  }
+}

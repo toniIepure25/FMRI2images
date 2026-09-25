@@ -1,0 +1,13 @@
+EXPERIMENT,SCIENTIFIC_QUESTION,WHY_NEW,BUILDS_ON,SURPRISING_RESULT,KILL_RESULT,NEW_DATA,MIN_N,FEASIBILITY,VALUE_IF_POSITIVE,VALUE_IF_NEGATIVE,AMBIGUITY_RISK,COHORT,PRIORITY
+E1 fingerprint,is private geometry a stable subject trait?,combines subject-specificity with test-retest,O2.10/O2.11 subject-specificity,high cross-day stability,within<=between,yes (2 sessions),8,medium,high (trait reframing),high (rules out trait),medium,B->C,HIGH
+E2 active acquisition,can info-gain cut calibration cost?,adaptive vs fixed acquisition,M1 shadow,large sample savings,no savings vs balanced,yes,8,medium,high (efficiency),medium,medium,B,MEDIUM-HIGH
+E3 cross-session zero-shot,does geometry generalize across time?,time-generalization of private geometry,M2,session-2 predicted w/o calib,collapses to null,yes (2 sessions),8,medium,high,high,medium,B->C,HIGH
+E4 cross-state,same scaffold in recall?,cross-state generalization,M3,shared scaffold recurs,state-label shuffle kills it,yes (recall block),8,medium-low,high,high,medium-high,B->C,HIGH
+E5 behavioral relevance,does geometry predict behavior?,cognitive grounding,new,geometry predicts vividness/accuracy,no behavior link,yes (behavioral),8-12,medium,high (cognition),medium,medium,B,HIGH
+E6 multi-site,biological vs site-dependent?,site invariance,all,invariants survive site,site-dependent,yes (2 sites),>=8/site,low,high,high,C,MEDIUM
+E7 variance components,trait vs state noise split?,hierarchical decomposition,O2.15,dominant stable component,all variance is state noise,yes (multi-session),12,medium,high,high,medium,B,MEDIUM-HIGH
+E8 learning curve,subject sample-complexity phenotype?,personal calibration curve,O2.9,stable per-subject n*,no subject structure,yes,8-12,high,medium-high,medium,low,B,MEDIUM-HIGH
+E9 quality index,trust score w/o outcomes?,predictor-side QA,M1,predicts failure w/o peeking,no better than chance,yes,8,high,high (operational),medium,low,B,HIGH
+E10 cross-representation,biology vs representation artifact?,representation robustness,all,survives all representations,representation-dependent,yes (pre-frozen reps),8-12,medium-high,high (rigor),high,low,B,HIGH
+E11 measurement-error model,latent vs measurement geometry?,uncertainty-aware geometry,O2.15,uncertainty-aware beats naive,no improvement,yes,8-12,medium,medium-high,medium,medium,B,MEDIUM
+E12 fingerprint ID,persistent subject structure discriminable?,privacy-aware scientific ID test,E1,above-chance cross-session ID,chance-level,yes (2 sessions),8,medium,high (persistence),high,medium,B->C,MEDIUM-HIGH

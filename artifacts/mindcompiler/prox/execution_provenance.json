@@ -1,0 +1,19 @@
+{
+  "input_head": "55cdb19bd93e56f5759764a5f36e1899040bd2bb",
+  "branch": "platform/mindir-prox",
+  "python": "3.13.5",
+  "no_new_scientific_inference": true,
+  "no_historical_n8": true,
+  "synthetic_only": true,
+  "ci_quality_gates_proposed": [
+    "black",
+    "ruff",
+    "mypy",
+    "pytest unit/integration/property/metamorphic",
+    "docs build",
+    "artifact schema validation",
+    "config hash checks",
+    "scientific immutability",
+    "historical-N8 firewall"
+  ]
+}

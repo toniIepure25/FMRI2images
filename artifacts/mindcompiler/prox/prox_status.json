@@ -1,0 +1,21 @@
+{
+  "status": "MINDIR_PROX_PLATFORM_READY",
+  "tests_pass": true,
+  "immutable_all_match": true,
+  "tracks": {
+    "P1_repo": "audited + migration map + platform package",
+    "P2_metrics_falsification": "registry(13)+battery(10)",
+    "P3_theory": "identifiability atlas + sample complexity + phase diagrams",
+    "P4_experiments": "E1-E12 catalog + value matrix",
+    "P5_benchmark": "B1-B8 spec + synthetic ground-truth harness + baselines",
+    "P6_review": "7 adversarial reviewers + top-3 discoveries"
+  },
+  "synthetic_only_no_biological_claim": true,
+  "scientific_status": {
+    "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+    "O2_16_DATA": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+    "O2_16_SEC": "O2_16_SECONDARY_ENDPOINTS_PREREGISTERED_AWAITING_INDEPENDENT_COHORT",
+    "M0": "MINDIR_MOONSHOT_TRIAD_PREREGISTERED_AWAITING_NEW_DATA",
+    "O3": "O3_NOT_READY"
+  }
+}

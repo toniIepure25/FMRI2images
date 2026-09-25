@@ -1,0 +1,3 @@
+# Numerical stability report (MINDIR-PROX)
+
+Geometry metrics are stable for subspaces with singular values above ~1e-8 relative to the top singular value; below that, overlaps saturate and distances lose precision (guarded via QR orthonormalization). Near-identical subspaces (perturbation 1e-10) return overlap in [0.99,1.0] and finite distances (test_numerical_stability_tiny_singular_values). Degenerate/zero rows are handled without NaN (test_numerical_degenerate_handling). Ratio calibration metrics are floored to avoid divide-by-zero when oracle-baseline is tiny. Recommendation: report geometry only when effective rank is well-conditioned; flag near-rank-deficient cases.

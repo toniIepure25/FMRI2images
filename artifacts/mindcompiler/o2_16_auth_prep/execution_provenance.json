@@ -1,0 +1,8 @@
+{
+  "input_head": "b7e5f3b279f7341b6a65e0fe88813a63995e58b7",
+  "branch": "operations/o2-16-human-acquisition-auth-prep",
+  "python": "3.13.5",
+  "no_new_scientific_inference": true,
+  "no_approvals_granted": true,
+  "no_participant_identities": true
+}

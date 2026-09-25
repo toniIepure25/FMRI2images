@@ -1,0 +1,36 @@
+{
+  "pi_decisions": [
+    "scientific sponsorship",
+    "final site",
+    "final sequence acceptance",
+    "session partition",
+    "participant population",
+    "behavioral measures",
+    "compensation",
+    "stimulus set",
+    "data-sharing tier",
+    "M3 future-task approval",
+    "authorship/collaboration"
+  ],
+  "final_imagery_identities": {
+    "status": "IMAGERY_STIMULUS_SET_NOT_FINALIZED",
+    "need": "6 simple + 6 naturalistic",
+    "criteria": [
+      "visual recognizability",
+      "verbal cue clarity",
+      "semantic distinctness",
+      "low ambiguity",
+      "permission status",
+      "balanced content"
+    ],
+    "forbidden": "do NOT choose identities from historical neural outcomes"
+  },
+  "roles": {
+    "SUPERVISING_PI": "TBD",
+    "MRI_PHYSICIST_OR_SITE_OPERATOR": "TBD",
+    "ETHICS_APPROVER": "TBD",
+    "DATA_PROTECTION_REVIEWER": "TBD",
+    "EXPERIMENT_OPERATOR": "TBD",
+    "ANALYSIS_CUSTODIAN": "TBD (controls Stage-B release; not auto-assigned to the student)"
+  }
+}

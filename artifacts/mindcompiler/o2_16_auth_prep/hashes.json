@@ -1,0 +1,22 @@
+{
+  "algo": "sha256",
+  "files": {
+    "auth_prep_config.json": "944680965c2b4225bedc38d9bcd7fe236cf8efa43c14a6d53cc4479366f3b8ae",
+    "auth_prep_status.json": "da0b90b94fb6762c217a5f63ae66e58b8542038a491dcbebb9c4293f4881ca31",
+    "CONFIRMATORY_START_AUTH.json": "c2f0aeffed800078bf627c09d4615a783ca45c62f812f354415806bd0bf4a52d",
+    "confirmatory_start_auth_template.json": "c2f0aeffed800078bf627c09d4615a783ca45c62f812f354415806bd0bf4a52d",
+    "consent_draft_certification.json": "2779ed57e4d512db5b123ecdcf77120f2f72392d41b98452da8fc509329f218b",
+    "data_protection_certification.json": "9065c2bb84848c12d7fcb123f2af0294aba56c52bb0764fd22bc3833b9efd384",
+    "ethics_draft_certification.json": "247c586defeb5a3425ed0f800e09acae0da16b15c4c7cc491eeac7a4762b020d",
+    "execution_provenance.json": "a9e154079aaa1a08e185f4cacf17e42098e0be19bf8e9a442f32b57e9c9014b6",
+    "human_decision_register.json": "dfe7627eb2ba066c006a3e1960d135fc61f9f8fc5fb09a003a3df80964dfd364",
+    "next_action.json": "f2ad576ef319e4f9366f23e2a4ffa8b6477f2f5e34608bb407d5e87ea0106fa9",
+    "participant_document_certification.json": "fb3b6209491efd2865c32987d9e2e46bf6ea28f1773c1a24d26ee73743ced8b8",
+    "scientific_immutability_check.json": "8d7c840d3a2cefd2f43f225a75097a5065457d810109d08c1c38f6cf1fbf8397",
+    "site_decision_register.json": "862b5ad23b7d23a8011e5154af8022f78da7f6db6759b6994c9ced03b3fa008f",
+    "stimulus_permission_status.json": "bc1970d1a7c720922d1c87c3b132d3638db0474dda8d2daee8e1606f0a0a6d25",
+    "study_protocol_certification.json": "cc91e891708643a1024e06dc2dcb131c948837f7d80bf69a6c432aaa7c31eb86",
+    "test_report.json": "9627c474b17213dab579dee602b1c7ecae008a881c96eb3159df0207d72854f2"
+  },
+  "n_files": 16
+}

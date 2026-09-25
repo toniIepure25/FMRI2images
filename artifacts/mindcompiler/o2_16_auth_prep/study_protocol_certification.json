@@ -1,0 +1,28 @@
+{
+  "exists": true,
+  "status": "DRAFT_FOR_HUMAN_REVIEW",
+  "sections": [
+    "title",
+    "background",
+    "question",
+    "rationale",
+    "objectives",
+    "design",
+    "participants",
+    "sample size",
+    "acquisition",
+    "tasks",
+    "outcomes",
+    "firewall",
+    "data mgmt",
+    "risks",
+    "benefits",
+    "withdrawal",
+    "recruitment",
+    "compensation",
+    "ethics",
+    "dissemination"
+  ],
+  "conservative_language": true,
+  "no_internal_jargon_in_participant_docs": true
+}

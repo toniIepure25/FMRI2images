@@ -1,0 +1,20 @@
+{
+  "_note": "Confirmatory acquisition may begin ONLY when every required field below is true. Defaults are false/TBD and MUST NOT be edited to true without the real human approval each represents. No override.",
+  "PI_APPROVED": false,
+  "ETHICS_ACTIVE": false,
+  "SITE_APPROVED": false,
+  "MRI_SAFETY_WORKFLOW_ACTIVE": false,
+  "CONSENT_APPROVED": false,
+  "STIMULUS_PERMISSIONS_COMPLETE": false,
+  "SITE_CONFIG_FROZEN": false,
+  "REAL_SITE_BIDS_VALIDATED": false,
+  "ENGINEERING_PILOT_COMPLETE": false,
+  "PARTICIPANT_INDEPENDENCE_CHECK_ACTIVE": false,
+  "STAGE_A_STAGE_B_FIREWALL_ACTIVE": false,
+  "ethics_protocol_id": "TBD",
+  "approval_institution": "TBD",
+  "site_id": "TBD",
+  "pi_name": "TBD",
+  "gate_state": "CONFIRMATORY_GATE_CLOSED",
+  "confirmatory_may_begin": false
+}

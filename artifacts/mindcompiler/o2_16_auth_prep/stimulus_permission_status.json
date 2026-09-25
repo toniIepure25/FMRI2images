@@ -1,0 +1,8 @@
+{
+  "perception_anchors": "LEGAL_OR_INSTITUTIONAL_REVIEW_REQUIRED",
+  "imagery_simple": "LEGAL_OR_INSTITUTIONAL_REVIEW_REQUIRED",
+  "imagery_naturalistic": "LEGAL_OR_INSTITUTIONAL_REVIEW_REQUIRED",
+  "imagery_set": "IMAGERY_STIMULUS_SET_NOT_FINALIZED",
+  "confirmatory_blocked": true,
+  "none_authorized_without_evidence": true
+}

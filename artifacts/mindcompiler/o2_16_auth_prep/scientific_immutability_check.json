@@ -1,0 +1,13 @@
+{
+  "o2_16_primary_match": true,
+  "o2_16_sec_match": true,
+  "m0_config_present": true,
+  "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+  "O2_16_DATA": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+  "O2_16_SEC": "O2_16_SECONDARY_ENDPOINTS_PREREGISTERED_AWAITING_INDEPENDENT_COHORT",
+  "M0": "MINDIR_MOONSHOT_TRIAD_PREREGISTERED_AWAITING_NEW_DATA",
+  "O3": "O3_NOT_READY",
+  "no_x5": true,
+  "no_new_science": true,
+  "all_match": true
+}

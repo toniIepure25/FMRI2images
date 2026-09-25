@@ -1,0 +1,15 @@
+{
+  "status": "O2_16_AUTHORIZATION_PACKAGE_READY_FOR_PI_ETHICS_SITE_REVIEW",
+  "draft_docs": 22,
+  "confirmatory_gate": "CLOSED (all false/TBD)",
+  "no_approval_fabricated": true,
+  "scientific_state_unchanged": {
+    "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+    "O2_16_DATA": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+    "O2_16_SEC": "O2_16_SECONDARY_ENDPOINTS_PREREGISTERED_AWAITING_INDEPENDENT_COHORT",
+    "M0": "MINDIR_MOONSHOT_TRIAD_PREREGISTERED_AWAITING_NEW_DATA",
+    "O3": "O3_NOT_READY"
+  },
+  "tests_pass": true,
+  "immutable_all_match": true
+}

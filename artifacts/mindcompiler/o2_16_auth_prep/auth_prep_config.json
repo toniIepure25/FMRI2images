@@ -1,0 +1,9 @@
+{
+  "gate": "O2.16-AUTH-PREP",
+  "class": "DOCUMENTATION_GOVERNANCE_ZERO_INFERENCE",
+  "branch": "operations/o2-16-human-acquisition-auth-prep",
+  "scientific_protocol_sha": "2da2cc791054406b42eb1896b9b5f123b5b6bacb8386e6fb0f1e19649cf18907",
+  "doc_count": 22,
+  "no_approvals_claimed": true,
+  "human_facing_study_name": "Neural Representations of Visual Perception and Mental Imagery"
+}

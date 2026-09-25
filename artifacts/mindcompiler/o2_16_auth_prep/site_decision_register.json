@@ -1,0 +1,25 @@
+{
+  "fields": [
+    "scanner",
+    "coil",
+    "TR",
+    "TE",
+    "voxel size",
+    "sequence",
+    "multiband",
+    "phase encoding",
+    "field maps",
+    "dummy volumes",
+    "trigger",
+    "display",
+    "refresh",
+    "button box",
+    "audio",
+    "run duration",
+    "safety",
+    "DICOM",
+    "booking",
+    "operator support"
+  ],
+  "all": "TBD_SITE_OPERATOR"
+}

@@ -1,0 +1,19 @@
+{
+  "pseudonymization": "identity layer <-> key <-> research data (pseudonymous ID only)",
+  "identity_key_never_in": [
+    "git",
+    "analysis artifacts",
+    "BIDS dataset",
+    "public repo"
+  ],
+  "raw_mri_potentially_identifiable": true,
+  "defacing_policy_documented": true,
+  "gdpr_fields": "TBD_INSTITUTIONAL_REVIEW",
+  "data_sharing_tiers": [
+    "TIER0",
+    "TIER1",
+    "TIER2",
+    "TIER3"
+  ],
+  "tier_selected_by": "PI/ethics (not automatic)"
+}

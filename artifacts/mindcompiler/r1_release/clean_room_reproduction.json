@@ -1,0 +1,20 @@
+{
+  "method": "editable install in current interpreter + documented commands only",
+  "install": "PASS (pip install -e .)",
+  "entry_point_registered": true,
+  "entry_point_loads": true,
+  "console_script_on_PATH": "environment-specific (verified in ci-core via `mindir version`)",
+  "documented_commands_run": [
+    "mindir version",
+    "mindir metrics",
+    "mindir demo",
+    "mindir benchmark synthetic"
+  ],
+  "tests": "59 passed (prox 23 + r1 19 + moonshot 17) locally",
+  "full_isolated_all_deps_venv": "NOT executed here (heavy deps torch/s3fs; network) -> delegated to CI on a clean ubuntu runner",
+  "outsider_blockers_found_and_fixed": [
+    "console-script discoverability documented",
+    "PYTHONPATH removed via editable install + entry point"
+  ],
+  "honest_status": "packaging + entry point + documented commands verified locally; full clean ubuntu venv install is the CI job"
+}

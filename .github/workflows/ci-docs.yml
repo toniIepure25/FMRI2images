@@ -1,0 +1,28 @@
+name: ci-docs
+# MINDIR docs check: required documents exist, are non-empty, and contain the mandated status statements.
+on:
+  push:
+    paths: ["docs/**", "README_MINDIR.md", ".github/workflows/ci-docs.yml"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.10" }
+      - name: Required docs present + status statements
+        run: |
+          python - <<'PY'
+          import sys
+          from pathlib import Path
+          req = ["README_MINDIR.md","docs/research/mindcompiler/MINDIR_README.md","docs/research/mindcompiler/MINDIR_ROADMAP.md",
+                 "CITATION.cff","CONTRIBUTING_RESEARCH.md","PAPER_REPRODUCTION_GUIDE.md"]
+          miss = [p for p in req if not Path(p).exists() or not Path(p).read_text(encoding="utf-8").strip()]
+          assert not miss, "missing/empty docs: %s" % miss
+          rm = Path("README_MINDIR.md").read_text(encoding="utf-8")
+          assert "O3_NOT_READY" in rm and "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE" in rm
+          print("docs check OK")
+          PY

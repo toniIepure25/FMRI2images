@@ -1,0 +1,22 @@
+{
+  "mindir_platform_version": "0.1.0-rc1",
+  "distribution": "fmri2img 2.0.0",
+  "contents": [
+    "source(prox platform)",
+    "tests",
+    "docs(MINDIR_README/ROADMAP/API/DATA_CONTRACT)",
+    "synthetic demo",
+    "benchmark",
+    "schemas(SCHEMA_VERSIONS)",
+    "CITATION.cff",
+    "LICENSE(MIT, code)",
+    "CONTRIBUTING_RESEARCH.md",
+    "PAPER_REPRODUCTION_GUIDE.md",
+    "README_MINDIR.md",
+    "privacy/data note(auth_prep)",
+    "scientific status note"
+  ],
+  "no_raw_participant_data": true,
+  "code_license": "MIT (repository LICENSE)",
+  "data_stimulus_licenses": "SEPARATE (not inherited; see stimulus_permission_status.json)"
+}

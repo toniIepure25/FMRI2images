@@ -1,0 +1,20 @@
+name: ci-benchmark
+# MINDIR benchmark + demo smoke (synthetic; fixed seeds; CPU).
+on:
+  push:
+    paths: ["src/fmri2img/mindcompiler/prox/**", ".github/workflows/ci-benchmark.yml"]
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.10" }
+      - name: Install
+        run: pip install --upgrade pip && pip install -e .
+      - name: Demo (synthetic, CPU)
+        run: mindir demo
+      - name: Benchmark (synthetic, fixed seeds)
+        run: mindir benchmark synthetic

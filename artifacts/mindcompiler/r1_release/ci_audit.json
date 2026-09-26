@@ -1,0 +1,28 @@
+{
+  "workflows": [
+    "ci-core.yml",
+    "ci-science-integrity.yml",
+    "ci-docs.yml",
+    "ci-benchmark.yml"
+  ],
+  "implemented": true,
+  "local_tool_availability": {
+    "black": false,
+    "ruff": false,
+    "mypy": false
+  },
+  "note": "lint/type/coverage tools run on GitHub runners (installed via .[dev]); locally pytest verified, ruff/mypy/black/pytest-cov absent so run in CI, not fabricated locally",
+  "gates": [
+    "format(black)",
+    "lint(ruff)",
+    "type(mypy)",
+    "unit/property/metamorphic pytest",
+    "science-immutability",
+    "historical-N8 firewall",
+    "leakage",
+    "benchmark smoke",
+    "docs presence+status",
+    "package install",
+    "CLI smoke"
+  ]
+}

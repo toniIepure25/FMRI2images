@@ -1,0 +1,45 @@
+{
+  "schema_version": "prox-provenance/1.0.0",
+  "nodes": [
+    "DATA",
+    "PREPROCESSING",
+    "REPRESENTATION",
+    "OPERATOR",
+    "METRICS",
+    "INFERENCE",
+    "CLAIM",
+    "MANUSCRIPT_FIGURE_TABLE"
+  ],
+  "edges": [
+    {
+      "from": "DATA",
+      "to": "PREPROCESSING"
+    },
+    {
+      "from": "PREPROCESSING",
+      "to": "REPRESENTATION"
+    },
+    {
+      "from": "REPRESENTATION",
+      "to": "OPERATOR"
+    },
+    {
+      "from": "OPERATOR",
+      "to": "METRICS"
+    },
+    {
+      "from": "METRICS",
+      "to": "INFERENCE"
+    },
+    {
+      "from": "INFERENCE",
+      "to": "CLAIM"
+    },
+    {
+      "from": "CLAIM",
+      "to": "MANUSCRIPT_FIGURE_TABLE"
+    }
+  ],
+  "every_artifact_traceable_backwards": true,
+  "firewall": "predictor-side (DATA..METRICS training) is separated from protected Stage-B outcomes; CLAIM requires the full backward chain + a falsifier + replication status"
+}

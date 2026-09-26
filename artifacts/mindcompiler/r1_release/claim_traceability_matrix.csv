@@ -1,0 +1,8 @@
+CLAIM_ID,CLAIM,EVIDENCE_ARTIFACT,METRIC,PARTICIPANT_POPULATION,STAT_TEST,CONFIG_SHA,CODE_SHA,FIGURE_TABLE,FALSIFIER,REPLICATION_STATUS
+C1,perception incomplete for target geometry,operator_o2_5/6 (sealed),outside_support_residual,dev N=8,sign-flip,2da2cc79(o2.16 downstream),3d4d1225c850,F2,F4 target-support rand,HASH_VERIFIED_SEAL (dev); awaiting B
+C3,missing geometry subject-specific,operator_o2_10/11/13 (sealed),subspace_overlap/cosine,dev N=8,sign-flip Holm,sealed,3d4d1225c850,F3,F2 participant shuffle,awaiting B(+C)
+C6,8-obs calibration recovers >=half,operator_o2_9 roi_resource_frontier.csv,total_recovery/FCF,dev N=8,frozen criterion,sealed,3d4d1225c850,F4,F9 schedule rand,awaiting B
+C9,repeat-geometry predicts calibration,operator_o2_15 component_inference.json,"spearman(Q_OUT,margin)",dev N=8,sign-flip Holm,sealed,3d4d1225c850,F5,F8 repeat shuffle,awaiting B(+C)
+M1,adaptive shadow stopping feasible,moonshot_triad m1 (prereg),calibration_regret,synthetic,(prospective),3770(sec)/M0,3d4d1225c850,F6,random-stop null,AWAITING NEW DATA
+M2,zero-shot geometry prediction,moonshot_triad m2 (prereg),cosine alignment,synthetic,permutation,M0,3d4d1225c850,Fig-M2,F2/F7,AWAITING NEW DATA
+M3,cross-state shared scaffold,moonshot_triad m3 (prereg),subspace_overlap,synthetic,permutation,M0,3d4d1225c850,Fig-M3,F3 state shuffle,AWAITING NEW DATA

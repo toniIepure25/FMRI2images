@@ -1,0 +1,17 @@
+{
+  "distribution": "fmri2img",
+  "mindir_platform_version": "0.1.0-rc1",
+  "editable_install": "pip install -e . (succeeded)",
+  "entry_point": "mindir -> fmri2img.mindcompiler.prox.cli:main (registered + loads)",
+  "no_pythonpath_needed_after_install": true,
+  "dependency_groups": [
+    "core(base)",
+    "dev",
+    "mindir",
+    "experiment(psychopy)",
+    "docs"
+  ],
+  "psychopy_not_required_for_core": true,
+  "root_README_preserved": true,
+  "mindir_external_readme": "README_MINDIR.md"
+}

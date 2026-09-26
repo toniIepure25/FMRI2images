@@ -1,0 +1,17 @@
+{
+  "pytest_cov_available_locally": false,
+  "computed_in_ci": true,
+  "scientifically_critical_modules_must_be_covered": [
+    "metrics",
+    "geometry funcs",
+    "falsification",
+    "governance",
+    "firewalls",
+    "hashing(semantic_hash)",
+    "statistics(signflip/holm)",
+    "synthworld",
+    "benchmark scoring"
+  ],
+  "exercised_by_tests": "prox(23)+r1(19) cover geometry/metrics/falsification/governance/firewall/hashing/randomization/benchmark scoring",
+  "note": "exact % emitted by ci-core with pytest-cov; not fabricated locally"
+}

@@ -1,0 +1,8 @@
+contact,institution,role,fit,email,date_verified,wave,date_sent,response,meeting_date,next_action,status
+Frank Scharnowski,University of Vienna,"Professor, Dept. of Cognition, Emotion, and Methods in Psychology",VERY DIRECT FIT,see official profile (verify before sending),2026-09-27,1,,,,send PI scientific bundle,NOT_CONTACTED
+Christian Windischberger,Medical University of Vienna (HFMRC / Center for Medical Physics and Biomedical Engineering),"Assoc. Prof.; Deputy Head, MR Physics; fMRI methods group lead",VERY DIRECT FIT,christian.windischberger@meduniwien.ac.at,2026-09-27,1,,,,send PI scientific bundle,NOT_CONTACTED
+Claus Lamm,University of Vienna,"Professor; Director, University of Vienna MR Center (SCAN-Unit)",DIRECT FIT,see official profile (verify before sending),2026-09-27,2,,,,send PI scientific bundle,NOT_CONTACTED
+Ulrich Ansorge,University of Vienna,Professor of Cognitive Psychology,DIRECT FIT,see official profile (verify before sending),2026-09-27,2,,,,send PI scientific bundle,NOT_CONTACTED
+Ronald Sladky,University of Vienna,Priv.-Doz.; Senior Scientist & MR Center manager,TECHNICAL SITE CONTACT (+ method fit),ronald.sladky@univie.ac.at,2026-09-27,3,,,,send MRI site bundle,NOT_CONTACTED
+University of Vienna MR Center (institutional),University of Vienna,3T MAGNETOM Skyra research facility,TECHNICAL SITE CONTACT,via Sladky/Lamm,2026-09-27,site,,,,await PI steer,NOT_CONTACTED
+MedUni Vienna HFMRC (institutional),Medical University of Vienna,3T/7T high-field research centre,TECHNICAL SITE CONTACT,via Windischberger,2026-09-27,site,,,,await PI steer,NOT_CONTACTED

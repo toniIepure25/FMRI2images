@@ -1,0 +1,146 @@
+{
+  "label": "SIMULATION_BASED_SENSITIVITY_ANALYSIS",
+  "rows": [
+    {
+      "n": 8,
+      "effect": 0.0,
+      "detection_freq": 0.05
+    },
+    {
+      "n": 8,
+      "effect": 0.05,
+      "detection_freq": 0.055
+    },
+    {
+      "n": 8,
+      "effect": 0.1,
+      "detection_freq": 0.06
+    },
+    {
+      "n": 8,
+      "effect": 0.2,
+      "detection_freq": 0.16
+    },
+    {
+      "n": 10,
+      "effect": 0.0,
+      "detection_freq": 0.065
+    },
+    {
+      "n": 10,
+      "effect": 0.05,
+      "detection_freq": 0.05
+    },
+    {
+      "n": 10,
+      "effect": 0.1,
+      "detection_freq": 0.095
+    },
+    {
+      "n": 10,
+      "effect": 0.2,
+      "detection_freq": 0.135
+    },
+    {
+      "n": 12,
+      "effect": 0.0,
+      "detection_freq": 0.07
+    },
+    {
+      "n": 12,
+      "effect": 0.05,
+      "detection_freq": 0.06
+    },
+    {
+      "n": 12,
+      "effect": 0.1,
+      "detection_freq": 0.075
+    },
+    {
+      "n": 12,
+      "effect": 0.2,
+      "detection_freq": 0.135
+    },
+    {
+      "n": 16,
+      "effect": 0.0,
+      "detection_freq": 0.04
+    },
+    {
+      "n": 16,
+      "effect": 0.05,
+      "detection_freq": 0.06
+    },
+    {
+      "n": 16,
+      "effect": 0.1,
+      "detection_freq": 0.055
+    },
+    {
+      "n": 16,
+      "effect": 0.2,
+      "detection_freq": 0.17
+    },
+    {
+      "n": 20,
+      "effect": 0.0,
+      "detection_freq": 0.055
+    },
+    {
+      "n": 20,
+      "effect": 0.05,
+      "detection_freq": 0.085
+    },
+    {
+      "n": 20,
+      "effect": 0.1,
+      "detection_freq": 0.11
+    },
+    {
+      "n": 20,
+      "effect": 0.2,
+      "detection_freq": 0.24
+    },
+    {
+      "n": 24,
+      "effect": 0.0,
+      "detection_freq": 0.045
+    },
+    {
+      "n": 24,
+      "effect": 0.05,
+      "detection_freq": 0.09
+    },
+    {
+      "n": 24,
+      "effect": 0.1,
+      "detection_freq": 0.13
+    },
+    {
+      "n": 24,
+      "effect": 0.2,
+      "detection_freq": 0.255
+    },
+    {
+      "n": 32,
+      "effect": 0.0,
+      "detection_freq": 0.05
+    },
+    {
+      "n": 32,
+      "effect": 0.05,
+      "detection_freq": 0.085
+    },
+    {
+      "n": 32,
+      "effect": 0.1,
+      "detection_freq": 0.15
+    },
+    {
+      "n": 32,
+      "effect": 0.2,
+      "detection_freq": 0.32
+    }
+  ],
+  "note": "detection frequency under synthetic assumptions; NOT guaranteed prospective power; effect=0 gives the false-positive rate (should be ~alpha)"
+}

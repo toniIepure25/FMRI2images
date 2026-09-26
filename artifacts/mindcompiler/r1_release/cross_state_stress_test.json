@@ -1,0 +1,17 @@
+{
+  "no_shared": {
+    "real_median": 0.608,
+    "null_median": 0.1,
+    "discriminates": true
+  },
+  "partial": {
+    "real_median": 0.661,
+    "null_median": 0.266,
+    "discriminates": true
+  },
+  "full_shared": {
+    "real_median": 0.734,
+    "null_median": 0.513,
+    "discriminates": true
+  }
+}

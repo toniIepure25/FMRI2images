@@ -1,0 +1,54 @@
+{
+  "n_obs": 8,
+  "rows": [
+    {
+      "world": "very_low_snr",
+      "few_shot_recovery": 0.187,
+      "cross_state_real_exceeds_null": true,
+      "degraded": true
+    },
+    {
+      "world": "very_high_rank",
+      "few_shot_recovery": 0.442,
+      "cross_state_real_exceeds_null": true,
+      "degraded": true
+    },
+    {
+      "world": "rank_mismatch",
+      "few_shot_recovery": 0.41,
+      "cross_state_real_exceeds_null": true,
+      "degraded": true
+    },
+    {
+      "world": "heavy_tails",
+      "few_shot_recovery": 0.071,
+      "cross_state_real_exceeds_null": false,
+      "degraded": true
+    },
+    {
+      "world": "anisotropic",
+      "few_shot_recovery": 0.514,
+      "cross_state_real_exceeds_null": true,
+      "degraded": false
+    },
+    {
+      "world": "session_drift",
+      "few_shot_recovery": 0.338,
+      "cross_state_real_exceeds_null": true,
+      "degraded": true
+    },
+    {
+      "world": "site_drift",
+      "few_shot_recovery": 0.285,
+      "cross_state_real_exceeds_null": true,
+      "degraded": true
+    },
+    {
+      "world": "low_support_overlap",
+      "few_shot_recovery": 0.374,
+      "cross_state_real_exceeds_null": true,
+      "degraded": true
+    }
+  ],
+  "honest": "failures are reported, not hidden"
+}

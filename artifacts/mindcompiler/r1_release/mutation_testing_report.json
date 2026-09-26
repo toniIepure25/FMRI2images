@@ -1,0 +1,15 @@
+{
+  "tool": "mutmut/cosmic-ray ABSENT locally",
+  "surrogate": "controlled scientific bug-injection battery (B1-B10) run in-process; all caught: True",
+  "high_risk_mutations_considered": [
+    "reverse inequality",
+    "drop participant",
+    "wrong normalization",
+    "wrong denominator",
+    "leak future trial",
+    "remove Holm",
+    "change seed",
+    "incorrect projector"
+  ],
+  "surviving_mutations": "none in the injected battery; formal mutation run recommended in CI when mutmut added"
+}

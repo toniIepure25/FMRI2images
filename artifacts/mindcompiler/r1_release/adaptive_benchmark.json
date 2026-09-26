@@ -1,0 +1,122 @@
+{
+  "policies": [
+    "fixed_N",
+    "random_stop(neg_control)",
+    "stability_stop"
+  ],
+  "median_savings_stability": 1.0,
+  "median_regret_stability": 0.006999999999999999,
+  "median_regret_random": 0.11,
+  "stability_beats_random_regret": true,
+  "rows": [
+    {
+      "m_true": 3,
+      "fixed_stop": 8,
+      "stability_stop": 5,
+      "random_stop": 4,
+      "stability_regret": 0.097,
+      "random_regret": 0.096,
+      "savings_vs_fixed": 3
+    },
+    {
+      "m_true": 4,
+      "fixed_stop": 8,
+      "stability_stop": 5,
+      "random_stop": 4,
+      "stability_regret": 0.009,
+      "random_regret": 0.124,
+      "savings_vs_fixed": 3
+    },
+    {
+      "m_true": 5,
+      "fixed_stop": 8,
+      "stability_stop": 5,
+      "random_stop": 5,
+      "stability_regret": 0.09,
+      "random_regret": 0.09,
+      "savings_vs_fixed": 3
+    },
+    {
+      "m_true": 6,
+      "fixed_stop": 8,
+      "stability_stop": 5,
+      "random_stop": 6,
+      "stability_regret": 0.076,
+      "random_regret": 0.162,
+      "savings_vs_fixed": 3
+    },
+    {
+      "m_true": 3,
+      "fixed_stop": 8,
+      "stability_stop": 7,
+      "random_stop": 6,
+      "stability_regret": 0.0,
+      "random_regret": 0.009,
+      "savings_vs_fixed": 1
+    },
+    {
+      "m_true": 4,
+      "fixed_stop": 8,
+      "stability_stop": 8,
+      "random_stop": 3,
+      "stability_regret": 0.0,
+      "random_regret": 0.043,
+      "savings_vs_fixed": 0
+    },
+    {
+      "m_true": 5,
+      "fixed_stop": 8,
+      "stability_stop": 5,
+      "random_stop": 6,
+      "stability_regret": 0.047,
+      "random_regret": 0.045,
+      "savings_vs_fixed": 3
+    },
+    {
+      "m_true": 6,
+      "fixed_stop": 8,
+      "stability_stop": 8,
+      "random_stop": 8,
+      "stability_regret": 0.0,
+      "random_regret": 0.0,
+      "savings_vs_fixed": 0
+    },
+    {
+      "m_true": 3,
+      "fixed_stop": 8,
+      "stability_stop": 8,
+      "random_stop": 8,
+      "stability_regret": 0.142,
+      "random_regret": 0.142,
+      "savings_vs_fixed": 0
+    },
+    {
+      "m_true": 4,
+      "fixed_stop": 8,
+      "stability_stop": 8,
+      "random_stop": 7,
+      "stability_regret": 0.0,
+      "random_regret": 0.135,
+      "savings_vs_fixed": 0
+    },
+    {
+      "m_true": 5,
+      "fixed_stop": 8,
+      "stability_stop": 8,
+      "random_stop": 6,
+      "stability_regret": 0.0,
+      "random_regret": 0.172,
+      "savings_vs_fixed": 0
+    },
+    {
+      "m_true": 6,
+      "fixed_stop": 8,
+      "stability_stop": 7,
+      "random_stop": 3,
+      "stability_regret": 0.005,
+      "random_regret": 0.271,
+      "savings_vs_fixed": 1
+    }
+  ],
+  "no_human_data_claim": true
+}

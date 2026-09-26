@@ -1,0 +1,24 @@
+{
+  "no_signal": {
+    "median_alignment": 0.885,
+    "perm_p": 0.1296,
+    "flagged_significant": false
+  },
+  "weak": {
+    "median_alignment": 0.897,
+    "perm_p": 0.1163,
+    "flagged_significant": false
+  },
+  "moderate": {
+    "median_alignment": 0.972,
+    "perm_p": 0.0066,
+    "flagged_significant": true
+  },
+  "strong": {
+    "median_alignment": 0.911,
+    "perm_p": 0.0233,
+    "flagged_significant": true
+  },
+  "safe_under_null": true,
+  "detects_strong": true
+}

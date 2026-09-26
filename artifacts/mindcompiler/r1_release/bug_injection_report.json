@@ -1,0 +1,46 @@
+{
+  "results": {
+    "B1_participant_leakage": {
+      "guard": "F2 participant shuffle must collapse subject-specific signal",
+      "caught": true
+    },
+    "B7_future_trial_adaptive_leakage": {
+      "guard": "shadow policy truncation-invariance test",
+      "caught": true
+    },
+    "B10_protected_access": {
+      "guard": "historical/protected firewall",
+      "caught": true
+    },
+    "B3_fold_duplication": {
+      "guard": "count/uniqueness invariant",
+      "caught": true
+    },
+    "B5_metric_direction": {
+      "guard": "identical-subspace overlap==1 property",
+      "caught": true
+    },
+    "B6_wrong_projector": {
+      "guard": "outside_residual==0 when target in support",
+      "caught": true
+    },
+    "B8_seed_nondeterminism": {
+      "guard": "same-seed bitwise equality",
+      "caught": true
+    },
+    "B9_config_mutation": {
+      "guard": "semantic config hash",
+      "caught": true
+    },
+    "B4_wrong_roi_mapping": {
+      "guard": "data-contract shape + identity presence checks",
+      "caught": true
+    },
+    "B2_heldout_leakage": {
+      "guard": "Stage-A/Stage-B firewall + release token",
+      "caught": true
+    }
+  },
+  "all_bugs_caught": true,
+  "note": "surrogate for mutation testing (mutmut absent); controlled bug-injection run in-process; no injected bug remains in production code"
+}

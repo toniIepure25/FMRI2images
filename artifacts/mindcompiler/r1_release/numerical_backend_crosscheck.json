@@ -1,0 +1,6 @@
+{
+  "operation": "principal_angles",
+  "max_abs_dev_vs_reference": 4.440892098500626e-16,
+  "tolerance": 1e-08,
+  "agree": true
+}

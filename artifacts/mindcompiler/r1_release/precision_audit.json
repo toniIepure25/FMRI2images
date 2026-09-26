@@ -1,0 +1,7 @@
+{
+  "metric": "subspace_overlap",
+  "max_f32_f64_dev": 4.010396459364074e-09,
+  "median_dev": 9.567222569728528e-10,
+  "default_precision": "float64",
+  "recommendation": "run scientific geometry in float64; f32 deviations are small but nonzero (9.57e-10 median)"
+}

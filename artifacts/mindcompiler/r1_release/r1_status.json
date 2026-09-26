@@ -1,0 +1,17 @@
+{
+  "status": "MINDIR_R1_EXTERNAL_REPRODUCIBILITY_READY",
+  "tests_pass": true,
+  "immutable_all_match": true,
+  "bug_injection_all_caught": true,
+  "numerical_agree": true,
+  "zero_shot_safe_under_null": true,
+  "most_important_software_methodology_weakness": "Console-script discoverability across environments + full-deps clean install are the main packaging weaknesses (handled by CI on ubuntu); scientifically, the sharpest weakness is that at N~12 the simulation-based sensitivity shows limited detection for small effects -> confirmation on Cohort C is mandatory. No integrity weakness: all injected scientific bugs were caught.",
+  "scientific_status": {
+    "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+    "O2_16_DATA": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+    "O2_16_SEC": "O2_16_SECONDARY_ENDPOINTS_PREREGISTERED_AWAITING_INDEPENDENT_COHORT",
+    "M0": "MINDIR_MOONSHOT_TRIAD_PREREGISTERED_AWAITING_NEW_DATA",
+    "O3": "O3_NOT_READY"
+  },
+  "no_biological_claim": true
+}

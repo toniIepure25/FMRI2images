@@ -1,0 +1,30 @@
+{
+  "algo": "sha256",
+  "files": {
+    "adaptive_benchmark.json": "666e3119dc95b91fadfd4d68d0e148498005ed5ac0520ec03f760b064c4ddd2f",
+    "adversarial_world_report.json": "0ef9e069dab264dd9e1f8c9bae5d4e2312882d0b5ea97ab761d2913c67e91974",
+    "bug_injection_report.json": "c97bbe9c9f03f82bed6668690653bea3cc8b3c130b993a17ab8e9a743de08aa8",
+    "ci_audit.json": "6baf6e6bd0e884fa532f0e729f5c68cb54862424a9e6424747101d6bbe8980c2",
+    "claim_traceability_matrix.csv": "62086e8d0b2b10ec1cb90cf8e3470be434629ee596898537a9ee4dd7a3bb13b3",
+    "clean_room_reproduction.json": "2712095673ee2f10b7246007366e466f5dd88aff5d613cb4e8e304861453fd00",
+    "coverage_report.json": "cc3e5963fcde890293c430450f965d9e61d00a3f2cbe8f5b2e0f5ee85e3f700e",
+    "cross_state_stress_test.json": "58e9c74f8a783f2d50b8bd7729533a47a4484fe9f885a3ab76f1432137ab4200",
+    "execution_provenance.json": "5079be218bf911e38fd19e734b4852bd183dcd0adfed9e31a475e20d48bd55dd",
+    "external_reviewer_report.md": "1088fd1d587ae6db4352ff1a3518eb80f41e77854355c0e3fcf13603ccb221d1",
+    "failure_map.md": "07ae701ff0dbd254e3ba04fcb80e9443106780123a9516781bab6af76feb14ed",
+    "install_audit.json": "34bb963dfcf401c8b48de9bea1abdfce27bf4699d0ffe87f4cfced875da8cae3",
+    "mutation_testing_report.json": "6a5733a7b935211e441a16960852826e23c88a2e57176578abc16c2c840d06d0",
+    "next_action.json": "7c8b65fdaab79c19fd5aa0859165e79d637851ca740e374d6d8abc99f8a79659",
+    "numerical_backend_crosscheck.json": "0a8b82d032dac787b61dcf21731d1ef1fcc10d8287c901c01ff330331a1c6f5e",
+    "precision_audit.json": "27cd38a97b228a178fcf578fa109c3896697dd1f41762d16d78279ebc7220f23",
+    "provenance_graph.json": "e6b9fc5440ecc086e3c9f7082e9fd780ac64a531722db627bb6064a988403c14",
+    "PROVENANCE_GRAPH.md": "6061491785c468bda644f9f4a9a4ae0f6195efa05974b0f1f879379181cac8f8",
+    "r1_status.json": "fee3a4644752bdacb5e266547af49c391bc3281b51cdfd7307246cb1eec1afd0",
+    "release_manifest.json": "d87c116016104741e4cd7ee9e35cd660b40092a7b3c75e4bf2d7d7061f35a866",
+    "scientific_immutability_check.json": "b3f424f98c9950364f7ad5da1180f2b17ade49e331cd7f334021170033132b77",
+    "sensitivity_analysis.json": "97df53a4675dfb837155468aeb6e566492b2e3ab6316020b709dad3c496eeb06",
+    "test_report.json": "8ba918ac4cf251e742a216b58b15c59f2ecdd73e088ebd180ae90ae019b97ccb",
+    "zero_shot_stress_test.json": "14c4143d456ee59bc0692a3754d158975e867c9a3d4dda0038b3826b70705131"
+  },
+  "n_files": 24
+}

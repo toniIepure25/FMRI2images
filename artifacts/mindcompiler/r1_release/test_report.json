@@ -1,0 +1,10 @@
+{
+  "suites": [
+    "prox",
+    "r1_release",
+    "moonshot_triad"
+  ],
+  "result": "PASS",
+  "tail": "59 passed in 8.51s",
+  "n_passed": 59
+}

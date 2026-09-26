@@ -1,0 +1,7 @@
+{
+  "input_head": "3d4d1225c850527a197cfe45fddce146975c4dca",
+  "branch": "release/mindir-r1-reproducibility",
+  "python": "3.13.5",
+  "no_new_biological_inference": true,
+  "synthetic_only": true
+}

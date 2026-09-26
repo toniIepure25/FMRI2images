@@ -1,0 +1,29 @@
+{
+  "status": "MINDIR_EXEC1_READY_FOR_REAL_HUMAN_OUTREACH",
+  "wave1": [
+    "Frank Scharnowski",
+    "Christian Windischberger"
+  ],
+  "wave2": [
+    "Claus Lamm",
+    "Ulrich Ansorge"
+  ],
+  "wave3_site": [
+    "Ronald Sladky",
+    "site contacts"
+  ],
+  "bundles": 4,
+  "personalized_emails": 4,
+  "hygiene_clean": true,
+  "confirmatory_gate": "CLOSED",
+  "scientific_state": {
+    "O2_16": "O2_16_INDEPENDENT_REPLICATION_DATA_UNAVAILABLE",
+    "O2_16_DATA": "O2_16_DATA_AWAITING_HUMAN_ACQUISITION_AUTHORIZATION",
+    "O2_16_SEC": "O2_16_SECONDARY_ENDPOINTS_PREREGISTERED_AWAITING_INDEPENDENT_COHORT",
+    "M0": "MINDIR_MOONSHOT_TRIAD_PREREGISTERED_AWAITING_NEW_DATA",
+    "R1": "MINDIR_R1_EXTERNAL_REPRODUCIBILITY_READY",
+    "O3": "O3_NOT_READY"
+  },
+  "no_contact_made": true,
+  "no_approval_claimed": true
+}

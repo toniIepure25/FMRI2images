@@ -1,0 +1,55 @@
+{
+  "retrieval_date": "2026-09-27",
+  "policy": "official University/facility sources only; public emails included only where verified; no scraping; no contact made",
+  "primary": [
+    {
+      "name": "Frank Scharnowski",
+      "inst": "University of Vienna",
+      "url": "https://meth-psy.univie.ac.at/research/forschungsbereich-prof-scharnowski/",
+      "email_verified": false,
+      "fit": "VERY DIRECT FIT"
+    },
+    {
+      "name": "Christian Windischberger",
+      "inst": "Medical University of Vienna (HFMRC / Center for Medical Physics and Biomedical Engineering)",
+      "url": "https://mpbmt.meduniwien.ac.at/en/about-us/research-groups/windischberger-group/",
+      "email_verified": true,
+      "fit": "VERY DIRECT FIT"
+    },
+    {
+      "name": "Claus Lamm",
+      "inst": "University of Vienna",
+      "url": "https://psychologie.univie.ac.at/en/research/labs/mr-center/",
+      "email_verified": false,
+      "fit": "DIRECT FIT"
+    },
+    {
+      "name": "Ulrich Ansorge",
+      "inst": "University of Vienna",
+      "url": "https://homepage.univie.ac.at/ulrich.ansorge/",
+      "email_verified": false,
+      "fit": "DIRECT FIT"
+    },
+    {
+      "name": "Ronald Sladky",
+      "inst": "University of Vienna",
+      "url": "https://psychologie.univie.ac.at/en/research/labs/mr-center/",
+      "email_verified": true,
+      "fit": "TECHNICAL SITE CONTACT (+ method fit)"
+    }
+  ],
+  "secondary": [
+    {
+      "name": "University of Vienna MR Center (institutional)",
+      "inst": "University of Vienna",
+      "url": "https://psychologie.univie.ac.at/en/research/labs/mr-center/"
+    },
+    {
+      "name": "MedUni Vienna HFMRC (institutional)",
+      "inst": "Medical University of Vienna",
+      "url": "https://hfmr.meduniwien.ac.at/en/3-and-7-tesla/"
+    }
+  ],
+  "n_primary": 5,
+  "n_secondary": 2
+}

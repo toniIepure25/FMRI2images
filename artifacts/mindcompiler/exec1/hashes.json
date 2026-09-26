@@ -1,0 +1,12 @@
+{
+  "algo": "sha256",
+  "files": {
+    "attachment_bundle_manifest.json": "51a8b53d511a5a61263fee75d84c042a9cb6682e6cbf4b0f19d3d506dfd26e1e",
+    "confirmatory_gate_check.json": "89ff4c392adada818482c3e641be50b85ddde948255d005d21ac21cd041fa3cd",
+    "current_contact_source_registry.json": "0e96a7f97d018791b319d186d93877ae2a0db4ff9f770ef585d0d223014d8630",
+    "execution_status.json": "12faa46ea7e091a57cd5c580f220b16a3834f04f58f1fcbcc43294be51c4f8fc",
+    "outreach_hygiene_audit.json": "b6d16f24dc429c888fc70cb09a69cf606114092d79c4d10b0df26aae93bdd3df",
+    "scientific_immutability_check.json": "b402bf8e27d70d7a9c36337ba7a01e0e90c89a036257aa0aac0a8605eacbe34f"
+  },
+  "n_files": 6
+}

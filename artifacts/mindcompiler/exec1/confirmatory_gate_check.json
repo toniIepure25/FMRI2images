@@ -1,0 +1,6 @@
+{
+  "gate_state": "CONFIRMATORY_GATE_CLOSED",
+  "confirmatory_may_begin": false,
+  "all_approval_fields_false": true,
+  "unchanged_by_exec1": true
+}

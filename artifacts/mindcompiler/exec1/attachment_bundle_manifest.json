@@ -1,0 +1,31 @@
+{
+  "BUNDLE_1_PI_SCIENTIFIC": [
+    "paper/mindir/handoff/RESEARCH_BRIEF_2PAGE.md",
+    "paper/mindir/handoff/MINDIR_MANUSCRIPT.md",
+    "paper/mindir/handoff/REPLICATION_PLAN_1PAGE.md",
+    "CV_ATTACHMENT_CHECKLIST(human)",
+    "execution/PI_MEETING_BRIEF.md(what I'm asking)"
+  ],
+  "BUNDLE_2_MRI_FACILITY": [
+    "docs/research/mindcompiler/site_integration/SITE_TECHNICAL_BRIEF_2PAGE.md",
+    "docs/research/mindcompiler/site_integration/PI_MRI_SITE_QUESTIONNAIRE.md",
+    "docs/research/mindcompiler/site_integration/MRI_SEQUENCE_REQUIREMENTS.md",
+    "docs/research/mindcompiler/site_integration/ACTUAL_SITE_PILOT_CHECKLIST.md"
+  ],
+  "BUNDLE_3_ETHICS": [
+    "docs/research/mindcompiler/o2_16_authorization/STUDY_PROTOCOL.md",
+    "PARTICIPANT_INFORMATION_SHEET.md",
+    "INFORMED_CONSENT_DRAFT.md",
+    "RECRUITMENT_AD_DRAFT.md",
+    "DATA_PROTECTION_PLAN.md",
+    "MRI_SAFETY_WORKFLOW.md"
+  ],
+  "BUNDLE_4_TECHNICAL_COLLABORATOR": [
+    "paper/mindir/handoff/RESEARCH_BRIEF_2PAGE.md",
+    "paper/mindir/handoff/REPLICATION_PLAN_1PAGE.md",
+    "docs/research/mindcompiler/MINDIR_README.md",
+    "README_MINDIR.md",
+    "PI_MRI_SITE_QUESTIONNAIRE.md(technical questions)"
+  ],
+  "note": "bundles reference existing sealed docs; do NOT ship the whole repo; render to PDF before sending"
+}

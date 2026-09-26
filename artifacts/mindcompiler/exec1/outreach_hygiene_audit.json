@@ -1,0 +1,20 @@
+{
+  "scanned": 17,
+  "forbidden_tokens": [
+    "claude.ai",
+    "session_01",
+    "kubectl",
+    "k8s-",
+    "runai",
+    "Co-Authored-By",
+    "O2.9",
+    "O2.14",
+    "M4T2",
+    "Q_MON",
+    "X4",
+    "subj0"
+  ],
+  "violations": {},
+  "clean": true,
+  "note": "outreach docs must not expose session/cluster/agent/internal-gate vocabulary or participant identifiers"
+}

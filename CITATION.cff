@@ -1,9 +1,28 @@
 cff-version: 1.2.0
-message: "If you use this software in your research, please cite it."
-title: "FMRI2images"
+message: "If you use MINDIR, please cite it as below. (DOI to be assigned on release; do not cite a fabricated DOI.)"
+title: "MINDIR: subject-specific geometry and calibration of internal visual states"
+version: "0.1.0-rc1"
+date-released: "2026-09-26"
 type: software
 authors:
-  - family-names: "Iepure"
-    given-names: "Toni"
+  - given-names: "TBD"
+    family-names: "TBD"
+    affiliation: "TBD (MSc Cognitive Science)"
+keywords:
+  - fMRI
+  - mental imagery
+  - representational geometry
+  - reproducibility
+license: MIT
 repository-code: "https://github.com/toniIepure25/FMRI2images"
-license: "MIT"
+abstract: >
+  MINDIR is a research platform for studying perception-to-imagery neural representational geometry, minimal
+  target-state calibration, and its acquisition robustness. Findings to date are from a closed development
+  cohort; an independent replication is preregistered and frozen but not yet executed. No biological
+  generalization is claimed.
+references:
+  - type: article
+    title: "A massive 7T fMRI dataset (Natural Scenes Dataset)"
+    authors: [{family-names: "Allen", given-names: "E. J."}]
+    year: 2022
+    notes: "Dataset used by the development cohort; DOI to be confirmed by authors."
